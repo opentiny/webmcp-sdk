@@ -31,6 +31,12 @@ export class AgentModelProvider {
   /**  需要实时过滤掉的tools name*/
   ignoreToolnames: string[] = []
 
+  /** 在 chat 之前，自动更新 所有的tools */
+  autoUpdateTools = true
+
+  /** chat 时，自动更新 所有的tools 后的事件 */
+  onUpdatedTools: (() => void) | undefined
+
   constructor({ llmConfig, mcpServers, llm }: IAgentModelProviderOption) {
     // 1、保存 mcpServer
     this.mcpServers = mcpServers || []
@@ -93,7 +99,7 @@ export class AgentModelProvider {
       })
     )
   }
-
+  /** 关闭所有的 clients */
   async closeAll() {
     await Promise.all(
       this.mcpClients.map(async (client) => {
@@ -173,6 +179,11 @@ export class AgentModelProvider {
       throw new Error('LLM is not initialized')
     }
 
+    if (this.autoUpdateTools) {
+      await this._createMpcTools()
+      this.onUpdatedTools?.()
+    }
+
     return chatMethod({
       // @ts-ignore  ProviderV2 是所有llm的父类， 在每一个具体的llm 类都有一个选择model的函数用法
       model: this.llm(model),
@@ -187,6 +198,6 @@ export class AgentModelProvider {
   }
 
   async chatStream(options: Parameters<typeof streamText>[0] & { maxSteps?: number }): Promise<any> {
-    return this._chat(streamText, options)
+    return this._chat(streamText, options as any)
   }
 }
