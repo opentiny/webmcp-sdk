@@ -59,7 +59,7 @@ export class AgentModelProvider {
   }
 
   /** 创建一个 ai-sdk的 mcpClient, 创建失败则返回 Null */
-  async _createOneClient(serverConfig: McpServerConfig) {
+  private async _createOneClient(serverConfig: McpServerConfig) {
     try {
       let transport: MCPClientConfig['transport']
       // transport 一定是 streamableHttp 或者就是： ai-sdk允许的 transport
@@ -75,26 +75,21 @@ export class AgentModelProvider {
       return null
     }
   }
-  /** 创建 ai-sdk的 mcpClient */
-  async _createMpcClients() {
+  /** 创建 ai-sdk的 mcpClient, 失败则保存为null */
+  private async _createMpcClients() {
     // 使用 Promise.all 并行处理所有 mcpServer 项
     this.mcpClients = await Promise.all(
       this.mcpServers.map(async (server) => {
-        const client = await this._createOneClient(server)
-        return client
+        return this._createOneClient(server)
       })
     )
   }
-  /** 创建所有 mcpClients 的 tools */
-  async _createMpcTools() {
+  /** 创建所有 mcpClients 的 tools, 失败则保存为null */
+  private async _createMpcTools() {
     this.mcpTools = await Promise.all(
       this.mcpClients.map(async (client) => {
         try {
-          console.log('开始查询tool：', client)
-          const tool = client ? await client?.tools?.() : null
-          console.log('查询tool的结果：', tool, client)
-
-          return tool
+          return client ? await client?.tools?.() : null
         } catch (error) {
           return null
         }
@@ -134,6 +129,31 @@ export class AgentModelProvider {
       return true
     }
     return false
+  }
+  /** 通过引用，删除一个 mcpServers mcpClients  mcpTools ignoreToolnames  */
+  removeMcpServer(mcpServer: McpServerConfig) {
+    const index = this.mcpServers.findIndex((server) => server === mcpServer)
+
+    // 移除
+    this.mcpServers.splice(index, 1)
+
+    // 移除
+    const delClient = this.mcpClients[index]
+    this.mcpClients.splice(index, 1)
+    try {
+      delClient?.close()
+    } catch (error) {}
+
+    // 移除 tools
+    const delTool = this.mcpTools[index]
+    this.mcpTools.splice(index, 1)
+
+    // 移除 ignoreToolnames
+    if (delTool) {
+      Object.keys(delTool).forEach((toolName) => {
+        this.ignoreToolnames = this.ignoreToolnames.filter((name) => name !== toolName)
+      })
+    }
   }
 
   /** 创建临时允许调用的tools集合 */

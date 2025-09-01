@@ -305,7 +305,7 @@ function loadMcpServerToPlugin(mcpServer: McpServerConfig) {
     expanded: true,
     tools: pluginTools,
     // @ts-ignore
-    originMcpConfig: mcpServer // 缓存对应的mcpServers中的一个值
+    originMcpConfig: mcpServer // 缓存对应的mcpServers中的一个引用
   }
 
   installedPlugins.value.push(plugin)
@@ -397,21 +397,7 @@ const handlePluginDelete = (plugin: PluginInfo) => {
     }
 
     // 移除mcpServers，mcpTools，mcpClients，ignoreToolnames
-    const mcpServer = delPlugin.originMcpConfig
-    const index = agent.mcpServers.findIndex((server) => server === mcpServer)
-    agent.mcpServers.splice(index, 1)
-    agent.mcpTools.splice(index, 1)
-
-    const delClient = agent.mcpClients[index]
-    try {
-      delClient?.close()
-    } catch (error) {}
-    agent.mcpClients.splice(index, 1)
-
-    // 移除 ignoreToolnames
-    delPlugin.tools.forEach((tool) => {
-      agent.ignoreToolnames = agent.ignoreToolnames.filter((name) => name !== tool.name)
-    })
+    agent.removeMcpServer(delPlugin.originMcpConfig)
   }
 }
 // 插件市场中，点击“添加” 和 “已添加”。
@@ -425,13 +411,13 @@ const handlePluginAdd = async (plugin: PluginInfo, isAdd: boolean) => {
       enabled: true,
       added: true
     }
-    installedPlugins.value.push(newPlugin)
 
     // 立即注册服务，查询工具
     const mcpServer = { type: plugin.type, url: plugin.url }
     const inserted = await agent.insertMcpServer(mcpServer)
 
     if (inserted) {
+      newPlugin.originMcpConfig = mcpServer
       const index = agent.mcpServers.findIndex((svc) => svc.url === mcpServer.url)
       // 查询 tools
       const currTool = agent.mcpTools[index]
@@ -446,6 +432,7 @@ const handlePluginAdd = async (plugin: PluginInfo, isAdd: boolean) => {
         })
       }
     }
+    installedPlugins.value.push(newPlugin)
   } else {
     handlePluginDelete(plugin)
   }
