@@ -282,7 +282,7 @@ function loadMcpServerToPlugin(mcpServer: McpServerConfig) {
   const index = agent.mcpServers.findIndex((svc) => svc.url === mcpServer.url)
   // 解析url, 获得sessionId
   const url = new URL(mcpServer.url)
-  const sessionId = url.searchParams.get('sessionId')
+  const sessionId = url.searchParams.get('sessionId') || ''
   // 查询 tools
   const currTool = agent.mcpTools[index]
   let pluginTools: PluginTool[] = []
@@ -316,6 +316,25 @@ onMounted(async () => {
   agent.mcpServers.forEach((mcpServer) => {
     loadMcpServerToPlugin(mcpServer)
   })
+
+  // 每次chat的过程中，更新 tools 后，已安装的插件需要同步一次
+  agent.onUpdatedTools = () => {
+    installedPlugins.value.forEach((plugin) => {
+      const mcpServer = plugin.originMcpConfig
+      const index = agent.mcpServers.findIndex((server) => server === mcpServer)
+      if (index !== -1) {
+        const currTool = agent.mcpTools[index]
+        plugin.tools = Object.keys(currTool).map((key) => {
+          return {
+            id: key,
+            name: key,
+            description: currTool[key].description as string,
+            enabled: !agent.ignoreToolnames.includes(key)
+          }
+        })
+      }
+    })
+  }
 })
 
 // 自定义消息渲染器
