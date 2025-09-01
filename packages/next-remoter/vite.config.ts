@@ -27,7 +27,13 @@ export default defineConfig({
   ],
   server: {
     port: 8087,
-    host: true
+    host: true,
+    proxy: {
+      '/api': {
+        target: 'https://agent.opentiny.design',
+        changeOrigin: true
+      }
+    }
   },
   build: {
     sourcemap: true,

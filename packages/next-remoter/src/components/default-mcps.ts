@@ -1,6 +1,6 @@
 import { PluginInfo } from '@opentiny/tiny-robot'
 
-const mcpHost = import.meta.env.DEV ? '' : 'https://agent.opentiny.design'
+const mcpHost = import.meta.env.DEV ? location.origin : 'https://agent.opentiny.design'
 
 export const DEFAULT_SERVERS: PluginInfo[] = [
   {
@@ -86,17 +86,6 @@ export const DEFAULT_SERVERS: PluginInfo[] = [
     description: 'Markdown转PDF MCP服务器，可以将Markdown文件转换为PDF文件',
     icon: 'https://www.science.co.il/internet/browsers/PDF-doc-256.png',
     url: mcpHost + '/servers/markdown2pdf-mcp/sse',
-    type: 'SSE',
-    enabled: false,
-    added: false,
-    tools: []
-  },
-  {
-    id: 'media-gen-mcp',
-    name: '媒体MCP服务器',
-    description: '媒体MCP服务器，可以创建、编辑、保存媒体',
-    icon: 'https://icon-library.com/images/media-icon-png/media-icon-png-23.jpg',
-    url: mcpHost + '/servers/media-mcp/sse',
     type: 'SSE',
     enabled: false,
     added: false,

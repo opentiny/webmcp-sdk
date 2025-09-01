@@ -311,14 +311,11 @@ function loadMcpServerToPlugin(mcpServer: McpServerConfig) {
   installedPlugins.value.push(plugin)
 }
 // 页面加载时，要判断 agent上，初始就加载的 agent.mcpServer，加载后记录在 agent.mcpTools下
-onMounted(() => {
-  setTimeout(() => {
-    console.log(agent)
-
-    agent.mcpServers.forEach((mcpServer) => {
-      loadMcpServerToPlugin(mcpServer)
-    })
-  }, 1000)
+onMounted(async () => {
+  await agent.initClientsAndTools()
+  agent.mcpServers.forEach((mcpServer) => {
+    loadMcpServerToPlugin(mcpServer)
+  })
 })
 
 // 自定义消息渲染器
@@ -544,5 +541,11 @@ defineExpose({
 :deep(.tr-icon-button) {
   display: flex;
   align-items: center;
+}
+
+@media (max-width: 600px) {
+  :deep(.mcp-server-picker.popup-type-drawer) {
+    width: 100% !important;
+  }
 }
 </style>
