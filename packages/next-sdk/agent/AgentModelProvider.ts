@@ -53,9 +53,6 @@ export class AgentModelProvider {
     } else {
       throw new Error('Either llmConfig or llm must be provided')
     }
-
-    // 3、 创建clients,tools
-    this.initClientsAndTools()
   }
 
   /** 创建一个 ai-sdk的 mcpClient, 创建失败则返回 Null */
