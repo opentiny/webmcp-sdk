@@ -136,7 +136,7 @@ const props = defineProps({
   /** 左上角的标题 */
   title: {
     type: String,
-    default: 'OpenTiny Next'
+    default: 'OpenTiny NEXT'
   },
   /** 语言 en-US、zh-CN */
   locale: {

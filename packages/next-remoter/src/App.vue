@@ -49,7 +49,7 @@ const sessionId = query.get('sessionId') || ''
 const agentRoot = query.get('agentRoot') || 'https://agent.opentiny.design/api/v1/webmcp-trial/'
 
 // 4、标题
-const title = query.get('title') || 'OpenTiny Next'
+const title = query.get('title') || 'OpenTiny NEXT'
 
 // 5、  定制接收 prompts, suggestion的参数
 const welcomeTitle = query.get('welcome-title')
