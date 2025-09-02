@@ -50,7 +50,8 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       messages: request.messages,
       model: 'deepseek-ai/DeepSeek-V3',
       system: this.systemPrompt,
-      abortSignal: request.options?.signal
+      abortSignal: request.options?.signal,
+      maxSteps: 15 // 增加轮数，防止调用tools太多了
     })
 
     // 标识每一个markdown块

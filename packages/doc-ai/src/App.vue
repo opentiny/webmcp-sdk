@@ -25,7 +25,8 @@ const loadingSessionId = ref(false)
 
 const query = new URLSearchParams(window.location.search)
 const dialogId = query.get('dialog')
-const systemPrompt = '你是一个AI助手，你可以调用工具。我的居住地是深圳'
+const systemPrompt =
+  '你是一个AI助手，你可以调用工具。我的居住地是深圳,当我需要出差时，请帮我调用12306工具，查询到目的城市的火车车次和火车余票的情况，调用高德地图工具，查询两地间的距离'
 const isAntDesignX = dialogId === 'ant'
 
 // 定义 MCP Server 的能力
