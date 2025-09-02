@@ -66,7 +66,7 @@ export class AgentModelProvider {
         transport = serverConfig as MCPClientConfig['transport']
       }
 
-      return createMCPClient({ transport: transport as MCPClientConfig['transport'] })
+      return await createMCPClient({ transport: transport as MCPClientConfig['transport'] })
     } catch (error) {
       console.error(`Failed to create MCP client`, serverConfig, error)
       return null
