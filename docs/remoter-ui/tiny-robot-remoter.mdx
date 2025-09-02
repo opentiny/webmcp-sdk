@@ -1,5 +1,5 @@
 ---
-title: "TinyRobot版本"
+title: 'TinyRobot版本'
 ---
 
 ```javascript
@@ -8,18 +8,36 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 
 该组件为使用 `@opentiny/tiny-robot` 开发的 `TinyRemoter`, 仅支持 `Vue3` 。
 
+主要功能：
+
+- 对话LLM
+- 欢迎界面以及suggestions的展示
+- 多角色展示消息以及MD, TOOL调用等展示
+- 支持新建会话
+- 支持扫码添加应用
+- 支持MCP市场
+
+> 1、扫码应用的 `sessionId` 后，它会自动创建一个 `streamableHTTP` 类型的 `MCPServer`，之后自动创建 `MCPClient`连接并查询所有的 TOOLS, 并展示在”已安装插件“列表中。
+
+> 2、市场应用的插件，通常都是 `streamableHTTP` 或 `SSE` 类型的 `MCPServer`。 选择添加后，也是自动创建 `MCPClient`连接并查询所有的 TOOLS, 并展示在”已安装插件“列表中。
+
+总之，已安装插件中的所有Tool都可以在与 `LLM` 对话时被调用。
+
 ## 属性
 
-- v-model:fullscreen 双向绑定是否全屏
-- v-model:show 双向绑定是否显示，内部关闭是 emit('update:show',false)
-- sessionId 必须传
-- title 左上角的 container.title
-- agentRoot 后端代理的地址，有默认值 `https://agent.opentiny.design/api/v1/webmcp-trial/`
+- `v-model:show` 双向绑定是否显示，内部关闭是 emit('update:show',false)
+- `v-model:fullscreen` 双向绑定是否全屏
+- `sessionId` 必须传
+- `title` 左上角的 container.title
+- `agentRoot` 后端代理的地址，有默认值 `https://agent.opentiny.design/api/v1/webmcp-trial/`
+- `locale` 国际化key, 可选值为：'zh-CN' | 'en-US' 。一些默认描述，placeholder的国际化的key： lang=zh-CN
+- `mode` 展示模式，可选值为：'remoter' | 'chat-dialog'。遥控器模式： 自动在右下角显示一个AI图标，点击展开多个菜单项； 对话框模式： 直接显示一个对话框界面
+- `systemPromt` 对话llm 时，传入的 system message: system-prompt=你是一个智能助手，工作地点是深圳
 
 ## 插槽
 
-- #welcome: 没有对话消息时，展示在组件中间的 `Welcome & Promts` 等内容。设计成插槽可以让用户有完全的定制能力。
-- #suggestions: 展示在输入框上面的提示性组件。可以使用 `@opentiny/tiny-robot` 中的 `SuggestionPills` 等强大功能的组件。
+- `#welcome`: 没有对话消息时，展示在组件中间的 `Welcome & Promts` 等内容。设计成插槽可以让用户有完全的定制能力。
+- `#suggestions`: 展示在输入框上面的提示性组件。可以使用 `@opentiny/tiny-robot` 中的 `SuggestionPills` 等强大功能的组件。
 
 ## 导出变量
 
