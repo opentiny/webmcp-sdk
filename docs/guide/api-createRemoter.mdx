@@ -32,17 +32,86 @@ const remoter = createRemoter({
 })
 ```
 
-## 菜单项配置
+## 配置参数
 
-### 默认菜单项
+| 参数         | 类型             | 必填 | 默认值                                     | 说明                   |
+| ------------ | ---------------- | ---- | ------------------------------------------ | ---------------------- |
+| sessionId    | string           | ✅   | -                                          | 被遥控页面的会话ID     |
+| qrCodeUrl    | string           | ❌   | https:\/\/ai.opentiny.design\/next-remoter | 遥控端页面地址         |
+| onShowAIChat | function         | ❌   | -                                          | 显示AI对话框的回调函数 |
+| menuItems    | MenuItemConfig[] | ❌   | 默认配置                                   | 菜单项配置数组         |
 
-系统默认提供以下三个菜单项：
+### 1. `qrCodeUrl` 配置
+
+`qrCodeUrl`是设置了扫码后跳转到的网址，默认为：`https://ai.opentiny.design/next-remoter`，该网址默认展示一些办公场景的标题和提示词。
+如果需要定制网址上的默认信息，可以在地址后面拼接一些请求参数，比如 qrCode:'https://ai.xxx/xxx?title=AI助手&welcome-title=办公AI助手'。
+
+目前它支持以下请求参数：
+
+| 参数          | 类型        | 默认值                                                   | 说明                                                                                         |
+| ------------- | ----------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
+| lang          | zh-CN en-US | zh-CN                                                    | 遥控页面的一些默认描述，placeholder的国际化的key： lang=zh-CN                                |
+| sessionId     | string      | ✅                                                       | 必须传入的变量。 由于 `createRemoter`中，它是必填，会自动拼接到qrCodeUrl后面，所以此处不需要 |
+| agentRoot     | string      | https:\/\/agent.opentiny.design\/api\/v1/\webmcp-trial\/ | Agent地址                                                                                    |
+| title         | string      | 'OpenTiny Next'                                          | 左上角标题                                                                                   |
+| welcome-title | string      | ''                                                       | 正中标题 ： welcome-title=背景变变变                                                         |
+| welcome-desc  | string      | ''                                                       | 正中标题下的描述                                                                             |
+| promt         | string[]    | ''                                                       | 标题下面的介绍，允许多值： promt=你好&promt=世界                                             |
+| suggestion    | string[]    | ''                                                       | 输入框上面的介绍，允许多值： suggestion=你好&suggestion=世界                                 |
+| system-prompt | string      | ''                                                       | 对话llm 时，传入的 system message: system-prompt=你是一个智能助手，工作地点是深圳            |
+
+### 2. onShowAIChat 回调函数
+
+点击 `action="ai-chat"` 菜单时，会主动回调该函数。通常用在需要在当前应用中嵌入一个 `AI Chat Dialog`的场景。
+
+**示例1 在Vue应用的右侧嵌入一个对话弹窗**
+
+```typescript
+<template>
+  <tiny-remoter  v-model:show="show" ........> </tiny-remoter>
+</template>
+
+<script setup lang="ts">
+
+const show=ref(false)
+
+onMounted(()=>{
+  createRemoter({
+    // ...
+    onShowAIChat(){
+      show.value = !show.value
+    }
+  })
+})
+
+</script>
+
+```
+
+### 3. 菜单项配置
+
+系统默认提供以下固定不变的三个菜单项action， 通过 `show`, `text`,`iconn` 定制菜单项：
 
 1. **qr-code** - 弹出二维码
 2. **ai-chat** - 弹出AI对话框
 3. **remote-control** - 发送遥控指令
 
-### 自定义菜单项显示
+MenuItemConfig 接口如下
+
+```typescript
+interface MenuItemConfig {
+  /** 菜单项标识 */
+  action: 'qr-code' | 'ai-chat' | 'remote-control'
+  /** 是否显示该菜单项 */
+  show?: boolean
+  /** 菜单项文本 */
+  text?: string
+  /** 菜单项图标SVG */
+  icon?: string
+}
+```
+
+**示例1： 自定义菜单项显示**
 
 ```typescript
 // 隐藏二维码菜单项
@@ -60,7 +129,7 @@ const remoter = createRemoter({
 })
 ```
 
-### 自定义菜单项文本
+**示例2： 自定义菜单项文本**
 
 ```typescript
 // 自定义菜单项文本
@@ -82,7 +151,7 @@ const remoter = createRemoter({
 })
 ```
 
-### 完整配置示例
+**示例3： 完整配置示例**
 
 ```typescript
 // 完整配置示例
@@ -110,30 +179,6 @@ const remoter = createRemoter({
     }
   ]
 })
-```
-
-## 配置选项
-
-| 参数         | 类型             | 必填 | 默认值                                     | 说明                   |
-| ------------ | ---------------- | ---- | ------------------------------------------ | ---------------------- |
-| sessionId    | string           | ✅   | -                                          | 被遥控页面的会话ID     |
-| onShowAIChat | function         | ❌   | -                                          | 显示AI对话框的回调函数 |
-| qrCodeUrl    | string           | ❌   | https:\/\/ai.opentiny.design\/next-remoter | 遥控端页面地址         |
-| menuItems    | MenuItemConfig[] | ❌   | 默认配置                                   | 菜单项配置数组         |
-
-### MenuItemConfig 接口
-
-```typescript
-interface MenuItemConfig {
-  /** 菜单项标识 */
-  action: 'qr-code' | 'ai-chat' | 'remote-control'
-  /** 是否显示该菜单项 */
-  show?: boolean
-  /** 菜单项文本 */
-  text?: string
-  /** 菜单项图标SVG */
-  icon?: string
-}
 ```
 
 ## 销毁组件

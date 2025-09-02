@@ -138,7 +138,7 @@ const props = defineProps({
     default: 'zh-CN'
   },
   /** 展示模式： 'remoter' | 'chat-dialog'
-   * 遥控器模式： 自动在右下角显示一个AI图标，且有3个菜单项。
+   * 遥控器模式： 自动在右下角显示一个AI图标，点击展开多个菜单项。
    * 对话框模式： 直接显示一个对话框界面
    *  */
   mode: {
