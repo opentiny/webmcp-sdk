@@ -17,8 +17,8 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 - 支持扫码添加应用
 - 支持MCP市场
 
-> [!NOTE]
 > 1、扫码应用的 `sessionId` 后，它会自动创建一个 `streamableHTTP` 类型的 `MCPServer`，之后自动创建 `MCPClient`连接并查询所有的 TOOLS, 并展示在”已安装插件“列表中。
+
 > 2、市场应用的插件，通常都是 `streamableHTTP` 或 `SSE` 类型的 `MCPServer`。 选择添加后，也是自动创建 `MCPClient`连接并查询所有的 TOOLS, 并展示在”已安装插件“列表中。
 
 总之，已安装插件中的所有Tool都可以在与 `LLM` 对话时被调用。
