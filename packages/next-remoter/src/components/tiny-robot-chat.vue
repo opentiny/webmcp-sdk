@@ -292,8 +292,8 @@ function loadMcpServerToPlugin(mcpServer: McpServerConfig) {
   const sessionId = url.searchParams.get('sessionId') || ''
   // 查询 tools
   const currTool = agent.mcpTools[index]
-  let pluginTools: PluginTool[] = []
   if (currTool) {
+    let pluginTools: PluginTool[] = []
     pluginTools = Object.keys(currTool).map((key) => {
       return {
         id: key,
@@ -302,20 +302,22 @@ function loadMcpServerToPlugin(mcpServer: McpServerConfig) {
         enabled: true
       }
     })
-  }
-  const plugin: PluginInfo = {
-    id: `plugin-${sessionId}`,
-    name: url.origin,
-    icon: defaultPluginSrc,
-    description: sessionId,
-    enabled: true,
-    expanded: true,
-    tools: pluginTools,
-    // @ts-ignore
-    originMcpConfig: mcpServer // 缓存对应的mcpServers中的一个引用
-  }
+    const plugin: PluginInfo = {
+      id: `plugin-${sessionId}`,
+      name: url.origin,
+      icon: defaultPluginSrc,
+      description: sessionId,
+      enabled: true,
+      expanded: true,
+      tools: pluginTools,
+      // @ts-ignore
+      originMcpConfig: mcpServer // 缓存对应的mcpServers中的一个引用
+    }
 
-  installedPlugins.value.push(plugin)
+    installedPlugins.value.push(plugin)
+  } else {
+    showToast('扫码应用失败')
+  }
 }
 // 页面加载时，要判断 agent上，初始就加载的 agent.mcpServer，加载后记录在 agent.mcpTools下
 onMounted(async () => {
@@ -431,7 +433,7 @@ const handlePluginAdd = async (plugin: PluginInfo, isAdd: boolean) => {
 
     // 立即注册服务，查询工具
     const mcpServer = { type: plugin.type, url: plugin.url }
-    const inserted = await agent.insertMcpServer(mcpServer)
+    const inserted = await agent.insertMcpServer(mcpServer) // 插入时，会自动去重，且initClientAndTools
 
     if (inserted) {
       newPlugin.originMcpConfig = mcpServer
@@ -447,9 +449,13 @@ const handlePluginAdd = async (plugin: PluginInfo, isAdd: boolean) => {
             enabled: true
           }
         })
+        installedPlugins.value.push(newPlugin) // 只有client.tools() 成功了，才显示到“已安装列表”
+        return
       }
     }
-    installedPlugins.value.push(newPlugin)
+
+    showToast('插件安装失败') // 否则就弹警告
+    plugin.added = false
   } else {
     handlePluginDelete(plugin)
   }
