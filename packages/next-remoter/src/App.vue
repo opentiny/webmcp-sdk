@@ -8,6 +8,7 @@
       :locale="locale"
       :sessionId="sessionId"
       :agentRoot="agentRoot"
+      :systemPrompt="systemPrompt"
       mode="chat-dialog"
     >
       <template #welcome v-if="welcomeTitle">
@@ -53,6 +54,7 @@ const title = query.get('title') || 'OpenTiny Next'
 // 5、  定制接收 prompts, suggestion的参数
 const welcomeTitle = query.get('welcome-title')
 const welcomeDesc = query.get('welcome-desc')
+const systemPrompt = query.get('system-prompt') || ''
 
 const promts = query.getAll('promt') || [] // promt=你好&promt=世界
 const promptItems = promts.map((str) => ({ label: str }))

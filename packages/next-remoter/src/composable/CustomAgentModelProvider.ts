@@ -11,7 +11,8 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   transport: any
   /** 一个 ai-sdk agent 封装 */
   agent: AgentModelProvider
-  constructor(config: AIModelConfig, sessionId: Ref<string>, agentRoot: Ref<string>) {
+  systemPrompt: string
+  constructor(config: AIModelConfig, sessionId: Ref<string>, agentRoot: Ref<string>, systemPrompt: string) {
     super(config)
     const options = {
       llmConfig: {
@@ -36,6 +37,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     }
 
     this.agent = new AgentModelProvider(options as IAgentModelProviderOption)
+    this.systemPrompt = systemPrompt
   }
 
   /** 同步请求不需要实现 */
@@ -47,6 +49,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     const result = await this.agent.chatStream({
       messages: request.messages,
       model: 'deepseek-ai/DeepSeek-V3',
+      system: this.systemPrompt,
       abortSignal: request.options?.signal
     })
 

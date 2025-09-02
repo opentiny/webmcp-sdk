@@ -127,6 +127,11 @@ const props = defineProps({
     type: String,
     default: 'https://agent.opentiny.design/api/v1/webmcp-trial/'
   },
+  /** 系统提示词 */
+  systemPrompt: {
+    type: String,
+    default: ''
+  },
   /** 左上角的标题 */
   title: {
     type: String,
@@ -165,7 +170,8 @@ const {
   createConversation
 } = useTinyRobotChat({
   sessionId: toRef(props, 'sessionId'),
-  agentRoot: toRef(props, 'agentRoot')
+  agentRoot: toRef(props, 'agentRoot'),
+  systemPrompt: props.systemPrompt
 })
 
 const lang: Record<string, { title: string; description: string; placeholder: string; thinking: string }> = {
@@ -344,12 +350,6 @@ const contentRenderer = { markdown: new BubbleMarkdownContentRenderer() }
 if (props.mode === 'remoter') {
   createRemoter({
     sessionId: props.sessionId,
-    menuItems: [
-      {
-        action: 'remote-control',
-        show: false // 隐藏发送用户名选项
-      }
-    ],
     onShowAIChat: () => {
       show.value = true
     }

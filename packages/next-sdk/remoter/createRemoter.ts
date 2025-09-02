@@ -3,13 +3,17 @@ import { QrCode } from './QrCode'
 /** 菜单项配置接口 */
 interface MenuItemConfig {
   /** 菜单项标识 */
-  action: 'qr-code' | 'ai-chat' | 'remote-control'
+  action: 'qr-code' | 'ai-chat' | 'remote-control' | 'remote-url'
   /** 是否显示该菜单项 */
   show?: boolean
   /** 菜单项文本 */
   text?: string
+  /** 菜单项提示 */
+  tip?: string
   /** 菜单项图标SVG */
   icon?: string
+  /** 是否显示复制图标 */
+  showCopyIcon?: boolean
 }
 
 /**  配置选项接口 */
@@ -26,15 +30,15 @@ interface FloatingBlockOptions {
 }
 
 // 动作类型
-type ActionType = 'qr-code' | 'ai-chat' | 'remote-control'
+type ActionType = 'qr-code' | 'ai-chat' | 'remote-control' | 'remote-url'
 
-// 默认菜单项配置
-const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
-  {
-    action: 'qr-code',
-    show: true,
-    text: '弹出二维码',
-    icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+const getDefaultMenuItems = (options: FloatingBlockOptions): MenuItemConfig[] => {
+  return [
+    {
+      action: 'qr-code',
+      show: true,
+      text: '弹出二维码',
+      icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <rect x="3" y="3" width="6" height="6" rx="1" stroke="currentColor" stroke-width="2" fill="none"/>
       <rect x="15" y="3" width="6" height="6" rx="1" stroke="currentColor" stroke-width="2" fill="none"/>
       <rect x="3" y="15" width="6" height="6" rx="1" stroke="currentColor" stroke-width="2" fill="none"/>
@@ -44,30 +48,48 @@ const DEFAULT_MENU_ITEMS: MenuItemConfig[] = [
       <line x1="6" y1="15" x2="18" y2="15" stroke="currentColor" stroke-width="1.5"/>
       <circle cx="12" cy="12" r="1" fill="currentColor"/>
     </svg>`
-  },
-  {
-    action: 'ai-chat',
-    show: true,
-    text: '弹出AI对话框',
-    icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    },
+    {
+      action: 'ai-chat',
+      show: true,
+      text: '弹出 AI 对话框',
+      icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2ZM20 16H6L4 18V4H20V16Z" fill="currentColor"/>
       <path d="M7 9H17V11H7V9Z" fill="currentColor"/>
       <path d="M7 12H14V14H7V12Z" fill="currentColor"/>
     </svg>`
-  },
-  {
-    action: 'remote-control',
-    show: true,
-    text: '发送遥控指令',
-    icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M7 2H17C18.1 2 19 2.9 19 4V20C19 21.1 18.1 22 17 22H7C5.9 22 5 21.1 5 20V4C5 2.9 5.9 2 7 2ZM7 4V20H17V4H7Z" fill="currentColor"/>
-      <path d="M9 6H15V8H9V6Z" fill="currentColor"/>
-      <path d="M9 10H15V12H9V10Z" fill="currentColor"/>
-      <path d="M9 14H15V16H9V14Z" fill="currentColor"/>
-      <path d="M9 18H15V20H9V18Z" fill="currentColor"/>
+    },
+    {
+      action: 'remote-control',
+      show: true,
+      text: `识别码：${options.sessionId.slice(-6)}`,
+      showCopyIcon: true,
+      icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2" fill="none"/>
+      <rect x="6" y="6" width="3" height="2" rx="0.5" fill="currentColor"/>
+      <rect x="10" y="6" width="3" height="2" rx="0.5" fill="currentColor"/>
+      <rect x="14" y="6" width="3" height="2" rx="0.5" fill="currentColor"/>
+      <rect x="6" y="9" width="3" height="2" rx="0.5" fill="currentColor"/>
+      <rect x="10" y="9" width="3" height="2" rx="0.5" fill="currentColor"/>
+      <rect x="14" y="9" width="3" height="2" rx="0.5" fill="currentColor"/>
+      <rect x="6" y="12" width="3" height="2" rx="0.5" fill="currentColor"/>
+      <rect x="10" y="12" width="3" height="2" rx="0.5" fill="currentColor"/>
+      <rect x="14" y="12" width="3" height="2" rx="0.5" fill="currentColor"/>
     </svg>`
-  }
-]
+    },
+    {
+      action: 'remote-url',
+      show: true,
+      text: `${options.qrCodeUrl}`,
+      tip: options.qrCodeUrl,
+      showCopyIcon: true,
+      icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+    </svg>`
+    }
+  ]
+}
 
 class FloatingBlock {
   private options: FloatingBlockOptions
@@ -75,6 +97,11 @@ class FloatingBlock {
   private floatingBlock!: HTMLDivElement
   private dropdownMenu!: HTMLDivElement
   private menuItems: MenuItemConfig[]
+
+  // 计算 sessionPrefix 属性
+  private get sessionPrefix(): string {
+    return this.options.qrCodeUrl?.includes('?') ? '&sessionId=' : '?sessionId='
+  }
 
   constructor(options: FloatingBlockOptions) {
     if (!options.sessionId) {
@@ -99,10 +126,10 @@ class FloatingBlock {
    */
   private mergeMenuItems(userMenuItems?: MenuItemConfig[]): MenuItemConfig[] {
     if (!userMenuItems) {
-      return DEFAULT_MENU_ITEMS
+      return getDefaultMenuItems(this.options)
     }
 
-    return DEFAULT_MENU_ITEMS.map((defaultItem) => {
+    return getDefaultMenuItems(this.options).map((defaultItem) => {
       const userItem = userMenuItems.find((item) => item.action === defaultItem.action)
       if (userItem) {
         return {
@@ -150,7 +177,18 @@ class FloatingBlock {
           <div class="tiny-remoter-dropdown-item__icon">
             ${item.icon}
           </div>
-          <span>${item.text}</span>
+          <span title="${item.tip}">${item.text}</span>
+          ${
+            item.showCopyIcon
+              ? `
+            <div class="tiny-remoter-copy-icon" data-action="${item.action}">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1ZM19 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H19C20.1 23 21 22.1 21 21V7C21 5.9 20.1 5 19 5ZM19 21H8V7H19V21Z" fill="currentColor"/>
+              </svg>
+            </div>
+          `
+              : ''
+          }
         </div>
       `
       )
@@ -170,6 +208,19 @@ class FloatingBlock {
     // 绑定菜单项点击事件
     this.dropdownMenu.addEventListener('click', (e: Event) => {
       const target = e.target as HTMLElement
+
+      // 检查是否点击了复制图标
+      const copyIcon = target.closest('.tiny-remoter-copy-icon') as HTMLElement
+      if (copyIcon) {
+        e.stopPropagation() // 阻止事件冒泡，避免触发菜单项点击
+        const action = copyIcon.dataset.action as ActionType
+        if (action) {
+          this.handleAction(action)
+        }
+        return
+      }
+
+      // 处理普通菜单项点击
       const actionItem = target.closest('.tiny-remoter-dropdown-item') as HTMLElement
       const action = actionItem?.dataset.action as ActionType
       if (action) {
@@ -222,16 +273,82 @@ class FloatingBlock {
         this.showAIChat()
         break
       case 'remote-control':
-        this.showRemoteControl()
+        this.copyRemoteControl()
+        break
+      case 'remote-url':
+        this.copyRemoteURL()
         break
     }
     this.closeDropdown()
   }
 
+  private copyRemoteControl(): void {
+    this.copyToClipboard(this.options.sessionId.slice(-6))
+  }
+
+  private copyRemoteURL(): void {
+    this.copyToClipboard((this.options.qrCodeUrl || '') + this.sessionPrefix + this.options.sessionId)
+  }
+
+  // 实现复制到剪贴板功能
+  private async copyToClipboard(text: string): Promise<void> {
+    try {
+      // 优先使用现代浏览器的 Clipboard API
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text)
+        this.showCopyFeedback(true)
+      } else {
+        // 降级方案：使用传统的 document.execCommand
+        const textArea = document.createElement('textarea')
+        textArea.value = text
+        textArea.style.position = 'fixed'
+        textArea.style.left = '-999999px'
+        textArea.style.top = '-999999px'
+        document.body.appendChild(textArea)
+        textArea.focus()
+        textArea.select()
+
+        const successful = document.execCommand('copy')
+        document.body.removeChild(textArea)
+
+        if (successful) {
+          this.showCopyFeedback(true)
+        } else {
+          this.showCopyFeedback(false)
+        }
+      }
+    } catch (error) {
+      console.error('复制失败:', error)
+      this.showCopyFeedback(false)
+    }
+  }
+
+  // 显示复制反馈提示
+  private showCopyFeedback(success: boolean): void {
+    const message = success ? '复制成功！' : '复制失败，请手动复制'
+    const feedback = document.createElement('div')
+    feedback.className = `tiny-remoter-copy-feedback ${success ? 'success' : 'error'}`
+    feedback.textContent = message
+
+    document.body.appendChild(feedback)
+
+    // 添加显示动画
+    setTimeout(() => feedback.classList.add('show'), 10)
+
+    // 3秒后自动移除
+    setTimeout(() => {
+      feedback.classList.remove('show')
+      setTimeout(() => {
+        if (feedback.parentNode) {
+          feedback.parentNode.removeChild(feedback)
+        }
+      }, 300)
+    }, 1500)
+  }
+
   // 创建二维码弹窗
   private async showQRCode(): Promise<void> {
-    const sessionPrefix = this.options.qrCodeUrl?.includes('?') ? '&sessionId=' : '?sessionId='
-    const qrCode = new QrCode(this.options.qrCodeUrl + sessionPrefix + this.options.sessionId, {})
+    const qrCode = new QrCode((this.options.qrCodeUrl || '') + this.sessionPrefix + this.options.sessionId, {})
     const base64 = await qrCode.toDataURL()
     const modal = this.createModal(
       '扫码前往智能遥控器',
@@ -324,22 +441,6 @@ class FloatingBlock {
   // 创建AI对话弹窗--- 暂时调 “用户函数”
   private showAIChat(): void {
     this.options.onShowAIChat?.()
-  }
-
-  // 创建遥控指令弹窗
-  private showRemoteControl(): void {
-    const modal = this.createModal(
-      '输入需要发送的用户名',
-      `
-      <div style="padding: 20px;">
-        <div style="display: flex; gap: 10px;">
-          <input type="text" placeholder="输入用户名" style="flex: 1; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
-          <button style="padding: 10px 20px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer;">发送</button>
-        </div>
-      </div>
-    `
-    )
-    this.showModal(modal)
   }
 
   private createModal(title: string, content: string): HTMLDivElement {
@@ -452,6 +553,14 @@ class FloatingBlock {
         color: #333;
       }
 
+      .tiny-remoter-dropdown-item > span {
+        flex: 1;
+        overflow: hidden;
+        max-width: 120px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
       .tiny-remoter-dropdown-item:hover {
         background: #f8f9fa;
         transform: translateX(4px);
@@ -466,6 +575,33 @@ class FloatingBlock {
         background: #f8f9fa;
         border-radius: 8px;
         color: #667eea;
+      }
+
+      /* 复制图标样式 */
+      .tiny-remoter-copy-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        background: #f0f0f0;
+        border-radius: 6px;
+        color: #666;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        opacity: 0.7;
+        margin-left: auto;
+      }
+
+      .tiny-remoter-copy-icon:hover {
+        background: #e0e0e0;
+        color: #333;
+        opacity: 1;
+        transform: scale(1.1);
+      }
+
+      .tiny-remoter-copy-icon:active {
+        transform: scale(0.95);
       }
 
       /* 弹窗样式 */
@@ -584,6 +720,40 @@ class FloatingBlock {
         }
       }
 
+      /* 复制反馈提示样式 */
+      .tiny-remoter-copy-feedback {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: rgba(0, 0, 0, 0.8);
+        color: white;
+        padding: 12px 24px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        z-index: 10000;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        backdrop-filter: blur(4px);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      }
+
+      .tiny-remoter-copy-feedback.show {
+        opacity: 1;
+        visibility: visible;
+        transform: translate(-50%, -50%) scale(1);
+      }
+
+      .tiny-remoter-copy-feedback.success {
+        background: rgba(34, 197, 94, 0.9);
+      }
+
+      .tiny-remoter-copy-feedback.error {
+        background: rgba(239, 68, 68, 0.9);
+      }
+
       /* 深色主题支持 */
       @media (prefers-color-scheme: dark) {
         .tiny-remoter-floating-dropdown {
@@ -601,6 +771,16 @@ class FloatingBlock {
 
         .tiny-remoter-dropdown-item__icon {
           background: #2a2a2a;
+        }
+
+        .tiny-remoter-copy-icon {
+          background: #2a2a2a;
+          color: #ccc;
+        }
+
+        .tiny-remoter-copy-icon:hover {
+          background: #3a3a3a;
+          color: white;
         }
 
         .tiny-remoter-modal-content {

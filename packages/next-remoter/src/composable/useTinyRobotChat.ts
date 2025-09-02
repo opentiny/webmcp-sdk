@@ -8,10 +8,11 @@ import logo from '../../public/svgs/logo-next-no-bg-right.svg'
 interface useTinyRobotOption {
   sessionId: Ref<string>
   agentRoot: Ref<string>
+  systemPrompt: string
 }
 
-export const useTinyRobotChat = ({ sessionId, agentRoot }: useTinyRobotOption) => {
-  const customAgentProvider = new CustomAgentModelProvider({ provider: 'custom' }, sessionId, agentRoot)
+export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt }: useTinyRobotOption) => {
+  const customAgentProvider = new CustomAgentModelProvider({ provider: 'custom' }, sessionId, agentRoot, systemPrompt)
   const client = new AIClient({
     providerImplementation: customAgentProvider,
     provider: 'custom'
