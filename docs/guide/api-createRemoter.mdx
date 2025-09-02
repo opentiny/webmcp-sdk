@@ -14,7 +14,8 @@ import { createRemoter } from '@opentiny/next-sdk'
 - **下拉菜单**: 点击浮动按钮展开功能菜单
 - **二维码生成**: 生成包含会话ID的二维码，支持移动端扫码
 - **AI对话**: 可自定义AI对话功能回调
-- **遥控指令**: 提供遥控指令输入界面
+- **识别码**: 提供识别码输入界面
+- **远程URL**: 提供远程URL输入界面
 
 ## 基本使用
 
@@ -94,20 +95,23 @@ onMounted(()=>{
 
 1. **qr-code** - 弹出二维码
 2. **ai-chat** - 弹出AI对话框
-3. **remote-control** - 发送遥控指令
+3. **remote-control** - 发送识别码
+4. **remote-url** - 发送远程URL
 
 MenuItemConfig 接口如下
 
 ```typescript
 interface MenuItemConfig {
   /** 菜单项标识 */
-  action: 'qr-code' | 'ai-chat' | 'remote-control'
+  action: 'qr-code' | 'ai-chat' | 'remote-control' | 'remote-url'
   /** 是否显示该菜单项 */
   show?: boolean
   /** 菜单项文本 */
   text?: string
   /** 菜单项图标SVG */
   icon?: string
+  /** 是否显示复制图标 */
+  showCopyIcon?: boolean
 }
 ```
 
@@ -146,6 +150,11 @@ const remoter = createRemoter({
     {
       action: 'remote-control',
       text: '远程控制' // 自定义文本
+    },
+    {
+      action: 'remote-url',
+      text: '远程URL', // 自定义文本
+      showCopyIcon: true // 显示复制图标
     }
   ]
 })
@@ -176,6 +185,12 @@ const remoter = createRemoter({
     {
       action: 'remote-control',
       show: false // 完全隐藏遥控指令菜单项
+    },
+    {
+      action: 'remote-url',
+      show: true,
+      text: '远程URL',
+      showCopyIcon: true // 显示复制图标
     }
   ]
 })
