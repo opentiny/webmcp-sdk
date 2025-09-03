@@ -52,6 +52,7 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt }: useTiny
           } else {
             toolContent.content += data.delta
             toolContent.status = data.status
+            lastMessage.content += data.delta
           }
         } else if (data.type === 'markdown') {
           const markdownContent = lastMessage.uiContent.find(
@@ -90,6 +91,11 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt }: useTiny
     sendMessage(inputMessage.value)
   }
 
+  const handleCreateConversation = () => {
+    createConversation()
+    customAgentProvider.aiSdkMessage = []
+  }
+
   // 页面加载完成后自动聚焦输入框
   onMounted(() => {
     setTimeout(() => {
@@ -120,6 +126,7 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt }: useTiny
     roles,
     senderRef,
     handleSendMessage,
-    createConversation
+    createConversation,
+    handleCreateConversation
   }
 }

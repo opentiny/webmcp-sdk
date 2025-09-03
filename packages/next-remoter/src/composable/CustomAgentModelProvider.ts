@@ -4,6 +4,7 @@ import type { StreamHandler } from '@opentiny/tiny-robot-kit'
 import { BaseModelProvider } from '@opentiny/tiny-robot-kit'
 import type { AIModelConfig } from '@opentiny/tiny-robot-kit'
 import { type Ref } from 'vue'
+import { convertToModelMessages } from 'ai'
 import { AgentModelProvider, McpServerConfig, IAgentModelProviderOption } from '@opentiny/next-sdk'
 import { tool } from 'ai'
 import dayjs from 'dayjs'
@@ -14,6 +15,9 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   /** 一个 ai-sdk agent 封装 */
   agent: AgentModelProvider
   systemPrompt: string
+
+  aiSdkMessage = []
+
   constructor(config: AIModelConfig, sessionId: Ref<string>, agentRoot: Ref<string>, systemPrompt: string) {
     super(config)
     const options = {
@@ -48,8 +52,13 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   }
 
   async chatStream(request: ChatCompletionRequest, handler: StreamHandler): Promise<void> {
+    debugger
+    const lastUserMsg = request.messages.findLast((msg) => msg.role === 'user' && msg.content !== '')
+    if (!lastUserMsg) return
+
+    this.aiSdkMessage.push(lastUserMsg as any)
     const result = await this.agent.chatStream({
-      messages: request.messages,
+      messages: this.aiSdkMessage,
       model: 'deepseek-ai/DeepSeek-V3',
       system: this.systemPrompt,
       abortSignal: request.options?.signal,
@@ -123,6 +132,8 @@ export class CustomAgentModelProvider extends BaseModelProvider {
         }
       }
     }
+    debugger
+    this.aiSdkMessage = (await result.request).body.messages
 
     handler.onDone()
   }

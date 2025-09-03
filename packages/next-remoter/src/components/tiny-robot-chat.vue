@@ -4,7 +4,7 @@
       <h3 class="tr-container__title">{{ title }}</h3>
     </template>
     <template #operations>
-      <tr-icon-button :icon="IconNewSession" size="28" svgSize="20" @click="createConversation()" />
+      <tr-icon-button :icon="IconNewSession" size="28" svgSize="20" @click="handleCreateConversation" />
       <QrCodeScan @scanSuccess="handleScanSuccess" />
     </template>
     <tr-bubble-provider :content-renderers="contentRenderer">
@@ -168,7 +168,8 @@ const {
   senderRef,
   sendMessage,
   handleSendMessage,
-  createConversation
+  createConversation,
+  handleCreateConversation
 } = useTinyRobotChat({
   sessionId: toRef(props, 'sessionId'),
   agentRoot: toRef(props, 'agentRoot'),
