@@ -5,6 +5,8 @@ import { BaseModelProvider } from '@opentiny/tiny-robot-kit'
 import type { AIModelConfig } from '@opentiny/tiny-robot-kit'
 import { type Ref } from 'vue'
 import { AgentModelProvider, McpServerConfig, IAgentModelProviderOption } from '@opentiny/next-sdk'
+import { tool } from 'ai'
+import dayjs from 'dayjs'
 
 /** Tiny-robot 所需要的自定义大语言的Provider */
 export class CustomAgentModelProvider extends BaseModelProvider {
@@ -50,7 +52,16 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       messages: request.messages,
       model: 'deepseek-ai/DeepSeek-V3',
       system: this.systemPrompt,
-      abortSignal: request.options?.signal
+      abortSignal: request.options?.signal,
+      tools: {
+        'get-now-date': tool({
+          description: '获取当前日期',
+          execute: () => ({
+            date: `当前日期: ${dayjs().format('YYYY-M-D')}`
+          })
+        })
+      },
+      maxSteps: 15
     })
 
     // 标识每一个markdown块

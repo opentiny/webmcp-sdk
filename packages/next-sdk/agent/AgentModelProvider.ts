@@ -167,7 +167,6 @@ export class AgentModelProvider {
     this.ignoreToolnames.forEach((name) => {
       delete toolsResult[name]
     })
-
     return toolsResult
   }
 
@@ -187,9 +186,9 @@ export class AgentModelProvider {
     return chatMethod({
       // @ts-ignore  ProviderV2 是所有llm的父类， 在每一个具体的llm 类都有一个选择model的函数用法
       model: this.llm(model),
-      tools: this.tempMergeTools(options.tools) as ToolSet,
       stopWhen: stepCountIs(maxSteps),
-      ...options
+      ...options,
+      tools: this.tempMergeTools(options.tools) as ToolSet
     })
   }
 
