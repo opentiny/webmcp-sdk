@@ -49,8 +49,7 @@ const start = () => {
     .start(
       { facingMode: 'environment' },
       {
-        fps: 1,
-        qrbox: { width: 250, height: 250 }
+        fps: 1
       },
       (decodedText) => {
         emit('scanSuccess', decodedText)
