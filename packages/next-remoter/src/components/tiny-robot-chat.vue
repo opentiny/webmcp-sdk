@@ -570,6 +570,12 @@ defineExpose({
   align-items: center;
 }
 
+:deep(.tr-bubble__content-items) {
+  p {
+    word-break: break-all;
+  }
+}
+
 @media (max-width: 600px) {
   :deep(.mcp-server-picker.popup-type-drawer) {
     width: 100% !important;
