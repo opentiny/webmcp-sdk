@@ -348,7 +348,7 @@ onMounted(async () => {
 })
 
 // 自定义消息渲染器
-const contentRenderer = { markdown: new BubbleMarkdownContentRenderer() }
+const contentRenderer = { markdown: new BubbleMarkdownContentRenderer({ mdConfig: { html: true } }) }
 
 // 如果是遥控器模式，则初始化右下角的AI 图标
 if (props.mode === 'remoter') {
