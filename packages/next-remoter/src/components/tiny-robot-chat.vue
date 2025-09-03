@@ -112,6 +112,7 @@ import { createRemoter, McpServerConfig } from '@opentiny/next-sdk'
 import QrCodeScan from './qr-code-scan.vue'
 import { DEFAULT_SERVERS } from './default-mcps'
 import { defaultPluginSrc } from './default-plugin-svg'
+import { SYSTEM_PROMPT } from '../const'
 
 defineOptions({
   name: 'TinyRemoter'
@@ -131,7 +132,7 @@ const props = defineProps({
   /** 系统提示词 */
   systemPrompt: {
     type: String,
-    default: ''
+    default: SYSTEM_PROMPT
   },
   /** 左上角的标题 */
   title: {
@@ -353,7 +354,6 @@ const contentRenderer = { markdown: new BubbleMarkdownContentRenderer() }
 if (props.mode === 'remoter') {
   createRemoter({
     sessionId: props.sessionId,
-    qrCodeUrl: `https://ai.opentiny.design/next-remoter?system-prompt=${props.systemPrompt}`,
     onShowAIChat: () => {
       show.value = true
     }
