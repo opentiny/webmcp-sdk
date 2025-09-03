@@ -1,6 +1,6 @@
 {
   "name": "@opentiny/next-remoter",
-  "version": "0.0.1-alpha.13",
+  "version": "0.0.1-alpha.14",
   "type": "module",
   "files": [
     "dist"
@@ -27,7 +27,10 @@
     "@opentiny/vue-icon": "^3.25.0",
     "html5-qrcode": "^2.3.8",
     "vant": "^4.9.21",
-    "vue": "^3.3.11"
+    "vue": "^3.3.11",
+    "ai": "^5.0.9",
+    "dayjs": "^1.11.15",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^4.5.2",
