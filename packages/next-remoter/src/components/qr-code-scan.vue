@@ -134,7 +134,7 @@ onUnmounted(() => {
   background: rgba(0, 0, 0);
 }
 .container {
-  height: 90vh;
+  height: 80vh;
   position: relative;
   width: 100%;
 }
