@@ -353,6 +353,7 @@ const contentRenderer = { markdown: new BubbleMarkdownContentRenderer() }
 if (props.mode === 'remoter') {
   createRemoter({
     sessionId: props.sessionId,
+    qrCodeUrl: `https://ai.opentiny.design/next-remoter?system-prompt=${props.systemPrompt}`,
     onShowAIChat: () => {
       show.value = true
     }
