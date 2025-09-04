@@ -122,7 +122,7 @@ export class AgentModelProvider {
   }
 
   async insertMcpServer(mcpServer: McpServerConfig) {
-    const find = this.mcpServers.find((item: any) => item.url === mcpServer.url)
+    const find = this.mcpServers.find((item: any) => 'url' in item && 'url' in mcpServer && item.url === mcpServer.url)
 
     if (!find) {
       this.mcpServers = [...this.mcpServers, mcpServer]
