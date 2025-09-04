@@ -55,8 +55,8 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       system: this.systemPrompt,
       abortSignal: request.options?.signal,
       tools: {
-        'get-now-date': tool({
-          description: '获取当前日期',
+        'get-today': tool({
+          description: '获取今天的日期',
           inputSchema: z.object({}),
           execute: () => ({
             date: `当前日期: ${dayjs().format('YYYY-M-D')}`
