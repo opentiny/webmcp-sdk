@@ -49,7 +49,7 @@ const start = () => {
     .start(
       { facingMode: 'environment' },
       {
-        fps: 1
+        fps: 5
       },
       (decodedText) => {
         emit('scanSuccess', decodedText)
