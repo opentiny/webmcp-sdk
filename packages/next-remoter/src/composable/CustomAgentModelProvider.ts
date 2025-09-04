@@ -7,6 +7,7 @@ import { type Ref } from 'vue'
 import { AgentModelProvider, McpServerConfig, IAgentModelProviderOption } from '@opentiny/next-sdk'
 import { tool } from 'ai'
 import dayjs from 'dayjs'
+import { z } from 'zod'
 
 /** Tiny-robot 所需要的自定义大语言的Provider */
 export class CustomAgentModelProvider extends BaseModelProvider {
@@ -56,6 +57,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       tools: {
         'get-now-date': tool({
           description: '获取当前日期',
+          inputSchema: z.object({}),
           execute: () => ({
             date: `当前日期: ${dayjs().format('YYYY-M-D')}`
           })
