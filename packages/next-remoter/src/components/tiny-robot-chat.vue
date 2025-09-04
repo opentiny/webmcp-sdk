@@ -69,7 +69,7 @@
           v-model:visible="pluginVisible"
           :popup-config="{ type: 'drawer' }"
           :show-custom-add-button="false"
-          marketTabTitle="MCP 广场"
+          marketTabTitle="MCP 市场"
           :installedPlugins="installedPlugins"
           :marketPlugins="marketPlugins"
           :market-category-options="marketCategoryOptions"
