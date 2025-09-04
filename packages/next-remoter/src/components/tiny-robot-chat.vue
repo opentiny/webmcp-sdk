@@ -510,6 +510,10 @@ defineExpose({
       font-weight: 600;
     }
   }
+
+  :deep(.tr-container__header) {
+    padding: 16px 32px !important;
+  }
 }
 
 .tiny-prompts {
