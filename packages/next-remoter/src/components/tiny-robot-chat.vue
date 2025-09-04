@@ -420,7 +420,7 @@ const handlePluginDelete = (plugin: PluginInfo) => {
     agent.removeMcpServer(delPlugin.originMcpConfig)
   }
 }
-// 插件市场中，点击“添加” 和 “已添加”。
+// 插件市场中，点击“添加”
 const handlePluginAdd = async (plugin: PluginInfo, isAdd: boolean) => {
   plugin.addState = 'loading'
 
