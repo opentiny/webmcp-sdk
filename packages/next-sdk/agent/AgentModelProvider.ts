@@ -36,6 +36,8 @@ export class AgentModelProvider {
 
   /** chat 时，自动更新 所有的tools 后的事件 */
   onUpdatedTools: (() => void) | undefined
+  /** 内部报错时，抛出错误事件 */
+  onError: ((msg: string, err?: any) => void) | undefined
 
   constructor({ llmConfig, mcpServers, llm }: IAgentModelProviderOption) {
     // 1、保存 mcpServer
@@ -74,6 +76,9 @@ export class AgentModelProvider {
 
       return await createMCPClient({ transport: transport as MCPClientConfig['transport'] })
     } catch (error) {
+      if (this.onError) {
+        this.onError(`Failed to create MCP client`, error)
+      }
       console.error(`Failed to create MCP client`, serverConfig, error)
       return null
     }
@@ -94,6 +99,10 @@ export class AgentModelProvider {
         try {
           return client ? await client?.tools?.() : null
         } catch (error) {
+          if (this.onError) {
+            this.onError(`Failed to query tools`, error)
+          }
+          console.error(`Failed to query tools`, error)
           return null
         }
       })

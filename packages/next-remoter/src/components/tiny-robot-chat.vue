@@ -317,7 +317,7 @@ function loadMcpServerToPlugin(mcpServer: McpServerConfig) {
 
     installedPlugins.value.push(plugin)
   } else {
-    showToast('扫码应用失败')
+    agent.removeMcpServer(mcpServer)
   }
 }
 // 页面加载时，要判断 agent上，初始就加载的 agent.mcpServer，加载后记录在 agent.mcpTools下
@@ -344,6 +344,16 @@ onMounted(async () => {
         })
       }
     })
+  }
+
+  // 统一报错
+  agent.onError = (msg, error) => {
+    let errMsg = msg
+    if (error && error.message) {
+      errMsg += `; Error Reason: ${error.message}`
+    }
+
+    showToast(errMsg)
   }
 })
 
@@ -453,8 +463,8 @@ const handlePluginAdd = async (plugin: PluginInfo, isAdd: boolean) => {
       return
     }
   }
-
-  showToast('插件安装失败') // 否则就弹警告
+  // 添加失败
+  agent.removeMcpServer(mcpServer)
   plugin.addState = 'idle'
 }
 

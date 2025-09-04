@@ -120,6 +120,9 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt }: useTiny
     roles,
     senderRef,
     handleSendMessage,
-    createConversation
+    createConversation: () => {
+      abortRequest()
+      createConversation()
+    }
   }
 }
