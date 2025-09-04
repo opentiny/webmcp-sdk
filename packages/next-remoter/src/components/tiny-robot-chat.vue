@@ -413,7 +413,7 @@ const handlePluginDelete = (plugin: PluginInfo) => {
     installedPlugins.value = installedPlugins.value.filter((item) => item.id !== delPlugin.id)
     const findInMarket = marketPlugins.value.find((item) => item.id === delPlugin.id)
     if (findInMarket) {
-      findInMarket.added = false
+      findInMarket.addState = 'idle'
     }
 
     // 移除mcpServers，mcpTools，mcpClients，ignoreToolnames
@@ -422,44 +422,40 @@ const handlePluginDelete = (plugin: PluginInfo) => {
 }
 // 插件市场中，点击“添加” 和 “已添加”。
 const handlePluginAdd = async (plugin: PluginInfo, isAdd: boolean) => {
-  if (isAdd) {
-    plugin.added = true
+  plugin.addState = 'loading'
 
-    const newPlugin = {
-      ...plugin,
-      id: plugin.id,
-      enabled: true,
-      added: true
-    }
-
-    // 立即注册服务，查询工具
-    const mcpServer = { type: plugin.type, url: plugin.url }
-    const inserted = await agent.insertMcpServer(mcpServer) // 插入时，会自动去重，且initClientAndTools
-
-    if (inserted) {
-      newPlugin.originMcpConfig = mcpServer
-      const index = agent.mcpServers.findIndex((svc) => svc.url === mcpServer.url)
-      // 查询 tools
-      const currTool = agent.mcpTools[index]
-      if (currTool) {
-        newPlugin.tools = Object.keys(currTool).map((key) => {
-          return {
-            id: key,
-            name: key,
-            description: currTool[key].description as string,
-            enabled: true
-          }
-        })
-        installedPlugins.value.push(newPlugin) // 只有client.tools() 成功了，才显示到“已安装列表”
-        return
-      }
-    }
-
-    showToast('插件安装失败') // 否则就弹警告
-    plugin.added = false
-  } else {
-    handlePluginDelete(plugin)
+  const newPlugin = {
+    ...plugin,
+    id: plugin.id,
+    enabled: true
   }
+
+  // 立即注册服务，查询工具
+  const mcpServer = { type: plugin.type, url: plugin.url }
+  const inserted = await agent.insertMcpServer(mcpServer) // 插入时，会自动去重，且initClientAndTools
+
+  if (inserted) {
+    newPlugin.originMcpConfig = mcpServer
+    const index = agent.mcpServers.findIndex((svc) => svc.url === mcpServer.url)
+    // 查询 tools
+    const currTool = agent.mcpTools[index]
+    if (currTool) {
+      newPlugin.tools = Object.keys(currTool).map((key) => {
+        return {
+          id: key,
+          name: key,
+          description: currTool[key].description as string,
+          enabled: true
+        }
+      })
+      installedPlugins.value.push(newPlugin) // 只有client.tools() 成功了，才显示到“已安装列表”
+      plugin.addState = 'added'
+      return
+    }
+  }
+
+  showToast('插件安装失败') // 否则就弹警告
+  plugin.addState = 'idle'
 }
 
 // 搜索已安装或者搜索市场，两个函数一样的。
