@@ -345,6 +345,16 @@ onMounted(async () => {
       }
     })
   }
+
+  // 统一报错
+  agent.onError = (msg, error) => {
+    let errMsg = msg
+    if (error && error.message) {
+      errMsg += `; Error Reason: ${error.message}`
+    }
+
+    showToast(errMsg)
+  }
 })
 
 // 自定义消息渲染器
