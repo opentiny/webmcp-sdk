@@ -322,6 +322,11 @@ function loadMcpServerToPlugin(mcpServer: McpServerConfig) {
 }
 // 页面加载时，要判断 agent上，初始就加载的 agent.mcpServer，加载后记录在 agent.mcpTools下
 onMounted(async () => {
+  // 统一报错
+  agent.onError = (msg) => {
+    msg && showToast(msg)
+  }
+
   await agent.initClientsAndTools()
   agent.mcpServers.forEach((mcpServer) => {
     loadMcpServerToPlugin(mcpServer)
@@ -344,16 +349,6 @@ onMounted(async () => {
         })
       }
     })
-  }
-
-  // 统一报错
-  agent.onError = (msg, error) => {
-    let errMsg = msg
-    if (error && error.message) {
-      errMsg += `; Error Reason: ${error.message}`
-    }
-
-    showToast(errMsg)
   }
 })
 
