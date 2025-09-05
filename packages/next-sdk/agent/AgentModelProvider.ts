@@ -75,9 +75,9 @@ export class AgentModelProvider {
       }
 
       return await createMCPClient({ transport: transport as MCPClientConfig['transport'] })
-    } catch (error) {
+    } catch (error: unknown) {
       if (this.onError) {
-        this.onError(`Failed to create MCP client`, error)
+        this.onError((error as Error)?.message || `Failed to create MCP client`, error)
       }
       console.error(`Failed to create MCP client`, serverConfig, error)
       return null
@@ -98,9 +98,9 @@ export class AgentModelProvider {
       this.mcpClients.map(async (client) => {
         try {
           return client ? await client?.tools?.() : null
-        } catch (error) {
+        } catch (error: unknown) {
           if (this.onError) {
-            this.onError(`Failed to query tools`, error)
+            this.onError((error as Error)?.message || `Failed to query tools`, error)
           }
           console.error(`Failed to query tools`, error)
           return null
@@ -113,8 +113,13 @@ export class AgentModelProvider {
     await Promise.all(
       this.mcpClients.map(async (client) => {
         try {
-          client.close()
-        } catch (error) {}
+          await client.close()
+        } catch (error: unknown) {
+          if (this.onError) {
+            this.onError((error as Error)?.message || `Failed to close client`, error)
+          }
+          console.error(`Failed to close client`, error)
+        }
       })
     )
   }
