@@ -113,7 +113,7 @@ export class AgentModelProvider {
     await Promise.all(
       this.mcpClients.map(async (client) => {
         try {
-          client.close()
+          await client.close()
         } catch (error: unknown) {
           if (this.onError) {
             this.onError((error as Error)?.message || `Failed to close client`, error)
