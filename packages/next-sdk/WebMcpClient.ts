@@ -1,6 +1,7 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import { WebSocketClientTransport } from '@modelcontextprotocol/sdk/client/websocket.js'
 import { z, ZodObject, ZodLiteral, ZodType } from 'zod'
 import {
   ElicitRequestSchema,
@@ -18,8 +19,9 @@ import {
   sseOptions,
   streamOptions,
   attemptConnection,
-  createStreamProxy,
   createSseProxy,
+  createStreamProxy,
+  createSocketProxy,
   AuthClientProvider
 } from '@opentiny/next'
 import type {
@@ -60,7 +62,7 @@ export interface ClientConnectOptions {
   token?: string
   sessionId?: string
   authProvider?: AuthClientProvider
-  type?: 'channel' | 'sse'
+  type?: 'channel' | 'sse' | 'stream' | 'socket'
   agent?: boolean
   onError?: (error: Error) => void
   onUnauthorized?: (connect: () => Promise<void>) => Promise<void>
@@ -126,7 +128,11 @@ export class WebMcpClient {
 
       const connectProxy = async () => {
         const { transport, sessionId } =
-          type === 'sse' ? await createSseProxy(proxyOptions) : await createStreamProxy(proxyOptions)
+          type === 'sse'
+            ? await createSseProxy(proxyOptions)
+            : type === 'socket'
+              ? await createSocketProxy(proxyOptions)
+              : await createStreamProxy(proxyOptions)
 
         transport.onerror = async (error: Error) => {
           onError?.(error)
@@ -167,6 +173,12 @@ export class WebMcpClient {
         transport = new SSEClientTransport(endpoint, opts)
         await this.client.connect(transport)
       }
+    }
+
+    if (type === 'socket') {
+      transport = new WebSocketClientTransport(new URL(`${url}?sessionId=${sessionId}&token=${token}`))
+      transport.sessionId = sessionId
+      await this.client.connect(transport)
     }
 
     if (typeof transport === 'undefined') {
