@@ -7,48 +7,57 @@ import AutoImport from 'unplugin-auto-import/vite'
 import { TinyVueSingleResolver } from '@opentiny/unplugin-tiny-vue'
 import svgLoader from 'vite-svg-loader'
 import { VantResolver } from '@vant/auto-import-resolver'
+import { visualizer } from 'rollup-plugin-visualizer'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 // https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [
-    vue(),
-    Components({
-      resolvers: [TinyVueSingleResolver, VantResolver()]
-    }),
-    AutoImport({
-      resolvers: [TinyVueSingleResolver, VantResolver()]
-    }),
-    svgLoader({
-      defaultImport: 'component',
-      svgo: false
-    })
-  ],
-  server: {
-    port: 8087,
-    host: true,
-    proxy: {
-      '/api': {
-        target: 'https://agent.opentiny.design',
-        changeOrigin: true
+export default defineConfig(({ mode }) => {
+  const isVisualizer = mode === 'visualizer'
+  return {
+    plugins: [
+      vue(),
+      Components({
+        resolvers: [TinyVueSingleResolver, VantResolver()]
+      }),
+      AutoImport({
+        resolvers: [TinyVueSingleResolver, VantResolver()]
+      }),
+      svgLoader({
+        defaultImport: 'component',
+        svgo: false
+      }),
+      isVisualizer &&
+        visualizer({
+          open: true,
+          filename: 'stats.html'
+        })
+    ],
+    server: {
+      port: 8087,
+      host: true,
+      proxy: {
+        '/api': {
+          target: 'https://agent.opentiny.design',
+          changeOrigin: true
+        }
       }
-    }
-  },
-  build: {
-    sourcemap: true,
-    minify: false,
-    lib: {
-      entry: resolve(__dirname, 'src/index.ts'),
-      name: 'NextRemoter',
-      formats: ['es', 'cjs', 'umd'],
-      fileName: (format) => `next-remoter.${format}.js`
     },
-    rollupOptions: {
-      external: ['vue'],
-      output: {
-        globals: {
-          vue: 'Vue'
+    build: {
+      sourcemap: true,
+      minify: false,
+      lib: {
+        entry: resolve(__dirname, 'src/index.ts'),
+        name: 'NextRemoter',
+        formats: ['es', 'cjs', 'umd'],
+        fileName: (format) => `next-remoter.${format}.js`
+      },
+      rollupOptions: {
+        external: ['vue'],
+        output: {
+          globals: {
+            vue: 'Vue'
+          }
         }
       }
     }
