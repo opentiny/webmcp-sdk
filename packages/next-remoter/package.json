@@ -1,6 +1,6 @@
 {
   "name": "@opentiny/next-remoter",
-  "version": "0.0.1-alpha.19",
+  "version": "0.0.1-alpha.20",
   "type": "module",
   "files": [
     "dist"
@@ -15,14 +15,14 @@
     "dev": "vite",
     "build": "vite build",
     "build:site": "vite build --config vite.remoter.config.ts",
-    "build:visualizer": "vite build --mode visualizer",
+    "build:visualizer": "vite build --config vite.remoter.config.ts --mode visualizer",
     "preview": "vite preview"
   },
   "dependencies": {
     "@opentiny/next-sdk": "workspace:*",
-    "@opentiny/tiny-robot": "0.3.0-rc.1",
-    "@opentiny/tiny-robot-kit": "0.3.0-rc.1",
-    "@opentiny/tiny-robot-svgs": "0.3.0-rc.1",
+    "@opentiny/tiny-robot": "0.3.0-rc.3",
+    "@opentiny/tiny-robot-kit": "0.3.0-rc.3",
+    "@opentiny/tiny-robot-svgs": "0.3.0-rc.3",
     "@modelcontextprotocol/sdk": "^1.16.0",
     "@opentiny/vue": "^3.25.0",
     "@opentiny/vue-icon": "^3.25.0",
@@ -41,6 +41,7 @@
     "typescript": "^5.2.2",
     "vite": "^5.0.8",
     "vue-tsc": "^1.8.25",
+    "@opentiny/vue-vite-import": "^1.4.0",
     "@opentiny/unplugin-tiny-vue": "^1.0.0",
     "unplugin-auto-import": "^0.18.3",
     "unplugin-vue-components": "^0.26.0"

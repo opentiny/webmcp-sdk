@@ -53,7 +53,7 @@ export default defineConfig(({ mode }) => {
         fileName: (format) => `next-remoter.${format}.js`
       },
       rollupOptions: {
-        external: ['vue'],
+        external: ['vue', /@opentiny\//],
         output: {
           globals: {
             vue: 'Vue'
