@@ -29,6 +29,7 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt }: useTiny
     createConversation,
     getCurrentConversation,
     switchConversation,
+    deleteConversation,
     state: conversationState // 记录着所有的会话和 currentId
   } = useConversation({
     client,
@@ -119,6 +120,15 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt }: useTiny
     scrollToBottom()
   }
 
+  const handleHistoryUpdateTitle = (title: string) => {
+    const conv = getCurrentConversation()
+    conv.title = title
+  }
+
+  const handleHistoryDelete = (item: { id: string }) => {
+    deleteConversation(item.id)
+  }
+
   // 最新消息滚动到底部
   const scrollToBottom = () => {
     nextTick(() => {
@@ -166,6 +176,8 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt }: useTiny
     handleSendMessage,
     createConversation,
     handleHistorySelect,
-    handleCreateConversation
+    handleCreateConversation,
+    handleHistoryUpdateTitle,
+    handleHistoryDelete
   }
 }
