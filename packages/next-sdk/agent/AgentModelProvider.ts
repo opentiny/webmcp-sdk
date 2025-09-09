@@ -39,6 +39,7 @@ export class AgentModelProvider {
   /** 内部报错时，抛出错误事件 */
   onError: ((msg: string, err?: any) => void) | undefined
 
+  /** 缓存 ai-sdk response 中的 多轮会话 */
   messages: any[] = []
 
   constructor({ llmConfig, mcpServers, llm }: IAgentModelProviderOption) {
@@ -176,7 +177,7 @@ export class AgentModelProvider {
   }
 
   /** 创建临时允许调用的tools集合 */
-  tempMergeTools(extraTool = {}) {
+  private _tempMergeTools(extraTool = {}) {
     const toolsResult = this.mcpTools.reduce((acc, curr) => ({ ...acc, ...curr }), {})
     Object.assign(toolsResult, extraTool)
 
@@ -186,7 +187,7 @@ export class AgentModelProvider {
     return toolsResult
   }
 
-  async _chat(
+  private async _chat(
     chatMethod: ChatMethodFn,
     { model, maxSteps = 5, ...options }: Parameters<typeof generateText>[0] & { maxSteps?: number; message?: string }
   ): Promise<any> {
@@ -204,7 +205,7 @@ export class AgentModelProvider {
       model: this.llm(model),
       stopWhen: stepCountIs(maxSteps),
       ...options,
-      tools: this.tempMergeTools(options.tools) as ToolSet
+      tools: this._tempMergeTools(options.tools) as ToolSet
     }
 
     if (options.message && !options.messages) {
@@ -214,6 +215,7 @@ export class AgentModelProvider {
 
     const result = chatMethod(chatOptions)
 
+    // 缓存 ai-sdk的多轮对话的消息
     ;(result as StreamTextResult<ToolSet, unknown>)?.response?.then((res: any) => {
       this.messages.push(...res.messages)
     })

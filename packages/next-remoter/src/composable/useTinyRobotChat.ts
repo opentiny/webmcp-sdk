@@ -1,6 +1,6 @@
 import { AIClient, useConversation } from '@opentiny/tiny-robot-kit'
 import { IconUser } from '@opentiny/tiny-robot-svgs'
-import { h, onMounted, onUnmounted, Ref, ref } from 'vue'
+import { h, nextTick, onMounted, onUnmounted, Ref, ref, watch } from 'vue'
 import { CustomAgentModelProvider } from './CustomAgentModelProvider'
 import { TrSender } from '@opentiny/tiny-robot'
 import logo from '../../public/svgs/logo-next-no-bg-right.svg'
@@ -18,14 +18,19 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt }: useTiny
     provider: 'custom'
   })
 
-  const fullscreen = ref(false)
-  const show = ref(true)
+  const showHistory = ref(false)
 
   const aiAvatar = h(logo, { style: { fontSize: '32px' } })
   const userAvatar = h(IconUser, { style: { fontSize: '32px' } })
   const welcomeIcon = h(logo, { style: { width: '48px', height: '48px' } })
 
-  const { messageManager, createConversation } = useConversation({
+  const {
+    messageManager,
+    createConversation,
+    getCurrentConversation,
+    switchConversation,
+    state: conversationState // 记录着所有的会话和 currentId
+  } = useConversation({
     client,
     events: {
       onReceiveData(data, messages, preventDefault) {
@@ -85,16 +90,54 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt }: useTiny
   }
   const senderRef = ref<InstanceType<typeof TrSender>>()
 
-  // 发送消息
+  // 发送消息。 第一次发送，修改会话title
   const handleSendMessage = () => {
-    const input = inputMessage.value
-    sendMessage(input)
+    const conv = getCurrentConversation()
+    if (conv && conv.title === '新会话') {
+      conv.title = inputMessage.value.slice(0, 15)
+    }
+    sendMessage(inputMessage.value)
   }
+
+  const handleCreateConversation = () => {
+    abortRequest()
+    const aiSdkMessages: any[] = []
+    customAgentProvider.agent.messages = aiSdkMessages
+    conversationState.currentId = createConversation()
+    const conv = getCurrentConversation()!
+    conv.aiSdkMessages = aiSdkMessages // 保存同一个引用到会话中
+  }
+
+  const handleHistorySelect = (item: { id: string }) => {
+    abortRequest()
+    switchConversation(item.id)
+
+    const conv = getCurrentConversation()!
+    customAgentProvider.agent.messages = conv.aiSdkMessages // 切换历史对话到当前代理上
+    showHistory.value = false
+
+    scrollToBottom()
+  }
+
+  // 最新消息滚动到底部
+  const scrollToBottom = () => {
+    nextTick(() => {
+      const containerBody = document.querySelector('div.tr-bubble-list')
+      if (containerBody) {
+        containerBody.scrollTo({
+          top: containerBody.scrollHeight,
+          behavior: 'smooth'
+        })
+      }
+    })
+  }
+  watch(() => messages.value[messages.value.length - 1]?.content, scrollToBottom)
 
   // 页面加载完成后自动聚焦输入框
   onMounted(() => {
     setTimeout(() => {
       senderRef.value?.focus()
+      handleCreateConversation() // 每次刷新，都是新会话
     }, 500)
   })
 
@@ -106,13 +149,13 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt }: useTiny
     /**  一个 ai-sdk agent 封装,详见： next-sdk/AgentModelProvider 类 */
     agent: customAgentProvider.agent,
     client,
-    fullscreen,
-    show,
+    showHistory,
     aiAvatar,
     userAvatar,
     welcomeIcon,
 
     messageManager,
+    conversationState,
     messages,
     messageState,
     inputMessage,
@@ -121,10 +164,8 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt }: useTiny
     roles,
     senderRef,
     handleSendMessage,
-    createConversation: () => {
-      customAgentProvider.agent.messages = []
-      abortRequest()
-      createConversation()
-    }
+    createConversation,
+    handleHistorySelect,
+    handleCreateConversation
   }
 }
