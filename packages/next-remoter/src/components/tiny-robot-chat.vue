@@ -53,7 +53,7 @@
           :loading="senderLoading"
           :showWordLimit="true"
           :maxLength="1000"
-          @submit="handleSendMessage"
+          @submit="handleSendMessageCustom"
           @cancel="abortRequest"
         >
           <template #footer-left>
@@ -175,6 +175,21 @@ const {
   systemPrompt: props.systemPrompt
 })
 
+const handleSendMessageCustom = async () => {
+  const input = inputMessage.value
+  if (/\/[A-Za-z0-9]{6}/.test(input)) {
+    showLoadingToast('添加工具中...')
+    const res = await fetch(`${props.agentRoot}client?sessionId=${input.slice(1)}`).then((res) => res.json())
+    const sessionId = res.data.sessionId
+    await handleScanSuccess(sessionId)
+    showToast('添加工具完成')
+    inputMessage.value = ''
+    closeToast()
+  } else {
+    handleSendMessage()
+  }
+}
+
 const lang: Record<string, { title: string; description: string; placeholder: string; thinking: string }> = {
   'zh-CN': {
     title: 'OpenTiny NEXT',
@@ -271,10 +286,7 @@ const handlePillItemClick = (item: ReturnType<typeof mapMake>) => {
 }
 
 // 处理扫码结果。 把结果添加到 agent.mcpServers， 以及 插入McpServerPicker的一个Plugin
-const handleScanSuccess = async (decodedText: string) => {
-  const url = new URL(decodedText)
-  const sessionId = url.searchParams.get('sessionId')
-
+const handleScanSuccess = async (sessionId: string) => {
   if (sessionId) {
     const mcpServer = {
       type: 'streamableHttp',
@@ -285,7 +297,10 @@ const handleScanSuccess = async (decodedText: string) => {
 
     if (inserted) {
       loadMcpServerToPlugin(mcpServer)
+      showToast('添加工具完成')
     }
+  } else {
+    showToast('添加工具失败')
   }
 }
 

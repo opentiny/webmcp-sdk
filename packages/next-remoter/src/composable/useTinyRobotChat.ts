@@ -87,7 +87,8 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt }: useTiny
 
   // 发送消息
   const handleSendMessage = () => {
-    sendMessage(inputMessage.value)
+    const input = inputMessage.value
+    sendMessage(input)
   }
 
   // 页面加载完成后自动聚焦输入框
