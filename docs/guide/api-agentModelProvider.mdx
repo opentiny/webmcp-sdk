@@ -1,5 +1,5 @@
 ---
-title: "AgentModelProvider 类"
+title: 'AgentModelProvider 类'
 ---
 
 ```typescript
@@ -119,24 +119,86 @@ const webAgent = new AgentModelProvider({
 })
 
 const generateTextResult = webAgent.chat({
-    model: 'deepseek-ai/DeepSeek-V3',
-    messages:[
-        { role: 'system', content: '你是xxx' },
-        { role: 'user', content: '1+1 等于多少？' },
-    ],
-    // .......
+  model: 'deepseek-ai/DeepSeek-V3',
+  messages: [
+    { role: 'system', content: '你是xxx' },
+    { role: 'user', content: '1+1 等于多少？' }
+  ]
+  // .......
 })
 
 const streamTextResult = webAgent.chatStream({
-    model: 'deepseek-ai/DeepSeek-V3',
-    messages:[
-        { role: 'system', content: '你是xxx' },
-        { role: 'user', content: '1+1 等于多少？' },
-    ],
-    // .......
+  model: 'deepseek-ai/DeepSeek-V3',
+  messages: [
+    { role: 'system', content: '你是xxx' },
+    { role: 'user', content: '1+1 等于多少？' }
+  ]
+  // .......
 })
-
 ```
 
 > [!TIP]
 > 以上2个函数的入参以及返回结果， 都是与 `ai-sdk` 的 `generateText` 和 `streamText` 全部兼容的，请参考 [ai-sdk core 文档](https://ai-sdk.dev/docs/ai-sdk-core) 了解详细的情况。
+
+### `chat` 和 `chatStream` 除 `ai-sdk` 的入参外，还支持以下入参
+
+| 参数名     | 类型     | 默认值      | 描述                                                                                                       |
+| ---------- | -------- | ----------- | ---------------------------------------------------------------------------------------------------------- | --- |
+| `maxSteps` | `number` | `5`         | 工具调用最大步数，当达到最大步数时，会自动停止对话                                                         |
+| `message`  | `string` | `undefined` | 用户消息，当传入该参数时，会自动将消息添加到对话历史中，可以将多轮对话消息传递给 `AgentModelProvider` 实例 |     |
+
+### 用法示例
+
+```typescript
+const result = await webAgent.chat({
+  model: 'deepseek-ai/DeepSeek-V3',
+  message: '1+1 等于多少？',
+  maxSteps: 10
+})
+```
+
+## `AgentModelProvider` 的实例方法
+
+| 方法名                | 类型                                                     | 参数                            | 返回值             | 描述                                                     |
+| --------------------- | -------------------------------------------------------- | ------------------------------- | ------------------ | -------------------------------------------------------- |
+| `closeAll`            | `async () => Promise<void>`                              | 无                              | `Promise<void>`    | 关闭所有 MCP 客户端连接                                  |
+| `updateMcpServers`    | `async (mcpServers: McpServerConfig[]) => Promise<void>` | `mcpServers: McpServerConfig[]` | `Promise<void>`    | 更新 MCP 服务器配置，会先关闭现有连接再重新初始化        |
+| `insertMcpServer`     | `async (mcpServer: McpServerConfig) => Promise<boolean>` | `mcpServer: McpServerConfig`    | `Promise<boolean>` | 插入新的 MCP 服务器配置，如果已存在相同 URL 则返回 false |
+| `removeMcpServer`     | `(mcpServer: McpServerConfig) => void`                   | `mcpServer: McpServerConfig`    | `void`             | 删除指定的 MCP 服务器配置并关闭对应连接                  |
+| `initClientsAndTools` | `async () => Promise<void>`                              | 无                              | `Promise<void>`    | 初始化所有 MCP 客户端和工具                              |
+
+## `AgentModelProvider` 的实例属性
+
+| 属性名           | 类型                                              | 默认值      | 描述                   |
+| ---------------- | ------------------------------------------------- | ----------- | ---------------------- |
+| `onUpdatedTools` | `(() => void) \| undefined`                       | `undefined` | 当工具更新时的回调函数 |
+| `onError`        | `((msg: string, err?: any) => void) \| undefined` | `undefined` | 当发生错误时的回调函数 |
+
+### 使用示例
+
+```typescript
+// 关闭所有连接
+await webAgent.closeAll()
+
+// 更新 MCP 服务器配置
+await webAgent.updateMcpServers([{ type: 'streamableHttp', url: 'https://xxxx' }])
+
+// 插入新的 MCP 服务器
+const success = await webAgent.insertMcpServer({ type: 'streamableHttp', url: 'https://yyyy' })
+
+// 删除 MCP 服务器
+webAgent.removeMcpServer({ type: 'streamableHttp', url: 'https://xxxx' })
+
+// 设置工具更新回调
+webAgent.onUpdatedTools = () => {
+  console.log('工具更新了')
+}
+
+// 设置错误回调
+webAgent.onError = (msg, err) => {
+  console.log('发生错误', msg, err)
+}
+
+// 初始化客户端和工具
+await webAgent.initClientsAndTools()
+```
