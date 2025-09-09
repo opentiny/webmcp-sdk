@@ -8,15 +8,21 @@
       <tr-icon-button :icon="IconHistory" size="28" svgSize="20" @click="showHistory = !showHistory" />
       <QrCodeScan @scanSuccess="handleScanSuccess" />
 
-      <TrHistory
-        v-show="showHistory"
-        class="tr-history-demo"
-        tab-title="历史会话"
-        :selected="conversationState.currentId"
-        :data="conversationState.conversations"
-        @close="showHistory = false"
-        @item-click="handleHistorySelect"
-      ></TrHistory>
+      <!-- 历史会话抽屉 -->
+      <Transition name="drawer-slide" appear>
+        <div v-if="showHistory" class="drawer-overlay" @click="showHistory = false">
+          <div class="drawer-container" @click.stop>
+            <TrHistory
+              class="tr-history-demo"
+              tab-title="历史会话"
+              :selected="conversationState.currentId"
+              :data="conversationState.conversations"
+              @close="showHistory = false"
+              @item-click="handleHistorySelect"
+            ></TrHistory>
+          </div>
+        </div>
+      </Transition>
     </template>
     <tr-bubble-provider :content-renderers="contentRenderer">
       <slot name="welcome" v-if="messages.length === 0">
@@ -606,16 +612,67 @@ defineExpose({
   :deep(.mcp-server-picker.popup-type-drawer) {
     width: 100% !important;
   }
+
+  /* 移动端抽屉样式优化 */
+  .drawer-container {
+    width: 85%;
+    max-width: none;
+  }
+}
+
+/* 抽屉动画样式 */
+.drawer-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: var(--tr-z-index-popover);
+  background-color: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(2px);
+}
+
+.drawer-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 76%;
+  max-width: 400px;
+  background: white;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
+  transform: translateX(0);
+}
+
+/* 抽屉滑入滑出动画 */
+.drawer-slide-enter-active,
+.drawer-slide-leave-active {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.drawer-slide-enter-active .drawer-container,
+.drawer-slide-leave-active .drawer-container {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.drawer-slide-enter-from {
+  opacity: 0;
+}
+
+.drawer-slide-enter-from .drawer-container {
+  transform: translateX(-100%);
+}
+
+.drawer-slide-leave-to {
+  opacity: 0;
+}
+
+.drawer-slide-leave-to .drawer-container {
+  transform: translateX(-100%);
 }
 
 .tr-history-demo {
-  position: absolute !important;
-  right: 134px;
-  top: 85px;
-
-  z-index: var(--tr-z-index-popover);
-  width: 300px;
-  height: 600px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  height: 100%;
+  width: 100%;
 }
 </style>
