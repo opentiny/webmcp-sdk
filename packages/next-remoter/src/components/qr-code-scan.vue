@@ -58,14 +58,17 @@ const start = () => {
         useBarCodeDetectorIfSupported: true // 使用更快的条码检测器
       },
       (decodedText) => {
-        const url = new URL(decodedText)
-        const sessionId = url.searchParams.get('sessionId')
-        if (sessionId) {
-          emit('scanSuccess', sessionId)
-        } else {
+        try {
+          const url = new URL(decodedText)
+          const sessionId = url.searchParams.get('sessionId')
+          if (sessionId) {
+            emit('scanSuccess', sessionId)
+          } else {
+            showToast('无效的二维码')
+          }
+        } catch (error) {
           showToast('无效的二维码')
         }
-
         stop()
       }
     )
