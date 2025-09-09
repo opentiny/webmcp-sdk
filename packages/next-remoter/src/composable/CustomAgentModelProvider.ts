@@ -5,9 +5,7 @@ import { BaseModelProvider } from '@opentiny/tiny-robot-kit'
 import type { AIModelConfig } from '@opentiny/tiny-robot-kit'
 import { type Ref } from 'vue'
 import { AgentModelProvider, McpServerConfig, IAgentModelProviderOption } from '@opentiny/next-sdk'
-import { tool } from 'ai'
-import dayjs from 'dayjs'
-import { z } from 'zod'
+import { getToday } from './tools'
 
 /** Tiny-robot 所需要的自定义大语言的Provider */
 export class CustomAgentModelProvider extends BaseModelProvider {
@@ -44,29 +42,17 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     this.systemPrompt = systemPrompt
   }
 
-  /** 同步请求不需要实现 */
-  chat(request: ChatCompletionRequest): Promise<ChatCompletionResponse> {
-    throw new Error('Method not implemented.')
-  }
-
   async chatStream(request: ChatCompletionRequest, handler: StreamHandler): Promise<void> {
     // 读取用户最新的请求
     const lastUserMsg = request.messages[request.messages.length - 1]
     if (!lastUserMsg) return
+
     const result = await this.agent.chatStream({
-      message: lastUserMsg.content as string,
+      message: lastUserMsg.content as string, // 只推入一条消息
       model: 'deepseek-ai/DeepSeek-V3',
       system: this.systemPrompt,
       abortSignal: request.options?.signal,
-      tools: {
-        'get-today': tool({
-          description: '获取今天的日期',
-          inputSchema: z.object({}),
-          execute: () => ({
-            date: `当前日期: ${dayjs().format('YYYY-M-D')}`
-          })
-        })
-      },
+      tools: { ['get-today']: getToday },
       maxSteps: 15
     })
 
@@ -131,5 +117,10 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     }
 
     handler.onDone()
+  }
+
+  /** 同步请求不需要实现 */
+  chat(request: ChatCompletionRequest): Promise<ChatCompletionResponse> {
+    throw new Error('Method not implemented.')
   }
 }

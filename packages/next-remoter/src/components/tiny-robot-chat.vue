@@ -4,8 +4,19 @@
       <h3 class="tr-container__title">{{ title }}</h3>
     </template>
     <template #operations>
-      <tr-icon-button :icon="IconNewSession" size="28" svgSize="20" @click="createConversation()" />
+      <tr-icon-button :icon="IconNewSession" size="28" svgSize="20" @click="handleCreateConversation()" />
+      <tr-icon-button :icon="IconHistory" size="28" svgSize="20" @click="showHistory = !showHistory" />
       <QrCodeScan @scanSuccess="handleScanSuccess" />
+
+      <TrHistory
+        v-show="showHistory"
+        class="tr-history-demo"
+        tab-title="历史会话"
+        :selected="conversationState.currentId"
+        :data="conversationState.conversations"
+        @close="showHistory = false"
+        @item-click="handleHistorySelect"
+      ></TrHistory>
     </template>
     <tr-bubble-provider :content-renderers="contentRenderer">
       <slot name="welcome" v-if="messages.length === 0">
@@ -99,15 +110,16 @@ import {
   TrIconButton,
   BubbleMarkdownContentRenderer,
   TrMcpServerPicker,
+  TrHistory,
   type PluginInfo,
   type MarketCategoryOption,
   type PluginTool
 } from '@opentiny/tiny-robot'
 import { PromptProps } from '@opentiny/tiny-robot'
 import { GeneratingStatus, STATUS } from '@opentiny/tiny-robot-kit'
-import { IconNewSession, IconPlugin } from '@opentiny/tiny-robot-svgs'
+import { IconNewSession, IconPlugin, IconHistory } from '@opentiny/tiny-robot-svgs'
 import { useTinyRobotChat } from '../composable/useTinyRobotChat'
-import { nextTick, watch, h, CSSProperties, toRef, computed, ref, onMounted } from 'vue'
+import { h, CSSProperties, toRef, computed, ref, onMounted } from 'vue'
 import { createRemoter, McpServerConfig } from '@opentiny/next-sdk'
 import QrCodeScan from './qr-code-scan.vue'
 import { DEFAULT_SERVERS } from './default-mcps'
@@ -158,8 +170,10 @@ const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })
 const show = defineModel('show', { type: Boolean, default: false })
 
 const {
+  showHistory,
   agent, // ai-sdk的自定义代理，client通过它和llm 对话。 agent.ignoreToolnames=[] 是记录需要过滤掉的tools
   welcomeIcon,
+  conversationState,
   messages,
   messageState,
   inputMessage,
@@ -168,11 +182,13 @@ const {
   senderRef,
   sendMessage,
   handleSendMessage,
-  createConversation
+  createConversation,
+  handleHistorySelect,
+  handleCreateConversation
 } = useTinyRobotChat({
   sessionId: toRef(props, 'sessionId'),
   agentRoot: toRef(props, 'agentRoot'),
-  systemPrompt: props.systemPrompt
+  systemPrompt: props.systemPrompt || ''
 })
 
 const lang: Record<string, { title: string; description: string; placeholder: string; thinking: string }> = {
@@ -189,11 +205,6 @@ const lang: Record<string, { title: string; description: string; placeholder: st
     thinking: 'Thinking...'
   }
 }
-
-// 页面加载时，创建会话
-onMounted(() => {
-  createConversation()
-})
 
 // 自动计算的变量
 const senderPlaceholder = computed(() =>
@@ -368,20 +379,6 @@ if (props.mode === 'remoter') {
     }
   })
 }
-
-// 最新消息滚动到底部
-const scrollToBottom = () => {
-  const containerBody = document.querySelector('div.tr-bubble-list')
-  if (containerBody) {
-    nextTick(() => {
-      containerBody.scrollTo({
-        top: containerBody.scrollHeight,
-        behavior: 'smooth'
-      })
-    })
-  }
-}
-watch(() => messages.value[messages.value.length - 1]?.content, scrollToBottom)
 
 // 对接 mcp server picker 组件
 const pluginVisible = ref(false)
@@ -589,5 +586,16 @@ defineExpose({
   :deep(.mcp-server-picker.popup-type-drawer) {
     width: 100% !important;
   }
+}
+
+.tr-history-demo {
+  position: absolute !important;
+  right: 134px;
+  top: 85px;
+
+  z-index: var(--tr-z-index-popover);
+  width: 300px;
+  height: 600px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
 }
 </style>
