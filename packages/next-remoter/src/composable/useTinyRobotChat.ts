@@ -113,6 +113,7 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt }: useTiny
     switchConversation(item.id)
     const conv = getCurrentConversation()!
     customAgentProvider.agent.messages = conv.aiSdkMessages // 切换历史对话到当前代理上
+    showHistory.value = false
   }
   // 页面加载完成后自动聚焦输入框
   onMounted(() => {
