@@ -119,7 +119,7 @@ import { PromptProps } from '@opentiny/tiny-robot'
 import { GeneratingStatus, STATUS } from '@opentiny/tiny-robot-kit'
 import { IconNewSession, IconPlugin, IconHistory } from '@opentiny/tiny-robot-svgs'
 import { useTinyRobotChat } from '../composable/useTinyRobotChat'
-import { nextTick, watch, h, CSSProperties, toRef, computed, ref, onMounted } from 'vue'
+import { h, CSSProperties, toRef, computed, ref, onMounted } from 'vue'
 import { createRemoter, McpServerConfig } from '@opentiny/next-sdk'
 import QrCodeScan from './qr-code-scan.vue'
 import { DEFAULT_SERVERS } from './default-mcps'
@@ -379,20 +379,6 @@ if (props.mode === 'remoter') {
     }
   })
 }
-
-// 最新消息滚动到底部
-const scrollToBottom = () => {
-  const containerBody = document.querySelector('div.tr-bubble-list')
-  if (containerBody) {
-    nextTick(() => {
-      containerBody.scrollTo({
-        top: containerBody.scrollHeight,
-        behavior: 'smooth'
-      })
-    })
-  }
-}
-watch(() => messages.value[messages.value.length - 1]?.content, scrollToBottom)
 
 // 对接 mcp server picker 组件
 const pluginVisible = ref(false)

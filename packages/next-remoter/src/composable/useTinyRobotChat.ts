@@ -1,6 +1,6 @@
 import { AIClient, useConversation } from '@opentiny/tiny-robot-kit'
 import { IconUser } from '@opentiny/tiny-robot-svgs'
-import { h, onMounted, onUnmounted, Ref, ref } from 'vue'
+import { h, nextTick, onMounted, onUnmounted, Ref, ref, watch } from 'vue'
 import { CustomAgentModelProvider } from './CustomAgentModelProvider'
 import { TrSender } from '@opentiny/tiny-robot'
 import logo from '../../public/svgs/logo-next-no-bg-right.svg'
@@ -111,10 +111,28 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt }: useTiny
   const handleHistorySelect = (item: { id: string }) => {
     abortRequest()
     switchConversation(item.id)
+
     const conv = getCurrentConversation()!
     customAgentProvider.agent.messages = conv.aiSdkMessages // 切换历史对话到当前代理上
     showHistory.value = false
+
+    scrollToBottom()
   }
+
+  // 最新消息滚动到底部
+  const scrollToBottom = () => {
+    nextTick(() => {
+      const containerBody = document.querySelector('div.tr-bubble-list')
+      if (containerBody) {
+        containerBody.scrollTo({
+          top: containerBody.scrollHeight,
+          behavior: 'smooth'
+        })
+      }
+    })
+  }
+  watch(() => messages.value[messages.value.length - 1]?.content, scrollToBottom)
+
   // 页面加载完成后自动聚焦输入框
   onMounted(() => {
     setTimeout(() => {
