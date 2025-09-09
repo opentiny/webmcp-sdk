@@ -121,7 +121,7 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt }: useTiny
     senderRef,
     handleSendMessage,
     createConversation: () => {
-      customAgentProvider.aiSdkMessages = []
+      customAgentProvider.agent.messages = []
       abortRequest()
       createConversation()
     }
