@@ -4,6 +4,6 @@ import App from './App.vue'
 import '@opentiny/tiny-robot/dist/style.css'
 import { setToastDefaultOptions } from 'vant'
 
-setToastDefaultOptions({ duration: 2000 })
+setToastDefaultOptions({ duration: 1000 })
 const app = createApp(App)
 app.mount('#app')

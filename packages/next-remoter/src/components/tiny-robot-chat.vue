@@ -193,14 +193,19 @@ const {
 
 const handleSendMessageCustom = async () => {
   const input = inputMessage.value
-  if (/\/[A-Za-z0-9]{6}/.test(input)) {
+  if (/^\/[A-Za-z0-9-]{6,}$/.test(input)) {
     showLoadingToast('添加工具中...')
     const res = await fetch(`${props.agentRoot}client?sessionId=${input.slice(1)}`).then((res) => res.json())
-    const sessionId = res.data.sessionId
-    await handleScanSuccess(sessionId)
-    showToast('添加工具完成')
+    const sessionId = res?.data?.sessionId
+
+    if (sessionId) {
+      await handleScanSuccess(sessionId)
+      showToast('添加工具完成')
+    } else {
+      showToast('添加工具失败,请检查 code 码是否正确')
+    }
+
     inputMessage.value = ''
-    closeToast()
   } else {
     handleSendMessage()
   }
