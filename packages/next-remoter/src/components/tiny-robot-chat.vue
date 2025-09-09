@@ -4,9 +4,21 @@
       <h3 class="tr-container__title">{{ title }}</h3>
     </template>
     <template #operations>
-      <tr-icon-button :icon="IconNewSession" size="28" svgSize="20" @click="handleCreateConversation()" />
-      <tr-icon-button :icon="IconHistory" size="28" svgSize="20" @click="showHistory = !showHistory" />
-      <QrCodeScan @scanSuccess="handleScanSuccess" />
+      <tr-icon-button
+        :icon="IconNewSession"
+        v-auto-tip="{ always: true, content: '新建会话', effect: 'dark' }"
+        size="28"
+        svgSize="20"
+        @click="handleCreateConversation()"
+      />
+      <tr-icon-button
+        :icon="IconHistory"
+        v-auto-tip="{ always: true, content: '历史会话', effect: 'dark' }"
+        size="28"
+        svgSize="20"
+        @click="showHistory = !showHistory"
+      />
+      <QrCodeScan @scanSuccess="handleScanSuccess" v-auto-tip="{ always: true, content: '应用扫码', effect: 'dark' }" />
 
       <!-- 历史会话抽屉 -->
       <Transition name="drawer-slide" appear>
@@ -19,6 +31,8 @@
               :data="conversationState.conversations"
               @close="showHistory = false"
               @item-click="handleHistorySelect"
+              @item-title-change="handleHistoryUpdateTitle"
+              @item-delete="handleHistoryDelete"
             ></TrHistory>
           </div>
         </div>
@@ -131,6 +145,9 @@ import QrCodeScan from './qr-code-scan.vue'
 import { DEFAULT_SERVERS } from './default-mcps'
 import { defaultPluginSrc } from './default-plugin-svg'
 import { SYSTEM_PROMPT } from '../const'
+import { AutoTip } from '@opentiny/vue-directive'
+
+const VAutoTip = AutoTip
 
 defineOptions({
   name: 'TinyRemoter'
@@ -188,7 +205,9 @@ const {
   senderRef,
   sendMessage,
   handleSendMessage,
-  createConversation,
+
+  handleHistoryUpdateTitle,
+  handleHistoryDelete,
   handleHistorySelect,
   handleCreateConversation
 } = useTinyRobotChat({
