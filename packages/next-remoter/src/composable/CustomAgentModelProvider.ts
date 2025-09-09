@@ -15,10 +15,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   /** 一个 ai-sdk agent 封装 */
   agent: AgentModelProvider
   systemPrompt: string
-  /** tiny-robot中流消息已经不是真实的多轮对话消息。
-   * 所以要把 ai-sdk中记录的 messges缓存起来，做为下次对话时的上下文内容
-   * */
-  aiSdkMessages: any[] = []
+
   constructor(config: AIModelConfig, sessionId: Ref<string>, agentRoot: Ref<string>, systemPrompt: string) {
     super(config)
     const options = {
@@ -54,16 +51,12 @@ export class CustomAgentModelProvider extends BaseModelProvider {
 
   async chatStream(request: ChatCompletionRequest, handler: StreamHandler): Promise<void> {
     // 读取用户最新的请求
-    const lastUserMsg = request.messages.findLast((msg) => msg.role === 'user' && msg.content !== '')
+    const lastUserMsg = request.messages[request.messages.length - 1]
     if (!lastUserMsg) return
-    // 第一次对话，压入system
-    if (this.aiSdkMessages.length === 0 && this.systemPrompt) {
-      this.aiSdkMessages.push({ role: 'system', content: this.systemPrompt })
-    }
-    this.aiSdkMessages.push(lastUserMsg)
     const result = await this.agent.chatStream({
-      messages: this.aiSdkMessages,
+      message: lastUserMsg.content as string,
       model: 'deepseek-ai/DeepSeek-V3',
+      system: this.systemPrompt,
       abortSignal: request.options?.signal,
       tools: {
         'get-today': tool({
@@ -136,11 +129,6 @@ export class CustomAgentModelProvider extends BaseModelProvider {
         }
       }
     }
-
-    // 对话完毕，立即保存 aiSdkMessages
-    // const requestMsg = (await result.request).body.messages
-    const responseMsg = (await result.response).messages
-    this.aiSdkMessages = responseMsg
 
     handler.onDone()
   }

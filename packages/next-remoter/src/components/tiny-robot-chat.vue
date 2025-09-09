@@ -159,7 +159,6 @@ const show = defineModel('show', { type: Boolean, default: false })
 
 const {
   agent, // ai-sdk的自定义代理，client通过它和llm 对话。 agent.ignoreToolnames=[] 是记录需要过滤掉的tools
-  client,
   welcomeIcon,
   messages,
   messageState,
@@ -190,6 +189,11 @@ const lang: Record<string, { title: string; description: string; placeholder: st
     thinking: 'Thinking...'
   }
 }
+
+// 页面加载时，创建会话
+onMounted(() => {
+  createConversation()
+})
 
 // 自动计算的变量
 const senderPlaceholder = computed(() =>

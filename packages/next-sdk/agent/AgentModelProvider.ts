@@ -1,4 +1,4 @@
-import { streamText, stepCountIs, generateText } from 'ai'
+import { streamText, stepCountIs, generateText, StreamTextResult } from 'ai'
 import { experimental_createMCPClient as createMCPClient, experimental_MCPClientConfig as MCPClientConfig } from 'ai'
 import type { ToolSet } from 'ai'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
@@ -38,6 +38,8 @@ export class AgentModelProvider {
   onUpdatedTools: (() => void) | undefined
   /** 内部报错时，抛出错误事件 */
   onError: ((msg: string, err?: any) => void) | undefined
+
+  messages: any[] = []
 
   constructor({ llmConfig, mcpServers, llm }: IAgentModelProviderOption) {
     // 1、保存 mcpServer
@@ -186,7 +188,7 @@ export class AgentModelProvider {
 
   async _chat(
     chatMethod: ChatMethodFn,
-    { model, maxSteps = 5, ...options }: Parameters<typeof generateText>[0] & { maxSteps?: number }
+    { model, maxSteps = 5, ...options }: Parameters<typeof generateText>[0] & { maxSteps?: number; message?: string }
   ): Promise<any> {
     if (!this.llm) {
       throw new Error('LLM is not initialized')
@@ -197,20 +199,33 @@ export class AgentModelProvider {
       this.onUpdatedTools?.()
     }
 
-    return chatMethod({
+    const chatOptions = {
       // @ts-ignore  ProviderV2 是所有llm的父类， 在每一个具体的llm 类都有一个选择model的函数用法
       model: this.llm(model),
       stopWhen: stepCountIs(maxSteps),
       ...options,
       tools: this.tempMergeTools(options.tools) as ToolSet
+    }
+
+    if (options.message && !options.messages) {
+      this.messages.push({ role: 'user', content: options.message })
+      chatOptions.messages = [...this.messages]
+    }
+
+    const result = chatMethod(chatOptions)
+
+    ;(result as StreamTextResult<ToolSet, unknown>)?.response?.then((res: any) => {
+      this.messages.push(...res.messages)
     })
+
+    return result
   }
 
-  async chat(options: Parameters<typeof generateText>[0] & { maxSteps?: number }): Promise<any> {
+  async chat(options: Parameters<typeof generateText>[0] & { maxSteps?: number; message?: string }): Promise<any> {
     return this._chat(generateText, options)
   }
 
-  async chatStream(options: Parameters<typeof streamText>[0] & { maxSteps?: number }): Promise<any> {
+  async chatStream(options: Parameters<typeof streamText>[0] & { maxSteps?: number; message?: string }): Promise<any> {
     return this._chat(streamText, options as any)
   }
 }
