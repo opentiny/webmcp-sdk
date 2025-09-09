@@ -72,7 +72,8 @@ function handleSuggestionClick(str: string) {
     display: none;
   }
 
-  .tr-icon-button:first-child {
+  .tr-icon-button:first-child,
+  .tr-icon-button:nth-child(2) {
     display: flex;
   }
 }
