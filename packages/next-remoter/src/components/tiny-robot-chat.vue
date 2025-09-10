@@ -179,6 +179,12 @@ const props = defineProps({
     type: String,
     default: 'zh-CN'
   },
+  remoteUrl: {
+    type: String
+  },
+  qrCodeUrl: {
+    type: String
+  },
   /** 展示模式： 'remoter' | 'chat-dialog'
    * 遥控器模式： 自动在右下角显示一个AI图标，点击展开多个菜单项。
    * 对话框模式： 直接显示一个对话框界面
@@ -384,6 +390,8 @@ const contentRenderer = { markdown: new BubbleMarkdownContentRenderer({ mdConfig
 if (props.mode === 'remoter') {
   createRemoter({
     sessionId: props.sessionId,
+    qrCodeUrl: props.qrCodeUrl,
+    remoteUrl: props.remoteUrl,
     onShowAIChat: () => {
       show.value = true
     }
