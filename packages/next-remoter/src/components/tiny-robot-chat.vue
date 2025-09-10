@@ -135,16 +135,17 @@ import {
   type MarketCategoryOption,
   type PluginTool
 } from '@opentiny/tiny-robot'
-import { PromptProps } from '@opentiny/tiny-robot'
+
 import { GeneratingStatus, STATUS } from '@opentiny/tiny-robot-kit'
 import { IconNewSession, IconPlugin, IconHistory } from '@opentiny/tiny-robot-svgs'
 import { useTinyRobotChat } from '../composable/useTinyRobotChat'
-import { h, CSSProperties, toRef, computed, ref, onMounted } from 'vue'
+import { toRef, computed, ref, onMounted, watch } from 'vue'
 import { createRemoter, McpServerConfig } from '@opentiny/next-sdk'
 import QrCodeScan from './qr-code-scan.vue'
 import { DEFAULT_SERVERS } from './default-mcps'
 import { defaultPluginSrc } from './default-plugin-svg'
 import { AutoTip } from '@opentiny/vue-directive'
+import { getLang, mapMake } from './lang'
 
 const VAutoTip = AutoTip
 
@@ -191,6 +192,26 @@ const props = defineProps({
 const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })
 const show = defineModel('show', { type: Boolean, default: false })
 
+// 对接 mcp server picker 组件
+const pluginVisible = ref(false)
+
+// 已安装插件数据
+const installedPlugins = ref<PluginInfo[]>([])
+
+// 市场插件数据
+const marketPlugins = ref<PluginInfo[]>([...DEFAULT_SERVERS])
+
+// 市场分类选项
+const marketCategoryOptions = ref<MarketCategoryOption[]>([
+  { value: '', label: '全部分类' },
+  { value: 'productivity', label: '生产力工具' },
+  { value: 'communication', label: '沟通协作' },
+  { value: 'development', label: '开发工具' },
+  { value: 'ai', label: 'AI 助手' }
+])
+
+const { lang, pillItems, promptItems } = getLang(props)
+
 const {
   showHistory,
   agent, // ai-sdk的自定义代理，client通过它和llm 对话。 agent.ignoreToolnames=[] 是记录需要过滤掉的tools
@@ -204,7 +225,6 @@ const {
   senderRef,
   sendMessage,
   handleSendMessage,
-
   handleHistoryUpdateTitle,
   handleHistoryDelete,
   handleHistorySelect,
@@ -235,21 +255,6 @@ const handleSendMessageCustom = async () => {
   }
 }
 
-const lang: Record<string, { title: string; description: string; placeholder: string; thinking: string }> = {
-  'zh-CN': {
-    title: 'OpenTiny NEXT',
-    description: '我是你的私人智能助手',
-    placeholder: '请输入您的问题',
-    thinking: '正在思考中...'
-  },
-  'en-US': {
-    title: 'OpenTiny NEXT',
-    description: 'I am your private AI assistant',
-    placeholder: 'Please enter your question',
-    thinking: 'Thinking...'
-  }
-}
-
 // 自动计算的变量
 const senderPlaceholder = computed(() =>
   GeneratingStatus.includes(messageState.status) ? lang[props.locale].thinking : lang[props.locale].placeholder
@@ -257,70 +262,6 @@ const senderPlaceholder = computed(() =>
 
 const senderLoading = computed(() => GeneratingStatus.includes(messageState.status))
 
-// 默认的Prompts。 仅做为介绍性文字，点击不触发事件
-const promptItems: PromptProps[] = [
-  {
-    label: props.locale === 'zh-CN' ? '企业办公助手' : 'Enterprise Office Assistant',
-    description:
-      props.locale === 'zh-CN'
-        ? '需要我帮你处理邮件、安排会议、整理文档，还是优化工作流程？'
-        : 'Need help with emails, meeting scheduling, document organization, or workflow optimization?',
-    icon: h('span', { style: { fontSize: '18px' } as CSSProperties }, '🧠'),
-    badge: 'NEW'
-  },
-  {
-    label: props.locale === 'zh-CN' ? '开发技术支持' : 'Development Support',
-    description:
-      props.locale === 'zh-CN'
-        ? '遇到代码问题？需要架构建议？还是想了解最新的技术趋势？'
-        : 'Facing code issues? Need architecture advice? Or want to learn about latest tech trends?',
-    icon: h('span', { style: { fontSize: '18px' } as CSSProperties }, '💻')
-  },
-  {
-    label: props.locale === 'zh-CN' ? '项目管理协作' : 'Project Management',
-    description:
-      props.locale === 'zh-CN'
-        ? '需要项目规划、任务分配、进度跟踪，还是团队协作建议？'
-        : 'Need project planning, task assignment, progress tracking, or team collaboration advice?',
-    icon: h('span', { style: { fontSize: '18px' } as CSSProperties }, '📊')
-  }
-]
-
-// 默认的 SuggestionPills
-const mapMake = (str: string, id: number) => {
-  const [text, inputMessage] = str.split('#')
-  return { id, text, inputMessage }
-}
-const pillItems = [
-  {
-    id: 'office',
-    text: props.locale === 'zh-CN' ? '办公助手' : 'Office Assistant',
-    menus: [
-      '接收邮件#请同步邮箱的新邮件。',
-      '编写邮件#请新建一个邮件，收件人为 opentiny-next@meeting.com, 内容为举办一个临时会议。',
-      '安排会议#创建一个临时的在线会议，主题为讨论问题，时长为1小时。',
-      '整理文档#请分析附件中的销售情况，把销售额绘制成折线图。'
-    ].map(mapMake)
-  },
-  {
-    id: 'development',
-    text: props.locale === 'zh-CN' ? '开发支持' : 'Development Support',
-    menus: [
-      '遇到代码问题#请检查当前位置的报错原因。',
-      '架构建议#请使用NodeJs实现一个分块上传文件的模块。',
-      '最新的技术趋势#请分析Vue与React 框架的优劣分别是什么？'
-    ].map(mapMake)
-  },
-  {
-    id: 'management',
-    text: props.locale === 'zh-CN' ? '项目管理' : 'Project Management',
-    menus: [
-      '项目规划#如何开展品牌推广的活动？',
-      '任务分配#将本季度的销售任务分配给三个人，并生成甘特图进行跟踪。',
-      '进度跟踪#分析团队的任务完成情况。'
-    ].map(mapMake)
-  }
-]
 const handlePillItemClick = (item: ReturnType<typeof mapMake>) => {
   inputMessage.value = item.inputMessage
 }
@@ -362,8 +303,20 @@ function loadMcpServerToPlugin(mcpServer: McpServerConfig) {
         enabled: true
       }
     })
+
+    const pluginId = `plugin-${sessionId}`
+
+    // 检查是否已存在相同的插件，避免重复添加
+    const existingPlugin = installedPlugins.value.find((plugin) => plugin.id === pluginId)
+    if (existingPlugin) {
+      // 如果插件已存在，更新其工具列表和配置
+      existingPlugin.tools = pluginTools
+      existingPlugin.originMcpConfig = mcpServer
+      return
+    }
+
     const plugin: PluginInfo = {
-      id: `plugin-${sessionId}`,
+      id: pluginId,
       name: url.origin,
       icon: defaultPluginSrc,
       description: sessionId,
@@ -379,17 +332,30 @@ function loadMcpServerToPlugin(mcpServer: McpServerConfig) {
     agent.removeMcpServer(mcpServer)
   }
 }
+
+watch(
+  () => pluginVisible.value,
+  async (value) => {
+    if (value) {
+      showLoadingToast('查询工具中·...')
+      await agent.initClientsAndTools()
+
+      agent.mcpServers.forEach((mcpServer) => {
+        loadMcpServerToPlugin(mcpServer)
+      })
+      await agent.closeAll()
+      showToast('查询工具完成')
+    }
+  },
+  { once: true }
+)
+
 // 页面加载时，要判断 agent上，初始就加载的 agent.mcpServer，加载后记录在 agent.mcpTools下
 onMounted(async () => {
   // 统一报错
   agent.onError = (msg) => {
     msg && showToast(msg)
   }
-
-  await agent.initClientsAndTools()
-  agent.mcpServers.forEach((mcpServer) => {
-    loadMcpServerToPlugin(mcpServer)
-  })
 
   // 每次chat的过程中，更新 tools 后，已安装的插件需要同步一次
   agent.onUpdatedTools = () => {
@@ -423,24 +389,6 @@ if (props.mode === 'remoter') {
     }
   })
 }
-
-// 对接 mcp server picker 组件
-const pluginVisible = ref(false)
-
-// 已安装插件数据
-const installedPlugins = ref<PluginInfo[]>([])
-
-// 市场插件数据
-const marketPlugins = ref<PluginInfo[]>([...DEFAULT_SERVERS])
-
-// 市场分类选项
-const marketCategoryOptions = ref<MarketCategoryOption[]>([
-  { value: '', label: '全部分类' },
-  { value: 'productivity', label: '生产力工具' },
-  { value: 'communication', label: '沟通协作' },
-  { value: 'development', label: '开发工具' },
-  { value: 'ai', label: 'AI 助手' }
-])
 
 // 整个插件的打开或关闭
 const handlePluginToggle = (plugin: PluginInfo, enabled: boolean) => {

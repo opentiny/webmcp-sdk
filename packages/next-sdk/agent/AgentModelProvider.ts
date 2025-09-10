@@ -31,9 +31,6 @@ export class AgentModelProvider {
   /**  需要实时过滤掉的tools name*/
   ignoreToolnames: string[] = []
 
-  /** 在 chat 之前，自动更新 所有的tools */
-  autoUpdateTools = true
-
   /** chat 时，自动更新 所有的tools 后的事件 */
   onUpdatedTools: (() => void) | undefined
   /** 内部报错时，抛出错误事件 */
@@ -116,7 +113,7 @@ export class AgentModelProvider {
     await Promise.all(
       this.mcpClients.map(async (client) => {
         try {
-          await client.close()
+          await client?.close()
         } catch (error: unknown) {
           if (this.onError) {
             this.onError((error as Error)?.message || `Failed to close client`, error)
@@ -195,10 +192,9 @@ export class AgentModelProvider {
       throw new Error('LLM is not initialized')
     }
 
-    if (this.autoUpdateTools) {
-      await this._createMpcTools()
-      this.onUpdatedTools?.()
-    }
+    await this.initClientsAndTools()
+
+    this.onUpdatedTools?.()
 
     const chatOptions = {
       // @ts-ignore  ProviderV2 是所有llm的父类， 在每一个具体的llm 类都有一个选择model的函数用法

@@ -53,7 +53,11 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       system: this.systemPrompt,
       abortSignal: request.options?.signal,
       tools: { ['get-today']: getToday },
-      maxSteps: 15
+      maxSteps: 15,
+      onFinish: async () => {
+        await this.agent.closeAll()
+        handler.onDone()
+      }
     })
 
     // 标识每一个markdown块
@@ -115,8 +119,6 @@ export class CustomAgentModelProvider extends BaseModelProvider {
         }
       }
     }
-
-    handler.onDone()
   }
 
   /** 同步请求不需要实现 */
