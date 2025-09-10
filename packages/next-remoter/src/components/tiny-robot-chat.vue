@@ -144,7 +144,6 @@ import { createRemoter, McpServerConfig } from '@opentiny/next-sdk'
 import QrCodeScan from './qr-code-scan.vue'
 import { DEFAULT_SERVERS } from './default-mcps'
 import { defaultPluginSrc } from './default-plugin-svg'
-import { SYSTEM_PROMPT } from '../const'
 import { AutoTip } from '@opentiny/vue-directive'
 
 const VAutoTip = AutoTip
@@ -167,7 +166,7 @@ const props = defineProps({
   /** 系统提示词 */
   systemPrompt: {
     type: String,
-    default: SYSTEM_PROMPT
+    default: '你是一个智能生活助手，擅长通过工具调用帮助用户完成任务'
   },
   /** 左上角的标题 */
   title: {

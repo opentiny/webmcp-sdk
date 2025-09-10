@@ -32,7 +32,11 @@
 import { ref } from 'vue'
 import { TinyRemoter } from './index'
 import { TrWelcome, TrPrompts, TrSuggestionPillButton } from '@opentiny/tiny-robot'
-import { SYSTEM_PROMPT } from './const'
+import { OFFICE_PROMPT, SHOP_PROMPT } from './const'
+
+const props = defineProps({
+  support: String // 支持什么应用：  office: 办公场景，  shop: 电商场景
+})
 
 const show = ref(true)
 const fullscreen = ref(true)
@@ -55,7 +59,7 @@ const title = query.get('title') || 'OpenTiny NEXT'
 // 5、  定制接收 prompts, suggestion的参数
 const welcomeTitle = query.get('welcome-title')
 const welcomeDesc = query.get('welcome-desc')
-const systemPrompt = query.get('system-prompt') || SYSTEM_PROMPT
+const systemPrompt = query.get('system-prompt') || (props.support === 'office' ? OFFICE_PROMPT : SHOP_PROMPT)
 
 const promts = query.getAll('promt') || [] // promt=你好&promt=世界
 const promptItems = promts.map((str) => ({ label: str }))

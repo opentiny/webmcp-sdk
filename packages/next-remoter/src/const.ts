@@ -1,3 +1,5 @@
-import systemprompt from './system-prompt.md?raw'
+import officePrompt from './office-prompt.md?raw'
+import shopPrompt from './shop-prompt.md?raw'
 
-export const SYSTEM_PROMPT = systemprompt
+export const OFFICE_PROMPT = officePrompt
+export const SHOP_PROMPT = shopPrompt

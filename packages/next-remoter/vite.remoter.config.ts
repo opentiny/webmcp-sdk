@@ -7,6 +7,7 @@ import svgLoader from 'vite-svg-loader'
 import { VantResolver } from '@vant/auto-import-resolver'
 import { visualizer } from 'rollup-plugin-visualizer'
 import importPlugin from '@opentiny/vue-vite-import'
+import { resolve } from 'node:path'
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -15,6 +16,14 @@ export default defineConfig(({ mode }) => {
     base: '/next-remoter/',
     define: {
       'process.env': { TINY_MODE: 'pc' }
+    },
+    build: {
+      rollupOptions: {
+        input: {
+          office: resolve(__dirname, './index.html'),
+          shop: resolve(__dirname, './shop.html')
+        }
+      }
     },
     plugins: [
       vue(),
