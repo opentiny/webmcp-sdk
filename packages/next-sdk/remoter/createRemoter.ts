@@ -1,5 +1,8 @@
 import { QrCode } from './QrCode'
 
+const DEFAULT_REMOTE_URL = 'https://agent.opentiny.design/tiny-robot'
+const DEFAULT_QR_CODE_URL = 'https://ai.opentiny.design/next-remoter'
+
 /** 菜单项配置接口 */
 interface MenuItemConfig {
   /** 菜单项标识 */
@@ -27,6 +30,8 @@ interface FloatingBlockOptions {
   sessionId: string
   /** 菜单项配置 */
   menuItems?: MenuItemConfig[]
+  /** 遥控端页面地址，默认为： https://agent.opentiny.design/tiny-robot */
+  remoteUrl?: string
 }
 
 // 动作类型
@@ -80,8 +85,8 @@ const getDefaultMenuItems = (options: FloatingBlockOptions): MenuItemConfig[] =>
     {
       action: 'remote-url',
       show: true,
-      text: `${options.qrCodeUrl}`,
-      tip: options.qrCodeUrl,
+      text: `${options.remoteUrl}`,
+      tip: options.remoteUrl,
       showCopyIcon: true,
       icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
@@ -109,8 +114,9 @@ class FloatingBlock {
     }
 
     this.options = {
-      qrCodeUrl: options.qrCodeUrl || 'https://ai.opentiny.design/next-remoter',
-      ...options
+      ...options,
+      qrCodeUrl: options.qrCodeUrl || DEFAULT_QR_CODE_URL,
+      remoteUrl: options.remoteUrl || DEFAULT_REMOTE_URL
     }
 
     // 合并默认菜单项配置和用户配置
@@ -156,7 +162,7 @@ class FloatingBlock {
     this.floatingBlock.className = 'tiny-remoter-floating-block'
     this.floatingBlock.innerHTML = `
       <div class="tiny-remoter-floating-block__icon">
-        <img style="display: block; width: 56px;" src="https://ai.opentiny.design/next-remoter/svgs/logo-next-no-bg-left.svg" alt="icon" />
+        <img style="display: block; width: 56px;" src="${DEFAULT_QR_CODE_URL}/svgs/logo-next-no-bg-left.svg" alt="icon" />
       </div>
     `
 
@@ -287,7 +293,7 @@ class FloatingBlock {
   }
 
   private copyRemoteURL(): void {
-    this.copyToClipboard((this.options.qrCodeUrl || '') + this.sessionPrefix + this.options.sessionId)
+    this.copyToClipboard(this.options.remoteUrl + this.sessionPrefix + this.options.sessionId)
   }
 
   // 实现复制到剪贴板功能
