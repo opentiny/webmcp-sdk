@@ -74,7 +74,10 @@ export class AgentModelProvider {
         transport = serverConfig as MCPClientConfig['transport']
       }
 
-      return await createMCPClient({ transport: transport as MCPClientConfig['transport'] })
+      const client = await createMCPClient({ transport: transport as MCPClientConfig['transport'] })
+      //@ts-ignore
+      client['transport'] = transport
+      return client
     } catch (error: unknown) {
       if (this.onError) {
         this.onError((error as Error)?.message || `Failed to create MCP client`, error)
@@ -82,6 +85,11 @@ export class AgentModelProvider {
       console.error(`Failed to create MCP client`, serverConfig, error)
       return null
     }
+  }
+  /** 关闭一个client */
+  private async _closeOneClient(client: any) {
+    await client.transport?.terminateSession()
+    await client?.close()
   }
   /** 创建 ai-sdk的 mcpClient, 失败则保存为null */
   private async _createMpcClients() {
@@ -113,7 +121,7 @@ export class AgentModelProvider {
     await Promise.all(
       this.mcpClients.map(async (client) => {
         try {
-          await client?.close()
+          await this._closeOneClient(client)
         } catch (error: unknown) {
           if (this.onError) {
             this.onError((error as Error)?.message || `Failed to close client`, error)
@@ -148,7 +156,7 @@ export class AgentModelProvider {
     return false
   }
   /** 通过引用，删除一个 mcpServers mcpClients  mcpTools ignoreToolnames  */
-  removeMcpServer(mcpServer: McpServerConfig) {
+  async removeMcpServer(mcpServer: McpServerConfig) {
     const index = this.mcpServers.findIndex((server) => server === mcpServer)
 
     // 移除
@@ -158,7 +166,7 @@ export class AgentModelProvider {
     const delClient = this.mcpClients[index]
     this.mcpClients.splice(index, 1)
     try {
-      delClient?.close()
+      await this._closeOneClient(delClient)
     } catch (error) {}
 
     // 移除 tools
