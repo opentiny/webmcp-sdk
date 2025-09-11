@@ -4,21 +4,9 @@
       <h3 class="tr-container__title">{{ title }}</h3>
     </template>
     <template #operations>
-      <tr-icon-button
-        :icon="IconNewSession"
-        v-auto-tip="{ always: true, content: '新建会话', effect: 'dark' }"
-        size="28"
-        svgSize="20"
-        @click="handleCreateConversation()"
-      />
-      <tr-icon-button
-        :icon="IconHistory"
-        v-auto-tip="{ always: true, content: '历史会话', effect: 'dark' }"
-        size="28"
-        svgSize="20"
-        @click="showHistory = !showHistory"
-      />
-      <QrCodeScan @scanSuccess="handleScanSuccess" v-auto-tip="{ always: true, content: '应用扫码', effect: 'dark' }" />
+      <tr-icon-button :icon="IconNewSession" size="28" svgSize="20" @click="handleCreateConversation()" />
+      <tr-icon-button :icon="IconHistory" size="28" svgSize="20" @click="showHistory = !showHistory" />
+      <QrCodeScan @scanSuccess="handleScanSuccess" />
 
       <!-- 历史会话抽屉 -->
       <Transition name="drawer-slide" appear>
@@ -144,10 +132,7 @@ import { createRemoter, McpServerConfig } from '@opentiny/next-sdk'
 import QrCodeScan from './qr-code-scan.vue'
 import { DEFAULT_SERVERS } from './default-mcps'
 import { defaultPluginSrc } from './default-plugin-svg'
-import { AutoTip } from '@opentiny/vue-directive'
 import { getLang, mapMake } from './lang'
-
-const VAutoTip = AutoTip
 
 defineOptions({
   name: 'TinyRemoter'
@@ -197,6 +182,7 @@ const props = defineProps({
 
 const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })
 const show = defineModel('show', { type: Boolean, default: false })
+const isInitClientsAndTools = ref(false)
 
 // 对接 mcp server picker 组件
 const pluginVisible = ref(false)
@@ -274,6 +260,11 @@ const handlePillItemClick = (item: ReturnType<typeof mapMake>) => {
 
 // 处理扫码结果。 把结果添加到 agent.mcpServers， 以及 插入McpServerPicker的一个Plugin
 const handleScanSuccess = async (sessionId: string) => {
+  if (!isInitClientsAndTools.value) {
+    await agent.initClientsAndTools()
+    isInitClientsAndTools.value = true
+  }
+
   if (sessionId) {
     const mcpServer = {
       type: 'streamableHttp',
@@ -343,14 +334,17 @@ watch(
   () => pluginVisible.value,
   async (value) => {
     if (value) {
-      showLoadingToast('查询工具中·...')
-      await agent.initClientsAndTools()
+      if (!isInitClientsAndTools.value) {
+        showLoadingToast('查询工具中·...')
+        await agent.initClientsAndTools()
+        isInitClientsAndTools.value = true
+        showToast('查询工具完成')
+      }
 
       agent.mcpServers.forEach((mcpServer) => {
         loadMcpServerToPlugin(mcpServer)
       })
       await agent.closeAll()
-      showToast('查询工具完成')
     }
   },
   { once: true }
