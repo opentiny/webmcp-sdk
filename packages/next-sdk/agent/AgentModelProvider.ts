@@ -76,7 +76,7 @@ export class AgentModelProvider {
 
       const client = await createMCPClient({ transport: transport as MCPClientConfig['transport'] })
       //@ts-ignore
-      client['transport'] = transport
+      client['__transport__'] = transport
       return client
     } catch (error: unknown) {
       if (this.onError) {
@@ -88,8 +88,9 @@ export class AgentModelProvider {
   }
   /** 关闭一个client */
   private async _closeOneClient(client: any) {
-    await client.transport?.terminateSession()
-    await client?.close()
+    await client['__transport__']?.terminateSession?.()
+    await client['__transport__']?.close?.()
+    await client?.close?.()
   }
   /** 创建 ai-sdk的 mcpClient, 失败则保存为null */
   private async _createMpcClients() {
