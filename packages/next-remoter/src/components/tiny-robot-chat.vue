@@ -227,39 +227,10 @@ const {
   systemPrompt: props.systemPrompt || ''
 })
 
-const handleSendMessageCustom = async () => {
-  const input = inputMessage.value
-  if (/^\/[A-Za-z0-9-]{6,}$/.test(input)) {
-    showLoadingToast('添加工具中...')
-    const res = await fetch(`${props.agentRoot}client?sessionId=${input.slice(1)}`).then((res) => res.json())
-    const sessionId = res?.data?.sessionId
-
-    if (sessionId) {
-      await handleScanSuccess(sessionId)
-      showToast('添加工具完成')
-    } else {
-      showToast('添加工具失败,请检查 code 码是否正确')
-    }
-
-    inputMessage.value = ''
-  } else {
-    handleSendMessage()
-  }
-}
-
-// 自动计算的变量
-const senderPlaceholder = computed(() =>
-  GeneratingStatus.includes(messageState.status) ? lang[props.locale].thinking : lang[props.locale].placeholder
-)
-
-const senderLoading = computed(() => GeneratingStatus.includes(messageState.status))
-
-const handlePillItemClick = (item: ReturnType<typeof mapMake>) => {
-  inputMessage.value = item.inputMessage
-}
-
 // 处理扫码结果。 把结果添加到 agent.mcpServers， 以及 插入McpServerPicker的一个Plugin
 const handleScanSuccess = async (sessionId: string) => {
+  showLoadingToast('添加工具中...')
+
   if (!isInitClientsAndTools.value) {
     await agent.initClientsAndTools()
     isInitClientsAndTools.value = true
@@ -277,10 +248,41 @@ const handleScanSuccess = async (sessionId: string) => {
       await loadMcpServerToPlugin(mcpServer)
       await agent.closeAll()
       showToast('添加工具完成')
+    } else {
+      showToast('重复添加工具')
     }
   } else {
     showToast('添加工具失败')
   }
+}
+
+const handleSendMessageCustom = async () => {
+  const input = inputMessage.value
+  if (/^\/[A-Za-z0-9-]{6,}$/.test(input)) {
+    const res = await fetch(`${props.agentRoot}client?sessionId=${input.slice(1)}`).then((res) => res.json())
+    const sessionId = res?.data?.sessionId
+
+    if (sessionId) {
+      await handleScanSuccess(sessionId)
+    } else {
+      showToast('添加工具失败,请检查识别码是否正确')
+    }
+
+    inputMessage.value = ''
+  } else {
+    handleSendMessage()
+  }
+}
+
+// 自动计算的变量
+const senderPlaceholder = computed(() =>
+  GeneratingStatus.includes(messageState.status) ? lang[props.locale].thinking : lang[props.locale].placeholder
+)
+
+const senderLoading = computed(() => GeneratingStatus.includes(messageState.status))
+
+const handlePillItemClick = (item: ReturnType<typeof mapMake>) => {
+  inputMessage.value = item.inputMessage
 }
 
 const loadMcpServerToPlugin = async (mcpServer: McpServerConfig) => {
@@ -339,7 +341,6 @@ watch(
         showLoadingToast('查询工具中·...')
         await agent.initClientsAndTools()
         isInitClientsAndTools.value = true
-        showToast('查询工具完成')
       }
 
       for (const mcpServer of agent.mcpServers) {

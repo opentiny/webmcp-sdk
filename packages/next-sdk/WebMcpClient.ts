@@ -112,7 +112,7 @@ export class WebMcpClient {
       return { transport: this.transport, sessionId: this.transport.sessionId as string }
     }
 
-    const { url, token, sessionId, type, agent } = options as ClientConnectOptions
+    const { url, token, sessionId, type, agent, onError } = options as ClientConnectOptions
 
     if (agent === true) {
       const proxyOptions: ProxyOptions = { client: this.client, url, token, sessionId }
@@ -126,6 +126,10 @@ export class WebMcpClient {
             : type === 'socket'
               ? await createSocketProxy(proxyOptions)
               : await createStreamProxy(proxyOptions)
+
+        transport.onerror = async (error: Error) => {
+          onError?.(error)
+        }
 
         response = { transport, sessionId }
       }
