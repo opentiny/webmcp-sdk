@@ -160,10 +160,8 @@ export class AgentModelProvider {
   async removeMcpServer(mcpServer: McpServerConfig) {
     const index = this.mcpServers.findIndex((server) => server === mcpServer)
 
-    // 移除
     this.mcpServers.splice(index, 1)
 
-    // 移除
     const delClient = this.mcpClients[index]
     this.mcpClients.splice(index, 1)
     try {

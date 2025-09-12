@@ -15,34 +15,12 @@ export const DEFAULT_SERVERS: PluginInfo[] = [
     type: 'StreamableHTTP'
   },
   {
-    id: 'amap-mcp',
-    name: '高德MCP服务器',
-    description: '使用高德地图能力，如获取地图数据',
-    icon: 'https://agent.opentiny.design/public-assets/icons/icon-amap.png',
-    enabled: false,
-    addState: 'idle',
-    tools: [],
-    url: mcpHost + '/api/v1/mcp-server/amap/mcp',
-    type: 'StreamableHTTP'
-  },
-  {
     id: 'markdown2pdf-mcp',
     name: 'Markdown转PDF MCP服务器',
     description: 'Markdown转PDF MCP服务器，可以将Markdown文件转换为PDF文件',
     icon: 'https://agent.opentiny.design/public-assets/icons/icon-pdf.png',
     url: mcpHost + '/servers/markdown2pdf-mcp/sse',
-    type: 'SSE',
-    enabled: false,
-    addState: 'idle',
-    tools: []
-  },
-  {
-    id: 'bingcn-mcp',
-    name: 'Bing搜索MCP服务器',
-    description: 'Bing搜索MCP服务器，可以搜索网页',
-    icon: 'https://agent.opentiny.design/public-assets/icons/icon-bing.webp',
-    url: mcpHost + '/servers/bing-mcp/sse',
-    type: 'SSE',
+    type: 'sse',
     enabled: false,
     addState: 'idle',
     tools: []
@@ -53,7 +31,7 @@ export const DEFAULT_SERVERS: PluginInfo[] = [
     description: 'Word文档MCP服务器，可以创建、编辑、保存Word文档',
     icon: 'https://agent.opentiny.design/public-assets/icons/icon-word.png',
     url: mcpHost + '/servers/excel-mcp/sse',
-    type: 'SSE',
+    type: 'sse',
     enabled: false,
     addState: 'idle',
     tools: []
@@ -64,7 +42,7 @@ export const DEFAULT_SERVERS: PluginInfo[] = [
     description: 'Excel文档MCP服务器，可以创建、编辑、保存Excel文档',
     icon: 'https://agent.opentiny.design/public-assets/icons/icon-excel.png',
     url: mcpHost + '/servers/excel-mcp/sse',
-    type: 'SSE',
+    type: 'sse',
     enabled: false,
     addState: 'idle',
     tools: []
@@ -75,7 +53,7 @@ export const DEFAULT_SERVERS: PluginInfo[] = [
     description: 'PPT文档MCP服务器，可以创建、编辑、保存PPT文档',
     icon: 'https://agent.opentiny.design/public-assets/icons/icon-ppt.png',
     url: mcpHost + '/servers/ppt-mcp/sse',
-    type: 'SSE',
+    type: 'sse',
     enabled: false,
     addState: 'idle',
     tools: []
@@ -86,18 +64,7 @@ export const DEFAULT_SERVERS: PluginInfo[] = [
     description: '文档工具MCP服务器，可以创建、编辑、保存文档',
     icon: 'https://agent.opentiny.design/public-assets/icons/icon-doc.png',
     url: mcpHost + '/servers/doc-tools-mcp/sse',
-    type: 'SSE',
-    enabled: false,
-    addState: 'idle',
-    tools: []
-  },
-  {
-    id: 'media-gen-mcp',
-    name: '媒体MCP服务器',
-    description: '媒体MCP服务器，可以创建、编辑、保存媒体',
-    icon: 'https://agent.opentiny.design/public-assets/icons/icon-media.png',
-    url: mcpHost + '/servers/media-mcp/sse',
-    type: 'SSE',
+    type: 'sse',
     enabled: false,
     addState: 'idle',
     tools: []
