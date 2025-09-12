@@ -18,11 +18,9 @@ import {
   MessageChannelClientTransport,
   sseOptions,
   streamOptions,
-  attemptConnection,
   createSseProxy,
   createStreamProxy,
-  createSocketProxy,
-  AuthClientProvider
+  createSocketProxy
 } from '@opentiny/next'
 import type {
   Result,
@@ -61,12 +59,9 @@ export interface ClientConnectOptions {
   url: string
   token?: string
   sessionId?: string
-  authProvider?: AuthClientProvider
   type?: 'channel' | 'sse' | 'stream' | 'socket'
   agent?: boolean
   onError?: (error: Error) => void
-  onUnauthorized?: (connect: () => Promise<void>) => Promise<void>
-  onReconnect?: () => Promise<void>
 }
 
 type SendRequestT = Request
@@ -117,13 +112,11 @@ export class WebMcpClient {
       return { transport: this.transport, sessionId: this.transport.sessionId as string }
     }
 
-    const { url, token, sessionId, authProvider, type, agent, onError, onUnauthorized, onReconnect } =
-      options as ClientConnectOptions
+    const { url, token, sessionId, type, agent } = options as ClientConnectOptions
 
     if (agent === true) {
-      const proxyOptions: ProxyOptions = { client: this.client, url, token, sessionId, authProvider }
+      const proxyOptions: ProxyOptions = { client: this.client, url, token, sessionId }
 
-      let reconnect = false
       let response
 
       const connectProxy = async () => {
@@ -133,21 +126,6 @@ export class WebMcpClient {
             : type === 'socket'
               ? await createSocketProxy(proxyOptions)
               : await createStreamProxy(proxyOptions)
-
-        transport.onerror = async (error: Error) => {
-          onError?.(error)
-
-          if (error.message === 'Unauthorized' && !reconnect) {
-            if (typeof onUnauthorized === 'function') {
-              await onUnauthorized(connectProxy)
-            } else {
-              reconnect = true
-              await connectProxy()
-              reconnect = false
-              await onReconnect?.()
-            }
-          }
-        }
 
         response = { transport, sessionId }
       }
@@ -165,14 +143,9 @@ export class WebMcpClient {
     }
 
     if (type === 'sse') {
-      if (authProvider) {
-        const createTransport = () => new SSEClientTransport(endpoint, { authProvider })
-        transport = await attemptConnection(this.client, authProvider.waitForOAuthCode, createTransport)
-      } else {
-        const opts = sseOptions(token, sessionId) as SSEClientTransportOptions
-        transport = new SSEClientTransport(endpoint, opts)
-        await this.client.connect(transport)
-      }
+      const opts = sseOptions(token, sessionId) as SSEClientTransportOptions
+      transport = new SSEClientTransport(endpoint, opts)
+      await this.client.connect(transport)
     }
 
     if (type === 'socket') {
@@ -182,14 +155,9 @@ export class WebMcpClient {
     }
 
     if (typeof transport === 'undefined') {
-      if (authProvider) {
-        const createTransport = () => new StreamableHTTPClientTransport(endpoint, { authProvider })
-        transport = await attemptConnection(this.client, authProvider.waitForOAuthCode, createTransport)
-      } else {
-        const opts = streamOptions(token, sessionId) as StreamableHTTPClientTransportOptions
-        transport = new StreamableHTTPClientTransport(endpoint, opts)
-        await this.client.connect(transport)
-      }
+      const opts = streamOptions(token, sessionId) as StreamableHTTPClientTransportOptions
+      transport = new StreamableHTTPClientTransport(endpoint, opts)
+      await this.client.connect(transport)
     }
 
     this.transport = transport
