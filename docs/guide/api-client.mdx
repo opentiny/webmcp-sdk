@@ -57,11 +57,9 @@ async connect(options: Transport | ClientConnectOptions): Promise<{ transport: T
 | options.url: string                       | Agent 服务地址                                         |
 | options.token?: string                    | 令牌                                                   |
 | options.sessionId?: string                | 会话 ID                                                |
-| options.authProvider?: AuthClientProvider | OAuth 鉴权提供者                                       |
 | options.type?: 'channel' \| 'sse'         | 连接类型                                               |
 | options.agent?: boolean                   | 是否连接到 WebAgent                                    |
 | options.onError?: (error: Error) => void  | 连接错误的回调函数                                     |
-| options.onUnauthorized?: () => Promise    | 未鉴权的回调函数，允许业务自定义未鉴权的逻辑           |
 | options.onReconnect?: () => Promise       | 重连的回调函数，允许业务自定义重连逻辑                 |
 
 **返回值**
@@ -109,45 +107,6 @@ client.connect({
 })
 ```
 
-通过 authProvider 配置 OAuth 鉴权
-
-```typescript
-const getAuthCodeByState = (url: string | URL, state: string) => {
-  return fetch(callback, {
-    method: 'POST',
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/x-www-form-urlencoded',
-      Authorization: `Bearer ${token}` // token 为设置的请求头 token
-    },
-    body: new URLSearchParams({ state })
-  })
-}
-
-const MY_APP_METADATA = {
-  client_name: 'my-app-client',
-  redirect_uris: ['https://my-app.com/auth/callback'], // redirect_uris 为登录授权之后重定向的地址，一般由业务后端进行实现
-  grant_types: ['authorization_code', 'refresh_token'],
-  response_types: ['code'],
-  token_endpoint_auth_method: 'client_secret_post',
-  scope: 'mcp:web'
-}
-
-const authProvider = new AuthClientProvider({ clientMetadata: MY_APP_METADATA, getAuthCodeByState })
-
-authProvider.saveClientInformation({
-  client_id: clientId, // 在 WebAgent 平台注册应用之后，平台生成的 clientId
-  redirect_uris: MY_APP_METADATA.redirect_uris
-})
-
-client.connect({
-  agent: true,
-  authProvider,
-  url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp',
-  sessionId: 'stream06-1921-4f09-af63-51de410e9e09'
-})
-```
-
 回调函数
 
 ```typescript
@@ -157,9 +116,6 @@ client.connect({
   sessionId: 'stream06-1921-4f09-af63-51de410e9e09',
   onError: (error) => {
     // 自定义错误处理逻辑
-  },
-  onUnauthorized: (error) => {
-    // 自定义未鉴权的逻辑
   },
   onReconnect: (error) => {
     // 自定义重连逻辑

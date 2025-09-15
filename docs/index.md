@@ -3,8 +3,8 @@
 layout: home
 
 hero:
-  name: "OpenTiny NEXT SDK"
-  tagline: 基于标准 MCP 协议实现的前端智能化解决方案，实现 AI 代替人操控 Web 应用。
+  name: "OpenTiny NEXT-SDKs"
+  tagline: 基于标准 MCP 协议实现的前端智能开发解决方案，实现 AI 代替人操控 Web 应用。
   actions:
     - theme: brand
       text: 开始
