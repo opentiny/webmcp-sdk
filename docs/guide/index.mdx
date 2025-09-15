@@ -2,18 +2,19 @@
 title: "快速开始"
 ---
 
-**OpenTiny NEXT SDK** 是一个基于官方 MCP 协议实现的前端智能化解决方案，可以轻松将你的 Web 应用变成智能应用，被 AI 操控。它主要由以下部分组成：
+**OpenTiny NEXT-SDKs** 是一套前端智能应用开发工具包，旨在简化 WebAgent 的集成与使用，支持多种编程语言和前端框架，帮助开发者快速实现智能化功能。
 
-* **一个核心 SDK**，基于 MCP 官方 SDK 实现，简化了原生 MCP 方法，增强了 connect 方法，适用于 Web 应用
-* **一个遥控器**，集成了 TinyRobot AI 对话框，可以用对话方式操控 Web 应用，支持手机扫码遥控
-
-**NEXT SDK** 支持通过各种主流 MCP Host 对智能应用进行操控，支持主流大模型，支持主流 AI 对话框，支持 [ Vue ](https://cn.vuejs.org/)、[ React ](https://react.dev/)、[Angular](https://www.angular.cn/) 主流前端框架。
+- 核心 SDK (包括 TypeScript, Python, Java 等版本) 提供简化的 API 封装与 WebAgent 服务的连接、认证等逻辑，同时提供易用的 API 让开发者将企业应用的前端功能声明为 MCP Server。
+- 针对不同前端框架（Vue、React、Angular、Vanilla）特性，提供 API 以降低用户在特定前端框架中的使用 MCP Server 和连接 WebAgent 的难度。
+- 提供一个适配器层，可以将任意前端 AI 对话框组件（包括 TinyRobot 组件）快速接入 WebAgent 服务。
+- 支持抹平不同 LLM 差异，支持文字、语音等多模态输入，使得 AI 对话框连接的 LLM 支持受控端的 MCP 工具调用。
+- 提供动态生成二维码功能，让企业应用里的 MCP 服务成为 AI 对话框里可以让 Agent 调用的工具。
 
 ## 让你的应用智能化
 
-使用 OpenTiny NEXT SDK，只需要以下四步，就可以把你的 Web 应用变成智能应用。
+使用 OpenTiny NEXT-SDKs，只需要以下四步，就可以把你的 Web 应用变成智能应用。
 
-**第一步：安装 NEXT SDK**
+**第一步：安装 NEXT-SDKs**
 
 ```shell
 npm i @opentiny/next-sdk
@@ -89,12 +90,12 @@ import '@opentiny/next-remoter/dist/style.css'
 
 ## 浏览器直接引入
 
-你也可以直接通过浏览器 HTML 标签导入 NEXT SDK ，这样就可以使用全局变量 `WebMCP` 了。
+你也可以直接通过浏览器 HTML 标签导入 NEXT-SDKs ，这样就可以使用全局变量 `WebMCP` 了。
 
 ```html
 <html>
   <head>
-    <!-- 导入 NEXT SDK -->
+    <!-- 导入 NEXT-SDKs -->
     <script src="https://unpkg.com/@opentiny/next-sdk@0.1/dist/index.umd.js"></script>
   </head>
   <body>

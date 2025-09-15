@@ -1,7 +1,7 @@
 {
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
-  "name": "OpenTiny NEXT SDK",
+  "name": "OpenTiny NEXT-SDKs",
   "colors": {
     "primary": "#191919",
     "light": "#b3b3b3",
@@ -15,23 +15,20 @@
           {
             "group": "介绍",
             "pages": [
-              "guide/index",
-              "guide/why"
+              "guide/index"
             ]
           },
           {
             "group": "指引",
             "pages": [
-              "guide/connect-web-agent",
               "guide/mcp-host",
               "guide/electron",
               "guide/uni-app",
-              "guide/connect-local",
-              "guide/faq"
+              "guide/connect-local"
             ]
           },
           {
-            "group": "NEXT SDK API",
+            "group": "NEXT-SDKs API",
             "pages": [
               "guide/api-client",
               "guide/api-server",
@@ -44,17 +41,6 @@
             "group": "TinyRemoter for Vue",
             "pages": [
               "remoter-ui/tiny-robot-remoter"
-            ]
-          }
-        ]
-      },
-      {
-        "tab": "资源",
-        "groups": [
-          {
-            "group": "opentiny",
-            "pages": [
-              "api-reference/introduction"
             ]
           }
         ]

@@ -2,8 +2,8 @@ import { defineConfig } from 'vitepress'
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
-  title: 'OpenTiny NEXT SDK',
-  description: 'OpenTiny NEXT SDK',
+  title: 'OpenTiny NEXT-SDKs',
+  description: 'OpenTiny NEXT-SDKs',
   base: '/next-sdk/',
   vite: {
     server: {
@@ -21,7 +21,7 @@ export default defineConfig({
           text: '介绍',
           items: [
             { text: '开始', link: '/guide/' },
-            { text: '为什么选 NEXT SDK', link: '/guide/why' }
+            { text: '为什么选 NEXT-SDKs', link: '/guide/why' }
           ]
         },
         {
@@ -36,7 +36,7 @@ export default defineConfig({
           ]
         },
         {
-          text: 'NEXT SDK API',
+          text: 'NEXT-SDKs API',
           items: [
             { text: 'WebMcpClient 类', link: '/guide/api-client' },
             { text: 'WebMcpServer 类', link: '/guide/api-server' },
