@@ -1,13 +1,9 @@
 ---
-title: "通过 MCP Host 操控前端应用"
+title: "接入三方 AI 应用"
 ---
 <Info>
-当一个传统的前端应用通过 NEXT-SDKs 升级为智能应用之后，该应用就可以被 AI 操控了。
+NEXT-SDKs 使用 MCP 标准远程通信协议，支持各类 AI 应用、Agent 开发平台通过连接 WebAgent 实现把企业应用当成 Agent 的 MCP 工具调用。
 </Info>
-
-操控前端应用的程序我们称为 **遥控器**，它是一个接入了 AI 的对话框程序，遥控器的载体可以是多种多样的，可以是支持 MCP 的 IDE 软件，
-比如：[VSCode Copilot](https://vscode.js.cn/) 、[ Cursor ](https://cursor.com/cn) 等，可以是通过智能体平台搭建的智能体应用，
-比如：[Dify](https://docs.dify.ai/) 、[Coze](https://www.coze.cn/)等，也可以是网页 AI 对话框，比如： [Ant Design X](https://ant-design-x.antgroup.com/) 、[Element Plus X](https://element-plus.org/) 等，甚至可以是一个手机 App 或 小程序。
 
 ## VSCode Copilot
 
@@ -17,7 +13,7 @@ title: "通过 MCP Host 操控前端应用"
 {
   "servers": {
     "my-app-mcp-server": {
-      "url": "https://ai.opentiny.design/mcp?sessionId=stream06-1921-4f09-af63-51de410e9e09"
+      "url": "https://agent.opentiny.design/api/v1/webmcp-trial/mcp?sessionId=stream06-1921-4f09-af63-51de410e9e09"
     }
   }
 }
@@ -55,7 +51,7 @@ title: "通过 MCP Host 操控前端应用"
 {
   "mcpServers": {
     "my-app-mcp-server": {
-      "url": "https://ai.opentiny.design/mcp?sessionId=stream06-1921-4f09-af63-51de410e9e09"
+      "url": "https://agent.opentiny.design/api/v1/webmcp-trial/mcp?sessionId=stream06-1921-4f09-af63-51de410e9e09"
     }
   }
 }
@@ -90,7 +86,7 @@ title: "通过 MCP Host 操控前端应用"
 {
   "mcpServers": {
     "my-app-mcp-server": {
-      "url": "https://ai.opentiny.design/mcp?sessionId=stream06-1921-4f09-af63-51de410e9e09"
+      "url": "https://agent.opentiny.design/api/v1/webmcp-trial/mcp?sessionId=stream06-1921-4f09-af63-51de410e9e09"
     }
   }
 }
@@ -120,7 +116,7 @@ title: "通过 MCP Host 操控前端应用"
 {
   "mcpServers": {
     "my-app-mcp-server": {
-      "url": "https://ai.opentiny.design/mcp?sessionId=34a49b60-3368-467d-b9a0-1f067dd9d2ce"
+      "url": "https://agent.opentiny.design/api/v1/webmcp-trial/mcp?sessionId=34a49b60-3368-467d-b9a0-1f067dd9d2ce"
     }
   }
 }
@@ -157,7 +153,7 @@ title: "通过 MCP Host 操控前端应用"
   "mcpServers": {
     "my-app-mcp-server": {
       "type": "streamableHttp",
-      "url": "https://ai.opentiny.design/mcp?sessionId=f7e8e829-7eeb-4f10-816e-746253961237"
+      "url": "https://agent.opentiny.design/api/v1/webmcp-trial/mcp?sessionId=f7e8e829-7eeb-4f10-816e-746253961237"
     }
   }
 }
@@ -316,7 +312,7 @@ title: "通过 MCP Host 操控前端应用"
 {
   "mcpServers": {
     "my-app-mcp-server": {
-      "url": "https://ai.opentiny.design/mcp?sessionId=stream06-1921-4f09-af63-51de410e9e09"
+      "url": "https://agent.opentiny.design/api/v1/webmcp-trial/mcp?sessionId=stream06-1921-4f09-af63-51de410e9e09"
     }
   }
 }
