@@ -145,10 +145,8 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt }: useTiny
 
   // 页面加载完成后自动聚焦输入框
   onMounted(() => {
-    setTimeout(() => {
-      senderRef.value?.focus()
-      handleCreateConversation() // 每次刷新，都是新会话
-    }, 500)
+    senderRef.value?.focus()
+    handleCreateConversation() // 每次刷新，都是新会话
   })
 
   onUnmounted(() => {
