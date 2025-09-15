@@ -4,14 +4,14 @@ layout: home
 
 hero:
   name: "OpenTiny NEXT-SDKs"
-  tagline: 基于标准 MCP 协议实现的前端智能开发解决方案，实现 AI 代替人操控 Web 应用。
+  tagline: 一套前端智能应用开发工具包，旨在简化 WebAgent 的集成与使用，支持多种编程语言和前端框架，帮助开发者快速实现智能化功能。
   actions:
     - theme: brand
       text: 开始
       link: /guide/
     - theme: alt
       text: GitHub
-      link: https://github.com/opentiny/next-sdk
+      link: https://github.com/opentiny
 
 features:
   - title: 基于标准 MCP 协议
