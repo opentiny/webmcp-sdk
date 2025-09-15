@@ -88,7 +88,9 @@
           v-model:visible="pluginVisible"
           :popup-config="{ type: 'drawer' }"
           :show-custom-add-button="false"
-          marketTabTitle="MCP 市场"
+          marketTabTitle="MCP市场"
+          installedTabTitle="已添加MCP服务"
+          title="扩展"
           :installedPlugins="installedPlugins"
           :marketPlugins="marketPlugins"
           :market-category-options="marketCategoryOptions"
@@ -133,6 +135,7 @@ import QrCodeScan from './qr-code-scan.vue'
 import { DEFAULT_SERVERS } from './default-mcps'
 import { defaultPluginSrc } from './default-plugin-svg'
 import { getLang, mapMake } from './lang'
+import { handleError } from './error-handle'
 
 defineOptions({
   name: 'TinyRemoter'
@@ -359,7 +362,7 @@ watch(
 onMounted(async () => {
   // 统一报错
   agent.onError = (msg) => {
-    msg && showToast(msg)
+    msg && showToast(handleError(msg))
   }
 
   // 每次chat的过程中会自动更新 tools ，所以已安装的插件需要同步一次
