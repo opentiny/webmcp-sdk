@@ -15,35 +15,31 @@ export const AIProviderFactories = {
 
 type ChatMethodFn = typeof streamText | typeof generateText
 
-/** 一个通用的ai-sdk的agent封装
+/** 一个通用的ai-sdk的Agent封装
  * @summary 内部自动管理了 llm, mcpServer, ai-sdk的clients 和 tools
  * @returns 暴露了 chat, chatStream方法
  */
 export class AgentModelProvider {
   llm: ProviderV2 | OpenAIProvider
-  /**  mcpServers 允许为配置为 McpServerConfig, 或者任意的 MCPTransport
+  /**  当前mcpServers数组集合。 mcpServer 允许为配置为 McpServerConfig, 或者任意的 MCPTransport
    * 参考: https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling#initializing-an-mcp-client */
   mcpServers: McpServerConfig[] = []
-  /**  ai-sdk的 mcpClient */
+  /** 当前ai-sdk的 mcpClient 数组 */
   mcpClients: any[] = []
-  /** 所有的tools */
+  /** 当前 mcpClients 所对应的tools */
   mcpTools: Array<Record<string, any>> = []
-  /**  需要实时过滤掉的tools name*/
+  /** 需要实时过滤掉的tools name*/
   ignoreToolnames: string[] = []
-
-  /** chat 时，自动更新 所有的tools 后的事件 */
+  /** Agent 自动更新所有的tools 后的事件 */
   onUpdatedTools: (() => void) | undefined
-  /** 内部报错时，抛出错误事件 */
+  /** Agent 内部报错时，抛出的错误事件 */
   onError: ((msg: string, err?: any) => void) | undefined
-
-  /** 缓存 ai-sdk response 中的 多轮会话 */
+  /** 缓存 ai-sdk response 中的 多轮会话的上下文 */
   messages: any[] = []
 
   constructor({ llmConfig, mcpServers, llm }: IAgentModelProviderOption) {
-    // 1、保存 mcpServer
     this.mcpServers = mcpServers || []
 
-    // 2、保存 llm
     if (llm) {
       this.llm = llm
     } else if (llmConfig) {
@@ -63,7 +59,7 @@ export class AgentModelProvider {
     }
   }
 
-  /** 创建一个 ai-sdk的 mcpClient, 创建失败则返回 Null */
+  /** 创建一个 ai-sdk的 mcpClient, 创建失败则返回 null */
   private async _createOneClient(serverConfig: McpServerConfig) {
     try {
       let transport: MCPClientConfig['transport']
@@ -86,13 +82,15 @@ export class AgentModelProvider {
       return null
     }
   }
-  /** 关闭一个client */
+  /** 关闭一个 mcpClient */
   private async _closeOneClient(client: any) {
-    await client['__transport__']?.terminateSession?.()
-    await client['__transport__']?.close?.()
-    await client?.close?.()
+    try {
+      await client['__transport__']?.terminateSession?.()
+      await client['__transport__']?.close?.()
+      await client?.close?.()
+    } catch (error) {}
   }
-  /** 创建 ai-sdk的 mcpClient, 失败则保存为null */
+  /** 创建所有 mcpClients */
   private async _createMpcClients() {
     // 使用 Promise.all 并行处理所有 mcpServer 项
     this.mcpClients = await Promise.all(
@@ -101,7 +99,7 @@ export class AgentModelProvider {
       })
     )
   }
-  /** 创建所有 mcpClients 的 tools, 失败则保存为null */
+  /** 查询所有 mcpClients 的 tools, 失败则保存为null */
   private async _createMpcTools() {
     this.mcpTools = await Promise.all(
       this.mcpClients.map(async (client) => {
@@ -133,17 +131,21 @@ export class AgentModelProvider {
     )
   }
 
+  /** 创建所有的 mcpClients，并更新它们的tools */
   async initClientsAndTools() {
     await this._createMpcClients()
     await this._createMpcTools()
+    this.onUpdatedTools?.()
   }
 
-  async updateMcpServers(mcpServers: McpServerConfig[]) {
+  /** 全量更新所有的 mcpServers */
+  async updateMcpServers(mcpServers?: McpServerConfig[]) {
     await this.closeAll()
-    this.mcpServers = mcpServers
+    this.mcpServers = mcpServers || this.mcpServers
     await this.initClientsAndTools()
   }
 
+  /** 插入一个新的mcpServer，如果已经存在则返回false */
   async insertMcpServer(mcpServer: McpServerConfig) {
     const find = this.mcpServers.find((item: any) => 'url' in item && 'url' in mcpServer && item.url === mcpServer.url)
 
@@ -152,11 +154,13 @@ export class AgentModelProvider {
       const client = await this._createOneClient(mcpServer)
       this.mcpClients.push(client)
       this.mcpTools.push((await client?.tools?.()) as Record<string, any>)
+      this.onUpdatedTools?.()
+
       return true
     }
     return false
   }
-  /** 通过引用，删除一个 mcpServers mcpClients  mcpTools ignoreToolnames  */
+  /** 通过引用mcpServer变量，删除一组值： mcpServers mcpClients  mcpTools ignoreToolnames  */
   async removeMcpServer(mcpServer: McpServerConfig) {
     const index = this.mcpServers.findIndex((server) => server === mcpServer)
 
@@ -168,11 +172,9 @@ export class AgentModelProvider {
       await this._closeOneClient(delClient)
     } catch (error) {}
 
-    // 移除 tools
     const delTool = this.mcpTools[index]
     this.mcpTools.splice(index, 1)
 
-    // 移除 ignoreToolnames
     if (delTool) {
       Object.keys(delTool).forEach((toolName) => {
         this.ignoreToolnames = this.ignoreToolnames.filter((name) => name !== toolName)
@@ -200,8 +202,6 @@ export class AgentModelProvider {
     }
 
     await this.initClientsAndTools()
-
-    this.onUpdatedTools?.()
 
     const chatOptions = {
       // @ts-ignore  ProviderV2 是所有llm的父类， 在每一个具体的llm 类都有一个选择model的函数用法

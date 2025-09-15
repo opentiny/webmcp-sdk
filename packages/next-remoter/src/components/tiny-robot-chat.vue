@@ -184,6 +184,9 @@ const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })
 const show = defineModel('show', { type: Boolean, default: false })
 const isInitClientsAndTools = ref(false)
 
+// 自定义消息渲染器
+const contentRenderer = { markdown: new BubbleMarkdownContentRenderer({ mdConfig: { html: true } }) }
+
 // 对接 mcp server picker 组件
 const pluginVisible = ref(false)
 
@@ -353,14 +356,13 @@ watch(
   { once: true }
 )
 
-// 页面加载时，要判断 agent上，初始就加载的 agent.mcpServer，加载后记录在 agent.mcpTools下
 onMounted(async () => {
   // 统一报错
   agent.onError = (msg) => {
     msg && showToast(msg)
   }
 
-  // 每次chat的过程中，更新 tools 后，已安装的插件需要同步一次
+  // 每次chat的过程中会自动更新 tools ，所以已安装的插件需要同步一次
   agent.onUpdatedTools = () => {
     installedPlugins.value.forEach((plugin) => {
       const mcpServer = plugin.originMcpConfig as McpServerConfig
@@ -379,9 +381,6 @@ onMounted(async () => {
     })
   }
 })
-
-// 自定义消息渲染器
-const contentRenderer = { markdown: new BubbleMarkdownContentRenderer({ mdConfig: { html: true } }) }
 
 // 如果是遥控器模式，则初始化右下角的AI 图标
 if (props.mode === 'remoter') {

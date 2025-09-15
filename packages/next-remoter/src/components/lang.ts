@@ -1,7 +1,7 @@
 import { PromptProps } from '@opentiny/tiny-robot'
 import { h, CSSProperties } from 'vue'
 
-// 默认的 SuggestionPills
+// 构造 SuggestionPills 对象
 export const mapMake = (str: string, id: number) => {
   const [text, inputMessage] = str.split('#')
   return { id, text, inputMessage }
