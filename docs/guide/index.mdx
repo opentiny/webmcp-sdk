@@ -12,7 +12,7 @@ title: "快速开始"
 
 ## 让你的应用智能化
 
-使用 OpenTiny NEXT-SDKs，只需要以下四步，就可以把你的 Web 应用变成智能应用。
+使用 OpenTiny NEXT-SDKs，只需要以下四步，就可以把你的前端应用变成智能应用。
 
 **第一步：安装 NEXT-SDKs**
 
@@ -56,9 +56,9 @@ const { sessionId } = await client.connect({
 })
 ```
 
-完成以上步骤，你的 Web 应用就变成了一个智能应用，就可以被 AI 操控，你可以[通过各类 MCP Host 操控智能应用](guide/mcp-host)。
+完成以上步骤，你的前端应用就变成了一个智能应用，就可以被 AI 操控，你可以[通过各类 MCP Host 操控智能应用](guide/mcp-host)。
 
-我们还提供了一个网页版本的 AI 对话框，这个 AI 对话框支持 PC 端和手机端，它就像一个遥控器，你可以通过这个遥控器操控你的 Web 应用。
+我们还提供了一个网页版本的 AI 对话框，这个 AI 对话框支持 PC 端和手机端，它就像一个遥控器，你可以通过这个遥控器操控你的前端应用。
 
 **第四步：引入并使用遥控器**
 
@@ -81,12 +81,12 @@ import '@opentiny/next-remoter/dist/style.css'
 </template>
 ```
 
-这时你的 Web 应用右下角会出现一个图标，这就是遥控器的入口，你可以将鼠标悬浮到这个图标上，选择：
+这时你的前端应用右下角会出现一个图标，这就是遥控器的入口，你可以将鼠标悬浮到这个图标上，选择：
 
-- 弹出 AI 对话框，你的 Web 应用侧边会打开一个 AI 对话框
+- 弹出 AI 对话框，你的前端应用侧边会打开一个 AI 对话框
 - 弹出二维码，手机扫码之后会打开手机端的遥控器
 
-不管是通过弹出 AI 对话框，还是通过手机扫码，你都可以通过对话方式让 AI 代替你操作 Web 应用，提升完成任务的效率。
+不管是通过弹出 AI 对话框，还是通过手机扫码，你都可以通过对话方式让 AI 代替你操作前端应用，提升完成任务的效率。
 
 ## 浏览器直接引入
 
@@ -109,7 +109,6 @@ import '@opentiny/next-remoter/dist/style.css'
         const { sessionId } = await client.connect({
           agent: true,
           url: "https://agent.opentiny.design/api/v1/webmcp-trial/mcp",
-          sessionId: "5f8edea7-e3ae-4852-a334-1bb6b3a1cfa9",
         });
 
         const server = new WebMcpServer();
