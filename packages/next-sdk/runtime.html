@@ -1,98 +1,39 @@
 <html>
   <head>
-    <!-- 导入 NEXT SDK -->
-    <script src="./dist/mcpsdk@1.17.0.js"></script>
-    <script src="./dist/zod@3.25.76.js"></script>
-    <script src="./dist/webmcp.js"></script>
-    <script src="./dist/webagent.js"></script>
-    <meta charset="UTF-8" />
-    <title>WebMCP 示例</title>
-    <style>
-      body {
-        font-family: Arial, sans-serif;
-        margin: 0;
-        padding: 0;
-        text-align: center;
-      }
-      h1 {
-        text-align: center;
-        margin-top: 100px;
-      }
-    </style>
+    <!-- 导入 NEXT-SDKs -->
+    <script src="https://unpkg.com/@opentiny/next-sdk@0.1/dist/webmcp-full.js"></script>
+  </head>
+  <body>
     <script>
-      const { createMessageChannelPairTransport, WebMcpServer, WebMcpClient, ResourceTemplate, z } = WebMCP
-      const { createRemoter } = WebAgent
-
-      async function connect() {
-        // Create pair MCP transports
+      ;(async () => {
+        const { WebMcpServer, createMessageChannelPairTransport, z, WebMcpClient } = WebMCP
         const [serverTransport, clientTransport] = createMessageChannelPairTransport()
-        // Create an MCP server
-        const server = new WebMcpServer({
-          name: 'demo-server',
-          version: '1.0.0'
-        })
 
-        // Add an addition tool
+        const server = new WebMcpServer()
         server.registerTool(
-          '根据用户的心情生成页面的背景颜色',
+          'demo-tool',
           {
-            title: '生成页面背景颜色',
-            description:
-              '根据用户的心情或者情绪生成页面的背景颜色,要求：传入的color参数格式为十六进制颜色值,比如 #000000',
-            inputSchema: { color: z.string() }
+            title: '演示工具',
+            description: '一个简单工具',
+            inputSchema: { foo: z.string() }
           },
-          async ({ color }) => {
-            document.body.style.backgroundColor = color
-            return {
-              content: [{ type: 'text', text: String(color) }]
-            }
+          async (params) => {
+            console.log('params:', params)
+            return { content: [{ type: 'text', text: `收到: ${params.foo}` }] }
           }
         )
 
-        // Create an MCP Client
-        const client = new WebMcpClient({
-          name: 'demo-client',
-          version: '1.0.0'
-        })
-
-        // Connect the client and server
         await server.connect(serverTransport)
+
+        const client = new WebMcpClient()
         await client.connect(clientTransport)
-
-        // Connect to the Web Agent server
-        const { transport, sessionId } = await client.connect({
-          url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp',
-          agent: true
+        const { sessionId } = await client.connect({
+          agent: true,
+          url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp'
         })
 
-        document.getElementById('sessionId').innerHTML = sessionId
-
-        createRemoter({
-          sessionId,
-          qrCodeUrl:
-            'https://ai.opentiny.design/next-remoter?title=遥控器&welcome-title=背景变变变&welcome-desc=请说一句能表达情绪的话，页面会自动更新一个适合的颜色&suggestion=很高兴&suggestion=有点兴奋&suggestion=风和日丽',
-          menuItems: [
-            {
-              action: 'ai-chat',
-              show: false
-            },
-            {
-              action: 'remote-control',
-              show: false
-            }
-          ]
-        })
-
-        window.addEventListener('pagehide', async () => {
-          await transport.terminateSession()
-        })
-      }
-
-      connect()
+        console.log('sessionId:', sessionId)
+      })()
     </script>
-  </head>
-  <body>
-    <h1>根据用户的心情生成页面的背景颜色</h1>
-    <div id="sessionId"></div>
   </body>
 </html>
