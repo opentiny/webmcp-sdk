@@ -129,7 +129,7 @@ import {
 import { GeneratingStatus, STATUS } from '@opentiny/tiny-robot-kit'
 import { IconNewSession, IconPlugin, IconHistory } from '@opentiny/tiny-robot-svgs'
 import { useTinyRobotChat } from '../composable/useTinyRobotChat'
-import { toRef, computed, ref, onMounted, watch } from 'vue'
+import { toRef, computed, ref, onMounted, markRaw } from 'vue'
 import { createRemoter, McpServerConfig } from '@opentiny/next-sdk'
 import QrCodeScan from './qr-code-scan.vue'
 import { DEFAULT_SERVERS } from './default-mcps'
@@ -185,7 +185,6 @@ const props = defineProps({
 
 const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })
 const show = defineModel('show', { type: Boolean, default: false })
-const isInitClientsAndTools = ref(false)
 
 // 自定义消息渲染器
 const contentRenderer = { markdown: new BubbleMarkdownContentRenderer({ mdConfig: { html: true } }) }
@@ -236,11 +235,6 @@ const {
 // 处理扫码结果。 把结果添加到 agent.mcpServers， 以及 插入McpServerPicker的一个Plugin
 const handleScanSuccess = async (sessionId: string) => {
   showLoadingToast('添加工具中...')
-
-  if (!isInitClientsAndTools.value) {
-    await agent.initClientsAndTools()
-    isInitClientsAndTools.value = true
-  }
 
   if (sessionId) {
     const mcpServer = {
@@ -317,7 +311,7 @@ const loadMcpServerToPlugin = async (mcpServer: McpServerConfig) => {
     if (existingPlugin) {
       // 如果插件已存在，更新其工具列表和配置
       existingPlugin.tools = pluginTools
-      existingPlugin.originMcpConfig = mcpServer as McpServerConfig
+      existingPlugin.originMcpConfig = markRaw(mcpServer) as McpServerConfig
       return
     }
 
@@ -330,34 +324,12 @@ const loadMcpServerToPlugin = async (mcpServer: McpServerConfig) => {
       expanded: true,
       tools: pluginTools,
       // @ts-ignore
-      originMcpConfig: mcpServer // 缓存对应的mcpServers中的一个引用
+      originMcpConfig: markRaw(mcpServer) // 缓存对应的mcpServers中的一个引用
     }
 
     installedPlugins.value.push(plugin)
-  } else {
-    await agent.removeMcpServer(mcpServer)
   }
 }
-
-watch(
-  () => pluginVisible.value,
-  async (value) => {
-    if (value) {
-      if (!isInitClientsAndTools.value) {
-        showLoadingToast('查询工具中·...')
-        await agent.initClientsAndTools()
-        isInitClientsAndTools.value = true
-      }
-
-      for (const mcpServer of agent.mcpServers) {
-        await loadMcpServerToPlugin(mcpServer)
-      }
-
-      await agent.closeAll()
-    }
-  },
-  { once: true }
-)
 
 onMounted(async () => {
   // 统一报错
@@ -370,18 +342,40 @@ onMounted(async () => {
     installedPlugins.value.forEach((plugin) => {
       const mcpServer = plugin.originMcpConfig as McpServerConfig
       const index = agent.mcpServers.findIndex((server) => server === mcpServer)
+      // 先判断client 在不在， 不存在后，标记一个 (断)
+      if (index !== -1) {
+        const currClient = agent.mcpClients[index]
+
+        if (currClient === null) {
+          plugin.name = '❌' + plugin.name.replace('❌', '')
+        }
+      }
+
+      // 判断 tool是不是 null, 是null则全部禁用
       if (index !== -1) {
         const currTool = agent.mcpTools[index]
-        plugin.tools = Object.keys(currTool).map((key) => {
-          return {
-            id: key,
-            name: key,
-            description: currTool[key].description as string,
-            enabled: !agent.ignoreToolnames.includes(key)
-          }
-        })
+        if (currTool === null) {
+          plugin.tools.forEach((tool) => (tool.enabled = false))
+        } else {
+          plugin.tools = Object.keys(currTool).map((key) => {
+            return {
+              id: key,
+              name: key,
+              description: currTool[key].description as string,
+              enabled: !agent.ignoreToolnames.includes(key)
+            }
+          })
+        }
       }
     })
+  }
+
+  // 初始加载时，url上的sessionId 可能是1个或多个，此时要立即连接后，更新一下插件状态
+  await agent.initClientsAndTools()
+  await agent.closeAll()
+
+  for (const mcpServer of agent.mcpServers) {
+    await loadMcpServerToPlugin(mcpServer)
   }
 })
 
@@ -439,7 +433,7 @@ const handlePluginAdd = async (plugin: PluginInfo, isAdd: boolean) => {
   const mcpServer = { type: plugin.type, url: plugin.url }
   const inserted = await agent.insertMcpServer(mcpServer) // 插入时，会自动去重，且initClientAndTools
   if (inserted) {
-    newPlugin.originMcpConfig = mcpServer
+    newPlugin.originMcpConfig = markRaw(mcpServer)
     const index = agent.mcpServers.findIndex((svc) => svc.url === mcpServer.url)
     // 查询 tools
     const currTool = agent.mcpTools[index]
