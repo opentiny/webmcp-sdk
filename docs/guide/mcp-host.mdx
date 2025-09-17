@@ -97,7 +97,7 @@ NEXT-SDKs 使用 MCP 标准远程通信协议，支持各类 AI 应用、Agent �
 
 ![](../assets/images/windsurf/4.png)
 
-5. 新建会话，切换到 Agent 模式，在输入框中输入需要操作的内容，这时 AI 就会调用你的前端应用中定义的 MCP 工具，操作你的前端应用。
+5. 新建会话，切换到 Chat 模式，在输入框中输入需要操作的内容，这时 AI 就会调用你的前端应用中定义的 MCP 工具，操作你的前端应用。
 
 ![](../assets/images/windsurf/5.png)
 
@@ -191,8 +191,21 @@ NEXT-SDKs 使用 MCP 标准远程通信协议，支持各类 AI 应用、Agent �
 
 3. 配置好后会自动生成下面的文件。
 
-![](../assets/images/cline/3.png)
+```json
+{
+  "mcpServers": {
+    "my-app-mcp-server": {
+      "autoApprove": [],
+      "disabled": false,
+      "timeout": 60,
+      "type": "streamableHttp",
+      "url": "https://agent.opentiny.design/api/v1/webmcp-trial/mcp?sessionId=64b25d93-381d-4c6b-b43c-c5cf2f49445d"
+    }
+  }
+}
+```
 
+![](../assets/images/cline/3.png)
 
 4. 查看 MCP Server 是否配置成功。
 
@@ -312,7 +325,8 @@ NEXT-SDKs 使用 MCP 标准远程通信协议，支持各类 AI 应用、Agent �
 {
   "mcpServers": {
     "my-app-mcp-server": {
-      "url": "https://agent.opentiny.design/api/v1/webmcp-trial/mcp?sessionId=stream06-1921-4f09-af63-51de410e9e09"
+      "type": "streamableHttp",
+      "url": "https://agent.opentiny.design/api/v1/webmcp-trial/mcp?sessionId=64b25d93-381d-4c6b-b43c-c5cf2f49445d"
     }
   }
 }
@@ -331,6 +345,3 @@ NEXT-SDKs 使用 MCP 标准远程通信协议，支持各类 AI 应用、Agent �
 ![](../assets/images/coze/6.png)
 
 6. 查看是否调用 MCP 工具成功。
-
-![](../assets/images/coze/8.png)
-
