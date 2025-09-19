@@ -242,11 +242,12 @@ const handleScanSuccess = async (sessionId: string) => {
       type: 'streamableHttp',
       url: `${props.agentRoot}mcp?sessionId=${sessionId}`
     } as const
+    const serverName = `mcp-server-${sessionId}`
     // 1、 插入McpServers, 此时内部会判断重复。  不重复则插入，并连接和查询tools到agent上。
-    const inserted = await agent.insertMcpServer(mcpServer)
+    const inserted = await agent.insertMcpServer(serverName, mcpServer)
 
     if (inserted) {
-      await loadMcpServerToPlugin(mcpServer)
+      await loadMcpServerToPlugin(serverName, mcpServer)
       await agent.closeAll()
       showToast('添加工具完成')
     } else {
@@ -286,9 +287,17 @@ const handlePillItemClick = (item: ReturnType<typeof mapMake>) => {
   inputMessage.value = item.inputMessage
 }
 
-const loadMcpServerToPlugin = async (mcpServer: McpServerConfig) => {
+const loadMcpServerToPlugin = async (serverName: string, mcpServer: McpServerConfig) => {
   // 先查找 index, 由它可以找到相应的 client, tool
-  const index = agent.mcpServers.findIndex((svc) => svc.url === mcpServer.url)
+  const serverNames = Object.keys(agent.mcpServers)
+  const index = serverNames.indexOf(serverName)
+
+  // 检查 mcpServer 是否有 url 属性
+  if (!('url' in mcpServer)) {
+    console.warn('MCP server config does not have url property')
+    return
+  }
+
   // 解析url, 获得sessionId
   const url = new URL(mcpServer.url)
   const sessionId = url.searchParams.get('sessionId') || ''
@@ -312,6 +321,7 @@ const loadMcpServerToPlugin = async (mcpServer: McpServerConfig) => {
     if (existingPlugin) {
       // 如果插件已存在，更新其工具列表和配置
       existingPlugin.tools = pluginTools
+      // @ts-ignore
       existingPlugin.originMcpConfig = markRaw(mcpServer) as McpServerConfig
       return
     }
@@ -341,8 +351,11 @@ onMounted(async () => {
   // 每次chat的过程中会自动更新 tools ，所以已安装的插件需要同步一次
   agent.onUpdatedTools = () => {
     installedPlugins.value.forEach((plugin) => {
-      const mcpServer = plugin.originMcpConfig as McpServerConfig
-      const index = agent.mcpServers.findIndex((server) => server === mcpServer)
+      // 通过插件ID找到对应的服务器名称
+      const serverName = `mcp-server-${plugin.id.replace('plugin-', '')}`
+      const serverNames = Object.keys(agent.mcpServers)
+      const index = serverNames.indexOf(serverName)
+
       // 先判断client 在不在， 不存在后，标记一个 (断)
       if (index !== -1) {
         const currClient = agent.mcpClients[index]
@@ -375,8 +388,8 @@ onMounted(async () => {
   await agent.initClientsAndTools()
   await agent.closeAll()
 
-  for (const mcpServer of agent.mcpServers) {
-    await loadMcpServerToPlugin(mcpServer)
+  for (const [serverName, mcpServer] of Object.entries(agent.mcpServers)) {
+    await loadMcpServerToPlugin(serverName, mcpServer)
   }
 })
 
@@ -393,12 +406,12 @@ if (props.mode === 'remoter') {
 }
 
 // 整个插件的打开或关闭
-const handlePluginToggle = (plugin: PluginInfo, enabled: boolean) => {
+const handlePluginToggle = () => {
   // Keep empty!
 }
 
 // 某个tool的打开或关闭。  全部tool状态一致时，会同时触发handlePluginToggle 一下。
-const handleToolToggle = (plugin: PluginInfo, toolId: string, enabled: boolean) => {
+const handleToolToggle = (_plugin: PluginInfo, toolId: string, enabled: boolean) => {
   if (enabled) {
     agent.ignoreToolnames = agent.ignoreToolnames.filter((name) => name !== toolId)
   } else {
@@ -417,11 +430,13 @@ const handlePluginDelete = async (plugin: PluginInfo) => {
     }
 
     // 移除mcpServers，mcpTools，mcpClients，ignoreToolnames
-    await agent.removeMcpServer(delPlugin.originMcpConfig as McpServerConfig)
+    // 通过插件ID找到对应的服务器名称
+    const serverName = `mcp-server-${plugin.id.replace('plugin-', '')}`
+    await agent.removeMcpServer(serverName)
   }
 }
-// 插件市场中，点击“添加”
-const handlePluginAdd = async (plugin: PluginInfo, isAdd: boolean) => {
+// 插件市场中，点击"添加"
+const handlePluginAdd = async (plugin: PluginInfo) => {
   plugin.addState = 'loading'
 
   const newPlugin = {
@@ -431,11 +446,13 @@ const handlePluginAdd = async (plugin: PluginInfo, isAdd: boolean) => {
   }
 
   // 立即注册服务，查询工具
-  const mcpServer = { type: plugin.type, url: plugin.url }
-  const inserted = await agent.insertMcpServer(mcpServer) // 插入时，会自动去重，且initClientAndTools
+  const mcpServer = { type: plugin.type, url: (plugin as any).url } as McpServerConfig
+  const serverName = `mcp-server-${plugin.id}`
+  const inserted = await agent.insertMcpServer(serverName, mcpServer) // 插入时，会自动去重，且initClientAndTools
   if (inserted) {
-    newPlugin.originMcpConfig = markRaw(mcpServer)
-    const index = agent.mcpServers.findIndex((svc) => svc.url === mcpServer.url)
+    // 通过服务器名称找到对应的索引
+    const serverNames = Object.keys(agent.mcpServers)
+    const index = serverNames.indexOf(serverName)
     // 查询 tools
     const currTool = agent.mcpTools[index]
     if (currTool) {
@@ -447,14 +464,14 @@ const handlePluginAdd = async (plugin: PluginInfo, isAdd: boolean) => {
           enabled: true
         }
       })
-      installedPlugins.value.push(newPlugin) // 只有client.tools() 成功了，才显示到“已安装列表”
+      installedPlugins.value.push(newPlugin) // 只有client.tools() 成功了，才显示到"已安装列表"
       plugin.addState = 'added'
       await agent.closeAll()
       return
     }
   }
   // 添加失败
-  await agent.removeMcpServer(mcpServer)
+  await agent.removeMcpServer(serverName)
   plugin.addState = 'idle'
 }
 

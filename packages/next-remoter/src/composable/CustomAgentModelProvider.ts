@@ -53,17 +53,21 @@ export class CustomAgentModelProvider extends BaseModelProvider {
    * 创建MCP服务器配置
    * @param sessionId 会话ID，支持逗号分隔的多个ID
    * @param agentRoot 代理根路径
-   * @returns MCP服务器配置数组
+   * @returns MCP服务器配置对象，键为服务器名称，值为配置对象
    */
-  private createMcpServers(sessionId: string, agentRoot: string): McpServerConfig[] {
-    if (!sessionId) return []
+  private createMcpServers(sessionId: string, agentRoot: string): Record<string, McpServerConfig> {
+    if (!sessionId) return {}
 
     const sessionIds = sessionId.includes(',') ? sessionId.split(',').map((id) => id.trim()) : [sessionId]
 
-    return sessionIds.map((id) => ({
-      type: 'streamableHttp' as const,
-      url: `${agentRoot}mcp?sessionId=${id}`
-    }))
+    const servers: Record<string, McpServerConfig> = {}
+    sessionIds.forEach((id) => {
+      servers[`mcp-server-${id}`] = {
+        type: 'streamableHttp' as const,
+        url: `${agentRoot}mcp?sessionId=${id}`
+      }
+    })
+    return servers
   }
 
   /**
