@@ -20,9 +20,9 @@
   },
   "dependencies": {
     "@opentiny/next-sdk": "workspace:*",
-    "@opentiny/tiny-robot": "0.3.0-rc.4",
-    "@opentiny/tiny-robot-kit": "0.3.0-rc.4",
-    "@opentiny/tiny-robot-svgs": "0.3.0-rc.4",
+    "@opentiny/tiny-robot": "0.3.0-rc.5",
+    "@opentiny/tiny-robot-kit": "0.3.0-alpha.30",
+    "@opentiny/tiny-robot-svgs": "0.3.0-rc.5",
     "@modelcontextprotocol/sdk": "^1.16.0",
     "@opentiny/vue": "^3.25.0",
     "@opentiny/vue-icon": "^3.25.0",
