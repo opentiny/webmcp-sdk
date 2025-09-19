@@ -7,10 +7,16 @@
 1. `index.ts` 是用于导出 Vue 组件的包，供用户使用
 2. `App.vue` 是部署在服务器上，扫码访问的页面
 
-## 设想`Vue的开发用户`的使用流程：
+## 设想`Vue的开发用户`的使用流程
 
 ```html
-<tiny-remoter ref="remoterRef" v-model:show="showAiChat" :sessionId="sessionId" :title="项目名字">
+<tiny-remoter 
+  ref="remoterRef" 
+  v-model:show="showAiChat" 
+  :sessionId="sessionId" 
+  :title="项目名字"
+  :llmConfig="llmConfig"
+>
   <template #welcome>
     <!-- 自定义标题+图标
     自定义的Promts, 点击后调用 sendMessage()
@@ -28,6 +34,13 @@ import { TinyRemoter } from 'remoter'
 
 const showAiChat = ref(false)
 const remoterRef = ref()
+
+// 配置自定义LLM（可选）
+const llmConfig = {
+  apiKey: 'your-api-key',
+  baseURL: 'https://api.openai.com/v1',
+  providerType: 'openai'
+}
 
 // 1、 创建 server,client
 const [serverTransport, clientTransport] = createMessageChannelPairTransport()
@@ -62,7 +75,46 @@ createRemoter({
 // expose({  sendMessage, abortRequest,  messages,  messageState,senderRef})
 
 //  currentTemplate,  clearTemplate, 模板相关的功能先去掉，方便跨UI chat 框架适配。
+
+## LLM配置
+
+TinyRemoter组件支持自定义大语言模型配置，有两种方式：
+
+### 1. 使用llmConfig配置对象
+
+```typescript
+const llmConfig = {
+  apiKey: 'your-api-key',
+  baseURL: 'https://api.openai.com/v1',
+  providerType: 'openai' // 支持 'openai' | 'deepseek' 或自定义Provider函数
+}
 ```
+
+### 2. 使用自定义Provider实例
+
+```typescript
+import { createOpenAI } from '@ai-sdk/openai'
+
+const customProvider = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  baseURL: 'https://api.openai.com/v1'
+})
+```
+
+然后在组件中使用：
+
+```html
+<tiny-remoter 
+  :llm="customProvider"
+  :sessionId="sessionId" 
+/>
+```
+
+### 支持的提供商
+
+- OpenAI (`providerType: 'openai'`)
+- DeepSeek (`providerType: 'deepseek'`)
+- 其他ai-sdk兼容的提供商（通过自定义Provider函数）
 
 ## 构建发包
 

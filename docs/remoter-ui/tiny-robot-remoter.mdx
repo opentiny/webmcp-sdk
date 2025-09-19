@@ -32,7 +32,48 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 - `agentRoot` 后端代理的地址，有默认值 `https://agent.opentiny.design/api/v1/webmcp-trial/`
 - `locale` 国际化key, 可选值为：'zh-CN' | 'en-US' 。一些默认描述，placeholder的国际化的key： lang=zh-CN
 - `mode` 展示模式，可选值为：'remoter' | 'chat-dialog'。遥控器模式： 自动在右下角显示一个AI图标，点击展开多个菜单项； 对话框模式： 直接显示一个对话框界面
-- `systemPromt` 对话llm 时，传入的 system message: system-prompt=你是一个智能助手，工作地点是深圳
+- `remoteUrl` 远程URL，用于显示在遥控器模式下，点击遥控器图标后，显示的菜单项。
+- `qrCodeUrl` 二维码URL，用于显示在遥控器模式下，点击遥控器图标后，弹出二维码对应的链接 url。
+- `systemPrompt` 对话llm 时，传入的 system message: system-prompt=你是一个智能助手，工作地点是深圳
+- `llmConfig` 大语言模型配置对象，不能与 `llm` 同时传入。支持配置 `apiKey`、`baseURL` 、 `model` 和 `maxSteps` 和 `providerType`
+- `llm` ai-sdk官方的Provider实例，不能与 `llmConfig` 同时传入。可以传入自定义的Provider实例
+
+### llmConfig 配置详情
+
+```typescript
+interface ICustomAgentModelProviderLlmConfig {
+  /** API密钥 */
+  apiKey: string
+  /** API基础URL */
+  baseURL: string
+  /** 提供商类型，支持 'openai' | 'deepseek' 或自定义Provider函数 */
+  providerType: 'openai' | 'deepseek' | ((options: any) => ProviderV2)
+  /** 模型名称 */
+  model: string
+  /** 工具调用最大步数 */
+  maxSteps: number
+}
+```
+
+### llm Provider 实例
+
+`llm` 参数接受任何符合 ai-sdk Provider 规范的实例，例如：
+
+```typescript
+import { createOpenAI } from '@ai-sdk/openai'
+import { createAnthropic } from '@ai-sdk/anthropic'
+
+// OpenAI Provider
+const openaiProvider = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  baseURL: 'https://api.openai.com/v1'
+})
+
+// Anthropic Provider
+const anthropicProvider = createAnthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY
+})
+```
 
 ## 插槽
 
@@ -70,4 +111,189 @@ const robotRef = ref<InstanceType<typeof TinyRemoter>>()
 function promtClick(item) {
   robotRef.sendMessage(item.description)
 }
+```
+
+## 使用示例
+
+### 基本使用
+
+```vue
+<template>
+  <TinyRemoter v-model:show="show" sessionId="your-session-id" title="我的AI助手" systemPrompt="你是一个智能助手" />
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
+
+const show = ref(false)
+</script>
+```
+
+### 使用自定义LLM配置
+
+```vue
+<template>
+  <TinyRemoter
+    v-model:show="show"
+    sessionId="your-session-id"
+    title="我的AI助手"
+    systemPrompt="你是一个智能助手"
+    :llmConfig="llmConfig"
+  />
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
+
+const show = ref(false)
+
+// 使用llmConfig配置
+const llmConfig = {
+  apiKey: 'your-api-key',
+  baseURL: 'https://api.openai.com/v1',
+  providerType: 'openai'
+}
+</script>
+```
+
+### 使用自定义Provider实例
+
+```vue
+<template>
+  <TinyRemoter
+    v-model:show="show"
+    sessionId="your-session-id"
+    title="我的AI助手"
+    systemPrompt="你是一个智能助手"
+    :llm="customProvider"
+  />
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
+import { createOpenAI } from '@ai-sdk/openai'
+
+const show = ref(false)
+
+// 使用自定义Provider实例
+const customProvider = createOpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  baseURL: 'https://api.openai.com/v1'
+})
+</script>
+```
+
+### 使用DeepSeek模型
+
+```vue
+<template>
+  <TinyRemoter
+    v-model:show="show"
+    sessionId="your-session-id"
+    title="我的AI助手"
+    systemPrompt="你是一个智能助手"
+    :llmConfig="deepSeekConfig"
+  />
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
+
+const show = ref(false)
+
+// 使用DeepSeek配置
+const deepSeekConfig = {
+  apiKey: 'your-deepseek-api-key',
+  baseURL: 'https://api.deepseek.com',
+  providerType: 'deepseek'
+}
+</script>
+```
+
+### 使用Anthropic Claude模型
+
+```vue
+<template>
+  <TinyRemoter
+    v-model:show="show"
+    sessionId="your-session-id"
+    title="我的AI助手"
+    systemPrompt="你是一个智能助手"
+    :llm="anthropicProvider"
+  />
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
+import { createAnthropic } from '@ai-sdk/anthropic'
+
+const show = ref(false)
+
+// 使用Anthropic Provider
+const anthropicProvider = createAnthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY
+})
+</script>
+```
+
+### 使用自定义Provider函数
+
+```vue
+<template>
+  <TinyRemoter
+    v-model:show="show"
+    sessionId="your-session-id"
+    title="我的AI助手"
+    systemPrompt="你是一个智能助手"
+    :llmConfig="customConfig"
+  />
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
+import { createCustomProvider } from '@ai-sdk/custom'
+
+const show = ref(false)
+
+// 使用自定义Provider函数
+const customConfig = {
+  apiKey: 'your-custom-api-key',
+  baseURL: 'https://api.custom-llm.com/v1',
+  providerType: createCustomProvider
+}
+</script>
+```
+
+### 环境变量配置示例
+
+```vue
+<template>
+  <TinyRemoter
+    v-model:show="show"
+    sessionId="your-session-id"
+    title="我的AI助手"
+    systemPrompt="你是一个智能助手"
+    :llmConfig="envConfig"
+  />
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
+
+const show = ref(false)
+
+// 使用环境变量配置
+const envConfig = {
+  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+  baseURL: import.meta.env.VITE_OPENAI_BASE_URL || 'https://api.openai.com/v1',
+  providerType: 'openai'
+}
+</script>
 ```

@@ -137,6 +137,7 @@ import { DEFAULT_SERVERS } from './default-mcps'
 import { defaultPluginSrc } from './default-plugin-svg'
 import { getLang, mapMake } from './lang'
 import { handleError } from './error-handle'
+import { ICustomAgentModelProviderLlmConfig } from '../types/type'
 
 defineOptions({
   name: 'TinyRemoter'
@@ -181,6 +182,16 @@ const props = defineProps({
   mode: {
     type: String,
     default: 'remoter'
+  },
+  /** 大语言模型配置对象，不能与 llm 同时传入 */
+  llmConfig: {
+    type: Object as () => ICustomAgentModelProviderLlmConfig | undefined,
+    default: undefined
+  },
+  /** ai-sdk官方的Provider实例，不能与 llmConfig 同时传入 */
+  llm: {
+    type: Object,
+    default: undefined
   }
 })
 
@@ -230,7 +241,9 @@ const {
 } = useTinyRobotChat({
   sessionId: toRef(props, 'sessionId'),
   agentRoot: toRef(props, 'agentRoot'),
-  systemPrompt: props.systemPrompt || ''
+  systemPrompt: props.systemPrompt || '',
+  llmConfig: props.llmConfig,
+  llm: props.llm
 })
 
 // 处理扫码结果。 把结果添加到 agent.mcpServers， 以及 插入McpServerPicker的一个Plugin
@@ -446,7 +459,7 @@ const handlePluginAdd = async (plugin: PluginInfo) => {
   }
 
   // 立即注册服务，查询工具
-  const mcpServer = { type: plugin.type, url: (plugin as any).url } as McpServerConfig
+  const mcpServer = { type: (plugin as any).type, url: (plugin as any).url } as McpServerConfig
   const serverName = `mcp-server-${plugin.id}`
   const inserted = await agent.insertMcpServer(serverName, mcpServer) // 插入时，会自动去重，且initClientAndTools
   if (inserted) {

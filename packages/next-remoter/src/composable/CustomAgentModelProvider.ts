@@ -6,24 +6,15 @@ import type { AIModelConfig } from '@opentiny/tiny-robot-kit'
 import { type Ref } from 'vue'
 import { AgentModelProvider, McpServerConfig, IAgentModelProviderOption } from '@opentiny/next-sdk'
 import { getToday } from './tools'
+import type { ICustomAgentModelProviderLlmConfig, StreamPart } from '../types/type'
 
 // 配置常量
-const DEFAULT_CONFIG = {
+const DEFAULT_CONFIG: ICustomAgentModelProviderLlmConfig = {
   apiKey: 'sk-trial',
   baseURL: 'https://agent.opentiny.design/api/v1/ai',
-  providerType: 'deepseek' as const,
+  providerType: 'deepseek',
   model: 'deepseek-ai/DeepSeek-V3',
   maxSteps: 15
-} as const
-
-// 类型定义
-interface StreamPart {
-  type: string
-  text?: string
-  delta?: string
-  id?: string
-  toolName?: string
-  toolCallId?: string
 }
 
 /** Tiny-robot 所需要的自定义大语言的Provider */
@@ -32,20 +23,38 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   /** 一个 ai-sdk agent 封装 */
   agent: AgentModelProvider
   systemPrompt: string
+  llmConfig = DEFAULT_CONFIG
 
-  constructor(config: AIModelConfig, sessionId: Ref<string>, agentRoot: Ref<string>, systemPrompt: string) {
+  constructor(
+    config: AIModelConfig,
+    sessionId: Ref<string>,
+    agentRoot: Ref<string>,
+    systemPrompt: string,
+    llmConfig?: ICustomAgentModelProviderLlmConfig,
+    llm?: any
+  ) {
     super(config)
 
-    const options = {
-      llmConfig: {
-        apiKey: DEFAULT_CONFIG.apiKey,
-        baseURL: DEFAULT_CONFIG.baseURL,
-        providerType: DEFAULT_CONFIG.providerType
-      },
+    // 构建AgentModelProvider的选项
+    const options: IAgentModelProviderOption = {
       mcpServers: this.createMcpServers(sessionId.value, agentRoot.value)
     }
 
-    this.agent = new AgentModelProvider(options as IAgentModelProviderOption)
+    // 优先使用传入的llm实例，其次使用llmConfig，最后使用默认配置
+    if (llm) {
+      options.llm = llm
+    } else {
+      if (llmConfig) {
+        this.llmConfig = Object.assign(DEFAULT_CONFIG, llmConfig)
+      }
+      options.llmConfig = {
+        apiKey: this.llmConfig.apiKey,
+        baseURL: this.llmConfig.baseURL,
+        providerType: this.llmConfig.providerType
+      }
+    }
+
+    this.agent = new AgentModelProvider(options)
     this.systemPrompt = systemPrompt
   }
 
@@ -148,11 +157,11 @@ export class CustomAgentModelProvider extends BaseModelProvider {
 
     const result = await this.agent.chatStream({
       message: lastUserMsg.content as string,
-      model: DEFAULT_CONFIG.model,
+      model: this.llmConfig.model,
       system: this.systemPrompt,
       abortSignal: request.options?.signal,
       tools: { ['get-today']: getToday },
-      maxSteps: DEFAULT_CONFIG.maxSteps,
+      maxSteps: this.llmConfig.maxSteps,
       onFinish: async () => {
         await this.agent.closeAll()
         handler.onDone()
@@ -166,6 +175,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       if (part.type.startsWith('text-')) {
         textId = this.handleTextStream(part, handler, textId)
       }
+
       // 处理工具流数据
       else if (part.type.startsWith('tool-')) {
         this.handleToolStream(part, handler)

@@ -4,15 +4,25 @@ import { h, nextTick, onMounted, onUnmounted, Ref, ref, watch } from 'vue'
 import { CustomAgentModelProvider } from './CustomAgentModelProvider'
 import { TrSender } from '@opentiny/tiny-robot'
 import logo from '../../public/svgs/logo-next-no-bg-right.svg'
+import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
 
 interface useTinyRobotOption {
   sessionId: Ref<string>
   agentRoot: Ref<string>
   systemPrompt: string
+  llmConfig?: ICustomAgentModelProviderLlmConfig
+  llm?: any
 }
 
-export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt }: useTinyRobotOption) => {
-  const customAgentProvider = new CustomAgentModelProvider({ provider: 'custom' }, sessionId, agentRoot, systemPrompt)
+export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt, llmConfig, llm }: useTinyRobotOption) => {
+  const customAgentProvider = new CustomAgentModelProvider(
+    { provider: 'custom' },
+    sessionId,
+    agentRoot,
+    systemPrompt,
+    llmConfig,
+    llm
+  )
   const client = new AIClient({
     providerImplementation: customAgentProvider,
     provider: 'custom'
