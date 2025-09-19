@@ -21,9 +21,9 @@ type ChatMethodFn = typeof streamText | typeof generateText
  */
 export class AgentModelProvider {
   llm: ProviderV2 | OpenAIProvider
-  /**  当前mcpServers数组集合。 mcpServer 允许为配置为 McpServerConfig, 或者任意的 MCPTransport
+  /**  当前mcpServers对象集合。键为服务器名称，值为 McpServerConfig 或任意的 MCPTransport
    * 参考: https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling#initializing-an-mcp-client */
-  mcpServers: McpServerConfig[] = []
+  mcpServers: Record<string, McpServerConfig> = {}
   /** 当前ai-sdk的 mcpClient 数组 */
   mcpClients: any[] = []
   /** 当前 mcpClients 所对应的tools */
@@ -38,7 +38,7 @@ export class AgentModelProvider {
   messages: any[] = []
 
   constructor({ llmConfig, mcpServers, llm }: IAgentModelProviderOption) {
-    this.mcpServers = mcpServers || []
+    this.mcpServers = mcpServers || {}
 
     if (llm) {
       this.llm = llm
@@ -94,7 +94,7 @@ export class AgentModelProvider {
   private async _createMpcClients() {
     // 使用 Promise.all 并行处理所有 mcpServer 项
     this.mcpClients = await Promise.all(
-      this.mcpServers.map(async (server) => {
+      Object.values(this.mcpServers).map(async (server) => {
         return this._createOneClient(server)
       })
     )
@@ -139,32 +139,38 @@ export class AgentModelProvider {
   }
 
   /** 全量更新所有的 mcpServers */
-  async updateMcpServers(mcpServers?: McpServerConfig[]) {
+  async updateMcpServers(mcpServers?: Record<string, McpServerConfig>) {
     await this.closeAll()
     this.mcpServers = mcpServers || this.mcpServers
     await this.initClientsAndTools()
   }
 
   /** 插入一个新的mcpServer，如果已经存在则返回false */
-  async insertMcpServer(mcpServer: McpServerConfig) {
-    const find = this.mcpServers.find((item: any) => 'url' in item && 'url' in mcpServer && item.url === mcpServer.url)
-
-    if (!find) {
-      this.mcpServers = [...this.mcpServers, mcpServer]
-      const client = await this._createOneClient(mcpServer)
-      this.mcpClients.push(client)
-      this.mcpTools.push((await client?.tools?.()) as Record<string, any>)
-      this.onUpdatedTools?.()
-
-      return true
+  async insertMcpServer(serverName: string, mcpServer: McpServerConfig) {
+    // 检查是否已存在相同名称的服务器
+    if (this.mcpServers[serverName]) {
+      return false
     }
-    return false
-  }
-  /** 通过引用mcpServer变量，删除一组值： mcpServers mcpClients  mcpTools ignoreToolnames  */
-  async removeMcpServer(mcpServer: McpServerConfig) {
-    const index = this.mcpServers.findIndex((server) => server === mcpServer)
 
-    this.mcpServers.splice(index, 1)
+    this.mcpServers[serverName] = mcpServer
+    const client = await this._createOneClient(mcpServer)
+    this.mcpClients.push(client)
+    this.mcpTools.push((await client?.tools?.()) as Record<string, any>)
+    this.onUpdatedTools?.()
+
+    return true
+  }
+  /** 通过服务器名称删除mcpServer： mcpServers mcpClients  mcpTools ignoreToolnames  */
+  async removeMcpServer(serverName: string) {
+    if (!this.mcpServers[serverName]) {
+      return
+    }
+
+    // 找到对应的索引
+    const serverNames = Object.keys(this.mcpServers)
+    const index = serverNames.indexOf(serverName)
+
+    delete this.mcpServers[serverName]
 
     const delClient = this.mcpClients[index]
     this.mcpClients.splice(index, 1)

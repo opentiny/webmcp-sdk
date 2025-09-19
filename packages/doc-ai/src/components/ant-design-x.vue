@@ -133,12 +133,12 @@ const webAgent = new AgentModelProvider({
     baseURL: 'https://agent.opentiny.design/api/v1/ai',
     providerType: 'deepseek'
   },
-  mcpServers: [
-    {
+  mcpServers: {
+    'mcp-server-main': {
       type: 'streamableHttp',
       url: `${AGENT_ROOT}mcp?sessionId=${SSEION_ID}`
     }
-  ]
+  }
 })
 
 // ==================== Runtime ====================
