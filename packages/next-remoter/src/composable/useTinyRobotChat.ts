@@ -30,10 +30,14 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt }: useTiny
     getCurrentConversation,
     switchConversation,
     deleteConversation,
+    updateTitle,
     state: conversationState // 记录着所有的会话和 currentId
   } = useConversation({
     client,
     events: {
+      onLoaded() {
+        handleCreateConversation() // 每次刷新，都是新会话
+      },
       onReceiveData(data, messages, preventDefault) {
         preventDefault()
         // console.log('onReceiveData=', data)
@@ -95,7 +99,7 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt }: useTiny
   const handleSendMessage = () => {
     const conv = getCurrentConversation()
     if (conv && conv.title === '新会话') {
-      conv.title = inputMessage.value.slice(0, 15)
+      updateTitle(conv.id, inputMessage.value.slice(0, 15))
     }
     sendMessage(inputMessage.value)
   }
@@ -104,7 +108,7 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt }: useTiny
     abortRequest()
     const aiSdkMessages: any[] = []
     customAgentProvider.agent.messages = aiSdkMessages
-    conversationState.currentId = createConversation()
+    createConversation()
     const conv = getCurrentConversation()!
     conv.aiSdkMessages = aiSdkMessages // 保存同一个引用到会话中
   }
@@ -120,13 +124,18 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt }: useTiny
     scrollToBottom()
   }
 
-  const handleHistoryUpdateTitle = (title: string) => {
-    const conv = getCurrentConversation()
-    conv.title = title
+  const handleHistoryUpdateTitle = (title: string, item: any) => {
+    item.title = title
   }
 
-  const handleHistoryDelete = (item: { id: string }) => {
-    deleteConversation(item.id)
+  const handleHistoryDelete = (action: any, item: { id: string }) => {
+    if (action.id === 'delete') {
+      if (conversationState.currentId === item.id) {
+        showToast('不允许删除当前会话')
+        return
+      }
+      deleteConversation(item.id)
+    }
   }
 
   // 最新消息滚动到底部
@@ -146,7 +155,6 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt }: useTiny
   // 页面加载完成后自动聚焦输入框
   onMounted(() => {
     senderRef.value?.focus()
-    handleCreateConversation() // 每次刷新，都是新会话
   })
 
   onUnmounted(() => {

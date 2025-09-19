@@ -11,16 +11,17 @@
       <!-- 历史会话抽屉 -->
       <Transition name="drawer-slide" appear>
         <div v-if="showHistory" class="drawer-overlay" @click="showHistory = false">
-          <div class="drawer-container" @click.stop>
+          <div class="drawer-container" @click.stop style="--tr-history-item-selected-bg: #ebeeff">
+            <h4>历史会话</h4>
             <TrHistory
               class="tr-history-demo"
-              tab-title="历史会话"
               :selected="conversationState.currentId"
               :data="conversationState.conversations"
+              :showRenameControls="true"
               @close="showHistory = false"
               @item-click="handleHistorySelect"
               @item-title-change="handleHistoryUpdateTitle"
-              @item-delete="handleHistoryDelete"
+              @item-action="handleHistoryDelete"
             ></TrHistory>
           </div>
         </div>
@@ -609,6 +610,8 @@ defineExpose({
   background: white;
   box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
   transform: translateX(0);
+
+  padding: 0 24px 24px 24px;
 }
 
 /* 抽屉滑入滑出动画 */
