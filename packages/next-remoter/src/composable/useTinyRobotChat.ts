@@ -83,6 +83,16 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt, llmConfig
             markdownContent.content += data.delta
             lastMessage.content += data.delta
           }
+        } else if (data.type === 'collapsible-text') {
+          const thinkContent = lastMessage.uiContent.find(
+            (item) => item.type === data.type && item.thinkId === data.thinkId
+          )
+          if (!thinkContent) {
+            lastMessage.uiContent.push(data)
+          } else {
+            thinkContent.content += data.delta
+            lastMessage.content += data.delta
+          }
         }
       }
     }
