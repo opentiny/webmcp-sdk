@@ -150,6 +150,39 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     }
   }
 
+  /**
+   * 处理文本流数据
+   * @param part 流数据部分
+   * @param handler 流处理器
+   * @param textId 文本ID
+   * @returns 更新后的文本ID
+   */
+  private handleReasonStream(part: StreamPart, handler: StreamHandler, thinkId: number): number {
+    if (part.type === 'reasoning-start') {
+      thinkId++
+      handler.onData({
+        type: 'collapsible-text',
+        title: '思考过程',
+        content: '',
+        delta: '',
+        thinkId
+      } as any)
+    } else if (part.type === 'reasoning-delta') {
+      handler.onData({
+        type: 'collapsible-text',
+        delta: part.text,
+        thinkId
+      } as any)
+    } else if (part.type === 'reasoning-end') {
+      handler.onData({
+        type: 'collapsible-text',
+        delta: ' ',
+        thinkId
+      } as any)
+    }
+    return thinkId
+  }
+
   async chatStream(request: ChatCompletionRequest, handler: StreamHandler): Promise<void> {
     // 读取用户最新的请求
     const lastUserMsg = request.messages[request.messages.length - 1]
@@ -170,6 +203,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
 
     // 标识每一个markdown块
     let textId = 1
+    let thinkId = 1
     for await (const part of result.fullStream) {
       // 处理文本流数据
       if (part.type.startsWith('text-')) {
@@ -179,6 +213,11 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       // 处理工具流数据
       else if (part.type.startsWith('tool-')) {
         this.handleToolStream(part, handler)
+      }
+
+      // 处理推理数据
+      else if (part.type.startsWith('reasoning-')) {
+        thinkId = this.handleReasonStream(part, handler, thinkId)
       }
     }
   }
