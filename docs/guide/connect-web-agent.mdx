@@ -1,10 +1,11 @@
 ---
-title: "远程连接 WebAgent 服务"
+title: '远程连接 WebAgent 服务'
 ---
 
 **WebAgent** 是 [OpenTiny](https://opentiny.design/) 推出的智能代理的 Web 服务，提供智能应用与 AI 的连接通讯、OAuth 鉴权等丰富的特性。
+
 <Info>
-我们以 Vue 应用为例，为大家介绍如何使用 NEXT-SDKs 将现有应用连接到 WebAgent 服务，转变成智能应用，被 AI 操控。
+  我们以 Vue 应用为例，为大家介绍如何使用 NEXT-SDKs 将现有应用连接到 WebAgent 服务，转变成智能应用，被 AI 操控。
 </Info>
 
 ## 安装 NEXT-SDKs
@@ -27,8 +28,7 @@ onMounted(async () => {
   await client.connect(clientTransport)
   const { sessionId } = await client.connect({
     agent: true,
-    url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp',
-    sessionId: 'stream06-1921-4f09-af63-51de410e9e09',
+    url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp'
   })
 )}
 ```
@@ -45,13 +45,17 @@ onMounted(async () => {
   const server = new WebMcpServer()
 
   // 注册 MCP 工具
-  server.registerTool('demo-tool', {
-    title: '演示工具',
-    description: '一个简单工具',
-    inputSchema: { foo: z.string() },
-  }, async (params) => {
-    return { content: [{ type: 'text', text: `收到: ${params.foo}` }] }
-  })
+  server.registerTool(
+    'demo-tool',
+    {
+      title: '演示工具',
+      description: '一个简单工具',
+      inputSchema: { foo: z.string() }
+    },
+    async (params) => {
+      return { content: [{ type: 'text', text: `收到: ${params.foo}` }] }
+    }
+  )
 
   await server.connect(serverTransport)
 })

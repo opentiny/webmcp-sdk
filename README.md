@@ -49,8 +49,7 @@ const client = new WebMcpClient()
 await client.connect(clientTransport)
 const { sessionId } = await client.connect({
   agent: true,
-  url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp',
-  sessionId: '5f8edea7-e3ae-4852-a334-1bb6b3a1cfa9'
+  url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp'
 })
 ```
 
@@ -75,7 +74,7 @@ import '@opentiny/next-remoter/dist/style.css'
 </script>
 
 <template>
-  <tiny-remoter session-id="5f8edea7-e3ae-4852-a334-1bb6b3a1cfa9" />
+  <tiny-remoter session-id="your-session-id" />
 </template>
 ```
 
