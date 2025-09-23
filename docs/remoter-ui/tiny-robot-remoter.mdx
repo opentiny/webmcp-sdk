@@ -153,7 +153,9 @@ const show = ref(false)
 const llmConfig = {
   apiKey: 'your-api-key',
   baseURL: 'https://api.openai.com/v1',
-  providerType: 'openai'
+  providerType: 'openai',
+  model: 'gpt-4o',
+  maxSteps: 10
 }
 </script>
 ```
@@ -209,7 +211,9 @@ const show = ref(false)
 const deepSeekConfig = {
   apiKey: 'your-deepseek-api-key',
   baseURL: 'https://api.deepseek.com',
-  providerType: 'deepseek'
+  providerType: 'deepseek',
+  model: 'DeepSeek-V3',
+  maxSteps: 10
 }
 </script>
 ```
@@ -293,7 +297,9 @@ const show = ref(false)
 const envConfig = {
   apiKey: import.meta.env.VITE_OPENAI_API_KEY,
   baseURL: import.meta.env.VITE_OPENAI_BASE_URL || 'https://api.openai.com/v1',
-  providerType: 'openai'
+  providerType: 'openai',
+  model: 'gpt-4o',
+  maxSteps: 10
 }
 </script>
 ```
