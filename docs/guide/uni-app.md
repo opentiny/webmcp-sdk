@@ -119,7 +119,7 @@ export async function initMcpServer() {
 
 ```
 
- 在上面 `next-sdk-store.uts` 模块中，暴露了2个关键函数： `initMcpClient` 和 `initMcpServer` 分别用于初始化服务端和客户端。在初始化客户端时，使用到的 `sessionId` 可以固定一个字符串，也可以不传入，让框架随机生成一个  `sessionId` ，详细说明请参考 [WebMcpClient 类](/guide/api-client)。
+ 在上面 `next-sdk-store.uts` 模块中，暴露了2个关键函数： `initMcpClient` 和 `initMcpServer` 分别用于初始化服务端和客户端。在初始化客户端时，使用到的 `sessionId` 可以固定一个字符串，也可以不传入，让框架随机生成一个  `sessionId` ，详细说明请参考 [WebMcpClient 类](api-client)。
 
  在 `App.uvue` 文件是管理项目 app 的生命周期的文件，我们可以在这里引入上面2个函数来接入 `next-sdk` ：
 
