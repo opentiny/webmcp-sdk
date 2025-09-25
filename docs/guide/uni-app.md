@@ -1,6 +1,5 @@
----
-title: "uni-app 应用接入"
----
+# uni-app 应用接入
+
 <Info>
 本文是介绍如何快速接入`@opentiny/next-sdk`, 并添加远端遥控的二维码等功能。
 </Info>

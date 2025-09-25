@@ -1,6 +1,4 @@
----
-title: 'TinyRobot版本'
----
+# TinyRobot 版本
 
 ```javascript
 import { TinyRemoter } from '@opentiny/next-remoter'

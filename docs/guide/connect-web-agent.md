@@ -1,6 +1,4 @@
----
-title: '远程连接 WebAgent 服务'
----
+# 远程连接 WebAgent 服务
 
 **WebAgent** 是 [OpenTiny](https://opentiny.design/) 推出的智能代理的 Web 服务，提供智能应用与 AI 的连接通讯、OAuth 鉴权等丰富的特性。
 

@@ -1,6 +1,4 @@
----
-title: '工具函数'
----
+# 工具函数
 
 ```typescript
 import {
