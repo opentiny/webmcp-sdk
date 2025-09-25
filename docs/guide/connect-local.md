@@ -1,6 +1,4 @@
----
-title: "本地连接"
----
+# 本地连接
 
 <Info>
 除了支持和远程 WebAgent 服务连接，NEXT-SDKs 还支持本地 iframe 方式连接。

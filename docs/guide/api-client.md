@@ -1,6 +1,4 @@
----
-title: 'WebMcpClient 类'
----
+# WebMcpClient 类
 
 ```typescript
 import { WebMcpClient } from '@opentiny/next-sdk'

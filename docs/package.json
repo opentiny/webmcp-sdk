@@ -1,7 +1,7 @@
 {
   "name": "next-docs",
   "scripts": {
-    "dev": "mint dev"
+    "dev": "vitepress dev"
   },
   "devDependencies": {
     "vitepress": "^1.6.4",

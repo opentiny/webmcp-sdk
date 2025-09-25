@@ -1,6 +1,4 @@
----
-title: 'createRemoter 函数'
----
+# createRemoter 函数
 
 ```typescript
 import { createRemoter } from '@opentiny/next-sdk'

@@ -1,6 +1,4 @@
----
-title: "为什么选 NEXT-SDKs"
----
+# 为什么选 NEXT-SDKs
 
 * **增强** MCP 官方的 connect 方法，适用于 Web 应用
 * **兼容** MCP 官方 API，迁移成本低

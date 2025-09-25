@@ -1,6 +1,5 @@
----
-title: "Electron 应用接入"
----
+# Electron 应用接入
+
 <Info>
 以下是将 Electron 集成到普通前端项目并接入 NEXT-SDKs 的详细指南。
 </Info>

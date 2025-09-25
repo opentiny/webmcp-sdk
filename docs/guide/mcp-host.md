@@ -1,6 +1,5 @@
----
-title: "接入三方 AI 应用"
----
+# 接入三方 AI 应用
+
 <Info>
 NEXT-SDKs 使用 MCP 标准远程通信协议，支持各类 AI 应用、Agent 开发平台通过连接 WebAgent 实现把企业应用当成 Agent 的 MCP 工具调用。
 </Info>

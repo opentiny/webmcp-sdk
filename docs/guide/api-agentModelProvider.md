@@ -1,6 +1,4 @@
----
-title: 'AgentModelProvider 类'
----
+# AgentModelProvider 类
 
 ```typescript
 import { AgentModelProvider } from '@opentiny/next-sdk'
