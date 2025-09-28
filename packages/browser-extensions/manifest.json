@@ -1,6 +1,7 @@
 {
   "manifest_version": 3,
   "name": "OpenTiny NEXT",
+  "minimum_chrome_version": "120",
   "version": "1.0.0",
   "description": "OpenTiny NEXT 智能助手",
   "icons": {
@@ -28,19 +29,11 @@
   "side_panel": {
     "default_path": "src/sidepanel.html"
   },
-  "permissions": [
-    "storage",
-    "tabs",
-    "activeTab",
-    "downloads",
-    "userScripts",
-    "contextMenus",
-    "sidePanel"
-  ],
+  "permissions": ["storage", "tabs", "activeTab", "downloads", "userScripts", "contextMenus", "sidePanel"],
   "host_permissions": ["http://*/*", "https://*/*"],
   "web_accessible_resources": [
     {
-      "resources": ["src/vendor/next-sdk.js"],
+      "resources": ["src/vendor/next-sdk.js", "src/mcp-servers/*/*.js"],
       "matches": ["http://*/*", "https://*/*"]
     }
   ]
