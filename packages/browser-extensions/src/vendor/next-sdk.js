@@ -46377,8 +46377,8 @@ async function connect() {
     version: '1.0.0'
   })
 
-  if (window.$next_remoter_tool) {
-    window.$next_remoter_tool({ server, z, cookie: cookieData })
+  if (window.$next_remoter_mcp_server) {
+    window.$next_remoter_mcp_server({ server, z, cookie: cookieData })
   } else {
     window.location.reload()
   }

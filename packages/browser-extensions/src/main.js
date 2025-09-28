@@ -1,6 +1,6 @@
 const initWebMCP = () => {
   const urlToolsMap = {
-    'https://ai.opentiny.design': 'https://ai.opentiny.design/tools/index.js'
+    'https://opentiny.design': chrome.runtime.getURL('src/mcp-servers/opentiny.design/index.js')
   }
 
   const originUrl = window.location.origin
