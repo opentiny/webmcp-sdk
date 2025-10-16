@@ -35,9 +35,18 @@ export function useNextAgent(option: INextAgetOption) {
   const messages = ref([])
   const controller: Ref<AbortController | null> = ref(null)
 
-  /** 发起流式会话   */
-  async function chatStream(message: string, signal?: AbortSignal) {
+  /** 发起流式会话 */
+  async function chatStream(message: string) {
     if (!message) return
+
+    // 如果是添加sessionId, 则只添加应用，不发出请求。
+    if (/^\/[A-Za-z0-9-]{6,}$/.test(message)) {
+      const res = await fetch(`${option.agentRoot}client?sessionId=${message.slice(1)}`).then((res) => res.json())
+      const sessionId = res?.data?.sessionId
+      const server = createMcpServers(sessionId, option.agentRoot)
+      Object.assign(agent.mcpServers, server)
+      return
+    }
 
     status.value = 'submitted'
     controller.value = markRaw(new AbortController())
