@@ -18,73 +18,36 @@
         :title="welcome.title"
         :description="welcome.description"
       ></McIntroduction>
-      <!-- <McPrompt
-        :list="introPrompt.list"
-        :direction="introPrompt.direction"
+      <McPrompt
+        :list="welcome.prompts.list"
+        :direction="welcome.prompts.direction"
         class="intro-prompt"
-        @itemClick="onSubmit($event.label)"
-      ></McPrompt> -->
+        @itemClick="api.clickPrompt($event.label)"
+      ></McPrompt>
     </McLayoutContent>
     <!-- 对话列表 -->
-    <!--    <McLayoutContent v-else>
-      <template v-for="(msg, idx) in messages" :key="idx">
+    <McLayoutContent v-else>
+      <template v-for="(msg, idx) in state.messages" :key="idx">
         <McBubble
           v-if="msg.from === 'user'"
           :content="msg.content"
           :align="'right'"
-          :avatarConfig="{ imgSrc: 'https://matechat.gitcode.com/png/demo/userAvatar.svg' }"
+          :avatarConfig="{ imgSrc: userAvatar }"
         >
         </McBubble>
-        <McBubble
-          v-else
-          :content="msg.content"
-          :avatarConfig="{ imgSrc: 'https://matechat.gitcode.com/logo.svg' }"
-          :loading="msg.loading"
-        >
-        </McBubble>
+        <McBubble v-else :content="msg.content" :avatarConfig="{ imgSrc: aiAvatar }" :loading="msg.loading"> </McBubble>
       </template>
     </McLayoutContent>
-    <div class="shortcut" style="display: flex; align-items: center; gap: 8px">
-      <McPrompt
-        v-if="!startPage"
-        :list="simplePrompt"
-        :direction="'horizontal'"
-        style="flex: 1"
-        @itemClick="onSubmit($event.label)"
-      ></McPrompt>
-      <d-button
-        style="margin-left: auto"
-        icon="add"
-        shape="circle"
-        title="新建对话"
-        size="sm"
-        @click="
-          startPage = true
-          messages = []
-        "
-      />
-    </div>
+
     <McLayoutSender>
-      <McInput :value="inputValue" :maxLength="2000" @change="(e) => (inputValue = e)" @submit="onSubmit">
-        <template #extra>
-          <div class="input-foot-wrapper">
-            <div class="input-foot-left">
-              <span v-for="(item, index) in inputFootIcons" :key="index">
-                <i :class="item.icon"></i>
-                {{ item.text }}
-              </span>
-              <span class="input-foot-dividing-line"></span>
-              <span class="input-foot-maxlength">{{ inputValue.length }}/2000</span>
-            </div>
-            <div class="input-foot-right">
-              <d-button icon="op-clearup" shape="round" :disabled="!inputValue" @click="inputValue = ''">
-                清空输入
-              </d-button>
-            </div>
-          </div>
-        </template>
+      <McInput
+        :value="state.inputValue"
+        :maxLength="2000"
+        @change="(e) => (state.inputValue = e)"
+        @submit="api.onSubmit"
+      >
       </McInput>
-    </McLayoutSender> -->
+    </McLayoutSender>
   </McLayout>
 </template>
 
@@ -120,19 +83,47 @@ const props = defineProps({
   /** 左上角的标题 */
   title: {
     type: String,
-    default: 'MateChat'
+    default: 'MateChat Remoter'
   },
+  /** 左上角的标题Logo */
   titleLogo: {
     type: String,
     default: 'https://matechat.gitcode.com/logo.svg'
   },
+  /** 无对话时的欢迎界面 */
   welcome: {
     type: Object,
     default: () => ({
       logo: 'https://matechat.gitcode.com/logo.svg',
-      title: 'MateChat',
-      description: '我是你的私人智能助手'
+      title: 'MateChat Remoter',
+      description: ['我是你的私人智能助手'],
+      /** 该配置参考 MetaChat 的 Prompt 提示组件*/
+      prompts: {
+        direction: 'horizontal',
+        list: [
+          {
+            value: 'quickSort',
+            label: '帮我写一个快速排序',
+            iconConfig: { name: 'icon-info-o', color: '#5e7ce0' },
+            desc: '使用 js 实现一个快速排序'
+          },
+          {
+            value: 'helpMd',
+            label: '你可以帮我做些什么？',
+            iconConfig: { name: 'icon-star', color: 'rgb(255, 215, 0)' },
+            desc: '了解当前大模型可以帮你做的事'
+          }
+        ]
+      }
     })
+  },
+  userAvatar: {
+    type: String,
+    default: 'https://matechat.gitcode.com/png/demo/userAvatar.svg'
+  },
+  aiAvatar: {
+    type: String,
+    default: 'https://matechat.gitcode.com/png/demo/userAvatar.svg'
   },
   //----------------------------
   remoteUrl: {

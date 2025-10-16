@@ -8,6 +8,8 @@ export function useShareChat() {
 
     messages: [],
 
+    inputValue: '',
+
     xxx: 'placeholder'
   })
 
@@ -15,7 +17,15 @@ export function useShareChat() {
     createConversation() {},
     switchConversation(id: string) {},
     deleteConversation(id: string) {},
-    showHistory() {}
+    showHistory() {},
+
+    clickPrompt(label: string) {
+      state.inputValue = label
+    },
+
+    onSubmit() {},
+
+    xxx: 1
   }
 
   return {

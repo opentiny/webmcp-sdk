@@ -6,4 +6,4 @@ TinyRemoter.install = function (Vue: any) {
   Vue.component('tiny-remoter', TinyRemoter)
 }
 
-export { TinyRemoter }
+export { TinyRemoter, MateChatRemoter }
