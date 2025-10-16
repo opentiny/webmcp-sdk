@@ -56,7 +56,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useShareChat } from './use-share-chat'
+import { useNextAgent } from '../../src/composable/useNextAgent'
 
 defineOptions({
   name: 'MatechatRemoter'
@@ -115,81 +115,31 @@ const props = defineProps({
   }
 })
 
-const { status, messages, inputValue, api } = useShareChat()
-// const description = [
-//   'MateChat 可以辅助研发人员编码、查询知识和相关作业信息、编写文档等。',
-//   '作为AI模型，MateChat 提供的答案可能不总是确定或准确的，但您的反馈可以帮助 MateChat 做的更好。'
-// ]
-// const introPrompt = {
-//   direction: 'horizontal',
-//   list: [
-//     {
-//       value: 'quickSort',
-//       label: '帮我写一个快速排序',
-//       iconConfig: { name: 'icon-info-o', color: '#5e7ce0' },
-//       desc: '使用 js 实现一个快速排序'
-//     },
-//     {
-//       value: 'helpMd',
-//       label: '你可以帮我做些什么？',
-//       iconConfig: { name: 'icon-star', color: 'rgb(255, 215, 0)' },
-//       desc: '了解当前大模型可以帮你做的事'
-//     },
-//     {
-//       value: 'bindProjectSpace',
-//       label: '怎么绑定项目空间',
-//       iconConfig: { name: 'icon-priority', color: '#3ac295' },
-//       desc: '如何绑定云空间中的项目'
-//     }
-//   ]
-// }
-// const simplePrompt = [
-//   {
-//     value: 'quickSort',
-//     iconConfig: { name: 'icon-info-o', color: '#5e7ce0' },
-//     label: '帮我写一个快速排序'
-//   },
-//   {
-//     value: 'helpMd',
-//     iconConfig: { name: 'icon-star', color: 'rgb(255, 215, 0)' },
-//     label: '你可以帮我做些什么？'
-//   }
-// ]
-// const startPage = ref(true)
-// const inputValue = ref('')
-// const inputFootIcons = [
-//   { icon: 'icon-at', text: '智能体' },
-//   { icon: 'icon-standard', text: '词库' },
-//   { icon: 'icon-add', text: '附件' }
-// ]
+const { agent, chatStream, status, messages, stop } = useNextAgent({
+  ui: 'matechat',
+  llmConfig: { apiKey: 'sk-trial', baseURL: 'https://agent.opentiny.design/api/v1/ai', providerType: 'deepseek' },
+  agentRoot: 'https://agent.opentiny.design/api/v1/webmcp-trial/',
+  sessionId: '45653e8b-8ba6-4cc5-b037-039faa65c3c1',
+  systemPrompt: '你是一个AI助手，会调用工具完成任务',
+  model: 'deepseek-ai/DeepSeek-V3'
+})
+const inputValue = ref('')
 
-// const messages = ref([
-//   {
-//     from: 'user',
-//     content: '你好'
-//   },
-//   {
-//     from: 'model',
-//     content: '你好，我是 MateChat',
-//     id: 'init-msg'
-//   }
-// ])
-
-// const onSubmit = (evt) => {
-//   startPage.value = false
-//   // 用户发送消息
-//   messages.value.push({
-//     from: 'user',
-//     content: evt
-//   })
-//   setTimeout(() => {
-//     // 模型返回消息
-//     messages.value.push({
-//       from: 'model',
-//       content: evt
-//     })
-//   }, 200)
-// }
+const api = {
+  createConversation() {
+    messages.value = []
+    agent.messages = []
+  },
+  clickPrompt(label: string) {
+    inputValue.value = label
+  },
+  onSubmit() {
+    if (inputValue.value) {
+      chatStream(inputValue.value)
+    }
+  },
+  onStop: stop
+}
 </script>
 
 <style lang="less" scoped>
@@ -208,44 +158,6 @@ const { status, messages, inputValue, api } = useShareChat()
 
   i {
     cursor: pointer;
-  }
-}
-
-.input-foot-wrapper {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  width: 100%;
-  height: 100%;
-  margin-right: 8px;
-
-  .input-foot-left {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-
-    span {
-      font-size: var(--devui-font-size-sm);
-      color: var(--devui-text);
-      cursor: pointer;
-    }
-
-    .input-foot-dividing-line {
-      width: 1px;
-      height: 14px;
-      background-color: var(--devui-line);
-    }
-
-    .input-foot-maxlength {
-      font-size: var(--devui-font-size-sm);
-      color: var(--devui-aide-text);
-    }
-  }
-
-  .input-foot-right {
-    & > *:not(:first-child) {
-      margin-left: 8px;
-    }
   }
 }
 </style>
