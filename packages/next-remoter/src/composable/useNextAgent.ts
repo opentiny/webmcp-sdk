@@ -52,12 +52,8 @@ export function useNextAgent(option: INextAgetOption) {
         await agent.closeAll() // agent聊天时，会自动连接一次所有的mcpServers
         status.value = 'ready'
       },
-      onError: () => {
-        status.value = 'error'
-      },
-      onAbort: () => {
-        status.value = 'ready'
-      }
+      onError: () => (status.value = 'error'),
+      onAbort: () => (status.value = 'ready')
     })
 
     if (option.ui === 'matechat') {
@@ -134,14 +130,16 @@ async function handleStreamForMateChat(
     avatarConfig: { name: 'user' }
   })
 
-  const aiMessage: MatechatAIMessage = {
+  let aiMessage: MatechatAIMessage = {
     from: 'model',
     content: '',
     avatarConfig: { name: 'model' },
     id: Date.now().toString(),
-    loading: true
+    loading: false
   }
   messages.value.push(aiMessage)
+
+  aiMessage = messages.value[messages.value.length - 1]
 
   for await (const part of fullStream) {
     // 处理文本流数据
@@ -159,6 +157,4 @@ async function handleStreamForMateChat(
       if (part.text) aiMessage.content += part.text
     }
   }
-
-  aiMessage.loading = false
 }

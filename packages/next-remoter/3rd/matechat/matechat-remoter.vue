@@ -41,7 +41,14 @@
     </McLayoutContent>
 
     <McLayoutSender>
-      <McInput :value="inputValue" :maxLength="2000" @change="(e) => (inputValue = e)" @submit="api.onSubmit">
+      <McInput
+        :value="inputValue"
+        :maxLength="2000"
+        :loading="status !== 'ready'"
+        @change="(e) => (inputValue = e)"
+        @submit="api.onSubmit"
+        @cancel="api.onStop"
+      >
       </McInput>
     </McLayoutSender>
   </McLayout>
@@ -108,7 +115,7 @@ const props = defineProps({
   }
 })
 
-const { status, messages, stop, inputValue, api } = useShareChat()
+const { status, messages, inputValue, api } = useShareChat()
 // const description = [
 //   'MateChat 可以辅助研发人员编码、查询知识和相关作业信息、编写文档等。',
 //   '作为AI模型，MateChat 提供的答案可能不总是确定或准确的，但您的反馈可以帮助 MateChat 做的更好。'
