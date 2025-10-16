@@ -4,13 +4,12 @@
       <template #operationArea>
         <div class="operations">
           <i class="icon-add-thin" @click="api.createConversation"></i>
-          <i class="icon-history" @click="api.showHistory"></i>
         </div>
       </template>
     </McHeader>
     <!-- 无对话时的展示 -->
     <McLayoutContent
-      v-if="state.messages.length === 0"
+      v-if="messages.length === 0"
       style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px"
     >
       <McIntroduction
@@ -27,7 +26,7 @@
     </McLayoutContent>
     <!-- 对话列表 -->
     <McLayoutContent v-else>
-      <template v-for="(msg, idx) in state.messages" :key="idx">
+      <template v-for="(msg, idx) in messages" :key="idx">
         <McBubble
           v-if="msg.from === 'user'"
           :content="msg.content"
@@ -35,17 +34,14 @@
           :avatarConfig="{ imgSrc: userAvatar }"
         >
         </McBubble>
-        <McBubble v-else :content="msg.content" :avatarConfig="{ imgSrc: aiAvatar }" :loading="msg.loading"> </McBubble>
+        <McBubble v-else :content="msg.content" :avatarConfig="{ imgSrc: aiAvatar }" :loading="msg.loading">
+          <McMarkdownCard :content="msg.content" theme="light" typing enableThink></McMarkdownCard>
+        </McBubble>
       </template>
     </McLayoutContent>
 
     <McLayoutSender>
-      <McInput
-        :value="state.inputValue"
-        :maxLength="2000"
-        @change="(e) => (state.inputValue = e)"
-        @submit="api.onSubmit"
-      >
+      <McInput :value="inputValue" :maxLength="2000" @change="(e) => (inputValue = e)" @submit="api.onSubmit">
       </McInput>
     </McLayoutSender>
   </McLayout>
@@ -53,28 +49,13 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useShareChat } from '../share/use-share-chat'
+import { useShareChat } from './use-share-chat'
 
 defineOptions({
   name: 'MatechatRemoter'
 })
 
 const props = defineProps({
-  /** 必传的会话id */
-  sessionId: {
-    type: String,
-    default: ''
-  },
-  /** 后端的代理服务器地址 */
-  agentRoot: {
-    type: String,
-    default: 'https://agent.opentiny.design/api/v1/webmcp-trial/'
-  },
-  /** 系统提示词 */
-  systemPrompt: {
-    type: String,
-    default: '你是一个智能生活助手，擅长通过工具调用帮助用户完成任务'
-  },
   /** 是否全屏 */
   fullscreen: {
     type: Boolean,
@@ -124,35 +105,10 @@ const props = defineProps({
   aiAvatar: {
     type: String,
     default: 'https://matechat.gitcode.com/png/demo/userAvatar.svg'
-  },
-  //----------------------------
-  remoteUrl: {
-    type: String
-  },
-  qrCodeUrl: {
-    type: String
-  },
-  /** 展示模式： 'remoter' | 'chat-dialog'
-   * 遥控器模式： 自动在右下角显示一个AI图标，点击展开多个菜单项。
-   * 对话框模式： 直接显示一个对话框界面
-   *  */
-  mode: {
-    type: String,
-    default: 'remoter'
-  },
-  /** 大语言模型配置对象，不能与 llm 同时传入 */
-  llmConfig: {
-    type: Object as () => ICustomAgentModelProviderLlmConfig | undefined,
-    default: undefined
-  },
-  /** ai-sdk官方的Provider实例，不能与 llmConfig 同时传入 */
-  llm: {
-    type: Object,
-    default: undefined
   }
 })
 
-const { state, api } = useShareChat()
+const { status, messages, stop, inputValue, api } = useShareChat()
 // const description = [
 //   'MateChat 可以辅助研发人员编码、查询知识和相关作业信息、编写文档等。',
 //   '作为AI模型，MateChat 提供的答案可能不总是确定或准确的，但您的反馈可以帮助 MateChat 做的更好。'
