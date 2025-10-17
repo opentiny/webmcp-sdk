@@ -14,6 +14,10 @@ export type INextAgetOption = {
   model: string
   /** 一次对话中的最大轮数, 最大默认 5轮 */
   maxSteps?: number
+  /** 自定义流数据处理函数，将 llm 返回的流数据，按自定义的格式，保存到messages 数组中。
+   * 如果设置，则代替内部默认的流处理函数。
+   */
+  processStream?: (stream: ReadableStream<string>, messages: Ref<any[]>, senderContent: string) => Promise<void>
 } & Partial<Pick<IAgentModelProviderOption, 'llm' | 'llmConfig'>>
 
 /** 快速实现Opentiny Next遥控器的智能体
@@ -32,7 +36,7 @@ export function useNextAgent(option: INextAgetOption) {
   })
 
   const status: Ref<'ready' | 'submitted' | 'streaming' | 'error'> = ref('ready')
-  const messages = ref([])
+  const messages: Ref<any[]> = ref([])
   let controller: AbortController | null = null
 
   async function chatStream(message: string) {
@@ -61,10 +65,14 @@ export function useNextAgent(option: INextAgetOption) {
       onAbort: () => (status.value = 'ready')
     })
 
+    if (option.processStream && typeof option.processStream === 'function') {
+      option.processStream(result.fullStream, messages, message)
+      return
+    }
     if (option.ui === 'matechat') {
       handleStreamForMateChat(result.fullStream, messages as Ref<MatechatMessage[]>, message)
     } else if (option.ui === 'antx') {
-      handleStreamForAntx(result.fullStream, messages as Ref<MatechatMessage[]>, message)
+      handleStreamForAntx(result.fullStream, messages as Ref<AntXMessage[]>, message)
     } else {
       console.warn('暂时未实现')
     }
