@@ -40,10 +40,7 @@ export function useNextAgent(option: INextAgetOption) {
 
     // 如果是添加sessionId, 则只添加应用，不发出请求。
     if (/^\/[A-Za-z0-9-]{6,}$/.test(message)) {
-      const res = await fetch(`${option.agentRoot}client?sessionId=${message.slice(1)}`).then((res) => res.json())
-      const sessionId = res?.data?.sessionId
-      const server = createMcpServers(sessionId, option.agentRoot)
-      Object.assign(agent.mcpServers, server)
+      addSessionId(message.slice(1))
       return
     }
 
@@ -81,6 +78,15 @@ export function useNextAgent(option: INextAgetOption) {
     messages.value = []
     agent.messages = []
   }
+
+  async function addSessionId(sid: string) {
+    const res = await fetch(`${option.agentRoot}client?sessionId=${sid}`).then((res) => res.json())
+    const sessionId = res?.data?.sessionId || ''
+    if (sessionId) {
+      const server = createMcpServers(sessionId, option.agentRoot)
+      Object.assign(agent.mcpServers, server)
+    }
+  }
   return {
     /** 一个AgentModelProvider实例 */
     agent,
@@ -93,7 +99,9 @@ export function useNextAgent(option: INextAgetOption) {
     /** 中断会话 */
     stopChat,
     /** 新建会话 */
-    newConversation
+    newConversation,
+    /** 添加一个sessionId,允许是短码 */
+    addSessionId
   }
 }
 
