@@ -99,6 +99,7 @@ const api = {
   onSubmit() {
     if (inputValue.value) {
       chatStream(inputValue.value)
+      inputValue.value = ''
     }
   },
   onCancel() {
