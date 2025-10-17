@@ -6,13 +6,10 @@ import '@devui-design/icons/icomoon/devui-icon.css'
 import 'vue-devui/style.css'
 import DevUI from 'vue-devui'
 import MateChat from '@matechat/core'
+import { ThemeServiceInit, infinityTheme } from 'devui-theme'
+ThemeServiceInit({ infinityTheme }, 'infinityTheme')
 
 const app = createApp(App)
 app.use(DevUI)
 app.use(MateChat)
 app.mount('#app')
-
-import { ThemeServiceInit, infinityTheme } from 'devui-theme'
-
-// 使用无限主题
-ThemeServiceInit({ infinityTheme }, 'infinityTheme')

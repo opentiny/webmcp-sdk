@@ -63,6 +63,8 @@ export function useNextAgent(option: INextAgetOption) {
 
     if (option.ui === 'matechat') {
       handleStreamForMateChat(result.fullStream, messages as Ref<MatechatMessage[]>, message)
+    } else if (option.ui === 'antx') {
+      handleStreamForAntx(result.fullStream, messages as Ref<MatechatMessage[]>, message)
     } else {
       console.warn('暂时未实现')
     }
@@ -136,7 +138,6 @@ interface MatechatAIMessage {
   content: string
   avatarConfig: { name: 'model' }
   id: string
-  loading: boolean
 }
 type MatechatMessage = MatechatUserMessage | MatechatAIMessage
 
@@ -156,12 +157,47 @@ async function handleStreamForMateChat(
     from: 'model',
     content: '',
     avatarConfig: { name: 'model' },
-    id: Date.now().toString(),
-    loading: false
+    id: Date.now().toString()
   }
   messages.value.push(aiMessage)
 
   aiMessage = messages.value[messages.value.length - 1] as MatechatAIMessage
+
+  for await (const part of fullStream) {
+    // 处理文本流数据
+    if (part.type.startsWith('text-')) {
+      if (part.text) aiMessage.content += part.text
+    }
+
+    // 处理工具流数据
+    else if (part.type.startsWith('tool-')) {
+      if (part.delta) aiMessage.content += part.delta
+    }
+
+    // 处理推理数据
+    else if (part.type.startsWith('reasoning-')) {
+      if (part.text) aiMessage.content += part.text
+    }
+  }
+}
+
+interface AntXMessage {
+  from: 'user' | 'model'
+  content: string
+}
+async function handleStreamForAntx(fullStream: ReadableStream<string>, messages: Ref<AntXMessage[]>, message: string) {
+  messages.value.push({
+    from: 'user',
+    content: message
+  })
+
+  let aiMessage: AntXMessage = {
+    from: 'model',
+    content: ''
+  }
+  messages.value.push(aiMessage)
+
+  aiMessage = messages.value[messages.value.length - 1] as AntXMessage
 
   for await (const part of fullStream) {
     // 处理文本流数据
