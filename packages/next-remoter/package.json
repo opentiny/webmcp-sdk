@@ -31,11 +31,7 @@
     "vue": "^3.3.11",
     "ai": "^5.0.9",
     "dayjs": "^1.11.15",
-    "zod": "^3.23.8",
-    "vue-devui": "^1.6.34",
-    "@matechat/core": "^1.9.0",
-    "@devui-design/icons": "^1.4.0",
-    "devui-theme": "^0.1.0"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^4.5.2",

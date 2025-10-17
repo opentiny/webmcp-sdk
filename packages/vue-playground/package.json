@@ -1,0 +1,27 @@
+{
+  "name": "vue-playground",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "vue": "^3.5.22",
+    "@opentiny/next-remoter": "workspace:*",
+    "vue-devui": "^1.6.34",
+    "@matechat/core": "^1.9.0",
+    "@devui-design/icons": "^1.4.0",
+    "devui-theme": "^0.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.0",
+    "@vitejs/plugin-vue": "^6.0.1",
+    "@vue/tsconfig": "^0.8.1",
+    "typescript": "~5.9.3",
+    "vite": "^7.1.7",
+    "vue-tsc": "^3.1.0"
+  }
+}

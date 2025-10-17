@@ -1,5 +1,5 @@
 import { type IAgentModelProviderOption, AgentModelProvider, type McpServerConfig } from '@opentiny/next-sdk'
-import { markRaw, Ref, ref } from 'vue'
+import { type Ref, ref } from 'vue'
 
 export type INextAgetOption = {
   /** 设置适配哪种UI框架，以便返回正确格式的message */
@@ -33,9 +33,8 @@ export function useNextAgent(option: INextAgetOption) {
 
   const status: Ref<'ready' | 'submitted' | 'streaming' | 'error'> = ref('ready')
   const messages = ref([])
-  const controller: Ref<AbortController | null> = ref(null)
+  let controller: AbortController | null = null
 
-  /** 发起流式会话 */
   async function chatStream(message: string) {
     if (!message) return
 
@@ -49,13 +48,13 @@ export function useNextAgent(option: INextAgetOption) {
     }
 
     status.value = 'submitted'
-    controller.value = markRaw(new AbortController())
+    controller = new AbortController()
 
     const result = await agent.chatStream({
       message: message,
       model: option.model,
       system: option.systemPrompt || '',
-      abortSignal: controller.value.signal,
+      abortSignal: controller.signal,
       maxSteps: option.maxSteps || 5,
       onFinish: async () => {
         await agent.closeAll() // agent聊天时，会自动连接一次所有的mcpServers
@@ -72,12 +71,16 @@ export function useNextAgent(option: INextAgetOption) {
     }
   }
 
-  function stop() {
-    if (controller.value) {
-      controller.value.abort()
+  function stopChat() {
+    if (controller) {
+      controller.abort()
     }
   }
 
+  function newConversation() {
+    messages.value = []
+    agent.messages = []
+  }
   return {
     /** 一个AgentModelProvider实例 */
     agent,
@@ -88,7 +91,9 @@ export function useNextAgent(option: INextAgetOption) {
     /** 聊天会话记录 */
     messages,
     /** 中断会话 */
-    stop
+    stopChat,
+    /** 新建会话 */
+    newConversation
   }
 }
 
@@ -148,7 +153,7 @@ async function handleStreamForMateChat(
   }
   messages.value.push(aiMessage)
 
-  aiMessage = messages.value[messages.value.length - 1]
+  aiMessage = messages.value[messages.value.length - 1] as MatechatAIMessage
 
   for await (const part of fullStream) {
     // 处理文本流数据
