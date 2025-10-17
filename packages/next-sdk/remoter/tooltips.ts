@@ -23,7 +23,7 @@ const DEFAULTS: Required<Options> = {
   delay: 150,
   hideDelay: 150,
   container: document.body,
-  className: 'native-tooltip'
+  className: 'tiny-remoter-native-tooltip'
 }
 
 export class Tooltip {
@@ -202,35 +202,59 @@ export class Tooltip {
 }
 
 /* ===== 样式内联 ===== */
-const STYLE_ID = 'native-tooltip-style';
+const STYLE_ID = 'tiny-remoter-native-tooltip-style';
 
 (() => {
   if (document.getElementById(STYLE_ID)) return;   // 已注入就跳过
   const style = document.createElement('style');
   style.id = STYLE_ID;
   style.textContent = `
-.native-tooltip {
-  position: absolute;
-  z-index: 9999;
-  max-width: 200px;
-  padding: 6px 10px;
-  font-size: 12px;
-  line-height: 1.4;
-  color: #fff;
-  background: #191919;
-  border-radius: 4px;
-  pointer-events: none;
-  box-shadow: 0px 4px 8px 0px rgba(0, 0, 0, 0.2);
-}
-.native-tooltip__arrow {
-  position: absolute;
-  width: 0; height: 0;
-  border: 6px solid transparent;
-}
-.native-tooltip--top    .native-tooltip__arrow { bottom: -12px; left: 50%; transform: translateX(-50%); border-top-color: rgba(0,0,0,.75); }
-.native-tooltip--bottom .native-tooltip__arrow { top: -12px; left: 50%; transform: translateX(-50%); border-bottom-color: rgba(0,0,0,.75); }
-.native-tooltip--left   .native-tooltip__arrow { right: -12px; top: 50%; transform: translateY(-50%); border-left-color: rgba(0,0,0,.75); }
-.native-tooltip--right  .native-tooltip__arrow { left: -12px; top: 50%; transform: translateY(-50%); border-right-color: rgba(0,0,0,.75); }
-`;
+    .tiny-remoter-native-tooltip {
+      position: absolute;
+      z-index: 9999;
+      max-width: 200px;
+      padding: 6px 10px;
+      font-size: 12px;
+      line-height: 1.4;
+      color: #fff;
+      background: #191919;
+      border-radius: 4px;
+      pointer-events: none;
+      box-shadow: 0px 4px 8px 0px rgba(0, 0, 0, 0.2);
+    }
+    .tiny-remoter-native-tooltip__arrow {
+      position: absolute;
+      width: 0; height: 0;
+      border: 6px solid transparent;
+    }
+    .tiny-remoter-native-tooltip--top    
+    .tiny-remoter-native-tooltip__arrow { 
+      bottom: -12px; 
+      left: 50%; transform: 
+      translateX(-50%); 
+      border-top-color: rgba(0,0,0,.75); 
+    }
+    .tiny-remoter-native-tooltip--bottom 
+    .tiny-remoter-native-tooltip__arrow { 
+      top: -12px; 
+      left: 50%; transform: 
+      translateX(-50%); 
+      border-bottom-color: rgba(0,0,0,.75); 
+    }
+    .tiny-remoter-native-tooltip--left   
+    .tiny-remoter-native-tooltip__arrow { 
+      right: -12px; 
+      top: 50%; 
+      transform: translateY(-50%); 
+      border-left-color: rgba(0,0,0,.75); 
+    }
+    .tiny-remoter-native-tooltip--right  
+    .tiny-remoter-native-tooltip__arrow { 
+      left: -12px; 
+      top: 50%; 
+      transform: translateY(-50%); 
+      border-right-color: rgba(0,0,0,.75); 
+    }
+  `;
   document.head.appendChild(style);
 })();
