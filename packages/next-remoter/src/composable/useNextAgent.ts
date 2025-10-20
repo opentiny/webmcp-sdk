@@ -3,7 +3,7 @@ import { type Ref, ref } from 'vue'
 
 export type INextAgetOption = {
   /** 设置适配哪种UI框架，以便返回正确格式的message */
-  ui: 'matechat' | 'antx' | 'elementplusx' | 'tdchat'
+  ui: 'matechat' | 'antx' | 'elplusx' | 'tdchat'
   /** 代理的后台地址，比如：'https://agent.opentiny.design/api/v1/webmcp-trial/'，若私有化部署，请填入私有化地址。 */
   agentRoot: string
   /** 初始的受控应用的会话id, 如果多个应用，需要使用英文逗号分隔 */
@@ -80,6 +80,8 @@ export function useNextAgent(option: INextAgetOption) {
       handleStreamForMateChat(result.fullStream, messages as Ref<MatechatMessage[]>, message)
     } else if (option.ui === 'antx') {
       handleStreamForAntx(result.fullStream, messages as Ref<AntXMessage[]>, message)
+    } else if (option.ui === 'elplusx') {
+      handleStreamForElPlusx(result.fullStream, messages as Ref<AntXMessage[]>, message)
     } else {
       console.warn('暂时未实现')
     }
@@ -203,6 +205,44 @@ interface AntXMessage {
   content: string
 }
 async function handleStreamForAntx(fullStream: ReadableStream<string>, messages: Ref<AntXMessage[]>, message: string) {
+  messages.value.push({
+    from: 'user',
+    content: message
+  })
+
+  messages.value.push({
+    from: 'model',
+    content: ''
+  })
+
+  const aiMessage = messages.value[messages.value.length - 1] as AntXMessage
+
+  for await (const part of fullStream) {
+    // 处理文本流数据
+    if (part.type.startsWith('text-')) {
+      if (part.text) aiMessage.content += part.text
+    }
+
+    // 处理工具流数据
+    else if (part.type.startsWith('tool-')) {
+      if (part.delta) aiMessage.content += part.delta
+    }
+
+    // 处理推理数据
+    else if (part.type.startsWith('reasoning-')) {
+      if (part.text) aiMessage.content += part.text
+    }
+  }
+}
+interface ElPlusXMessage {
+  from: 'user' | 'model'
+  content: string
+}
+async function handleStreamForElPlusx(
+  fullStream: ReadableStream<string>,
+  messages: Ref<ElPlusXMessage[]>,
+  message: string
+) {
   messages.value.push({
     from: 'user',
     content: message

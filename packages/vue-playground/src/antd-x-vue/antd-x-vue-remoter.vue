@@ -52,7 +52,7 @@
 </template>
 
 <script setup lang="ts">
-import { h, ref } from 'vue'
+import { h } from 'vue'
 import { Welcome, Prompts, Bubble, Sender } from 'ant-design-x-vue'
 import { Flex, Button, Divider, Typography } from 'ant-design-vue'
 import { BulbOutlined, InfoCircleOutlined, UserOutlined, PlusOutlined } from '@ant-design/icons-vue'

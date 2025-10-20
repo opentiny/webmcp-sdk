@@ -72,7 +72,6 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 import { useNextAgent } from '@opentiny/next-remoter'
 
 const { chatStream, status, messages, inputValue, stopChat, newConversation } = useNextAgent({
