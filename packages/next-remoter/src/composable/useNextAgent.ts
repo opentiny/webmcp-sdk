@@ -3,7 +3,7 @@ import { type Ref, ref } from 'vue'
 
 export type INextAgetOption = {
   /** 设置适配哪种UI框架，以便返回正确格式的message */
-  ui: 'matechat' | 'antx' | 'elementplusx' | 'tdchat'
+  ui: 'matechat' | 'antx' | 'elplusx' | 'tdchat'
   /** 代理的后台地址，比如：'https://agent.opentiny.design/api/v1/webmcp-trial/'，若私有化部署，请填入私有化地址。 */
   agentRoot: string
   /** 初始的受控应用的会话id, 如果多个应用，需要使用英文逗号分隔 */
@@ -35,11 +35,16 @@ export function useNextAgent(option: INextAgetOption) {
     mcpServers: initMcpServers
   })
 
+  // todo: 增加错误监听，updateTools监听，并向外传递 error, 添加session,丢失session, tool更新的事件
+
   const status: Ref<'ready' | 'submitted' | 'streaming' | 'error'> = ref('ready')
-  const messages: Ref<any[]> = ref([])
+  const messages = ref([])
+  const inputValue = ref('')
   let controller: AbortController | null = null
 
-  async function chatStream(message: string) {
+  /** 发起流式会话 */
+  async function chatStream() {
+    const message = inputValue.value
     if (!message) return
 
     // 如果是添加sessionId, 则只添加应用，不发出请求。
@@ -65,6 +70,8 @@ export function useNextAgent(option: INextAgetOption) {
       onAbort: () => (status.value = 'ready')
     })
 
+    inputValue.value = ''
+
     if (option.processStream && typeof option.processStream === 'function') {
       option.processStream(result.fullStream, messages, message)
       return
@@ -73,6 +80,10 @@ export function useNextAgent(option: INextAgetOption) {
       handleStreamForMateChat(result.fullStream, messages as Ref<MatechatMessage[]>, message)
     } else if (option.ui === 'antx') {
       handleStreamForAntx(result.fullStream, messages as Ref<AntXMessage[]>, message)
+    } else if (option.ui === 'elplusx') {
+      handleStreamForElPlusx(result.fullStream, messages as Ref<AntXMessage[]>, message)
+    } else if (option.ui === 'tdchat') {
+      handleStreamForTdChat(result.fullStream, messages as Ref<AntXMessage[]>, message)
     } else {
       console.warn('暂时未实现')
     }
@@ -106,6 +117,8 @@ export function useNextAgent(option: INextAgetOption) {
     status,
     /** 聊天会话记录 */
     messages,
+    /** 输入框的文本 */
+    inputValue,
     /** 中断会话 */
     stopChat,
     /** 新建会话 */
@@ -199,13 +212,96 @@ async function handleStreamForAntx(fullStream: ReadableStream<string>, messages:
     content: message
   })
 
-  let aiMessage: AntXMessage = {
+  messages.value.push({
     from: 'model',
     content: ''
-  }
-  messages.value.push(aiMessage)
+  })
 
-  aiMessage = messages.value[messages.value.length - 1] as AntXMessage
+  const aiMessage = messages.value[messages.value.length - 1] as AntXMessage
+
+  for await (const part of fullStream) {
+    // 处理文本流数据
+    if (part.type.startsWith('text-')) {
+      if (part.text) aiMessage.content += part.text
+    }
+
+    // 处理工具流数据
+    else if (part.type.startsWith('tool-')) {
+      if (part.delta) aiMessage.content += part.delta
+    }
+
+    // 处理推理数据
+    else if (part.type.startsWith('reasoning-')) {
+      if (part.text) aiMessage.content += part.text
+    }
+  }
+}
+interface ElPlusXMessage {
+  from: 'user' | 'model'
+  content: string
+}
+async function handleStreamForElPlusx(
+  fullStream: ReadableStream<string>,
+  messages: Ref<ElPlusXMessage[]>,
+  message: string
+) {
+  messages.value.push({
+    from: 'user',
+    content: message
+  })
+
+  messages.value.push({
+    from: 'model',
+    content: ''
+  })
+
+  const aiMessage = messages.value[messages.value.length - 1] as AntXMessage
+
+  for await (const part of fullStream) {
+    // 处理文本流数据
+    if (part.type.startsWith('text-')) {
+      if (part.text) aiMessage.content += part.text
+    }
+
+    // 处理工具流数据
+    else if (part.type.startsWith('tool-')) {
+      if (part.delta) aiMessage.content += part.delta
+    }
+
+    // 处理推理数据
+    else if (part.type.startsWith('reasoning-')) {
+      if (part.text) aiMessage.content += part.text
+    }
+  }
+}
+
+export interface TdChatMessage {
+  avatar?: string
+  name?: string
+  role?: string
+  datetime?: string
+  content?: string
+  reasoning?: string
+}
+
+async function handleStreamForTdChat(
+  fullStream: ReadableStream<string>,
+  messages: Ref<TdChatMessage[]>,
+  message: string
+) {
+  messages.value.push({
+    role: 'user',
+    content: message,
+    avatar: 'https://tdesign.gtimg.com/site/avatar.jpg'
+  })
+
+  messages.value.push({
+    role: 'assistant',
+    content: '',
+    avatar: 'https://tdesign.gtimg.com/site/chat-avatar.png'
+  })
+
+  const aiMessage = messages.value[messages.value.length - 1] as AntXMessage
 
   for await (const part of fullStream) {
     // 处理文本流数据

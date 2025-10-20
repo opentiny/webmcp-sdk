@@ -72,10 +72,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 import { useNextAgent } from '@opentiny/next-remoter'
 
-const { chatStream, status, messages, stopChat, newConversation } = useNextAgent({
+const { chatStream, status, messages, inputValue, stopChat, newConversation } = useNextAgent({
   ui: 'matechat',
   llmConfig: { apiKey: 'sk-trial', baseURL: 'https://agent.opentiny.design/api/v1/ai', providerType: 'deepseek' },
   agentRoot: 'https://agent.opentiny.design/api/v1/webmcp-trial/',
@@ -83,7 +82,6 @@ const { chatStream, status, messages, stopChat, newConversation } = useNextAgent
   systemPrompt: '你是一个AI助手，会调用工具完成任务',
   model: 'deepseek-ai/DeepSeek-V3'
 })
-const inputValue = ref('')
 
 const api = {
   createConversation() {
@@ -93,9 +91,7 @@ const api = {
     inputValue.value = label
   },
   onSubmit() {
-    if (inputValue.value) {
-      chatStream(inputValue.value)
-    }
+    chatStream()
   },
   onCancel() {
     stopChat()

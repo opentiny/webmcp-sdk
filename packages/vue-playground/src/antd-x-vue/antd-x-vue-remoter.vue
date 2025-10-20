@@ -52,7 +52,7 @@
 </template>
 
 <script setup lang="ts">
-import { h, ref } from 'vue'
+import { h } from 'vue'
 import { Welcome, Prompts, Bubble, Sender } from 'ant-design-x-vue'
 import { Flex, Button, Divider, Typography } from 'ant-design-vue'
 import { BulbOutlined, InfoCircleOutlined, UserOutlined, PlusOutlined } from '@ant-design/icons-vue'
@@ -65,15 +65,14 @@ const renderMarkdown = (content) =>
     default: () => h('div', { innerHTML: md.render(content) })
   })
 
-const { chatStream, status, messages, stopChat, newConversation } = useNextAgent({
+const { chatStream, status, messages, inputValue, stopChat, newConversation } = useNextAgent({
   ui: 'antx',
   llmConfig: { apiKey: 'sk-trial', baseURL: 'https://agent.opentiny.design/api/v1/ai', providerType: 'deepseek' },
   agentRoot: 'https://agent.opentiny.design/api/v1/webmcp-trial/',
-  sessionId: '45653e8b-8ba6-4cc5-b037-039faa65c3c1',
+  sessionId: '',
   systemPrompt: '你是一个AI助手，会调用工具完成任务',
   model: 'deepseek-ai/DeepSeek-V3'
 })
-const inputValue = ref('')
 const promptItems = [
   {
     key: '1',
@@ -97,10 +96,7 @@ const api = {
     inputValue.value = label
   },
   onSubmit() {
-    if (inputValue.value) {
-      chatStream(inputValue.value)
-      inputValue.value = ''
-    }
+    chatStream()
   },
   onCancel() {
     stopChat()
