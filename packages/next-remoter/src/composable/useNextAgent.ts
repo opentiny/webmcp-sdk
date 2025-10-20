@@ -1,5 +1,5 @@
 import { type IAgentModelProviderOption, AgentModelProvider, type McpServerConfig } from '@opentiny/next-sdk'
-import { markRaw, Ref, ref } from 'vue'
+import { type Ref, ref } from 'vue'
 
 export type INextAgetOption = {
   /** 设置适配哪种UI框架，以便返回正确格式的message */
@@ -14,6 +14,10 @@ export type INextAgetOption = {
   model: string
   /** 一次对话中的最大轮数, 最大默认 5轮 */
   maxSteps?: number
+  /** 自定义流数据处理函数，将 llm 返回的流数据，按自定义的格式，保存到messages 数组中。
+   * 如果设置，则代替内部默认的流处理函数。
+   */
+  processStream?: (stream: ReadableStream<string>, messages: Ref<any[]>, senderContent: string) => Promise<void>
 } & Partial<Pick<IAgentModelProviderOption, 'llm' | 'llmConfig'>>
 
 /** 快速实现Opentiny Next遥控器的智能体
@@ -32,30 +36,26 @@ export function useNextAgent(option: INextAgetOption) {
   })
 
   const status: Ref<'ready' | 'submitted' | 'streaming' | 'error'> = ref('ready')
-  const messages = ref([])
-  const controller: Ref<AbortController | null> = ref(null)
+  const messages: Ref<any[]> = ref([])
+  let controller: AbortController | null = null
 
-  /** 发起流式会话 */
   async function chatStream(message: string) {
     if (!message) return
 
     // 如果是添加sessionId, 则只添加应用，不发出请求。
     if (/^\/[A-Za-z0-9-]{6,}$/.test(message)) {
-      const res = await fetch(`${option.agentRoot}client?sessionId=${message.slice(1)}`).then((res) => res.json())
-      const sessionId = res?.data?.sessionId
-      const server = createMcpServers(sessionId, option.agentRoot)
-      Object.assign(agent.mcpServers, server)
+      addSessionId(message.slice(1))
       return
     }
 
     status.value = 'submitted'
-    controller.value = markRaw(new AbortController())
+    controller = new AbortController()
 
     const result = await agent.chatStream({
       message: message,
       model: option.model,
       system: option.systemPrompt || '',
-      abortSignal: controller.value.signal,
+      abortSignal: controller.signal,
       maxSteps: option.maxSteps || 5,
       onFinish: async () => {
         await agent.closeAll() // agent聊天时，会自动连接一次所有的mcpServers
@@ -65,19 +65,38 @@ export function useNextAgent(option: INextAgetOption) {
       onAbort: () => (status.value = 'ready')
     })
 
+    if (option.processStream && typeof option.processStream === 'function') {
+      option.processStream(result.fullStream, messages, message)
+      return
+    }
     if (option.ui === 'matechat') {
       handleStreamForMateChat(result.fullStream, messages as Ref<MatechatMessage[]>, message)
+    } else if (option.ui === 'antx') {
+      handleStreamForAntx(result.fullStream, messages as Ref<AntXMessage[]>, message)
     } else {
       console.warn('暂时未实现')
     }
   }
 
-  function stop() {
-    if (controller.value) {
-      controller.value.abort()
+  function stopChat() {
+    if (controller) {
+      controller.abort()
     }
   }
 
+  function newConversation() {
+    messages.value = []
+    agent.messages = []
+  }
+
+  async function addSessionId(sid: string) {
+    const res = await fetch(`${option.agentRoot}client?sessionId=${sid}`).then((res) => res.json())
+    const sessionId = res?.data?.sessionId || ''
+    if (sessionId) {
+      const server = createMcpServers(sessionId, option.agentRoot)
+      Object.assign(agent.mcpServers, server)
+    }
+  }
   return {
     /** 一个AgentModelProvider实例 */
     agent,
@@ -88,7 +107,11 @@ export function useNextAgent(option: INextAgetOption) {
     /** 聊天会话记录 */
     messages,
     /** 中断会话 */
-    stop
+    stopChat,
+    /** 新建会话 */
+    newConversation,
+    /** 添加一个sessionId,允许是短码 */
+    addSessionId
   }
 }
 
@@ -123,7 +146,6 @@ interface MatechatAIMessage {
   content: string
   avatarConfig: { name: 'model' }
   id: string
-  loading: boolean
 }
 type MatechatMessage = MatechatUserMessage | MatechatAIMessage
 
@@ -143,12 +165,47 @@ async function handleStreamForMateChat(
     from: 'model',
     content: '',
     avatarConfig: { name: 'model' },
-    id: Date.now().toString(),
-    loading: false
+    id: Date.now().toString()
   }
   messages.value.push(aiMessage)
 
-  aiMessage = messages.value[messages.value.length - 1]
+  aiMessage = messages.value[messages.value.length - 1] as MatechatAIMessage
+
+  for await (const part of fullStream) {
+    // 处理文本流数据
+    if (part.type.startsWith('text-')) {
+      if (part.text) aiMessage.content += part.text
+    }
+
+    // 处理工具流数据
+    else if (part.type.startsWith('tool-')) {
+      if (part.delta) aiMessage.content += part.delta
+    }
+
+    // 处理推理数据
+    else if (part.type.startsWith('reasoning-')) {
+      if (part.text) aiMessage.content += part.text
+    }
+  }
+}
+
+interface AntXMessage {
+  from: 'user' | 'model'
+  content: string
+}
+async function handleStreamForAntx(fullStream: ReadableStream<string>, messages: Ref<AntXMessage[]>, message: string) {
+  messages.value.push({
+    from: 'user',
+    content: message
+  })
+
+  let aiMessage: AntXMessage = {
+    from: 'model',
+    content: ''
+  }
+  messages.value.push(aiMessage)
+
+  aiMessage = messages.value[messages.value.length - 1] as AntXMessage
 
   for await (const part of fullStream) {
     // 处理文本流数据
