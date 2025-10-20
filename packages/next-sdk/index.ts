@@ -20,6 +20,10 @@ export type * from '@modelcontextprotocol/sdk/server/mcp.js'
 export * from './WebMcpServer'
 export * from './WebMcpClient'
 
+// 浏览器扩展自定义传输层
+export * from './transport/ExtensionClientTransport'
+export * from './transport/ExtensionServerTransport'
+
 // 快速创建一个悬浮图标和菜单，是扫码和聊天框的入口
 export { createRemoter } from './remoter/createRemoter'
 

@@ -16,3 +16,6 @@ export type * from '@modelcontextprotocol/sdk/shared/transport.js'
 export type * from '@modelcontextprotocol/sdk/client/sse.js'
 export type * from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 export type * from '@modelcontextprotocol/sdk/server/mcp.js'
+
+export * from './transport/ExtensionClientTransport'
+export * from './transport/ExtensionServerTransport'
