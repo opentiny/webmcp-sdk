@@ -33,10 +33,12 @@ export function useNextAgent(option: INextAgetOption) {
 
   const status: Ref<'ready' | 'submitted' | 'streaming' | 'error'> = ref('ready')
   const messages = ref([])
+  const inputValue = ref('')
   const controller: Ref<AbortController | null> = ref(null)
 
   /** 发起流式会话 */
-  async function chatStream(message: string) {
+  async function chatStream() {
+    const message = inputValue.value
     if (!message) return
 
     // 如果是添加sessionId, 则只添加应用，不发出请求。
