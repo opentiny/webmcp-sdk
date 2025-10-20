@@ -82,6 +82,8 @@ export function useNextAgent(option: INextAgetOption) {
       handleStreamForAntx(result.fullStream, messages as Ref<AntXMessage[]>, message)
     } else if (option.ui === 'elplusx') {
       handleStreamForElPlusx(result.fullStream, messages as Ref<AntXMessage[]>, message)
+    } else if (option.ui === 'tdchat') {
+      handleStreamForTdChat(result.fullStream, messages as Ref<AntXMessage[]>, message)
     } else {
       console.warn('暂时未实现')
     }
@@ -251,6 +253,52 @@ async function handleStreamForElPlusx(
   messages.value.push({
     from: 'model',
     content: ''
+  })
+
+  const aiMessage = messages.value[messages.value.length - 1] as AntXMessage
+
+  for await (const part of fullStream) {
+    // 处理文本流数据
+    if (part.type.startsWith('text-')) {
+      if (part.text) aiMessage.content += part.text
+    }
+
+    // 处理工具流数据
+    else if (part.type.startsWith('tool-')) {
+      if (part.delta) aiMessage.content += part.delta
+    }
+
+    // 处理推理数据
+    else if (part.type.startsWith('reasoning-')) {
+      if (part.text) aiMessage.content += part.text
+    }
+  }
+}
+
+export interface TdChatMessage {
+  avatar?: string
+  name?: string
+  role?: string
+  datetime?: string
+  content?: string
+  reasoning?: string
+}
+
+async function handleStreamForTdChat(
+  fullStream: ReadableStream<string>,
+  messages: Ref<TdChatMessage[]>,
+  message: string
+) {
+  messages.value.push({
+    role: 'user',
+    content: message,
+    avatar: 'https://tdesign.gtimg.com/site/avatar.jpg'
+  })
+
+  messages.value.push({
+    role: 'assistant',
+    content: '',
+    avatar: 'https://tdesign.gtimg.com/site/chat-avatar.png'
   })
 
   const aiMessage = messages.value[messages.value.length - 1] as AntXMessage
