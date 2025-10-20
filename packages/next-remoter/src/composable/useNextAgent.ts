@@ -35,6 +35,8 @@ export function useNextAgent(option: INextAgetOption) {
     mcpServers: initMcpServers
   })
 
+  // todo: 增加错误监听，updateTools监听，并向外传递 error, 添加session,丢失session, tool更新的事件
+
   const status: Ref<'ready' | 'submitted' | 'streaming' | 'error'> = ref('ready')
   const messages = ref([])
   const inputValue = ref('')
@@ -111,6 +113,8 @@ export function useNextAgent(option: INextAgetOption) {
     status,
     /** 聊天会话记录 */
     messages,
+    /** 输入框的文本 */
+    inputValue,
     /** 中断会话 */
     stopChat,
     /** 新建会话 */
@@ -204,13 +208,12 @@ async function handleStreamForAntx(fullStream: ReadableStream<string>, messages:
     content: message
   })
 
-  let aiMessage: AntXMessage = {
+  messages.value.push({
     from: 'model',
     content: ''
-  }
-  messages.value.push(aiMessage)
+  })
 
-  aiMessage = messages.value[messages.value.length - 1] as AntXMessage
+  const aiMessage = messages.value[messages.value.length - 1] as AntXMessage
 
   for await (const part of fullStream) {
     // 处理文本流数据
