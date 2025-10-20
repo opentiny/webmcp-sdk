@@ -66,7 +66,7 @@ const renderMarkdown = (content) =>
   })
 
 const { chatStream, status, messages, inputValue, stopChat, newConversation } = useNextAgent({
-  ui: 'antx',
+  ui: 'antdx',
   llmConfig: { apiKey: 'sk-trial', baseURL: 'https://agent.opentiny.design/api/v1/ai', providerType: 'deepseek' },
   agentRoot: 'https://agent.opentiny.design/api/v1/webmcp-trial/',
   sessionId: '',

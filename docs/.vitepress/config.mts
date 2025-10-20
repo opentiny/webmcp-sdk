@@ -19,9 +19,7 @@ export default defineConfig({
       '/guide/': [
         {
           text: '介绍',
-          items: [
-            { text: '开始', link: '/guide/' },
-          ]
+          items: [{ text: '开始', link: '/guide/' }]
         },
         {
           text: '指引',
@@ -29,7 +27,7 @@ export default defineConfig({
             { text: '接入三方 AI 应用', link: '/guide/mcp-host' },
             { text: 'Electron 应用接入', link: '/guide/electron' },
             { text: 'uni-app 应用接入', link: '/guide/uni-app' },
-            { text: '本地连接', link: '/guide/connect-local' },
+            { text: '本地连接', link: '/guide/connect-local' }
           ]
         },
         {
@@ -44,7 +42,10 @@ export default defineConfig({
         },
         {
           text: 'TinyRemoter for Vue',
-          items: [{ text: 'TinyRobot 版本', link: '/guide/tiny-robot-remoter' }]
+          items: [
+            { text: 'TinyRobot 版本', link: '/guide/tiny-robot-remoter' },
+            { text: 'useNextAgent 函数', link: '/guide/use-next-agent' }
+          ]
         }
       ]
     },

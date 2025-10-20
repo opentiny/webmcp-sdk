@@ -3,7 +3,7 @@ import { type Ref, ref } from 'vue'
 
 export type INextAgetOption = {
   /** 设置适配哪种UI框架，以便返回正确格式的message */
-  ui: 'matechat' | 'antx' | 'elplusx' | 'tdchat'
+  ui?: 'matechat' | 'antdx' | 'elplusx' | 'tdchat'
   /** 代理的后台地址，比如：'https://agent.opentiny.design/api/v1/webmcp-trial/'，若私有化部署，请填入私有化地址。 */
   agentRoot: string
   /** 初始的受控应用的会话id, 如果多个应用，需要使用英文逗号分隔 */
@@ -111,19 +111,19 @@ export function useNextAgent(option: INextAgetOption) {
   return {
     /** 一个AgentModelProvider实例 */
     agent,
-    /** 发起流式对话 */
-    chatStream,
     /** agent的实时状态 */
     status,
     /** 聊天会话记录 */
     messages,
     /** 输入框的文本 */
     inputValue,
-    /** 中断会话 */
+    /** 发起流式对话函数 */
+    chatStream,
+    /** 中断会话函数 */
     stopChat,
-    /** 新建会话 */
+    /** 新建会话函数 */
     newConversation,
-    /** 添加一个sessionId,允许是短码 */
+    /** 添加一个sessionId的函数,允许是短码 */
     addSessionId
   }
 }
