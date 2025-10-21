@@ -4,7 +4,7 @@
 import { useNextAgent } from '@opentiny/next-remoter'
 ```
 
-在`@opentiny/next`智能化的生态框架中，一个智能化WEB应用通常会对应一个`sessionId`，向外暴露`MCP Tools`以便智能操控。`useNextAgent`智能体函数就是连接`LLM`, 同时连接WEB应用和聊天界面的一个通用函数。通过它可以快速打通`LLM对话`，打通WEB应用的操控，并返回和聊天界面常用的变量和函数，达到迅速的开发一个对话框应用目的。
+在上一节中，我们知道 `TinyRemoter` 是一个开箱即用的`Tiny Robot UI`开发的对话框界面的Vue 组件，它内部封装了LLM对话和Web应用添加等功能。如果用户需要依赖其它第3方的流行Chat UI组件库进行开发，那么可以考虑使用`useNextAgent`无头 Vue hook 函数，它是一个内部包含了连接LLM会话, 打通WEB应用和聊天界面，并返回和聊天界面常用的变量和函数，达到迅速的对接任意Chat UI组件库应用。
 
 ## 快速上手
 

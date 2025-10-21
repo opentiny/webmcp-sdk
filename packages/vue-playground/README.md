@@ -13,7 +13,7 @@ pnpm dev:vue-playground
 
 ## 如何切换示例
 
-打开 `src/App.vue` 文件，通过放开注释，查看相应的示例：
+打开 `src/App.vue` 文件，通过移除注释，查看相应的示例：
 
 ```vue
 <template>
