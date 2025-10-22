@@ -11,5 +11,3 @@
 // import elPlusXRemoter from './el-plus-x/el-plus-x-remoter.vue'
 import tdChatRemoter from './td-chat/td-chat-remoter.vue'
 </script>
-
-<style scoped lang="less"></style>
