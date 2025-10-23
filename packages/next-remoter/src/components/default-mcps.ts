@@ -41,8 +41,8 @@ export const DEFAULT_SERVERS: PluginInfo[] = [
     name: 'Excel文档MCP服务器',
     description: 'Excel文档MCP服务器，可以创建、编辑、保存Excel文档',
     icon: 'https://agent.opentiny.design/public-assets/icons/icon-excel.png',
-    url: mcpHost + '/servers/excel-mcp/sse',
-    type: 'sse',
+    url: mcpHost + '/servers/excel-mcp/mcp',
+    type: 'StreamableHTTP',
     enabled: false,
     addState: 'idle',
     tools: []

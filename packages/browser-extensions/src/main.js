@@ -123,7 +123,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 const initWebMCP = () => {
   const urlToolsMap = {
-    'https://opentiny.design': chrome.runtime.getURL('src/mcp-servers/opentiny.design/index.js')
+    'https://opentiny.design': chrome.runtime.getURL('src/mcp-servers/opentiny.design/index.js'),
+    'https://www.baidu.com': chrome.runtime.getURL('src/mcp-servers/www.baidu.com/index.js'),
+    'https://excalidraw.com': chrome.runtime.getURL('src/mcp-servers/excalidraw.com/index.js')
   }
 
   const originUrl = window.location.origin
