@@ -5,7 +5,7 @@ import '@opentiny/tiny-robot/dist/style.css'
 import { setToastDefaultOptions } from 'vant'
 
 export function entry(support: string) {
-  setToastDefaultOptions({ duration: 1000 })
+  setToastDefaultOptions({ duration: 2000 })
   const app = createApp(App, { support })
   app.mount('#app')
 }

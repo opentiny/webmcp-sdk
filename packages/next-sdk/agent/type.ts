@@ -14,7 +14,11 @@ export interface IAgentModelProviderLlmConfig {
 }
 
 /** Mcp Server的配置对象 */
-export type McpServerConfig = { type: 'streamableHttp' | 'sse'; url: string } | { transport: MCPTransport }
+export type McpServerConfig =
+  | { type: 'streamableHttp'; url: string }
+  | { type: 'sse'; url: string }
+  | { type: 'extension'; url: string; sessionId: string }
+  | { transport: MCPTransport }
 
 /** */
 export interface IAgentModelProviderOption {

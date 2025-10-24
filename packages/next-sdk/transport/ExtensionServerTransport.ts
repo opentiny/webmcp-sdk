@@ -237,7 +237,7 @@ export class ExtensionServerTransport implements Transport {
           sessionId: this.sessionId,
           serverInfo: {
             ...serverInfo,
-            url: window.location.href,
+            url: window.location.origin,
             title: document.title
           }
         },

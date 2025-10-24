@@ -23,6 +23,11 @@ export class ExtensionClientTransport implements Transport {
   // 会话ID，用于标识此 transport 实例
   readonly sessionId: string
 
+  // 连接超时配置
+  private _connectTimeout: number = 5000 // 连接超时（5秒）
+
+  private _tabId: number | null = null
+
   // 内部状态
   private _messageListener: ((message: any, sender: any, sendResponse: any) => boolean) | null = null // 消息监听器引用
   private _isStarted: boolean = false // 是否已启动
@@ -54,7 +59,23 @@ export class ExtensionClientTransport implements Transport {
       throw new Error('Transport 已关闭，无法重新启动')
     }
 
+    if (this._tabId) {
+      const tabIdIsExists = await chrome.tabs.query({ id: this._tabId })
+      if (tabIdIsExists.length === 0) {
+        throw new Error('Transport 未找到对应的标签页')
+      }
+    }
+
     try {
+      console.log('[ExtensionClientTransport] 查询 Server 位置:', this.targetSessionId)
+      const queryResult = await this._querySessionTabId()
+
+      if (!queryResult.success || !queryResult.tabId) {
+        throw new Error(queryResult.error || 'Server 未注册或已关闭')
+      }
+
+      this._tabId = queryResult.tabId
+      console.log('[ExtensionClientTransport] 找到 Server，tab ID:', this._tabId)
       // 创建消息监听器
       this._messageListener = (message, sender, sendResponse) => {
         // 只处理来自目标 sessionId 的 MCP 消息
@@ -63,6 +84,10 @@ export class ExtensionClientTransport implements Transport {
           if (message.sessionId !== this.targetSessionId) {
             console.log('[ExtensionClientTransport] sessionId 不匹配，忽略')
             return true
+          }
+
+          if (sender.tab?.id) {
+            this._tabId = sender.tab.id
           }
 
           if (!message.mcpMessage) {
@@ -129,33 +154,21 @@ export class ExtensionClientTransport implements Transport {
 
     try {
       // 向所有标签页广播消息（因为不知道 Server 在哪个标签页）
-      // 每个页面的 content script 会根据 sessionId 路由到正确的 Server
-      const tabs = await chrome.tabs.query({})
-      console.log('[ExtensionClientTransport] 向', tabs.length, '个标签页广播消息')
-
-      let sent = false
-      for (const tab of tabs) {
-        if (tab.id) {
-          chrome.tabs
-            .sendMessage(tab.id, {
-              type: 'mcp-client-to-server',
-              sessionId: this.targetSessionId,
-              mcpMessage: message
-            })
-            .then(() => {
-              if (!sent) {
-                sent = true
-                console.log('[ExtensionClientTransport] ✅ 消息已发送到标签页:', tab.id)
-              }
-            })
-            .catch((error: Error) => {
-              // 某些标签页没有 content script，忽略
-              if (!error.message.includes('Receiving end does not exist')) {
-                console.error('[ExtensionClientTransport] 发送到标签页', tab.id, '失败:', error)
-              }
-            })
-        }
-      }
+      chrome.tabs
+        .sendMessage(this._tabId, {
+          type: 'mcp-client-to-server',
+          sessionId: this.targetSessionId,
+          mcpMessage: message
+        })
+        .then(() => {
+          console.log('[ExtensionClientTransport] ✅ 消息已发送到标签页:', this._tabId)
+        })
+        .catch((error: Error) => {
+          // 某些标签页没有 content script，忽略
+          if (!error.message.includes('Receiving end does not exist')) {
+            console.error('[ExtensionClientTransport] 发送到标签页', this._tabId, '失败:', error)
+          }
+        })
     } catch (error) {
       console.error('[ExtensionClientTransport] 发送消息失败:', error)
       const wrappedError = error instanceof Error ? error : new Error(String(error))
@@ -164,6 +177,35 @@ export class ExtensionClientTransport implements Transport {
       }
       throw wrappedError
     }
+  }
+
+  /**
+   * 查询 sessionId 对应的 tab ID（通过 Service Worker）
+   * @returns {Promise<any>}
+   * @private
+   */
+  private async _querySessionTabId(): Promise<any> {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error('查询 Server 超时（5秒）'))
+      }, this._connectTimeout)
+
+      chrome.runtime.sendMessage(
+        {
+          type: 'query-mcp-session',
+          sessionId: this.targetSessionId
+        },
+        (response: any) => {
+          clearTimeout(timer)
+
+          if (chrome.runtime.lastError) {
+            reject(new Error(chrome.runtime.lastError.message))
+          } else {
+            resolve(response)
+          }
+        }
+      )
+    })
   }
 
   /**
