@@ -138,6 +138,7 @@ import { defaultPluginSrc } from './default-plugin-svg'
 import { getLang, mapMake } from './lang'
 import { handleError } from './error-handle'
 import { ICustomAgentModelProviderLlmConfig } from '../types/type'
+import { useBrowserExtensions } from '../composable/useBrowserExtensions'
 
 defineOptions({
   name: 'TinyRemoter'
@@ -246,6 +247,36 @@ const {
   llm: props.llm
 })
 
+/**
+ * 处理 MCP Client 断开事件
+ * 自动清理已断开的插件和资源
+ */
+const handleClientDisconnected = async (serverName: string) => {
+  // 从 serverName 提取 pluginId (格式: mcp-server-xxx)
+  const pluginId = serverName.replace('mcp-server-', '')
+  const fullPluginId = `plugin-${pluginId}`
+
+  // 查找对应的插件
+  const plugin = installedPlugins.value.find((p) => p.id === fullPluginId)
+
+  // 从 Agent 中移除 MCP Server
+  await agent.removeMcpServer(serverName)
+
+  if (plugin) {
+    // 从已安装插件列表中移除
+    installedPlugins.value = installedPlugins.value.filter((p) => p.id !== fullPluginId)
+
+    // 还原市场插件状态（如果存在）
+    const marketPlugin = marketPlugins.value.find((p) => p.id === fullPluginId)
+    if (marketPlugin) {
+      marketPlugin.addState = 'idle'
+    }
+
+    // 显示提示
+    showToast(`工具 "${plugin.name}" 已断开连接`)
+  }
+}
+
 // 处理扫码结果。 把结果添加到 agent.mcpServers， 以及 插入McpServerPicker的一个Plugin
 const handleScanSuccess = async (sessionId: string) => {
   showLoadingToast('添加工具中...')
@@ -301,21 +332,11 @@ const handlePillItemClick = (item: ReturnType<typeof mapMake>) => {
 }
 
 const loadMcpServerToPlugin = async (serverName: string, mcpServer: McpServerConfig) => {
-  // 先查找 index, 由它可以找到相应的 client, tool
-  const serverNames = Object.keys(agent.mcpServers)
-  const index = serverNames.indexOf(serverName)
+  const url = new URL('url' in mcpServer ? mcpServer.url : '')
+  const sessionId = url.searchParams.get('sessionId') || ('sessionId' in mcpServer ? mcpServer.sessionId : '') || ''
 
-  // 检查 mcpServer 是否有 url 属性
-  if (!('url' in mcpServer)) {
-    console.warn('MCP server config does not have url property')
-    return
-  }
-
-  // 解析url, 获得sessionId
-  const url = new URL(mcpServer.url)
-  const sessionId = url.searchParams.get('sessionId') || ''
-  // 查询 tools
-  const currTool = agent.mcpTools[index]
+  // 直接使用 serverName 获取 tools，无需索引查找
+  const currTool = agent.mcpTools[serverName]
   if (currTool) {
     let pluginTools: PluginTool[] = []
     pluginTools = Object.keys(currTool).map((key) => {
@@ -355,6 +376,12 @@ const loadMcpServerToPlugin = async (serverName: string, mcpServer: McpServerCon
   }
 }
 
+useBrowserExtensions({
+  agent,
+  loadMcpServerToPlugin,
+  handleClientDisconnected
+})
+
 onMounted(async () => {
   // 统一报错
   agent.onError = (msg) => {
@@ -366,33 +393,28 @@ onMounted(async () => {
     installedPlugins.value.forEach((plugin) => {
       // 通过插件ID找到对应的服务器名称
       const serverName = `mcp-server-${plugin.id.replace('plugin-', '')}`
-      const serverNames = Object.keys(agent.mcpServers)
-      const index = serverNames.indexOf(serverName)
+
+      // 直接使用 serverName 获取 client 和 tool，无需索引查找
+      const currClient = agent.mcpClients[serverName]
+      const currTool = agent.mcpTools[serverName]
 
       // 先判断client 在不在， 不存在后，标记一个 (断)
-      if (index !== -1) {
-        const currClient = agent.mcpClients[index]
-
-        if (currClient === null) {
-          plugin.name = '❌' + plugin.name.replace('❌', '')
-        }
+      if (currClient === null) {
+        plugin.name = '❌' + plugin.name.replace('❌', '')
       }
 
       // 判断 tool是不是 null, 是null则全部禁用
-      if (index !== -1) {
-        const currTool = agent.mcpTools[index]
-        if (currTool === null) {
-          plugin.tools.forEach((tool) => (tool.enabled = false))
-        } else {
-          plugin.tools = Object.keys(currTool).map((key) => {
-            return {
-              id: key,
-              name: key,
-              description: currTool[key].description as string,
-              enabled: !agent.ignoreToolnames.includes(key)
-            }
-          })
-        }
+      if (currTool === null) {
+        plugin.tools.forEach((tool) => (tool.enabled = false))
+      } else if (currTool) {
+        plugin.tools = Object.keys(currTool).map((key) => {
+          return {
+            id: key,
+            name: key,
+            description: currTool[key].description as string,
+            enabled: !agent.ignoreToolnames.includes(key)
+          }
+        })
       }
     })
   }
@@ -463,11 +485,8 @@ const handlePluginAdd = async (plugin: PluginInfo) => {
   const serverName = `mcp-server-${plugin.id}`
   const inserted = await agent.insertMcpServer(serverName, mcpServer) // 插入时，会自动去重，且initClientAndTools
   if (inserted) {
-    // 通过服务器名称找到对应的索引
-    const serverNames = Object.keys(agent.mcpServers)
-    const index = serverNames.indexOf(serverName)
-    // 查询 tools
-    const currTool = agent.mcpTools[index]
+    // 直接使用 serverName 获取 tools，无需索引查找
+    const currTool = agent.mcpTools[serverName]
     if (currTool) {
       newPlugin.tools = Object.keys(currTool).map((key) => {
         return {

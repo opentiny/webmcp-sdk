@@ -7,6 +7,7 @@ import { ProviderV2 } from '@ai-sdk/provider'
 import { OpenAIProvider } from '@ai-sdk/openai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createDeepSeek } from '@ai-sdk/deepseek'
+import { ExtensionClientTransport } from '../transport/ExtensionClientTransport'
 
 export const AIProviderFactories = {
   ['openai']: createOpenAI,
@@ -24,21 +25,25 @@ export class AgentModelProvider {
   /**  当前mcpServers对象集合。键为服务器名称，值为 McpServerConfig 或任意的 MCPTransport
    * 参考: https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling#initializing-an-mcp-client */
   mcpServers: Record<string, McpServerConfig> = {}
-  /** 当前ai-sdk的 mcpClient 数组 */
-  mcpClients: any[] = []
-  /** 当前 mcpClients 所对应的tools */
-  mcpTools: Array<Record<string, any>> = []
+  /** 当前ai-sdk的 mcpClient 对象集合，键为服务器名称 */
+  mcpClients: Record<string, any> = {}
+  /** 当前 mcpClients 所对应的tools，键为服务器名称 */
+  mcpTools: Record<string, Record<string, any>> = {}
   /** 需要实时过滤掉的tools name*/
   ignoreToolnames: string[] = []
   /** Agent 自动更新所有的tools 后的事件 */
   onUpdatedTools: (() => void) | undefined
   /** Agent 内部报错时，抛出的错误事件 */
   onError: ((msg: string, err?: any) => void) | undefined
+  /** MCP Client 断开连接时的回调 */
+  onClientDisconnected?: (serverName: string, reason?: string) => void
   /** 缓存 ai-sdk response 中的 多轮会话的上下文 */
   messages: any[] = []
 
   constructor({ llmConfig, mcpServers, llm }: IAgentModelProviderOption) {
     this.mcpServers = mcpServers || {}
+    this.mcpClients = {}
+    this.mcpTools = {}
 
     if (llm) {
       this.llm = llm
@@ -65,7 +70,9 @@ export class AgentModelProvider {
       let transport: MCPClientConfig['transport']
       // transport 一定是 streamableHttp 或者就是： ai-sdk允许的 transport
       if ('type' in serverConfig && serverConfig.type.toLocaleLowerCase() === 'streamablehttp') {
-        transport = new StreamableHTTPClientTransport(new URL(serverConfig.url))
+        transport = new StreamableHTTPClientTransport(new URL((serverConfig as { url: string }).url))
+      } else if ('type' in serverConfig && serverConfig.type === 'extension') {
+        transport = new ExtensionClientTransport(serverConfig.sessionId)
       } else {
         transport = serverConfig as MCPClientConfig['transport']
       }
@@ -73,6 +80,7 @@ export class AgentModelProvider {
       const client = await createMCPClient({ transport: transport as MCPClientConfig['transport'] })
       //@ts-ignore
       client['__transport__'] = transport
+
       return client
     } catch (error: unknown) {
       if (this.onError) {
@@ -93,32 +101,46 @@ export class AgentModelProvider {
   /** 创建所有 mcpClients */
   private async _createMpcClients() {
     // 使用 Promise.all 并行处理所有 mcpServer 项
-    this.mcpClients = await Promise.all(
-      Object.values(this.mcpServers).map(async (server) => {
-        return this._createOneClient(server)
+    const serverEntries = Object.entries(this.mcpServers)
+    const clients = await Promise.all(
+      serverEntries.map(async ([serverName, server]) => {
+        const client = await this._createOneClient(server)
+        return { serverName, client }
       })
     )
+    // 将结果存储到对象中，使用 serverName 作为键
+    this.mcpClients = {}
+    clients.forEach(({ serverName, client }) => {
+      this.mcpClients[serverName] = client
+    })
   }
   /** 查询所有 mcpClients 的 tools, 失败则保存为null */
   private async _createMpcTools() {
-    this.mcpTools = await Promise.all(
-      this.mcpClients.map(async (client) => {
+    const clientEntries = Object.entries(this.mcpClients)
+    const tools = await Promise.all(
+      clientEntries.map(async ([serverName, client]) => {
         try {
-          return client ? await client?.tools?.() : null
+          const result = client ? await client?.tools?.() : null
+          return { serverName, tools: result }
         } catch (error: unknown) {
           if (this.onError) {
             this.onError((error as Error)?.message || `Failed to query tools`, error)
           }
           console.error(`Failed to query tools`, error)
-          return null
+          return { serverName, tools: null }
         }
       })
     )
+    // 将结果存储到对象中，使用 serverName 作为键
+    this.mcpTools = {}
+    tools.forEach(({ serverName, tools: toolsData }) => {
+      this.mcpTools[serverName] = toolsData
+    })
   }
   /** 关闭所有的 clients */
   async closeAll() {
     await Promise.all(
-      this.mcpClients.map(async (client) => {
+      Object.values(this.mcpClients).map(async (client) => {
         try {
           await this._closeOneClient(client)
         } catch (error: unknown) {
@@ -154,8 +176,8 @@ export class AgentModelProvider {
 
     this.mcpServers[serverName] = mcpServer
     const client = await this._createOneClient(mcpServer)
-    this.mcpClients.push(client)
-    this.mcpTools.push((await client?.tools?.()) as Record<string, any>)
+    this.mcpClients[serverName] = client
+    this.mcpTools[serverName] = (await client?.tools?.()) as Record<string, any>
     this.onUpdatedTools?.()
 
     return true
@@ -166,31 +188,33 @@ export class AgentModelProvider {
       return
     }
 
-    // 找到对应的索引
-    const serverNames = Object.keys(this.mcpServers)
-    const index = serverNames.indexOf(serverName)
-
+    // 删除 mcpServer
     delete this.mcpServers[serverName]
 
-    const delClient = this.mcpClients[index]
-    this.mcpClients.splice(index, 1)
+    // 关闭并删除 client
+    const delClient = this.mcpClients[serverName]
+    delete this.mcpClients[serverName]
     try {
       await this._closeOneClient(delClient)
     } catch (error) {}
 
-    const delTool = this.mcpTools[index]
-    this.mcpTools.splice(index, 1)
+    // 删除 tools 并清理 ignoreToolnames
+    const delTool = this.mcpTools[serverName]
+    delete this.mcpTools[serverName]
 
     if (delTool) {
       Object.keys(delTool).forEach((toolName) => {
         this.ignoreToolnames = this.ignoreToolnames.filter((name) => name !== toolName)
       })
     }
+
+    this.onUpdatedTools?.()
   }
 
   /** 创建临时允许调用的tools集合 */
   private _tempMergeTools(extraTool = {}) {
-    const toolsResult = this.mcpTools.reduce((acc, curr) => ({ ...acc, ...curr }), {})
+    // 将对象的值转换为数组后再 reduce
+    const toolsResult = Object.values(this.mcpTools).reduce((acc, curr) => ({ ...acc, ...curr }), {})
     Object.assign(toolsResult, extraTool)
 
     this.ignoreToolnames.forEach((name) => {
