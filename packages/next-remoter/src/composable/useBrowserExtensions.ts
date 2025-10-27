@@ -18,7 +18,7 @@ export const useBrowserExtensions = ({
    * 设置消息监听器
    */
   if (isExtension) {
-    chrome.runtime.onMessage.addListener(async (message: any) => {
+    chrome.runtime.onMessage.addListener(async (message: any, sender: any, sendResponse: any) => {
       if (message.type === 'mcp-server-register') {
         const sessionId = message.sessionId
         if (sessionId) {
@@ -32,8 +32,10 @@ export const useBrowserExtensions = ({
           // 1、 插入McpServers, 此时内部会判断重复。  不重复则插入，并连接和查询tools到agent上。
           const inserted = await agent.insertMcpServer(serverName, mcpServer as McpServerConfig)
           if (inserted) {
-            console.log('插入插件成功，加载插件到McpServerPicker')
             await loadMcpServerToPlugin(serverName, mcpServer as McpServerConfig)
+            await agent.closeAll()
+            showToast(`插件已添加: ${message.serverInfo.url}`)
+            sendResponse({ success: true })
           }
         }
       }
@@ -43,6 +45,7 @@ export const useBrowserExtensions = ({
         if (sessionId) {
           const serverName = `mcp-server-${sessionId}`
           await handleClientDisconnected(serverName)
+          sendResponse({ success: true })
         }
       }
     })

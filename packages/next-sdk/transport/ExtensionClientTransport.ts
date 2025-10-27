@@ -67,7 +67,6 @@ export class ExtensionClientTransport implements Transport {
     }
 
     try {
-      console.log('[ExtensionClientTransport] 查询 Server 位置:', this.targetSessionId)
       const queryResult = await this._querySessionTabId()
 
       if (!queryResult.success || !queryResult.tabId) {
@@ -82,16 +81,14 @@ export class ExtensionClientTransport implements Transport {
         if (message.type === 'mcp-server-to-client') {
           // 检查 sessionId 是否匹配
           if (message.sessionId !== this.targetSessionId) {
-            console.log('[ExtensionClientTransport] sessionId 不匹配，忽略')
+            // sessionId 不匹配，忽略
+            sendResponse({ success: false, error: 'sessionId 不匹配' })
             return true
-          }
-
-          if (sender.tab?.id) {
-            this._tabId = sender.tab.id
           }
 
           if (!message.mcpMessage) {
             console.error('[ExtensionClientTransport] 消息缺少 mcpMessage 字段')
+            sendResponse({ success: false, error: '消息缺少 mcpMessage 字段' })
             return true
           }
 
@@ -100,14 +97,17 @@ export class ExtensionClientTransport implements Transport {
             if (this.onmessage) {
               const mcpMessage = JSONRPCMessageSchema.parse(message.mcpMessage)
               this.onmessage(mcpMessage)
+              sendResponse({ success: true })
             } else {
               console.warn('[ExtensionClientTransport] onmessage 回调未设置')
+              sendResponse({ success: false, error: 'onmessage 回调未设置' })
             }
           } catch (error) {
             console.error('[ExtensionClientTransport] 处理消息时发生错误:', error)
             if (this.onerror) {
               this.onerror(error instanceof Error ? error : new Error(String(error)))
             }
+            sendResponse({ success: false, error: '处理消息时发生错误' })
           }
         }
 
