@@ -6,9 +6,15 @@ export default defineConfig({
   modules: ['@wxt-dev/module-vue'],
   manifest: {
     // 定义manifiest
-    permissions: ['storage', 'tabs', 'scripting', 'contextMenus'],
+    permissions: ['storage', 'tabs', 'scripting', 'contextMenus', 'userScripts'],
     host_permissions: ['*://*/*'], //  bg 发出 fecth, bg注入content脚本，访问 tab详情，cookie..
-    action: {}
+    action: {},
+    web_accessible_resources: [
+      {
+        resources: ['vendor/next-sdk.js'],
+        matches: ['*://*/*']
+      }
+    ]
   },
   vite: () => ({
     plugins: [
