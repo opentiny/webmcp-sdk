@@ -129,41 +129,14 @@ export default defineContentScript({
       return true
     })
 
-    const initWebMCP = () => {
-      const urlToolsMap = {
-        'https://opentiny.design': browser.runtime.getURL('/mcp-servers/opentiny.design/index.js'),
-        'https://www.baidu.com': browser.runtime.getURL('/mcp-servers/www.baidu.com/index.js'),
-        'https://excalidraw.com': browser.runtime.getURL('/mcp-servers/excalidraw.com/index.js')
-      }
-
+    // 1、 内容脚本初始化，若匹配
+    const initWebMCP = async () => {
       const originUrl = window.location.origin
+      const replay = await sendMessage('initWebMCP', { originUrl }, 'background')
 
-      const url = urlToolsMap[originUrl]
-      if (!url) {
-        return
-      }
-
-      chrome.runtime.sendMessage(
-        {
-          type: 'initWebMCP',
-          data: {
-            url,
-            originUrl
-          }
-        },
-        async (response: any) => {
-          // 使用回调函数接收 service worker 的响应
-          if (response && response.success) {
-            console.log('WebMCP 初始化成功')
-          } else if (response && response.error) {
-            console.error('WebMCP 初始化失败:', response.error)
-          } else {
-            console.error('未收到有效的响应')
-          }
-        }
-      )
+      contentLog(replay.msg)()
     }
 
-    initWebMCP()
+    await initWebMCP()
   }
 })

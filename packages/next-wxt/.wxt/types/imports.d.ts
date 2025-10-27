@@ -5,8 +5,10 @@ declare global {
   const EffectScope: typeof import('vue')['EffectScope']
   const InvalidMatchPattern: typeof import('wxt/utils/match-patterns')['InvalidMatchPattern']
   const MatchPattern: typeof import('wxt/utils/match-patterns')['MatchPattern']
+  const bgLog: typeof import('E:/next-sdk/packages/next-wxt/utils/common')['bgLog']
   const browser: typeof import('wxt/browser')['browser']
   const computed: typeof import('vue')['computed']
+  const contentLog: typeof import('E:/next-sdk/packages/next-wxt/utils/common')['contentLog']
   const createApp: typeof import('vue')['createApp']
   const createIframeUi: typeof import('wxt/utils/content-script-ui/iframe')['createIframeUi']
   const createIntegratedUi: typeof import('wxt/utils/content-script-ui/integrated')['createIntegratedUi']
@@ -25,7 +27,9 @@ declare global {
   const getCurrentScope: typeof import('vue')['getCurrentScope']
   const h: typeof import('vue')['h']
   const inject: typeof import('vue')['inject']
+  const injectMainScript: typeof import('E:/next-sdk/packages/next-wxt/utils/common')['injectMainScript']
   const injectScript: typeof import('wxt/utils/inject-script')['injectScript']
+  const injectUrls: typeof import('E:/next-sdk/packages/next-wxt/utils/common')['injectUrls']
   const isProxy: typeof import('vue')['isProxy']
   const isReactive: typeof import('vue')['isReactive']
   const isReadonly: typeof import('vue')['isReadonly']
@@ -54,6 +58,7 @@ declare global {
   const shallowReactive: typeof import('vue')['shallowReactive']
   const shallowReadonly: typeof import('vue')['shallowReadonly']
   const shallowRef: typeof import('vue')['shallowRef']
+  const sidePanelLog: typeof import('E:/next-sdk/packages/next-wxt/utils/common')['sidePanelLog']
   const storage: typeof import('wxt/utils/storage')['storage']
   const toRaw: typeof import('vue')['toRaw']
   const toRef: typeof import('vue')['toRef']
@@ -115,8 +120,10 @@ declare module 'vue' {
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
     readonly InvalidMatchPattern: UnwrapRef<typeof import('wxt/utils/match-patterns')['InvalidMatchPattern']>
     readonly MatchPattern: UnwrapRef<typeof import('wxt/utils/match-patterns')['MatchPattern']>
+    readonly bgLog: UnwrapRef<typeof import('E:/next-sdk/packages/next-wxt/utils/common')['bgLog']>
     readonly browser: UnwrapRef<typeof import('wxt/browser')['browser']>
     readonly computed: UnwrapRef<typeof import('vue')['computed']>
+    readonly contentLog: UnwrapRef<typeof import('E:/next-sdk/packages/next-wxt/utils/common')['contentLog']>
     readonly createApp: UnwrapRef<typeof import('vue')['createApp']>
     readonly createIframeUi: UnwrapRef<typeof import('wxt/utils/content-script-ui/iframe')['createIframeUi']>
     readonly createIntegratedUi: UnwrapRef<typeof import('wxt/utils/content-script-ui/integrated')['createIntegratedUi']>
@@ -135,7 +142,9 @@ declare module 'vue' {
     readonly getCurrentScope: UnwrapRef<typeof import('vue')['getCurrentScope']>
     readonly h: UnwrapRef<typeof import('vue')['h']>
     readonly inject: UnwrapRef<typeof import('vue')['inject']>
+    readonly injectMainScript: UnwrapRef<typeof import('E:/next-sdk/packages/next-wxt/utils/common')['injectMainScript']>
     readonly injectScript: UnwrapRef<typeof import('wxt/utils/inject-script')['injectScript']>
+    readonly injectUrls: UnwrapRef<typeof import('E:/next-sdk/packages/next-wxt/utils/common')['injectUrls']>
     readonly isProxy: UnwrapRef<typeof import('vue')['isProxy']>
     readonly isReactive: UnwrapRef<typeof import('vue')['isReactive']>
     readonly isReadonly: UnwrapRef<typeof import('vue')['isReadonly']>
@@ -164,6 +173,7 @@ declare module 'vue' {
     readonly shallowReactive: UnwrapRef<typeof import('vue')['shallowReactive']>
     readonly shallowReadonly: UnwrapRef<typeof import('vue')['shallowReadonly']>
     readonly shallowRef: UnwrapRef<typeof import('vue')['shallowRef']>
+    readonly sidePanelLog: UnwrapRef<typeof import('E:/next-sdk/packages/next-wxt/utils/common')['sidePanelLog']>
     readonly storage: UnwrapRef<typeof import('wxt/utils/storage')['storage']>
     readonly toRaw: UnwrapRef<typeof import('vue')['toRaw']>
     readonly toRef: UnwrapRef<typeof import('vue')['toRef']>
