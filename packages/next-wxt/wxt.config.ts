@@ -1,5 +1,9 @@
 import { defineConfig } from 'wxt'
+import Components from 'unplugin-vue-components/vite'
+import AutoImport from 'unplugin-auto-import/vite'
+import { TinyVueSingleResolver } from '@opentiny/unplugin-tiny-vue'
 import svgLoader from 'vite-svg-loader'
+import { VantResolver } from '@vant/auto-import-resolver'
 
 // See https://wxt.dev/api/config.html
 export default defineConfig({
@@ -18,10 +22,16 @@ export default defineConfig({
   },
   vite: () => ({
     plugins: [
+      Components({
+        resolvers: [TinyVueSingleResolver, VantResolver()]
+      }),
+      AutoImport({
+        resolvers: [TinyVueSingleResolver, VantResolver()]
+      }),
       svgLoader({
         defaultImport: 'component',
         svgo: false
-      })
+      }) as any
     ]
   })
 })
