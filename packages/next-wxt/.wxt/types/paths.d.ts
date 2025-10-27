@@ -14,6 +14,7 @@ declare module "wxt/browser" {
     | "/icon/96.png"
     | "/popup.html"
     | "/sidepanel.html"
+    | "/webext-bridge包的导出说明.png"
     | "/wxt.svg"
   type HtmlPublicPath = Extract<PublicPath, `${string}.html`>
   export interface WxtRuntime {
