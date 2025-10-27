@@ -26676,7 +26676,7 @@ async function connect() {
     await server.connect(serverTransport)
     serverTransport.notifyRegistration(serverInfo)
   } else {
-    window.location.reload()
+    console.error('window.$next_remoter_mcp_server 未定义')
   }
 }
 
