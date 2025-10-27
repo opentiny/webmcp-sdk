@@ -1,3 +1,5 @@
+import { onMessage, sendMessage } from 'webext-bridge/background'
+
 export default defineBackground(async () => {
   console.log('Hello background!', { id: browser.runtime.id })
 
@@ -19,61 +21,7 @@ export default defineBackground(async () => {
     }
   })
 
-  const nextSdkScriptUrl = browser.runtime.getURL('/vendor/next-sdk.js')
-  const nextSdkScript = await fetch(nextSdkScriptUrl).then((res) => res.text())
-
-  const init = async (url, originUrl) => {
-    const script = (await fetch(url).then((res) => res.text())) + nextSdkScript
-    const existingScripts = await chrome.userScripts.getScripts({
-      ids: [url]
-    })
-
-    if (existingScripts.length > 0) {
-      // Update existing script.
-      await chrome.userScripts.update([
-        {
-          id: url,
-          matches: [`${originUrl}/*`],
-          js: [{ code: script }],
-          world: 'MAIN'
-        }
-      ])
-
-      return { type: 'update' }
-    } else {
-      // Register new script.
-      await chrome.userScripts.register([
-        {
-          id: url,
-          matches: [`${originUrl}/*`],
-          js: [{ code: script }],
-          world: 'MAIN'
-        }
-      ])
-
-      return { type: 'register' }
-    }
-  }
-
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message.type === 'initWebMCP') {
-      console.log('收到 initWebMCP 消息:', message.data)
-
-      // 异步处理，使用 sendResponse 回调
-      init(message.data.url, message.data.originUrl)
-        .then(() => {
-          console.log('WebMCP 初始化成功')
-          sendResponse({ success: true })
-        })
-        .catch((error) => {
-          console.error('WebMCP 初始化失败:', error)
-          sendResponse({ success: false, error: error.message })
-        })
-
-      // 返回 true 表示异步处理，保持消息通道开放
-      return true
-    }
-
     // 注册 MCP Session：Content Script 通知 Server 所在的 tab
     if (message.type === 'mcp-server-register') {
       const { sessionId, serverInfo } = message
@@ -118,5 +66,15 @@ export default defineBackground(async () => {
       sendResponse({ success: true })
       return true
     }
+  })
+
+  // 1、监听子页面initWebMCP 消息
+  onMessage('initWebMCP', async ({ data }) => {
+    const { originUrl } = data
+    bgLog(`${originUrl} 页面initWebMCP `)()
+
+    return (await injectMainScript(originUrl))
+      ? { success: true, msg: 'WebMCP 初始化成功,已插入脚本:' + originUrl }
+      : { success: false, msg: `WebMCP 初始化,插入脚本${originUrl}失败` }
   })
 })
