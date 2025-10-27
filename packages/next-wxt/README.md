@@ -1,7 +1,13 @@
 # WXT + Vue 3
 
-This template should help get you started developing with Vue 3 in WXT.
+wxt: https://wxt.dev/
 
-## Recommended IDE Setup
+webext-bridge: https://serversideup.net/open-source/webext-bridge/docs/guide/concepts
 
-- [VS Code](https://code.visualstudio.com/) + [Volar](https://marketplace.visualstudio.com/items?itemName=Vue.volar).
+1、所有的消息，在 .wxt/types/bridge.d.ts 中，添加 参数/返回值的 ts 声明
+
+- sendMessage(messageId, data, target)  
+  :target= 'devtools@devtoolId' | 'background' | 'popup' | 'options' | 'content-script@tabid' | 'window'
+
+- onMessage(messageId, ({sender,data,timestamp})=>{})  
+  2、![bridge导出变量](./public/webext-bridge包的导出说明.png)
