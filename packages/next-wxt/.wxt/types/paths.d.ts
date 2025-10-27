@@ -12,8 +12,11 @@ declare module "wxt/browser" {
     | "/icon/32.png"
     | "/icon/48.png"
     | "/icon/96.png"
-    | "/popup.html"
+    | "/mcp-servers/excalidraw.com/index.js"
+    | "/mcp-servers/opentiny.design/index.js"
+    | "/mcp-servers/www.baidu.com/index.js"
     | "/sidepanel.html"
+    | "/vendor/next-sdk.js"
     | "/webext-bridge包的导出说明.png"
     | "/wxt.svg"
   type HtmlPublicPath = Extract<PublicPath, `${string}.html`>
