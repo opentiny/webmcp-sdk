@@ -10,6 +10,7 @@
     "wiki": "pnpm -F next-docs dev",
     "inspector": "npx @modelcontextprotocol/inspector",
     "build": "pnpm -F @opentiny/next-sdk build:all",
+    "build:wxt": "pnpm -F @opentiny/next-wxt build",
     "build:remoter": "pnpm -F @opentiny/next-remoter build",
     "build:site": "pnpm -F @opentiny/next-remoter build:site",
     "dev:remoter": "pnpm -F @opentiny/next-remoter dev",
