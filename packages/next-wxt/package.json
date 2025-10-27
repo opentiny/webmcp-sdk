@@ -22,6 +22,9 @@
     "typescript": "^5.9.2",
     "vue-tsc": "^3.0.6",
     "wxt": "^0.20.6",
-    "webext-bridge": "^6.0.1"
+    "webext-bridge": "^6.0.1",
+    "@opentiny/next-remoter": "workspace:*",
+    "@opentiny/next-sdk": "workspace:*",
+    "vite-svg-loader": "^5.1.0"
   }
 }
