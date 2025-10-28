@@ -3,6 +3,7 @@ import { type JSONRPCMessage, JSONRPCMessageSchema } from '@modelcontextprotocol
 
 // Chrome 扩展 API 类型声明
 declare const chrome: any
+declare const browser: any
 
 /**
  * Chrome 扩展客户端 Transport
@@ -67,14 +68,11 @@ export class ExtensionClientTransport implements Transport {
     }
 
     try {
-      const queryResult = await this._querySessionTabId()
-
-      if (!queryResult.success || !queryResult.tabId) {
-        throw new Error(queryResult.error || 'Server 未注册或已关闭')
+      const tabId = browser.sessionRegistry.get(this.targetSessionId)?.tabId
+      this._tabId = tabId ?? null
+      if (!this._tabId) {
+        throw new Error('Server 未注册或已关闭')
       }
-
-      this._tabId = queryResult.tabId
-      console.log('[ExtensionClientTransport] 找到 Server，tab ID:', this._tabId)
       // 创建消息监听器
       this._messageListener = (message, sender, sendResponse) => {
         // 只处理来自目标 sessionId 的 MCP 消息
