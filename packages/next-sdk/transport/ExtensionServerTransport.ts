@@ -1,5 +1,7 @@
 import type { Transport, TransportSendOptions } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { type JSONRPCMessage, JSONRPCMessageSchema } from '@modelcontextprotocol/sdk/types.js'
+// @ts-ignore
+import { setNamespace, sendMessage } from 'webext-bridge/window'
 
 declare const window: Window & typeof globalThis
 declare const document: Document
@@ -194,14 +196,19 @@ export class ExtensionServerTransport implements Transport {
       // 通过 window.postMessage 发送到 content script
       // 使用 window.location.origin 确保只发送到同源
       // 携带 sessionId 以便正确路由到对应的 client
-      window.postMessage(
+      // window.postMessage(
+      //   { type: 'mcp-server-to-client', sessionId: this.sessionId, mcpMessage: message },
+      //   window.location.origin
+      // )
+      sendMessage(
+        'mcp-server-to-client',
         {
-          type: 'mcp-server-to-client',
           sessionId: this.sessionId,
           mcpMessage: message
-        },
-        window.location.origin
+        } as any,
+        'content-script'
       )
+
       console.log('[ExtensionServerTransport] ✅ 响应已发送')
     } catch (error) {
       console.error('[ExtensionServerTransport] 发送消息失败:', error)
@@ -231,9 +238,12 @@ export class ExtensionServerTransport implements Transport {
     this._lastRegistration = serverInfo
 
     try {
-      window.postMessage(
+      // window.postMessage( { type: 'mcp-server-register', sessionId: this.sessionId, serverInfo: { ...serverInfo, url: window.location.origin, title: document.title } }, window.location.origin )
+      // 测试发送到 content-script
+      setNamespace('ExtensionServerTransport-namespace')
+      sendMessage(
+        'mcp-server-register',
         {
-          type: 'mcp-server-register',
           sessionId: this.sessionId,
           serverInfo: {
             ...serverInfo,
@@ -241,7 +251,7 @@ export class ExtensionServerTransport implements Transport {
             title: document.title
           }
         },
-        window.location.origin
+        'content-script'
       )
     } catch (error) {
       console.error('[ExtensionServerTransport] 发送注册通知失败:', error)

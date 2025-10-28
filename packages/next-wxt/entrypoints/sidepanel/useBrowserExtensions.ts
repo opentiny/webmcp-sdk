@@ -22,6 +22,7 @@ export const useBrowserExtensions = ({
    */
   onMessage('mcp-server-register', async ({ data, sender }) => {
     const { sessionId, serverInfo } = data
+    console.log('sidepanel 收到 mcp-server-register 消息', data)
     if (sessionId) {
       sessionRegistry.set(sessionId, { tabId: sender.tabId, serverInfo, timestamp: Date.now() })
       const mcpServer = {

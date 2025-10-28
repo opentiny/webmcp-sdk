@@ -17,5 +17,6 @@ export type * from '@modelcontextprotocol/sdk/client/sse.js'
 export type * from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 export type * from '@modelcontextprotocol/sdk/server/mcp.js'
 
-export * from './transport/ExtensionClientTransport'
+// 它只运行在扩展的sidePanel中，且引入web-ext-bridge/popup. 如果打包到next-sdk.js中， 会阻止整个脚本在网页中运行
+// export * from './transport/ExtensionClientTransport'
 export * from './transport/ExtensionServerTransport'
