@@ -1,6 +1,6 @@
 import { AgentModelProvider, type McpServerConfig } from '@opentiny/next-sdk'
 import { onMounted } from 'vue'
-import { onMessage } from 'webext-bridge/popup'
+import { onMessage, sendMessage } from 'webext-bridge/popup'
 
 // Session 注册表：sessionId → {tabId, serverInfo, timestamp}
 // 用于 Port 连接时查找 Server 所在的 tab
@@ -17,31 +17,54 @@ export const useBrowserExtensions = ({
   loadMcpServerToPlugin: (serverName: string, mcpServer: McpServerConfig) => Promise<void>
   handleClientDisconnected: (serverName: string) => Promise<void>
 }) => {
+  // 注册队列：确保 MCP server 注册操作串行执行，避免并发时 closeAll() 导致冲突
+  let registerQueue = Promise.resolve()
+
   /**
    * 设置消息监听器
    */
   onMessage('mcp-server-register', async ({ data, sender }) => {
     const { sessionId, serverInfo } = data
     console.log('sidepanel 收到 mcp-server-register 消息', data)
-    if (sessionId) {
-      sessionRegistry.set(sessionId, { tabId: sender.tabId, serverInfo, timestamp: Date.now() })
-      const mcpServer = {
-        type: 'extension',
-        url: serverInfo.url,
-        sessionId
-      }
-      const serverName = `mcp-server-${sessionId}`
-      console.log('开始插入插件', serverName, mcpServer)
-      // 1、 插入McpServers, 此时内部会判断重复。  不重复则插入，并连接和查询tools到agent上。
-      const inserted = await agent.insertMcpServer(serverName, mcpServer as McpServerConfig)
-      if (inserted) {
-        await loadMcpServerToPlugin(serverName, mcpServer as McpServerConfig)
-        await agent.closeAll()
-        showToast(`插件已添加: ${serverInfo.url}`)
-        return { success: true, msg: `插件已添加: ${serverInfo.url}` }
-      }
+
+    if (!sessionId) {
+      return { success: false, msg: 'Invalid sessionId or insertion failed' }
     }
-    return { success: false, msg: 'Invalid sessionId or insertion failed' }
+
+    // 将注册操作加入队列，确保串行执行
+    return new Promise<{ success: boolean; msg: string }>((resolve) => {
+      registerQueue = registerQueue
+        .then(async () => {
+          try {
+            sessionRegistry.set(sessionId, { tabId: sender.tabId, serverInfo, timestamp: Date.now() })
+            const mcpServer = {
+              type: 'extension',
+              url: serverInfo.url,
+              sessionId
+            }
+            const serverName = `mcp-server-${sessionId}`
+            console.log('开始插入插件', serverName, mcpServer)
+
+            // 1、 插入McpServers, 此时内部会判断重复。  不重复则插入，并连接和查询tools到agent上。
+            const inserted = await agent.insertMcpServer(serverName, mcpServer as McpServerConfig)
+            if (inserted) {
+              await loadMcpServerToPlugin(serverName, mcpServer as McpServerConfig)
+              await agent.closeAll()
+              showToast(`插件已添加: ${serverInfo.url}`)
+              resolve({ success: true, msg: `插件已添加: ${serverInfo.url}` })
+            } else {
+              resolve({ success: false, msg: 'Insertion failed' })
+            }
+          } catch (error) {
+            console.error('注册插件失败:', error)
+            resolve({ success: false, msg: 'Registration error' })
+          }
+        })
+        .catch((error) => {
+          console.error('队列执行失败:', error)
+          resolve({ success: false, msg: 'Queue error' })
+        })
+    })
   })
 
   // 监听 tab 关闭事件，清理映射
@@ -67,14 +90,7 @@ export const useBrowserExtensions = ({
       // 向每个标签页发送发现请求
       for (const tab of tabs) {
         if (tab.id) {
-          browser.tabs
-            .sendMessage(tab.id, {
-              type: 'sidepanel-ready',
-              timestamp: Date.now()
-            })
-            .catch(() => {
-              // 某些标签页可能没有 content script，静默忽略
-            })
+          sendMessage('sidepanel-ready', { timestamp: Date.now() }, `content-script@${tab.id}`)
         }
       }
     } catch (error) {
