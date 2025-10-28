@@ -1,6 +1,6 @@
 import type { Transport, TransportSendOptions } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { type JSONRPCMessage, JSONRPCMessageSchema } from '@modelcontextprotocol/sdk/types.js'
-
+import { onMessage } from 'webext-bridge/popup'
 // Chrome 扩展 API 类型声明
 declare const chrome: any
 declare const browser: any
@@ -30,7 +30,6 @@ export class ExtensionClientTransport implements Transport {
   private _tabId: number | null = null
 
   // 内部状态
-  private _messageListener: ((message: any, sender: any, sendResponse: any) => boolean) | null = null // 消息监听器引用
   private _isStarted: boolean = false // 是否已启动
   private _isClosed: boolean = false // 是否已关闭
 
@@ -73,48 +72,37 @@ export class ExtensionClientTransport implements Transport {
       if (!this._tabId) {
         throw new Error('Server 未注册或已关闭')
       }
-      // 创建消息监听器
-      this._messageListener = (message, sender, sendResponse) => {
-        // 只处理来自目标 sessionId 的 MCP 消息
-        if (message.type === 'mcp-server-to-client') {
-          // 检查 sessionId 是否匹配
-          if (message.sessionId !== this.targetSessionId) {
-            // sessionId 不匹配，忽略
-            sendResponse({ success: false, error: 'sessionId 不匹配' })
-            return true
-          }
 
-          if (!message.mcpMessage) {
-            console.error('[ExtensionClientTransport] 消息缺少 mcpMessage 字段')
-            sendResponse({ success: false, error: '消息缺少 mcpMessage 字段' })
-            return true
-          }
-
-          try {
-            // 调用 MCP Client 的消息处理器
-            if (this.onmessage) {
-              const mcpMessage = JSONRPCMessageSchema.parse(message.mcpMessage)
-              this.onmessage(mcpMessage)
-              sendResponse({ success: true })
-            } else {
-              console.warn('[ExtensionClientTransport] onmessage 回调未设置')
-              sendResponse({ success: false, error: 'onmessage 回调未设置' })
-            }
-          } catch (error) {
-            console.error('[ExtensionClientTransport] 处理消息时发生错误:', error)
-            if (this.onerror) {
-              this.onerror(error instanceof Error ? error : new Error(String(error)))
-            }
-            sendResponse({ success: false, error: '处理消息时发生错误' })
-          }
+      onMessage('mcp-server-to-client', (messageOption) => {
+        const data: any = messageOption.data
+        // 检查 sessionId 是否匹配
+        if (data.sessionId !== this.targetSessionId) {
+          return { success: false, error: 'sessionId 不匹配' }
         }
 
-        return true // 保持消息通道打开（异步响应）
-      }
+        if (!data.mcpMessage) {
+          console.error('[ExtensionClientTransport] 消息缺少 mcpMessage 字段')
+          return { success: false, error: '消息缺少 mcpMessage 字段' }
+        }
 
-      // 注册消息监听器
-      chrome.runtime.onMessage.addListener(this._messageListener)
-
+        try {
+          // 调用 MCP Client 的消息处理器
+          if (this.onmessage) {
+            const mcpMessage = JSONRPCMessageSchema.parse(data.mcpMessage)
+            this.onmessage(mcpMessage)
+            return { success: true }
+          } else {
+            console.warn('[ExtensionClientTransport] onmessage 回调未设置')
+            return { success: false, error: 'onmessage 回调未设置' }
+          }
+        } catch (error) {
+          console.error('[ExtensionClientTransport] 处理消息时发生错误:', error)
+          if (this.onerror) {
+            this.onerror(error instanceof Error ? error : new Error(String(error)))
+          }
+          return { success: false, error: '处理消息时发生错误' }
+        }
+      })
       this._isStarted = true
     } catch (error) {
       console.error('[ExtensionClientTransport] 启动失败:', error)
@@ -217,12 +205,6 @@ export class ExtensionClientTransport implements Transport {
     }
 
     try {
-      // 移除消息监听器
-      if (this._messageListener) {
-        chrome.runtime.onMessage.removeListener(this._messageListener)
-        this._messageListener = null
-      }
-
       this._isClosed = true
       this._isStarted = false
 

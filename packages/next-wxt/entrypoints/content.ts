@@ -1,4 +1,4 @@
-import { onMessage, sendMessage } from 'webext-bridge/content-script'
+import { allowWindowMessaging, onMessage, sendMessage } from 'webext-bridge/content-script'
 
 export default defineContentScript({
   // matches: ["<all_urls>"],
@@ -11,64 +11,6 @@ export default defineContentScript({
      * 负责在页面脚本（MCP Server）和 Sidepanel（MCP Client）之间转发 MCP 消息
      * 使用 sessionId 进行消息路由
      */
-
-    // ============================================
-    // 1. 监听来自页面脚本的消息（MCP Server → MCP Client）
-    // ============================================
-    window.addEventListener('message', async (event) => {
-      // 验证消息来源（必须来自当前窗口）
-      if (event.source !== window) {
-        return
-      }
-
-      // 检查消息数据是否存在
-      if (!event.data || !event.data.type) {
-        return
-      }
-
-      // 处理 MCP Server 发送的消息，转发到 Sidepanel
-      if (event.data.type === 'mcp-server-to-client') {
-        if (!event.data.mcpMessage) {
-          console.error('[main.js] 消息缺少 mcpMessage 字段')
-          return
-        }
-
-        // 转发到 Sidepanel
-        chrome.runtime
-          .sendMessage({
-            type: 'mcp-server-to-client',
-            sessionId: event.data.sessionId,
-            mcpMessage: event.data.mcpMessage
-          })
-          .then(() => {
-            console.log('[main.js] ✅ 消息已转发到 Sidepanel')
-          })
-          .catch((error) => {
-            // 如果 Sidepanel 未打开，静默忽略
-            if (
-              !error.message.includes('message channel closed') &&
-              !error.message.includes('Receiving end does not exist')
-            ) {
-              console.error('[main.js] 转发消息失败:', error)
-            }
-          })
-      }
-
-      // 处理 MCP Server 注册消息，转发到 Sidepanel
-      if (event.data.type === 'mcp-server-register') {
-        if (!event.data.serverInfo) {
-          console.error('[main.js] 注册消息缺少 serverInfo 字段')
-          return
-        }
-
-        // 转发注册消息到 Sidepanel
-        sendMessage(
-          'mcp-server-register',
-          { sessionId: event.data.sessionId, serverInfo: event.data.serverInfo },
-          'popup'
-        )
-      }
-    })
 
     // ============================================
     // 2. 监听来自 Sidepanel 的消息（MCP Client → MCP Server）
@@ -128,5 +70,33 @@ export default defineContentScript({
     }
 
     await initWebMCP()
+
+    // 2、处理页面ExtensionServerTransport 发出 mcp-server-register消息
+    allowWindowMessaging('ExtensionServerTransport-namespace')
+    onMessage('mcp-server-register', ({ sender, data }) => {
+      if (!data.serverInfo) {
+        console.error('[main.js] 注册消息缺少 serverInfo 字段')
+        return
+      }
+
+      // 转发注册消息到 Sidepanel
+      contentLog('现在转发消息到 mcp-server-register 到 sidepanel', data)()
+      sendMessage('mcp-server-register', data, 'popup')
+    })
+
+    // 3、处理页面ExtensionServerTransport 发出 mcp-server-to-client
+    onMessage('mcp-server-to-client', ({ sender, data }) => {
+      if (!data.mcpMessage) {
+        console.error('[main.js] 消息缺少 mcpMessage 字段')
+        return
+      }
+
+      contentLog('现在转发消息到 client', data)()
+      sendMessage('mcp-server-to-client', { sessionId: data.sessionId, mcpMessage: data.mcpMessage }, 'popup').then(
+        () => {
+          console.log('[main.js] ✅ 消息已转发到 Sidepanel')
+        }
+      )
+    })
   }
 })
