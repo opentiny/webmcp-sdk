@@ -15,7 +15,7 @@ export default defineContentScript({
     // ============================================
     // 1. 监听来自页面脚本的消息（MCP Server → MCP Client）
     // ============================================
-    window.addEventListener('message', (event) => {
+    window.addEventListener('message', async (event) => {
       // 验证消息来源（必须来自当前窗口）
       if (event.source !== window) {
         return
@@ -62,21 +62,11 @@ export default defineContentScript({
         }
 
         // 转发注册消息到 Sidepanel
-        chrome.runtime
-          .sendMessage({
-            type: 'mcp-server-register',
-            sessionId: event.data.sessionId,
-            serverInfo: event.data.serverInfo
-          })
-          .catch((error) => {
-            // 如果 Sidepanel 未打开，静默忽略
-            if (
-              !error.message.includes('message channel closed') &&
-              !error.message.includes('Receiving end does not exist')
-            ) {
-              console.error('[main.js] 转发注册失败:', error)
-            }
-          })
+        sendMessage(
+          'mcp-server-register',
+          { sessionId: event.data.sessionId, serverInfo: event.data.serverInfo },
+          'popup'
+        )
       }
     })
 

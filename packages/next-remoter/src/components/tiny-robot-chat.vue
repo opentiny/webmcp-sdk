@@ -138,7 +138,6 @@ import { defaultPluginSrc } from './default-plugin-svg'
 import { getLang, mapMake } from './lang'
 import { handleError } from './error-handle'
 import { ICustomAgentModelProviderLlmConfig } from '../types/type'
-import { useBrowserExtensions } from '../composable/useBrowserExtensions'
 
 defineOptions({
   name: 'TinyRemoter'
@@ -192,6 +191,11 @@ const props = defineProps({
   /** ai-sdk官方的Provider实例，不能与 llmConfig 同时传入 */
   llm: {
     type: Object,
+    default: undefined
+  },
+  /** 浏览器扩展 */
+  browserExtensions: {
+    type: Function,
     default: undefined
   }
 })
@@ -376,7 +380,7 @@ const loadMcpServerToPlugin = async (serverName: string, mcpServer: McpServerCon
   }
 }
 
-useBrowserExtensions({
+props.browserExtensions?.({
   agent,
   loadMcpServerToPlugin,
   handleClientDisconnected
