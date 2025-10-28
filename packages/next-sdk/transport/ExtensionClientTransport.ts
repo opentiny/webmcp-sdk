@@ -1,6 +1,6 @@
 import type { Transport, TransportSendOptions } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { type JSONRPCMessage, JSONRPCMessageSchema } from '@modelcontextprotocol/sdk/types.js'
-import { onMessage } from 'webext-bridge/popup'
+import { onMessage, sendMessage } from 'webext-bridge/popup'
 // Chrome 扩展 API 类型声明
 declare const chrome: any
 declare const browser: any
@@ -140,21 +140,14 @@ export class ExtensionClientTransport implements Transport {
 
     try {
       // 向所有标签页广播消息（因为不知道 Server 在哪个标签页）
-      chrome.tabs
-        .sendMessage(this._tabId, {
-          type: 'mcp-client-to-server',
+      sendMessage(
+        'mcp-client-to-server',
+        {
           sessionId: this.targetSessionId,
           mcpMessage: message
-        })
-        .then(() => {
-          console.log('[ExtensionClientTransport] ✅ 消息已发送到标签页:', this._tabId)
-        })
-        .catch((error: Error) => {
-          // 某些标签页没有 content script，忽略
-          if (!error.message.includes('Receiving end does not exist')) {
-            console.error('[ExtensionClientTransport] 发送到标签页', this._tabId, '失败:', error)
-          }
-        })
+        } as any,
+        `content-script@${this._tabId}`
+      )
     } catch (error) {
       console.error('[ExtensionClientTransport] 发送消息失败:', error)
       const wrappedError = error instanceof Error ? error : new Error(String(error))
@@ -163,35 +156,6 @@ export class ExtensionClientTransport implements Transport {
       }
       throw wrappedError
     }
-  }
-
-  /**
-   * 查询 sessionId 对应的 tab ID（通过 Service Worker）
-   * @returns {Promise<any>}
-   * @private
-   */
-  private async _querySessionTabId(): Promise<any> {
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        reject(new Error('查询 Server 超时（5秒）'))
-      }, this._connectTimeout)
-
-      chrome.runtime.sendMessage(
-        {
-          type: 'query-mcp-session',
-          sessionId: this.targetSessionId
-        },
-        (response: any) => {
-          clearTimeout(timer)
-
-          if (chrome.runtime.lastError) {
-            reject(new Error(chrome.runtime.lastError.message))
-          } else {
-            resolve(response)
-          }
-        }
-      )
-    })
   }
 
   /**
