@@ -31,12 +31,13 @@ export const useBrowserExtensions = ({
       return { success: false, msg: 'Invalid sessionId or insertion failed' }
     }
 
+    sessionRegistry.set(sessionId, { tabId: sender.tabId, serverInfo, timestamp: Date.now() })
+
     // 将注册操作加入队列，确保串行执行
     return new Promise<{ success: boolean; msg: string }>((resolve) => {
       registerQueue = registerQueue
         .then(async () => {
           try {
-            sessionRegistry.set(sessionId, { tabId: sender.tabId, serverInfo, timestamp: Date.now() })
             const mcpServer = {
               type: 'extension',
               url: serverInfo.url,
