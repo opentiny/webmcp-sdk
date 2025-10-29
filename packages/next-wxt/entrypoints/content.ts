@@ -1,9 +1,11 @@
 import { allowWindowMessaging, onMessage, sendMessage } from 'webext-bridge/content-script'
-
+import { createApp } from 'vue'
+import pageUI from '@/components/pageUI.vue'
+import PageUI from '@/components/pageUI.vue'
 export default defineContentScript({
   matches: ['*://*/*'],
   runAt: 'document_end',
-  async main() {
+  async main(ctx) {
     // 1、 内容脚本初始化，若匹配
     const initWebMCP = async () => {
       const originUrl = window.location.origin
@@ -54,5 +56,31 @@ export default defineContentScript({
         }
       })
     })
+
+    // 4、页面添加UI
+    const pageApp = createIntegratedUi(ctx, {
+      position: 'inline',
+      anchor: 'body',
+      onMount: (container) => {
+        const app = createApp(PageUI)
+        app.mount(container)
+      }
+    })
+
+    pageApp.mount()
+
+    setTimeout(() => {
+      sendMessage('page-app-message', { status: 'run', message: '正在调用 设置颜色工具' }, 'content-script')
+    }, 5000)
+    setTimeout(() => {
+      sendMessage('page-app-message', { status: 'run', message: '正在调用 设置颜色工具........' }, 'content-script')
+    }, 8000)
+    setTimeout(() => {
+      sendMessage(
+        'page-app-message',
+        { status: 'run', message: '正在调用 设置颜色工具设置颜色工具设置颜色工具设置颜色工具........' },
+        'content-script'
+      )
+    }, 12000)
   }
 })
