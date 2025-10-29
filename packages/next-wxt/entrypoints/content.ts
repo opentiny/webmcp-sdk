@@ -5,6 +5,9 @@ export default defineContentScript({
   matches: ['*://*/*'],
   runAt: 'document_end',
   async main(ctx) {
+    window.printLog = printLog
+    window.initLog = initLog
+
     // 1、 内容脚本初始化，若匹配
     const initWebMCP = async () => {
       const originUrl = window.location.origin

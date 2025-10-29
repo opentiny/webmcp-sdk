@@ -4,6 +4,7 @@ declare module 'webext-bridge' {
   export interface ProtocolMap {
     //  ---------------------------content-script ===> background -------------------
     initWebMCP: ProtocolWithReturn<{ originUrl: string }, { success: boolean; msg: string }>
+    'focus-tab': ProtocolWithReturn<{}, void>
 
     // -----------------------------content ========> sidePanel --------------------------------
     // 网页注册mcp工具完成发出通知
