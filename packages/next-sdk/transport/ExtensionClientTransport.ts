@@ -31,8 +31,6 @@ export class ExtensionClientTransport implements Transport {
   private _isStarted: boolean = false // 是否已启动
   private _isClosed: boolean = false // 是否已关闭
 
-  _stopOnMessage: null | (() => void) = null
-
   constructor(targetSessionId: string) {
     // 目标 sessionId，用于连接到特定的 Server（必需参数）
     if (!targetSessionId) {
@@ -43,37 +41,6 @@ export class ExtensionClientTransport implements Transport {
 
     // 会话ID，用于标识此 transport 实例
     this.sessionId = `client-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
-
-    this._stopOnMessage = onMessage('mcp-server-to-client', (messageOption) => {
-      const data: any = messageOption.data
-      // 检查 sessionId 是否匹配
-      if (data.sessionId !== this.targetSessionId) {
-        return { success: false, error: 'sessionId 不匹配' }
-      }
-
-      if (!data.mcpMessage) {
-        console.error('[ExtensionClientTransport] 消息缺少 mcpMessage 字段')
-        return { success: false, error: '消息缺少 mcpMessage 字段' }
-      }
-
-      try {
-        // 调用 MCP Client 的消息处理器
-        if (this.onmessage) {
-          const mcpMessage = JSONRPCMessageSchema.parse(data.mcpMessage)
-          this.onmessage(mcpMessage)
-          return { success: true }
-        } else {
-          console.warn('[ExtensionClientTransport] onmessage 回调未设置')
-          return { success: false, error: 'onmessage 回调未设置' }
-        }
-      } catch (error) {
-        console.error('[ExtensionClientTransport] 处理消息时发生错误:', error)
-        if (this.onerror) {
-          this.onerror(error instanceof Error ? error : new Error(String(error)))
-        }
-        return { success: false, error: '处理消息时发生错误' }
-      }
-    })
   }
 
   /**
@@ -188,7 +155,6 @@ export class ExtensionClientTransport implements Transport {
    * @returns {Promise<void>}
    */
   async close() {
-    debugger
     // 防止重复关闭
     if (this._isClosed) {
       return
@@ -202,7 +168,6 @@ export class ExtensionClientTransport implements Transport {
     try {
       this._isClosed = true
       this._isStarted = false
-      this._stopOnMessage && this._stopOnMessage()
 
       // 触发关闭回调
       if (this.onclose) {
