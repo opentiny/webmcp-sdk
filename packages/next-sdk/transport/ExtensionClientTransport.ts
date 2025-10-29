@@ -1,6 +1,6 @@
 import type { Transport, TransportSendOptions } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { type JSONRPCMessage, JSONRPCMessageSchema } from '@modelcontextprotocol/sdk/types.js'
-import { onMessage, sendMessage } from 'webext-bridge/popup'
+import { sendMessage } from 'webext-bridge/popup'
 // Chrome 扩展 API 类型声明
 declare const chrome: any
 declare const browser: any
@@ -24,10 +24,8 @@ export class ExtensionClientTransport implements Transport {
   // 会话ID，用于标识此 transport 实例
   readonly sessionId: string
 
-  // 连接超时配置
-  private _connectTimeout: number = 5000 // 连接超时（5秒）
-
   private _tabId: number | null = null
+  private _messageListener: (messageOption: any) => void = () => {}
 
   // 内部状态
   private _isStarted: boolean = false // 是否已启动
@@ -106,6 +104,30 @@ export class ExtensionClientTransport implements Transport {
         throw new Error('Server 未注册或已关闭')
       }
 
+      this._messageListener = (messageOption: any) => {
+        if (messageOption.type === 'mcp-server-to-client') {
+          const data: any = messageOption.data
+          if (data.sessionId !== this.targetSessionId) {
+            return { success: false, error: 'sessionId 不匹配' }
+          }
+          if (!data.mcpMessage) {
+            console.error('[ExtensionClientTransport] 消息缺少 mcpMessage 字段')
+            return { success: false, error: '消息缺少 mcpMessage 字段' }
+          }
+
+          try {
+            const mcpMessage = JSONRPCMessageSchema.parse(data.mcpMessage)
+            this.onmessage?.(mcpMessage)
+            return { success: true }
+          } catch (error) {
+            console.error('[ExtensionClientTransport] 处理消息时发生错误:', error)
+            return { success: false, error: '处理消息时发生错误' }
+          }
+        }
+      }
+
+      browser.runtime.onMessage.addListener(this._messageListener)
+
       this._isStarted = true
     } catch (error) {
       console.error('[ExtensionClientTransport] 启动失败:', error)
@@ -170,6 +192,11 @@ export class ExtensionClientTransport implements Transport {
     // 防止重复关闭
     if (this._isClosed) {
       return
+    }
+
+    if (this._messageListener) {
+      browser.runtime.onMessage.removeListener(this._messageListener)
+      this._messageListener = () => {}
     }
 
     try {

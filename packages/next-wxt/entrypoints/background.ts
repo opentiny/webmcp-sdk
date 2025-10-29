@@ -1,6 +1,6 @@
 import { onMessage } from 'webext-bridge/background'
 
-export default defineBackground(async () => {
+export default defineBackground(() => {
   console.log('Hello background!', { id: browser.runtime.id })
 
   // 1、监听子页面initWebMCP 消息

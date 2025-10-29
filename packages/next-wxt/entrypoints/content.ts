@@ -46,11 +46,13 @@ export default defineContentScript({
       }
 
       contentLog('现在转发消息到 client', data)()
-      sendMessage('mcp-server-to-client', { sessionId: data.sessionId, mcpMessage: data.mcpMessage }, 'popup').then(
-        () => {
-          console.log('[main.js] ✅ 消息已转发到 Sidepanel')
+      browser.runtime.sendMessage({
+        type: 'mcp-server-to-client',
+        data: {
+          sessionId: data.sessionId,
+          mcpMessage: data.mcpMessage
         }
-      )
+      })
     })
   }
 })
