@@ -65,8 +65,11 @@ export class ExtensionClientTransport implements Transport {
     }
 
     try {
-      const tabId = browser.sessionRegistry.get(this.targetSessionId)?.tabId
-      this._tabId = tabId ?? null
+      const sessionInfo = browser.sessionRegistry.get(this.targetSessionId)
+      const tabIds = sessionInfo?.tabIds
+      const tabId = tabIds && tabIds.length > 0 ? tabIds[tabIds.length - 1] : null
+
+      this._tabId = tabId
       if (!this._tabId) {
         throw new Error('Server 未注册或已关闭')
       }
