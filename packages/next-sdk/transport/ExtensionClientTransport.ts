@@ -1,6 +1,7 @@
 import type { Transport, TransportSendOptions } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { type JSONRPCMessage, JSONRPCMessageSchema } from '@modelcontextprotocol/sdk/types.js'
 import { sendMessage } from 'webext-bridge/popup'
+
 // Chrome 扩展 API 类型声明
 declare const chrome: any
 declare const browser: any
@@ -9,7 +10,6 @@ declare const browser: any
  * Chrome 扩展客户端 Transport
  * 用于 Sidepanel 中的 MCP Client
  * 实现标准的 MCP Transport 接口
- *
  * 使用 targetSessionId 连接到特定的 Server
  */
 export class ExtensionClientTransport implements Transport {
@@ -20,9 +20,6 @@ export class ExtensionClientTransport implements Transport {
 
   // 目标 sessionId，用于连接到特定的 Server（必需参数）
   readonly targetSessionId: string
-
-  // 会话ID，用于标识此 transport 实例
-  readonly sessionId: string
 
   private _tabId: number | null = null
   private _messageListener: (messageOption: any) => void = () => {}
@@ -38,9 +35,6 @@ export class ExtensionClientTransport implements Transport {
     }
 
     this.targetSessionId = targetSessionId
-
-    // 会话ID，用于标识此 transport 实例
-    this.sessionId = `client-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
   }
 
   /**
