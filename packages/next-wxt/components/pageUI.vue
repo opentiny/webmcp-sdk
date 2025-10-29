@@ -8,25 +8,14 @@ const status = defineModel('status', { type: String, default: 'ready' })
 /** 要显示的消息 */
 const message = defineModel('message', { type: String, default: '' })
 
-let timerId = 0
-
 onMessage('page-app-message', ({ sender, data }) => {
   status.value = data.status
   message.value = data.message
 
-  if (status.value === 'run') {
-    nextTick(() => {
-      const el = document.querySelector('.wxt-pop__message')
-      console.log('current classList=', el?.classList.values().toString())
-      el?.classList.add('bounce')
-
-      if (timerId) window.clearTimeout(timerId)
-      timerId = window.setTimeout(() => {
-        el?.classList.remove('bounce')
-        timerId = 0
-      }, 1000)
-    })
-  }
+  nextTick(() => {
+    const el = document.querySelector('.wxt-pop__message')
+    el?.classList.toggle('bounce', status.value === 'run')
+  })
 })
 </script>
 
@@ -35,6 +24,7 @@ onMessage('page-app-message', ({ sender, data }) => {
     trigger="manual"
     :content="message"
     :modelValue="status !== 'ready'"
+    effect="dark"
     placement="top"
     popper-class="wxt-pop__message"
   >
@@ -63,6 +53,7 @@ svg {
 .bounce {
   animation-name: ani-bounce;
   animation-duration: 1s;
+  animation-iteration-count: infinite;
   transform-origin: center bottom;
 }
 

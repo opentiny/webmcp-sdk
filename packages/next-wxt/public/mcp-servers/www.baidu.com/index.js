@@ -10,6 +10,11 @@ window.$next_remoter_mcp_server = ({ server, z }) => {
     async ({ text }) => {
       const textarea = document.getElementById('chat-textarea')
       textarea.value = text
+      await new Promise((resolve) =>
+        setTimeout(() => {
+          resolve()
+        }, 3000)
+      )
       return {
         content: [{ type: 'text', text: '填充完成' }]
       }

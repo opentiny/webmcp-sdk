@@ -6,7 +6,7 @@ export default defineBackground(() => {
   // 1、监听子页面initWebMCP 消息
   onMessage('initWebMCP', async ({ data }) => {
     const { originUrl } = data
-    bgLog(`${originUrl} 页面initWebMCP `)()
+    console.log(`${originUrl} 页面initWebMCP,即将插入页面js `)
 
     return (await injectMainScript(originUrl as keyof typeof injectUrls))
       ? { success: true, msg: 'WebMCP 初始化成功,已插入脚本:' + originUrl }
