@@ -2,11 +2,12 @@ import { AgentModelProvider, type McpServerConfig } from '@opentiny/next-sdk'
 import { onMounted } from 'vue'
 import { onMessage, sendMessage } from 'webext-bridge/popup'
 
-// Session 注册表：sessionId → {tabId, serverInfo, timestamp}
-// 用于 Port 连接时查找 Server 所在的 tab
-const sessionRegistry = new Map()
+// Session 注册表：sessionId → {tabIds, serverInfo, timestamp}
+// 用于 Port 连接时查找 Server 所在的 tabs（支持同域名多页签）
+const sessionRegistry = new Map<string, { tabIds: number[]; serverInfo: any; timestamp: number }>()
 
-browser.sessionRegistry = sessionRegistry
+// 将 sessionRegistry 挂载到 browser 对象上供 ExtensionClientTransport 使用
+;(browser as any).sessionRegistry = sessionRegistry
 
 export const useBrowserExtensions = ({
   agent,
@@ -23,6 +24,7 @@ export const useBrowserExtensions = ({
   /**
    * 设置消息监听器
    */
+  // @ts-ignore - webext-bridge 支持返回值，但类型定义不完整
   onMessage('mcp-server-register', async ({ data, sender }) => {
     const { sessionId, serverInfo } = data
     console.log('sidepanel 收到 mcp-server-register 消息', data)
@@ -31,7 +33,27 @@ export const useBrowserExtensions = ({
       return { success: false, msg: 'Invalid sessionId or insertion failed' }
     }
 
-    sessionRegistry.set(sessionId, { tabId: sender.tabId, serverInfo, timestamp: Date.now() })
+    // 检查 sessionId 是否已存在
+    const existingSession = sessionRegistry.get(sessionId)
+
+    if (existingSession) {
+      // 已存在该 sessionId，只需追加 tabId
+      if (!existingSession.tabIds.includes(sender.tabId)) {
+        existingSession.tabIds.push(sender.tabId)
+        console.log(
+          `页签已添加到现有会话: sessionId=${sessionId}, tabId=${sender.tabId}, 当前 tabIds:`,
+          existingSession.tabIds
+        )
+      }
+      return { success: true, msg: '页签已记录' }
+    }
+
+    // 新的 sessionId，创建记录并注册插件
+    sessionRegistry.set(sessionId, {
+      tabIds: [sender.tabId],
+      serverInfo,
+      timestamp: Date.now()
+    })
 
     // 将注册操作加入队列，确保串行执行
     return new Promise<{ success: boolean; msg: string }>((resolve) => {
@@ -71,10 +93,20 @@ export const useBrowserExtensions = ({
   // 监听 tab 关闭事件，清理映射
   browser.tabs.onRemoved.addListener(async (tabId) => {
     for (const [sessionId, info] of sessionRegistry.entries()) {
-      if (info.tabId === tabId) {
-        sessionRegistry.delete(sessionId)
-        const serverName = `mcp-server-${sessionId}`
-        await handleClientDisconnected(serverName)
+      const index = info.tabIds.indexOf(tabId)
+      if (index !== -1) {
+        // 从数组中移除该 tabId
+        info.tabIds.splice(index, 1)
+        console.log(`页签已关闭: sessionId=${sessionId}, tabId=${tabId}, 剩余 tabIds:`, info.tabIds)
+
+        // 只有当所有 tabId 都关闭时，才删除插件
+        if (info.tabIds.length === 0) {
+          sessionRegistry.delete(sessionId)
+          const serverName = `mcp-server-${sessionId}`
+          console.log(`所有页签已关闭，删除插件: ${serverName}`)
+          await handleClientDisconnected(serverName)
+        }
+        break
       }
     }
   })
