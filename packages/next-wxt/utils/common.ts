@@ -100,11 +100,11 @@ export const insertLog = async (from: LogFrom, message: string, extra: LogExtra 
 export const printLog = async () => {
   const meta = await storage.getMeta<LogMeta>(storageKey)
   meta.list.forEach((item) => {
-    console.log(`${formatFrom(item.from)} ${item.message}`, item.extra, item.t)
+    console.log(`${formatFrom(item.from)} ${item.t}: ${item.message}`, item.extra)
   })
 }
 
 const formatFrom = (from: LogFrom) => {
   const map = { background: 0, page: 0, 'content-script': 4, 'side-panel': 8, popup: 8 }
-  return ' '.repeat(map[from]) + `【${from}】:`
+  return ' '.repeat(map[from]) + `【${from}】`
 }
