@@ -23,22 +23,40 @@ export const injectMainScript = async (originUrl: keyof typeof injectUrls, withN
   let script = await fetch(url).then((res) => res.text())
   if (withNextSdk) script += await nextSdkScript
 
-  const existingScripts = await browser.userScripts.getScripts({
-    ids: [url]
-  })
+  try {
+    // 尝试获取已存在的脚本
+    const existingScripts = await browser.userScripts.getScripts({
+      ids: [url]
+    })
 
-  const injectType = existingScripts.length ? 'update' : 'register'
+    const injectType = existingScripts.length ? 'update' : 'register'
 
-  await browser.userScripts[injectType]([
-    {
-      id: url,
-      matches: [`${originUrl}/*`],
-      js: [{ code: script }],
-      world: 'MAIN'
-    }
-  ])
+    // 注册或更新用户脚本
+    await browser.userScripts[injectType]([
+      {
+        id: url,
+        matches: [`${originUrl}/*`],
+        js: [{ code: script }],
+        world: 'MAIN'
+      }
+    ])
 
-  return true
+    return true
+  } catch (error) {
+    // 捕获 userScripts API 调用失败（权限未开启）
+    console.error('User Scripts API 调用失败:', error)
+
+    // 创建通知提示用户（使用时间戳确保每次都显示新通知）
+    await browser.notifications.create(`userScripts-error-${Date.now()}`, {
+      type: 'basic',
+      iconUrl: browser.runtime.getURL('/icon/128.png'),
+      title: 'User Scripts 权限未开启',
+      message: '请在扩展管理页面开启 User Scripts 开关',
+      priority: 2
+    })
+
+    return false
+  }
 }
 
 /** 打印日志系统 */

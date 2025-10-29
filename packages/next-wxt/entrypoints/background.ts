@@ -13,5 +13,20 @@ export default defineBackground(() => {
         ? { success: true, msg: 'WebMCP 初始化成功,已插入脚本:' + originUrl }
         : { success: false, msg: `WebMCP 初始化,插入脚本${originUrl}失败` }
     })
+
+    // 2、监听页签聚焦请求
+    onMessage('focus-tab', async ({ sender }) => {
+      const { tabId } = sender
+      try {
+        const tab = await browser.tabs.get(tabId)
+
+        await browser.windows.update(tab.windowId, { focused: true })
+        await browser.tabs.update(tabId, { active: true })
+
+        insertLog('background', `已切换到 tab ${tabId}`)
+      } catch (error) {
+        insertLog('background', `切换页签失败`, error as any)
+      }
+    })
   })
 })

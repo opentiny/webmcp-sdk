@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { onMessage } from 'webext-bridge/content-script'
 import AiSvg from '@/assets/logo-next-no-bg-left.svg'
-import { TinyPopover } from '@opentiny/vue'
+import TinyPopover from '@opentiny/vue-popover'
 
 /** 插件状态：  ready, run */
 const status = defineModel('status', { type: String, default: 'ready' })

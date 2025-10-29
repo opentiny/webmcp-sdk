@@ -11,10 +11,14 @@ export default defineContentScript({
     // 1、 内容脚本初始化，若匹配
     const initWebMCP = async () => {
       const originUrl = window.location.origin
-      await sendMessage('initWebMCP', { originUrl }, 'background')
+      return await sendMessage('initWebMCP', { originUrl }, 'background')
     }
 
-    await initWebMCP()
+    const res = await initWebMCP()
+
+    if (!res.success) {
+      return
+    }
 
     onMessage('sidepanel-ready', ({ sender, data }) => {
       console.log('[main.js] 收到 Sidepanel 就绪消息', data)
@@ -22,12 +26,14 @@ export default defineContentScript({
     })
 
     // 转发Sidepanel到window页面的消息
-    onMessage('mcp-client-to-server', ({ sender, data }) => {
+    onMessage('mcp-client-to-server', ({ data }) => {
       console.log('[main.js] 收到 mcp-client-to-server 消息', data)
       sendMessage('mcp-client-to-server', data, 'window')
-
       // 下发命令，可能为工具调用
       if (data.mcpMessage.params?.name) {
+        // 先切换到当前页签
+        sendMessage('focus-tab', {}, 'background')
+
         sendMessage(
           'page-app-message',
           { status: 'run', message: `正在调用 ${data.mcpMessage.params?.name}` },
