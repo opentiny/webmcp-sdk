@@ -40,13 +40,3 @@ export const injectMainScript = async (originUrl: keyof typeof injectUrls, withN
 
   return true
 }
-
-/** 漂亮打印  eg.  [background]: some messages */
-const prettyLog =
-  (type: string) =>
-  (...args: any[]) =>
-    console.log.bind(console, `[${type}]:`, ...args)
-
-export const contentLog = prettyLog('content')
-export const bgLog = prettyLog('background')
-export const sidePanelLog = prettyLog('side-panel')

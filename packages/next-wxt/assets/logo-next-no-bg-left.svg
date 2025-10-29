@@ -1,0 +1,45 @@
+<svg width="100.000000" height="100.000000" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+	<desc>
+			Created with Pixso.
+	</desc>
+	<defs>
+		<radialGradient gradientTransform="translate(67.5526 65.1155) rotate(51.0683) scale(22.991 20.6919)" cx="0.000000" cy="0.000000" r="1.000000" id="paint_radial_9_3036_0" gradientUnits="userSpaceOnUse">
+			<stop stop-color="#5ADDF8"/>
+			<stop stop-color="#AEBFFF"/>
+			<stop offset="0.329153" stop-color="#1476FF"/>
+			<stop offset="0.667785" stop-color="#655AF8"/>
+			<stop offset="0.868255" stop-color="#948CFF"/>
+			<stop offset="1.000000" stop-color="#D25AF8"/>
+			<stop offset="1.000000" stop-color="#5A8BF8"/>
+		</radialGradient>
+		<linearGradient x1="69.000122" y1="85.000198" x2="69.500107" y2="70.500183" id="paint_linear_9_3039_0" gradientUnits="userSpaceOnUse">
+			<stop stop-color="#000000" stop-opacity="0.000000"/>
+			<stop offset="1.000000" stop-color="#000000"/>
+		</linearGradient>
+		<radialGradient gradientTransform="translate(26.9999 24.7118) rotate(38.3655) scale(77.7996 109.496)" cx="0.000000" cy="0.000000" r="1.000000" id="paint_radial_9_3040_0" gradientUnits="userSpaceOnUse">
+			<stop stop-color="#5ADDF8"/>
+			<stop stop-color="#AEBFFF"/>
+			<stop offset="0.329153" stop-color="#1476FF"/>
+			<stop offset="0.667785" stop-color="#655AF8"/>
+			<stop offset="0.868255" stop-color="#948CFF"/>
+			<stop offset="1.000000" stop-color="#D25AF8"/>
+			<stop offset="1.000000" stop-color="#5A8BF8"/>
+		</radialGradient>
+	</defs>
+	<rect id="NEXT-LOGO-无背景渐变-左" width="100.000000" height="99.999939" fill="#FFFFFF" fill-opacity="0"/>
+	<mask id="mask9_3032" mask-type="alpha" maskUnits="userSpaceOnUse" x="0.000000" y="0.000061" width="99.999939" height="99.999939">
+		<rect id="画板 1773" y="0.000061" width="99.999962" height="99.999947" fill="#000000" fill-opacity="1.000000"/>
+	</mask>
+	<g mask="url(#mask9_3032)">
+		<path id="矢量 1" d="M64.07 81.01L64 63L82 63.07L67.51 82.23C66.39 83.71 64.07 82.9 64.07 81.01Z" fill="url(#paint_radial_9_3036_0)" fill-opacity="1.000000" fill-rule="evenodd"/>
+		<g opacity="0.100000" style="mix-blend-mode:normal">
+			<path id="矢量 1" d="M64.07 81.01L64 63L82 63.07L67.51 82.23C66.39 83.71 64.07 82.9 64.07 81.01Z" fill="url(#paint_linear_9_3039_0)" fill-opacity="1.000000" fill-rule="evenodd"/>
+		</g>
+		<rect id="矩形 5" x="12.000000" y="19.000153" rx="26.999992" width="75.999977" height="53.999985" fill="url(#paint_radial_9_3040_0)" fill-opacity="1.000000"/>
+		<rect id="矩形 5" x="12.500000" y="19.500153" rx="26.499992" width="74.999977" height="52.999985" fill="#000000" fill-opacity="0"/>
+		<rect id="矩形 5" x="12.500000" y="19.500153" rx="26.499992" width="74.999977" height="52.999985" stroke="#000000" stroke-opacity="0" stroke-width="1.000000"/>
+		<path id="path" d="M54.61 59.06C55.78 60.05 57.1 60.66 58.57 60.89C60.05 61.12 61.43 61.04 62.72 60.65C64 60.26 65.96 58.58 65.96 58.58C65.96 58.58 70.98 54.73 70.98 45.61C70.98 36.5 66.5 32.5 66.5 32.5C66.5 32.5 65.28 31.31 63.5 31C61.71 30.68 60.57 30.98 59.34 31.33C49.11 34.23 37.62 34.33 27.42 31.33C26.19 30.98 25.09 30.93 24.11 31.17C23.13 31.42 22.29 31.89 21.58 32.59C18.35 35.81 17.12 41.06 17 45.61C16.87 50.09 18.03 55.24 21.06 58.54C21.96 59.52 23.02 60.22 24.22 60.63C25.41 61.04 26.68 61.12 28.01 60.89C29.34 60.66 30.52 60.05 31.54 59.06C31.98 58.62 32.61 58.07 33.43 57.4C34.24 56.73 35.16 56.08 36.21 55.44C37.25 54.8 38.38 54.25 39.61 53.8C40.84 53.35 42.09 53.13 43.38 53.13C44.64 53.13 45.84 53.36 47 53.83C48.15 54.29 49.21 54.84 50.18 55.48C51.14 56.12 52 56.78 52.74 57.45C53.49 58.11 54.11 58.65 54.61 59.06Z" fill="#FFFFFF" fill-opacity="1.000000" fill-rule="nonzero"/>
+		<rect id="矩形 840" x="58.016602" y="38.000046" rx="2.000000" width="3.999999" height="11.999996" transform="rotate(1.39597 58.016602 38.000046)" fill="#1476FF" fill-opacity="1.000000"/>
+		<path id="合并" d="M28.97 38C28.17 37.97 27.38 38.42 27.01 39.19L23.2 47.11C22.71 48.13 23.15 49.34 24.18 49.81C25.22 50.28 26.45 49.83 26.94 48.8L28.97 44.59L30.99 48.81C31.48 49.83 32.72 50.28 33.75 49.81C34.79 49.34 35.23 48.13 34.74 47.11L30.93 39.19C30.56 38.42 29.78 37.98 28.97 38Z" fill="#1476FF" fill-opacity="1.000000" fill-rule="evenodd"/>
+	</g>
+</svg>
