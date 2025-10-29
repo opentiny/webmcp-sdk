@@ -24,12 +24,13 @@ export const useBrowserExtensions = ({
   /**
    * 设置消息监听器
    */
-  // @ts-ignore - webext-bridge 支持返回值，但类型定义不完整
+  // @ts-ignore - webext-bridge 支持返回值，但类型定义不完整【不是不完整， 两个事件同名了】
   onMessage('mcp-server-register', async ({ data, sender }) => {
     const { sessionId, serverInfo } = data
-    console.log('sidepanel 收到 mcp-server-register 消息', data)
+    await insertLog('side-panel', `收到 mcp-server-register 消息`, data)
 
     if (!sessionId) {
+      await insertLog('side-panel', `收到 mcp-server-register 消息`, data)
       return { success: false, msg: 'Invalid sessionId or insertion failed' }
     }
 
@@ -40,10 +41,7 @@ export const useBrowserExtensions = ({
       // 已存在该 sessionId，只需追加 tabId
       if (!existingSession.tabIds.includes(sender.tabId)) {
         existingSession.tabIds.push(sender.tabId)
-        console.log(
-          `页签已添加到现有会话: sessionId=${sessionId}, tabId=${sender.tabId}, 当前 tabIds:`,
-          existingSession.tabIds
-        )
+        await insertLog('side-panel', `sessionId=${sessionId} 已存在, 只追加 tabId=${sender.tabId}到当前的 tabIds`)
       }
       return { success: true, msg: '页签已记录' }
     }
@@ -66,7 +64,7 @@ export const useBrowserExtensions = ({
               sessionId
             }
             const serverName = `mcp-server-${sessionId}`
-            console.log('开始插入插件', serverName, mcpServer)
+            await insertLog('side-panel', `开始插入插件${serverName}`, mcpServer)
 
             // 1、 插入McpServers, 此时内部会判断重复。  不重复则插入，并连接和查询tools到agent上。
             const inserted = await agent.insertMcpServer(serverName, mcpServer as McpServerConfig)
@@ -79,12 +77,12 @@ export const useBrowserExtensions = ({
               resolve({ success: false, msg: 'Insertion failed' })
             }
           } catch (error) {
-            console.error('注册插件失败:', error)
+            await insertLog('side-panel', `注册插件失败: ${sessionId}`, error as any)
             resolve({ success: false, msg: 'Registration error' })
           }
         })
         .catch((error) => {
-          console.error('队列执行失败:', error)
+          insertLog('side-panel', `队列执行失败: ${sessionId}`, error as any)
           resolve({ success: false, msg: 'Queue error' })
         })
     })
@@ -97,13 +95,15 @@ export const useBrowserExtensions = ({
       if (index !== -1) {
         // 从数组中移除该 tabId
         info.tabIds.splice(index, 1)
-        console.log(`页签已关闭: sessionId=${sessionId}, tabId=${tabId}, 剩余 tabIds:`, info.tabIds)
-
+        await insertLog(
+          'side-panel',
+          `页签已关闭: sessionId=${sessionId}, tabId=${tabId}, 剩余 tabIds:${info.tabIds.join(',')}`
+        )
         // 只有当所有 tabId 都关闭时，才删除插件
         if (info.tabIds.length === 0) {
           sessionRegistry.delete(sessionId)
           const serverName = `mcp-server-${sessionId}`
-          console.log(`所有页签已关闭，删除插件: ${serverName}`)
+          await insertLog('side-panel', `所有页签已关闭，删除插件: ${serverName}`)
           await handleClientDisconnected(serverName)
         }
         break
@@ -127,7 +127,7 @@ export const useBrowserExtensions = ({
         }
       }
     } catch (error) {
-      console.error('[MultiClientManager] 发现服务器失败:', error)
+      insertLog('side-panel', '[MultiClientManager] 发现服务器失败:', error as any)
     }
   })
 }
