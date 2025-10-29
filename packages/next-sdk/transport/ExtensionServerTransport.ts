@@ -1,7 +1,7 @@
 import type { Transport, TransportSendOptions } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { type JSONRPCMessage, JSONRPCMessageSchema } from '@modelcontextprotocol/sdk/types.js'
-// @ts-ignore
 import { setNamespace, sendMessage, onMessage } from 'webext-bridge/window'
+import { v4 as uuidv4 } from 'uuid'
 
 declare const window: Window & typeof globalThis
 declare const document: Document
@@ -54,19 +54,18 @@ export class ExtensionServerTransport implements Transport {
   readonly sessionId: string
 
   // 内部状态
-  private _messageListener: ((event: MessageEvent) => void) | null = null // 消息监听器引用
-  private _isStarted: boolean = false // 是否已启动
-  private _isClosed: boolean = false // 是否已关闭
+  private _messageListener: ((event: MessageEvent) => void) | null = null
+  private _isStarted: boolean = false
+  private _isClosed: boolean = false
   private _lastRegistration: ServerInfo | null = null // 最后一次注册信息（用于 Sidepanel 刷新后重新注册）
 
   constructor(sessionId: string | null = null) {
-    // 会话ID，用于标识此 transport 实例并路由消息
-    // 如果提供了 sessionId，使用提供的；否则随机生成
     setNamespace('ExtensionServerTransport-namespace')
+    // 如果提供了 sessionId，使用提供的；否则随机生成
     if (sessionId) {
       this.sessionId = sessionId
     } else {
-      this.sessionId = `server-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+      this.sessionId = uuidv4()
     }
 
     // 设置监听器
@@ -77,7 +76,7 @@ export class ExtensionServerTransport implements Transport {
    * 设置消息监听器
    */
   private _setupMessageListener(): void {
-    onMessage('sidepanel-ready', ({ sender, data }) => {
+    onMessage('sidepanel-ready', () => {
       if (this._lastRegistration && this._isStarted) {
         this.notifyRegistration(this._lastRegistration).catch((error) => {
           console.error('[ExtensionServerTransport] 重新注册失败:', error)
@@ -102,7 +101,7 @@ export class ExtensionServerTransport implements Transport {
 
     try {
       // 注册消息监听器
-      onMessage('mcp-client-to-server', ({ sender, data }) => {
+      onMessage('mcp-client-to-server', ({ data }) => {
         try {
           // 调用 MCP Server 的消息处理器
           if (this.onmessage) {
@@ -157,12 +156,6 @@ export class ExtensionServerTransport implements Transport {
 
     try {
       // 通过 window.postMessage 发送到 content script
-      // 使用 window.location.origin 确保只发送到同源
-      // 携带 sessionId 以便正确路由到对应的 client
-      // window.postMessage(
-      //   { type: 'mcp-server-to-client', sessionId: this.sessionId, mcpMessage: message },
-      //   window.location.origin
-      // )
       sendMessage(
         'mcp-server-to-client',
         {
@@ -201,9 +194,6 @@ export class ExtensionServerTransport implements Transport {
     this._lastRegistration = serverInfo
 
     try {
-      // window.postMessage( { type: 'mcp-server-register', sessionId: this.sessionId, serverInfo: { ...serverInfo, url: window.location.origin, title: document.title } }, window.location.origin )
-      // 测试发送到 content-script
-
       sendMessage(
         'mcp-server-register',
         {

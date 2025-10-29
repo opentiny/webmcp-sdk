@@ -20281,13 +20281,13 @@
   }
   let crypto$1
   crypto$1 = globalThis.crypto
-  async function getRandomValues(size) {
+  async function getRandomValues$1(size) {
     return (await crypto$1).getRandomValues(new Uint8Array(size))
   }
   async function random(size) {
     const mask = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~'
     let result = ''
-    const randomUints = await getRandomValues(size)
+    const randomUints = await getRandomValues$1(size)
     for (let i = 0; i < size; i++) {
       const randomIndex = randomUints[i] % mask.length
       result += mask[randomIndex]
@@ -22583,7 +22583,7 @@
     }
     return _0x13a3()
   }
-  const randomUUID = () => {
+  const randomUUID$1 = () => {
       const _0x503b55 = _0x4f47,
         _0x5d1fe2 = _0x4f47,
         _0x1c89e3 = {}
@@ -22624,7 +22624,7 @@
       )
     },
     _0xf24c8f = {}
-  ;((_0xf24c8f[_0x1c80bf(391)] = randomUUID), (_0xf24c8f[_0x53d80a(396)] = randomBytes))
+  ;((_0xf24c8f[_0x1c80bf(391)] = randomUUID$1), (_0xf24c8f[_0x53d80a(396)] = randomBytes))
   const _0x4b5fcc = _0x47a7
   ;(function (_0x564ad7, _0x4857af) {
     const _0x465eed = _0x47a7,
@@ -26739,6 +26739,66 @@
   }
   var { sendMessage, onMessage } = endpointRuntime
   createStreamWirings(endpointRuntime)
+  const byteToHex = []
+  for (let i = 0; i < 256; ++i) {
+    byteToHex.push((i + 256).toString(16).slice(1))
+  }
+  function unsafeStringify(arr, offset = 0) {
+    return (
+      byteToHex[arr[offset + 0]] +
+      byteToHex[arr[offset + 1]] +
+      byteToHex[arr[offset + 2]] +
+      byteToHex[arr[offset + 3]] +
+      '-' +
+      byteToHex[arr[offset + 4]] +
+      byteToHex[arr[offset + 5]] +
+      '-' +
+      byteToHex[arr[offset + 6]] +
+      byteToHex[arr[offset + 7]] +
+      '-' +
+      byteToHex[arr[offset + 8]] +
+      byteToHex[arr[offset + 9]] +
+      '-' +
+      byteToHex[arr[offset + 10]] +
+      byteToHex[arr[offset + 11]] +
+      byteToHex[arr[offset + 12]] +
+      byteToHex[arr[offset + 13]] +
+      byteToHex[arr[offset + 14]] +
+      byteToHex[arr[offset + 15]]
+    ).toLowerCase()
+  }
+  let getRandomValues
+  const rnds8 = new Uint8Array(16)
+  function rng() {
+    if (!getRandomValues) {
+      if (typeof crypto === 'undefined' || !crypto.getRandomValues) {
+        throw new Error(
+          'crypto.getRandomValues() not supported. See https://github.com/uuidjs/uuid#getrandomvalues-not-supported'
+        )
+      }
+      getRandomValues = crypto.getRandomValues.bind(crypto)
+    }
+    return getRandomValues(rnds8)
+  }
+  const randomUUID = typeof crypto !== 'undefined' && crypto.randomUUID && crypto.randomUUID.bind(crypto)
+  const native = { randomUUID }
+  function _v4(options, buf, offset) {
+    var _a
+    options = options || {}
+    const rnds = options.random ?? ((_a = options.rng) == null ? void 0 : _a.call(options)) ?? rng()
+    if (rnds.length < 16) {
+      throw new Error('Random bytes length must be >= 16')
+    }
+    rnds[6] = (rnds[6] & 15) | 64
+    rnds[8] = (rnds[8] & 63) | 128
+    return unsafeStringify(rnds)
+  }
+  function v4(options, buf, offset) {
+    if (native.randomUUID && true && !options) {
+      return native.randomUUID()
+    }
+    return _v4(options)
+  }
   class ExtensionServerTransport {
     // 最后一次注册信息（用于 Sidepanel 刷新后重新注册）
     constructor(sessionId = null) {
@@ -26750,7 +26810,7 @@
       if (sessionId) {
         this.sessionId = sessionId
       } else {
-        this.sessionId = `server-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+        this.sessionId = v4()
       }
       this._setupMessageListener()
     }
@@ -26758,7 +26818,7 @@
      * 设置消息监听器
      */
     _setupMessageListener() {
-      onMessage('sidepanel-ready', ({ sender, data: data2 }) => {
+      onMessage('sidepanel-ready', () => {
         if (this._lastRegistration && this._isStarted) {
           this.notifyRegistration(this._lastRegistration).catch((error2) => {
             console.error('[ExtensionServerTransport] 重新注册失败:', error2)
@@ -26778,7 +26838,7 @@
         throw new Error('Transport 已关闭，无法重新启动')
       }
       try {
-        onMessage('mcp-client-to-server', ({ sender, data: data2 }) => {
+        onMessage('mcp-client-to-server', ({ data: data2 }) => {
           try {
             if (this.onmessage) {
               const mcpMessage = JSONRPCMessageSchema.parse(data2.mcpMessage)
