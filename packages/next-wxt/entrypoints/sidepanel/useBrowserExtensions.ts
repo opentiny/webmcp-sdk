@@ -52,59 +52,52 @@ export const useBrowserExtensions = ({
     await insertSessionRegistry(sessionRegistry)
 
     // 1.3 串行执行： agent 添加 mcpServer, 更新侧边中的插件列表
-    return new Promise<{ success: boolean; msg: string }>((resolve) => {
-      registerQueue = registerQueue.then(async () => {
-        try {
-          const mcpServer = {
-            type: 'extension',
-            url: serverInfo.url,
-            sessionId
-          }
-          const serverName = `mcp-server-${sessionId}`
-          await insertLog('side-panel', `agent 开始插入插件${serverName}`, mcpServer)
-
-          // 1、 插入McpServers, 此时内部会判断重复。  不重复则插入，并连接和查询tools到agent上。
-          const inserted = await agent.insertMcpServer(serverName, mcpServer as McpServerConfig)
-          if (inserted) {
-            await loadMcpServerToPlugin(serverName, mcpServer as McpServerConfig)
-            await agent.closeAll()
-            showToast(`插件已添加: ${serverInfo.url}`)
-            await insertLog('side-panel', `插件已添加: ${serverInfo.url}`)
-
-            resolve({ success: true, msg: `插件已添加: ${serverInfo.url}` })
-          } else {
-            resolve({ success: false, msg: 'Insertion failed' })
-          }
-
-          await insertLog('event-end', '⭐ mcp-server-register-#' + sessionId) //  流程结束
-        } catch (error) {
-          await insertLog('side-panel', `agent 注册插件失败: ${sessionId}`, error as any)
-          await insertLog('event-end', '⭐ mcp-server-register-#' + sessionId) //  流程结束
-          resolve({ success: false, msg: 'Registration error' })
+    registerQueue = registerQueue.then(async () => {
+      try {
+        const mcpServer = {
+          type: 'extension',
+          url: serverInfo.url,
+          sessionId
         }
-      })
+        const serverName = `mcp-server-${sessionId}`
+        await insertLog('side-panel', `agent 开始插入插件${serverName}`, mcpServer)
+
+        // 1、 插入McpServers, 此时内部会判断重复。  不重复则插入，并连接和查询tools到agent上。
+        const inserted = await agent.insertMcpServer(serverName, mcpServer as McpServerConfig)
+        if (inserted) {
+          await loadMcpServerToPlugin(serverName, mcpServer as McpServerConfig)
+          await agent.closeAll()
+          showToast(`插件已添加: ${serverInfo.url}`)
+          await insertLog('side-panel', `插件已添加: ${serverInfo.url}`)
+        } else {
+          await insertLog('side-panel', `插件添加失败: ${serverInfo.url}`)
+        }
+      } catch (error) {
+        await insertLog('side-panel', `agent 注册插件失败: ${sessionId}`, error as any)
+      }
+
+      await insertLog('event-end', '⭐ mcp-server-register-#' + sessionId) //  流程结束
     })
   })
 
   // 监听 tab 关闭事件，清理映射
   browser.tabs.onRemoved.addListener(async (tabId) => {
+    await insertLog('side-panel', `有某个页签已关闭,tabId=${tabId}, 即将删除对应的插件`)
+
     for (const [sessionId, info] of sessionRegistry.entries()) {
       const index = info.tabIds.indexOf(tabId)
       if (index !== -1) {
         // 从数组中移除该 tabId
         info.tabIds.splice(index, 1)
-        await insertLog(
-          'side-panel',
-          `页签已关闭: sessionId=${sessionId}, tabId=${tabId}, 剩余 tabIds:${info.tabIds.join(',')}`
-        )
+        await insertLog('side-panel', `页签已关闭: sessionId=${sessionId}, tabId=${tabId}`)
         // 只有当所有 tabId 都关闭时，才删除插件
         if (info.tabIds.length === 0) {
           sessionRegistry.delete(sessionId)
           const serverName = `mcp-server-${sessionId}`
-          await insertLog('side-panel', `所有页签已关闭，删除插件: ${serverName}`)
-          await handleClientDisconnected(serverName)
+          await insertLog('side-panel', `所有页签已关闭，即将删除插件: ${serverName}`)
+          await handleClientDisconnected(serverName) // ---> 转到 remoter内部方法去关闭client
         }
-        break
+        break // ---> tabId 只能在一个sessionId下面，所以立即退出for
       }
     }
   })
@@ -115,6 +108,7 @@ export const useBrowserExtensions = ({
    */
   onMounted(async () => {
     try {
+      insertLog('side-panel', '重新打开ready, 所以要通知所有 tabs 重新注册')
       // 查询所有标签页
       const tabs = await browser.tabs.query({})
 
@@ -125,7 +119,7 @@ export const useBrowserExtensions = ({
         }
       }
     } catch (error) {
-      insertLog('side-panel', '[MultiClientManager] 发现服务器失败:', error as any)
+      insertLog('side-panel', '❌️ 通知所有tabs 的任务中，有报错：', error as any)
     }
   })
 }

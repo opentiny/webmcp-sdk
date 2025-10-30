@@ -19,6 +19,7 @@ declare module 'webext-bridge' {
     // -----------------------------sidePanel ========> content --------------------------------
     'mcp-client-to-server': ProtocolWithReturn<{ sessionId: string; mcpMessage: any }, void>
     'sidepanel-ready': ProtocolWithReturn<{ timestamp: number }, void>
+    'sidepanel-ready-to-page': ProtocolWithReturn<{ timestamp: number }, void>
 
     // ---------------------------- 任意 ======> content-script --------------
     'page-app-message': ProtocolWithReturn<{ status: string; message: string }, void>

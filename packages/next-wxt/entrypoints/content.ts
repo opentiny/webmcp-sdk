@@ -65,7 +65,7 @@ export default defineContentScript({
     // 4、
     onMessage('sidepanel-ready', async ({ sender, data }) => {
       await insertLog('content-script', '收到 Sidepanel 就绪消息, 即将转发给 window', data)
-      await sendMessage('sidepanel-ready', data, 'window')
+      await sendMessage('sidepanel-ready-to-page', data, 'window')
     })
 
     // 5、转发Sidepanel到window页面的消息
