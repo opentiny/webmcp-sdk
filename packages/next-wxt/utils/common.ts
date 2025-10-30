@@ -62,7 +62,7 @@ export const injectMainScript = async (originUrl: keyof typeof injectUrls, withN
 /** 打印日志系统 */
 const storageKey = 'local:next-wxt'
 
-type LogFrom = 'background' | 'page' | 'content-script' | 'side-panel' | 'popup'
+type LogFrom = 'background' | 'server-transport' | 'client-transport' | 'content-script' | 'side-panel'
 interface LogExtra {
   sessionId?: string
   tabId?: string
@@ -100,11 +100,18 @@ export const insertLog = async (from: LogFrom, message: string, extra: LogExtra 
 export const printLog = async () => {
   const meta = await storage.getMeta<LogMeta>(storageKey)
   meta.list.forEach((item) => {
-    console.log(`${formatFrom(item.from)} ${item.message}`, item.extra, item.t)
+    console.log(`${formatFrom(item.from)} ${item.t}: ${item.message}`, item.extra)
   })
 }
 
 const formatFrom = (from: LogFrom) => {
-  const map = { background: 0, page: 0, 'content-script': 4, 'side-panel': 8, popup: 8 }
-  return ' '.repeat(map[from]) + `【${from}】:`
+  const map = {
+    background: 0,
+    page: 0,
+    'server-transport': 4,
+    'content-script': 8,
+    'side-panel': 12,
+    'client-transport': 16
+  }
+  return ' '.repeat(map[from]) + `【${from}】`
 }

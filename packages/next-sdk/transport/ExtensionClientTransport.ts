@@ -37,6 +37,10 @@ export class ExtensionClientTransport implements Transport {
     this.targetSessionId = targetSessionId
   }
 
+  // 转发日志
+  private async _pageLog(message: string, extra: any = {}) {
+    await sendMessage('client-transport-log-event', { message, extra }, 'content-script')
+  }
   /**
    * 启动 transport，开始监听消息
    * @returns {Promise<void>}
@@ -75,7 +79,7 @@ export class ExtensionClientTransport implements Transport {
             return { success: false, error: 'sessionId 不匹配' }
           }
           if (!data.mcpMessage) {
-            console.error('[ExtensionClientTransport] 消息缺少 mcpMessage 字段')
+            this._pageLog('消息缺少 mcpMessage 字段')
             return { success: false, error: '消息缺少 mcpMessage 字段' }
           }
 
@@ -84,7 +88,7 @@ export class ExtensionClientTransport implements Transport {
             this.onmessage?.(mcpMessage)
             return { success: true }
           } catch (error) {
-            console.error('[ExtensionClientTransport] 处理消息时发生错误:', error)
+            this._pageLog('处理消息时发生错误:', error)
             return { success: false, error: '处理消息时发生错误' }
           }
         }
@@ -94,7 +98,7 @@ export class ExtensionClientTransport implements Transport {
 
       this._isStarted = true
     } catch (error) {
-      console.error('[ExtensionClientTransport] 启动失败:', error)
+      this._pageLog(' 启动失败:', error)
       if (this.onerror) {
         this.onerror(error instanceof Error ? error : new Error(String(error)))
       }
@@ -111,7 +115,8 @@ export class ExtensionClientTransport implements Transport {
     // 检查状态
     if (!this._isStarted) {
       const error = new Error('Transport 未启动，无法发送消息')
-      console.error('[ExtensionClientTransport]', error.message)
+      this._pageLog('Transport 未启动，无法发送消息')
+
       if (this.onerror) {
         this.onerror(error)
       }
@@ -120,7 +125,7 @@ export class ExtensionClientTransport implements Transport {
 
     if (this._isClosed) {
       const error = new Error('Transport 已关闭，无法发送消息')
-      console.error('[ExtensionClientTransport]', error.message)
+      this._pageLog('Transport 已关闭，无法发送消息')
       if (this.onerror) {
         this.onerror(error)
       }
@@ -138,7 +143,7 @@ export class ExtensionClientTransport implements Transport {
         `content-script@${this._tabId}`
       )
     } catch (error) {
-      console.error('[ExtensionClientTransport] 发送消息失败:', error)
+      this._pageLog('发送消息失败:', error)
       const wrappedError = error instanceof Error ? error : new Error(String(error))
       if (this.onerror) {
         this.onerror(wrappedError)
@@ -171,7 +176,7 @@ export class ExtensionClientTransport implements Transport {
         this.onclose()
       }
     } catch (error) {
-      console.error('[ExtensionClientTransport] 关闭时发生错误:', error)
+      this._pageLog('关闭时发生错误:', error)
       if (this.onerror) {
         this.onerror(error instanceof Error ? error : new Error(String(error)))
       }

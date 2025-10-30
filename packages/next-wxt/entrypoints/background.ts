@@ -10,8 +10,8 @@ export default defineBackground(() => {
       insertLog('background', `${originUrl} 页面initWebMCP,即将插入页面js `)
 
       return (await injectMainScript(originUrl as keyof typeof injectUrls))
-        ? { success: true, msg: 'WebMCP 初始化成功,已插入脚本:' + originUrl }
-        : { success: false, msg: `WebMCP 初始化,插入脚本${originUrl}失败` }
+        ? { success: true, msg: 'initWebMCP 初始化成功,已插入脚本:' + originUrl }
+        : { success: false, msg: `initWebMCP 初始化,插入脚本${originUrl}失败` }
     })
 
     // 2、监听页签聚焦请求

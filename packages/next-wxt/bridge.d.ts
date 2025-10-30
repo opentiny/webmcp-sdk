@@ -9,6 +9,11 @@ declare module 'webext-bridge' {
     // -----------------------------content ========> sidePanel --------------------------------
     // 网页注册mcp工具完成发出通知
     'mcp-server-register': ProtocolWithReturn<{ sessionId: string; serverInfo: any }, void>
+    'mcp-server-register-to-side': ProtocolWithReturn<
+      { sessionId: string; serverInfo: any },
+      { success: boolean; msg: string }
+    >
+
     'mcp-server-to-client': ProtocolWithReturn<{ sessionId: string; mcpMessage: any }, void> // mcpMessage 实际是 JSONRPCMessage 对象。避免引包
 
     // -----------------------------sidePanel ========> content --------------------------------
@@ -17,5 +22,16 @@ declare module 'webext-bridge' {
 
     // ---------------------------- 任意 ======> content-script --------------
     'page-app-message': ProtocolWithReturn<{ status: string; message: string }, void>
+
+    // 转发 page 上的日志到 content
+    'server-transport-log-event': ProtocolWithReturn<{ message: string; extra: any }, void>
+    'client-transport-log-event': ProtocolWithReturn<{ message: string; extra: any }, void>
+  }
+}
+
+declare global {
+  interface Window {
+    printLog?: (...args: any[]) => void
+    initLog?: (...args: any[]) => void
   }
 }

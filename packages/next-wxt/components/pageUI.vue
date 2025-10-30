@@ -41,10 +41,11 @@ onMessage('page-app-message', ({ sender, data }) => {
   bottom: 40px;
 }
 
-svg {
+[data-wxt-integrated] svg {
   width: 48px;
   height: 48px;
 }
+
 .wxt-pop__message {
   display: inline-block;
   width: 200px;
