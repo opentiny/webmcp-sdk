@@ -79,7 +79,15 @@ export default defineContentScript({
       }
     })
 
-    // 6、页面添加UI
+    // 6、转发网页上的log到这里，以便记录到日志
+    onMessage('server-transport-log-event', async ({ data }) => {
+      await insertLog('server-transport', data.message, data.extra)
+    })
+    onMessage('client-transport-log-event', async ({ data }) => {
+      await insertLog('client-transport', data.message, data.extra)
+    })
+
+    // 7、页面添加UI
     const pageApp = createIntegratedUi(ctx, {
       position: 'inline',
       anchor: 'body',

@@ -22,6 +22,10 @@ declare module 'webext-bridge' {
 
     // ---------------------------- 任意 ======> content-script --------------
     'page-app-message': ProtocolWithReturn<{ status: string; message: string }, void>
+
+    // 转发 page 上的日志到 content
+    'server-transport-log-event': ProtocolWithReturn<{ message: string; extra: any }, void>
+    'client-transport-log-event': ProtocolWithReturn<{ message: string; extra: any }, void>
   }
 }
 
