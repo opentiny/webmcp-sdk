@@ -24,8 +24,7 @@ export const useBrowserExtensions = ({
   /**
    * 设置消息监听器
    */
-  // @ts-ignore - webext-bridge 支持返回值，但类型定义不完整【不是不完整， 两个事件同名了】
-  onMessage('mcp-server-register', async ({ data, sender }) => {
+  onMessage('mcp-server-register-to-side', async ({ data, sender }) => {
     const { sessionId, serverInfo } = data
     await insertLog('side-panel', `收到 mcp-server-register 消息`, data)
 

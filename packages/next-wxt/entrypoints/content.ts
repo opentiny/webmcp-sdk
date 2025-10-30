@@ -31,7 +31,7 @@ export default defineContentScript({
       }
 
       await insertLog('content-script', `window 页面注册消息转发给 side-panel`)
-      await sendMessage('mcp-server-register', data, 'popup')
+      await sendMessage('mcp-server-register-to-side', data, 'popup')
     })
 
     // 3、处理页面ExtensionServerTransport 发出 mcp-server-to-client

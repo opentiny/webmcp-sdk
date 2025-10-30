@@ -9,6 +9,11 @@ declare module 'webext-bridge' {
     // -----------------------------content ========> sidePanel --------------------------------
     // 网页注册mcp工具完成发出通知
     'mcp-server-register': ProtocolWithReturn<{ sessionId: string; serverInfo: any }, void>
+    'mcp-server-register-to-side': ProtocolWithReturn<
+      { sessionId: string; serverInfo: any },
+      { success: boolean; msg: string }
+    >
+
     'mcp-server-to-client': ProtocolWithReturn<{ sessionId: string; mcpMessage: any }, void> // mcpMessage 实际是 JSONRPCMessage 对象。避免引包
 
     // -----------------------------sidePanel ========> content --------------------------------
