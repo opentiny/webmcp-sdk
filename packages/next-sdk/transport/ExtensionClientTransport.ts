@@ -69,17 +69,18 @@ export class ExtensionClientTransport implements Transport {
 
       this._tabId = tabId
       if (!this._tabId) {
-        throw new Error('Server 未注册或已关闭')
+        throw new Error('❌️ Server 未注册或已关闭')
       }
 
       this._messageListener = (messageOption: any) => {
         if (messageOption.type === 'mcp-server-to-client') {
           const data: any = messageOption.data
           if (data.sessionId !== this.targetSessionId) {
+            this._pageLog('❌️ 消息缺少 sessionId 不匹配')
             return { success: false, error: 'sessionId 不匹配' }
           }
           if (!data.mcpMessage) {
-            this._pageLog('消息缺少 mcpMessage 字段')
+            this._pageLog('❌️ 消息缺少 mcpMessage 字段')
             return { success: false, error: '消息缺少 mcpMessage 字段' }
           }
 
@@ -88,7 +89,7 @@ export class ExtensionClientTransport implements Transport {
             this.onmessage?.(mcpMessage)
             return { success: true }
           } catch (error) {
-            this._pageLog('处理消息时发生错误:', error)
+            this._pageLog('❌️ 处理消息时发生错误:', error)
             return { success: false, error: '处理消息时发生错误' }
           }
         }

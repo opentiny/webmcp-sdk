@@ -69,17 +69,12 @@ export class ExtensionServerTransport implements Transport {
     }
 
     // 设置监听器
-    this._setupMessageListener()
-  }
-
-  /**
-   * 设置消息监听器
-   */
-  private _setupMessageListener(): void {
-    onMessage('sidepanel-ready', () => {
+    onMessage('sidepanel-ready-to-page', () => {
       if (this._lastRegistration && this._isStarted) {
+        this._pageLog('side-ready, 即将重新注册 sessionId: ' + this.sessionId)
+
         this.notifyRegistration(this._lastRegistration).catch((error) => {
-          this._pageLog(' 重新注册失败:', error)
+          this._pageLog('❌️ 重新注册失败:', error)
         })
       }
     })
@@ -100,7 +95,7 @@ export class ExtensionServerTransport implements Transport {
     }
 
     if (this._isClosed) {
-      throw new Error('Transport 已关闭，无法重新启动')
+      throw new Error('❌️ server Transport 已关闭，无法重新启动')
     }
 
     try {
@@ -113,10 +108,10 @@ export class ExtensionServerTransport implements Transport {
             this.onmessage(mcpMessage)
             this._pageLog(' ✅ 消息已处理')
           } else {
-            this._pageLog(' onmessage 回调未设置')
+            this._pageLog('❌️ onmessage 回调未设置')
           }
         } catch (error) {
-          this._pageLog(' 处理消息时发生错误:', error)
+          this._pageLog('❌️ 处理消息时发生错误:', error)
           if (this.onerror) {
             this.onerror(error instanceof Error ? error : new Error(String(error)))
           }
@@ -125,7 +120,7 @@ export class ExtensionServerTransport implements Transport {
 
       this._isStarted = true
     } catch (error) {
-      this._pageLog(' 启动失败:', error)
+      this._pageLog(' ❌️ 启动失败:', error)
       if (this.onerror) {
         this.onerror(error instanceof Error ? error : new Error(String(error)))
       }
@@ -141,8 +136,8 @@ export class ExtensionServerTransport implements Transport {
   async send(message: JSONRPCMessage, _options?: TransportSendOptions): Promise<void> {
     // 检查状态
     if (!this._isStarted) {
-      const error = new Error('Transport 未启动，无法发送消息')
-      await this._pageLog('Transport 未启动，无法发送消息')
+      const error = new Error('server Transport 未启动，无法发送消息')
+      await this._pageLog('❌️ server Transport 未启动，无法发送消息')
 
       if (this.onerror) {
         this.onerror(error)
@@ -151,8 +146,8 @@ export class ExtensionServerTransport implements Transport {
     }
 
     if (this._isClosed) {
-      const error = new Error('Transport 已关闭，无法发送消息')
-      await this._pageLog(' Transport 已关闭，无法发送消息')
+      const error = new Error('server Transport 已关闭，无法发送消息')
+      await this._pageLog('❌️ server Transport 已关闭，无法发送消息')
       if (this.onerror) {
         this.onerror(error)
       }
@@ -170,9 +165,9 @@ export class ExtensionServerTransport implements Transport {
         'content-script'
       )
 
-      await this._pageLog(' ✅ 响应已发送')
+      await this._pageLog('✅ 响应已发送')
     } catch (error) {
-      await this._pageLog(' 发送消息失败')
+      await this._pageLog('❌️ 发送消息失败')
       const wrappedError = error instanceof Error ? error : new Error(String(error))
       if (this.onerror) {
         this.onerror(wrappedError)
@@ -191,7 +186,7 @@ export class ExtensionServerTransport implements Transport {
    */
   async notifyRegistration(serverInfo: ServerInfo): Promise<void> {
     if (!this._isStarted) {
-      await this._pageLog(' Transport 未启动，无法发送注册通知')
+      await this._pageLog('❌️ Transport 未启动，无法发送注册通知')
       return
     }
 
@@ -199,7 +194,8 @@ export class ExtensionServerTransport implements Transport {
     this._lastRegistration = serverInfo
 
     try {
-      sendMessage(
+      await this._pageLog(`即将注册 server 到 content, sessionId=${this.sessionId}`)
+      await sendMessage(
         'mcp-server-register',
         {
           sessionId: this.sessionId,
@@ -212,7 +208,7 @@ export class ExtensionServerTransport implements Transport {
         'content-script'
       )
     } catch (error) {
-      await this._pageLog(' 发送注册通知失败', error)
+      await this._pageLog('❌️ 注册 server 失败, sessionId=${this.sessionId}', error)
 
       if (this.onerror) {
         this.onerror(error instanceof Error ? error : new Error(String(error)))
@@ -245,7 +241,7 @@ export class ExtensionServerTransport implements Transport {
         this.onclose()
       }
     } catch (error) {
-      await this._pageLog(' 关闭时发生错误:', error)
+      await this._pageLog('❌️ server Transport 关闭时发生错误:', error)
 
       if (this.onerror) {
         this.onerror(error instanceof Error ? error : new Error(String(error)))
