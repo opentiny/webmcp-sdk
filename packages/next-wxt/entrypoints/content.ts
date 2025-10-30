@@ -98,10 +98,11 @@ export default defineContentScript({
     const pageApp = createIntegratedUi(ctx, {
       position: 'inline',
       anchor: 'body',
-      onMount: (container) => {
+      onMount: async (container) => {
         const app = createApp(PageUI)
         app.mount(container)
-        insertLog('content-script', `pageApp UI 插入页面成功 `)
+        await insertLog('content-script', `pageApp UI 插入页面成功 `)
+        await insertLog('event-end', 'pageApp-ui-mount')
       }
     })
 

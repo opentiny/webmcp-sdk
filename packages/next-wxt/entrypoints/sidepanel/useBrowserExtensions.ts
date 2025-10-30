@@ -28,6 +28,7 @@ export const useBrowserExtensions = ({
 
     if (!sessionId) {
       await insertLog('side-panel', `❌️ 收到 server注册消息缺少sessionId`)
+      await insertLog('event-end', 'mcp-server-register#' + sessionId)
       return { success: false, msg: 'Invalid sessionId or insertion failed' }
     }
 
@@ -39,6 +40,8 @@ export const useBrowserExtensions = ({
         existingSession.tabIds.push(sender.tabId)
         await insertLog('side-panel', `sessionId=${sessionId} 已存在, 只追加 tabId=${sender.tabId} 到当前的 tabIds`)
       }
+
+      await insertLog('event-end', 'mcp-server-register#' + sessionId)
       return { success: true, msg: '页签已记录' }
     }
 
@@ -118,6 +121,8 @@ export const useBrowserExtensions = ({
           sendMessage('sidepanel-ready', { timestamp: Date.now() }, `content-script@${tab.id}`)
         }
       }
+      insertLog('side-panel', '重新通知所有 tabs 重新注册完毕')
+      insertLog('event-end', 'side-panal-mount-reReg-tabs')
     } catch (error) {
       insertLog('side-panel', '❌️ 通知所有tabs 的任务中，有报错：', error as any)
     }

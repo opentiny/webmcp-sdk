@@ -117,7 +117,12 @@ export const insertSessionRegistry = async (map: SessionRegistry) => {
 /** 打印日志 */
 export const printLog = async () => {
   const reg = await storage.getMeta<any>(sessionRegistryKey)
-  console.log(reg)
+  const regTable = []
+  for (const sessionId in reg) {
+    regTable.push({ sessionId, tabIds: reg[sessionId].tabIds.join(','), serverInfo: reg[sessionId].serverInfo.url })
+  }
+  console.table(regTable)
+  console.log()
 
   const meta = await storage.getMeta<LogMeta>(storageKey)
   meta.list.forEach((item) => {
