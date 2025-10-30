@@ -8,17 +8,23 @@ export default defineContentScript({
     window.printLog = printLog
     window.initLog = initLog
 
+    let sessionId = ''
+    let tabId = '' // TODO 当前页大概不需要自己知道自己的tabId  ✅  ❌️  ⭐
+
     // 1、 内容脚本初始化，若匹配
     const initWebMCP = async () => {
       const originUrl = window.location.origin
 
-      await insertLog('content-script', 'initWebMCP中，请求bg插入脚本 ')
-      return await sendMessage('initWebMCP', { originUrl }, 'background')
+      await insertLog('content-script', `initWebMCP请求bg插入脚本, originUrl=${originUrl}`)
+      const replay = await sendMessage('initWebMCP', { originUrl }, 'background')
+      await insertLog('content-script', `${replay.msg}`)
+      await insertLog('event-end', '⭐ initWebMCP') //  流程结束
+
+      return replay.success
     }
 
-    const res = await initWebMCP()
-    if (!res.success) {
-      await insertLog('content-script', `${res.msg}, 立即退出 content-script所有逻辑`)
+    const initSuccess = await initWebMCP()
+    if (!initSuccess) {
       return
     }
 
@@ -26,11 +32,12 @@ export default defineContentScript({
     allowWindowMessaging('ExtensionServerTransport-namespace')
     onMessage('mcp-server-register', async ({ sender, data }) => {
       if (!data.serverInfo) {
-        await insertLog('content-script', `window 页面注册消息缺少 serverInfo 字段`)
+        await insertLog('content-script', `❌️ server注册消息缺少 serverInfo 字段`)
         return
       }
+      sessionId = data.sessionId
 
-      await insertLog('content-script', `window 页面注册消息转发给 side-panel`)
+      await insertLog('content-script', `server注册消转发给 side-panel`)
       await sendMessage('mcp-server-register-to-side', data, 'popup')
     })
 

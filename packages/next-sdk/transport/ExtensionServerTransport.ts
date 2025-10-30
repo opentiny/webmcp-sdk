@@ -199,7 +199,8 @@ export class ExtensionServerTransport implements Transport {
     this._lastRegistration = serverInfo
 
     try {
-      sendMessage(
+      await this._pageLog(`即将注册 server 到 content, sessionId=${this.sessionId}`)
+      await sendMessage(
         'mcp-server-register',
         {
           sessionId: this.sessionId,
@@ -212,7 +213,7 @@ export class ExtensionServerTransport implements Transport {
         'content-script'
       )
     } catch (error) {
-      await this._pageLog(' 发送注册通知失败', error)
+      await this._pageLog('注册 server 到 content失败, sessionId=${this.sessionId}', error)
 
       if (this.onerror) {
         this.onerror(error instanceof Error ? error : new Error(String(error)))

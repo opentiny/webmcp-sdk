@@ -61,8 +61,10 @@ export const injectMainScript = async (originUrl: keyof typeof injectUrls, withN
 
 /** 打印日志系统 */
 const storageKey = 'local:next-wxt'
+const sessionRegistryKey = 'local:next-wxt-session'
 
-type LogFrom = 'background' | 'server-transport' | 'client-transport' | 'content-script' | 'side-panel'
+// event-end 是要打印一个事件循环结束的标记
+type LogFrom = 'event-end' | 'background' | 'server-transport' | 'client-transport' | 'content-script' | 'side-panel'
 interface LogExtra {
   sessionId?: string
   tabId?: string
@@ -76,6 +78,15 @@ type LogItem = Array<{
 }>
 
 type LogMeta = { list: LogItem }
+
+type SessionRegistry = Map<
+  string,
+  {
+    tabIds: number[]
+    serverInfo: any
+    timestamp: number
+  }
+>
 
 /** 初始化日志 */
 export const initLog = async () => {
@@ -96,16 +107,31 @@ export const insertLog = async (from: LogFrom, message: string, extra: LogExtra 
   await storage.setMeta(storageKey, meta)
 }
 
+/** 插入全局的 SessionRegistry*/
+export const insertSessionRegistry = async (map: SessionRegistry) => {
+  for (const entry of map.entries()) {
+    await storage.setMeta<any>(sessionRegistryKey, { [entry[0]]: entry[1] })
+  }
+}
+
 /** 打印日志 */
 export const printLog = async () => {
+  const reg = await storage.getMeta<any>(sessionRegistryKey)
+  console.log(reg)
+
   const meta = await storage.getMeta<LogMeta>(storageKey)
   meta.list.forEach((item) => {
-    console.log(`${formatFrom(item.from)} ${item.t}: ${item.message}`, item.extra)
+    if (item.from === 'event-end') {
+      console.log(`============= ${item.from}: ${item.message + '事件流转结束！\n'}`)
+    } else {
+      console.log(`${formatFrom(item.from)} ${item.t}: ${item.message}`, item.extra)
+    }
   })
 }
 
 const formatFrom = (from: LogFrom) => {
   const map = {
+    'event-end': 0,
     background: 0,
     page: 0,
     'server-transport': 4,

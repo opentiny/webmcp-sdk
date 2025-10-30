@@ -21,69 +21,68 @@ export const useBrowserExtensions = ({
   // 注册队列：确保 MCP server 注册操作串行执行，避免并发时 closeAll() 导致冲突
   let registerQueue = Promise.resolve()
 
-  /**
-   * 设置消息监听器
-   */
+  // 1、监听页面注册sessionId
   onMessage('mcp-server-register-to-side', async ({ data, sender }) => {
     const { sessionId, serverInfo } = data
-    await insertLog('side-panel', `收到 mcp-server-register 消息`, data)
+    await insertLog('side-panel', `收到 server注册消息, sessionId=${sessionId}`)
 
     if (!sessionId) {
-      await insertLog('side-panel', `收到 mcp-server-register 消息`, data)
+      await insertLog('side-panel', `❌️ 收到 server注册消息缺少sessionId`)
       return { success: false, msg: 'Invalid sessionId or insertion failed' }
     }
 
-    // 检查 sessionId 是否已存在
     const existingSession = sessionRegistry.get(sessionId)
 
+    // 1.1 已存在该 sessionId，只需追加 tabId 后返回
     if (existingSession) {
-      // 已存在该 sessionId，只需追加 tabId
       if (!existingSession.tabIds.includes(sender.tabId)) {
         existingSession.tabIds.push(sender.tabId)
-        await insertLog('side-panel', `sessionId=${sessionId} 已存在, 只追加 tabId=${sender.tabId}到当前的 tabIds`)
+        await insertLog('side-panel', `sessionId=${sessionId} 已存在, 只追加 tabId=${sender.tabId} 到当前的 tabIds`)
       }
       return { success: true, msg: '页签已记录' }
     }
 
-    // 新的 sessionId，创建记录并注册插件
+    // 1.2 新的 sessionId，创建记录并注册插件
     sessionRegistry.set(sessionId, {
       tabIds: [sender.tabId],
       serverInfo,
       timestamp: Date.now()
     })
+    await insertLog('side-panel', `新建一条 sessionRegistry[sessionId]`)
+    await insertSessionRegistry(sessionRegistry)
 
-    // 将注册操作加入队列，确保串行执行
+    // 1.3 串行执行： agent 添加 mcpServer, 更新侧边中的插件列表
     return new Promise<{ success: boolean; msg: string }>((resolve) => {
-      registerQueue = registerQueue
-        .then(async () => {
-          try {
-            const mcpServer = {
-              type: 'extension',
-              url: serverInfo.url,
-              sessionId
-            }
-            const serverName = `mcp-server-${sessionId}`
-            await insertLog('side-panel', `开始插入插件${serverName}`, mcpServer)
-
-            // 1、 插入McpServers, 此时内部会判断重复。  不重复则插入，并连接和查询tools到agent上。
-            const inserted = await agent.insertMcpServer(serverName, mcpServer as McpServerConfig)
-            if (inserted) {
-              await loadMcpServerToPlugin(serverName, mcpServer as McpServerConfig)
-              await agent.closeAll()
-              showToast(`插件已添加: ${serverInfo.url}`)
-              resolve({ success: true, msg: `插件已添加: ${serverInfo.url}` })
-            } else {
-              resolve({ success: false, msg: 'Insertion failed' })
-            }
-          } catch (error) {
-            await insertLog('side-panel', `注册插件失败: ${sessionId}`, error as any)
-            resolve({ success: false, msg: 'Registration error' })
+      registerQueue = registerQueue.then(async () => {
+        try {
+          const mcpServer = {
+            type: 'extension',
+            url: serverInfo.url,
+            sessionId
           }
-        })
-        .catch((error) => {
-          insertLog('side-panel', `队列执行失败: ${sessionId}`, error as any)
-          resolve({ success: false, msg: 'Queue error' })
-        })
+          const serverName = `mcp-server-${sessionId}`
+          await insertLog('side-panel', `agent 开始插入插件${serverName}`, mcpServer)
+
+          // 1、 插入McpServers, 此时内部会判断重复。  不重复则插入，并连接和查询tools到agent上。
+          const inserted = await agent.insertMcpServer(serverName, mcpServer as McpServerConfig)
+          if (inserted) {
+            await loadMcpServerToPlugin(serverName, mcpServer as McpServerConfig)
+            await agent.closeAll()
+            showToast(`插件已添加: ${serverInfo.url}`)
+            await insertLog('side-panel', `插件已添加: ${serverInfo.url}`)
+
+            resolve({ success: true, msg: `插件已添加: ${serverInfo.url}` })
+          } else {
+            resolve({ success: false, msg: 'Insertion failed' })
+          }
+
+          await insertLog('event-end', '⭐ mcp-server-register-#' + sessionId) //  流程结束
+        } catch (error) {
+          await insertLog('side-panel', `agent 注册插件失败: ${sessionId}`, error as any)
+          await insertLog('event-end', '⭐ mcp-server-register-#' + sessionId) //  流程结束
+          resolve({ success: false, msg: 'Registration error' })
+        }
+      })
     })
   })
 
