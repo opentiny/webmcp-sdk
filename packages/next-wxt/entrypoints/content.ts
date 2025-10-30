@@ -37,7 +37,7 @@ export default defineContentScript({
       }
       sessionId = data.sessionId
 
-      await insertLog('content-script', `server注册消转发给 side-panel`)
+      await insertLog('content-script', `再将 server 注册消息转发给 side-panel`)
       await sendMessage('mcp-server-register-to-side', data, 'popup')
     })
 
@@ -62,15 +62,13 @@ export default defineContentScript({
       }
     })
 
-    // 4、
-    onMessage('sidepanel-ready', async ({ sender, data }) => {
-      await insertLog('content-script', '收到 Sidepanel 就绪消息, 即将转发给 window', data)
-      await sendMessage('sidepanel-ready-to-page', data, 'window')
-    })
-
-    // 5、转发Sidepanel到window页面的消息
+    // 4、转发Sidepanel到window页面的消息
     onMessage('mcp-client-to-server', async ({ data }) => {
-      await insertLog('content-script', '收到 mcp-client-to-server 消息, 即将转发给 window', data)
+      await insertLog(
+        'content-script',
+        `收到 mcp-client-to-server 消息, 即将转发给 window: ${data.mcpMessage.method}`,
+        data
+      )
       await sendMessage('mcp-client-to-server', data, 'window')
 
       // 下发命令，可能为工具调用
@@ -84,6 +82,12 @@ export default defineContentScript({
           'content-script'
         )
       }
+    })
+
+    // 5、sidePanel 刚打开，转发消息给window,重新注册
+    onMessage('sidepanel-ready', async ({ sender, data }) => {
+      await insertLog('content-script', '收到 Sidepanel 就绪消息, 即将转发给 window 重新注册', data)
+      await sendMessage('sidepanel-ready-to-page', data, 'window')
     })
 
     // 6、转发网页上的log到这里，以便记录到日志
