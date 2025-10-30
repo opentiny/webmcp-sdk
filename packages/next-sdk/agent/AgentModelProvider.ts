@@ -174,10 +174,10 @@ export class AgentModelProvider {
       return false
     }
 
-    this.mcpServers[serverName] = mcpServer
     const client = await this._createOneClient(mcpServer)
     this.mcpClients[serverName] = client
     this.mcpTools[serverName] = (await client?.tools?.()) as Record<string, any>
+    this.mcpServers[serverName] = mcpServer
     this.onUpdatedTools?.()
 
     return true

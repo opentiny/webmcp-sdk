@@ -4,7 +4,6 @@ import { sendMessage } from 'webext-bridge/popup'
 
 // Chrome 扩展 API 类型声明
 declare const chrome: any
-declare const browser: any
 
 /**
  * Chrome 扩展客户端 Transport
@@ -63,7 +62,7 @@ export class ExtensionClientTransport implements Transport {
     }
 
     try {
-      const sessionInfo = browser.sessionRegistry.get(this.targetSessionId)
+      const sessionInfo = chrome.sessionRegistry.get(this.targetSessionId)
       const tabIds = sessionInfo?.tabIds
       const tabId = tabIds && tabIds.length > 0 ? tabIds[tabIds.length - 1] : null
 
@@ -95,7 +94,7 @@ export class ExtensionClientTransport implements Transport {
         }
       }
 
-      browser.runtime.onMessage.addListener(this._messageListener)
+      chrome.runtime.onMessage.addListener(this._messageListener)
 
       this._isStarted = true
     } catch (error) {
@@ -164,7 +163,7 @@ export class ExtensionClientTransport implements Transport {
     }
 
     if (this._messageListener) {
-      browser.runtime.onMessage.removeListener(this._messageListener)
+      chrome.runtime.onMessage.removeListener(this._messageListener)
       this._messageListener = () => {}
     }
 
