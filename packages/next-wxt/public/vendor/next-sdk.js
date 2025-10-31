@@ -1086,8 +1086,8 @@
     util$7.alwaysValidSchema =
     util$7.toHash =
       void 0
-  const codegen_1$v = codegen
-  const code_1$a = code$1
+  const codegen_1$q = codegen
+  const code_1$9 = code$1
   function toHash$2(arr) {
     const hash = {}
     for (const item of arr) hash[item] = true
@@ -1126,9 +1126,9 @@
   function schemaRefOrVal({ topSchemaRef, schemaPath }, schema, keyword2, $data) {
     if (!$data) {
       if (typeof schema == 'number' || typeof schema == 'boolean') return schema
-      if (typeof schema == 'string') return (0, codegen_1$v._)`${schema}`
+      if (typeof schema == 'string') return (0, codegen_1$q._)`${schema}`
     }
-    return (0, codegen_1$v._)`${topSchemaRef}${schemaPath}${(0, codegen_1$v.getProperty)(keyword2)}`
+    return (0, codegen_1$q._)`${topSchemaRef}${schemaPath}${(0, codegen_1$q.getProperty)(keyword2)}`
   }
   util$7.schemaRefOrVal = schemaRefOrVal
   function unescapeFragment$1(str) {
@@ -1161,31 +1161,31 @@
       const res =
         to === void 0
           ? from
-          : to instanceof codegen_1$v.Name
-            ? (from instanceof codegen_1$v.Name ? mergeNames(gen, from, to) : mergeToName(gen, from, to), to)
-            : from instanceof codegen_1$v.Name
+          : to instanceof codegen_1$q.Name
+            ? (from instanceof codegen_1$q.Name ? mergeNames(gen, from, to) : mergeToName(gen, from, to), to)
+            : from instanceof codegen_1$q.Name
               ? (mergeToName(gen, to, from), from)
               : mergeValues2(from, to)
-      return toName === codegen_1$v.Name && !(res instanceof codegen_1$v.Name) ? resultToName(gen, res) : res
+      return toName === codegen_1$q.Name && !(res instanceof codegen_1$q.Name) ? resultToName(gen, res) : res
     }
   }
   util$7.mergeEvaluated = {
     props: makeMergeEvaluated({
       mergeNames: (gen, from, to) =>
-        gen.if((0, codegen_1$v._)`${to} !== true && ${from} !== undefined`, () => {
+        gen.if((0, codegen_1$q._)`${to} !== true && ${from} !== undefined`, () => {
           gen.if(
-            (0, codegen_1$v._)`${from} === true`,
+            (0, codegen_1$q._)`${from} === true`,
             () => gen.assign(to, true),
             () =>
-              gen.assign(to, (0, codegen_1$v._)`${to} || {}`).code((0, codegen_1$v._)`Object.assign(${to}, ${from})`)
+              gen.assign(to, (0, codegen_1$q._)`${to} || {}`).code((0, codegen_1$q._)`Object.assign(${to}, ${from})`)
           )
         }),
       mergeToName: (gen, from, to) =>
-        gen.if((0, codegen_1$v._)`${to} !== true`, () => {
+        gen.if((0, codegen_1$q._)`${to} !== true`, () => {
           if (from === true) {
             gen.assign(to, true)
           } else {
-            gen.assign(to, (0, codegen_1$v._)`${to} || {}`)
+            gen.assign(to, (0, codegen_1$q._)`${to} || {}`)
             setEvaluated(gen, to, from)
           }
         }),
@@ -1194,12 +1194,12 @@
     }),
     items: makeMergeEvaluated({
       mergeNames: (gen, from, to) =>
-        gen.if((0, codegen_1$v._)`${to} !== true && ${from} !== undefined`, () =>
-          gen.assign(to, (0, codegen_1$v._)`${from} === true ? true : ${to} > ${from} ? ${to} : ${from}`)
+        gen.if((0, codegen_1$q._)`${to} !== true && ${from} !== undefined`, () =>
+          gen.assign(to, (0, codegen_1$q._)`${from} === true ? true : ${to} > ${from} ? ${to} : ${from}`)
         ),
       mergeToName: (gen, from, to) =>
-        gen.if((0, codegen_1$v._)`${to} !== true`, () =>
-          gen.assign(to, from === true ? true : (0, codegen_1$v._)`${to} > ${from} ? ${to} : ${from}`)
+        gen.if((0, codegen_1$q._)`${to} !== true`, () =>
+          gen.assign(to, from === true ? true : (0, codegen_1$q._)`${to} > ${from} ? ${to} : ${from}`)
         ),
       mergeValues: (from, to) => (from === true ? true : Math.max(from, to)),
       resultToName: (gen, items2) => gen.var('items', items2)
@@ -1207,20 +1207,20 @@
   }
   function evaluatedPropsToName(gen, ps) {
     if (ps === true) return gen.var('props', true)
-    const props = gen.var('props', (0, codegen_1$v._)`{}`)
+    const props = gen.var('props', (0, codegen_1$q._)`{}`)
     if (ps !== void 0) setEvaluated(gen, props, ps)
     return props
   }
   util$7.evaluatedPropsToName = evaluatedPropsToName
   function setEvaluated(gen, props, ps) {
-    Object.keys(ps).forEach((p) => gen.assign((0, codegen_1$v._)`${props}${(0, codegen_1$v.getProperty)(p)}`, true))
+    Object.keys(ps).forEach((p) => gen.assign((0, codegen_1$q._)`${props}${(0, codegen_1$q.getProperty)(p)}`, true))
   }
   util$7.setEvaluated = setEvaluated
   const snippets = {}
   function useFunc(gen, f) {
     return gen.scopeValue('func', {
       ref: f,
-      code: snippets[f.code] || (snippets[f.code] = new code_1$a._Code(f.code))
+      code: snippets[f.code] || (snippets[f.code] = new code_1$9._Code(f.code))
     })
   }
   util$7.useFunc = useFunc
@@ -1230,17 +1230,17 @@
     Type2[(Type2['Str'] = 1)] = 'Str'
   })(Type || (util$7.Type = Type = {}))
   function getErrorPath(dataProp, dataPropType, jsPropertySyntax) {
-    if (dataProp instanceof codegen_1$v.Name) {
+    if (dataProp instanceof codegen_1$q.Name) {
       const isNumber = dataPropType === Type.Num
       return jsPropertySyntax
         ? isNumber
-          ? (0, codegen_1$v._)`"[" + ${dataProp} + "]"`
-          : (0, codegen_1$v._)`"['" + ${dataProp} + "']"`
+          ? (0, codegen_1$q._)`"[" + ${dataProp} + "]"`
+          : (0, codegen_1$q._)`"['" + ${dataProp} + "']"`
         : isNumber
-          ? (0, codegen_1$v._)`"/" + ${dataProp}`
-          : (0, codegen_1$v._)`"/" + ${dataProp}.replace(/~/g, "~0").replace(/\\//g, "~1")`
+          ? (0, codegen_1$q._)`"/" + ${dataProp}`
+          : (0, codegen_1$q._)`"/" + ${dataProp}.replace(/~/g, "~0").replace(/\\//g, "~1")`
     }
-    return jsPropertySyntax ? (0, codegen_1$v.getProperty)(dataProp).toString() : '/' + escapeJsonPointer$1(dataProp)
+    return jsPropertySyntax ? (0, codegen_1$q.getProperty)(dataProp).toString() : '/' + escapeJsonPointer$1(dataProp)
   }
   util$7.getErrorPath = getErrorPath
   function checkStrictMode(it, msg, mode = it.opts.strictSchema) {
@@ -1252,35 +1252,35 @@
   util$7.checkStrictMode = checkStrictMode
   var names$1 = {}
   Object.defineProperty(names$1, '__esModule', { value: true })
-  const codegen_1$u = codegen
+  const codegen_1$p = codegen
   const names = {
     // validation function arguments
-    data: new codegen_1$u.Name('data'),
+    data: new codegen_1$p.Name('data'),
     // data passed to validation function
     // args passed from referencing schema
-    valCxt: new codegen_1$u.Name('valCxt'),
+    valCxt: new codegen_1$p.Name('valCxt'),
     // validation/data context - should not be used directly, it is destructured to the names below
-    instancePath: new codegen_1$u.Name('instancePath'),
-    parentData: new codegen_1$u.Name('parentData'),
-    parentDataProperty: new codegen_1$u.Name('parentDataProperty'),
-    rootData: new codegen_1$u.Name('rootData'),
+    instancePath: new codegen_1$p.Name('instancePath'),
+    parentData: new codegen_1$p.Name('parentData'),
+    parentDataProperty: new codegen_1$p.Name('parentDataProperty'),
+    rootData: new codegen_1$p.Name('rootData'),
     // root data - same as the data passed to the first/top validation function
-    dynamicAnchors: new codegen_1$u.Name('dynamicAnchors'),
+    dynamicAnchors: new codegen_1$p.Name('dynamicAnchors'),
     // used to support recursiveRef and dynamicRef
     // function scoped variables
-    vErrors: new codegen_1$u.Name('vErrors'),
+    vErrors: new codegen_1$p.Name('vErrors'),
     // null or array of validation errors
-    errors: new codegen_1$u.Name('errors'),
+    errors: new codegen_1$p.Name('errors'),
     // counter of validation errors
-    this: new codegen_1$u.Name('this'),
+    this: new codegen_1$p.Name('this'),
     // "globals"
-    self: new codegen_1$u.Name('self'),
-    scope: new codegen_1$u.Name('scope'),
+    self: new codegen_1$p.Name('self'),
+    scope: new codegen_1$p.Name('scope'),
     // JTD serialize/parse name for JSON string and position
-    json: new codegen_1$u.Name('json'),
-    jsonPos: new codegen_1$u.Name('jsonPos'),
-    jsonLen: new codegen_1$u.Name('jsonLen'),
-    jsonPart: new codegen_1$u.Name('jsonPart')
+    json: new codegen_1$p.Name('json'),
+    jsonPos: new codegen_1$p.Name('jsonPos'),
+    jsonLen: new codegen_1$p.Name('jsonLen'),
+    jsonPart: new codegen_1$p.Name('jsonPart')
   }
   names$1.default = names
   ;(function (exports3) {
@@ -1427,49 +1427,55 @@
       if (propertyName) keyValues.push([E.propertyName, propertyName])
     }
   })(errors)
-  Object.defineProperty(boolSchema, '__esModule', { value: true })
-  boolSchema.boolOrEmptySchema = boolSchema.topBoolOrEmptySchema = void 0
-  const errors_1$3 = errors
-  const codegen_1$t = codegen
-  const names_1$6 = names$1
-  const boolError = {
-    message: 'boolean schema is false'
-  }
-  function topBoolOrEmptySchema(it) {
-    const { gen, schema, validateName } = it
-    if (schema === false) {
-      falseSchemaError(it, false)
-    } else if (typeof schema == 'object' && schema.$async === true) {
-      gen.return(names_1$6.default.data)
-    } else {
-      gen.assign((0, codegen_1$t._)`${validateName}.errors`, null)
-      gen.return(true)
+  var hasRequiredBoolSchema
+  function requireBoolSchema() {
+    if (hasRequiredBoolSchema) return boolSchema
+    hasRequiredBoolSchema = 1
+    Object.defineProperty(boolSchema, '__esModule', { value: true })
+    boolSchema.boolOrEmptySchema = boolSchema.topBoolOrEmptySchema = void 0
+    const errors_12 = errors
+    const codegen_12 = codegen
+    const names_12 = names$1
+    const boolError = {
+      message: 'boolean schema is false'
     }
-  }
-  boolSchema.topBoolOrEmptySchema = topBoolOrEmptySchema
-  function boolOrEmptySchema(it, valid) {
-    const { gen, schema } = it
-    if (schema === false) {
-      gen.var(valid, false)
-      falseSchemaError(it)
-    } else {
-      gen.var(valid, true)
+    function topBoolOrEmptySchema(it) {
+      const { gen, schema, validateName } = it
+      if (schema === false) {
+        falseSchemaError(it, false)
+      } else if (typeof schema == 'object' && schema.$async === true) {
+        gen.return(names_12.default.data)
+      } else {
+        gen.assign((0, codegen_12._)`${validateName}.errors`, null)
+        gen.return(true)
+      }
     }
-  }
-  boolSchema.boolOrEmptySchema = boolOrEmptySchema
-  function falseSchemaError(it, overrideAllErrors) {
-    const { gen, data: data2 } = it
-    const cxt = {
-      gen,
-      keyword: 'false schema',
-      data: data2,
-      schema: false,
-      schemaCode: false,
-      schemaValue: false,
-      params: {},
-      it
+    boolSchema.topBoolOrEmptySchema = topBoolOrEmptySchema
+    function boolOrEmptySchema(it, valid) {
+      const { gen, schema } = it
+      if (schema === false) {
+        gen.var(valid, false)
+        falseSchemaError(it)
+      } else {
+        gen.var(valid, true)
+      }
     }
-    ;(0, errors_1$3.reportError)(cxt, boolError, void 0, overrideAllErrors)
+    boolSchema.boolOrEmptySchema = boolOrEmptySchema
+    function falseSchemaError(it, overrideAllErrors) {
+      const { gen, data: data2 } = it
+      const cxt = {
+        gen,
+        keyword: 'false schema',
+        data: data2,
+        schema: false,
+        schemaCode: false,
+        schemaValue: false,
+        params: {},
+        it
+      }
+      ;(0, errors_12.reportError)(cxt, boolError, void 0, overrideAllErrors)
+    }
+    return boolSchema
   }
   var dataType = {}
   var rules$2 = {}
@@ -1527,10 +1533,10 @@
     dataType.DataType =
       void 0
   const rules_1 = rules$2
-  const applicability_1$1 = applicability
-  const errors_1$2 = errors
-  const codegen_1$s = codegen
-  const util_1$q = util$7
+  const applicability_1 = applicability
+  const errors_1 = errors
+  const codegen_1$o = codegen
+  const util_1$n = util$7
   var DataType
   ;(function (DataType2) {
     DataType2[(DataType2['Correct'] = 0)] = 'Correct'
@@ -1561,7 +1567,7 @@
     const coerceTo = coerceToTypes$1(types2, opts.coerceTypes)
     const checkTypes =
       types2.length > 0 &&
-      !(coerceTo.length === 0 && types2.length === 1 && (0, applicability_1$1.schemaHasRulesForType)(it, types2[0]))
+      !(coerceTo.length === 0 && types2.length === 1 && (0, applicability_1.schemaHasRulesForType)(it, types2[0]))
     if (checkTypes) {
       const wrongType = checkDataTypes$1(types2, data2, opts.strictNumbers, DataType.Wrong)
       gen.if(wrongType, () => {
@@ -1578,17 +1584,17 @@
   }
   function coerceData(it, types2, coerceTo) {
     const { gen, data: data2, opts } = it
-    const dataType2 = gen.let('dataType', (0, codegen_1$s._)`typeof ${data2}`)
-    const coerced = gen.let('coerced', (0, codegen_1$s._)`undefined`)
+    const dataType2 = gen.let('dataType', (0, codegen_1$o._)`typeof ${data2}`)
+    const coerced = gen.let('coerced', (0, codegen_1$o._)`undefined`)
     if (opts.coerceTypes === 'array') {
-      gen.if((0, codegen_1$s._)`${dataType2} == 'object' && Array.isArray(${data2}) && ${data2}.length == 1`, () =>
+      gen.if((0, codegen_1$o._)`${dataType2} == 'object' && Array.isArray(${data2}) && ${data2}.length == 1`, () =>
         gen
-          .assign(data2, (0, codegen_1$s._)`${data2}[0]`)
-          .assign(dataType2, (0, codegen_1$s._)`typeof ${data2}`)
+          .assign(data2, (0, codegen_1$o._)`${data2}[0]`)
+          .assign(dataType2, (0, codegen_1$o._)`typeof ${data2}`)
           .if(checkDataTypes$1(types2, data2, opts.strictNumbers), () => gen.assign(coerced, data2))
       )
     }
-    gen.if((0, codegen_1$s._)`${coerced} !== undefined`)
+    gen.if((0, codegen_1$o._)`${coerced} !== undefined`)
     for (const t of coerceTo) {
       if (COERCIBLE.has(t) || (t === 'array' && opts.coerceTypes === 'array')) {
         coerceSpecificType(t)
@@ -1597,7 +1603,7 @@
     gen.else()
     reportTypeError(it)
     gen.endIf()
-    gen.if((0, codegen_1$s._)`${coerced} !== undefined`, () => {
+    gen.if((0, codegen_1$o._)`${coerced} !== undefined`, () => {
       gen.assign(data2, coerced)
       assignParentData(it, coerced)
     })
@@ -1605,80 +1611,80 @@
       switch (t) {
         case 'string':
           gen
-            .elseIf((0, codegen_1$s._)`${dataType2} == "number" || ${dataType2} == "boolean"`)
-            .assign(coerced, (0, codegen_1$s._)`"" + ${data2}`)
-            .elseIf((0, codegen_1$s._)`${data2} === null`)
-            .assign(coerced, (0, codegen_1$s._)`""`)
+            .elseIf((0, codegen_1$o._)`${dataType2} == "number" || ${dataType2} == "boolean"`)
+            .assign(coerced, (0, codegen_1$o._)`"" + ${data2}`)
+            .elseIf((0, codegen_1$o._)`${data2} === null`)
+            .assign(coerced, (0, codegen_1$o._)`""`)
           return
         case 'number':
           gen
             .elseIf(
-              (0, codegen_1$s._)`${dataType2} == "boolean" || ${data2} === null
+              (0, codegen_1$o._)`${dataType2} == "boolean" || ${data2} === null
               || (${dataType2} == "string" && ${data2} && ${data2} == +${data2})`
             )
-            .assign(coerced, (0, codegen_1$s._)`+${data2}`)
+            .assign(coerced, (0, codegen_1$o._)`+${data2}`)
           return
         case 'integer':
           gen
             .elseIf(
-              (0, codegen_1$s._)`${dataType2} === "boolean" || ${data2} === null
+              (0, codegen_1$o._)`${dataType2} === "boolean" || ${data2} === null
               || (${dataType2} === "string" && ${data2} && ${data2} == +${data2} && !(${data2} % 1))`
             )
-            .assign(coerced, (0, codegen_1$s._)`+${data2}`)
+            .assign(coerced, (0, codegen_1$o._)`+${data2}`)
           return
         case 'boolean':
           gen
-            .elseIf((0, codegen_1$s._)`${data2} === "false" || ${data2} === 0 || ${data2} === null`)
+            .elseIf((0, codegen_1$o._)`${data2} === "false" || ${data2} === 0 || ${data2} === null`)
             .assign(coerced, false)
-            .elseIf((0, codegen_1$s._)`${data2} === "true" || ${data2} === 1`)
+            .elseIf((0, codegen_1$o._)`${data2} === "true" || ${data2} === 1`)
             .assign(coerced, true)
           return
         case 'null':
-          gen.elseIf((0, codegen_1$s._)`${data2} === "" || ${data2} === 0 || ${data2} === false`)
+          gen.elseIf((0, codegen_1$o._)`${data2} === "" || ${data2} === 0 || ${data2} === false`)
           gen.assign(coerced, null)
           return
         case 'array':
           gen
             .elseIf(
-              (0, codegen_1$s._)`${dataType2} === "string" || ${dataType2} === "number"
+              (0, codegen_1$o._)`${dataType2} === "string" || ${dataType2} === "number"
               || ${dataType2} === "boolean" || ${data2} === null`
             )
-            .assign(coerced, (0, codegen_1$s._)`[${data2}]`)
+            .assign(coerced, (0, codegen_1$o._)`[${data2}]`)
       }
     }
   }
   function assignParentData({ gen, parentData, parentDataProperty }, expr) {
-    gen.if((0, codegen_1$s._)`${parentData} !== undefined`, () =>
-      gen.assign((0, codegen_1$s._)`${parentData}[${parentDataProperty}]`, expr)
+    gen.if((0, codegen_1$o._)`${parentData} !== undefined`, () =>
+      gen.assign((0, codegen_1$o._)`${parentData}[${parentDataProperty}]`, expr)
     )
   }
   function checkDataType$1(dataType2, data2, strictNums, correct = DataType.Correct) {
-    const EQ = correct === DataType.Correct ? codegen_1$s.operators.EQ : codegen_1$s.operators.NEQ
+    const EQ = correct === DataType.Correct ? codegen_1$o.operators.EQ : codegen_1$o.operators.NEQ
     let cond
     switch (dataType2) {
       case 'null':
-        return (0, codegen_1$s._)`${data2} ${EQ} null`
+        return (0, codegen_1$o._)`${data2} ${EQ} null`
       case 'array':
-        cond = (0, codegen_1$s._)`Array.isArray(${data2})`
+        cond = (0, codegen_1$o._)`Array.isArray(${data2})`
         break
       case 'object':
-        cond = (0, codegen_1$s._)`${data2} && typeof ${data2} == "object" && !Array.isArray(${data2})`
+        cond = (0, codegen_1$o._)`${data2} && typeof ${data2} == "object" && !Array.isArray(${data2})`
         break
       case 'integer':
-        cond = numCond((0, codegen_1$s._)`!(${data2} % 1) && !isNaN(${data2})`)
+        cond = numCond((0, codegen_1$o._)`!(${data2} % 1) && !isNaN(${data2})`)
         break
       case 'number':
         cond = numCond()
         break
       default:
-        return (0, codegen_1$s._)`typeof ${data2} ${EQ} ${dataType2}`
+        return (0, codegen_1$o._)`typeof ${data2} ${EQ} ${dataType2}`
     }
-    return correct === DataType.Correct ? cond : (0, codegen_1$s.not)(cond)
-    function numCond(_cond = codegen_1$s.nil) {
-      return (0, codegen_1$s.and)(
-        (0, codegen_1$s._)`typeof ${data2} == "number"`,
+    return correct === DataType.Correct ? cond : (0, codegen_1$o.not)(cond)
+    function numCond(_cond = codegen_1$o.nil) {
+      return (0, codegen_1$o.and)(
+        (0, codegen_1$o._)`typeof ${data2} == "number"`,
         _cond,
-        strictNums ? (0, codegen_1$s._)`isFinite(${data2})` : codegen_1$s.nil
+        strictNums ? (0, codegen_1$o._)`isFinite(${data2})` : codegen_1$o.nil
       )
     }
   }
@@ -1688,34 +1694,34 @@
       return checkDataType$1(dataTypes[0], data2, strictNums, correct)
     }
     let cond
-    const types2 = (0, util_1$q.toHash)(dataTypes)
+    const types2 = (0, util_1$n.toHash)(dataTypes)
     if (types2.array && types2.object) {
-      const notObj = (0, codegen_1$s._)`typeof ${data2} != "object"`
-      cond = types2.null ? notObj : (0, codegen_1$s._)`!${data2} || ${notObj}`
+      const notObj = (0, codegen_1$o._)`typeof ${data2} != "object"`
+      cond = types2.null ? notObj : (0, codegen_1$o._)`!${data2} || ${notObj}`
       delete types2.null
       delete types2.array
       delete types2.object
     } else {
-      cond = codegen_1$s.nil
+      cond = codegen_1$o.nil
     }
     if (types2.number) delete types2.integer
-    for (const t in types2) cond = (0, codegen_1$s.and)(cond, checkDataType$1(t, data2, strictNums, correct))
+    for (const t in types2) cond = (0, codegen_1$o.and)(cond, checkDataType$1(t, data2, strictNums, correct))
     return cond
   }
   dataType.checkDataTypes = checkDataTypes$1
   const typeError = {
     message: ({ schema }) => `must be ${schema}`,
     params: ({ schema, schemaValue }) =>
-      typeof schema == 'string' ? (0, codegen_1$s._)`{type: ${schema}}` : (0, codegen_1$s._)`{type: ${schemaValue}}`
+      typeof schema == 'string' ? (0, codegen_1$o._)`{type: ${schema}}` : (0, codegen_1$o._)`{type: ${schemaValue}}`
   }
   function reportTypeError(it) {
     const cxt = getTypeErrorContext(it)
-    ;(0, errors_1$2.reportError)(cxt, typeError)
+    ;(0, errors_1.reportError)(cxt, typeError)
   }
   dataType.reportTypeError = reportTypeError
   function getTypeErrorContext(it) {
     const { gen, data: data2, schema } = it
-    const schemaCode = (0, util_1$q.schemaRefOrVal)(it, schema, 'type')
+    const schemaCode = (0, util_1$n.schemaRefOrVal)(it, schema, 'type')
     return {
       gen,
       keyword: 'type',
@@ -1729,34 +1735,40 @@
     }
   }
   var defaults = {}
-  Object.defineProperty(defaults, '__esModule', { value: true })
-  defaults.assignDefaults = void 0
-  const codegen_1$r = codegen
-  const util_1$p = util$7
-  function assignDefaults(it, ty) {
-    const { properties: properties2, items: items2 } = it.schema
-    if (ty === 'object' && properties2) {
-      for (const key in properties2) {
-        assignDefault(it, key, properties2[key].default)
+  var hasRequiredDefaults
+  function requireDefaults() {
+    if (hasRequiredDefaults) return defaults
+    hasRequiredDefaults = 1
+    Object.defineProperty(defaults, '__esModule', { value: true })
+    defaults.assignDefaults = void 0
+    const codegen_12 = codegen
+    const util_12 = util$7
+    function assignDefaults(it, ty) {
+      const { properties: properties2, items: items2 } = it.schema
+      if (ty === 'object' && properties2) {
+        for (const key in properties2) {
+          assignDefault(it, key, properties2[key].default)
+        }
+      } else if (ty === 'array' && Array.isArray(items2)) {
+        items2.forEach((sch, i) => assignDefault(it, i, sch.default))
       }
-    } else if (ty === 'array' && Array.isArray(items2)) {
-      items2.forEach((sch, i) => assignDefault(it, i, sch.default))
     }
-  }
-  defaults.assignDefaults = assignDefaults
-  function assignDefault(it, prop, defaultValue) {
-    const { gen, compositeRule, data: data2, opts } = it
-    if (defaultValue === void 0) return
-    const childData = (0, codegen_1$r._)`${data2}${(0, codegen_1$r.getProperty)(prop)}`
-    if (compositeRule) {
-      ;(0, util_1$p.checkStrictMode)(it, `default is ignored for: ${childData}`)
-      return
+    defaults.assignDefaults = assignDefaults
+    function assignDefault(it, prop, defaultValue) {
+      const { gen, compositeRule, data: data2, opts } = it
+      if (defaultValue === void 0) return
+      const childData = (0, codegen_12._)`${data2}${(0, codegen_12.getProperty)(prop)}`
+      if (compositeRule) {
+        ;(0, util_12.checkStrictMode)(it, `default is ignored for: ${childData}`)
+        return
+      }
+      let condition = (0, codegen_12._)`${childData} === undefined`
+      if (opts.useDefaults === 'empty') {
+        condition = (0, codegen_12._)`${condition} || ${childData} === null || ${childData} === ""`
+      }
+      gen.if(condition, (0, codegen_12._)`${childData} = ${(0, codegen_12.stringify)(defaultValue)}`)
     }
-    let condition = (0, codegen_1$r._)`${childData} === undefined`
-    if (opts.useDefaults === 'empty') {
-      condition = (0, codegen_1$r._)`${condition} || ${childData} === null || ${childData} === ""`
-    }
-    gen.if(condition, (0, codegen_1$r._)`${childData} = ${(0, codegen_1$r.stringify)(defaultValue)}`)
+    return defaults
   }
   var keyword$1 = {}
   var code = {}
@@ -1775,24 +1787,24 @@
     code.checkMissingProp =
     code.checkReportMissingProp =
       void 0
-  const codegen_1$q = codegen
-  const util_1$o = util$7
-  const names_1$5 = names$1
+  const codegen_1$n = codegen
+  const util_1$m = util$7
+  const names_1$3 = names$1
   const util_2$1 = util$7
   function checkReportMissingProp(cxt, prop) {
     const { gen, data: data2, it } = cxt
     gen.if(noPropertyInData(gen, data2, prop, it.opts.ownProperties), () => {
-      cxt.setParams({ missingProperty: (0, codegen_1$q._)`${prop}` }, true)
+      cxt.setParams({ missingProperty: (0, codegen_1$n._)`${prop}` }, true)
       cxt.error()
     })
   }
   code.checkReportMissingProp = checkReportMissingProp
   function checkMissingProp({ gen, data: data2, it: { opts } }, properties2, missing) {
-    return (0, codegen_1$q.or)(
+    return (0, codegen_1$n.or)(
       ...properties2.map((prop) =>
-        (0, codegen_1$q.and)(
+        (0, codegen_1$n.and)(
           noPropertyInData(gen, data2, prop, opts.ownProperties),
-          (0, codegen_1$q._)`${missing} = ${prop}`
+          (0, codegen_1$n._)`${missing} = ${prop}`
         )
       )
     )
@@ -1807,22 +1819,22 @@
     return gen.scopeValue('func', {
       // eslint-disable-next-line @typescript-eslint/unbound-method
       ref: Object.prototype.hasOwnProperty,
-      code: (0, codegen_1$q._)`Object.prototype.hasOwnProperty`
+      code: (0, codegen_1$n._)`Object.prototype.hasOwnProperty`
     })
   }
   code.hasPropFunc = hasPropFunc
   function isOwnProperty(gen, data2, property) {
-    return (0, codegen_1$q._)`${hasPropFunc(gen)}.call(${data2}, ${property})`
+    return (0, codegen_1$n._)`${hasPropFunc(gen)}.call(${data2}, ${property})`
   }
   code.isOwnProperty = isOwnProperty
   function propertyInData(gen, data2, property, ownProperties) {
-    const cond = (0, codegen_1$q._)`${data2}${(0, codegen_1$q.getProperty)(property)} !== undefined`
-    return ownProperties ? (0, codegen_1$q._)`${cond} && ${isOwnProperty(gen, data2, property)}` : cond
+    const cond = (0, codegen_1$n._)`${data2}${(0, codegen_1$n.getProperty)(property)} !== undefined`
+    return ownProperties ? (0, codegen_1$n._)`${cond} && ${isOwnProperty(gen, data2, property)}` : cond
   }
   code.propertyInData = propertyInData
   function noPropertyInData(gen, data2, property, ownProperties) {
-    const cond = (0, codegen_1$q._)`${data2}${(0, codegen_1$q.getProperty)(property)} === undefined`
-    return ownProperties ? (0, codegen_1$q.or)(cond, (0, codegen_1$q.not)(isOwnProperty(gen, data2, property))) : cond
+    const cond = (0, codegen_1$n._)`${data2}${(0, codegen_1$n.getProperty)(property)} === undefined`
+    return ownProperties ? (0, codegen_1$n.or)(cond, (0, codegen_1$n.not)(isOwnProperty(gen, data2, property))) : cond
   }
   code.noPropertyInData = noPropertyInData
   function allSchemaProperties(schemaMap) {
@@ -1830,7 +1842,7 @@
   }
   code.allSchemaProperties = allSchemaProperties
   function schemaProperties(it, schemaMap) {
-    return allSchemaProperties(schemaMap).filter((p) => !(0, util_1$o.alwaysValidSchema)(it, schemaMap[p]))
+    return allSchemaProperties(schemaMap).filter((p) => !(0, util_1$m.alwaysValidSchema)(it, schemaMap[p]))
   }
   code.schemaProperties = schemaProperties
   function callValidateCode(
@@ -1839,21 +1851,21 @@
     context,
     passSchema
   ) {
-    const dataAndSchema = passSchema ? (0, codegen_1$q._)`${schemaCode}, ${data2}, ${topSchemaRef}${schemaPath}` : data2
+    const dataAndSchema = passSchema ? (0, codegen_1$n._)`${schemaCode}, ${data2}, ${topSchemaRef}${schemaPath}` : data2
     const valCxt = [
-      [names_1$5.default.instancePath, (0, codegen_1$q.strConcat)(names_1$5.default.instancePath, errorPath)],
-      [names_1$5.default.parentData, it.parentData],
-      [names_1$5.default.parentDataProperty, it.parentDataProperty],
-      [names_1$5.default.rootData, names_1$5.default.rootData]
+      [names_1$3.default.instancePath, (0, codegen_1$n.strConcat)(names_1$3.default.instancePath, errorPath)],
+      [names_1$3.default.parentData, it.parentData],
+      [names_1$3.default.parentDataProperty, it.parentDataProperty],
+      [names_1$3.default.rootData, names_1$3.default.rootData]
     ]
-    if (it.opts.dynamicRef) valCxt.push([names_1$5.default.dynamicAnchors, names_1$5.default.dynamicAnchors])
-    const args = (0, codegen_1$q._)`${dataAndSchema}, ${gen.object(...valCxt)}`
-    return context !== codegen_1$q.nil
-      ? (0, codegen_1$q._)`${func}.call(${context}, ${args})`
-      : (0, codegen_1$q._)`${func}(${args})`
+    if (it.opts.dynamicRef) valCxt.push([names_1$3.default.dynamicAnchors, names_1$3.default.dynamicAnchors])
+    const args = (0, codegen_1$n._)`${dataAndSchema}, ${gen.object(...valCxt)}`
+    return context !== codegen_1$n.nil
+      ? (0, codegen_1$n._)`${func}.call(${context}, ${args})`
+      : (0, codegen_1$n._)`${func}(${args})`
   }
   code.callValidateCode = callValidateCode
-  const newRegExp = (0, codegen_1$q._)`new RegExp`
+  const newRegExp = (0, codegen_1$n._)`new RegExp`
   function usePattern({ gen, it: { opts } }, pattern2) {
     const u = opts.unicodeRegExp ? 'u' : ''
     const { regExp } = opts.code
@@ -1862,7 +1874,7 @@
       key: rx.toString(),
       ref: rx,
       code: (0,
-      codegen_1$q._)`${regExp.code === 'new RegExp' ? newRegExp : (0, util_2$1.useFunc)(gen, regExp)}(${pattern2}, ${u})`
+      codegen_1$n._)`${regExp.code === 'new RegExp' ? newRegExp : (0, util_2$1.useFunc)(gen, regExp)}(${pattern2}, ${u})`
     })
   }
   code.usePattern = usePattern
@@ -1878,17 +1890,17 @@
     validateItems(() => gen.break())
     return valid
     function validateItems(notValid) {
-      const len = gen.const('len', (0, codegen_1$q._)`${data2}.length`)
+      const len = gen.const('len', (0, codegen_1$n._)`${data2}.length`)
       gen.forRange('i', 0, len, (i) => {
         cxt.subschema(
           {
             keyword: keyword2,
             dataProp: i,
-            dataPropType: util_1$o.Type.Num
+            dataPropType: util_1$m.Type.Num
           },
           valid
         )
-        gen.if((0, codegen_1$q.not)(valid), notValid)
+        gen.if((0, codegen_1$n.not)(valid), notValid)
       })
     }
   }
@@ -1896,7 +1908,7 @@
   function validateUnion(cxt) {
     const { gen, schema, keyword: keyword2, it } = cxt
     if (!Array.isArray(schema)) throw new Error('ajv implementation error')
-    const alwaysValid = schema.some((sch) => (0, util_1$o.alwaysValidSchema)(it, sch))
+    const alwaysValid = schema.some((sch) => (0, util_1$m.alwaysValidSchema)(it, sch))
     if (alwaysValid && !it.opts.unevaluated) return
     const valid = gen.let('valid', false)
     const schValid = gen.name('_valid')
@@ -1910,9 +1922,9 @@
           },
           schValid
         )
-        gen.assign(valid, (0, codegen_1$q._)`${valid} || ${schValid}`)
+        gen.assign(valid, (0, codegen_1$n._)`${valid} || ${schValid}`)
         const merged = cxt.mergeValidEvaluated(schCxt, schValid)
-        if (!merged) gen.if((0, codegen_1$q.not)(valid))
+        if (!merged) gen.if((0, codegen_1$n.not)(valid))
       })
     )
     cxt.result(
@@ -1922,235 +1934,252 @@
     )
   }
   code.validateUnion = validateUnion
-  Object.defineProperty(keyword$1, '__esModule', { value: true })
-  keyword$1.validateKeywordUsage =
-    keyword$1.validSchemaType =
-    keyword$1.funcKeywordCode =
-    keyword$1.macroKeywordCode =
-      void 0
-  const codegen_1$p = codegen
-  const names_1$4 = names$1
-  const code_1$9 = code
-  const errors_1$1 = errors
-  function macroKeywordCode(cxt, def2) {
-    const { gen, keyword: keyword2, schema, parentSchema, it } = cxt
-    const macroSchema = def2.macro.call(it.self, schema, parentSchema, it)
-    const schemaRef = useKeyword(gen, keyword2, macroSchema)
-    if (it.opts.validateSchema !== false) it.self.validateSchema(macroSchema, true)
-    const valid = gen.name('valid')
-    cxt.subschema(
-      {
-        schema: macroSchema,
-        schemaPath: codegen_1$p.nil,
-        errSchemaPath: `${it.errSchemaPath}/${keyword2}`,
-        topSchemaRef: schemaRef,
-        compositeRule: true
-      },
-      valid
-    )
-    cxt.pass(valid, () => cxt.error(true))
-  }
-  keyword$1.macroKeywordCode = macroKeywordCode
-  function funcKeywordCode(cxt, def2) {
-    var _a
-    const { gen, keyword: keyword2, schema, parentSchema, $data, it } = cxt
-    checkAsyncKeyword(it, def2)
-    const validate2 = !$data && def2.compile ? def2.compile.call(it.self, schema, parentSchema, it) : def2.validate
-    const validateRef = useKeyword(gen, keyword2, validate2)
-    const valid = gen.let('valid')
-    cxt.block$data(valid, validateKeyword2)
-    cxt.ok((_a = def2.valid) !== null && _a !== void 0 ? _a : valid)
-    function validateKeyword2() {
-      if (def2.errors === false) {
-        assignValid()
-        if (def2.modifying) modifyData(cxt)
-        reportErrs(() => cxt.error())
-      } else {
-        const ruleErrs = def2.async ? validateAsync() : validateSync()
-        if (def2.modifying) modifyData(cxt)
-        reportErrs(() => addErrs(cxt, ruleErrs))
+  var hasRequiredKeyword
+  function requireKeyword() {
+    if (hasRequiredKeyword) return keyword$1
+    hasRequiredKeyword = 1
+    Object.defineProperty(keyword$1, '__esModule', { value: true })
+    keyword$1.validateKeywordUsage =
+      keyword$1.validSchemaType =
+      keyword$1.funcKeywordCode =
+      keyword$1.macroKeywordCode =
+        void 0
+    const codegen_12 = codegen
+    const names_12 = names$1
+    const code_12 = code
+    const errors_12 = errors
+    function macroKeywordCode(cxt, def2) {
+      const { gen, keyword: keyword2, schema, parentSchema, it } = cxt
+      const macroSchema = def2.macro.call(it.self, schema, parentSchema, it)
+      const schemaRef = useKeyword(gen, keyword2, macroSchema)
+      if (it.opts.validateSchema !== false) it.self.validateSchema(macroSchema, true)
+      const valid = gen.name('valid')
+      cxt.subschema(
+        {
+          schema: macroSchema,
+          schemaPath: codegen_12.nil,
+          errSchemaPath: `${it.errSchemaPath}/${keyword2}`,
+          topSchemaRef: schemaRef,
+          compositeRule: true
+        },
+        valid
+      )
+      cxt.pass(valid, () => cxt.error(true))
+    }
+    keyword$1.macroKeywordCode = macroKeywordCode
+    function funcKeywordCode(cxt, def2) {
+      var _a
+      const { gen, keyword: keyword2, schema, parentSchema, $data, it } = cxt
+      checkAsyncKeyword(it, def2)
+      const validate2 = !$data && def2.compile ? def2.compile.call(it.self, schema, parentSchema, it) : def2.validate
+      const validateRef = useKeyword(gen, keyword2, validate2)
+      const valid = gen.let('valid')
+      cxt.block$data(valid, validateKeyword2)
+      cxt.ok((_a = def2.valid) !== null && _a !== void 0 ? _a : valid)
+      function validateKeyword2() {
+        if (def2.errors === false) {
+          assignValid()
+          if (def2.modifying) modifyData(cxt)
+          reportErrs(() => cxt.error())
+        } else {
+          const ruleErrs = def2.async ? validateAsync() : validateSync()
+          if (def2.modifying) modifyData(cxt)
+          reportErrs(() => addErrs(cxt, ruleErrs))
+        }
+      }
+      function validateAsync() {
+        const ruleErrs = gen.let('ruleErrs', null)
+        gen.try(
+          () => assignValid((0, codegen_12._)`await `),
+          (e) =>
+            gen.assign(valid, false).if(
+              (0, codegen_12._)`${e} instanceof ${it.ValidationError}`,
+              () => gen.assign(ruleErrs, (0, codegen_12._)`${e}.errors`),
+              () => gen.throw(e)
+            )
+        )
+        return ruleErrs
+      }
+      function validateSync() {
+        const validateErrs = (0, codegen_12._)`${validateRef}.errors`
+        gen.assign(validateErrs, null)
+        assignValid(codegen_12.nil)
+        return validateErrs
+      }
+      function assignValid(_await = def2.async ? (0, codegen_12._)`await ` : codegen_12.nil) {
+        const passCxt = it.opts.passContext ? names_12.default.this : names_12.default.self
+        const passSchema = !(('compile' in def2 && !$data) || def2.schema === false)
+        gen.assign(
+          valid,
+          (0, codegen_12._)`${_await}${(0, code_12.callValidateCode)(cxt, validateRef, passCxt, passSchema)}`,
+          def2.modifying
+        )
+      }
+      function reportErrs(errors2) {
+        var _a2
+        gen.if((0, codegen_12.not)((_a2 = def2.valid) !== null && _a2 !== void 0 ? _a2 : valid), errors2)
       }
     }
-    function validateAsync() {
-      const ruleErrs = gen.let('ruleErrs', null)
-      gen.try(
-        () => assignValid((0, codegen_1$p._)`await `),
-        (e) =>
-          gen.assign(valid, false).if(
-            (0, codegen_1$p._)`${e} instanceof ${it.ValidationError}`,
-            () => gen.assign(ruleErrs, (0, codegen_1$p._)`${e}.errors`),
-            () => gen.throw(e)
-          )
-      )
-      return ruleErrs
+    keyword$1.funcKeywordCode = funcKeywordCode
+    function modifyData(cxt) {
+      const { gen, data: data2, it } = cxt
+      gen.if(it.parentData, () => gen.assign(data2, (0, codegen_12._)`${it.parentData}[${it.parentDataProperty}]`))
     }
-    function validateSync() {
-      const validateErrs = (0, codegen_1$p._)`${validateRef}.errors`
-      gen.assign(validateErrs, null)
-      assignValid(codegen_1$p.nil)
-      return validateErrs
-    }
-    function assignValid(_await = def2.async ? (0, codegen_1$p._)`await ` : codegen_1$p.nil) {
-      const passCxt = it.opts.passContext ? names_1$4.default.this : names_1$4.default.self
-      const passSchema = !(('compile' in def2 && !$data) || def2.schema === false)
-      gen.assign(
-        valid,
-        (0, codegen_1$p._)`${_await}${(0, code_1$9.callValidateCode)(cxt, validateRef, passCxt, passSchema)}`,
-        def2.modifying
+    function addErrs(cxt, errs) {
+      const { gen } = cxt
+      gen.if(
+        (0, codegen_12._)`Array.isArray(${errs})`,
+        () => {
+          gen
+            .assign(
+              names_12.default.vErrors,
+              (0,
+              codegen_12._)`${names_12.default.vErrors} === null ? ${errs} : ${names_12.default.vErrors}.concat(${errs})`
+            )
+            .assign(names_12.default.errors, (0, codegen_12._)`${names_12.default.vErrors}.length`)
+          ;(0, errors_12.extendErrors)(cxt)
+        },
+        () => cxt.error()
       )
     }
-    function reportErrs(errors2) {
-      var _a2
-      gen.if((0, codegen_1$p.not)((_a2 = def2.valid) !== null && _a2 !== void 0 ? _a2 : valid), errors2)
+    function checkAsyncKeyword({ schemaEnv }, def2) {
+      if (def2.async && !schemaEnv.$async) throw new Error('async keyword in sync schema')
     }
-  }
-  keyword$1.funcKeywordCode = funcKeywordCode
-  function modifyData(cxt) {
-    const { gen, data: data2, it } = cxt
-    gen.if(it.parentData, () => gen.assign(data2, (0, codegen_1$p._)`${it.parentData}[${it.parentDataProperty}]`))
-  }
-  function addErrs(cxt, errs) {
-    const { gen } = cxt
-    gen.if(
-      (0, codegen_1$p._)`Array.isArray(${errs})`,
-      () => {
-        gen
-          .assign(
-            names_1$4.default.vErrors,
-            (0,
-            codegen_1$p._)`${names_1$4.default.vErrors} === null ? ${errs} : ${names_1$4.default.vErrors}.concat(${errs})`
-          )
-          .assign(names_1$4.default.errors, (0, codegen_1$p._)`${names_1$4.default.vErrors}.length`)
-        ;(0, errors_1$1.extendErrors)(cxt)
-      },
-      () => cxt.error()
-    )
-  }
-  function checkAsyncKeyword({ schemaEnv }, def2) {
-    if (def2.async && !schemaEnv.$async) throw new Error('async keyword in sync schema')
-  }
-  function useKeyword(gen, keyword2, result) {
-    if (result === void 0) throw new Error(`keyword "${keyword2}" failed to compile`)
-    return gen.scopeValue(
-      'keyword',
-      typeof result == 'function' ? { ref: result } : { ref: result, code: (0, codegen_1$p.stringify)(result) }
-    )
-  }
-  function validSchemaType(schema, schemaType, allowUndefined = false) {
-    return (
-      !schemaType.length ||
-      schemaType.some((st) =>
-        st === 'array'
-          ? Array.isArray(schema)
-          : st === 'object'
-            ? schema && typeof schema == 'object' && !Array.isArray(schema)
-            : typeof schema == st || (allowUndefined && typeof schema == 'undefined')
+    function useKeyword(gen, keyword2, result) {
+      if (result === void 0) throw new Error(`keyword "${keyword2}" failed to compile`)
+      return gen.scopeValue(
+        'keyword',
+        typeof result == 'function' ? { ref: result } : { ref: result, code: (0, codegen_12.stringify)(result) }
       )
-    )
-  }
-  keyword$1.validSchemaType = validSchemaType
-  function validateKeywordUsage({ schema, opts, self: self2, errSchemaPath }, def2, keyword2) {
-    if (Array.isArray(def2.keyword) ? !def2.keyword.includes(keyword2) : def2.keyword !== keyword2) {
-      throw new Error('ajv implementation error')
     }
-    const deps = def2.dependencies
-    if (
-      deps === null || deps === void 0 ? void 0 : deps.some((kwd) => !Object.prototype.hasOwnProperty.call(schema, kwd))
-    ) {
-      throw new Error(`parent schema must have dependencies of ${keyword2}: ${deps.join(',')}`)
+    function validSchemaType(schema, schemaType, allowUndefined = false) {
+      return (
+        !schemaType.length ||
+        schemaType.some((st) =>
+          st === 'array'
+            ? Array.isArray(schema)
+            : st === 'object'
+              ? schema && typeof schema == 'object' && !Array.isArray(schema)
+              : typeof schema == st || (allowUndefined && typeof schema == 'undefined')
+        )
+      )
     }
-    if (def2.validateSchema) {
-      const valid = def2.validateSchema(schema[keyword2])
-      if (!valid) {
-        const msg =
-          `keyword "${keyword2}" value is invalid at path "${errSchemaPath}": ` +
-          self2.errorsText(def2.validateSchema.errors)
-        if (opts.validateSchema === 'log') self2.logger.error(msg)
-        else throw new Error(msg)
+    keyword$1.validSchemaType = validSchemaType
+    function validateKeywordUsage({ schema, opts, self: self2, errSchemaPath }, def2, keyword2) {
+      if (Array.isArray(def2.keyword) ? !def2.keyword.includes(keyword2) : def2.keyword !== keyword2) {
+        throw new Error('ajv implementation error')
+      }
+      const deps = def2.dependencies
+      if (
+        deps === null || deps === void 0
+          ? void 0
+          : deps.some((kwd) => !Object.prototype.hasOwnProperty.call(schema, kwd))
+      ) {
+        throw new Error(`parent schema must have dependencies of ${keyword2}: ${deps.join(',')}`)
+      }
+      if (def2.validateSchema) {
+        const valid = def2.validateSchema(schema[keyword2])
+        if (!valid) {
+          const msg =
+            `keyword "${keyword2}" value is invalid at path "${errSchemaPath}": ` +
+            self2.errorsText(def2.validateSchema.errors)
+          if (opts.validateSchema === 'log') self2.logger.error(msg)
+          else throw new Error(msg)
+        }
       }
     }
+    keyword$1.validateKeywordUsage = validateKeywordUsage
+    return keyword$1
   }
-  keyword$1.validateKeywordUsage = validateKeywordUsage
   var subschema = {}
-  Object.defineProperty(subschema, '__esModule', { value: true })
-  subschema.extendSubschemaMode = subschema.extendSubschemaData = subschema.getSubschema = void 0
-  const codegen_1$o = codegen
-  const util_1$n = util$7
-  function getSubschema(it, { keyword: keyword2, schemaProp, schema, schemaPath, errSchemaPath, topSchemaRef }) {
-    if (keyword2 !== void 0 && schema !== void 0) {
-      throw new Error('both "keyword" and "schema" passed, only one allowed')
-    }
-    if (keyword2 !== void 0) {
-      const sch = it.schema[keyword2]
-      return schemaProp === void 0
-        ? {
-            schema: sch,
-            schemaPath: (0, codegen_1$o._)`${it.schemaPath}${(0, codegen_1$o.getProperty)(keyword2)}`,
-            errSchemaPath: `${it.errSchemaPath}/${keyword2}`
-          }
-        : {
-            schema: sch[schemaProp],
-            schemaPath: (0,
-            codegen_1$o._)`${it.schemaPath}${(0, codegen_1$o.getProperty)(keyword2)}${(0, codegen_1$o.getProperty)(schemaProp)}`,
-            errSchemaPath: `${it.errSchemaPath}/${keyword2}/${(0, util_1$n.escapeFragment)(schemaProp)}`
-          }
-    }
-    if (schema !== void 0) {
-      if (schemaPath === void 0 || errSchemaPath === void 0 || topSchemaRef === void 0) {
-        throw new Error('"schemaPath", "errSchemaPath" and "topSchemaRef" are required with "schema"')
+  var hasRequiredSubschema
+  function requireSubschema() {
+    if (hasRequiredSubschema) return subschema
+    hasRequiredSubschema = 1
+    Object.defineProperty(subschema, '__esModule', { value: true })
+    subschema.extendSubschemaMode = subschema.extendSubschemaData = subschema.getSubschema = void 0
+    const codegen_12 = codegen
+    const util_12 = util$7
+    function getSubschema(it, { keyword: keyword2, schemaProp, schema, schemaPath, errSchemaPath, topSchemaRef }) {
+      if (keyword2 !== void 0 && schema !== void 0) {
+        throw new Error('both "keyword" and "schema" passed, only one allowed')
       }
-      return {
-        schema,
-        schemaPath,
-        topSchemaRef,
-        errSchemaPath
+      if (keyword2 !== void 0) {
+        const sch = it.schema[keyword2]
+        return schemaProp === void 0
+          ? {
+              schema: sch,
+              schemaPath: (0, codegen_12._)`${it.schemaPath}${(0, codegen_12.getProperty)(keyword2)}`,
+              errSchemaPath: `${it.errSchemaPath}/${keyword2}`
+            }
+          : {
+              schema: sch[schemaProp],
+              schemaPath: (0,
+              codegen_12._)`${it.schemaPath}${(0, codegen_12.getProperty)(keyword2)}${(0, codegen_12.getProperty)(schemaProp)}`,
+              errSchemaPath: `${it.errSchemaPath}/${keyword2}/${(0, util_12.escapeFragment)(schemaProp)}`
+            }
+      }
+      if (schema !== void 0) {
+        if (schemaPath === void 0 || errSchemaPath === void 0 || topSchemaRef === void 0) {
+          throw new Error('"schemaPath", "errSchemaPath" and "topSchemaRef" are required with "schema"')
+        }
+        return {
+          schema,
+          schemaPath,
+          topSchemaRef,
+          errSchemaPath
+        }
+      }
+      throw new Error('either "keyword" or "schema" must be passed')
+    }
+    subschema.getSubschema = getSubschema
+    function extendSubschemaData(
+      subschema2,
+      it,
+      { dataProp, dataPropType: dpType, data: data2, dataTypes, propertyName }
+    ) {
+      if (data2 !== void 0 && dataProp !== void 0) {
+        throw new Error('both "data" and "dataProp" passed, only one allowed')
+      }
+      const { gen } = it
+      if (dataProp !== void 0) {
+        const { errorPath, dataPathArr, opts } = it
+        const nextData = gen.let('data', (0, codegen_12._)`${it.data}${(0, codegen_12.getProperty)(dataProp)}`, true)
+        dataContextProps(nextData)
+        subschema2.errorPath = (0,
+        codegen_12.str)`${errorPath}${(0, util_12.getErrorPath)(dataProp, dpType, opts.jsPropertySyntax)}`
+        subschema2.parentDataProperty = (0, codegen_12._)`${dataProp}`
+        subschema2.dataPathArr = [...dataPathArr, subschema2.parentDataProperty]
+      }
+      if (data2 !== void 0) {
+        const nextData = data2 instanceof codegen_12.Name ? data2 : gen.let('data', data2, true)
+        dataContextProps(nextData)
+        if (propertyName !== void 0) subschema2.propertyName = propertyName
+      }
+      if (dataTypes) subschema2.dataTypes = dataTypes
+      function dataContextProps(_nextData) {
+        subschema2.data = _nextData
+        subschema2.dataLevel = it.dataLevel + 1
+        subschema2.dataTypes = []
+        it.definedProperties = /* @__PURE__ */ new Set()
+        subschema2.parentData = it.data
+        subschema2.dataNames = [...it.dataNames, _nextData]
       }
     }
-    throw new Error('either "keyword" or "schema" must be passed')
+    subschema.extendSubschemaData = extendSubschemaData
+    function extendSubschemaMode(
+      subschema2,
+      { jtdDiscriminator, jtdMetadata, compositeRule, createErrors, allErrors }
+    ) {
+      if (compositeRule !== void 0) subschema2.compositeRule = compositeRule
+      if (createErrors !== void 0) subschema2.createErrors = createErrors
+      if (allErrors !== void 0) subschema2.allErrors = allErrors
+      subschema2.jtdDiscriminator = jtdDiscriminator
+      subschema2.jtdMetadata = jtdMetadata
+    }
+    subschema.extendSubschemaMode = extendSubschemaMode
+    return subschema
   }
-  subschema.getSubschema = getSubschema
-  function extendSubschemaData(
-    subschema2,
-    it,
-    { dataProp, dataPropType: dpType, data: data2, dataTypes, propertyName }
-  ) {
-    if (data2 !== void 0 && dataProp !== void 0) {
-      throw new Error('both "data" and "dataProp" passed, only one allowed')
-    }
-    const { gen } = it
-    if (dataProp !== void 0) {
-      const { errorPath, dataPathArr, opts } = it
-      const nextData = gen.let('data', (0, codegen_1$o._)`${it.data}${(0, codegen_1$o.getProperty)(dataProp)}`, true)
-      dataContextProps(nextData)
-      subschema2.errorPath = (0,
-      codegen_1$o.str)`${errorPath}${(0, util_1$n.getErrorPath)(dataProp, dpType, opts.jsPropertySyntax)}`
-      subschema2.parentDataProperty = (0, codegen_1$o._)`${dataProp}`
-      subschema2.dataPathArr = [...dataPathArr, subschema2.parentDataProperty]
-    }
-    if (data2 !== void 0) {
-      const nextData = data2 instanceof codegen_1$o.Name ? data2 : gen.let('data', data2, true)
-      dataContextProps(nextData)
-      if (propertyName !== void 0) subschema2.propertyName = propertyName
-    }
-    if (dataTypes) subschema2.dataTypes = dataTypes
-    function dataContextProps(_nextData) {
-      subschema2.data = _nextData
-      subschema2.dataLevel = it.dataLevel + 1
-      subschema2.dataTypes = []
-      it.definedProperties = /* @__PURE__ */ new Set()
-      subschema2.parentData = it.data
-      subschema2.dataNames = [...it.dataNames, _nextData]
-    }
-  }
-  subschema.extendSubschemaData = extendSubschemaData
-  function extendSubschemaMode(subschema2, { jtdDiscriminator, jtdMetadata, compositeRule, createErrors, allErrors }) {
-    if (compositeRule !== void 0) subschema2.compositeRule = compositeRule
-    if (createErrors !== void 0) subschema2.createErrors = createErrors
-    if (allErrors !== void 0) subschema2.allErrors = allErrors
-    subschema2.jtdDiscriminator = jtdDiscriminator
-    subschema2.jtdMetadata = jtdMetadata
-  }
-  subschema.extendSubschemaMode = extendSubschemaMode
   var resolve$6 = {}
   var fastDeepEqual = function equal2(a, b) {
     if (a === b) return true
@@ -2289,7 +2318,7 @@
     resolve$6.getFullPath =
     resolve$6.inlineRef =
       void 0
-  const util_1$m = util$7
+  const util_1$l = util$7
   const equal$5 = fastDeepEqual
   const traverse$2 = jsonSchemaTraverseExports$1
   const SIMPLE_INLINED$1 = /* @__PURE__ */ new Set([
@@ -2340,7 +2369,7 @@
       count++
       if (SIMPLE_INLINED$1.has(key)) continue
       if (typeof schema[key] == 'object') {
-        ;(0, util_1$m.eachItem)(schema[key], (sch) => (count += countKeys$1(sch)))
+        ;(0, util_1$l.eachItem)(schema[key], (sch) => (count += countKeys$1(sch)))
       }
       if (count === Infinity) return Infinity
     }
@@ -2419,516 +2448,525 @@
     }
   }
   resolve$6.getSchemaRefs = getSchemaRefs
-  Object.defineProperty(validate$2, '__esModule', { value: true })
-  validate$2.getData = validate$2.KeywordCxt = validate$2.validateFunctionCode = void 0
-  const boolSchema_1 = boolSchema
-  const dataType_1$1 = dataType
-  const applicability_1 = applicability
-  const dataType_2 = dataType
-  const defaults_1 = defaults
-  const keyword_1 = keyword$1
-  const subschema_1 = subschema
-  const codegen_1$n = codegen
-  const names_1$3 = names$1
-  const resolve_1$3 = resolve$6
-  const util_1$l = util$7
-  const errors_1 = errors
-  function validateFunctionCode(it) {
-    if (isSchemaObj(it)) {
-      checkKeywords(it)
-      if (schemaCxtHasRules(it)) {
-        topSchemaObjCode(it)
-        return
-      }
-    }
-    validateFunction(it, () => (0, boolSchema_1.topBoolOrEmptySchema)(it))
-  }
-  validate$2.validateFunctionCode = validateFunctionCode
-  function validateFunction({ gen, validateName, schema, schemaEnv, opts }, body) {
-    if (opts.code.es5) {
-      gen.func(
-        validateName,
-        (0, codegen_1$n._)`${names_1$3.default.data}, ${names_1$3.default.valCxt}`,
-        schemaEnv.$async,
-        () => {
-          gen.code((0, codegen_1$n._)`"use strict"; ${funcSourceUrl(schema, opts)}`)
-          destructureValCxtES5(gen, opts)
-          gen.code(body)
+  var hasRequiredValidate
+  function requireValidate() {
+    if (hasRequiredValidate) return validate$2
+    hasRequiredValidate = 1
+    Object.defineProperty(validate$2, '__esModule', { value: true })
+    validate$2.getData = validate$2.KeywordCxt = validate$2.validateFunctionCode = void 0
+    const boolSchema_1 = requireBoolSchema()
+    const dataType_12 = dataType
+    const applicability_12 = applicability
+    const dataType_2 = dataType
+    const defaults_1 = requireDefaults()
+    const keyword_1 = requireKeyword()
+    const subschema_1 = requireSubschema()
+    const codegen_12 = codegen
+    const names_12 = names$1
+    const resolve_12 = resolve$6
+    const util_12 = util$7
+    const errors_12 = errors
+    function validateFunctionCode(it) {
+      if (isSchemaObj(it)) {
+        checkKeywords(it)
+        if (schemaCxtHasRules(it)) {
+          topSchemaObjCode(it)
+          return
         }
-      )
-    } else {
-      gen.func(
-        validateName,
-        (0, codegen_1$n._)`${names_1$3.default.data}, ${destructureValCxt(opts)}`,
-        schemaEnv.$async,
-        () => gen.code(funcSourceUrl(schema, opts)).code(body)
-      )
-    }
-  }
-  function destructureValCxt(opts) {
-    return (0,
-    codegen_1$n._)`{${names_1$3.default.instancePath}="", ${names_1$3.default.parentData}, ${names_1$3.default.parentDataProperty}, ${names_1$3.default.rootData}=${names_1$3.default.data}${opts.dynamicRef ? (0, codegen_1$n._)`, ${names_1$3.default.dynamicAnchors}={}` : codegen_1$n.nil}}={}`
-  }
-  function destructureValCxtES5(gen, opts) {
-    gen.if(
-      names_1$3.default.valCxt,
-      () => {
-        gen.var(
-          names_1$3.default.instancePath,
-          (0, codegen_1$n._)`${names_1$3.default.valCxt}.${names_1$3.default.instancePath}`
-        )
-        gen.var(
-          names_1$3.default.parentData,
-          (0, codegen_1$n._)`${names_1$3.default.valCxt}.${names_1$3.default.parentData}`
-        )
-        gen.var(
-          names_1$3.default.parentDataProperty,
-          (0, codegen_1$n._)`${names_1$3.default.valCxt}.${names_1$3.default.parentDataProperty}`
-        )
-        gen.var(
-          names_1$3.default.rootData,
-          (0, codegen_1$n._)`${names_1$3.default.valCxt}.${names_1$3.default.rootData}`
-        )
-        if (opts.dynamicRef)
-          gen.var(
-            names_1$3.default.dynamicAnchors,
-            (0, codegen_1$n._)`${names_1$3.default.valCxt}.${names_1$3.default.dynamicAnchors}`
-          )
-      },
-      () => {
-        gen.var(names_1$3.default.instancePath, (0, codegen_1$n._)`""`)
-        gen.var(names_1$3.default.parentData, (0, codegen_1$n._)`undefined`)
-        gen.var(names_1$3.default.parentDataProperty, (0, codegen_1$n._)`undefined`)
-        gen.var(names_1$3.default.rootData, names_1$3.default.data)
-        if (opts.dynamicRef) gen.var(names_1$3.default.dynamicAnchors, (0, codegen_1$n._)`{}`)
       }
-    )
-  }
-  function topSchemaObjCode(it) {
-    const { schema, opts, gen } = it
-    validateFunction(it, () => {
-      if (opts.$comment && schema.$comment) commentKeyword(it)
-      checkNoDefault(it)
-      gen.let(names_1$3.default.vErrors, null)
-      gen.let(names_1$3.default.errors, 0)
-      if (opts.unevaluated) resetEvaluated(it)
-      typeAndKeywords(it)
-      returnResults(it)
-    })
-    return
-  }
-  function resetEvaluated(it) {
-    const { gen, validateName } = it
-    it.evaluated = gen.const('evaluated', (0, codegen_1$n._)`${validateName}.evaluated`)
-    gen.if((0, codegen_1$n._)`${it.evaluated}.dynamicProps`, () =>
-      gen.assign((0, codegen_1$n._)`${it.evaluated}.props`, (0, codegen_1$n._)`undefined`)
-    )
-    gen.if((0, codegen_1$n._)`${it.evaluated}.dynamicItems`, () =>
-      gen.assign((0, codegen_1$n._)`${it.evaluated}.items`, (0, codegen_1$n._)`undefined`)
-    )
-  }
-  function funcSourceUrl(schema, opts) {
-    const schId = typeof schema == 'object' && schema[opts.schemaId]
-    return schId && (opts.code.source || opts.code.process)
-      ? (0, codegen_1$n._)`/*# sourceURL=${schId} */`
-      : codegen_1$n.nil
-  }
-  function subschemaCode(it, valid) {
-    if (isSchemaObj(it)) {
-      checkKeywords(it)
-      if (schemaCxtHasRules(it)) {
-        subSchemaObjCode(it, valid)
-        return
+      validateFunction(it, () => (0, boolSchema_1.topBoolOrEmptySchema)(it))
+    }
+    validate$2.validateFunctionCode = validateFunctionCode
+    function validateFunction({ gen, validateName, schema, schemaEnv, opts }, body) {
+      if (opts.code.es5) {
+        gen.func(
+          validateName,
+          (0, codegen_12._)`${names_12.default.data}, ${names_12.default.valCxt}`,
+          schemaEnv.$async,
+          () => {
+            gen.code((0, codegen_12._)`"use strict"; ${funcSourceUrl(schema, opts)}`)
+            destructureValCxtES5(gen, opts)
+            gen.code(body)
+          }
+        )
+      } else {
+        gen.func(
+          validateName,
+          (0, codegen_12._)`${names_12.default.data}, ${destructureValCxt(opts)}`,
+          schemaEnv.$async,
+          () => gen.code(funcSourceUrl(schema, opts)).code(body)
+        )
       }
     }
-    ;(0, boolSchema_1.boolOrEmptySchema)(it, valid)
-  }
-  function schemaCxtHasRules({ schema, self: self2 }) {
-    if (typeof schema == 'boolean') return !schema
-    for (const key in schema) if (self2.RULES.all[key]) return true
-    return false
-  }
-  function isSchemaObj(it) {
-    return typeof it.schema != 'boolean'
-  }
-  function subSchemaObjCode(it, valid) {
-    const { schema, gen, opts } = it
-    if (opts.$comment && schema.$comment) commentKeyword(it)
-    updateContext(it)
-    checkAsyncSchema(it)
-    const errsCount = gen.const('_errs', names_1$3.default.errors)
-    typeAndKeywords(it, errsCount)
-    gen.var(valid, (0, codegen_1$n._)`${errsCount} === ${names_1$3.default.errors}`)
-  }
-  function checkKeywords(it) {
-    ;(0, util_1$l.checkUnknownRules)(it)
-    checkRefsAndKeywords(it)
-  }
-  function typeAndKeywords(it, errsCount) {
-    if (it.opts.jtd) return schemaKeywords(it, [], false, errsCount)
-    const types2 = (0, dataType_1$1.getSchemaTypes)(it.schema)
-    const checkedTypes = (0, dataType_1$1.coerceAndCheckDataType)(it, types2)
-    schemaKeywords(it, types2, !checkedTypes, errsCount)
-  }
-  function checkRefsAndKeywords(it) {
-    const { schema, errSchemaPath, opts, self: self2 } = it
-    if (schema.$ref && opts.ignoreKeywordsWithRef && (0, util_1$l.schemaHasRulesButRef)(schema, self2.RULES)) {
-      self2.logger.warn(`$ref: keywords ignored in schema at path "${errSchemaPath}"`)
+    function destructureValCxt(opts) {
+      return (0,
+      codegen_12._)`{${names_12.default.instancePath}="", ${names_12.default.parentData}, ${names_12.default.parentDataProperty}, ${names_12.default.rootData}=${names_12.default.data}${opts.dynamicRef ? (0, codegen_12._)`, ${names_12.default.dynamicAnchors}={}` : codegen_12.nil}}={}`
     }
-  }
-  function checkNoDefault(it) {
-    const { schema, opts } = it
-    if (schema.default !== void 0 && opts.useDefaults && opts.strictSchema) {
-      ;(0, util_1$l.checkStrictMode)(it, 'default is ignored in the schema root')
-    }
-  }
-  function updateContext(it) {
-    const schId = it.schema[it.opts.schemaId]
-    if (schId) it.baseId = (0, resolve_1$3.resolveUrl)(it.opts.uriResolver, it.baseId, schId)
-  }
-  function checkAsyncSchema(it) {
-    if (it.schema.$async && !it.schemaEnv.$async) throw new Error('async schema in sync schema')
-  }
-  function commentKeyword({ gen, schemaEnv, schema, errSchemaPath, opts }) {
-    const msg = schema.$comment
-    if (opts.$comment === true) {
-      gen.code((0, codegen_1$n._)`${names_1$3.default.self}.logger.log(${msg})`)
-    } else if (typeof opts.$comment == 'function') {
-      const schemaPath = (0, codegen_1$n.str)`${errSchemaPath}/$comment`
-      const rootName = gen.scopeValue('root', { ref: schemaEnv.root })
-      gen.code((0, codegen_1$n._)`${names_1$3.default.self}.opts.$comment(${msg}, ${schemaPath}, ${rootName}.schema)`)
-    }
-  }
-  function returnResults(it) {
-    const { gen, schemaEnv, validateName, ValidationError: ValidationError2, opts } = it
-    if (schemaEnv.$async) {
+    function destructureValCxtES5(gen, opts) {
       gen.if(
-        (0, codegen_1$n._)`${names_1$3.default.errors} === 0`,
-        () => gen.return(names_1$3.default.data),
-        () => gen.throw((0, codegen_1$n._)`new ${ValidationError2}(${names_1$3.default.vErrors})`)
+        names_12.default.valCxt,
+        () => {
+          gen.var(
+            names_12.default.instancePath,
+            (0, codegen_12._)`${names_12.default.valCxt}.${names_12.default.instancePath}`
+          )
+          gen.var(
+            names_12.default.parentData,
+            (0, codegen_12._)`${names_12.default.valCxt}.${names_12.default.parentData}`
+          )
+          gen.var(
+            names_12.default.parentDataProperty,
+            (0, codegen_12._)`${names_12.default.valCxt}.${names_12.default.parentDataProperty}`
+          )
+          gen.var(names_12.default.rootData, (0, codegen_12._)`${names_12.default.valCxt}.${names_12.default.rootData}`)
+          if (opts.dynamicRef)
+            gen.var(
+              names_12.default.dynamicAnchors,
+              (0, codegen_12._)`${names_12.default.valCxt}.${names_12.default.dynamicAnchors}`
+            )
+        },
+        () => {
+          gen.var(names_12.default.instancePath, (0, codegen_12._)`""`)
+          gen.var(names_12.default.parentData, (0, codegen_12._)`undefined`)
+          gen.var(names_12.default.parentDataProperty, (0, codegen_12._)`undefined`)
+          gen.var(names_12.default.rootData, names_12.default.data)
+          if (opts.dynamicRef) gen.var(names_12.default.dynamicAnchors, (0, codegen_12._)`{}`)
+        }
       )
-    } else {
-      gen.assign((0, codegen_1$n._)`${validateName}.errors`, names_1$3.default.vErrors)
-      if (opts.unevaluated) assignEvaluated(it)
-      gen.return((0, codegen_1$n._)`${names_1$3.default.errors} === 0`)
     }
-  }
-  function assignEvaluated({ gen, evaluated, props, items: items2 }) {
-    if (props instanceof codegen_1$n.Name) gen.assign((0, codegen_1$n._)`${evaluated}.props`, props)
-    if (items2 instanceof codegen_1$n.Name) gen.assign((0, codegen_1$n._)`${evaluated}.items`, items2)
-  }
-  function schemaKeywords(it, types2, typeErrors, errsCount) {
-    const { gen, schema, data: data2, allErrors, opts, self: self2 } = it
-    const { RULES } = self2
-    if (schema.$ref && (opts.ignoreKeywordsWithRef || !(0, util_1$l.schemaHasRulesButRef)(schema, RULES))) {
-      gen.block(() => keywordCode(it, '$ref', RULES.all.$ref.definition))
+    function topSchemaObjCode(it) {
+      const { schema, opts, gen } = it
+      validateFunction(it, () => {
+        if (opts.$comment && schema.$comment) commentKeyword(it)
+        checkNoDefault(it)
+        gen.let(names_12.default.vErrors, null)
+        gen.let(names_12.default.errors, 0)
+        if (opts.unevaluated) resetEvaluated(it)
+        typeAndKeywords(it)
+        returnResults(it)
+      })
       return
     }
-    if (!opts.jtd) checkStrictTypes(it, types2)
-    gen.block(() => {
-      for (const group of RULES.rules) groupKeywords(group)
-      groupKeywords(RULES.post)
-    })
-    function groupKeywords(group) {
-      if (!(0, applicability_1.shouldUseGroup)(schema, group)) return
-      if (group.type) {
-        gen.if((0, dataType_2.checkDataType)(group.type, data2, opts.strictNumbers))
-        iterateKeywords(it, group)
-        if (types2.length === 1 && types2[0] === group.type && typeErrors) {
-          gen.else()
-          ;(0, dataType_2.reportTypeError)(it)
+    function resetEvaluated(it) {
+      const { gen, validateName } = it
+      it.evaluated = gen.const('evaluated', (0, codegen_12._)`${validateName}.evaluated`)
+      gen.if((0, codegen_12._)`${it.evaluated}.dynamicProps`, () =>
+        gen.assign((0, codegen_12._)`${it.evaluated}.props`, (0, codegen_12._)`undefined`)
+      )
+      gen.if((0, codegen_12._)`${it.evaluated}.dynamicItems`, () =>
+        gen.assign((0, codegen_12._)`${it.evaluated}.items`, (0, codegen_12._)`undefined`)
+      )
+    }
+    function funcSourceUrl(schema, opts) {
+      const schId = typeof schema == 'object' && schema[opts.schemaId]
+      return schId && (opts.code.source || opts.code.process)
+        ? (0, codegen_12._)`/*# sourceURL=${schId} */`
+        : codegen_12.nil
+    }
+    function subschemaCode(it, valid) {
+      if (isSchemaObj(it)) {
+        checkKeywords(it)
+        if (schemaCxtHasRules(it)) {
+          subSchemaObjCode(it, valid)
+          return
         }
-        gen.endIf()
+      }
+      ;(0, boolSchema_1.boolOrEmptySchema)(it, valid)
+    }
+    function schemaCxtHasRules({ schema, self: self2 }) {
+      if (typeof schema == 'boolean') return !schema
+      for (const key in schema) if (self2.RULES.all[key]) return true
+      return false
+    }
+    function isSchemaObj(it) {
+      return typeof it.schema != 'boolean'
+    }
+    function subSchemaObjCode(it, valid) {
+      const { schema, gen, opts } = it
+      if (opts.$comment && schema.$comment) commentKeyword(it)
+      updateContext(it)
+      checkAsyncSchema(it)
+      const errsCount = gen.const('_errs', names_12.default.errors)
+      typeAndKeywords(it, errsCount)
+      gen.var(valid, (0, codegen_12._)`${errsCount} === ${names_12.default.errors}`)
+    }
+    function checkKeywords(it) {
+      ;(0, util_12.checkUnknownRules)(it)
+      checkRefsAndKeywords(it)
+    }
+    function typeAndKeywords(it, errsCount) {
+      if (it.opts.jtd) return schemaKeywords(it, [], false, errsCount)
+      const types2 = (0, dataType_12.getSchemaTypes)(it.schema)
+      const checkedTypes = (0, dataType_12.coerceAndCheckDataType)(it, types2)
+      schemaKeywords(it, types2, !checkedTypes, errsCount)
+    }
+    function checkRefsAndKeywords(it) {
+      const { schema, errSchemaPath, opts, self: self2 } = it
+      if (schema.$ref && opts.ignoreKeywordsWithRef && (0, util_12.schemaHasRulesButRef)(schema, self2.RULES)) {
+        self2.logger.warn(`$ref: keywords ignored in schema at path "${errSchemaPath}"`)
+      }
+    }
+    function checkNoDefault(it) {
+      const { schema, opts } = it
+      if (schema.default !== void 0 && opts.useDefaults && opts.strictSchema) {
+        ;(0, util_12.checkStrictMode)(it, 'default is ignored in the schema root')
+      }
+    }
+    function updateContext(it) {
+      const schId = it.schema[it.opts.schemaId]
+      if (schId) it.baseId = (0, resolve_12.resolveUrl)(it.opts.uriResolver, it.baseId, schId)
+    }
+    function checkAsyncSchema(it) {
+      if (it.schema.$async && !it.schemaEnv.$async) throw new Error('async schema in sync schema')
+    }
+    function commentKeyword({ gen, schemaEnv, schema, errSchemaPath, opts }) {
+      const msg = schema.$comment
+      if (opts.$comment === true) {
+        gen.code((0, codegen_12._)`${names_12.default.self}.logger.log(${msg})`)
+      } else if (typeof opts.$comment == 'function') {
+        const schemaPath = (0, codegen_12.str)`${errSchemaPath}/$comment`
+        const rootName = gen.scopeValue('root', { ref: schemaEnv.root })
+        gen.code((0, codegen_12._)`${names_12.default.self}.opts.$comment(${msg}, ${schemaPath}, ${rootName}.schema)`)
+      }
+    }
+    function returnResults(it) {
+      const { gen, schemaEnv, validateName, ValidationError: ValidationError2, opts } = it
+      if (schemaEnv.$async) {
+        gen.if(
+          (0, codegen_12._)`${names_12.default.errors} === 0`,
+          () => gen.return(names_12.default.data),
+          () => gen.throw((0, codegen_12._)`new ${ValidationError2}(${names_12.default.vErrors})`)
+        )
       } else {
-        iterateKeywords(it, group)
+        gen.assign((0, codegen_12._)`${validateName}.errors`, names_12.default.vErrors)
+        if (opts.unevaluated) assignEvaluated(it)
+        gen.return((0, codegen_12._)`${names_12.default.errors} === 0`)
       }
-      if (!allErrors) gen.if((0, codegen_1$n._)`${names_1$3.default.errors} === ${errsCount || 0}`)
     }
-  }
-  function iterateKeywords(it, group) {
-    const {
-      gen,
-      schema,
-      opts: { useDefaults }
-    } = it
-    if (useDefaults) (0, defaults_1.assignDefaults)(it, group.type)
-    gen.block(() => {
-      for (const rule of group.rules) {
-        if ((0, applicability_1.shouldUseRule)(schema, rule)) {
-          keywordCode(it, rule.keyword, rule.definition, group.type)
+    function assignEvaluated({ gen, evaluated, props, items: items2 }) {
+      if (props instanceof codegen_12.Name) gen.assign((0, codegen_12._)`${evaluated}.props`, props)
+      if (items2 instanceof codegen_12.Name) gen.assign((0, codegen_12._)`${evaluated}.items`, items2)
+    }
+    function schemaKeywords(it, types2, typeErrors, errsCount) {
+      const { gen, schema, data: data2, allErrors, opts, self: self2 } = it
+      const { RULES } = self2
+      if (schema.$ref && (opts.ignoreKeywordsWithRef || !(0, util_12.schemaHasRulesButRef)(schema, RULES))) {
+        gen.block(() => keywordCode(it, '$ref', RULES.all.$ref.definition))
+        return
+      }
+      if (!opts.jtd) checkStrictTypes(it, types2)
+      gen.block(() => {
+        for (const group of RULES.rules) groupKeywords(group)
+        groupKeywords(RULES.post)
+      })
+      function groupKeywords(group) {
+        if (!(0, applicability_12.shouldUseGroup)(schema, group)) return
+        if (group.type) {
+          gen.if((0, dataType_2.checkDataType)(group.type, data2, opts.strictNumbers))
+          iterateKeywords(it, group)
+          if (types2.length === 1 && types2[0] === group.type && typeErrors) {
+            gen.else()
+            ;(0, dataType_2.reportTypeError)(it)
+          }
+          gen.endIf()
+        } else {
+          iterateKeywords(it, group)
+        }
+        if (!allErrors) gen.if((0, codegen_12._)`${names_12.default.errors} === ${errsCount || 0}`)
+      }
+    }
+    function iterateKeywords(it, group) {
+      const {
+        gen,
+        schema,
+        opts: { useDefaults }
+      } = it
+      if (useDefaults) (0, defaults_1.assignDefaults)(it, group.type)
+      gen.block(() => {
+        for (const rule of group.rules) {
+          if ((0, applicability_12.shouldUseRule)(schema, rule)) {
+            keywordCode(it, rule.keyword, rule.definition, group.type)
+          }
+        }
+      })
+    }
+    function checkStrictTypes(it, types2) {
+      if (it.schemaEnv.meta || !it.opts.strictTypes) return
+      checkContextTypes(it, types2)
+      if (!it.opts.allowUnionTypes) checkMultipleTypes(it, types2)
+      checkKeywordTypes(it, it.dataTypes)
+    }
+    function checkContextTypes(it, types2) {
+      if (!types2.length) return
+      if (!it.dataTypes.length) {
+        it.dataTypes = types2
+        return
+      }
+      types2.forEach((t) => {
+        if (!includesType(it.dataTypes, t)) {
+          strictTypesError(it, `type "${t}" not allowed by context "${it.dataTypes.join(',')}"`)
+        }
+      })
+      narrowSchemaTypes(it, types2)
+    }
+    function checkMultipleTypes(it, ts) {
+      if (ts.length > 1 && !(ts.length === 2 && ts.includes('null'))) {
+        strictTypesError(it, 'use allowUnionTypes to allow union type keyword')
+      }
+    }
+    function checkKeywordTypes(it, ts) {
+      const rules2 = it.self.RULES.all
+      for (const keyword2 in rules2) {
+        const rule = rules2[keyword2]
+        if (typeof rule == 'object' && (0, applicability_12.shouldUseRule)(it.schema, rule)) {
+          const { type: type2 } = rule.definition
+          if (type2.length && !type2.some((t) => hasApplicableType(ts, t))) {
+            strictTypesError(it, `missing type "${type2.join(',')}" for keyword "${keyword2}"`)
+          }
         }
       }
-    })
-  }
-  function checkStrictTypes(it, types2) {
-    if (it.schemaEnv.meta || !it.opts.strictTypes) return
-    checkContextTypes(it, types2)
-    if (!it.opts.allowUnionTypes) checkMultipleTypes(it, types2)
-    checkKeywordTypes(it, it.dataTypes)
-  }
-  function checkContextTypes(it, types2) {
-    if (!types2.length) return
-    if (!it.dataTypes.length) {
-      it.dataTypes = types2
-      return
     }
-    types2.forEach((t) => {
-      if (!includesType(it.dataTypes, t)) {
-        strictTypesError(it, `type "${t}" not allowed by context "${it.dataTypes.join(',')}"`)
+    function hasApplicableType(schTs, kwdT) {
+      return schTs.includes(kwdT) || (kwdT === 'number' && schTs.includes('integer'))
+    }
+    function includesType(ts, t) {
+      return ts.includes(t) || (t === 'integer' && ts.includes('number'))
+    }
+    function narrowSchemaTypes(it, withTypes) {
+      const ts = []
+      for (const t of it.dataTypes) {
+        if (includesType(withTypes, t)) ts.push(t)
+        else if (withTypes.includes('integer') && t === 'number') ts.push('integer')
       }
-    })
-    narrowSchemaTypes(it, types2)
-  }
-  function checkMultipleTypes(it, ts) {
-    if (ts.length > 1 && !(ts.length === 2 && ts.includes('null'))) {
-      strictTypesError(it, 'use allowUnionTypes to allow union type keyword')
+      it.dataTypes = ts
     }
-  }
-  function checkKeywordTypes(it, ts) {
-    const rules2 = it.self.RULES.all
-    for (const keyword2 in rules2) {
-      const rule = rules2[keyword2]
-      if (typeof rule == 'object' && (0, applicability_1.shouldUseRule)(it.schema, rule)) {
-        const { type: type2 } = rule.definition
-        if (type2.length && !type2.some((t) => hasApplicableType(ts, t))) {
-          strictTypesError(it, `missing type "${type2.join(',')}" for keyword "${keyword2}"`)
+    function strictTypesError(it, msg) {
+      const schemaPath = it.schemaEnv.baseId + it.errSchemaPath
+      msg += ` at "${schemaPath}" (strictTypes)`
+      ;(0, util_12.checkStrictMode)(it, msg, it.opts.strictTypes)
+    }
+    class KeywordCxt {
+      constructor(it, def2, keyword2) {
+        ;(0, keyword_1.validateKeywordUsage)(it, def2, keyword2)
+        this.gen = it.gen
+        this.allErrors = it.allErrors
+        this.keyword = keyword2
+        this.data = it.data
+        this.schema = it.schema[keyword2]
+        this.$data = def2.$data && it.opts.$data && this.schema && this.schema.$data
+        this.schemaValue = (0, util_12.schemaRefOrVal)(it, this.schema, keyword2, this.$data)
+        this.schemaType = def2.schemaType
+        this.parentSchema = it.schema
+        this.params = {}
+        this.it = it
+        this.def = def2
+        if (this.$data) {
+          this.schemaCode = it.gen.const('vSchema', getData2(this.$data, it))
+        } else {
+          this.schemaCode = this.schemaValue
+          if (!(0, keyword_1.validSchemaType)(this.schema, def2.schemaType, def2.allowUndefined)) {
+            throw new Error(`${keyword2} value must be ${JSON.stringify(def2.schemaType)}`)
+          }
+        }
+        if ('code' in def2 ? def2.trackErrors : def2.errors !== false) {
+          this.errsCount = it.gen.const('_errs', names_12.default.errors)
         }
       }
-    }
-  }
-  function hasApplicableType(schTs, kwdT) {
-    return schTs.includes(kwdT) || (kwdT === 'number' && schTs.includes('integer'))
-  }
-  function includesType(ts, t) {
-    return ts.includes(t) || (t === 'integer' && ts.includes('number'))
-  }
-  function narrowSchemaTypes(it, withTypes) {
-    const ts = []
-    for (const t of it.dataTypes) {
-      if (includesType(withTypes, t)) ts.push(t)
-      else if (withTypes.includes('integer') && t === 'number') ts.push('integer')
-    }
-    it.dataTypes = ts
-  }
-  function strictTypesError(it, msg) {
-    const schemaPath = it.schemaEnv.baseId + it.errSchemaPath
-    msg += ` at "${schemaPath}" (strictTypes)`
-    ;(0, util_1$l.checkStrictMode)(it, msg, it.opts.strictTypes)
-  }
-  class KeywordCxt {
-    constructor(it, def2, keyword2) {
-      ;(0, keyword_1.validateKeywordUsage)(it, def2, keyword2)
-      this.gen = it.gen
-      this.allErrors = it.allErrors
-      this.keyword = keyword2
-      this.data = it.data
-      this.schema = it.schema[keyword2]
-      this.$data = def2.$data && it.opts.$data && this.schema && this.schema.$data
-      this.schemaValue = (0, util_1$l.schemaRefOrVal)(it, this.schema, keyword2, this.$data)
-      this.schemaType = def2.schemaType
-      this.parentSchema = it.schema
-      this.params = {}
-      this.it = it
-      this.def = def2
-      if (this.$data) {
-        this.schemaCode = it.gen.const('vSchema', getData$1(this.$data, it))
-      } else {
-        this.schemaCode = this.schemaValue
-        if (!(0, keyword_1.validSchemaType)(this.schema, def2.schemaType, def2.allowUndefined)) {
-          throw new Error(`${keyword2} value must be ${JSON.stringify(def2.schemaType)}`)
+      result(condition, successAction, failAction) {
+        this.failResult((0, codegen_12.not)(condition), successAction, failAction)
+      }
+      failResult(condition, successAction, failAction) {
+        this.gen.if(condition)
+        if (failAction) failAction()
+        else this.error()
+        if (successAction) {
+          this.gen.else()
+          successAction()
+          if (this.allErrors) this.gen.endIf()
+        } else {
+          if (this.allErrors) this.gen.endIf()
+          else this.gen.else()
         }
       }
-      if ('code' in def2 ? def2.trackErrors : def2.errors !== false) {
-        this.errsCount = it.gen.const('_errs', names_1$3.default.errors)
+      pass(condition, failAction) {
+        this.failResult((0, codegen_12.not)(condition), void 0, failAction)
       }
-    }
-    result(condition, successAction, failAction) {
-      this.failResult((0, codegen_1$n.not)(condition), successAction, failAction)
-    }
-    failResult(condition, successAction, failAction) {
-      this.gen.if(condition)
-      if (failAction) failAction()
-      else this.error()
-      if (successAction) {
-        this.gen.else()
-        successAction()
-        if (this.allErrors) this.gen.endIf()
-      } else {
+      fail(condition) {
+        if (condition === void 0) {
+          this.error()
+          if (!this.allErrors) this.gen.if(false)
+          return
+        }
+        this.gen.if(condition)
+        this.error()
         if (this.allErrors) this.gen.endIf()
         else this.gen.else()
       }
-    }
-    pass(condition, failAction) {
-      this.failResult((0, codegen_1$n.not)(condition), void 0, failAction)
-    }
-    fail(condition) {
-      if (condition === void 0) {
-        this.error()
-        if (!this.allErrors) this.gen.if(false)
-        return
+      fail$data(condition) {
+        if (!this.$data) return this.fail(condition)
+        const { schemaCode } = this
+        this.fail(
+          (0, codegen_12._)`${schemaCode} !== undefined && (${(0, codegen_12.or)(this.invalid$data(), condition)})`
+        )
       }
-      this.gen.if(condition)
-      this.error()
-      if (this.allErrors) this.gen.endIf()
-      else this.gen.else()
-    }
-    fail$data(condition) {
-      if (!this.$data) return this.fail(condition)
-      const { schemaCode } = this
-      this.fail(
-        (0, codegen_1$n._)`${schemaCode} !== undefined && (${(0, codegen_1$n.or)(this.invalid$data(), condition)})`
-      )
-    }
-    error(append, errorParams, errorPaths) {
-      if (errorParams) {
-        this.setParams(errorParams)
+      error(append, errorParams, errorPaths) {
+        if (errorParams) {
+          this.setParams(errorParams)
+          this._error(append, errorPaths)
+          this.setParams({})
+          return
+        }
         this._error(append, errorPaths)
-        this.setParams({})
-        return
       }
-      this._error(append, errorPaths)
-    }
-    _error(append, errorPaths) {
-      ;(append ? errors_1.reportExtraError : errors_1.reportError)(this, this.def.error, errorPaths)
-    }
-    $dataError() {
-      ;(0, errors_1.reportError)(this, this.def.$dataError || errors_1.keyword$DataError)
-    }
-    reset() {
-      if (this.errsCount === void 0) throw new Error('add "trackErrors" to keyword definition')
-      ;(0, errors_1.resetErrorsCount)(this.gen, this.errsCount)
-    }
-    ok(cond) {
-      if (!this.allErrors) this.gen.if(cond)
-    }
-    setParams(obj, assign) {
-      if (assign) Object.assign(this.params, obj)
-      else this.params = obj
-    }
-    block$data(valid, codeBlock, $dataValid = codegen_1$n.nil) {
-      this.gen.block(() => {
-        this.check$data(valid, $dataValid)
-        codeBlock()
-      })
-    }
-    check$data(valid = codegen_1$n.nil, $dataValid = codegen_1$n.nil) {
-      if (!this.$data) return
-      const { gen, schemaCode, schemaType, def: def2 } = this
-      gen.if((0, codegen_1$n.or)((0, codegen_1$n._)`${schemaCode} === undefined`, $dataValid))
-      if (valid !== codegen_1$n.nil) gen.assign(valid, true)
-      if (schemaType.length || def2.validateSchema) {
-        gen.elseIf(this.invalid$data())
-        this.$dataError()
-        if (valid !== codegen_1$n.nil) gen.assign(valid, false)
+      _error(append, errorPaths) {
+        ;(append ? errors_12.reportExtraError : errors_12.reportError)(this, this.def.error, errorPaths)
       }
-      gen.else()
-    }
-    invalid$data() {
-      const { gen, schemaCode, schemaType, def: def2, it } = this
-      return (0, codegen_1$n.or)(wrong$DataType(), invalid$DataSchema())
-      function wrong$DataType() {
-        if (schemaType.length) {
-          if (!(schemaCode instanceof codegen_1$n.Name)) throw new Error('ajv implementation error')
-          const st = Array.isArray(schemaType) ? schemaType : [schemaType]
-          return (0,
-          codegen_1$n._)`${(0, dataType_2.checkDataTypes)(st, schemaCode, it.opts.strictNumbers, dataType_2.DataType.Wrong)}`
+      $dataError() {
+        ;(0, errors_12.reportError)(this, this.def.$dataError || errors_12.keyword$DataError)
+      }
+      reset() {
+        if (this.errsCount === void 0) throw new Error('add "trackErrors" to keyword definition')
+        ;(0, errors_12.resetErrorsCount)(this.gen, this.errsCount)
+      }
+      ok(cond) {
+        if (!this.allErrors) this.gen.if(cond)
+      }
+      setParams(obj, assign) {
+        if (assign) Object.assign(this.params, obj)
+        else this.params = obj
+      }
+      block$data(valid, codeBlock, $dataValid = codegen_12.nil) {
+        this.gen.block(() => {
+          this.check$data(valid, $dataValid)
+          codeBlock()
+        })
+      }
+      check$data(valid = codegen_12.nil, $dataValid = codegen_12.nil) {
+        if (!this.$data) return
+        const { gen, schemaCode, schemaType, def: def2 } = this
+        gen.if((0, codegen_12.or)((0, codegen_12._)`${schemaCode} === undefined`, $dataValid))
+        if (valid !== codegen_12.nil) gen.assign(valid, true)
+        if (schemaType.length || def2.validateSchema) {
+          gen.elseIf(this.invalid$data())
+          this.$dataError()
+          if (valid !== codegen_12.nil) gen.assign(valid, false)
         }
-        return codegen_1$n.nil
+        gen.else()
       }
-      function invalid$DataSchema() {
-        if (def2.validateSchema) {
-          const validateSchemaRef = gen.scopeValue('validate$data', { ref: def2.validateSchema })
-          return (0, codegen_1$n._)`!${validateSchemaRef}(${schemaCode})`
+      invalid$data() {
+        const { gen, schemaCode, schemaType, def: def2, it } = this
+        return (0, codegen_12.or)(wrong$DataType(), invalid$DataSchema())
+        function wrong$DataType() {
+          if (schemaType.length) {
+            if (!(schemaCode instanceof codegen_12.Name)) throw new Error('ajv implementation error')
+            const st = Array.isArray(schemaType) ? schemaType : [schemaType]
+            return (0,
+            codegen_12._)`${(0, dataType_2.checkDataTypes)(st, schemaCode, it.opts.strictNumbers, dataType_2.DataType.Wrong)}`
+          }
+          return codegen_12.nil
         }
-        return codegen_1$n.nil
+        function invalid$DataSchema() {
+          if (def2.validateSchema) {
+            const validateSchemaRef = gen.scopeValue('validate$data', { ref: def2.validateSchema })
+            return (0, codegen_12._)`!${validateSchemaRef}(${schemaCode})`
+          }
+          return codegen_12.nil
+        }
+      }
+      subschema(appl, valid) {
+        const subschema2 = (0, subschema_1.getSubschema)(this.it, appl)
+        ;(0, subschema_1.extendSubschemaData)(subschema2, this.it, appl)
+        ;(0, subschema_1.extendSubschemaMode)(subschema2, appl)
+        const nextContext = { ...this.it, ...subschema2, items: void 0, props: void 0 }
+        subschemaCode(nextContext, valid)
+        return nextContext
+      }
+      mergeEvaluated(schemaCxt, toName) {
+        const { it, gen } = this
+        if (!it.opts.unevaluated) return
+        if (it.props !== true && schemaCxt.props !== void 0) {
+          it.props = util_12.mergeEvaluated.props(gen, schemaCxt.props, it.props, toName)
+        }
+        if (it.items !== true && schemaCxt.items !== void 0) {
+          it.items = util_12.mergeEvaluated.items(gen, schemaCxt.items, it.items, toName)
+        }
+      }
+      mergeValidEvaluated(schemaCxt, valid) {
+        const { it, gen } = this
+        if (it.opts.unevaluated && (it.props !== true || it.items !== true)) {
+          gen.if(valid, () => this.mergeEvaluated(schemaCxt, codegen_12.Name))
+          return true
+        }
       }
     }
-    subschema(appl, valid) {
-      const subschema2 = (0, subschema_1.getSubschema)(this.it, appl)
-      ;(0, subschema_1.extendSubschemaData)(subschema2, this.it, appl)
-      ;(0, subschema_1.extendSubschemaMode)(subschema2, appl)
-      const nextContext = { ...this.it, ...subschema2, items: void 0, props: void 0 }
-      subschemaCode(nextContext, valid)
-      return nextContext
-    }
-    mergeEvaluated(schemaCxt, toName) {
-      const { it, gen } = this
-      if (!it.opts.unevaluated) return
-      if (it.props !== true && schemaCxt.props !== void 0) {
-        it.props = util_1$l.mergeEvaluated.props(gen, schemaCxt.props, it.props, toName)
-      }
-      if (it.items !== true && schemaCxt.items !== void 0) {
-        it.items = util_1$l.mergeEvaluated.items(gen, schemaCxt.items, it.items, toName)
+    validate$2.KeywordCxt = KeywordCxt
+    function keywordCode(it, keyword2, def2, ruleType) {
+      const cxt = new KeywordCxt(it, def2, keyword2)
+      if ('code' in def2) {
+        def2.code(cxt, ruleType)
+      } else if (cxt.$data && def2.validate) {
+        ;(0, keyword_1.funcKeywordCode)(cxt, def2)
+      } else if ('macro' in def2) {
+        ;(0, keyword_1.macroKeywordCode)(cxt, def2)
+      } else if (def2.compile || def2.validate) {
+        ;(0, keyword_1.funcKeywordCode)(cxt, def2)
       }
     }
-    mergeValidEvaluated(schemaCxt, valid) {
-      const { it, gen } = this
-      if (it.opts.unevaluated && (it.props !== true || it.items !== true)) {
-        gen.if(valid, () => this.mergeEvaluated(schemaCxt, codegen_1$n.Name))
-        return true
+    const JSON_POINTER2 = /^\/(?:[^~]|~0|~1)*$/
+    const RELATIVE_JSON_POINTER2 = /^([0-9]+)(#|\/(?:[^~]|~0|~1)*)?$/
+    function getData2($data, { dataLevel, dataNames, dataPathArr }) {
+      let jsonPointer
+      let data2
+      if ($data === '') return names_12.default.rootData
+      if ($data[0] === '/') {
+        if (!JSON_POINTER2.test($data)) throw new Error(`Invalid JSON-pointer: ${$data}`)
+        jsonPointer = $data
+        data2 = names_12.default.rootData
+      } else {
+        const matches = RELATIVE_JSON_POINTER2.exec($data)
+        if (!matches) throw new Error(`Invalid JSON-pointer: ${$data}`)
+        const up = +matches[1]
+        jsonPointer = matches[2]
+        if (jsonPointer === '#') {
+          if (up >= dataLevel) throw new Error(errorMsg('property/index', up))
+          return dataPathArr[dataLevel - up]
+        }
+        if (up > dataLevel) throw new Error(errorMsg('data', up))
+        data2 = dataNames[dataLevel - up]
+        if (!jsonPointer) return data2
+      }
+      let expr = data2
+      const segments = jsonPointer.split('/')
+      for (const segment of segments) {
+        if (segment) {
+          data2 = (0, codegen_12._)`${data2}${(0, codegen_12.getProperty)((0, util_12.unescapeJsonPointer)(segment))}`
+          expr = (0, codegen_12._)`${expr} && ${data2}`
+        }
+      }
+      return expr
+      function errorMsg(pointerType, up) {
+        return `Cannot access ${pointerType} ${up} levels up, current level is ${dataLevel}`
       }
     }
+    validate$2.getData = getData2
+    return validate$2
   }
-  validate$2.KeywordCxt = KeywordCxt
-  function keywordCode(it, keyword2, def2, ruleType) {
-    const cxt = new KeywordCxt(it, def2, keyword2)
-    if ('code' in def2) {
-      def2.code(cxt, ruleType)
-    } else if (cxt.$data && def2.validate) {
-      ;(0, keyword_1.funcKeywordCode)(cxt, def2)
-    } else if ('macro' in def2) {
-      ;(0, keyword_1.macroKeywordCode)(cxt, def2)
-    } else if (def2.compile || def2.validate) {
-      ;(0, keyword_1.funcKeywordCode)(cxt, def2)
-    }
-  }
-  const JSON_POINTER$2 = /^\/(?:[^~]|~0|~1)*$/
-  const RELATIVE_JSON_POINTER$2 = /^([0-9]+)(#|\/(?:[^~]|~0|~1)*)?$/
-  function getData$1($data, { dataLevel, dataNames, dataPathArr }) {
-    let jsonPointer
-    let data2
-    if ($data === '') return names_1$3.default.rootData
-    if ($data[0] === '/') {
-      if (!JSON_POINTER$2.test($data)) throw new Error(`Invalid JSON-pointer: ${$data}`)
-      jsonPointer = $data
-      data2 = names_1$3.default.rootData
-    } else {
-      const matches = RELATIVE_JSON_POINTER$2.exec($data)
-      if (!matches) throw new Error(`Invalid JSON-pointer: ${$data}`)
-      const up = +matches[1]
-      jsonPointer = matches[2]
-      if (jsonPointer === '#') {
-        if (up >= dataLevel) throw new Error(errorMsg('property/index', up))
-        return dataPathArr[dataLevel - up]
-      }
-      if (up > dataLevel) throw new Error(errorMsg('data', up))
-      data2 = dataNames[dataLevel - up]
-      if (!jsonPointer) return data2
-    }
-    let expr = data2
-    const segments = jsonPointer.split('/')
-    for (const segment of segments) {
-      if (segment) {
-        data2 = (0, codegen_1$n._)`${data2}${(0, codegen_1$n.getProperty)((0, util_1$l.unescapeJsonPointer)(segment))}`
-        expr = (0, codegen_1$n._)`${expr} && ${data2}`
-      }
-    }
-    return expr
-    function errorMsg(pointerType, up) {
-      return `Cannot access ${pointerType} ${up} levels up, current level is ${dataLevel}`
-    }
-  }
-  validate$2.getData = getData$1
   var validation_error = {}
-  Object.defineProperty(validation_error, '__esModule', { value: true })
-  let ValidationError$2 = class ValidationError extends Error {
-    constructor(errors2) {
-      super('validation failed')
-      this.errors = errors2
-      this.ajv = this.validation = true
+  var hasRequiredValidation_error
+  function requireValidation_error() {
+    if (hasRequiredValidation_error) return validation_error
+    hasRequiredValidation_error = 1
+    Object.defineProperty(validation_error, '__esModule', { value: true })
+    class ValidationError2 extends Error {
+      constructor(errors2) {
+        super('validation failed')
+        this.errors = errors2
+        this.ajv = this.validation = true
+      }
     }
+    validation_error.default = ValidationError2
+    return validation_error
   }
-  validation_error.default = ValidationError$2
   var ref_error = {}
   Object.defineProperty(ref_error, '__esModule', { value: true })
   const resolve_1$2 = resolve$6
@@ -2949,11 +2987,11 @@
     compile$2.SchemaEnv =
       void 0
   const codegen_1$m = codegen
-  const validation_error_1 = validation_error
+  const validation_error_1 = requireValidation_error()
   const names_1$2 = names$1
   const resolve_1$1 = resolve$6
   const util_1$k = util$7
-  const validate_1$1 = validate$2
+  const validate_1$1 = requireValidate()
   class SchemaEnv {
     constructor(env) {
       var _a
@@ -3853,7 +3891,7 @@
       exports3._ =
       exports3.KeywordCxt =
         void 0
-    var validate_12 = validate$2
+    var validate_12 = requireValidate()
     Object.defineProperty(exports3, 'KeywordCxt', {
       enumerable: true,
       get: function () {
@@ -3897,7 +3935,7 @@
         return codegen_12.CodeGen
       }
     })
-    const validation_error_12 = validation_error
+    const validation_error_12 = requireValidation_error()
     const ref_error_12 = ref_error
     const rules_12 = rules$2
     const compile_12 = compile$2
@@ -5475,7 +5513,7 @@
   additionalProperties$1.default = def$a
   var properties$4 = {}
   Object.defineProperty(properties$4, '__esModule', { value: true })
-  const validate_1 = validate$2
+  const validate_1 = requireValidate()
   const code_1$2 = code
   const util_1$7 = util$7
   const additionalProperties_1$1 = additionalProperties$1
@@ -6350,7 +6388,7 @@
     module2.exports.Ajv = Ajv2
     Object.defineProperty(exports3, '__esModule', { value: true })
     exports3.default = Ajv2
-    var validate_12 = validate$2
+    var validate_12 = requireValidate()
     Object.defineProperty(exports3, 'KeywordCxt', {
       enumerable: true,
       get: function () {
@@ -6394,7 +6432,7 @@
         return codegen_12.CodeGen
       }
     })
-    var validation_error_12 = validation_error
+    var validation_error_12 = requireValidation_error()
     Object.defineProperty(exports3, 'ValidationError', {
       enumerable: true,
       get: function () {
@@ -26687,9 +26725,9 @@
             if (this.onmessage) {
               const mcpMessage = JSONRPCMessageSchema.parse(data2.mcpMessage)
               this.onmessage(mcpMessage)
-              this._pageLog(' ✅ 消息已处理')
+              this._pageLog(' ✅ 消息已处理,mcp-client-to-server事件流转结束！ ================')
             } else {
-              this._pageLog('❌️ onmessage 回调未设置')
+              this._pageLog('❌️ onmessage 回调未设置，mcp-client-to-server事件流转结束！ ================')
             }
           } catch (error2) {
             this._pageLog('❌️ 处理消息时发生错误:', error2)
