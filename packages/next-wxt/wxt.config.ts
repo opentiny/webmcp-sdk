@@ -8,6 +8,9 @@ import { VantResolver } from '@vant/auto-import-resolver'
 // See https://wxt.dev/api/config.html
 export default defineConfig({
   modules: ['@wxt-dev/module-vue'],
+  runner: {
+    chromiumArgs: ['--user-data-dir=./.wxt/chrome-data'] // 设置用户数据目录
+  },
   manifest: {
     // 定义manifiest
     permissions: ['storage', 'tabs', 'scripting', 'contextMenus', 'userScripts', 'notifications'],
