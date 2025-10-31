@@ -26907,4 +26907,14 @@ async function connect() {
   }
 }
 
-connect()
+function detectVisible() {
+  if (document.visibilityState === 'visible') {
+    connect()
+  } else {
+    setTimeout(() => {
+      detectVisible()
+    }, 1000)
+  }
+}
+
+detectVisible()

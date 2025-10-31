@@ -32,6 +32,9 @@ export default defineConfig({
         defaultImport: 'component',
         svgo: false
       }) as any
-    ]
+    ],
+    build: {
+      minify: false
+    }
   })
 })
