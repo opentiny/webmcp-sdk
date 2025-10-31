@@ -45,7 +45,7 @@ export default defineContentScript({
     onMessage('mcp-server-to-client', async ({ sender, data }) => {
       insertLog('content-script', `window 页面mcp-server-to-client消息转发给 side-panel`)
       if (!data.mcpMessage) {
-        await insertLog('content-script', `mcp-server-to-client消息缺少 mcpMessage 字段`)
+        await insertLog('content-script', `❌️ mcp-server-to-client消息缺少 mcpMessage 字段`)
         return
       }
       browser.runtime.sendMessage({

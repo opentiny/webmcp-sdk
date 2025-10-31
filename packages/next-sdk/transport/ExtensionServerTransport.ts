@@ -106,9 +106,9 @@ export class ExtensionServerTransport implements Transport {
           if (this.onmessage) {
             const mcpMessage = JSONRPCMessageSchema.parse((data as any).mcpMessage)
             this.onmessage(mcpMessage)
-            this._pageLog(' ✅ 消息已处理')
+            this._pageLog(' ✅ 消息已处理,mcp-client-to-server事件流转结束！ ================')
           } else {
-            this._pageLog('❌️ onmessage 回调未设置')
+            this._pageLog('❌️ onmessage 回调未设置，mcp-client-to-server事件流转结束！ ================')
           }
         } catch (error) {
           this._pageLog('❌️ 处理消息时发生错误:', error)
