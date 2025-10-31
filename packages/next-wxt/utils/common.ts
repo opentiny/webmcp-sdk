@@ -111,6 +111,8 @@ export const insertLog = async (from: LogFrom, message: string, extra: LogExtra 
 
 /** 插入全局的 SessionRegistry*/
 export const insertSessionRegistry = async (map: SessionRegistry) => {
+  await storage.removeMeta(sessionRegistryKey) // 由于是合并 ，所以每次都要整体删除
+
   for (const entry of map.entries()) {
     await storage.setMeta<any>(sessionRegistryKey, { [entry[0]]: entry[1] })
   }
