@@ -96,6 +96,8 @@ export const useBrowserExtensions = ({
         // 只有当所有 tabId 都关闭时，才删除插件
         if (info.tabIds.length === 0) {
           sessionRegistry.delete(sessionId)
+          await insertSessionRegistry(sessionRegistry)
+
           const serverName = `mcp-server-${sessionId}`
           await insertLog('side-panel', `所有页签已关闭，即将删除插件: ${serverName}`)
           await handleClientDisconnected(serverName) // ---> 转到 remoter内部方法去关闭client

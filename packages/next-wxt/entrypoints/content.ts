@@ -66,10 +66,10 @@ export default defineContentScript({
     onMessage('mcp-client-to-server', async ({ data }) => {
       await insertLog(
         'content-script',
-        `收到 mcp-client-to-server 消息, 即将转发给 window: ${data.mcpMessage.method}`,
+        `收到 mcp-client-to-server 消息, 即将转发给 window: ${data.mcpMessage?.method}`,
         data
       )
-      await sendMessage('mcp-client-to-server', data, 'window')
+      await sendMessage('mcp-client-to-server', data, 'window') // TODO 这里需要 tabId ??
 
       // 下发命令，可能为工具调用
       if (data.mcpMessage.params?.name) {

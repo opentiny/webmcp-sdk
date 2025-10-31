@@ -37,7 +37,8 @@ export const injectMainScript = async (originUrl: keyof typeof injectUrls, withN
         id: url,
         matches: [`${originUrl}/*`],
         js: [{ code: script }],
-        world: 'MAIN'
+        world: 'MAIN',
+        runAt: 'document_idle'
       }
     ])
 
@@ -90,6 +91,7 @@ type SessionRegistry = Map<
 
 /** 初始化日志 */
 export const initLog = async () => {
+  await storage.removeMeta(sessionRegistryKey)
   await storage.removeMeta(storageKey)
   await storage.setMeta(storageKey, { list: [] })
 }

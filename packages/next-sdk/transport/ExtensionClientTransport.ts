@@ -131,14 +131,12 @@ export class ExtensionClientTransport implements Transport {
 
     try {
       // 向所有标签页广播消息（因为不知道 Server 在哪个标签页）
-      await sendMessage(
-        'mcp-client-to-server',
-        {
-          sessionId: this.targetSessionId,
-          mcpMessage: message
-        } as any,
-        `content-script@${this._tabId}`
-      )
+      const data = {
+        sessionId: this.targetSessionId,
+        mcpMessage: message
+      }
+      this._pageLog('即将转发消息给 content-script， data=', data)
+      await sendMessage('mcp-client-to-server', data as any, `content-script@${this._tabId}`)
     } catch (error) {
       this._pageLog('发送消息失败:', error)
       const wrappedError = error instanceof Error ? error : new Error(String(error))
