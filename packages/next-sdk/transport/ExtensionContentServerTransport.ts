@@ -1,6 +1,6 @@
 import type { Transport, TransportSendOptions } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { type JSONRPCMessage, JSONRPCMessageSchema } from '@modelcontextprotocol/sdk/types.js'
-import { v4 as uuidv4 } from 'uuid'
+import { randomUUID } from '../utils/uuid'
 
 declare const document: Document
 declare const chrome: any
@@ -49,7 +49,7 @@ export class ContentScriptServerTransport implements Transport {
 
   constructor(sessionId: string | null = null) {
     // 如果提供了 sessionId，使用提供的；否则随机生成
-    this.sessionId = sessionId || uuidv4()
+    this.sessionId = sessionId || randomUUID()
 
     chrome.runtime.onMessage.addListener((message: any) => {
       if (message.type === 'sidepanel-ready') {
@@ -115,7 +115,7 @@ export class ContentScriptServerTransport implements Transport {
       })
 
       // 判断是否为工具调用成功了!
-      if (message.result?.content) {
+      if ('result' in message && message.result?.content) {
         window.postMessage({ type: 'page-app-message', status: 'ready', message: '' }, '*')
       }
     } catch (error) {
