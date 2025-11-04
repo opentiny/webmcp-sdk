@@ -7,7 +7,7 @@ import { VantResolver } from '@vant/auto-import-resolver'
 
 // See https://wxt.dev/api/config.html
 export default defineConfig({
-  modules: ['@wxt-dev/module-vue'],
+  modules: ['@wxt-dev/module-vue', '@wxt-dev/auto-icons'],
   runner: {
     chromiumArgs: ['--user-data-dir=./.wxt/chrome-data'] // 设置用户数据目录
   },
