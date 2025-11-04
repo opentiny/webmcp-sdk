@@ -5,9 +5,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "wxt prepare && wxt",
+    "dev": "wxt prepare && wxt --mode open",
+    "dev:inner": "wxt prepare && wxt --mode inner",
     "dev:firefox": "wxt -b firefox",
-    "build": "wxt build",
+    "build": "wxt build --mode open",
+    "build:inner": "wxt build --mode inner",
     "build:firefox": "wxt build -b firefox",
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",

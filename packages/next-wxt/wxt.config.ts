@@ -12,6 +12,7 @@ export default defineConfig({
     chromiumArgs: ['--user-data-dir=./.wxt/chrome-data'] // 设置用户数据目录
   },
   manifest: {
+    name: 'OpenTiny AI Extension',
     // 定义manifiest
     permissions: ['storage', 'tabs', 'activeTab', 'scripting', 'contextMenus', 'userScripts', 'notifications'],
     host_permissions: ['*://*/*'], //  bg 发出 fecth, bg注入content脚本，访问 tab详情，cookie..
@@ -24,6 +25,7 @@ export default defineConfig({
     ]
   },
   vite: () => ({
+    envDir: './env',
     plugins: [
       Components({
         resolvers: [TinyVueSingleResolver, VantResolver()]
