@@ -1,4 +1,4 @@
-window.$next_remoter_mcp_server = ({ server, z }) => {
+export default ({ server, z }) => {
   // Add an addition tool
   server.registerTool(
     'fill-textarea',

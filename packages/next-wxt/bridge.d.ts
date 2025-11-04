@@ -29,10 +29,3 @@ declare module 'webext-bridge' {
     'client-transport-log-event': ProtocolWithReturn<{ message: string; extra: any }, void>
   }
 }
-
-declare global {
-  interface Window {
-    printLog?: (...args: any[]) => void
-    initLog?: (...args: any[]) => void
-  }
-}
