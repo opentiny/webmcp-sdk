@@ -25,6 +25,7 @@ export default defineConfig({
     ]
   },
   vite: () => ({
+    envDir: './env',
     plugins: [
       Components({
         resolvers: [TinyVueSingleResolver, VantResolver()]
