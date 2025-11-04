@@ -9,6 +9,17 @@ const message = defineModel('message', { type: String, default: '' })
 
 window.addEventListener('message', function (event) {
   if (event.data.type === 'page-app-message') {
+    /** 如果工具正在运行，则切换到目标页签 */
+    if (event.data.status === 'run') {
+      browser.runtime.sendMessage({
+        type: 'page-app-message-to-background',
+        data: {
+          status: event.data.status,
+          message: event.data.message
+        }
+      })
+    }
+
     status.value = event.data.status
     message.value = event.data.message
     nextTick(() => {
