@@ -14,7 +14,7 @@ export default defineConfig({
   manifest: {
     name: 'OpenTiny AI Extension',
     // 定义manifiest
-    permissions: ['storage', 'tabs', 'scripting', 'contextMenus', 'userScripts', 'notifications'],
+    permissions: ['storage', 'tabs', 'activeTab', 'scripting', 'contextMenus', 'userScripts', 'notifications'],
     host_permissions: ['*://*/*'], //  bg 发出 fecth, bg注入content脚本，访问 tab详情，cookie..
     action: {},
     web_accessible_resources: [
