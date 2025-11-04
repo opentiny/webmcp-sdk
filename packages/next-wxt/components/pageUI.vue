@@ -1,99 +1,96 @@
 <script lang="ts" setup>
 import { onMessage } from 'webext-bridge/content-script'
 import AiSvg from '@/assets/logo-next-no-bg-left.svg'
-import TinyPopover from '@opentiny/vue-popover'
 
 /** 插件状态：  ready, run */
 const status = defineModel('status', { type: String, default: 'ready' })
-/** 要显示的消息 */
+/** 要显示的消息, 目前传入的就是toolName */
 const message = defineModel('message', { type: String, default: '' })
 
-onMessage('page-app-message', ({ sender, data }) => {
-  status.value = data.status
-  message.value = data.message
-
-  nextTick(() => {
-    const el = document.querySelector('.wxt-pop__message')
-    el?.classList.toggle('bounce', status.value === 'run')
-  })
+window.addEventListener('message', function (event) {
+  if (event.data.type === 'page-app-message') {
+    status.value = event.data.status
+    message.value = event.data.message
+    nextTick(() => {
+      const el = document.querySelector('[data-wxt-integrated]')
+      el?.classList.toggle('wxt-ingt-active', status.value === 'run')
+    })
+  }
 })
 </script>
 
 <template>
-  <tiny-popover
-    trigger="manual"
-    :content="message"
-    :modelValue="status !== 'ready'"
-    effect="dark"
-    placement="top"
-    popper-class="wxt-pop__message"
-  >
-    <template #reference>
-      <AiSvg></AiSvg>
-    </template>
-  </tiny-popover>
+  <AiSvg class="wxt-ingt-svg"></AiSvg>
+  <div class="wxt-ingt-breath"></div>
+  <div class="wxt-ingt-message">
+    <span class="wxt-message__text">正在调用</span> <span class="wxt-message__toolname"> {{ message }}</span>
+  </div>
 </template>
 
 <style>
-[data-wxt-integrated] {
+[data-wxt-integrated] .wxt-ingt-svg {
   position: fixed;
   right: 80px;
   bottom: 40px;
-}
-
-[data-wxt-integrated] svg {
   width: 48px;
   height: 48px;
 }
 
-.wxt-pop__message {
-  display: inline-block;
-  width: 200px;
+[data-wxt-integrated] .wxt-ingt-breath {
+  position: fixed;
+  top: 85px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 99999;
+  pointer-events: none;
+  display: none;
 }
 
-.bounce {
-  animation-name: ani-bounce;
-  animation-duration: 1s;
-  animation-iteration-count: infinite;
-  transform-origin: center bottom;
+[data-wxt-integrated].wxt-ingt-active .wxt-ingt-breath {
+  display: block;
+  /* box-shadow: inset 0 0 40px 10px rgba(1, 70, 116, 0.3); */
+  animation: breathing-inset 0.8s infinite;
 }
 
-@keyframes ani-bounce {
-  0%,
-  20%,
-  53%,
-  to {
-    -webkit-animation-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
-    animation-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
-    -webkit-transform: translateZ(0);
-    transform: translateZ(0);
-  }
+[data-wxt-integrated] .wxt-ingt-message {
+  position: fixed;
+  top: 100px;
+  left: 32px;
+  z-index: 99999;
+  pointer-events: none;
 
-  40%,
-  43% {
-    -webkit-animation-timing-function: cubic-bezier(0.755, 0.05, 0.855, 0.06);
-    animation-timing-function: cubic-bezier(0.755, 0.05, 0.855, 0.06);
-    -webkit-transform: translate3d(0, -30px, 0) scaleY(1.1);
-    transform: translate3d(0, -30px, 0) scaleY(1.1);
-  }
+  border: 1px solid #1476ff80;
+  border-radius: 99px;
+  padding: 24px 40px;
+  font-size: 20px;
+  display: none;
+}
 
-  70% {
-    -webkit-animation-timing-function: cubic-bezier(0.755, 0.05, 0.855, 0.06);
-    animation-timing-function: cubic-bezier(0.755, 0.05, 0.855, 0.06);
-    -webkit-transform: translate3d(0, -15px, 0) scaleY(1.05);
-    transform: translate3d(0, -15px, 0) scaleY(1.05);
-  }
+[data-wxt-integrated] .wxt-message__text {
+  color: #808080;
+}
+[data-wxt-integrated] .wxt-message__toolname {
+  color: #1476ff;
+}
 
-  80% {
-    -webkit-transform: translateZ(0) scaleY(0.95);
-    transform: translateZ(0) scaleY(0.95);
-    -webkit-transition-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
-    transition-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
-  }
+[data-wxt-integrated].wxt-ingt-active .wxt-ingt-message {
+  display: inline;
+}
 
-  90% {
-    -webkit-transform: translate3d(0, -4px, 0) scaleY(1.02);
-    transform: translate3d(0, -4px, 0) scaleY(1.02);
+/* 呼吸灯动画关键帧，控制内部阴影和透明度变化 */
+@keyframes breathing-inset {
+  0% {
+    box-shadow: inset 0 0 0 0 rgba(0, 153, 255, 0.3);
+    opacity: 0.7;
+  }
+  50% {
+    box-shadow: inset 0 0 15px 15px rgba(0, 153, 255, 0.7);
+    opacity: 1;
+  }
+  100% {
+    box-shadow: inset 0 0 0 0 rgba(0, 153, 255, 0.3);
+    opacity: 0.7;
   }
 }
 </style>

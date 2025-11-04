@@ -56,14 +56,20 @@ export class ContentScriptServerTransport implements Transport {
   private _isStarted: boolean = false
   private _isClosed: boolean = false
   private _lastRegistration: ContentScriptServerInfo | null = null // 最后一次注册信息（用于 Sidepanel 刷新后重新注册）
+  private _throwError(whenFn: () => boolean, message: string) {
+    if (whenFn()) {
+      const error = new Error(message)
+      console.log(message, error)
+      if (this.onerror) {
+        this.onerror(error)
+      }
+      throw error
+    }
+  }
 
   constructor(sessionId: string | null = null) {
     // 如果提供了 sessionId，使用提供的；否则随机生成
-    if (sessionId) {
-      this.sessionId = sessionId
-    } else {
-      this.sessionId = uuidv4()
-    }
+    this.sessionId = sessionId || uuidv4()
 
     chrome.runtime.onMessage.addListener((message: any) => {
       if (message.type === 'sidepanel-ready') {
@@ -76,20 +82,13 @@ export class ContentScriptServerTransport implements Transport {
     })
   }
 
-  /**
-   * 启动 transport，开始监听消息
-   * @returns {Promise<void>}
-   */
+  /** 启动 transport，开始监听消息   */
   async start() {
     console.log('[ContentScriptServerTransport] 启动 start', this.sessionId)
     // 防止重复启动
-    if (this._isStarted) {
-      return
-    }
+    if (this._isStarted) return
 
-    if (this._isClosed) {
-      throw new Error('❌️ server Transport 已关闭，无法重新启动')
-    }
+    if (this._isClosed) throw new Error('❌️ server Transport 已关闭，无法重新启动')
 
     chrome.runtime.onMessage.addListener((message: any) => {
       if (message.type === 'mcp-client-to-server') {
@@ -103,6 +102,20 @@ export class ContentScriptServerTransport implements Transport {
         try {
           const mcpMessage = JSONRPCMessageSchema.parse(data.mcpMessage)
           this.onmessage?.(mcpMessage)
+
+          // 判断是否为工具调用
+          const toolName = data.mcpMessage.params?.name
+
+          if (toolName) {
+            window.postMessage(
+              {
+                type: 'page-app-message',
+                status: 'run',
+                message: data.mcpMessage.params?.name
+              },
+              '*'
+            )
+          }
         } catch (error) {
           console.log('[ContentScriptServerTransport] 处理消息时发生错误:', error)
         }
@@ -112,30 +125,12 @@ export class ContentScriptServerTransport implements Transport {
     this._isStarted = true
   }
 
-  /**
-   * 发送消息到 MCP Client
-   * @param {Object} message - JSONRPC 消息对象
-   * @returns {Promise<void>}
-   */
+  /** 发送消息到 MCP Client */
   async send(message: JSONRPCMessage, _options?: TransportSendOptions): Promise<void> {
     console.log('[ContentScriptServerTransport] 开始执行send方法', message)
     // 检查状态
-    if (!this._isStarted) {
-      const error = new Error('server Transport 未启动，无法发送消息')
-      console.log('[ContentScriptServerTransport] 发送消息失败:', error)
-      if (this.onerror) {
-        this.onerror(error)
-      }
-      throw error
-    }
-
-    if (this._isClosed) {
-      const error = new Error('server Transport 已关闭，无法发送消息')
-      if (this.onerror) {
-        this.onerror(error)
-      }
-      throw error
-    }
+    this._throwError(() => !this._isStarted, 'server Transport 未启动，无法发送消息')
+    this._throwError(() => this._isClosed, 'server Transport 已关闭，无法发送消息')
 
     try {
       console.log('[ContentScriptServerTransport] 发送消息到 MCP Client', message)
@@ -146,28 +141,19 @@ export class ContentScriptServerTransport implements Transport {
           mcpMessage: message
         }
       })
-    } catch (error) {
-      console.log('[ContentScriptServerTransport] 发送消息失败:', error)
-      const wrappedError = error instanceof Error ? error : new Error(String(error))
-      if (this.onerror) {
-        this.onerror(wrappedError)
+
+      // 判断是否为工具调用成功了!
+      if (message.result?.content) {
+        window.postMessage({ type: 'page-app-message', status: 'ready', message: '' }, '*')
       }
-      throw wrappedError
+    } catch (error) {
+      this._throwError(() => true, 'server Transport 发送消息失败' + String(error))
     }
   }
 
-  /**
-   * 通知 Sidepanel 此 Server 已启动并准备接受连接
-   * @param {Object} serverInfo - 服务器信息
-   * @param {string} serverInfo.name - 服务器名称
-   * @param {string} serverInfo.version - 服务器版本
-   * @param {string} [serverInfo.description] - 服务器描述
-   * @returns {Promise<void>}
-   */
+  /** 通知 Sidepanel 此 Server 已启动并准备接受连接 */
   async notifyRegistration(serverInfo: ContentScriptServerInfo): Promise<void> {
-    if (!this._isStarted) {
-      return
-    }
+    if (!this._isStarted) return
 
     // 保存注册信息，用于 Sidepanel 刷新后重新注册
     this._lastRegistration = serverInfo
@@ -184,30 +170,18 @@ export class ContentScriptServerTransport implements Transport {
     })
   }
 
-  /**
-   * 关闭 transport
-   * @returns {Promise<void>}
-   */
+  /** 关闭 transport */
   async close() {
-    console.log('[ContentScriptServerTransport] 开始执行close方法', this.sessionId)
-    // 防止重复关闭
-    if (this._isClosed) {
-      return
-    }
+    if (this._isClosed) return
 
     try {
       this._isClosed = true
       this._isStarted = false
-
-      // 触发关闭回调
       if (this.onclose) {
         this.onclose()
       }
     } catch (error) {
-      if (this.onerror) {
-        this.onerror(error instanceof Error ? error : new Error(String(error)))
-      }
-      throw error
+      this._throwError(() => true, 'server Transport close失败' + String(error))
     }
   }
 }

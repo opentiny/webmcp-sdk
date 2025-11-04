@@ -13,7 +13,7 @@ export default ({ server, z }) => {
       await new Promise((resolve) =>
         setTimeout(() => {
           resolve()
-        }, 3000)
+        }, 5000)
       )
       return {
         content: [{ type: 'text', text: '填充完成' }]
