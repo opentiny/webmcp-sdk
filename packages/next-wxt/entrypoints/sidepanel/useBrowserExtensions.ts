@@ -94,6 +94,19 @@ export const useBrowserExtensions = ({
     }
   })
 
+  // 每次只调用最后激活的页面
+  browser.tabs.onActivated.addListener(async ({ tabId }) => {
+    for (const [sessionId, info] of sessionRegistry.entries()) {
+      const index = info.tabIds.indexOf(tabId)
+      if (index !== -1) {
+        // 从数组中移除该 tabId,之后追加在最后
+        info.tabIds.splice(index, 1)
+        info.tabIds.push(tabId)
+        break
+      }
+    }
+  })
+
   /**
    * 发现已存在的服务器
    * Sidepanel 启动时，向所有标签页广播，请求已有的 MCP Server 重新注册
