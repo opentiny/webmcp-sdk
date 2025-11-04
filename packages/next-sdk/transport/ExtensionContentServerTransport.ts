@@ -5,43 +5,23 @@ import { v4 as uuidv4 } from 'uuid'
 declare const document: Document
 declare const chrome: any
 
-/**
- * 服务器注册信息接口
- */
+/** 服务器注册信息接口 */
 export interface ContentScriptServerInfo {
-  /**
-   * 服务器名称
-   */
+  /** 服务器名称 */
   name: string
-
-  /**
-   * 服务器版本
-   */
+  /** 服务器版本 */
   version: string
-
-  /**
-   * 服务器描述（可选）
-   */
+  /** 服务器描述（可选） */
   description?: string
-
-  /**
-   * 服务器 URL（由 transport 自动添加）
-   */
+  /** 服务器 URL（由 transport 自动添加） */
   url?: string
-
-  /**
-   * 页面标题（由 transport 自动添加）
-   */
+  /** 页面标题（由 transport 自动添加） */
   title?: string
 }
 
 /**
- * Chrome 扩展服务端 Transport
- * 用于页面脚本中的 MCP Server（通过 content script 作为桥梁）
- * 实现标准的 MCP Transport 接口
- *
- * 使用 sessionId 进行消息路由
- * 支持固定 sessionId，避免页面刷新时 sessionId 改变
+ * Chrome 扩展的页面Content Script中,实现标准的 MCP Transport
+ * 使用 sessionId 进行消息路由的唯一标识
  */
 export class ContentScriptServerTransport implements Transport {
   // MCP Transport 必需的回调
@@ -82,7 +62,7 @@ export class ContentScriptServerTransport implements Transport {
     })
   }
 
-  /** 启动 transport，开始监听消息   */
+  /** 启动 transport，开始监听MCP client 消息   */
   async start() {
     console.log('[ContentScriptServerTransport] 启动 start', this.sessionId)
     // 防止重复启动
@@ -105,16 +85,8 @@ export class ContentScriptServerTransport implements Transport {
 
           // 判断是否为工具调用
           const toolName = data.mcpMessage.params?.name
-
           if (toolName) {
-            window.postMessage(
-              {
-                type: 'page-app-message',
-                status: 'run',
-                message: data.mcpMessage.params?.name
-              },
-              '*'
-            )
+            window.postMessage({ type: 'page-app-message', status: 'run', message: data.mcpMessage.params?.name }, '*')
           }
         } catch (error) {
           console.log('[ContentScriptServerTransport] 处理消息时发生错误:', error)
@@ -170,7 +142,6 @@ export class ContentScriptServerTransport implements Transport {
     })
   }
 
-  /** 关闭 transport */
   async close() {
     if (this._isClosed) return
 
