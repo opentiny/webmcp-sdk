@@ -1,6 +1,6 @@
 <script lang="ts" setup>
-import { onMessage } from 'webext-bridge/content-script'
-import AiSvg from '@/assets/logo-next-no-bg-left.svg'
+import AiSvgReady from '@/assets/logo-next.svg'
+import AiSvgRun from '@/assets/logo-next-eye-open.svg'
 
 /** 插件状态：  ready, run */
 const status = defineModel('status', { type: String, default: 'ready' })
@@ -20,10 +20,13 @@ window.addEventListener('message', function (event) {
 </script>
 
 <template>
-  <AiSvg class="wxt-ingt-svg"></AiSvg>
+  <AiSvgReady class="wxt-ingt-svg" v-if="status === 'ready'"></AiSvgReady>
+  <AiSvgRun class="wxt-ingt-svg" v-else></AiSvgRun>
   <div class="wxt-ingt-breath"></div>
   <div class="wxt-ingt-message">
-    <span class="wxt-message__text">正在调用</span> <span class="wxt-message__toolname"> {{ message }} 工具名abcd</span>
+    <img src="@/assets/loading.webp" class="wxt-message__loading" />
+    <span class="wxt-message__text">正在调用</span>
+    <span class="wxt-message__toolname"> {{ message }} </span>
   </div>
 </template>
 
@@ -38,7 +41,7 @@ window.addEventListener('message', function (event) {
 
 [data-wxt-integrated] .wxt-ingt-breath {
   position: fixed;
-  top: 85px;
+  top: 0;
   left: 0;
   right: 0;
   bottom: 0;
@@ -50,7 +53,7 @@ window.addEventListener('message', function (event) {
 [data-wxt-integrated].wxt-ingt-active .wxt-ingt-breath {
   display: block;
   /* box-shadow: inset 0 0 40px 10px rgba(1, 70, 116, 0.3); */
-  animation: breathing-inset 0.8s infinite;
+  animation: breathing-inset 1.3s infinite;
 }
 
 [data-wxt-integrated] .wxt-ingt-message {
@@ -69,10 +72,13 @@ window.addEventListener('message', function (event) {
   display: none;
 }
 
+[data-wxt-integrated] .wxt-message__loading {
+  width: 14px;
+  height: 14px;
+}
 [data-wxt-integrated] .wxt-message__text {
   color: #808080;
   font-weight: 400;
-  margin-right: 8px;
 }
 [data-wxt-integrated] .wxt-message__toolname {
   color: #1476ff;
@@ -80,21 +86,24 @@ window.addEventListener('message', function (event) {
 }
 
 [data-wxt-integrated].wxt-ingt-active .wxt-ingt-message {
-  display: inline;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
 /* 呼吸灯动画关键帧，控制内部阴影和透明度变化 */
 @keyframes breathing-inset {
   0% {
-    box-shadow: inset 0 0 0 0 rgba(0, 153, 255, 0.3);
+    box-shadow: inset 0 0 0 0 #1476ff80;
     opacity: 0.7;
   }
   50% {
-    box-shadow: inset 0 0 15px 15px rgba(0, 153, 255, 0.7);
+    box-shadow: inset 0 0 10px 20px #1476ff30;
     opacity: 1;
   }
   100% {
-    box-shadow: inset 0 0 0 0 rgba(0, 153, 255, 0.3);
+    box-shadow: inset 0 0 0 0 #1476ff80;
     opacity: 0.7;
   }
 }
