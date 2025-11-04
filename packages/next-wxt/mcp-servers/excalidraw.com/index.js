@@ -1,4 +1,4 @@
-window.$next_remoter_mcp_server = ({ server, z }) => {
+export default ({ server, z }) => {
   const SCRIPT_ID = 'excalidraw-control-script'
   if (window[SCRIPT_ID]) {
     return
