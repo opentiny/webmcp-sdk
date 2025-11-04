@@ -1,7 +1,7 @@
 import type { Transport, TransportSendOptions } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { type JSONRPCMessage, JSONRPCMessageSchema } from '@modelcontextprotocol/sdk/types.js'
 import { setNamespace, sendMessage, onMessage } from 'webext-bridge/window'
-import { v4 as uuidv4 } from 'uuid'
+import { randomUUID } from '../utils/uuid'
 
 declare const window: Window & typeof globalThis
 declare const document: Document
@@ -65,7 +65,7 @@ export class ExtensionServerTransport implements Transport {
     if (sessionId) {
       this.sessionId = sessionId
     } else {
-      this.sessionId = uuidv4()
+      this.sessionId = randomUUID()
     }
 
     // 设置监听器
