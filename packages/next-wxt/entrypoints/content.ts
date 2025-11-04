@@ -51,6 +51,18 @@ export default defineContentScript({
       // Connect the client and server
       await server.connect(serverTransport)
       serverTransport.notifyRegistration(serverInfo)
+
+      // 7、页面添加UI
+      const pageApp = createIntegratedUi(ctx, {
+        position: 'inline',
+        anchor: 'body',
+        onMount: async (container) => {
+          const app = createApp(PageUI)
+          app.mount(container)
+        }
+      })
+
+      pageApp.mount()
     }
 
     const handleVisibilityChange = () => {
@@ -65,17 +77,5 @@ export default defineContentScript({
     } else {
       connect()
     }
-
-    // 7、页面添加UI
-    const pageApp = createIntegratedUi(ctx, {
-      position: 'inline',
-      anchor: 'body',
-      onMount: async (container) => {
-        const app = createApp(PageUI)
-        app.mount(container)
-      }
-    })
-
-    pageApp.mount()
   }
 })
