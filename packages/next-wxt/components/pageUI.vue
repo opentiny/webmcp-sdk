@@ -23,7 +23,7 @@ window.addEventListener('message', function (event) {
   <AiSvg class="wxt-ingt-svg"></AiSvg>
   <div class="wxt-ingt-breath"></div>
   <div class="wxt-ingt-message">
-    <span class="wxt-message__text">正在调用</span> <span class="wxt-message__toolname"> {{ message }}</span>
+    <span class="wxt-message__text">正在调用</span> <span class="wxt-message__toolname"> {{ message }} 工具名abcd</span>
   </div>
 </template>
 
@@ -60,18 +60,23 @@ window.addEventListener('message', function (event) {
   z-index: 99999;
   pointer-events: none;
 
+  background: #f3f8ff;
   border: 1px solid #1476ff80;
   border-radius: 99px;
-  padding: 24px 40px;
-  font-size: 20px;
+  padding: 16px 28px;
+  font-size: 14px;
+  line-height: 20px;
   display: none;
 }
 
 [data-wxt-integrated] .wxt-message__text {
   color: #808080;
+  font-weight: 400;
+  margin-right: 8px;
 }
 [data-wxt-integrated] .wxt-message__toolname {
   color: #1476ff;
+  font-weight: 500;
 }
 
 [data-wxt-integrated].wxt-ingt-active .wxt-ingt-message {
