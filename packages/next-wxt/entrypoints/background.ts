@@ -9,4 +9,7 @@ export default defineBackground(() => {
       }
     }
   })
+
+  // 自动返回sender 给 content-script
+  onRuntimeMessage('who-am-i', () => {}, 'content->bg')
 })

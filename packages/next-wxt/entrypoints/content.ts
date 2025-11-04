@@ -1,4 +1,3 @@
-// import { createApp } from 'vue'
 import PageUI from '@/components/pageUI.vue'
 import { WebMcpServer, ContentScriptServerTransport, z } from '@opentiny/next-sdk'
 import getMcpToolByHostname from '../mcp-servers'
@@ -7,7 +6,33 @@ export default defineContentScript({
   matches: ['*://*/*'],
   runAt: 'document_end',
   async main(ctx) {
-    async function connect() {
+    // 全局变量
+    let self: Browser.runtime.MessageSender
+    let tabId: number
+    let sessionId: string
+
+    // 页面可见之后，才启动整个流程
+    if (document.visibilityState === 'hidden') {
+      const handleVisibilityChange = () => {
+        if (document.visibilityState === 'visible') {
+          startAll()
+          document.removeEventListener('visibilitychange', handleVisibilityChange)
+        }
+      }
+      document.addEventListener('visibilitychange', handleVisibilityChange)
+    } else {
+      startAll()
+    }
+
+    async function startAll() {
+      await getTabId()
+      await createMcpServer()
+      mountPageApp()
+
+      console.log('页面初始化完成', { self, tabId, sessionId })
+    }
+
+    async function createMcpServer() {
       const cookie = document.cookie
       const cookieData = cookie.split('; ').reduce(
         (acc, cookie) => {
@@ -22,14 +47,10 @@ export default defineContentScript({
         version: '1.0.0'
       }
 
-      // Create an MCP server
       const server = new WebMcpServer(serverInfo)
 
       // 获取当前页面域名
       const hostname = window.location.hostname
-      console.log('当前页面域名:', hostname)
-
-      // 根据域名获取对应的工具配置
       const mcpTool = getMcpToolByHostname(hostname)
 
       // 如果找到匹配的工具配置，则注册
@@ -40,19 +61,23 @@ export default defineContentScript({
         console.log('当前域名没有配置 MCP 工具')
       }
 
-      const sessionId = localStorage.getItem('mcp-sessionId')
+      const _sessionId = localStorage.getItem('mcp-sessionId')
+      const serverTransport = new ContentScriptServerTransport(_sessionId)
+      sessionId = serverTransport.sessionId
+      localStorage.setItem('mcp-sessionId', sessionId)
 
-      // Create pair MCP transports
-      const serverTransport = new ContentScriptServerTransport(sessionId)
-      localStorage.setItem('mcp-sessionId', serverTransport.sessionId)
-
-      console.log(serverTransport.sessionId)
-
-      // Connect the client and server
       await server.connect(serverTransport)
-      serverTransport.notifyRegistration(serverInfo)
 
-      // 7、页面添加UI
+      // 向插件注册server
+      serverTransport.notifyRegistration(serverInfo)
+    }
+
+    async function getTabId() {
+      self = (await sendRuntimeMessage('who-am-i', {}, 'content->bg')) as any
+      tabId = self.tab?.id!
+    }
+
+    function mountPageApp() {
       const pageApp = createIntegratedUi(ctx, {
         position: 'inline',
         anchor: 'body',
@@ -63,19 +88,6 @@ export default defineContentScript({
       })
 
       pageApp.mount()
-    }
-
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible') {
-        connect()
-        document.removeEventListener('visibilitychange', handleVisibilityChange)
-      }
-    }
-
-    if (document.visibilityState === 'hidden') {
-      document.addEventListener('visibilitychange', handleVisibilityChange)
-    } else {
-      connect()
     }
   }
 })
