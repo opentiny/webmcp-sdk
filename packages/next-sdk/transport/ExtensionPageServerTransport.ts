@@ -1,6 +1,5 @@
 import type { Transport, TransportSendOptions } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { type JSONRPCMessage, JSONRPCMessageSchema } from '@modelcontextprotocol/sdk/types.js'
-import { setNamespace, sendMessage, onMessage } from 'webext-bridge/window'
 import { randomUUID } from '../utils/uuid'
 
 declare const window: Window & typeof globalThis
@@ -10,29 +9,10 @@ declare const document: Document
  * 服务器注册信息接口
  */
 export interface ServerInfo {
-  /**
-   * 服务器名称
-   */
   name: string
-
-  /**
-   * 服务器版本
-   */
   version: string
-
-  /**
-   * 服务器描述（可选）
-   */
   description?: string
-
-  /**
-   * 服务器 URL（由 transport 自动添加）
-   */
   url?: string
-
-  /**
-   * 页面标题（由 transport 自动添加）
-   */
   title?: string
 }
 
@@ -60,7 +40,6 @@ export class ExtensionServerTransport implements Transport {
   private _lastRegistration: ServerInfo | null = null // 最后一次注册信息（用于 Sidepanel 刷新后重新注册）
 
   constructor(sessionId: string | null = null) {
-    setNamespace('ExtensionServerTransport-namespace')
     // 如果提供了 sessionId，使用提供的；否则随机生成
     if (sessionId) {
       this.sessionId = sessionId
@@ -68,22 +47,17 @@ export class ExtensionServerTransport implements Transport {
       this.sessionId = randomUUID()
     }
 
-    // 设置监听器
-    onMessage('sidepanel-ready-to-page', () => {
-      if (this._lastRegistration && this._isStarted) {
-        this._pageLog('side-ready, 即将重新注册 sessionId: ' + this.sessionId)
-
-        this.notifyRegistration(this._lastRegistration).catch((error) => {
-          this._pageLog('❌️ 重新注册失败:', error)
-        })
+    window.addEventListener('message', (event) => {
+      if (event.data.type === 'sidepanel-ready') {
+        if (this._lastRegistration && this._isStarted) {
+          this.notifyRegistration(this._lastRegistration).catch((error) => {
+            console.error('❌️ 重新注册失败:', error)
+          })
+        }
       }
     })
   }
 
-  // 转发日志
-  private async _pageLog(message: string, extra: any = {}) {
-    await sendMessage('server-transport-log-event', { message, extra }, 'content-script')
-  }
   /**
    * 启动 transport，开始监听消息
    * @returns {Promise<void>}
@@ -98,34 +72,23 @@ export class ExtensionServerTransport implements Transport {
       throw new Error('❌️ server Transport 已关闭，无法重新启动')
     }
 
-    try {
-      // 注册消息监听器
-      onMessage('mcp-client-to-server', ({ data }) => {
-        try {
-          // 调用 MCP Server 的消息处理器
-          if (this.onmessage) {
-            const mcpMessage = JSONRPCMessageSchema.parse((data as any).mcpMessage)
-            this.onmessage(mcpMessage)
-            this._pageLog(' ✅ 消息已处理')
-          } else {
-            this._pageLog('❌️ onmessage 回调未设置')
-          }
-        } catch (error) {
-          this._pageLog('❌️ 处理消息时发生错误:', error)
-          if (this.onerror) {
-            this.onerror(error instanceof Error ? error : new Error(String(error)))
-          }
+    window.addEventListener('message', (event) => {
+      if (event.data.type === 'mcp-client-to-server') {
+        const data = event.data.data
+        if (data.sessionId !== this.sessionId) {
+          console.error('❌️ sessionId 不匹配')
+          return
         }
-      })
-
-      this._isStarted = true
-    } catch (error) {
-      this._pageLog(' ❌️ 启动失败:', error)
-      if (this.onerror) {
-        this.onerror(error instanceof Error ? error : new Error(String(error)))
+        if (!data.mcpMessage) {
+          console.error('❌️ 消息缺少 mcpMessage 字段')
+          return
+        }
+        const mcpMessage = JSONRPCMessageSchema.parse(data.mcpMessage)
+        this.onmessage?.(mcpMessage)
       }
-      throw error
-    }
+    })
+
+    this._isStarted = true
   }
 
   /**
@@ -137,8 +100,6 @@ export class ExtensionServerTransport implements Transport {
     // 检查状态
     if (!this._isStarted) {
       const error = new Error('server Transport 未启动，无法发送消息')
-      await this._pageLog('❌️ server Transport 未启动，无法发送消息')
-
       if (this.onerror) {
         this.onerror(error)
       }
@@ -147,33 +108,22 @@ export class ExtensionServerTransport implements Transport {
 
     if (this._isClosed) {
       const error = new Error('server Transport 已关闭，无法发送消息')
-      await this._pageLog('❌️ server Transport 已关闭，无法发送消息')
       if (this.onerror) {
         this.onerror(error)
       }
       throw error
     }
 
-    try {
-      // 通过 window.postMessage 发送到 content script
-      await sendMessage(
-        'mcp-server-to-client',
-        {
+    window.postMessage(
+      {
+        type: 'mcp-server-to-client',
+        data: {
           sessionId: this.sessionId,
           mcpMessage: message
-        } as any,
-        'content-script'
-      )
-
-      await this._pageLog('✅ 响应已发送')
-    } catch (error) {
-      await this._pageLog('❌️ 发送消息失败')
-      const wrappedError = error instanceof Error ? error : new Error(String(error))
-      if (this.onerror) {
-        this.onerror(wrappedError)
-      }
-      throw wrappedError
-    }
+        }
+      },
+      '*'
+    )
   }
 
   /**
@@ -186,7 +136,7 @@ export class ExtensionServerTransport implements Transport {
    */
   async notifyRegistration(serverInfo: ServerInfo): Promise<void> {
     if (!this._isStarted) {
-      await this._pageLog('❌️ Transport 未启动，无法发送注册通知')
+      console.error('❌️ Transport 未启动，无法发送注册通知')
       return
     }
 
@@ -194,21 +144,22 @@ export class ExtensionServerTransport implements Transport {
     this._lastRegistration = serverInfo
 
     try {
-      await this._pageLog(`即将注册 server 到 content, sessionId=${this.sessionId}`)
-      await sendMessage(
-        'mcp-server-register',
+      window.postMessage(
         {
-          sessionId: this.sessionId,
-          serverInfo: {
-            ...serverInfo,
-            url: window.location.origin,
-            title: document.title
+          type: 'mcp-server-register',
+          data: {
+            sessionId: this.sessionId,
+            serverInfo: {
+              ...serverInfo,
+              url: window.location.origin,
+              title: document.title
+            }
           }
         },
-        'content-script'
+        '*'
       )
     } catch (error) {
-      await this._pageLog('❌️ 注册 server 失败, sessionId=${this.sessionId}', error)
+      console.error('❌️ 注册 server 失败, sessionId=${this.sessionId}', error)
 
       if (this.onerror) {
         this.onerror(error instanceof Error ? error : new Error(String(error)))
@@ -241,7 +192,7 @@ export class ExtensionServerTransport implements Transport {
         this.onclose()
       }
     } catch (error) {
-      await this._pageLog('❌️ server Transport 关闭时发生错误:', error)
+      console.error('❌️ server Transport 关闭时发生错误:', error)
 
       if (this.onerror) {
         this.onerror(error instanceof Error ? error : new Error(String(error)))

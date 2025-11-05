@@ -19,7 +19,11 @@ export default defineConfig({
     action: {},
     web_accessible_resources: [
       {
-        resources: ['vendor/next-sdk.js'],
+        resources: ['vendor/next-sdk.js', 'vendor/mcp-server.js'],
+        matches: ['*://*/*']
+      },
+      {
+        resources: ['mcp-servers/*/index.js'],
         matches: ['*://*/*']
       }
     ]
