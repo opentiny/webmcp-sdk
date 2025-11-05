@@ -7,6 +7,18 @@ export default defineBackground(() => {
       } catch (error) {
         console.error('切换页签失败', error)
       }
+      return
+    }
+
+    if (message.type === 'initWebMCP') {
+      const { hostname } = message.data
+      try {
+        const success = await injectMainScript(hostname)
+        return Promise.resolve({ success, hostname, timestamp: Date.now() })
+      } catch (error: any) {
+        console.error('脚本注入失败:', error)
+        return Promise.resolve({ success: false, error: error?.message || '未知错误' })
+      }
     }
   })
 

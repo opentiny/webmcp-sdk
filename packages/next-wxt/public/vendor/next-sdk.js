@@ -1,7 +1,7 @@
 ;(function (global2, factory) {
   typeof exports === 'object' && typeof module !== 'undefined'
     ? factory(exports)
-    : typeof define === 'function' && define.amdxx
+    : typeof define === 'function' && define.amdx
       ? define(['exports'], factory)
       : ((global2 = typeof globalThis !== 'undefined' ? globalThis : global2 || self), factory((global2.WebMCP = {})))
 })(this, function (exports2) {
@@ -3179,81 +3179,60 @@
   }
   var uri$2 = {}
   var fastUri$1 = { exports: {} }
-  const HEX$1 = {
-    0: 0,
-    1: 1,
-    2: 2,
-    3: 3,
-    4: 4,
-    5: 5,
-    6: 6,
-    7: 7,
-    8: 8,
-    9: 9,
-    a: 10,
-    A: 10,
-    b: 11,
-    B: 11,
-    c: 12,
-    C: 12,
-    d: 13,
-    D: 13,
-    e: 14,
-    E: 14,
-    f: 15,
-    F: 15
-  }
-  var scopedChars = {
-    HEX: HEX$1
-  }
-  const { HEX } = scopedChars
-  const IPV4_REG = /^(?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)$/u
-  function normalizeIPv4$1(host) {
-    if (findToken(host, '.') < 3) {
-      return { host, isIPV4: false }
-    }
-    const matches = host.match(IPV4_REG) || []
-    const [address] = matches
-    if (address) {
-      return { host: stripLeadingZeros(address, '.'), isIPV4: true }
-    } else {
-      return { host, isIPV4: false }
-    }
-  }
-  function stringArrayToHexStripped(input, keepZero = false) {
+  const isUUID$1 = RegExp.prototype.test.bind(/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/iu)
+  const isIPv4$1 = RegExp.prototype.test.bind(
+    /^(?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)$/u
+  )
+  function stringArrayToHexStripped(input) {
     let acc = ''
-    let strip = true
-    for (const c of input) {
-      if (HEX[c] === void 0) return void 0
-      if (c !== '0' && strip === true) strip = false
-      if (!strip) acc += c
+    let code2 = 0
+    let i = 0
+    for (i = 0; i < input.length; i++) {
+      code2 = input[i].charCodeAt(0)
+      if (code2 === 48) {
+        continue
+      }
+      if (!((code2 >= 48 && code2 <= 57) || (code2 >= 65 && code2 <= 70) || (code2 >= 97 && code2 <= 102))) {
+        return ''
+      }
+      acc += input[i]
+      break
     }
-    if (keepZero && acc.length === 0) acc = '0'
+    for (i += 1; i < input.length; i++) {
+      code2 = input[i].charCodeAt(0)
+      if (!((code2 >= 48 && code2 <= 57) || (code2 >= 65 && code2 <= 70) || (code2 >= 97 && code2 <= 102))) {
+        return ''
+      }
+      acc += input[i]
+    }
     return acc
+  }
+  const nonSimpleDomain$1 = RegExp.prototype.test.bind(/[^!"$&'()*+,\-.;=_`a-z{}~]/u)
+  function consumeIsZone(buffer) {
+    buffer.length = 0
+    return true
+  }
+  function consumeHextets(buffer, address, output) {
+    if (buffer.length) {
+      const hex = stringArrayToHexStripped(buffer)
+      if (hex !== '') {
+        address.push(hex)
+      } else {
+        output.error = true
+        return false
+      }
+      buffer.length = 0
+    }
+    return true
   }
   function getIPV6(input) {
     let tokenCount = 0
     const output = { error: false, address: '', zone: '' }
     const address = []
     const buffer = []
-    let isZone = false
     let endipv6Encountered = false
     let endIpv6 = false
-    function consume() {
-      if (buffer.length) {
-        if (isZone === false) {
-          const hex = stringArrayToHexStripped(buffer)
-          if (hex !== void 0) {
-            address.push(hex)
-          } else {
-            output.error = true
-            return false
-          }
-        }
-        buffer.length = 0
-      }
-      return true
-    }
+    let consume = consumeHextets
     for (let i = 0; i < input.length; i++) {
       const cursor = input[i]
       if (cursor === '[' || cursor === ']') {
@@ -3263,31 +3242,30 @@
         if (endipv6Encountered === true) {
           endIpv6 = true
         }
-        if (!consume()) {
+        if (!consume(buffer, address, output)) {
           break
         }
-        tokenCount++
-        address.push(':')
-        if (tokenCount > 7) {
+        if (++tokenCount > 7) {
           output.error = true
           break
         }
-        if (i - 1 >= 0 && input[i - 1] === ':') {
+        if (i > 0 && input[i - 1] === ':') {
           endipv6Encountered = true
         }
+        address.push(':')
         continue
       } else if (cursor === '%') {
-        if (!consume()) {
+        if (!consume(buffer, address, output)) {
           break
         }
-        isZone = true
+        consume = consumeIsZone
       } else {
         buffer.push(cursor)
         continue
       }
     }
     if (buffer.length) {
-      if (isZone) {
+      if (consume === consumeIsZone) {
         output.zone = buffer.join('')
       } else if (endIpv6) {
         address.push(buffer.join(''))
@@ -3310,32 +3288,10 @@
         newHost += '%' + ipv6.zone
         escapedHost += '%25' + ipv6.zone
       }
-      return { host: newHost, escapedHost, isIPV6: true }
+      return { host: newHost, isIPV6: true, escapedHost }
     } else {
       return { host, isIPV6: false }
     }
-  }
-  function stripLeadingZeros(str, token) {
-    let out = ''
-    let skip = true
-    const l = str.length
-    for (let i = 0; i < l; i++) {
-      const c = str[i]
-      if (c === '0' && skip) {
-        if ((i + 1 <= l && str[i + 1] === token) || i + 1 === l) {
-          out += c
-          skip = false
-        }
-      } else {
-        if (c === token) {
-          skip = true
-        } else {
-          skip = false
-        }
-        out += c
-      }
-    }
-    return out
   }
   function findToken(str, token) {
     let ind = 0
@@ -3344,253 +3300,344 @@
     }
     return ind
   }
-  const RDS1 = /^\.\.?\//u
-  const RDS2 = /^\/\.(?:\/|$)/u
-  const RDS3 = /^\/\.\.(?:\/|$)/u
-  const RDS5 = /^\/?(?:.|\n)*?(?=\/|$)/u
-  function removeDotSegments$1(input) {
+  function removeDotSegments$1(path) {
+    let input = path
     const output = []
-    while (input.length) {
-      if (input.match(RDS1)) {
-        input = input.replace(RDS1, '')
-      } else if (input.match(RDS2)) {
-        input = input.replace(RDS2, '/')
-      } else if (input.match(RDS3)) {
-        input = input.replace(RDS3, '/')
-        output.pop()
-      } else if (input === '.' || input === '..') {
-        input = ''
-      } else {
-        const im = input.match(RDS5)
-        if (im) {
-          const s = im[0]
-          input = input.slice(s.length)
-          output.push(s)
+    let nextSlash = -1
+    let len = 0
+    while ((len = input.length)) {
+      if (len === 1) {
+        if (input === '.') {
+          break
+        } else if (input === '/') {
+          output.push('/')
+          break
         } else {
-          throw new Error('Unexpected dot segment condition')
+          output.push(input)
+          break
         }
+      } else if (len === 2) {
+        if (input[0] === '.') {
+          if (input[1] === '.') {
+            break
+          } else if (input[1] === '/') {
+            input = input.slice(2)
+            continue
+          }
+        } else if (input[0] === '/') {
+          if (input[1] === '.' || input[1] === '/') {
+            output.push('/')
+            break
+          }
+        }
+      } else if (len === 3) {
+        if (input === '/..') {
+          if (output.length !== 0) {
+            output.pop()
+          }
+          output.push('/')
+          break
+        }
+      }
+      if (input[0] === '.') {
+        if (input[1] === '.') {
+          if (input[2] === '/') {
+            input = input.slice(3)
+            continue
+          }
+        } else if (input[1] === '/') {
+          input = input.slice(2)
+          continue
+        }
+      } else if (input[0] === '/') {
+        if (input[1] === '.') {
+          if (input[2] === '/') {
+            input = input.slice(2)
+            continue
+          } else if (input[2] === '.') {
+            if (input[3] === '/') {
+              input = input.slice(3)
+              if (output.length !== 0) {
+                output.pop()
+              }
+              continue
+            }
+          }
+        }
+      }
+      if ((nextSlash = input.indexOf('/', 1)) === -1) {
+        output.push(input)
+        break
+      } else {
+        output.push(input.slice(0, nextSlash))
+        input = input.slice(nextSlash)
       }
     }
     return output.join('')
   }
-  function normalizeComponentEncoding$1(components, esc) {
+  function normalizeComponentEncoding$1(component, esc) {
     const func = esc !== true ? escape : unescape
-    if (components.scheme !== void 0) {
-      components.scheme = func(components.scheme)
+    if (component.scheme !== void 0) {
+      component.scheme = func(component.scheme)
     }
-    if (components.userinfo !== void 0) {
-      components.userinfo = func(components.userinfo)
+    if (component.userinfo !== void 0) {
+      component.userinfo = func(component.userinfo)
     }
-    if (components.host !== void 0) {
-      components.host = func(components.host)
+    if (component.host !== void 0) {
+      component.host = func(component.host)
     }
-    if (components.path !== void 0) {
-      components.path = func(components.path)
+    if (component.path !== void 0) {
+      component.path = func(component.path)
     }
-    if (components.query !== void 0) {
-      components.query = func(components.query)
+    if (component.query !== void 0) {
+      component.query = func(component.query)
     }
-    if (components.fragment !== void 0) {
-      components.fragment = func(components.fragment)
+    if (component.fragment !== void 0) {
+      component.fragment = func(component.fragment)
     }
-    return components
+    return component
   }
-  function recomposeAuthority$1(components) {
+  function recomposeAuthority$1(component) {
     const uriTokens = []
-    if (components.userinfo !== void 0) {
-      uriTokens.push(components.userinfo)
+    if (component.userinfo !== void 0) {
+      uriTokens.push(component.userinfo)
       uriTokens.push('@')
     }
-    if (components.host !== void 0) {
-      let host = unescape(components.host)
-      const ipV4res = normalizeIPv4$1(host)
-      if (ipV4res.isIPV4) {
-        host = ipV4res.host
-      } else {
-        const ipV6res = normalizeIPv6$1(ipV4res.host)
+    if (component.host !== void 0) {
+      let host = unescape(component.host)
+      if (!isIPv4$1(host)) {
+        const ipV6res = normalizeIPv6$1(host)
         if (ipV6res.isIPV6 === true) {
           host = `[${ipV6res.escapedHost}]`
         } else {
-          host = components.host
+          host = component.host
         }
       }
       uriTokens.push(host)
     }
-    if (typeof components.port === 'number' || typeof components.port === 'string') {
+    if (typeof component.port === 'number' || typeof component.port === 'string') {
       uriTokens.push(':')
-      uriTokens.push(String(components.port))
+      uriTokens.push(String(component.port))
     }
     return uriTokens.length ? uriTokens.join('') : void 0
   }
   var utils = {
+    nonSimpleDomain: nonSimpleDomain$1,
     recomposeAuthority: recomposeAuthority$1,
     normalizeComponentEncoding: normalizeComponentEncoding$1,
     removeDotSegments: removeDotSegments$1,
-    normalizeIPv4: normalizeIPv4$1,
+    isIPv4: isIPv4$1,
+    isUUID: isUUID$1,
     normalizeIPv6: normalizeIPv6$1
   }
-  const UUID_REG = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/iu
+  const { isUUID } = utils
   const URN_REG = /([\da-z][\d\-a-z]{0,31}):((?:[\w!$'()*+,\-.:;=@]|%[\da-f]{2})+)/iu
-  function isSecure(wsComponents) {
-    return typeof wsComponents.secure === 'boolean'
-      ? wsComponents.secure
-      : String(wsComponents.scheme).toLowerCase() === 'wss'
+  function wsIsSecure(wsComponent) {
+    if (wsComponent.secure === true) {
+      return true
+    } else if (wsComponent.secure === false) {
+      return false
+    } else if (wsComponent.scheme) {
+      return (
+        wsComponent.scheme.length === 3 &&
+        (wsComponent.scheme[0] === 'w' || wsComponent.scheme[0] === 'W') &&
+        (wsComponent.scheme[1] === 's' || wsComponent.scheme[1] === 'S') &&
+        (wsComponent.scheme[2] === 's' || wsComponent.scheme[2] === 'S')
+      )
+    } else {
+      return false
+    }
   }
-  function httpParse(components) {
-    if (!components.host) {
-      components.error = components.error || 'HTTP URIs must have a host.'
+  function httpParse(component) {
+    if (!component.host) {
+      component.error = component.error || 'HTTP URIs must have a host.'
     }
-    return components
+    return component
   }
-  function httpSerialize(components) {
-    const secure = String(components.scheme).toLowerCase() === 'https'
-    if (components.port === (secure ? 443 : 80) || components.port === '') {
-      components.port = void 0
+  function httpSerialize(component) {
+    const secure = String(component.scheme).toLowerCase() === 'https'
+    if (component.port === (secure ? 443 : 80) || component.port === '') {
+      component.port = void 0
     }
-    if (!components.path) {
-      components.path = '/'
+    if (!component.path) {
+      component.path = '/'
     }
-    return components
+    return component
   }
-  function wsParse(wsComponents) {
-    wsComponents.secure = isSecure(wsComponents)
-    wsComponents.resourceName = (wsComponents.path || '/') + (wsComponents.query ? '?' + wsComponents.query : '')
-    wsComponents.path = void 0
-    wsComponents.query = void 0
-    return wsComponents
+  function wsParse(wsComponent) {
+    wsComponent.secure = wsIsSecure(wsComponent)
+    wsComponent.resourceName = (wsComponent.path || '/') + (wsComponent.query ? '?' + wsComponent.query : '')
+    wsComponent.path = void 0
+    wsComponent.query = void 0
+    return wsComponent
   }
-  function wsSerialize(wsComponents) {
-    if (wsComponents.port === (isSecure(wsComponents) ? 443 : 80) || wsComponents.port === '') {
-      wsComponents.port = void 0
+  function wsSerialize(wsComponent) {
+    if (wsComponent.port === (wsIsSecure(wsComponent) ? 443 : 80) || wsComponent.port === '') {
+      wsComponent.port = void 0
     }
-    if (typeof wsComponents.secure === 'boolean') {
-      wsComponents.scheme = wsComponents.secure ? 'wss' : 'ws'
-      wsComponents.secure = void 0
+    if (typeof wsComponent.secure === 'boolean') {
+      wsComponent.scheme = wsComponent.secure ? 'wss' : 'ws'
+      wsComponent.secure = void 0
     }
-    if (wsComponents.resourceName) {
-      const [path, query] = wsComponents.resourceName.split('?')
-      wsComponents.path = path && path !== '/' ? path : void 0
-      wsComponents.query = query
-      wsComponents.resourceName = void 0
+    if (wsComponent.resourceName) {
+      const [path, query] = wsComponent.resourceName.split('?')
+      wsComponent.path = path && path !== '/' ? path : void 0
+      wsComponent.query = query
+      wsComponent.resourceName = void 0
     }
-    wsComponents.fragment = void 0
-    return wsComponents
+    wsComponent.fragment = void 0
+    return wsComponent
   }
-  function urnParse(urnComponents, options) {
-    if (!urnComponents.path) {
-      urnComponents.error = 'URN can not be parsed'
-      return urnComponents
+  function urnParse(urnComponent, options) {
+    if (!urnComponent.path) {
+      urnComponent.error = 'URN can not be parsed'
+      return urnComponent
     }
-    const matches = urnComponents.path.match(URN_REG)
+    const matches = urnComponent.path.match(URN_REG)
     if (matches) {
-      const scheme = options.scheme || urnComponents.scheme || 'urn'
-      urnComponents.nid = matches[1].toLowerCase()
-      urnComponents.nss = matches[2]
-      const urnScheme = `${scheme}:${options.nid || urnComponents.nid}`
-      const schemeHandler = SCHEMES$1[urnScheme]
-      urnComponents.path = void 0
+      const scheme = options.scheme || urnComponent.scheme || 'urn'
+      urnComponent.nid = matches[1].toLowerCase()
+      urnComponent.nss = matches[2]
+      const urnScheme = `${scheme}:${options.nid || urnComponent.nid}`
+      const schemeHandler = getSchemeHandler$1(urnScheme)
+      urnComponent.path = void 0
       if (schemeHandler) {
-        urnComponents = schemeHandler.parse(urnComponents, options)
+        urnComponent = schemeHandler.parse(urnComponent, options)
       }
     } else {
-      urnComponents.error = urnComponents.error || 'URN can not be parsed.'
+      urnComponent.error = urnComponent.error || 'URN can not be parsed.'
     }
-    return urnComponents
+    return urnComponent
   }
-  function urnSerialize(urnComponents, options) {
-    const scheme = options.scheme || urnComponents.scheme || 'urn'
-    const nid = urnComponents.nid.toLowerCase()
+  function urnSerialize(urnComponent, options) {
+    if (urnComponent.nid === void 0) {
+      throw new Error('URN without nid cannot be serialized')
+    }
+    const scheme = options.scheme || urnComponent.scheme || 'urn'
+    const nid = urnComponent.nid.toLowerCase()
     const urnScheme = `${scheme}:${options.nid || nid}`
-    const schemeHandler = SCHEMES$1[urnScheme]
+    const schemeHandler = getSchemeHandler$1(urnScheme)
     if (schemeHandler) {
-      urnComponents = schemeHandler.serialize(urnComponents, options)
+      urnComponent = schemeHandler.serialize(urnComponent, options)
     }
-    const uriComponents = urnComponents
-    const nss = urnComponents.nss
-    uriComponents.path = `${nid || options.nid}:${nss}`
+    const uriComponent = urnComponent
+    const nss = urnComponent.nss
+    uriComponent.path = `${nid || options.nid}:${nss}`
     options.skipEscape = true
-    return uriComponents
+    return uriComponent
   }
-  function urnuuidParse(urnComponents, options) {
-    const uuidComponents = urnComponents
-    uuidComponents.uuid = uuidComponents.nss
-    uuidComponents.nss = void 0
-    if (!options.tolerant && (!uuidComponents.uuid || !UUID_REG.test(uuidComponents.uuid))) {
-      uuidComponents.error = uuidComponents.error || 'UUID is not valid.'
+  function urnuuidParse(urnComponent, options) {
+    const uuidComponent = urnComponent
+    uuidComponent.uuid = uuidComponent.nss
+    uuidComponent.nss = void 0
+    if (!options.tolerant && (!uuidComponent.uuid || !isUUID(uuidComponent.uuid))) {
+      uuidComponent.error = uuidComponent.error || 'UUID is not valid.'
     }
-    return uuidComponents
+    return uuidComponent
   }
-  function urnuuidSerialize(uuidComponents) {
-    const urnComponents = uuidComponents
-    urnComponents.nss = (uuidComponents.uuid || '').toLowerCase()
-    return urnComponents
+  function urnuuidSerialize(uuidComponent) {
+    const urnComponent = uuidComponent
+    urnComponent.nss = (uuidComponent.uuid || '').toLowerCase()
+    return urnComponent
   }
-  const http = {
-    scheme: 'http',
-    domainHost: true,
-    parse: httpParse,
-    serialize: httpSerialize
+  const http =
+    /** @type {SchemeHandler} */
+    {
+      scheme: 'http',
+      domainHost: true,
+      parse: httpParse,
+      serialize: httpSerialize
+    }
+  const https =
+    /** @type {SchemeHandler} */
+    {
+      scheme: 'https',
+      domainHost: http.domainHost,
+      parse: httpParse,
+      serialize: httpSerialize
+    }
+  const ws =
+    /** @type {SchemeHandler} */
+    {
+      scheme: 'ws',
+      domainHost: true,
+      parse: wsParse,
+      serialize: wsSerialize
+    }
+  const wss =
+    /** @type {SchemeHandler} */
+    {
+      scheme: 'wss',
+      domainHost: ws.domainHost,
+      parse: ws.parse,
+      serialize: ws.serialize
+    }
+  const urn =
+    /** @type {SchemeHandler} */
+    {
+      scheme: 'urn',
+      parse: urnParse,
+      serialize: urnSerialize,
+      skipNormalize: true
+    }
+  const urnuuid =
+    /** @type {SchemeHandler} */
+    {
+      scheme: 'urn:uuid',
+      parse: urnuuidParse,
+      serialize: urnuuidSerialize,
+      skipNormalize: true
+    }
+  const SCHEMES$1 =
+    /** @type {Record<SchemeName, SchemeHandler>} */
+    {
+      http,
+      https,
+      ws,
+      wss,
+      urn,
+      'urn:uuid': urnuuid
+    }
+  Object.setPrototypeOf(SCHEMES$1, null)
+  function getSchemeHandler$1(scheme) {
+    return (
+      (scheme &&
+        /** @type {SchemeName} */
+        (SCHEMES$1[scheme] ||
+          SCHEMES$1[
+            /** @type {SchemeName} */
+            scheme.toLowerCase()
+          ])) ||
+      void 0
+    )
   }
-  const https = {
-    scheme: 'https',
-    domainHost: http.domainHost,
-    parse: httpParse,
-    serialize: httpSerialize
+  var schemes = {
+    SCHEMES: SCHEMES$1,
+    getSchemeHandler: getSchemeHandler$1
   }
-  const ws = {
-    scheme: 'ws',
-    domainHost: true,
-    parse: wsParse,
-    serialize: wsSerialize
-  }
-  const wss = {
-    scheme: 'wss',
-    domainHost: ws.domainHost,
-    parse: ws.parse,
-    serialize: ws.serialize
-  }
-  const urn = {
-    scheme: 'urn',
-    parse: urnParse,
-    serialize: urnSerialize,
-    skipNormalize: true
-  }
-  const urnuuid = {
-    scheme: 'urn:uuid',
-    parse: urnuuidParse,
-    serialize: urnuuidSerialize,
-    skipNormalize: true
-  }
-  const SCHEMES$1 = {
-    http,
-    https,
-    ws,
-    wss,
-    urn,
-    'urn:uuid': urnuuid
-  }
-  var schemes = SCHEMES$1
-  const { normalizeIPv6, normalizeIPv4, removeDotSegments, recomposeAuthority, normalizeComponentEncoding } = utils
-  const SCHEMES = schemes
+  const { normalizeIPv6, removeDotSegments, recomposeAuthority, normalizeComponentEncoding, isIPv4, nonSimpleDomain } =
+    utils
+  const { SCHEMES, getSchemeHandler } = schemes
   function normalize(uri2, options) {
     if (typeof uri2 === 'string') {
-      uri2 = serialize(parse(uri2, options), options)
+      uri2 = /** @type {T} */ serialize(parse(uri2, options), options)
     } else if (typeof uri2 === 'object') {
-      uri2 = parse(serialize(uri2, options), options)
+      uri2 = /** @type {T} */ parse(serialize(uri2, options), options)
     }
     return uri2
   }
   function resolve$4(baseURI, relativeURI, options) {
-    const schemelessOptions = Object.assign({ scheme: 'null' }, options)
-    const resolved = resolveComponents(
+    const schemelessOptions = options ? Object.assign({ scheme: 'null' }, options) : { scheme: 'null' }
+    const resolved = resolveComponent(
       parse(baseURI, schemelessOptions),
       parse(relativeURI, schemelessOptions),
       schemelessOptions,
       true
     )
-    return serialize(resolved, { ...schemelessOptions, skipEscape: true })
+    schemelessOptions.skipEscape = true
+    return serialize(resolved, schemelessOptions)
   }
-  function resolveComponents(base, relative, options, skipNormalization) {
+  function resolveComponent(base, relative, options, skipNormalization) {
     const target = {}
     if (!skipNormalization) {
       base = parse(serialize(base, options), options)
@@ -3620,7 +3667,7 @@
             target.query = base.query
           }
         } else {
-          if (relative.path.charAt(0) === '/') {
+          if (relative.path[0] === '/') {
             target.path = removeDotSegments(relative.path)
           } else {
             if ((base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0) && !base.path) {
@@ -3659,7 +3706,7 @@
     return uriA.toLowerCase() === uriB.toLowerCase()
   }
   function serialize(cmpts, opts) {
-    const components = {
+    const component = {
       host: cmpts.host,
       scheme: cmpts.scheme,
       userinfo: cmpts.userinfo,
@@ -3677,59 +3724,48 @@
     }
     const options = Object.assign({}, opts)
     const uriTokens = []
-    const schemeHandler = SCHEMES[(options.scheme || components.scheme || '').toLowerCase()]
-    if (schemeHandler && schemeHandler.serialize) schemeHandler.serialize(components, options)
-    if (components.path !== void 0) {
+    const schemeHandler = getSchemeHandler(options.scheme || component.scheme)
+    if (schemeHandler && schemeHandler.serialize) schemeHandler.serialize(component, options)
+    if (component.path !== void 0) {
       if (!options.skipEscape) {
-        components.path = escape(components.path)
-        if (components.scheme !== void 0) {
-          components.path = components.path.split('%3A').join(':')
+        component.path = escape(component.path)
+        if (component.scheme !== void 0) {
+          component.path = component.path.split('%3A').join(':')
         }
       } else {
-        components.path = unescape(components.path)
+        component.path = unescape(component.path)
       }
     }
-    if (options.reference !== 'suffix' && components.scheme) {
-      uriTokens.push(components.scheme, ':')
+    if (options.reference !== 'suffix' && component.scheme) {
+      uriTokens.push(component.scheme, ':')
     }
-    const authority = recomposeAuthority(components)
+    const authority = recomposeAuthority(component)
     if (authority !== void 0) {
       if (options.reference !== 'suffix') {
         uriTokens.push('//')
       }
       uriTokens.push(authority)
-      if (components.path && components.path.charAt(0) !== '/') {
+      if (component.path && component.path[0] !== '/') {
         uriTokens.push('/')
       }
     }
-    if (components.path !== void 0) {
-      let s = components.path
+    if (component.path !== void 0) {
+      let s = component.path
       if (!options.absolutePath && (!schemeHandler || !schemeHandler.absolutePath)) {
         s = removeDotSegments(s)
       }
-      if (authority === void 0) {
-        s = s.replace(/^\/\//u, '/%2F')
+      if (authority === void 0 && s[0] === '/' && s[1] === '/') {
+        s = '/%2F' + s.slice(2)
       }
       uriTokens.push(s)
     }
-    if (components.query !== void 0) {
-      uriTokens.push('?', components.query)
+    if (component.query !== void 0) {
+      uriTokens.push('?', component.query)
     }
-    if (components.fragment !== void 0) {
-      uriTokens.push('#', components.fragment)
+    if (component.fragment !== void 0) {
+      uriTokens.push('#', component.fragment)
     }
     return uriTokens.join('')
-  }
-  const hexLookUp = Array.from({ length: 127 }, (_v, k) => /[^!"$&'()*+,\-.;=_`a-z{}~]/u.test(String.fromCharCode(k)))
-  function nonSimpleDomain(value) {
-    let code2 = 0
-    for (let i = 0, len = value.length; i < len; ++i) {
-      code2 = value.charCodeAt(i)
-      if (code2 > 126 || hexLookUp[code2]) {
-        return true
-      }
-    }
-    return false
   }
   const URI_PARSE =
     /^(?:([^#/:?]+):)?(?:\/\/((?:([^#/?@]*)@)?(\[[^#/?\]]+\]|[^#/:?]*)(?::(\d*))?))?([^#?]*)(?:\?([^#]*))?(?:#((?:.|[\n\r])*))?/u
@@ -3744,9 +3780,14 @@
       query: void 0,
       fragment: void 0
     }
-    const gotEncoding = uri2.indexOf('%') !== -1
     let isIP = false
-    if (options.reference === 'suffix') uri2 = (options.scheme ? options.scheme + ':' : '') + '//' + uri2
+    if (options.reference === 'suffix') {
+      if (options.scheme) {
+        uri2 = options.scheme + ':' + uri2
+      } else {
+        uri2 = '//' + uri2
+      }
+    }
     const matches = uri2.match(URI_PARSE)
     if (matches) {
       parsed.scheme = matches[1]
@@ -3760,13 +3801,12 @@
         parsed.port = matches[5]
       }
       if (parsed.host) {
-        const ipv4result = normalizeIPv4(parsed.host)
-        if (ipv4result.isIPV4 === false) {
-          const ipv6result = normalizeIPv6(ipv4result.host)
+        const ipv4result = isIPv4(parsed.host)
+        if (ipv4result === false) {
+          const ipv6result = normalizeIPv6(parsed.host)
           parsed.host = ipv6result.host.toLowerCase()
           isIP = ipv6result.isIPV6
         } else {
-          parsed.host = ipv4result.host
           isIP = true
         }
       }
@@ -3789,7 +3829,7 @@
       if (options.reference && options.reference !== 'suffix' && options.reference !== parsed.reference) {
         parsed.error = parsed.error || 'URI is not a ' + options.reference + ' reference.'
       }
-      const schemeHandler = SCHEMES[(options.scheme || parsed.scheme || '').toLowerCase()]
+      const schemeHandler = getSchemeHandler(options.scheme || parsed.scheme)
       if (!options.unicodeSupport && (!schemeHandler || !schemeHandler.unicodeSupport)) {
         if (
           parsed.host &&
@@ -3805,11 +3845,13 @@
         }
       }
       if (!schemeHandler || (schemeHandler && !schemeHandler.skipNormalize)) {
-        if (gotEncoding && parsed.scheme !== void 0) {
-          parsed.scheme = unescape(parsed.scheme)
-        }
-        if (gotEncoding && parsed.host !== void 0) {
-          parsed.host = unescape(parsed.host)
+        if (uri2.indexOf('%') !== -1) {
+          if (parsed.scheme !== void 0) {
+            parsed.scheme = unescape(parsed.scheme)
+          }
+          if (parsed.host !== void 0) {
+            parsed.host = unescape(parsed.host)
+          }
         }
         if (parsed.path) {
           parsed.path = escape(unescape(parsed.path))
@@ -3830,7 +3872,7 @@
     SCHEMES,
     normalize,
     resolve: resolve$4,
-    resolveComponents,
+    resolveComponent,
     equal: equal$4,
     serialize,
     parse
@@ -10583,6 +10625,37 @@
       reason: stringType().optional()
     })
   })
+  const IconSchema = objectType({
+    /**
+     * URL or data URI for the icon.
+     */
+    src: stringType(),
+    /**
+     * Optional MIME type for the icon.
+     */
+    mimeType: optionalType(stringType()),
+    /**
+     * Optional array of strings that specify sizes at which the icon can be used.
+     * Each string should be in WxH format (e.g., `"48x48"`, `"96x96"`) or `"any"` for scalable formats like SVG.
+     *
+     * If not provided, the client should assume that the icon can be used at any size.
+     */
+    sizes: optionalType(arrayType(stringType()))
+  }).passthrough()
+  const IconsSchema = objectType({
+    /**
+     * Optional set of sized icons that the client can display in a user interface.
+     *
+     * Clients that support rendering icons MUST support at least the following MIME types:
+     * - `image/png` - PNG images (safe, universal compatibility)
+     * - `image/jpeg` (and `image/jpg`) - JPEG images (safe, universal compatibility)
+     *
+     * Clients that support rendering icons SHOULD also support:
+     * - `image/svg+xml` - SVG images (scalable but requires security precautions)
+     * - `image/webp` - WebP images (modern, efficient format)
+     */
+    icons: arrayType(IconSchema).optional()
+  }).passthrough()
   const BaseMetadataSchema = objectType({
     /** Intended for programmatic or logical use, but used as a display name in past specs or fallback */
     name: stringType(),
@@ -10597,8 +10670,12 @@
     title: optionalType(stringType())
   }).passthrough()
   const ImplementationSchema = BaseMetadataSchema.extend({
-    version: stringType()
-  })
+    version: stringType(),
+    /**
+     * An optional URL of the website for this implementation.
+     */
+    websiteUrl: optionalType(stringType())
+  }).merge(IconsSchema)
   const ClientCapabilitiesSchema = objectType({
     /**
      * Experimental, non-standard capabilities that the client supports.
@@ -10804,7 +10881,7 @@
      * for notes on _meta usage.
      */
     _meta: optionalType(objectType({}).passthrough())
-  })
+  }).merge(IconsSchema)
   const ResourceTemplateSchema = BaseMetadataSchema.extend({
     /**
      * A URI template (according to RFC 6570) that can be used to construct resource URIs.
@@ -10825,7 +10902,7 @@
      * for notes on _meta usage.
      */
     _meta: optionalType(objectType({}).passthrough())
-  })
+  }).merge(IconsSchema)
   const ListResourcesRequestSchema = PaginatedRequestSchema.extend({
     method: literalType('resources/list')
   })
@@ -10908,7 +10985,7 @@
      * for notes on _meta usage.
      */
     _meta: optionalType(objectType({}).passthrough())
-  })
+  }).merge(IconsSchema)
   const ListPromptsRequestSchema = PaginatedRequestSchema.extend({
     method: literalType('prompts/list')
   })
@@ -11077,7 +11154,7 @@
      * for notes on _meta usage.
      */
     _meta: optionalType(objectType({}).passthrough())
-  })
+  }).merge(IconsSchema)
   const ListToolsRequestSchema = PaginatedRequestSchema.extend({
     method: literalType('tools/list')
   })
@@ -11539,13 +11616,14 @@
         .catch((error2) => this._onerror(new Error(`Uncaught error in notification handler: ${error2}`)))
     }
     _onrequest(request, extra) {
-      var _a, _b, _c, _d
+      var _a, _b
       const handler =
         (_a = this._requestHandlers.get(request.method)) !== null && _a !== void 0 ? _a : this.fallbackRequestHandler
+      const capturedTransport = this._transport
       if (handler === void 0) {
-        ;(_b = this._transport) === null || _b === void 0
+        capturedTransport === null || capturedTransport === void 0
           ? void 0
-          : _b
+          : capturedTransport
               .send({
                 jsonrpc: '2.0',
                 id: request.id,
@@ -11561,8 +11639,8 @@
       this._requestHandlerAbortControllers.set(request.id, abortController)
       const fullExtra = {
         signal: abortController.signal,
-        sessionId: (_c = this._transport) === null || _c === void 0 ? void 0 : _c.sessionId,
-        _meta: (_d = request.params) === null || _d === void 0 ? void 0 : _d._meta,
+        sessionId: capturedTransport === null || capturedTransport === void 0 ? void 0 : capturedTransport.sessionId,
+        _meta: (_b = request.params) === null || _b === void 0 ? void 0 : _b._meta,
         sendNotification: (notification) => this.notification(notification, { relatedRequestId: request.id }),
         sendRequest: (r, resultSchema, options) =>
           this.request(r, resultSchema, { ...options, relatedRequestId: request.id }),
@@ -11574,31 +11652,30 @@
         .then(() => handler(request, fullExtra))
         .then(
           (result) => {
-            var _a2
             if (abortController.signal.aborted) {
               return
             }
-            return (_a2 = this._transport) === null || _a2 === void 0
+            return capturedTransport === null || capturedTransport === void 0
               ? void 0
-              : _a2.send({
+              : capturedTransport.send({
                   result,
                   jsonrpc: '2.0',
                   id: request.id
                 })
           },
           (error2) => {
-            var _a2, _b2
+            var _a2
             if (abortController.signal.aborted) {
               return
             }
-            return (_a2 = this._transport) === null || _a2 === void 0
+            return capturedTransport === null || capturedTransport === void 0
               ? void 0
-              : _a2.send({
+              : capturedTransport.send({
                   jsonrpc: '2.0',
                   id: request.id,
                   error: {
                     code: Number.isSafeInteger(error2['code']) ? error2['code'] : ErrorCode.InternalError,
-                    message: (_b2 = error2.message) !== null && _b2 !== void 0 ? _b2 : 'Internal error'
+                    message: (_a2 = error2.message) !== null && _a2 !== void 0 ? _a2 : 'Internal error'
                   }
                 })
           }
@@ -12622,24 +12699,24 @@
         }
         return uriTokens.length ? uriTokens.join('') : void 0
       }
-      var RDS12 = /^\.\.?\//
-      var RDS22 = /^\/\.(\/|$)/
-      var RDS32 = /^\/\.\.(\/|$)/
-      var RDS52 = /^\/?(?:.|\n)*?(?=\/|$)/
+      var RDS1 = /^\.\.?\//
+      var RDS2 = /^\/\.(\/|$)/
+      var RDS3 = /^\/\.\.(\/|$)/
+      var RDS5 = /^\/?(?:.|\n)*?(?=\/|$)/
       function removeDotSegments2(input) {
         var output = []
         while (input.length) {
-          if (input.match(RDS12)) {
-            input = input.replace(RDS12, '')
-          } else if (input.match(RDS22)) {
-            input = input.replace(RDS22, '/')
-          } else if (input.match(RDS32)) {
-            input = input.replace(RDS32, '/')
+          if (input.match(RDS1)) {
+            input = input.replace(RDS1, '')
+          } else if (input.match(RDS2)) {
+            input = input.replace(RDS2, '/')
+          } else if (input.match(RDS3)) {
+            input = input.replace(RDS3, '/')
             output.pop()
           } else if (input === '.' || input === '..') {
             input = ''
           } else {
-            var im = input.match(RDS52)
+            var im = input.match(RDS5)
             if (im) {
               var s = im[0]
               input = input.slice(s.length)
@@ -12709,7 +12786,7 @@
         }
         return uriTokens.join('')
       }
-      function resolveComponents2(base2, relative) {
+      function resolveComponents(base2, relative) {
         var options = arguments.length > 2 && arguments[2] !== void 0 ? arguments[2] : {}
         var skipNormalization = arguments[3]
         var target = {}
@@ -12767,7 +12844,7 @@
       function resolve2(baseURI, relativeURI, options) {
         var schemelessOptions = assign({ scheme: 'null' }, options)
         return serialize2(
-          resolveComponents2(
+          resolveComponents(
             parse2(baseURI, schemelessOptions),
             parse2(relativeURI, schemelessOptions),
             schemelessOptions,
@@ -12837,7 +12914,7 @@
         parse: handler.parse,
         serialize: handler.serialize
       }
-      function isSecure2(wsComponents) {
+      function isSecure(wsComponents) {
         return typeof wsComponents.secure === 'boolean'
           ? wsComponents.secure
           : String(wsComponents.scheme).toLowerCase() === 'wss'
@@ -12847,14 +12924,14 @@
         domainHost: true,
         parse: function parse3(components, options) {
           var wsComponents = components
-          wsComponents.secure = isSecure2(wsComponents)
+          wsComponents.secure = isSecure(wsComponents)
           wsComponents.resourceName = (wsComponents.path || '/') + (wsComponents.query ? '?' + wsComponents.query : '')
           wsComponents.path = void 0
           wsComponents.query = void 0
           return wsComponents
         },
         serialize: function serialize3(wsComponents, options) {
-          if (wsComponents.port === (isSecure2(wsComponents) ? 443 : 80) || wsComponents.port === '') {
+          if (wsComponents.port === (isSecure(wsComponents) ? 443 : 80) || wsComponents.port === '') {
             wsComponents.port = void 0
           }
           if (typeof wsComponents.secure === 'boolean') {
@@ -13078,7 +13155,7 @@
       exports4.parse = parse2
       exports4.removeDotSegments = removeDotSegments2
       exports4.serialize = serialize2
-      exports4.resolveComponents = resolveComponents2
+      exports4.resolveComponents = resolveComponents
       exports4.resolve = resolve2
       exports4.normalize = normalize2
       exports4.equal = equal2
@@ -19753,7 +19830,9 @@
         (crIndex !== -1 && lfIndex !== -1
           ? (lineEnd = Math.min(crIndex, lfIndex))
           : crIndex !== -1
-            ? (lineEnd = crIndex)
+            ? crIndex === chunk.length - 1
+              ? (lineEnd = -1)
+              : (lineEnd = crIndex)
             : lfIndex !== -1 && (lineEnd = lfIndex),
         lineEnd === -1)
       ) {
@@ -20202,13 +20281,13 @@
   }
   let crypto$1
   crypto$1 = globalThis.crypto
-  async function getRandomValues$1(size) {
+  async function getRandomValues(size) {
     return (await crypto$1).getRandomValues(new Uint8Array(size))
   }
   async function random(size) {
     const mask = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~'
     let result = ''
-    const randomUints = await getRandomValues$1(size)
+    const randomUints = await getRandomValues(size)
     for (let i = 0; i < size; i++) {
       const randomIndex = randomUints[i] % mask.length
       result += mask[randomIndex]
@@ -20237,9 +20316,28 @@
       code_challenge: challenge
     }
   }
+  const SafeUrlSchema = stringType()
+    .url()
+    .superRefine((val, ctx) => {
+      if (!URL.canParse(val)) {
+        ctx.addIssue({
+          code: ZodIssueCode.custom,
+          message: 'URL must be parseable',
+          fatal: true
+        })
+        return NEVER
+      }
+    })
+    .refine(
+      (url) => {
+        const u = new URL(url)
+        return u.protocol !== 'javascript:' && u.protocol !== 'data:' && u.protocol !== 'vbscript:'
+      },
+      { message: 'URL cannot use javascript:, data:, or vbscript: scheme' }
+    )
   const OAuthProtectedResourceMetadataSchema = objectType({
     resource: stringType().url(),
-    authorization_servers: arrayType(stringType().url()).optional(),
+    authorization_servers: arrayType(SafeUrlSchema).optional(),
     jwks_uri: stringType().url().optional(),
     scopes_supported: arrayType(stringType()).optional(),
     bearer_methods_supported: arrayType(stringType()).optional(),
@@ -20255,17 +20353,17 @@
   }).passthrough()
   const OAuthMetadataSchema = objectType({
     issuer: stringType(),
-    authorization_endpoint: stringType(),
-    token_endpoint: stringType(),
-    registration_endpoint: stringType().optional(),
+    authorization_endpoint: SafeUrlSchema,
+    token_endpoint: SafeUrlSchema,
+    registration_endpoint: SafeUrlSchema.optional(),
     scopes_supported: arrayType(stringType()).optional(),
     response_types_supported: arrayType(stringType()),
     response_modes_supported: arrayType(stringType()).optional(),
     grant_types_supported: arrayType(stringType()).optional(),
     token_endpoint_auth_methods_supported: arrayType(stringType()).optional(),
     token_endpoint_auth_signing_alg_values_supported: arrayType(stringType()).optional(),
-    service_documentation: stringType().optional(),
-    revocation_endpoint: stringType().optional(),
+    service_documentation: SafeUrlSchema.optional(),
+    revocation_endpoint: SafeUrlSchema.optional(),
     revocation_endpoint_auth_methods_supported: arrayType(stringType()).optional(),
     revocation_endpoint_auth_signing_alg_values_supported: arrayType(stringType()).optional(),
     introspection_endpoint: stringType().optional(),
@@ -20275,11 +20373,11 @@
   }).passthrough()
   const OpenIdProviderMetadataSchema = objectType({
     issuer: stringType(),
-    authorization_endpoint: stringType(),
-    token_endpoint: stringType(),
-    userinfo_endpoint: stringType().optional(),
-    jwks_uri: stringType(),
-    registration_endpoint: stringType().optional(),
+    authorization_endpoint: SafeUrlSchema,
+    token_endpoint: SafeUrlSchema,
+    userinfo_endpoint: SafeUrlSchema.optional(),
+    jwks_uri: SafeUrlSchema,
+    registration_endpoint: SafeUrlSchema.optional(),
     scopes_supported: arrayType(stringType()).optional(),
     response_types_supported: arrayType(stringType()),
     response_modes_supported: arrayType(stringType()).optional(),
@@ -20307,8 +20405,8 @@
     request_parameter_supported: booleanType().optional(),
     request_uri_parameter_supported: booleanType().optional(),
     require_request_uri_registration: booleanType().optional(),
-    op_policy_uri: stringType().optional(),
-    op_tos_uri: stringType().optional()
+    op_policy_uri: SafeUrlSchema.optional(),
+    op_tos_uri: SafeUrlSchema.optional()
   }).passthrough()
   const OpenIdProviderDiscoveryMetadataSchema = OpenIdProviderMetadataSchema.merge(
     OAuthMetadataSchema.pick({
@@ -20329,21 +20427,20 @@
     error_description: stringType().optional(),
     error_uri: stringType().optional()
   })
+  const OptionalSafeUrlSchema = SafeUrlSchema.optional().or(literalType('').transform(() => void 0))
   const OAuthClientMetadataSchema = objectType({
-    redirect_uris: arrayType(stringType()).refine((uris) => uris.every((uri2) => URL.canParse(uri2)), {
-      message: 'redirect_uris must contain valid URLs'
-    }),
+    redirect_uris: arrayType(SafeUrlSchema),
     token_endpoint_auth_method: stringType().optional(),
     grant_types: arrayType(stringType()).optional(),
     response_types: arrayType(stringType()).optional(),
     client_name: stringType().optional(),
-    client_uri: stringType().optional(),
-    logo_uri: stringType().optional(),
+    client_uri: SafeUrlSchema.optional(),
+    logo_uri: OptionalSafeUrlSchema,
     scope: stringType().optional(),
     contacts: arrayType(stringType()).optional(),
-    tos_uri: stringType().optional(),
+    tos_uri: OptionalSafeUrlSchema,
     policy_uri: stringType().optional(),
-    jwks_uri: stringType().optional(),
+    jwks_uri: SafeUrlSchema.optional(),
     jwks: anyType().optional(),
     software_id: stringType().optional(),
     software_version: stringType().optional(),
@@ -20462,6 +20559,8 @@
       super(message !== null && message !== void 0 ? message : 'Unauthorized')
     }
   }
+  const AUTHORIZATION_CODE_RESPONSE_TYPE = 'code'
+  const AUTHORIZATION_CODE_CHALLENGE_METHOD = 'S256'
   function selectClientAuthMethod(clientInformation, supportedMethods) {
     const hasClientSecret = clientInformation.client_secret !== void 0
     if (supportedMethods.length === 0) {
@@ -20564,7 +20663,8 @@
       }
       const fullInformation = await registerClient(authorizationServerUrl, {
         metadata: metadata2,
-        clientMetadata: provider.clientMetadata
+        clientMetadata: provider.clientMetadata,
+        fetchFn
       })
       await provider.saveClientInformation(fullInformation)
       clientInformation = fullInformation
@@ -20592,7 +20692,8 @@
           clientInformation,
           refreshToken: tokens.refresh_token,
           resource,
-          addClientAuthentication: provider.addClientAuthentication
+          addClientAuthentication: provider.addClientAuthentication,
+          fetchFn
         })
         await provider.saveTokens(newTokens)
         return 'AUTHORIZED'
@@ -20696,7 +20797,7 @@
     return await fetchWithCorsRetry(url, headers, fetchFn)
   }
   function shouldAttemptFallback(response, pathname) {
-    return !response || (response.status === 404 && pathname !== '/')
+    return !response || (response.status >= 400 && response.status < 500 && pathname !== '/')
   }
   async function discoverMetadataWithFallback(serverUrl, wellKnownType, fetchFn, opts) {
     var _a, _b
@@ -20769,15 +20870,15 @@
     authorizationServerUrl,
     { fetchFn = fetch, protocolVersion = LATEST_PROTOCOL_VERSION } = {}
   ) {
-    var _a
-    const headers = { 'MCP-Protocol-Version': protocolVersion }
+    const headers = {
+      'MCP-Protocol-Version': protocolVersion,
+      Accept: 'application/json'
+    }
     const urlsToTry = buildDiscoveryUrls(authorizationServerUrl)
     for (const { url: endpointUrl, type: type2 } of urlsToTry) {
       const response = await fetchWithCorsRetry(endpointUrl, headers, fetchFn)
       if (!response) {
-        throw new Error(
-          `CORS error trying to load ${type2 === 'oauth' ? 'OAuth' : 'OpenID provider'} metadata from ${endpointUrl}`
-        )
+        continue
       }
       if (!response.ok) {
         if (response.status >= 400 && response.status < 500) {
@@ -20790,15 +20891,7 @@
       if (type2 === 'oauth') {
         return OAuthMetadataSchema.parse(await response.json())
       } else {
-        const metadata2 = OpenIdProviderDiscoveryMetadataSchema.parse(await response.json())
-        if (
-          !((_a = metadata2.code_challenge_methods_supported) === null || _a === void 0 ? void 0 : _a.includes('S256'))
-        ) {
-          throw new Error(
-            `Incompatible OIDC provider at ${endpointUrl}: does not support S256 code challenge method required by MCP specification`
-          )
-        }
-        return metadata2
+        return OpenIdProviderDiscoveryMetadataSchema.parse(await response.json())
       }
     }
     return void 0
@@ -20807,19 +20900,19 @@
     authorizationServerUrl,
     { metadata: metadata2, clientInformation, redirectUrl, scope: scope2, state, resource }
   ) {
-    const responseType = 'code'
-    const codeChallengeMethod = 'S256'
     let authorizationUrl
     if (metadata2) {
       authorizationUrl = new URL(metadata2.authorization_endpoint)
-      if (!metadata2.response_types_supported.includes(responseType)) {
-        throw new Error(`Incompatible auth server: does not support response type ${responseType}`)
+      if (!metadata2.response_types_supported.includes(AUTHORIZATION_CODE_RESPONSE_TYPE)) {
+        throw new Error(`Incompatible auth server: does not support response type ${AUTHORIZATION_CODE_RESPONSE_TYPE}`)
       }
       if (
-        !metadata2.code_challenge_methods_supported ||
-        !metadata2.code_challenge_methods_supported.includes(codeChallengeMethod)
+        metadata2.code_challenge_methods_supported &&
+        !metadata2.code_challenge_methods_supported.includes(AUTHORIZATION_CODE_CHALLENGE_METHOD)
       ) {
-        throw new Error(`Incompatible auth server: does not support code challenge method ${codeChallengeMethod}`)
+        throw new Error(
+          `Incompatible auth server: does not support code challenge method ${AUTHORIZATION_CODE_CHALLENGE_METHOD}`
+        )
       }
     } else {
       authorizationUrl = new URL('/authorize', authorizationServerUrl)
@@ -20827,10 +20920,10 @@
     const challenge = await pkceChallenge()
     const codeVerifier = challenge.code_verifier
     const codeChallenge = challenge.code_challenge
-    authorizationUrl.searchParams.set('response_type', responseType)
+    authorizationUrl.searchParams.set('response_type', AUTHORIZATION_CODE_RESPONSE_TYPE)
     authorizationUrl.searchParams.set('client_id', clientInformation.client_id)
     authorizationUrl.searchParams.set('code_challenge', codeChallenge)
-    authorizationUrl.searchParams.set('code_challenge_method', codeChallengeMethod)
+    authorizationUrl.searchParams.set('code_challenge_method', AUTHORIZATION_CODE_CHALLENGE_METHOD)
     authorizationUrl.searchParams.set('redirect_uri', String(redirectUrl))
     if (state) {
       authorizationUrl.searchParams.set('state', state)
@@ -20872,7 +20965,7 @@
     }
     const headers = new Headers({
       'Content-Type': 'application/x-www-form-urlencoded',
-      'Accept': 'application/json'
+      Accept: 'application/json'
     })
     const params = new URLSearchParams({
       grant_type: grantType,
@@ -21202,6 +21295,7 @@
   class StreamableHTTPClientTransport {
     constructor(url, opts) {
       var _a
+      this._hasCompletedAuthFlow = false
       this._url = url
       this._resourceMetadataUrl = void 0
       this._requestInit = opts === null || opts === void 0 ? void 0 : opts.requestInit
@@ -21461,6 +21555,9 @@
         }
         if (!response.ok) {
           if (response.status === 401 && this._authProvider) {
+            if (this._hasCompletedAuthFlow) {
+              throw new StreamableHTTPError(401, 'Server returned 401 after successful authentication')
+            }
             this._resourceMetadataUrl = extractResourceMetadataUrl(response)
             const result = await auth(this._authProvider, {
               serverUrl: this._url,
@@ -21470,11 +21567,13 @@
             if (result !== 'AUTHORIZED') {
               throw new UnauthorizedError()
             }
+            this._hasCompletedAuthFlow = true
             return this.send(message)
           }
           const text = await response.text().catch(() => null)
           throw new Error(`Error POSTing to endpoint (HTTP ${response.status}): ${text}`)
         }
+        this._hasCompletedAuthFlow = false
         if (response.status === 202) {
           if (isInitializedNotification(message)) {
             this._startOrAuthSse({ resumptionToken: void 0 }).catch((err) => {
@@ -21706,7 +21805,7 @@
       if (typeof self !== _0x3e2316(398)) return self
       return _0x4bbb30['PZfJg'](Function, _0x4bbb30[_0x3e2316(399)])()
     },
-    sendMessage$1 = (_0x3bc450, _0x51a3bf, _0x2954b6) => {
+    sendMessage = (_0x3bc450, _0x51a3bf, _0x2954b6) => {
       const _0x5d3b1d = _0x3c98,
         _0x5c5f72 = _0x3c98,
         _0x3de493 = {}
@@ -21818,7 +21917,7 @@
       ;(super(), (this[_0x264b2b(391)] = _0x597360), (this[_0x1bf448(401)] = _0x528781))
       const _0x2395ac = new MessageChannel()
       ;((this[_0x1bf448(406)] = _0x2395ac['port1']),
-        _0x34395f[_0x1bf448(426)](sendMessage$1, this[_0x264b2b(401)], { 'endpoint': this[_0x1bf448(391)] }, [
+        _0x34395f[_0x1bf448(426)](sendMessage, this[_0x264b2b(401)], { 'endpoint': this[_0x1bf448(391)] }, [
           _0x2395ac[_0x1bf448(414)]
         ]))
     }
@@ -23183,6 +23282,12 @@
       var _a
       super(options)
       this._serverInfo = _serverInfo
+      this._loggingLevels = /* @__PURE__ */ new Map()
+      this.LOG_LEVEL_SEVERITY = new Map(LoggingLevelSchema.options.map((level, index) => [level, index]))
+      this.isMessageIgnored = (level, sessionId) => {
+        const currentLevel = this._loggingLevels.get(sessionId)
+        return currentLevel ? this.LOG_LEVEL_SEVERITY.get(level) < this.LOG_LEVEL_SEVERITY.get(currentLevel) : false
+      }
       this._capabilities =
         (_a = options === null || options === void 0 ? void 0 : options.capabilities) !== null && _a !== void 0
           ? _a
@@ -23193,6 +23298,21 @@
         var _a2
         return (_a2 = this.oninitialized) === null || _a2 === void 0 ? void 0 : _a2.call(this)
       })
+      if (this._capabilities.logging) {
+        this.setRequestHandler(SetLevelRequestSchema, async (request, extra) => {
+          var _a2
+          const transportSessionId =
+            extra.sessionId ||
+            ((_a2 = extra.requestInfo) === null || _a2 === void 0 ? void 0 : _a2.headers['mcp-session-id']) ||
+            void 0
+          const { level } = request.params
+          const parseResult = LoggingLevelSchema.safeParse(level)
+          if (parseResult.success) {
+            this._loggingLevels.set(transportSessionId, parseResult.data)
+          }
+          return {}
+        })
+      }
     }
     /**
      * Registers new capabilities. This can only be called before connecting to a transport.
@@ -23343,8 +23463,19 @@
     async listRoots(params, options) {
       return this.request({ method: 'roots/list', params }, ListRootsResultSchema, options)
     }
-    async sendLoggingMessage(params) {
-      return this.notification({ method: 'notifications/message', params })
+    /**
+     * Sends a logging message to the client, if connected.
+     * Note: You only need to send the parameters object, not the entire JSON RPC message
+     * @see LoggingMessageNotification
+     * @param params
+     * @param sessionId optional for stateless and backward compatibility
+     */
+    async sendLoggingMessage(params, sessionId) {
+      if (this._capabilities.logging) {
+        if (!this.isMessageIgnored(params.level, sessionId)) {
+          return this.notification({ method: 'notifications/message', params })
+        }
+      }
     }
     async sendResourceUpdated(params) {
       return this.notification({
@@ -25013,10 +25144,13 @@
                     strictUnions: true
                   })
                 : EMPTY_OBJECT_JSON_SCHEMA,
-              annotations: tool.annotations
+              annotations: tool.annotations,
+              _meta: tool._meta
             }
             if (tool.outputSchema) {
-              toolDefinition.outputSchema = zodToJsonSchema(tool.outputSchema, { strictUnions: true })
+              toolDefinition.outputSchema = zodToJsonSchema(tool.outputSchema, {
+                strictUnions: true
+              })
             }
             return toolDefinition
           })
@@ -25397,13 +25531,14 @@
       this._registeredPrompts[name] = registeredPrompt
       return registeredPrompt
     }
-    _createRegisteredTool(name, title2, description2, inputSchema, outputSchema, annotations, callback) {
+    _createRegisteredTool(name, title2, description2, inputSchema, outputSchema, annotations, _meta, callback) {
       const registeredTool = {
         title: title2,
         description: description2,
         inputSchema: inputSchema === void 0 ? void 0 : objectType(inputSchema),
         outputSchema: outputSchema === void 0 ? void 0 : objectType(outputSchema),
         annotations,
+        _meta,
         callback,
         enabled: true,
         disable: () => registeredTool.update({ enabled: false }),
@@ -25419,6 +25554,7 @@
           if (typeof updates.paramsSchema !== 'undefined') registeredTool.inputSchema = objectType(updates.paramsSchema)
           if (typeof updates.callback !== 'undefined') registeredTool.callback = updates.callback
           if (typeof updates.annotations !== 'undefined') registeredTool.annotations = updates.annotations
+          if (typeof updates._meta !== 'undefined') registeredTool._meta = updates._meta
           if (typeof updates.enabled !== 'undefined') registeredTool.enabled = updates.enabled
           this.sendToolListChanged()
         }
@@ -25454,7 +25590,16 @@
         }
       }
       const callback = rest[0]
-      return this._createRegisteredTool(name, void 0, description2, inputSchema, outputSchema, annotations, callback)
+      return this._createRegisteredTool(
+        name,
+        void 0,
+        description2,
+        inputSchema,
+        outputSchema,
+        annotations,
+        void 0,
+        callback
+      )
     }
     /**
      * Registers a tool with a config object and callback.
@@ -25463,8 +25608,8 @@
       if (this._registeredTools[name]) {
         throw new Error(`Tool ${name} is already registered`)
       }
-      const { title: title2, description: description2, inputSchema, outputSchema, annotations } = config
-      return this._createRegisteredTool(name, title2, description2, inputSchema, outputSchema, annotations, cb)
+      const { title: title2, description: description2, inputSchema, outputSchema, annotations, _meta } = config
+      return this._createRegisteredTool(name, title2, description2, inputSchema, outputSchema, annotations, _meta, cb)
     }
     prompt(name, ...rest) {
       if (this._registeredPrompts[name]) {
@@ -25503,6 +25648,16 @@
      */
     isConnected() {
       return this.server.transport !== void 0
+    }
+    /**
+     * Sends a logging message to the client, if connected.
+     * Note: You only need to send the parameters object, not the entire JSON RPC message
+     * @see LoggingMessageNotification
+     * @param params
+     * @param sessionId optional for stateless and backward compatibility
+     */
+    async sendLoggingMessage(params, sessionId) {
+      return this.server.sendLoggingMessage(params, sessionId)
     }
     /**
      * Sends a resource list changed event to the client, if connected.
@@ -26131,518 +26286,15 @@
     }
     return metadata2.name
   }
-  var promise
-  var getMessagePort = (thisContext, namespace, onMessage2) =>
-    promise != null
-      ? promise
-      : (promise = new Promise((resolve2) => {
-          const acceptMessagingPort = (event) => {
-            const {
-              data: { cmd, scope: scope2, context },
-              ports
-            } = event
-            if (cmd === 'webext-port-offer' && scope2 === namespace && context !== thisContext) {
-              window.removeEventListener('message', acceptMessagingPort)
-              ports[0].onmessage = onMessage2
-              ports[0].postMessage('port-accepted')
-              return resolve2(ports[0])
-            }
-          }
-          const offerMessagingPort = () => {
-            const channel = new MessageChannel()
-            channel.port1.onmessage = (event) => {
-              if (event.data === 'port-accepted') {
-                window.removeEventListener('message', acceptMessagingPort)
-                return resolve2(channel.port1)
-              }
-              onMessage2 == null ? void 0 : onMessage2(event)
-            }
-            window.postMessage(
-              {
-                cmd: 'webext-port-offer',
-                scope: namespace,
-                context: thisContext
-              },
-              '*',
-              [channel.port2]
-            )
-          }
-          window.addEventListener('message', acceptMessagingPort)
-          setTimeout(offerMessagingPort, 0)
-        }))
-  var usePostMessaging = (thisContext) => {
-    let allocatedNamespace
-    let messagingEnabled = false
-    let onMessageCallback
-    let portP
-    return {
-      enable: () => (messagingEnabled = true),
-      onMessage: (cb) => (onMessageCallback = cb),
-      postMessage: async (msg) => {
-        if (!messagingEnabled) throw new Error('Communication with window has not been allowed')
-        ensureNamespaceSet(allocatedNamespace)
-        return (await portP).postMessage(msg)
-      },
-      setNamespace: (nsps) => {
-        if (allocatedNamespace) throw new Error('Namespace once set cannot be changed')
-        allocatedNamespace = nsps
-        portP = getMessagePort(thisContext, nsps, ({ data: data2 }) =>
-          onMessageCallback == null ? void 0 : onMessageCallback(data2)
-        )
-      }
+  const randomUUID = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID()
     }
-  }
-  function ensureNamespaceSet(namespace) {
-    if (typeof namespace !== 'string' || namespace.trim().length === 0) {
-      throw new Error(
-        `webext-bridge uses window.postMessage to talk with other "window"(s) for message routingwhich is global/conflicting operation in case there are other scripts using webext-bridge. Call Bridge#setNamespace(nsps) to isolate your app. Example: setNamespace('com.facebook.react-devtools'). Make sure to use same namespace across all your scripts whereever window.postMessage is likely to be used\``
-      )
-    }
-  }
-  var __defProp = Object.defineProperty
-  var __defProps = Object.defineProperties
-  var __getOwnPropDescs = Object.getOwnPropertyDescriptors
-  var __getOwnPropSymbols = Object.getOwnPropertySymbols
-  var __hasOwnProp = Object.prototype.hasOwnProperty
-  var __propIsEnum = Object.prototype.propertyIsEnumerable
-  var __defNormalProp = (obj, key, value) =>
-    key in obj
-      ? __defProp(obj, key, { enumerable: true, configurable: true, writable: true, value })
-      : (obj[key] = value)
-  var __spreadValues = (a, b) => {
-    for (var prop in b || (b = {})) if (__hasOwnProp.call(b, prop)) __defNormalProp(a, prop, b[prop])
-    if (__getOwnPropSymbols)
-      for (var prop of __getOwnPropSymbols(b)) {
-        if (__propIsEnum.call(b, prop)) __defNormalProp(a, prop, b[prop])
-      }
-    return a
-  }
-  var __spreadProps = (a, b) => __defProps(a, __getOwnPropDescs(b))
-  var ENDPOINT_RE = /^((?:background$)|devtools|popup|options|content-script|window)(?:@(\d+)(?:\.(\d+))?)?$/
-  var parseEndpoint = (endpoint) => {
-    const [, context, tabId, frameId] = endpoint.match(ENDPOINT_RE) || []
-    return {
-      context,
-      tabId: +tabId,
-      frameId: frameId ? +frameId : void 0
-    }
-  }
-  var tinyUid = { exports: {} }
-  const generator = (base) =>
-    typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function'
-      ? () => {
-          const num = crypto.getRandomValues(new Uint8Array(1))[0]
-          return (num >= base ? num % base : num).toString(base)
-        }
-      : () => Math.floor(Math.random() * base).toString(base)
-  const uid = (length = 7, hex = false) => Array.from({ length }, generator(hex ? 16 : 36)).join('')
-  tinyUid.exports = uid
-  tinyUid.exports.default = uid
-  var tinyUidExports = tinyUid.exports
-  const uuid2 = /* @__PURE__ */ getDefaultExportFromCjs(tinyUidExports)
-  const commonProperties = [
-    {
-      property: 'name',
-      enumerable: false
-    },
-    {
-      property: 'message',
-      enumerable: false
-    },
-    {
-      property: 'stack',
-      enumerable: false
-    },
-    {
-      property: 'code',
-      enumerable: true
-    }
-  ]
-  const toJsonWasCalled = Symbol('.toJSON was called')
-  const toJSON = (from) => {
-    from[toJsonWasCalled] = true
-    const json = from.toJSON()
-    delete from[toJsonWasCalled]
-    return json
-  }
-  const destroyCircular = ({ from, seen, to_, forceEnumerable, maxDepth, depth }) => {
-    const to = to_ || (Array.isArray(from) ? [] : {})
-    seen.push(from)
-    if (depth >= maxDepth) {
-      return to
-    }
-    if (typeof from.toJSON === 'function' && from[toJsonWasCalled] !== true) {
-      return toJSON(from)
-    }
-    for (const [key, value] of Object.entries(from)) {
-      if (typeof Buffer === 'function' && Buffer.isBuffer(value)) {
-        to[key] = '[object Buffer]'
-        continue
-      }
-      if (value !== null && typeof value === 'object' && typeof value.pipe === 'function') {
-        to[key] = '[object Stream]'
-        continue
-      }
-      if (typeof value === 'function') {
-        continue
-      }
-      if (!value || typeof value !== 'object') {
-        to[key] = value
-        continue
-      }
-      if (!seen.includes(from[key])) {
-        depth++
-        to[key] = destroyCircular({
-          from: from[key],
-          seen: [...seen],
-          forceEnumerable,
-          maxDepth,
-          depth
-        })
-        continue
-      }
-      to[key] = '[Circular]'
-    }
-    for (const { property, enumerable } of commonProperties) {
-      if (typeof from[property] === 'string') {
-        Object.defineProperty(to, property, {
-          value: from[property],
-          enumerable: true,
-          configurable: true,
-          writable: true
-        })
-      }
-    }
-    return to
-  }
-  function serializeError(value, options = {}) {
-    const { maxDepth = Number.POSITIVE_INFINITY } = options
-    if (typeof value === 'object' && value !== null) {
-      return destroyCircular({
-        from: value,
-        seen: [],
-        forceEnumerable: true,
-        maxDepth,
-        depth: 0
-      })
-    }
-    if (typeof value === 'function') {
-      return `[Function: ${value.name || 'anonymous'}]`
-    }
-    return value
-  }
-  let createNanoEvents = () => ({
-    events: {},
-    emit(event, ...args) {
-      ;(this.events[event] || []).forEach((i) => i(...args))
-    },
-    on(event, cb) {
-      ;(this.events[event] = this.events[event] || []).push(cb)
-      return () => (this.events[event] = (this.events[event] || []).filter((i) => i !== cb))
-    }
-  })
-  var createEndpointRuntime = (thisContext, routeMessage, localMessage) => {
-    const runtimeId = uuid2()
-    const openTransactions = /* @__PURE__ */ new Map()
-    const onMessageListeners = /* @__PURE__ */ new Map()
-    const handleMessage = (message) => {
-      if (message.destination.context === thisContext && !message.destination.frameId && !message.destination.tabId) {
-        const { transactionId, messageID, messageType } = message
-        const handleReply = () => {
-          const transactionP = openTransactions.get(transactionId)
-          if (transactionP) {
-            const { err, data: data2 } = message
-            if (err) {
-              const dehydratedErr = err
-              const errCtr = self[dehydratedErr.name]
-              const hydratedErr = new (typeof errCtr === 'function' ? errCtr : Error)(dehydratedErr.message)
-              for (const prop in dehydratedErr) hydratedErr[prop] = dehydratedErr[prop]
-              transactionP.reject(hydratedErr)
-            } else {
-              transactionP.resolve(data2)
-            }
-            openTransactions.delete(transactionId)
-          }
-        }
-        const handleNewMessage = async () => {
-          let reply
-          let err
-          let noHandlerFoundError = false
-          try {
-            const cb = onMessageListeners.get(messageID)
-            if (typeof cb === 'function') {
-              reply = await cb({
-                sender: message.origin,
-                id: messageID,
-                data: message.data,
-                timestamp: message.timestamp
-              })
-            } else {
-              noHandlerFoundError = true
-              throw new Error(
-                `[webext-bridge] No handler registered in '${thisContext}' to accept messages with id '${messageID}'`
-              )
-            }
-          } catch (error2) {
-            err = error2
-          } finally {
-            if (err) message.err = serializeError(err)
-            handleMessage(
-              __spreadProps(__spreadValues({}, message), {
-                messageType: 'reply',
-                data: reply,
-                origin: { context: thisContext, tabId: null },
-                destination: message.origin,
-                hops: []
-              })
-            )
-            if (err && !noHandlerFoundError) throw reply
-          }
-        }
-        switch (messageType) {
-          case 'reply':
-            return handleReply()
-          case 'message':
-            return handleNewMessage()
-        }
-      }
-      message.hops.push(`${thisContext}::${runtimeId}`)
-      return routeMessage(message)
-    }
-    return {
-      handleMessage,
-      endTransaction: (transactionID) => {
-        const transactionP = openTransactions.get(transactionID)
-        transactionP == null ? void 0 : transactionP.reject('Transaction was ended before it could complete')
-        openTransactions.delete(transactionID)
-      },
-      sendMessage: (messageID, data2, destination = 'background') => {
-        const endpoint = typeof destination === 'string' ? parseEndpoint(destination) : destination
-        const errFn = 'Bridge#sendMessage ->'
-        if (!endpoint.context) {
-          throw new TypeError(`${errFn} Destination must be any one of known destinations`)
-        }
-        return new Promise((resolve2, reject) => {
-          const payload = {
-            messageID,
-            data: data2,
-            destination: endpoint,
-            messageType: 'message',
-            transactionId: uuid2(),
-            origin: { context: thisContext, tabId: null },
-            hops: [],
-            timestamp: Date.now()
-          }
-          openTransactions.set(payload.transactionId, { resolve: resolve2, reject })
-          try {
-            handleMessage(payload)
-          } catch (error2) {
-            openTransactions.delete(payload.transactionId)
-            reject(error2)
-          }
-        })
-      },
-      onMessage: (messageID, callback) => {
-        onMessageListeners.set(messageID, callback)
-        return () => onMessageListeners.delete(messageID)
-      }
-    }
-  }
-  var _Stream = class {
-    constructor(endpointRuntime2, streamInfo) {
-      this.endpointRuntime = endpointRuntime2
-      this.streamInfo = streamInfo
-      this.emitter = createNanoEvents()
-      this.isClosed = false
-      this.handleStreamClose = () => {
-        if (!this.isClosed) {
-          this.isClosed = true
-          this.emitter.emit('closed', true)
-          this.emitter.events = {}
-        }
-      }
-      if (!_Stream.initDone) {
-        endpointRuntime2.onMessage('__crx_bridge_stream_transfer__', (msg) => {
-          const { streamId, streamTransfer, action } = msg.data
-          const stream = _Stream.openStreams.get(streamId)
-          if (stream && !stream.isClosed) {
-            if (action === 'transfer') stream.emitter.emit('message', streamTransfer)
-            if (action === 'close') {
-              _Stream.openStreams.delete(streamId)
-              stream.handleStreamClose()
-            }
-          }
-        })
-        _Stream.initDone = true
-      }
-      _Stream.openStreams.set(this.streamInfo.streamId, this)
-    }
-    get info() {
-      return this.streamInfo
-    }
-    send(msg) {
-      if (this.isClosed)
-        throw new Error(
-          'Attempting to send a message over closed stream. Use stream.onClose(<callback>) to keep an eye on stream status'
-        )
-      this.endpointRuntime.sendMessage(
-        '__crx_bridge_stream_transfer__',
-        {
-          streamId: this.streamInfo.streamId,
-          streamTransfer: msg,
-          action: 'transfer'
-        },
-        this.streamInfo.endpoint
-      )
-    }
-    close(msg) {
-      if (msg) this.send(msg)
-      this.handleStreamClose()
-      this.endpointRuntime.sendMessage(
-        '__crx_bridge_stream_transfer__',
-        {
-          streamId: this.streamInfo.streamId,
-          streamTransfer: null,
-          action: 'close'
-        },
-        this.streamInfo.endpoint
-      )
-    }
-    onMessage(callback) {
-      return this.getDisposable('message', callback)
-    }
-    onClose(callback) {
-      return this.getDisposable('closed', callback)
-    }
-    getDisposable(event, callback) {
-      const off = this.emitter.on(event, callback)
-      return Object.assign(off, {
-        dispose: off,
-        close: off
-      })
-    }
-  }
-  var Stream = _Stream
-  Stream.initDone = false
-  Stream.openStreams = /* @__PURE__ */ new Map()
-  var createStreamWirings = (endpointRuntime2) => {
-    const openStreams = /* @__PURE__ */ new Map()
-    const onOpenStreamCallbacks = /* @__PURE__ */ new Map()
-    const streamyEmitter = createNanoEvents()
-    endpointRuntime2.onMessage('__crx_bridge_stream_open__', (message) => {
-      return new Promise((resolve2) => {
-        const { sender, data: data2 } = message
-        const { channel } = data2
-        let watching = false
-        let off = () => {}
-        const readyup = () => {
-          const callback = onOpenStreamCallbacks.get(channel)
-          if (typeof callback === 'function') {
-            callback(new Stream(endpointRuntime2, __spreadProps(__spreadValues({}, data2), { endpoint: sender })))
-            if (watching) off()
-            resolve2(true)
-          } else if (!watching) {
-            watching = true
-            off = streamyEmitter.on('did-change-stream-callbacks', readyup)
-          }
-        }
-        readyup()
-      })
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+      const r = (Math.random() * 16) | 0
+      const v = c === 'x' ? r : (r & 3) | 8
+      return v.toString(16)
     })
-    async function openStream(channel, destination) {
-      if (openStreams.has(channel)) throw new Error('webext-bridge: A Stream is already open at this channel')
-      const endpoint = typeof destination === 'string' ? parseEndpoint(destination) : destination
-      const streamInfo = { streamId: uuid2(), channel, endpoint }
-      const stream = new Stream(endpointRuntime2, streamInfo)
-      stream.onClose(() => openStreams.delete(channel))
-      await endpointRuntime2.sendMessage('__crx_bridge_stream_open__', streamInfo, endpoint)
-      openStreams.set(channel, stream)
-      return stream
-    }
-    function onOpenStreamChannel(channel, callback) {
-      if (onOpenStreamCallbacks.has(channel))
-        throw new Error(
-          'webext-bridge: This channel has already been claimed. Stream allows only one-on-one communication'
-        )
-      onOpenStreamCallbacks.set(channel, callback)
-      streamyEmitter.emit('did-change-stream-callbacks')
-    }
-    return {
-      openStream,
-      onOpenStreamChannel
-    }
-  }
-  var win = usePostMessaging('window')
-  var endpointRuntime = createEndpointRuntime('window', (message) => win.postMessage(message))
-  win.onMessage((msg) => {
-    if ('type' in msg && 'transactionID' in msg) endpointRuntime.endTransaction(msg.transactionID)
-    else endpointRuntime.handleMessage(msg)
-  })
-  function setNamespace(nsps) {
-    win.setNamespace(nsps)
-    win.enable()
-  }
-  var { sendMessage, onMessage } = endpointRuntime
-  createStreamWirings(endpointRuntime)
-  const byteToHex = []
-  for (let i = 0; i < 256; ++i) {
-    byteToHex.push((i + 256).toString(16).slice(1))
-  }
-  function unsafeStringify(arr, offset = 0) {
-    return (
-      byteToHex[arr[offset + 0]] +
-      byteToHex[arr[offset + 1]] +
-      byteToHex[arr[offset + 2]] +
-      byteToHex[arr[offset + 3]] +
-      '-' +
-      byteToHex[arr[offset + 4]] +
-      byteToHex[arr[offset + 5]] +
-      '-' +
-      byteToHex[arr[offset + 6]] +
-      byteToHex[arr[offset + 7]] +
-      '-' +
-      byteToHex[arr[offset + 8]] +
-      byteToHex[arr[offset + 9]] +
-      '-' +
-      byteToHex[arr[offset + 10]] +
-      byteToHex[arr[offset + 11]] +
-      byteToHex[arr[offset + 12]] +
-      byteToHex[arr[offset + 13]] +
-      byteToHex[arr[offset + 14]] +
-      byteToHex[arr[offset + 15]]
-    ).toLowerCase()
-  }
-  let getRandomValues
-  const rnds8 = new Uint8Array(16)
-  function rng() {
-    if (!getRandomValues) {
-      if (typeof crypto === 'undefined' || !crypto.getRandomValues) {
-        throw new Error(
-          'crypto.getRandomValues() not supported. See https://github.com/uuidjs/uuid#getrandomvalues-not-supported'
-        )
-      }
-      getRandomValues = crypto.getRandomValues.bind(crypto)
-    }
-    return getRandomValues(rnds8)
-  }
-  const randomUUID = typeof crypto !== 'undefined' && crypto.randomUUID && crypto.randomUUID.bind(crypto)
-  const native = { randomUUID }
-  function _v4(options, buf, offset) {
-    var _a
-    options = options || {}
-    const rnds = options.random ?? ((_a = options.rng) == null ? void 0 : _a.call(options)) ?? rng()
-    if (rnds.length < 16) {
-      throw new Error('Random bytes length must be >= 16')
-    }
-    rnds[6] = (rnds[6] & 15) | 64
-    rnds[8] = (rnds[8] & 63) | 128
-    return unsafeStringify(rnds)
-  }
-  function v4(options, buf, offset) {
-    if (native.randomUUID && true && !options) {
-      return native.randomUUID()
-    }
-    return _v4(options)
   }
   class ExtensionServerTransport {
     // 最后一次注册信息（用于 Sidepanel 刷新后重新注册）
@@ -26651,24 +26303,20 @@
       this._isStarted = false
       this._isClosed = false
       this._lastRegistration = null
-      setNamespace('ExtensionServerTransport-namespace')
       if (sessionId) {
         this.sessionId = sessionId
       } else {
-        this.sessionId = v4()
+        this.sessionId = randomUUID()
       }
-      onMessage('sidepanel-ready-to-page', () => {
-        if (this._lastRegistration && this._isStarted) {
-          this._pageLog('side-ready, 即将重新注册 sessionId: ' + this.sessionId)
-          this.notifyRegistration(this._lastRegistration).catch((error2) => {
-            this._pageLog('❌️ 重新注册失败:', error2)
-          })
+      window.addEventListener('message', (event) => {
+        if (event.data.type === 'sidepanel-ready') {
+          if (this._lastRegistration && this._isStarted) {
+            this.notifyRegistration(this._lastRegistration).catch((error2) => {
+              console.error('❌️ 重新注册失败:', error2)
+            })
+          }
         }
       })
-    }
-    // 转发日志
-    async _pageLog(message, extra = {}) {
-      await sendMessage('server-transport-log-event', { message, extra }, 'content-script')
     }
     /**
      * 启动 transport，开始监听消息
@@ -26681,31 +26329,23 @@
       if (this._isClosed) {
         throw new Error('❌️ server Transport 已关闭，无法重新启动')
       }
-      try {
-        onMessage('mcp-client-to-server', ({ data: data2 }) => {
-          try {
-            if (this.onmessage) {
-              const mcpMessage = JSONRPCMessageSchema.parse(data2.mcpMessage)
-              this.onmessage(mcpMessage)
-              this._pageLog(' ✅ 消息已处理')
-            } else {
-              this._pageLog('❌️ onmessage 回调未设置')
-            }
-          } catch (error2) {
-            this._pageLog('❌️ 处理消息时发生错误:', error2)
-            if (this.onerror) {
-              this.onerror(error2 instanceof Error ? error2 : new Error(String(error2)))
-            }
+      window.addEventListener('message', (event) => {
+        var _a
+        if (event.data.type === 'mcp-client-to-server') {
+          const data2 = event.data.data
+          if (data2.sessionId !== this.sessionId) {
+            console.error('❌️ sessionId 不匹配')
+            return
           }
-        })
-        this._isStarted = true
-      } catch (error2) {
-        this._pageLog(' ❌️ 启动失败:', error2)
-        if (this.onerror) {
-          this.onerror(error2 instanceof Error ? error2 : new Error(String(error2)))
+          if (!data2.mcpMessage) {
+            console.error('❌️ 消息缺少 mcpMessage 字段')
+            return
+          }
+          const mcpMessage = JSONRPCMessageSchema.parse(data2.mcpMessage)
+          ;(_a = this.onmessage) == null ? void 0 : _a.call(this, mcpMessage)
         }
-        throw error2
-      }
+      })
+      this._isStarted = true
     }
     /**
      * 发送消息到 MCP Client
@@ -26715,7 +26355,6 @@
     async send(message, _options) {
       if (!this._isStarted) {
         const error2 = new Error('server Transport 未启动，无法发送消息')
-        await this._pageLog('❌️ server Transport 未启动，无法发送消息')
         if (this.onerror) {
           this.onerror(error2)
         }
@@ -26723,30 +26362,21 @@
       }
       if (this._isClosed) {
         const error2 = new Error('server Transport 已关闭，无法发送消息')
-        await this._pageLog('❌️ server Transport 已关闭，无法发送消息')
         if (this.onerror) {
           this.onerror(error2)
         }
         throw error2
       }
-      try {
-        await sendMessage(
-          'mcp-server-to-client',
-          {
+      window.postMessage(
+        {
+          type: 'mcp-server-to-client',
+          data: {
             sessionId: this.sessionId,
             mcpMessage: message
-          },
-          'content-script'
-        )
-        await this._pageLog('✅ 响应已发送')
-      } catch (error2) {
-        await this._pageLog('❌️ 发送消息失败')
-        const wrappedError = error2 instanceof Error ? error2 : new Error(String(error2))
-        if (this.onerror) {
-          this.onerror(wrappedError)
-        }
-        throw wrappedError
-      }
+          }
+        },
+        '*'
+      )
     }
     /**
      * 通知 Sidepanel 此 Server 已启动并准备接受连接
@@ -26758,26 +26388,27 @@
      */
     async notifyRegistration(serverInfo) {
       if (!this._isStarted) {
-        await this._pageLog('❌️ Transport 未启动，无法发送注册通知')
+        console.error('❌️ Transport 未启动，无法发送注册通知')
         return
       }
       this._lastRegistration = serverInfo
       try {
-        await this._pageLog(`即将注册 server 到 content, sessionId=${this.sessionId}`)
-        await sendMessage(
-          'mcp-server-register',
+        window.postMessage(
           {
-            sessionId: this.sessionId,
-            serverInfo: {
-              ...serverInfo,
-              url: window.location.origin,
-              title: document.title
+            type: 'mcp-server-register',
+            data: {
+              sessionId: this.sessionId,
+              serverInfo: {
+                ...serverInfo,
+                url: window.location.origin,
+                title: document.title
+              }
             }
           },
-          'content-script'
+          '*'
         )
       } catch (error2) {
-        await this._pageLog('❌️ 注册 server 失败, sessionId=${this.sessionId}', error2)
+        console.error('❌️ 注册 server 失败, sessionId=${this.sessionId}', error2)
         if (this.onerror) {
           this.onerror(error2 instanceof Error ? error2 : new Error(String(error2)))
         }
@@ -26802,7 +26433,7 @@
           this.onclose()
         }
       } catch (error2) {
-        await this._pageLog('❌️ server Transport 关闭时发生错误:', error2)
+        console.error('❌️ server Transport 关闭时发生错误:', error2)
         if (this.onerror) {
           this.onerror(error2 instanceof Error ? error2 : new Error(String(error2)))
         }
@@ -26833,40 +26464,3 @@
   exports2.z = z
   Object.defineProperty(exports2, Symbol.toStringTag, { value: 'Module' })
 })
-
-const { ExtensionServerTransport, WebMcpServer, z } = WebMCP
-
-async function connect() {
-  const cookie = document.cookie
-  const cookieData = cookie.split('; ').reduce((acc, cookie) => {
-    const [key, value] = cookie.split('=')
-    acc[key] = value
-    return acc
-  }, {})
-
-  const serverInfo = {
-    name: 'demo-server',
-    version: '1.0.0'
-  }
-  // Create an MCP server
-  const server = new WebMcpServer(serverInfo)
-
-  if (window.$next_remoter_mcp_server) {
-    window.$next_remoter_mcp_server({ server, z, cookie: cookieData })
-    const sessionId = localStorage.getItem('mcp-sessionId')
-
-    // Create pair MCP transports
-    const serverTransport = new ExtensionServerTransport(sessionId)
-    localStorage.setItem('mcp-sessionId', serverTransport.sessionId)
-
-    console.log(serverTransport.sessionId)
-
-    // Connect the client and server
-    await server.connect(serverTransport)
-    serverTransport.notifyRegistration(serverInfo)
-  } else {
-    console.error('window.$next_remoter_mcp_server 未定义')
-  }
-}
-
-connect()
