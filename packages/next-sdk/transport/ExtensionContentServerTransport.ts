@@ -112,7 +112,6 @@ export class ContentScriptServerTransport implements Transport {
 
   /** 发送消息到 MCP Client */
   async send(message: JSONRPCMessage, _options?: TransportSendOptions): Promise<void> {
-    console.log('[ContentScriptServerTransport] 开始执行send方法', message)
     // 检查状态
     this._throwError(() => !this._isStarted, 'server Transport 未启动，无法发送消息')
     this._throwError(() => this._isClosed, 'server Transport 已关闭，无法发送消息')

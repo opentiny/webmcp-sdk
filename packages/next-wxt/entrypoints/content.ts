@@ -41,7 +41,7 @@ export default defineContentScript({
 
     async function startAll() {
       await getTabId()
-      createContentProxy()
+      createContentProxy(tabId)
       // 编译态在content-script中申明mcp-server和tools
       // sessionId = await createMcpServer(tabId)
       // 运行时插入user-script，直接在页面中申明mcp-server和tools

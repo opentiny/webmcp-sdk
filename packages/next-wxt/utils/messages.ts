@@ -12,11 +12,13 @@ export const sendWindowMessage = (type: string, data: any, direction: WindowDire
 }
 
 export const onWindowMessage = (type: string, cb: WindowHandler, direction: WindowDirection) => {
-  window.addEventListener('message', async function (event) {
+  const handler = async function (event: MessageEvent<any>) {
     if (event.source === window && event.data.type === type && event.data.direction === direction) {
       await cb(event.data.date)
     }
-  })
+  }
+  window.addEventListener('message', handler)
+  return () => window.removeEventListener('message', handler)
 }
 
 // *************************** content - side -  bg 通过 runtime中转消息 ***************************
