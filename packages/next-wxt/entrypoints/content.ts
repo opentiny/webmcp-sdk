@@ -62,7 +62,7 @@ export default defineContentScript({
       }
 
       const _sessionId = localStorage.getItem('mcp-sessionId')
-      const serverTransport = new ContentScriptServerTransport(_sessionId)
+      const serverTransport = new ContentScriptServerTransport(_sessionId, tabId)
       sessionId = serverTransport.sessionId
       localStorage.setItem('mcp-sessionId', sessionId)
 

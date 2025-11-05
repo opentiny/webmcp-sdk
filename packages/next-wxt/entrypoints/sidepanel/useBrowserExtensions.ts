@@ -1,8 +1,6 @@
 import { AgentModelProvider, type McpServerConfig } from '@opentiny/next-sdk'
 import { onMounted } from 'vue'
 
-declare const chrome: any
-
 // Session 注册表：sessionId → {tabIds, serverInfo, timestamp}
 // 用于 Port 连接时查找 Server 所在的 tabs（支持同域名多页签）
 const sessionRegistry = new Map<string, { tabIds: number[]; serverInfo: any; timestamp: number }>()
@@ -22,21 +20,18 @@ export const useBrowserExtensions = ({
   // 注册队列：确保 MCP server 注册操作串行执行，避免并发时 closeAll() 导致冲突
   let registerQueue = Promise.resolve()
 
-  chrome.runtime.onMessage.addListener(async (message: any, sender: any) => {
-    if (message.type === 'mcp-server-register') {
-      const { sessionId, serverInfo } = message.data
-
-      if (!sessionId) {
-        console.error('❌️ 收到 server注册消息缺少sessionId')
-        return
-      }
+  onRuntimeMessage(
+    'mcp-server-register',
+    (data, sender) => {
+      const { sessionId, serverInfo } = data
+      const tabId: number = sender.tab!.id!
 
       const existingSession = sessionRegistry.get(sessionId)
 
       // 1.1 已存在该 sessionId，只需追加 tabId 后返回
       if (existingSession) {
-        if (!existingSession.tabIds.includes(sender.tab?.id)) {
-          existingSession.tabIds.push(sender.tab?.id)
+        if (!existingSession.tabIds.includes(tabId)) {
+          existingSession.tabIds.push(tabId)
         }
         console.log('页签已记录')
         return
@@ -44,7 +39,7 @@ export const useBrowserExtensions = ({
 
       // 1.2 新的 sessionId，创建记录并注册插件
       sessionRegistry.set(sessionId, {
-        tabIds: [sender.tab?.id],
+        tabIds: [tabId],
         serverInfo,
         timestamp: Date.now()
       })
@@ -73,8 +68,9 @@ export const useBrowserExtensions = ({
           console.error(`agent 注册插件失败: ${sessionId}`, error as any)
         }
       })
-    }
-  })
+    },
+    'content->side'
+  )
 
   // 监听 tab 关闭事件，清理映射
   browser.tabs.onRemoved.addListener(async (tabId) => {
@@ -113,15 +109,7 @@ export const useBrowserExtensions = ({
    */
   onMounted(async () => {
     try {
-      // 查询所有标签页
-      const tabs = await browser.tabs.query({})
-
-      // 向每个标签页发送发现请求
-      for (const tab of tabs) {
-        if (tab.id) {
-          browser.tabs.sendMessage(tab.id, { type: 'sidepanel-ready', data: { timestamp: Date.now() } })
-        }
-      }
+      sendRuntimeMessage('sidepanel-ready', {}, 'side->content')
     } catch (error) {
       console.error('❌️ 通知所有tabs 的任务中，有报错：', error as any)
     }

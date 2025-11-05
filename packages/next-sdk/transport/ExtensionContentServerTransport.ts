@@ -1,6 +1,7 @@
 import type { Transport, TransportSendOptions } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { type JSONRPCMessage, JSONRPCMessageSchema } from '@modelcontextprotocol/sdk/types.js'
 import { randomUUID } from '../utils/uuid'
+import { onRuntimeMessage, sendRuntimeMessage } from './messages'
 
 declare const document: Document
 declare const chrome: any
@@ -31,6 +32,7 @@ export class ContentScriptServerTransport implements Transport {
 
   // 会话ID，用于标识此 transport 实例并路由消息
   readonly sessionId: string
+  readonly tabid: number
 
   // 内部状态
   private _isStarted: boolean = false
@@ -47,19 +49,23 @@ export class ContentScriptServerTransport implements Transport {
     }
   }
 
-  constructor(sessionId: string | null = null) {
+  constructor(sessionId: string | null = null, tabId: number) {
     // 如果提供了 sessionId，使用提供的；否则随机生成
     this.sessionId = sessionId || randomUUID()
+    this.tabid = tabId
 
-    chrome.runtime.onMessage.addListener((message: any) => {
-      if (message.type === 'sidepanel-ready') {
+    onRuntimeMessage(
+      'sidepanel-ready',
+      () => {
         if (this._lastRegistration && this._isStarted) {
           this.notifyRegistration(this._lastRegistration).catch((error) => {
             console.log('[ContentScriptServerTransport] 通知 Sidepanel 此 Server 已启动并准备接受连接失败', error)
           })
         }
-      }
-    })
+      },
+      'side->content',
+      this.tabid
+    )
   }
 
   /** 启动 transport，开始监听MCP client 消息   */
@@ -72,7 +78,12 @@ export class ContentScriptServerTransport implements Transport {
 
     chrome.runtime.onMessage.addListener((message: any) => {
       if (message.type === 'mcp-client-to-server') {
-        const data: any = message.data
+      }
+    })
+
+    onRuntimeMessage(
+      'mcp-client-to-server',
+      (data: any) => {
         if (data.sessionId !== this.sessionId) {
           return { success: false, error: 'sessionId 不匹配' }
         }
@@ -91,8 +102,10 @@ export class ContentScriptServerTransport implements Transport {
         } catch (error) {
           console.log('[ContentScriptServerTransport] 处理消息时发生错误:', error)
         }
-      }
-    })
+      },
+      'side->content',
+      this.tabid
+    )
 
     this._isStarted = true
   }
@@ -106,13 +119,14 @@ export class ContentScriptServerTransport implements Transport {
 
     try {
       console.log('[ContentScriptServerTransport] 发送消息到 MCP Client', message)
-      chrome.runtime.sendMessage({
-        type: 'mcp-server-to-client',
-        data: {
+      sendRuntimeMessage(
+        'mcp-server-to-client',
+        {
           sessionId: this.sessionId,
           mcpMessage: message
-        }
-      })
+        },
+        'content->side'
+      )
 
       // 判断是否为工具调用成功了!
       if ('result' in message && message.result?.content) {
@@ -129,17 +143,19 @@ export class ContentScriptServerTransport implements Transport {
 
     // 保存注册信息，用于 Sidepanel 刷新后重新注册
     this._lastRegistration = serverInfo
-    chrome.runtime.sendMessage({
-      type: 'mcp-server-register',
-      data: {
+
+    sendRuntimeMessage(
+      'mcp-server-register',
+      {
         sessionId: this.sessionId,
         serverInfo: {
           ...serverInfo,
           url: window.location.origin,
           title: document.title
         }
-      }
-    })
+      },
+      'content->side'
+    )
   }
 
   async close() {
