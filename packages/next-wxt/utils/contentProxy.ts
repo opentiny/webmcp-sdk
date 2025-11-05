@@ -13,13 +13,6 @@ export const createContentProxy = (tabId: number) => {
   )
 
   // side ====> content
-  browser.runtime.onMessage.addListener((message) => {
-    if (message.type === 'mcp-client-to-server') {
-      const { sessionId, mcpMessage } = message.data
-      window.postMessage({ type: 'mcp-client-to-server', data: { sessionId, mcpMessage } }, '*')
-    }
-  })
-
   onRuntimeMessage(
     'mcp-client-to-server',
     (data) => sendWindowMessage('mcp-client-to-server-to-page', data, 'content->page'),
