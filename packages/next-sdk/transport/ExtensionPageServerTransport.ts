@@ -67,6 +67,12 @@ export class ExtensionPageServerTransport implements Transport {
       (data) => {
         const mcpMessage = JSONRPCMessageSchema.parse(data.mcpMessage)
         this.onmessage?.(mcpMessage)
+
+        // 判断是否为工具调用
+        const toolName = data.mcpMessage.params?.name
+        if (toolName) {
+          window.postMessage({ type: 'page-app-message', status: 'run', message: data.mcpMessage.params?.name }, '*')
+        }
       },
       'content->page'
     )
@@ -96,6 +102,11 @@ export class ExtensionPageServerTransport implements Transport {
       },
       'page->content'
     )
+
+    // 判断是否为工具调用成功了!
+    if ('result' in message && message.result?.content) {
+      window.postMessage({ type: 'page-app-message', status: 'ready', message: '' }, '*')
+    }
   }
 
   /** 通知 Sidepanel 此 Server 已启动并准备接受连接 */
