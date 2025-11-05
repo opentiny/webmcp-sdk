@@ -21,7 +21,7 @@ export const sendWindowMessage = (type: string, data: any, direction: WindowDire
 export const onWindowMessage = (type: string, cb: WindowHandler, direction: WindowDirection) => {
   const handler = async function (event: MessageEvent<any>) {
     if (event.source === window && event.data.type === type && event.data.direction === direction) {
-      await cb(event.data.date)
+      await cb(event.data.data)
     }
   }
   window.addEventListener('message', handler)
