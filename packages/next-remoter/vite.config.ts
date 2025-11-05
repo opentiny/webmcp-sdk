@@ -8,7 +8,7 @@ import { TinyVueSingleResolver } from '@opentiny/unplugin-tiny-vue'
 import svgLoader from 'vite-svg-loader'
 import { VantResolver } from '@vant/auto-import-resolver'
 import { visualizer } from 'rollup-plugin-visualizer'
-
+import dts from 'vite-plugin-dts'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
 // https://vitejs.dev/config/
@@ -31,7 +31,8 @@ export default defineConfig(({ mode }) => {
         visualizer({
           open: true,
           filename: 'stats.html'
-        })
+        }),
+      dts({ tsconfigPath: './tsconfig.json' })
     ],
     server: {
       port: 8087,
