@@ -72,11 +72,9 @@ export default defineContentScript({
       serverTransport.notifyRegistration(serverInfo)
     }
 
-    function getTabId() {
-      sendRuntimeMessage('who-am-i', {}, 'content->bg')?.then((sender) => {
-        self = sender
-        tabId = self.tab?.id!
-      })
+    async function getTabId() {
+      self = await sendRuntimeMessage('who-am-i', {}, 'content->bg')
+      tabId = self.tab?.id!
     }
 
     function mountPageApp() {
