@@ -51,11 +51,9 @@ export default defineContentScript({
       console.log('页面初始化完成', { self, tabId })
     }
 
-    function getTabId() {
-      return sendRuntimeMessage('who-am-i', {}, 'content->bg')?.then((sender) => {
-        self = sender
-        tabId = self.tab?.id!
-      })
+    async function getTabId() {
+      self = await sendRuntimeMessage('who-am-i', {}, 'content->bg')
+      tabId = self.tab?.id!
     }
 
     function mountPageApp() {

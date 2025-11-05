@@ -44,6 +44,7 @@
     "@opentiny/vue-vite-import": "^1.4.0",
     "@opentiny/unplugin-tiny-vue": "^1.0.0",
     "unplugin-auto-import": "^0.18.3",
-    "unplugin-vue-components": "^0.26.0"
+    "unplugin-vue-components": "^0.26.0",
+    "vite-plugin-dts": "^4.5.4"
   }
 }
