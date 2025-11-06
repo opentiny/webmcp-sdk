@@ -1,4 +1,5 @@
 export default defineBackground(() => {
+  // 未整改该事件，因为此处需要返回值
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'inject-mcp-scripts') {
       const { hostname } = message
@@ -12,12 +13,6 @@ export default defineBackground(() => {
       return true
     }
   })
-
-  onRuntimeMessage(
-    'inject-mcp-scripts',
-    async (_, sender) => await browser.tabs.update(sender.tab?.id, { active: true }),
-    'content->bg'
-  )
 
   onRuntimeMessage(
     'focus-current-tab',

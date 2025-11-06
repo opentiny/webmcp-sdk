@@ -33,7 +33,7 @@ export default defineContentScript({
       await initWebMCP()
       mountPageApp()
 
-      console.log('页面初始化完成', { self, tabId })
+      console.log('【Content Script】页面初始化完成', { self, tabId })
     }
 
     async function getTabId() {
@@ -44,7 +44,7 @@ export default defineContentScript({
     const initWebMCP = async () => {
       const hostname = window.location.hostname
       const reply = await browser.runtime.sendMessage({ type: 'inject-mcp-scripts', hostname })
-      console.log('initWebMCP 插入脚本结果：', reply)
+      console.log('【Content Script】 initWebMCP 插入脚本结果：', reply)
     }
 
     function mountPageApp() {

@@ -33,7 +33,7 @@ export const useBrowserExtensions = ({
         if (!existingSession.tabIds.includes(tabId)) {
           existingSession.tabIds.push(tabId)
         }
-        console.log('页签已记录')
+        console.log('【useBrowserExt】tabId 已记录在sessionRegistry ')
         return
       }
 
@@ -60,12 +60,12 @@ export const useBrowserExtensions = ({
             await loadMcpServerToPlugin(serverName, mcpServer as McpServerConfig)
             await agent.closeAll()
             showToast(`插件已添加: ${serverInfo.url}`)
-            console.log(`插件已添加: ${serverInfo.url}`)
+            console.log(`【useBrowserExt】 mcpServer插件已添加: ${serverInfo.url}`)
           } else {
-            console.error(`插件添加失败: ${serverInfo.url}`)
+            console.error(`【useBrowserExt】 mcpServer插件添加失败: ${serverInfo.url}`)
           }
         } catch (error) {
-          console.error(`agent 注册插件失败: ${sessionId}`, error as any)
+          console.error(`【useBrowserExt】agent 注册插件失败: ${sessionId}`, error as any)
         }
       })
     },
@@ -111,7 +111,7 @@ export const useBrowserExtensions = ({
     try {
       sendRuntimeMessage('sidepanel-ready', {}, 'side->content')
     } catch (error) {
-      console.error('❌️ 通知所有tabs 的任务中，有报错：', error as any)
+      console.error('【useBrowserExt】 sidePanel onMounted 时，通知所有tabs 的任务中，有报错：', error as any)
     }
   })
 }
