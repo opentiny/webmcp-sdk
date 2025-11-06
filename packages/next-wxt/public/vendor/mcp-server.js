@@ -41,7 +41,6 @@ async function connect() {
 
     // Connect the client and server
     await server.connect(serverTransport)
-    debugger
     serverTransport.notifyRegistration(serverInfo)
   } else {
     console.error('window.$next_remoter_mcp_server 未定义')
