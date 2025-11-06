@@ -8,6 +8,7 @@ export default defineBackground(() => {
           sendResponse({ success, hostname })
         })
       } catch (error: any) {
+        console.error('脚本注入失败:', error)
         sendResponse({ success: false, hostname, error })
       }
       return true
