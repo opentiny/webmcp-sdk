@@ -14,7 +14,7 @@ const getCookieData = () => {
   return cookieData
 }
 
-export const createMcpServer = async () => {
+export const createMcpServer = async (tabId: number) => {
   const serverInfo = {
     name: 'demo-server',
     version: '1.0.0'
@@ -36,7 +36,7 @@ export const createMcpServer = async () => {
   }
 
   const _sessionId = localStorage.getItem('mcp-sessionId')
-  const serverTransport = new ContentScriptServerTransport(_sessionId)
+  const serverTransport = new ContentScriptServerTransport(_sessionId, tabId)
   const sessionId = serverTransport.sessionId
   localStorage.setItem('mcp-sessionId', sessionId)
 

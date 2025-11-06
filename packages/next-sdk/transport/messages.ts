@@ -1,8 +1,15 @@
 /**
+ * wxt 依赖于 next-sdk, 但是 transports 又依赖于事件系统，会造成循环依赖。
+ * 由于目前消息都是：“无状态” 发送，所以不是同一份代码也没关系。
+ *
+ * 所以同步一份“事件系统代码”在这里。
+ */
+/**
  * 消息系统说明：
  * 1、 根据type, direction 2个条件，进行事件匹配
  * 2、 side, bg 向page 发消息，必须 content 中转一次
  */
+declare const chrome: any
 
 // *************************** content - page 的消息 ***************************
 type WindowDirection = 'page->content' | 'content->page' | 'page->page' | 'content->content'
@@ -23,23 +30,19 @@ export const onWindowMessage = (type: string, cb: WindowHandler, direction: Wind
 
 // *************************** content - side -  bg 通过 runtime中转消息 ***************************
 type RuntimeDirection = 'content->side' | 'side->content' | 'side->bg' | 'bg->side' | 'content->bg' | 'bg->content'
-type RuntimeHandler = (
-  message: any,
-  sender: Browser.runtime.MessageSender,
-  sendResponse: (response?: any) => void
-) => any
+type RuntimeHandler = (message: any, sender: any, sendResponse: (response?: any) => void) => any
 
 // 1、runtime 之间直接互发， 但是向content发送时，是广播所有的tabs。
 // 2、返回值固定为sender
 export const sendRuntimeMessage = (type: string, data: any, direction: RuntimeDirection) => {
   if (direction.endsWith('content')) {
-    browser.tabs.query({}, (tabs) => {
+    chrome.tabs.query({}, (tabs: any[]) => {
       tabs.forEach((tab) => {
-        browser.tabs.sendMessage(tab.id!, { type, data, direction, tabId: tab.id! })
+        chrome.tabs.sendMessage(tab.id!, { type, data, direction, tabId: tab.id! })
       })
     })
   } else {
-    return browser.runtime.sendMessage({ direction, type, data })
+    return chrome.runtime.sendMessage({ direction, type, data })
   }
 }
 
@@ -54,7 +57,7 @@ export const onRuntimeMessage = (type: string, cb: RuntimeHandler, direction: Ru
       }
     }
   }
-  browser.runtime.onMessage.addListener(handler)
+  chrome.runtime.onMessage.addListener(handler)
 
-  return () => browser.runtime.onMessage.removeListener(handler)
+  return () => chrome.runtime.onMessage.removeListener(handler)
 }

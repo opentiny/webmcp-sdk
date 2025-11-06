@@ -7,27 +7,22 @@ const status = defineModel('status', { type: String, default: 'ready' })
 /** 要显示的消息, 目前传入的就是toolName */
 const message = defineModel('message', { type: String, default: '' })
 
-window.addEventListener('message', function (event) {
-  if (event.data.type === 'page-app-message') {
-    /** 如果工具正在运行，则切换到目标页签 */
-    if (event.data.status === 'run') {
-      browser.runtime.sendMessage({
-        type: 'page-app-message-to-background',
-        data: {
-          status: event.data.status,
-          message: event.data.message
-        }
-      })
+onWindowMessage(
+  'update-page-app-message',
+  (data) => {
+    if (data.status === 'run') {
+      sendRuntimeMessage('focus-current-tab', data, 'content->bg')
     }
 
-    status.value = event.data.status
-    message.value = event.data.message
+    status.value = data.status
+    message.value = data.message
     nextTick(() => {
       const el = document.querySelector('[data-wxt-integrated]')
       el?.classList.toggle('wxt-ingt-active', status.value === 'run')
     })
-  }
-})
+  },
+  'page->content'
+)
 </script>
 
 <template>
