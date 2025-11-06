@@ -4,9 +4,8 @@ const { ExtensionPageServerTransport, WebMcpServer, z } = WebMCP
 async function waitForContentProxy() {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
-      console.warn('等待 content proxy 就绪超时，继续执行')
       resolve(false)
-    }, 100)
+    }, 1000)
   })
 }
 

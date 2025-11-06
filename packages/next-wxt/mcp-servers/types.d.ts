@@ -18,5 +18,7 @@ declare global {
   }
 }
 
+export type McpServerType = 'pageMcpServer' | 'sideMcpServer' | 'contentScriptMcpServer'
+
 // 确保此文件被视为模块
 export {}
