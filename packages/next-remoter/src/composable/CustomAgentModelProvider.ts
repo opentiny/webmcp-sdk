@@ -3,6 +3,7 @@ import type { ChatCompletionRequest } from '@opentiny/tiny-robot-kit'
 import type { StreamHandler } from '@opentiny/tiny-robot-kit'
 import { BaseModelProvider } from '@opentiny/tiny-robot-kit'
 import type { AIModelConfig } from '@opentiny/tiny-robot-kit'
+import type { IGenPromptComponent } from '@opentiny/genui-sdk'
 import { type Ref } from 'vue'
 import { AgentModelProvider, McpServerConfig, IAgentModelProviderOption } from '@opentiny/next-sdk'
 import { getToday } from './tools'
@@ -221,7 +222,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
                     ]
                   }
                 }
-              ],
+              ] as IGenPromptComponent[],
               customExamples: [
                 {
                   name: '选择用户示例',
@@ -242,14 +243,9 @@ export class CustomAgentModelProvider extends BaseModelProvider {
                     ]
                   }
                 }
-              ],
-              customSnippets: [
-                {
-                  test: 'testSnippets'
-                }
               ]
             }
-          }
+          } as any
         }
       },
       onFinish: async () => {
