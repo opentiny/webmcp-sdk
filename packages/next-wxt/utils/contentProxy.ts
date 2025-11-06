@@ -26,4 +26,11 @@ export const createContentProxy = (tabId: number) => {
     'side->content',
     tabId
   )
+
+  // 回复Main Page 当前的tabId
+  onWindowMessage(
+    'ask-tabid',
+    () => sendWindowMessage('answer-tabid', { tabId }, 'content->page'), //
+    'page->content'
+  )
 }

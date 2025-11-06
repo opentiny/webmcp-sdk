@@ -28,6 +28,7 @@ export class ExtensionPageServerTransport implements Transport {
 
   // 会话ID，用于标识此 transport 实例并路由消息
   readonly sessionId: string
+  readonly tabId: number
 
   // 内部状态
   private _messageListener1: () => void
@@ -46,9 +47,10 @@ export class ExtensionPageServerTransport implements Transport {
     }
   }
 
-  constructor(sessionId: string | null = null) {
+  constructor(sessionId: string | null = null, tabId: number) {
     // 如果提供了 sessionId，使用提供的；否则随机生成
     this.sessionId = sessionId || randomUUID()
+    this.tabId = tabId
 
     this._messageListener1 = onWindowMessage(
       'sidepanel-ready-to-page',
@@ -65,6 +67,8 @@ export class ExtensionPageServerTransport implements Transport {
     this._messageListener2 = onWindowMessage(
       'mcp-client-to-server-to-page',
       (data) => {
+        if (data.sessionId !== this.sessionId || data.tabId !== this.tabId) return
+
         console.log('【Page Svr Transport】 即将处理 mcpMessage', data.mcpMessage)
         const mcpMessage = JSONRPCMessageSchema.parse(data.mcpMessage)
         this.onmessage?.(mcpMessage)
