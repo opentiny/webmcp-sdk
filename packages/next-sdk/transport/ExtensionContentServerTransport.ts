@@ -59,7 +59,7 @@ export class ContentScriptServerTransport implements Transport {
       () => {
         if (this._lastRegistration && this._isStarted) {
           this.notifyRegistration(this._lastRegistration).catch((error) => {
-            console.log('[ContentScriptServerTransport] notifyRegistration 失败', error)
+            console.log('【Content Svr Transport】 notifyRegistration 失败', error)
           })
         }
       },
@@ -70,11 +70,11 @@ export class ContentScriptServerTransport implements Transport {
 
   /** 启动 transport，开始监听MCP client 消息   */
   async start() {
-    console.log('[ContentScriptServerTransport] 启动 start', this.sessionId)
+    console.log('【Content Svr Transport】 启动 start', this.sessionId)
     // 防止重复启动
     if (this._isStarted) return
 
-    if (this._isClosed) throw new Error('❌️ content server Transport 已关闭，无法重新启动')
+    if (this._isClosed) throw new Error('【Content Svr Transport】 已关闭，无法重新启动')
 
     onRuntimeMessage(
       'mcp-client-to-server',
@@ -82,7 +82,7 @@ export class ContentScriptServerTransport implements Transport {
         if (data.sessionId !== this.sessionId || data.tabId !== this.tabId) return
 
         try {
-          console.log('content server transport 即将处理 mcpMessage', data.mcpMessage)
+          console.log('【Content Svr Transport】 即将处理 mcpMessage', data.mcpMessage)
           const mcpMessage = JSONRPCMessageSchema.parse(data.mcpMessage)
           this.onmessage?.(mcpMessage)
 
@@ -96,7 +96,7 @@ export class ContentScriptServerTransport implements Transport {
             )
           }
         } catch (error) {
-          console.log('[ContentScriptServerTransport] 处理消息时发生错误:', error)
+          console.log('【Content Svr Transport】 处理消息时发生错误:', error)
         }
       },
       'side->content',
@@ -109,11 +109,11 @@ export class ContentScriptServerTransport implements Transport {
   /** 发送消息到 MCP Client */
   async send(message: JSONRPCMessage, _options?: TransportSendOptions): Promise<void> {
     // 检查状态
-    this._throwError(() => !this._isStarted, 'server Transport 未启动，无法发送消息')
-    this._throwError(() => this._isClosed, 'server Transport 已关闭，无法发送消息')
+    this._throwError(() => !this._isStarted, '【Content Svr Transport】 未启动，无法发送消息')
+    this._throwError(() => this._isClosed, '【Content Svr Transport】 已关闭，无法发送消息')
 
     try {
-      console.log('[ContentScriptServerTransport] 发送消息到 MCP Client', message)
+      console.log('【Content Svr Transport】 发送消息到 MCP Client', message)
       sendRuntimeMessage(
         'mcp-server-to-client',
         {
@@ -132,7 +132,7 @@ export class ContentScriptServerTransport implements Transport {
         )
       }
     } catch (error) {
-      this._throwError(() => true, 'server Transport 发送消息失败' + String(error))
+      this._throwError(() => true, '【Content Svr Transport】发送消息失败' + String(error))
     }
   }
 
@@ -167,7 +167,7 @@ export class ContentScriptServerTransport implements Transport {
         this.onclose()
       }
     } catch (error) {
-      this._throwError(() => true, 'server Transport close失败' + String(error))
+      this._throwError(() => true, '【Content Svr Transport】 关闭时发生错误' + String(error))
     }
   }
 }

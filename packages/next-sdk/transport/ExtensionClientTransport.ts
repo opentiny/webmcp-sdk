@@ -44,7 +44,7 @@ export class ExtensionClientTransport implements Transport {
           const mcpMessage = JSONRPCMessageSchema.parse(data.mcpMessage)
           this.onmessage?.(mcpMessage)
         } catch (error) {
-          console.log('Client Transport处理server消息错误：', error)
+          console.log('【Client Transport】处理server消息错误：', error)
         }
       },
       'content->side'
@@ -53,18 +53,18 @@ export class ExtensionClientTransport implements Transport {
 
   /** 启动 transport，开始监听消息   */
   async start() {
-    this._throwError(() => this._isClosed, 'Client Transport 未启动，无法重新启动')
+    this._throwError(() => this._isClosed, '【Client Transport】 未启动，无法重新启动')
     this._isStarted = true
   }
 
   /** 发送消息到 MCP Server  */
   async send(message: JSONRPCMessage, _options?: TransportSendOptions): Promise<void> {
-    this._throwError(() => !this._isStarted, 'Client Transport 未启动，无法发送消息')
-    this._throwError(() => this._isClosed, 'Client Transport 已关闭，无法发送消息')
+    this._throwError(() => !this._isStarted, '【Client Transport】 未启动，无法发送消息')
+    this._throwError(() => this._isClosed, '【Client Transport】 已关闭，无法发送消息')
 
     // 查询 当前sessionId的最后一个tabid
     const sessionInfo = chrome.sessionRegistry.get(this.targetSessionId)
-    this._throwError(() => !sessionInfo, `Client Transport，sessionRegistry中未找到${this.targetSessionId}`)
+    this._throwError(() => !sessionInfo, `【Client Transport】sessionRegistry中未找到${this.targetSessionId}`)
 
     const tabId = sessionInfo.tabIds[sessionInfo.tabIds.length - 1]
     sendRuntimeMessage(
@@ -84,7 +84,7 @@ export class ExtensionClientTransport implements Transport {
       this._messageListener && this._messageListener()
       this.onclose && this.onclose()
     } catch (error) {
-      this._throwError(() => true, 'Client Transport 已关闭，无法发送消息')
+      this._throwError(() => true, '【Client Transport】 关闭时发生错误')
     }
   }
 }
