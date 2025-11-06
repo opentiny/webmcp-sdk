@@ -127,10 +127,12 @@ import {
   type PluginTool
 } from '@opentiny/tiny-robot'
 
+import { SchemaRenderer } from '@opentiny/genui-sdk-vue'
+
 import { GeneratingStatus, STATUS } from '@opentiny/tiny-robot-kit'
 import { IconNewSession, IconPlugin, IconHistory } from '@opentiny/tiny-robot-svgs'
 import { useTinyRobotChat } from '../composable/useTinyRobotChat'
-import { toRef, computed, ref, onMounted, markRaw } from 'vue'
+import { toRef, computed, ref, onMounted, markRaw, shallowReactive, h } from 'vue'
 import { createRemoter, McpServerConfig } from '@opentiny/next-sdk'
 import QrCodeScan from './qr-code-scan.vue'
 import { DEFAULT_SERVERS } from './default-mcps'
@@ -138,6 +140,7 @@ import { defaultPluginSrc } from './default-plugin-svg'
 import { getLang, mapMake } from './lang'
 import { handleError } from './error-handle'
 import { ICustomAgentModelProviderLlmConfig } from '../types/type'
+import TinyUser from './TinyUser.vue'
 
 defineOptions({
   name: 'TinyRemoter'
@@ -203,8 +206,31 @@ const props = defineProps({
 const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })
 const show = defineModel('show', { type: Boolean, default: false })
 
+const customComponents = shallowReactive({
+  TinyUser
+})
+const generating = computed(() => GeneratingStatus.includes(messageState.status))
+
+const onAction = ({ llmFriendlyMessage, humanFriendlyMessage }: any) => {
+  addMessage({
+    role: 'user',
+    content: llmFriendlyMessage,
+    messages: [{ type: 'text', content: humanFriendlyMessage }]
+  })
+  send()
+}
+
 // 自定义消息渲染器
-const contentRenderer = { markdown: new BubbleMarkdownContentRenderer({ mdConfig: { html: true } }) }
+const contentRenderer = {
+  markdown: new BubbleMarkdownContentRenderer({ mdConfig: { html: true } }),
+  'schema-card': (schemaCardProps: any) =>
+    h(SchemaRenderer, {
+      ...schemaCardProps,
+      onAction,
+      generating: generating.value,
+      customComponents
+    })
+}
 
 // 对接 mcp server picker 组件
 const pluginVisible = ref(false)
@@ -242,7 +268,9 @@ const {
   handleHistoryUpdateTitle,
   handleHistoryDelete,
   handleHistorySelect,
-  handleCreateConversation
+  handleCreateConversation,
+  addMessage,
+  send
 } = useTinyRobotChat({
   sessionId: toRef(props, 'sessionId'),
   agentRoot: toRef(props, 'agentRoot'),

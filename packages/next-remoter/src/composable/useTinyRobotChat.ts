@@ -5,6 +5,7 @@ import { CustomAgentModelProvider } from './CustomAgentModelProvider'
 import { TrSender } from '@opentiny/tiny-robot'
 import logo from '../../public/svgs/logo-next-no-bg-right.svg'
 import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
+import { extractTextAndJson } from './handleSchema'
 
 interface useTinyRobotOption {
   sessionId: Ref<string>
@@ -13,6 +14,10 @@ interface useTinyRobotOption {
   llmConfig?: ICustomAgentModelProviderLlmConfig
   llm?: any
 }
+
+let accmulateText = ''
+let summaryText = ''
+let accmulateMessagesLength: number = 0
 
 export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt, llmConfig, llm }: useTinyRobotOption) => {
   const customAgentProvider = new CustomAgentModelProvider(
@@ -54,6 +59,22 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt, llmConfig
 
         let lastMessage = messages.value[messages.value.length - 1]
 
+        if (data.type === 'start') {
+          accmulateText = ''
+          summaryText = ''
+          accmulateMessagesLength = 0
+        }
+
+        if (data.type === 'text-start') {
+          accmulateText = ''
+          summaryText += accmulateText
+        }
+
+        if (data.type === 'text-end') {
+          summaryText += accmulateText
+          accmulateText = ''
+        }
+
         if (lastMessage.role !== 'assistant') {
           const message = {
             role: 'assistant',
@@ -74,15 +95,30 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt, llmConfig
             toolContent.status = data.status
           }
         } else if (data.type === 'markdown') {
-          const markdownContent = lastMessage.uiContent.find(
-            (item) => item.type === data.type && item.textId === data.textId
-          )
-          if (!markdownContent) {
-            lastMessage.uiContent.push(data)
-          } else {
-            markdownContent.content += data.delta
-            lastMessage.content += data.delta
+          accmulateText += data.delta
+          const accmulateMessages = extractTextAndJson(accmulateText)
+          const arrLength = accmulateMessages.length
+          if (arrLength === 0) {
+            return
           }
+          if (arrLength > accmulateMessagesLength) {
+            lastMessage.uiContent.push(accmulateMessages[arrLength - 1])
+          } else {
+            lastMessage.uiContent[lastMessage.uiContent.length - 1] = accmulateMessages[arrLength - 1]
+          }
+          accmulateMessagesLength = arrLength
+          console.log('accmulateMessages', accmulateMessages)
+          // const markdownContent = lastMessage.uiContent.find(
+          //   (item) => item.type === data.type && item.textId === data.textId
+          // )
+          // if (!markdownContent) {
+          //   lastMessage.uiContent.push(data)
+          // } else {
+          //   markdownContent.content += data.delta
+          //   lastMessage.content += data.delta
+          // }
+          // const extractedBlocks = extractTextAndJson(lastMessage.content || data.delta)
+          // console.log('extractedBlocks', extractedBlocks)
         } else if (data.type === 'collapsible-text') {
           const thinkContent = lastMessage.uiContent.find(
             (item) => item.type === data.type && item.thinkId === data.thinkId
@@ -97,7 +133,7 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt, llmConfig
       }
     }
   })
-  const { messageState, inputMessage, sendMessage, abortRequest, messages } = messageManager
+  const { messageState, inputMessage, sendMessage, abortRequest, messages, addMessage, send } = messageManager
 
   const roles = {
     assistant: {
@@ -191,6 +227,8 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt, llmConfig
     welcomeIcon,
 
     messageManager,
+    addMessage,
+    send,
     conversationState,
     messages,
     messageState,
