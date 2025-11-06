@@ -1,7 +1,7 @@
 import type { Transport, TransportSendOptions } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { type JSONRPCMessage, JSONRPCMessageSchema } from '@modelcontextprotocol/sdk/types.js'
 import { randomUUID } from '../utils/uuid'
-import { onRuntimeMessage, sendRuntimeMessage } from './messages'
+import { onRuntimeMessage, sendRuntimeMessage, sendWindowMessage } from './messages'
 
 declare const document: Document
 declare const chrome: any
@@ -97,7 +97,11 @@ export class ContentScriptServerTransport implements Transport {
           // 判断是否为工具调用
           const toolName = data.mcpMessage.params?.name
           if (toolName) {
-            window.postMessage({ type: 'page-app-message', status: 'run', message: data.mcpMessage.params?.name }, '*')
+            sendWindowMessage(
+              'update-page-app-message',
+              { status: 'run', message: data.mcpMessage.params?.name },
+              'page->content' // 此处应该是 content->content， 但为了和pageServerTransport统一。
+            )
           }
         } catch (error) {
           console.log('[ContentScriptServerTransport] 处理消息时发生错误:', error)
@@ -129,7 +133,11 @@ export class ContentScriptServerTransport implements Transport {
 
       // 判断是否为工具调用成功了!
       if ('result' in message && message.result?.content) {
-        window.postMessage({ type: 'page-app-message', status: 'ready', message: '' }, '*')
+        sendWindowMessage(
+          'update-page-app-message',
+          { status: 'ready', message: '' },
+          'page->content' // 此处应该是 content->content， 但为了和pageServerTransport统一。
+        )
       }
     } catch (error) {
       this._throwError(() => true, 'server Transport 发送消息失败' + String(error))

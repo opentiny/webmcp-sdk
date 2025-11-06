@@ -71,7 +71,11 @@ export class ExtensionPageServerTransport implements Transport {
         // 判断是否为工具调用
         const toolName = data.mcpMessage.params?.name
         if (toolName) {
-          window.postMessage({ type: 'page-app-message', status: 'run', message: data.mcpMessage.params?.name }, '*')
+          sendWindowMessage(
+            'update-page-app-message',
+            { status: 'run', message: data.mcpMessage.params?.name },
+            'page->content'
+          )
         }
       },
       'content->page'
@@ -105,7 +109,11 @@ export class ExtensionPageServerTransport implements Transport {
 
     // 判断是否为工具调用成功了!
     if ('result' in message && message.result?.content) {
-      window.postMessage({ type: 'page-app-message', status: 'ready', message: '' }, '*')
+      sendWindowMessage(
+        'update-page-app-message',
+        { status: 'ready', message: '' },
+        'page->content' // 此处应该是 content->content， 但为了和pageServerTransport统一。
+      )
     }
   }
 
