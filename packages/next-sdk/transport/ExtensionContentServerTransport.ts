@@ -32,7 +32,7 @@ export class ContentScriptServerTransport implements Transport {
 
   // 会话ID，用于标识此 transport 实例并路由消息
   readonly sessionId: string
-  readonly tabid: number
+  readonly tabId: number
 
   // 内部状态
   private _isStarted: boolean = false
@@ -52,19 +52,19 @@ export class ContentScriptServerTransport implements Transport {
   constructor(sessionId: string | null = null, tabId: number) {
     // 如果提供了 sessionId，使用提供的；否则随机生成
     this.sessionId = sessionId || randomUUID()
-    this.tabid = tabId
+    this.tabId = tabId
 
     onRuntimeMessage(
       'sidepanel-ready',
       () => {
         if (this._lastRegistration && this._isStarted) {
           this.notifyRegistration(this._lastRegistration).catch((error) => {
-            console.log('[ContentScriptServerTransport] 通知 Sidepanel 此 Server 已启动并准备接受连接失败', error)
+            console.log('[ContentScriptServerTransport] notifyRegistration 失败', error)
           })
         }
       },
       'side->content',
-      this.tabid
+      this.tabId
     )
   }
 
@@ -74,23 +74,15 @@ export class ContentScriptServerTransport implements Transport {
     // 防止重复启动
     if (this._isStarted) return
 
-    if (this._isClosed) throw new Error('❌️ server Transport 已关闭，无法重新启动')
-
-    chrome.runtime.onMessage.addListener((message: any) => {
-      if (message.type === 'mcp-client-to-server') {
-      }
-    })
+    if (this._isClosed) throw new Error('❌️ content server Transport 已关闭，无法重新启动')
 
     onRuntimeMessage(
       'mcp-client-to-server',
       (data: any) => {
-        if (data.sessionId !== this.sessionId) {
-          return { success: false, error: 'sessionId 不匹配' }
-        }
-        if (!data.mcpMessage) {
-          return { success: false, error: '消息缺少 mcpMessage 字段' }
-        }
+        if (data.sessionId !== this.sessionId || data.tabId !== this.tabId) return
+
         try {
+          console.log('content server transport 即将处理 mcpMessage', data.mcpMessage)
           const mcpMessage = JSONRPCMessageSchema.parse(data.mcpMessage)
           this.onmessage?.(mcpMessage)
 
@@ -108,7 +100,7 @@ export class ContentScriptServerTransport implements Transport {
         }
       },
       'side->content',
-      this.tabid
+      this.tabId
     )
 
     this._isStarted = true

@@ -2,6 +2,8 @@ import type { Transport, TransportSendOptions } from '@modelcontextprotocol/sdk/
 import { type JSONRPCMessage, JSONRPCMessageSchema } from '@modelcontextprotocol/sdk/types.js'
 import { onRuntimeMessage, sendRuntimeMessage } from './messages'
 
+declare const chrome: any
+
 /**
  * Chrome 扩展客户端 Transport, 用于 Sidepanel 中的标准的 MCP Transport 接口
  * 使用 targetSessionId 连接到特定的 Server
@@ -60,9 +62,14 @@ export class ExtensionClientTransport implements Transport {
     this._throwError(() => !this._isStarted, 'Client Transport 未启动，无法发送消息')
     this._throwError(() => this._isClosed, 'Client Transport 已关闭，无法发送消息')
 
+    // 查询 当前sessionId的最后一个tabid
+    const sessionInfo = chrome.sessionRegistry.get(this.targetSessionId)
+    this._throwError(() => !sessionInfo, `Client Transport，sessionRegistry中未找到${this.targetSessionId}`)
+
+    const tabId = sessionInfo.tabIds[sessionInfo.tabIds.length - 1]
     sendRuntimeMessage(
       'mcp-client-to-server',
-      { sessionId: this.targetSessionId, mcpMessage: message },
+      { sessionId: this.targetSessionId, tabId, mcpMessage: message },
       'side->content'
     )
   }

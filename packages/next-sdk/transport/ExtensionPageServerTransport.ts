@@ -55,7 +55,7 @@ export class ExtensionPageServerTransport implements Transport {
       () => {
         if (this._lastRegistration && this._isStarted) {
           this.notifyRegistration(this._lastRegistration).catch((error) => {
-            console.error('❌️ 重新注册失败:', error)
+            console.error('❌️ page server transport notifyRegistration失败:', error)
           })
         }
       },
@@ -65,6 +65,7 @@ export class ExtensionPageServerTransport implements Transport {
     this._messageListener2 = onWindowMessage(
       'mcp-client-to-server-to-page',
       (data) => {
+        console.log('page server transport 即将处理 mcpMessage', data.mcpMessage)
         const mcpMessage = JSONRPCMessageSchema.parse(data.mcpMessage)
         this.onmessage?.(mcpMessage)
 
@@ -87,7 +88,7 @@ export class ExtensionPageServerTransport implements Transport {
     // 防止重复启动
     if (this._isStarted) return
 
-    if (this._isClosed) throw new Error('❌️ server Transport 已关闭，无法重新启动')
+    if (this._isClosed) throw new Error('❌️ page server Transport 已关闭，无法重新启动')
 
     this._isStarted = true
   }
@@ -95,8 +96,8 @@ export class ExtensionPageServerTransport implements Transport {
   /** 发送消息到 MCP Client */
   async send(message: JSONRPCMessage, _options?: TransportSendOptions): Promise<void> {
     // 检查状态
-    this._throwError(() => !this._isStarted, 'server Transport 未启动，无法发送消息')
-    this._throwError(() => this._isClosed, 'server Transport 已关闭，无法发送消息')
+    this._throwError(() => !this._isStarted, 'page server Transport 未启动，无法发送消息')
+    this._throwError(() => this._isClosed, 'page server Transport 已关闭，无法发送消息')
 
     sendWindowMessage(
       'mcp-server-to-client-from-page',
@@ -119,7 +120,7 @@ export class ExtensionPageServerTransport implements Transport {
 
   /** 通知 Sidepanel 此 Server 已启动并准备接受连接 */
   async notifyRegistration(serverInfo: ServerInfo): Promise<void> {
-    this._throwError(() => !this._isStarted, 'server Transport 未启动，无法注册消息')
+    this._throwError(() => !this._isStarted, 'page server Transport 未启动，无法注册消息')
     this._lastRegistration = serverInfo
 
     try {
@@ -136,7 +137,7 @@ export class ExtensionPageServerTransport implements Transport {
         'page->content'
       )
     } catch (error) {
-      this._throwError(() => true, 'server Transport ❌️ 注册 server 失败' + String(error))
+      this._throwError(() => true, 'page server Transport ❌️ 注册 server 失败' + String(error))
     }
   }
 
@@ -152,7 +153,7 @@ export class ExtensionPageServerTransport implements Transport {
       this._isStarted = false
       this.onclose && this.onclose()
     } catch (error) {
-      this._throwError(() => true, 'server Transport close失败' + String(error))
+      this._throwError(() => true, 'page server Transport close失败' + String(error))
     }
   }
 }
