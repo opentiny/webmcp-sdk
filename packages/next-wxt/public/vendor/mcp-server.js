@@ -6,7 +6,7 @@ async function waitForContentProxy() {
     setTimeout(() => {
       console.warn('等待 content proxy 就绪超时，继续执行')
       resolve(false)
-    }, 1000)
+    }, 100)
   })
 }
 

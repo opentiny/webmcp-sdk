@@ -1,7 +1,7 @@
-window.$next_remoter_mcp_server = ({ server, z }) => {
+export default ({ server, z }) => {
   // Add an addition tool
   server.registerTool(
-    'fill-textarea',
+    'fill-textarea11',
     {
       title: '填充搜索框',
       description: '填充百度搜索框的内容',
