@@ -10,23 +10,7 @@ export default defineContentScript({
     let self: Browser.runtime.MessageSender
     let tabId: number
 
-    const initWebMCP = async () => {
-      const hostname = window.location.hostname
-      return new Promise((resolve, reject) => {
-        browser.runtime.sendMessage(
-          {
-            type: 'initWebMCP',
-            data: { hostname }
-          },
-          (response) => {
-            console.log('脚本注入完成:', response)
-            resolve(response)
-          }
-        )
-      })
-    }
-
-    // 页面可见之后，才启动整个流程
+    // 1、判定启动条件：页面可见之后
     if (document.visibilityState === 'hidden') {
       const handleVisibilityChange = () => {
         if (document.visibilityState === 'visible') {
@@ -39,6 +23,7 @@ export default defineContentScript({
       startAll()
     }
 
+    // 2、启动流程
     async function startAll() {
       await getTabId()
       createContentProxy(tabId)
@@ -54,6 +39,12 @@ export default defineContentScript({
     async function getTabId() {
       self = await sendRuntimeMessage('who-am-i', {}, 'content->bg')
       tabId = self.tab?.id!
+    }
+
+    const initWebMCP = async () => {
+      const hostname = window.location.hostname
+      const reply = await browser.runtime.sendMessage({ type: 'inject-mcp-scripts', hostname })
+      console.log('initWebMCP 插入脚本结果：', reply)
     }
 
     function mountPageApp() {

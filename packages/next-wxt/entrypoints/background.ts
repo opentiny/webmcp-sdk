@@ -1,26 +1,29 @@
 export default defineBackground(() => {
-  browser.runtime.onMessage.addListener(async (message, sender) => {
-    if (message.type === 'focus-current-tab') {
-      const id = sender.tab?.id
+  browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'inject-mcp-scripts') {
+      const { hostname } = message
       try {
-        await browser.tabs.update(id, { active: true })
-      } catch (error) {
-        console.error('切换页签失败', error)
-      }
-      return
-    }
-
-    if (message.type === 'initWebMCP') {
-      const { hostname } = message.data
-      try {
-        const success = await injectMainScript(hostname)
-        return Promise.resolve({ success, hostname, timestamp: Date.now() })
+        injectMainScript(hostname).then((success: boolean) => {
+          sendResponse({ success, hostname })
+        })
       } catch (error: any) {
-        console.error('脚本注入失败:', error)
-        return Promise.resolve({ success: false, error: error?.message || '未知错误' })
+        sendResponse({ success: false, hostname, error })
       }
+      return true
     }
   })
+
+  onRuntimeMessage(
+    'inject-mcp-scripts',
+    async (_, sender) => await browser.tabs.update(sender.tab?.id, { active: true }),
+    'content->bg'
+  )
+
+  onRuntimeMessage(
+    'focus-current-tab',
+    async (_, sender) => await browser.tabs.update(sender.tab?.id, { active: true }),
+    'content->bg'
+  )
 
   // 自动返回sender 给 content-script
   onRuntimeMessage('who-am-i', () => {}, 'content->bg')
