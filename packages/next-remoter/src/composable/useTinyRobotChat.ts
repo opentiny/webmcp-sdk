@@ -65,14 +65,13 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt, llmConfig
           accmulateMessagesLength = 0
         }
 
-        if (data.type === 'text-start') {
+        if (['text-start', 'tool'].includes(data.type)) {
           accmulateText = ''
-          summaryText += accmulateText
+          accmulateMessagesLength = 0
         }
 
         if (data.type === 'text-end') {
           summaryText += accmulateText
-          accmulateText = ''
         }
 
         if (lastMessage.role !== 'assistant') {
