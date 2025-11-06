@@ -4,8 +4,6 @@ export const injectUrls = {
   mcpServer: browser.runtime.getURL('/vendor/mcp-server.js')
 }
 
-const nextSdkScript = fetch(injectUrls.nextSdk).then((res) => res.text())
-const mcpServerScript = fetch(injectUrls.mcpServer).then((res) => res.text())
 /**
  * 插入脚本到网页中插入脚本到网页中
  * @param originUrl 网站的根路径： https://www.baidu.com
@@ -13,12 +11,14 @@ const mcpServerScript = fetch(injectUrls.mcpServer).then((res) => res.text())
  * @returns
  */
 export const injectMainScript = async (hostname: string, withNextSdk = true) => {
+  const nextSdkScript = await fetch(injectUrls.nextSdk).then((res) => res.text())
+  const mcpServerScript = await fetch(injectUrls.mcpServer).then((res) => res.text())
   const url = browser.runtime.getURL(`/mcp-servers/${hostname}/index.js`)
   if (!url) {
     return false
   }
   let script = await fetch(url).then((res) => res.text())
-  if (withNextSdk) script = script + (await nextSdkScript) + (await mcpServerScript)
+  if (withNextSdk) script = script + nextSdkScript.replace('define.amd', 'define.amdx') + mcpServerScript
 
   try {
     // 尝试获取已存在的脚本

@@ -1,4 +1,4 @@
-const modules = import.meta.glob('./*/*.js', { eager: true })
+const modules = import.meta.glob('./*/*.ts', { eager: true })
 
 /**
  * 根据域名获取对应的 MCP 工具配置
