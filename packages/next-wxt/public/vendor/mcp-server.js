@@ -1,4 +1,4 @@
-const { ExtensionServerTransport, WebMcpServer, z } = WebMCP
+const { ExtensionPageServerTransport, WebMcpServer, z } = WebMCP
 
 // 等待 content proxy 就绪
 async function waitForContentProxy() {
@@ -35,7 +35,7 @@ async function connect() {
     const sessionId = localStorage.getItem('mcp-sessionId')
 
     // Create pair MCP transports
-    const serverTransport = new ExtensionServerTransport(sessionId)
+    const serverTransport = new ExtensionPageServerTransport(sessionId)
     localStorage.setItem('mcp-sessionId', serverTransport.sessionId)
 
     console.log(serverTransport.sessionId)
