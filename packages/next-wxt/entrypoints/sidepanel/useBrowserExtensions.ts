@@ -109,6 +109,7 @@ export const useBrowserExtensions = ({
    */
   onMounted(async () => {
     try {
+      console.log('【useBrowserExt】即将发送 sidepanel-ready 广播')
       sendRuntimeMessage('sidepanel-ready', {}, 'side->content')
     } catch (error) {
       console.error('【useBrowserExt】 sidePanel onMounted 时，通知所有tabs 的任务中，有报错：', error as any)

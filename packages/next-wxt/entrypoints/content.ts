@@ -26,13 +26,13 @@ export default defineContentScript({
 
     // 2、启动流程
     async function startAll() {
+      // 2.1
       await getTabId()
 
-      // 获取当前页面的 hostname 和对应的 MCP 配置
+      // 2.2 根据配置类型选择不同的 MCP 加载方式
       const hostname = window.location.hostname
       const mcpMeta = getMcpMetaInfo(hostname)
 
-      // 根据配置类型选择不同的 MCP 加载方式
       if (mcpMeta) {
         console.log('【Content Script】找到 MCP 配置:', mcpMeta)
         if (mcpMeta.type === 'pageMcpServer') {
@@ -45,10 +45,9 @@ export default defineContentScript({
         } else {
           console.warn('【Content Script】未知的 MCP 服务器类型:', mcpMeta.type)
         }
-      } else {
-        console.log('【Content Script】当前域名未配置 MCP 服务器:', hostname)
       }
 
+      // 2.3 加载页面UI
       mountPageApp()
       console.log('【Content Script】页面初始化完成', { self, tabId, hostname, mcpMeta })
     }
