@@ -215,7 +215,7 @@ const onAction = ({ llmFriendlyMessage, humanFriendlyMessage }: any) => {
   addMessage({
     role: 'user',
     content: llmFriendlyMessage,
-    messages: [{ type: 'text', content: humanFriendlyMessage }]
+    uiContent: [{ type: 'text', content: humanFriendlyMessage }]
   })
   send()
 }
