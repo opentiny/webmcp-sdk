@@ -3,6 +3,7 @@ import type { ChatCompletionRequest } from '@opentiny/tiny-robot-kit'
 import type { StreamHandler } from '@opentiny/tiny-robot-kit'
 import { BaseModelProvider } from '@opentiny/tiny-robot-kit'
 import type { AIModelConfig } from '@opentiny/tiny-robot-kit'
+import type { IGenPromptComponent } from '@opentiny/genui-sdk'
 import { type Ref } from 'vue'
 import { AgentModelProvider, McpServerConfig, IAgentModelProviderOption } from '@opentiny/next-sdk'
 import { getToday } from './tools'
@@ -11,7 +12,7 @@ import type { ICustomAgentModelProviderLlmConfig, StreamPart } from '../types/ty
 // 配置常量
 const DEFAULT_CONFIG: ICustomAgentModelProviderLlmConfig = {
   apiKey: 'sk-trial',
-  baseURL: 'https://agent.opentiny.design/api/v1/ai',
+  baseURL: 'https://agent.opentiny.design/api/v1/ai/prompt/',
   providerType: 'deepseek',
   model: 'deepseek-ai/DeepSeek-V3',
   maxSteps: 15
@@ -88,6 +89,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
    */
   private handleTextStream(part: StreamPart, handler: StreamHandler, textId: number): number {
     if (part.type === 'text-start') {
+      handler.onData({ type: 'text-start' } as any)
       textId++
       handler.onData({
         type: 'markdown',
@@ -107,6 +109,8 @@ export class CustomAgentModelProvider extends BaseModelProvider {
         delta: '\n\n ',
         textId
       } as any)
+
+      handler.onData({ type: 'text-end' } as any)
     }
     return textId
   }
@@ -188,6 +192,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     const lastUserMsg = request.messages[request.messages.length - 1]
     if (!lastUserMsg) return
 
+    // @ts-ignore
     const result = await this.agent.chatStream({
       message: lastUserMsg.content as string,
       model: this.llmConfig.model,
@@ -195,6 +200,54 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       abortSignal: request.options?.signal,
       tools: { ['get-today']: getToday },
       maxSteps: this.llmConfig.maxSteps,
+      providerOptions: {
+        deepseek: {
+          'prompt': {
+            strategy: 'append',
+            'id': '5ed1b9071c15d1ed59b5827ea5dcabd4',
+            'params': {
+              customComponents: [
+                {
+                  name: '选择用户组件',
+                  description: '选择用户组件，用于选择用户，支持模糊搜索',
+                  component: 'TinyUser',
+                  schema: {
+                    properties: [
+                      {
+                        property: 'name',
+                        description: '搜索用户名称，支持模糊搜索',
+                        type: 'string',
+                        required: true
+                      }
+                    ]
+                  }
+                }
+              ] as IGenPromptComponent[],
+              customExamples: [
+                {
+                  name: '选择用户示例',
+                  schema: {
+                    componentName: 'Page',
+                    children: [
+                      {
+                        componentName: 'h3',
+                        props: {},
+                        children: '输入用户名搜索工号并选择用户'
+                      },
+                      {
+                        componentName: 'TinyUser',
+                        props: {
+                          name: '张三'
+                        }
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          } as any
+        }
+      },
       onFinish: async () => {
         await this.agent.closeAll()
         handler.onDone()
@@ -205,6 +258,10 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     let textId = 1
     let thinkId = 1
     for await (const part of result.fullStream) {
+      // 开始节点处理
+      if (part.type === 'start') {
+        handler.onData({ type: 'start' } as any)
+      }
       // 处理文本流数据
       if (part.type.startsWith('text-')) {
         textId = this.handleTextStream(part, handler, textId)
