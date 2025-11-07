@@ -132,7 +132,7 @@ import { SchemaRenderer } from '@opentiny/genui-sdk-vue'
 import { GeneratingStatus, STATUS } from '@opentiny/tiny-robot-kit'
 import { IconNewSession, IconPlugin, IconHistory } from '@opentiny/tiny-robot-svgs'
 import { useTinyRobotChat } from '../composable/useTinyRobotChat'
-import { toRef, computed, ref, onMounted, markRaw, shallowReactive, h } from 'vue'
+import { toRef, computed, ref, onMounted, markRaw, shallowReactive, h, watch } from 'vue'
 import { createRemoter, McpServerConfig } from '@opentiny/next-sdk'
 import QrCodeScan from './qr-code-scan.vue'
 import { DEFAULT_SERVERS } from './default-mcps'
@@ -461,16 +461,39 @@ onMounted(async () => {
 })
 
 // 如果是遥控器模式，则初始化右下角的AI 图标
-if (props.mode === 'remoter') {
-  createRemoter({
-    sessionId: props.sessionId,
-    qrCodeUrl: props.qrCodeUrl,
-    remoteUrl: props.remoteUrl,
-    onShowAIChat: () => {
-      show.value = true
+let isCreateRemoter = false
+watch(
+  () => props.sessionId,
+  (value) => {
+    if (value && props.mode === 'remoter' && !isCreateRemoter) {
+      createRemoter({
+        sessionId: props.sessionId,
+        qrCodeUrl: props.qrCodeUrl,
+        remoteUrl: props.remoteUrl,
+        onShowAIChat: () => {
+          show.value = true
+        }
+      })
+
+      isCreateRemoter = true
     }
-  })
-}
+  },
+  {
+    immediate: true
+  }
+)
+// 后续的每次sessionId变化，都认为是扫码添加了
+watch(
+  () => props.sessionId,
+  (value) => {
+    if (value) {
+      handleScanSuccess(value)
+    }
+  },
+  {
+    immediate: true
+  }
+)
 
 // 整个插件的打开或关闭
 const handlePluginToggle = () => {
