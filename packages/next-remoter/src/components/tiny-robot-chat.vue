@@ -470,17 +470,13 @@ watch(
         sessionId: props.sessionId,
         qrCodeUrl: props.qrCodeUrl,
         remoteUrl: props.remoteUrl,
-        onShowAIChat: () => {
-          show.value = true
-        }
+        onShowAIChat: () => (show.value = true)
       })
 
       isCreateRemoter = true
     }
   },
-  {
-    immediate: true
-  }
+  { immediate: true }
 )
 // 后续的每次sessionId变化，都认为是扫码添加了
 watch(
@@ -490,9 +486,7 @@ watch(
       handleScanSuccess(value)
     }
   },
-  {
-    immediate: true
-  }
+  { immediate: true }
 )
 
 // 整个插件的打开或关闭
