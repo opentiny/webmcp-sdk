@@ -127,12 +127,13 @@ import {
   type PluginTool
 } from '@opentiny/tiny-robot'
 
-import { SchemaRenderer } from '@opentiny/genui-sdk-vue'
+import { CustomFunction } from './customFunction'
+import { SchemaRenderer, RENDERER_SETTINGS_KEY } from '@opentiny/genui-sdk-vue'
 
 import { GeneratingStatus, STATUS } from '@opentiny/tiny-robot-kit'
 import { IconNewSession, IconPlugin, IconHistory } from '@opentiny/tiny-robot-svgs'
 import { useTinyRobotChat } from '../composable/useTinyRobotChat'
-import { toRef, computed, ref, onMounted, markRaw, shallowReactive, h, watch } from 'vue'
+import { toRef, computed, ref, onMounted, markRaw, shallowReactive, h, watch, provide } from 'vue'
 import { createRemoter, McpServerConfig } from '@opentiny/next-sdk'
 import QrCodeScan from './qr-code-scan.vue'
 import { DEFAULT_SERVERS } from './default-mcps'
@@ -144,6 +145,10 @@ import TinyUser from './TinyUser.vue'
 
 defineOptions({
   name: 'TinyRemoter'
+})
+
+provide(RENDERER_SETTINGS_KEY, {
+  Function: CustomFunction
 })
 
 const props = defineProps({
