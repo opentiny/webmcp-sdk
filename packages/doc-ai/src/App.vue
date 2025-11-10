@@ -4,7 +4,7 @@
     <div class="main-content">
       <router-view />
     </div>
-    <tiny-remoter :sessionId="SSEION_ID" v-if="loadingSessionId">
+    <tiny-remoter :sessionId="SSEION_ID" :menuItems="menuItems" v-if="loadingSessionId">
       <template #chat v-if="isAntDesignX">
         <ant-design-x></ant-design-x>
       </template>
@@ -16,17 +16,24 @@
 import { TinyRemoter } from '@opentiny/next-remoter'
 import antDesignX from './components/ant-design-x.vue'
 import { WebMcpClient, createMessageChannelPairTransport } from '@opentiny/next-sdk'
-import type { Transport } from '@opentiny/next-sdk'
+import type { Transport, MenuItemConfig } from '@opentiny/next-sdk'
 import { AGENT_ROOT, SSEION_ID } from './const'
 import { provide, ref } from 'vue'
 
 const [serverTransport, clientTransport] = createMessageChannelPairTransport()
 const loadingSessionId = ref(false)
-
+const menuItems = ref<MenuItemConfig[]>([])
 const query = new URLSearchParams(window.location.search)
 const dialogId = query.get('dialog')
 
 const isAntDesignX = dialogId === 'ant'
+
+menuItems.value = [
+  {
+    action: 'qr-code',
+    show: false
+  }
+]
 
 // 定义 MCP Server 的能力
 const capabilities = {

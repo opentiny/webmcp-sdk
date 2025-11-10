@@ -4,7 +4,7 @@ const DEFAULT_REMOTE_URL = 'https://agent.opentiny.design/tiny-robot'
 const DEFAULT_QR_CODE_URL = 'https://ai.opentiny.design/next-remoter'
 
 /** 菜单项配置接口 */
-interface MenuItemConfig {
+export interface MenuItemConfig {
   /** 菜单项标识 */
   action: 'qr-code' | 'ai-chat' | 'remote-control' | 'remote-url'
   /** 是否显示该菜单项 */
@@ -20,7 +20,7 @@ interface MenuItemConfig {
 }
 
 /**  配置选项接口 */
-interface FloatingBlockOptions {
+export interface FloatingBlockOptions {
   /** 弹出 AI 对话框的回调函数 */
   onShowAIChat?: () => void
 
@@ -35,7 +35,7 @@ interface FloatingBlockOptions {
 }
 
 // 动作类型
-type ActionType = 'qr-code' | 'ai-chat' | 'remote-control' | 'remote-url'
+export type ActionType = 'qr-code' | 'ai-chat' | 'remote-control' | 'remote-url'
 
 const getDefaultMenuItems = (options: FloatingBlockOptions): MenuItemConfig[] => {
   return [
