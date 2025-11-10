@@ -1,5 +1,6 @@
 import { AgentModelProvider, type McpServerConfig } from '@opentiny/next-sdk'
 import { onMounted } from 'vue'
+import { clientTransport, createMcpServer } from './mcpServer'
 
 // Session 注册表：sessionId → {tabIds, serverInfo, timestamp}
 // 用于 Port 连接时查找 Server 所在的 tabs（支持同域名多页签）
@@ -8,7 +9,7 @@ const sessionRegistry = new Map<string, { tabIds: number[]; serverInfo: any; tim
 // 将 sessionRegistry 挂载到 browser 对象上供 ExtensionClientTransport 使用
 ;(browser as any).sessionRegistry = sessionRegistry
 
-export const useBrowserExtensions = ({
+export const useBrowserExtensions = async ({
   agent,
   loadMcpServerToPlugin,
   handleClientDisconnected
@@ -19,6 +20,29 @@ export const useBrowserExtensions = ({
 }) => {
   // 注册队列：确保 MCP server 注册操作串行执行，避免并发时 closeAll() 导致冲突
   let registerQueue = Promise.resolve()
+
+  await createMcpServer()
+
+  // 1.3 串行执行： agent 添加 mcpServer, 更新侧边中的插件列表
+  registerQueue = registerQueue.then(async () => {
+    try {
+      const mcpServer = {
+        url: 'http://localhost:3000'
+      }
+      const serverName = `mcp-server-localhost`
+
+      // 1、 插入McpServers, 此时内部会判断重复。  不重复则插入，并连接和查询tools到agent上。
+      const inserted = await agent.insertMcpServer(serverName, clientTransport as any)
+      if (inserted) {
+        await loadMcpServerToPlugin(serverName, mcpServer as McpServerConfig)
+        showToast(`插件已添加: localhost:3000`)
+      } else {
+        console.error(`【useBrowserExt】 mcpServer插件添加失败: localhost:3000`)
+      }
+    } catch (error) {
+      console.error(`【useBrowserExt】agent 注册插件失败: localhost:3000`, error as any)
+    }
+  })
 
   onRuntimeMessage(
     'mcp-server-register',

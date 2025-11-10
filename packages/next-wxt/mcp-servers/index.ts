@@ -1,3 +1,5 @@
+import type { McpServerType } from './types'
+
 const modules = import.meta.glob('./*/index.ts', { eager: true })
 const metaModules = import.meta.glob('./*/meta.ts', { eager: true })
 
@@ -28,4 +30,33 @@ export const getMcpMetaInfo = (hostname: string) => {
     }
   }
   return null
+}
+
+/**
+ * 根据 MCP 服务器类型获取所有匹配的工具配置
+ * @param type - MCP 服务器类型（如 'sideMcpServer', 'pageMcpServer', 'contentScriptMcpServer'）
+ * @returns 匹配类型的工具模块数组，每个元素包含 meta（元信息）、tool（工具注册函数）和 domain（域名）
+ */
+export const getAllMcpServersByIsAlwaysEnabled = () => {
+  const result: Array<{ meta: any; tool: any; domain: string }> = []
+
+  for (const [metaPath, metaModule] of Object.entries(metaModules)) {
+    const meta = (metaModule as any).default || metaModule
+
+    if (meta.isAlwaysEnabled) {
+      const domain = meta.name
+      const toolPath = `./${domain}/index.ts`
+      const toolModule = modules[toolPath]
+
+      if (toolModule) {
+        result.push({
+          meta,
+          tool: (toolModule as any).default || toolModule,
+          domain
+        })
+      }
+    }
+  }
+
+  return result
 }
