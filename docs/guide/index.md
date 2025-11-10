@@ -24,7 +24,6 @@ npm i @opentiny/next-sdk
 import { WebMcpServer, createMessageChannelPairTransport, z } from '@opentiny/next-sdk'
 
 const [serverTransport, clientTransport] = createMessageChannelPairTransport()
-
 const server = new WebMcpServer()
 
 server.registerTool(
@@ -72,12 +71,22 @@ npm i @opentiny/next-remoter
 
 ```vue
 <script setup lang="ts">
+import { onMounted, ref } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
 import '@opentiny/next-remoter/dist/style.css'
+const mySessionId = ref('')
+const fullscreen = ref(false)
+
+onMounted(async () => {
+  // 第二步代码 ...
+  // 第三步代码 ...
+
+  mySessionId.value = session
+})
 </script>
 
 <template>
-  <tiny-remoter session-id="your-session-id" />
+  <tiny-remoter session-id="your-session-id" show :fullscreen="fullscreen" />
 </template>
 ```
 
@@ -90,7 +99,7 @@ import '@opentiny/next-remoter/dist/style.css'
 
 ## 浏览器直接引入
 
-你也可以直接通过浏览器 HTML 标签导入 NEXT-SDKs ，这样就可以使用全局变量 `WebMCP` 了。
+你也可以直接通过浏览器 HTML 标签导入 NEXT-SDKs ，这样就可以使用全局变量 `WebMCP` 了。同样，通过初始化`WebMcpServer`和`WebMcpClient`生成一个`sessionId`, 就可以传递给 `TinyRemoter`组件使用了。
 
 ```html
 <html>
