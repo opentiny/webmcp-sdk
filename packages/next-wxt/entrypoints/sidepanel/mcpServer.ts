@@ -39,7 +39,7 @@ export const createMcpServer = async () => {
               return result
             }
 
-            return target[prop](...(args as any))
+            return (target[prop] as any)(...args)
           }
         }
         return target[prop as keyof typeof target]
