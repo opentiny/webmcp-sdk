@@ -13,31 +13,57 @@ export const createMcpServer = async () => {
   // 获取所有 type='sideMcpServer' 的工具配置
   const mcpServers = getAllMcpServersByIsAlwaysEnabled()
 
-  const createProxServer = (meta: any) => {
+  const createProxServer = (meta: { name: string; url: string; [key: string]: any }) => {
     return new Proxy(server, {
       get(target, prop, receiver) {
         if (prop === 'registerTool') {
           return (...args: any[]) => {
             const toolName = args[0]
             args[args.length - 1] = async (...args: any[]) => {
+              let tabId: number | undefined
               const tabIds = (browser as any).hostNameMap.get(meta.name)
-              if (!tabIds) {
-                throw new Error(`Tab not found for host: ${meta.name}`)
+
+              if (!tabIds || tabIds.length === 0) {
+                // 页面未打开，需要打开新页签并等待初始化
+                console.log(`【Sidepanel MCP】页面 ${meta.name} 未打开，正在打开新页签...`)
+
+                try {
+                  // 打开新页签
+                  const tab = await browser.tabs.create({ url: meta.url, active: false })
+                  console.log(`【Sidepanel MCP】已打开新页签: ${tab.id}, URL: ${meta.url}`)
+
+                  // 等待 content script 初始化完成并注册到 hostNameMap
+                  tabId = await (browser as any).waitForHostInit(meta.name)
+                  console.log(`【Sidepanel MCP】页签 ${tabId} 初始化完成`)
+                } catch (error) {
+                  console.error(`【Sidepanel MCP】打开页签或等待初始化失败: ${meta.name}`, error)
+                  throw new Error(`无法打开或初始化页面: ${meta.name}`)
+                }
+              } else {
+                // 使用最后一个激活的 tabId
+                tabId = tabIds[tabIds.length - 1]
               }
-              const tabId = tabIds[tabIds.length - 1]
-              console.log('tabids:', tabIds, 'toolName:', toolName, 'args:', args)
-              const result = new Promise((resolve, reject) => {
+
+              console.log('【Sidepanel MCP】执行工具:', { toolName, tabId, args })
+
+              // 执行工具调用
+              const result = await new Promise((resolve, reject) => {
                 browser.tabs.sendMessage(
-                  tabId,
+                  tabId!,
                   {
                     type: 'execute-tool-from-sidepanel-to-content',
                     data: [toolName, ...args]
                   },
                   (response: any) => {
-                    resolve(response)
+                    if (browser.runtime.lastError) {
+                      reject(new Error(browser.runtime.lastError.message))
+                    } else {
+                      resolve(response)
+                    }
                   }
                 )
               })
+
               return result
             }
 

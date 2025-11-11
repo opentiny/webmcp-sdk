@@ -8,9 +8,35 @@ const sessionRegistry = new Map<string, { tabIds: number[]; serverInfo: any; tim
 // 主机名映射表：host → tabIds[]（支持同域名多页签）
 const hostNameMap = new Map<string, number[]>()
 
+// 等待特定 host 初始化完成的 Promise Map
+const hostInitPromises = new Map<string, { resolve: (tabId: number) => void; reject: (err: Error) => void }[]>()
+
 // 将 sessionRegistry 挂载到 browser 对象上供 ExtensionClientTransport 使用
 ;(browser as any).sessionRegistry = sessionRegistry
 ;(browser as any).hostNameMap = hostNameMap
+
+// 暴露给 mcpServer 使用的等待函数
+;(browser as any).waitForHostInit = (hostname: string): Promise<number> => {
+  return new Promise((resolve, reject) => {
+    // 先检查是否已经存在
+    const existingTabIds = hostNameMap.get(hostname)
+    if (existingTabIds && existingTabIds.length > 0) {
+      resolve(existingTabIds[existingTabIds.length - 1])
+      return
+    }
+    
+    // 否则添加到等待队列
+    if (!hostInitPromises.has(hostname)) {
+      hostInitPromises.set(hostname, [])
+    }
+    hostInitPromises.get(hostname)!.push({ resolve, reject })
+    
+    // 设置超时（30秒）
+    setTimeout(() => {
+      reject(new Error(`等待 ${hostname} 初始化超时`))
+    }, 30000)
+  })
+}
 
 export const useBrowserExtensions = async ({
   agent,
@@ -186,6 +212,14 @@ export const useBrowserExtensions = async ({
       }
 
       console.log('【useBrowserExt】hostNameMap', hostNameMap)
+      
+      // 触发等待队列中的 Promise
+      const waitingPromises = hostInitPromises.get(host)
+      if (waitingPromises && waitingPromises.length > 0) {
+        waitingPromises.forEach(({ resolve }) => resolve(tabId))
+        hostInitPromises.delete(host)
+        console.log(`【useBrowserExt】触发 ${host} 的等待队列，共 ${waitingPromises.length} 个`)
+      }
     },
     'content->side'
   )
