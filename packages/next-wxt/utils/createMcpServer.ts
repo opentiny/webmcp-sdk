@@ -47,3 +47,38 @@ export const createMcpServer = async (tabId: number) => {
 
   return sessionId
 }
+
+export const createProxyMcpServer = async (tabId: number) => {
+  const cookieData = getCookieData()
+
+  // 获取当前页面域名
+  const hostname = window.location.hostname
+  const mcpTool = getMcpToolByHostname(hostname)
+  const toolMap = new Map<string, any>()
+
+  const server = {
+    registerTool: (...args: any[]) => {
+      const toolName = args[0]
+      const callback = args[args.length - 1]
+      toolMap.set(toolName, callback)
+    }
+  }
+
+  browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'execute-tool-from-sidepanel-to-content') {
+      const toolName = message.data[0]
+      const callback = toolMap.get(toolName)
+      if (callback) {
+        callback(message.data[1])
+      }
+    }
+  })
+
+  // 如果找到匹配的工具配置，则注册
+  if (mcpTool) {
+    console.log('找到匹配的 MCP 工具配置，正在注册...')
+    mcpTool({ server, z, cookie: cookieData })
+  } else {
+    console.log('当前域名没有配置 MCP 工具')
+  }
+}

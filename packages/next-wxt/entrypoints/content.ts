@@ -1,5 +1,5 @@
 import PageUI from '@/components/pageUI.vue'
-import { createMcpServer } from '@/utils/createMcpServer'
+import { createMcpServer, createProxyMcpServer } from '@/utils/createMcpServer'
 import { createContentProxy } from '@/utils/contentProxy'
 import { getMcpMetaInfo } from '@/mcp-servers'
 
@@ -33,17 +33,25 @@ export default defineContentScript({
       const hostname = window.location.hostname
       const mcpMeta = getMcpMetaInfo(hostname)
 
+      debugger
       if (mcpMeta) {
-        console.log('【Content Script】找到 MCP 配置:', mcpMeta)
-        if (mcpMeta.type === 'pageMcpServer') {
-          createContentProxy(tabId)
-          // 运行时插入 user-script，直接在页面中申明 mcp-server 和 tools
-          await initWebMCP()
-        } else if (mcpMeta.type === 'contentScriptMcpServer') {
-          // 编译态在 content-script 中申明 mcp-server 和 tools
-          await createMcpServer(tabId)
+        if (mcpMeta.isAlwaysEnabled) {
+          if (mcpMeta.type === 'contentScriptMcpServer') {
+            // 编译态在 content-script 中申明 mcp-server 和 tools
+            await createProxyMcpServer(tabId)
+          }
         } else {
-          console.warn('【Content Script】未知的 MCP 服务器类型:', mcpMeta.type)
+          console.log('【Content Script】找到 MCP 配置:', mcpMeta)
+          if (mcpMeta.type === 'pageMcpServer') {
+            createContentProxy(tabId)
+            // 运行时插入 user-script，直接在页面中申明 mcp-server 和 tools
+            await initWebMCP()
+          } else if (mcpMeta.type === 'contentScriptMcpServer') {
+            // 编译态在 content-script 中申明 mcp-server 和 tools
+            await createMcpServer(tabId)
+          } else {
+            console.warn('【Content Script】未知的 MCP 服务器类型:', mcpMeta.type)
+          }
         }
       }
 

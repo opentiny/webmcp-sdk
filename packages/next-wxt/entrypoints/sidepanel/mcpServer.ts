@@ -19,7 +19,8 @@ export const createMcpServer = async () => {
         return (...args: any[]) => {
           args[args.length - 1] = async (...args: any[]) => {
             const result = new Promise((resolve, reject) => {
-              browser.runtime.sendMessage(
+              browser.tabs.sendMessage(
+                tabId,
                 {
                   type: 'execute-tool-from-sidepanel-to-content',
                   data: args
@@ -45,7 +46,7 @@ export const createMcpServer = async () => {
       console.log(`[Sidepanel MCP] 正在加载工具: ${meta.name} (${domain})`)
 
       // 调用工具注册函数
-      tool({ server, z })
+      tool({ server: proxServer, z })
 
       console.log(`[Sidepanel MCP] ✓ 工具加载成功: ${meta.name}`)
     } catch (error) {
