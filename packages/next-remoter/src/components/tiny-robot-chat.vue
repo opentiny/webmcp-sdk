@@ -127,12 +127,13 @@ import {
   type PluginTool
 } from '@opentiny/tiny-robot'
 
-import { SchemaRenderer } from '@opentiny/genui-sdk-vue'
+import { CustomFunction } from './customFunction'
+import { SchemaRenderer, RENDERER_SETTINGS_KEY } from '@opentiny/genui-sdk-vue'
 
 import { GeneratingStatus, STATUS } from '@opentiny/tiny-robot-kit'
 import { IconNewSession, IconPlugin, IconHistory } from '@opentiny/tiny-robot-svgs'
 import { useTinyRobotChat } from '../composable/useTinyRobotChat'
-import { toRef, computed, ref, onMounted, markRaw, shallowReactive, h, watch } from 'vue'
+import { toRef, computed, ref, onMounted, markRaw, shallowReactive, h, watch, provide } from 'vue'
 import { createRemoter, McpServerConfig } from '@opentiny/next-sdk'
 import QrCodeScan from './qr-code-scan.vue'
 import { DEFAULT_SERVERS } from './default-mcps'
@@ -140,10 +141,15 @@ import { defaultPluginSrc } from './default-plugin-svg'
 import { getLang, mapMake } from './lang'
 import { handleError } from './error-handle'
 import { ICustomAgentModelProviderLlmConfig } from '../types/type'
+import type { MenuItemConfig } from '@opentiny/next-sdk'
 import TinyUser from './TinyUser.vue'
 
 defineOptions({
   name: 'TinyRemoter'
+})
+
+provide(RENDERER_SETTINGS_KEY, {
+  Function: CustomFunction
 })
 
 const props = defineProps({
@@ -174,6 +180,10 @@ const props = defineProps({
   },
   remoteUrl: {
     type: String
+  },
+  menuItems: {
+    type: Array as () => MenuItemConfig[],
+    default: () => []
   },
   qrCodeUrl: {
     type: String
@@ -470,6 +480,7 @@ watch(
         sessionId: props.sessionId,
         qrCodeUrl: props.qrCodeUrl,
         remoteUrl: props.remoteUrl,
+        menuItems: props.menuItems,
         onShowAIChat: () => (show.value = true)
       })
 
@@ -485,8 +496,7 @@ watch(
     if (value) {
       handleScanSuccess(value)
     }
-  },
-  { immediate: true }
+  }
 )
 
 // 整个插件的打开或关闭

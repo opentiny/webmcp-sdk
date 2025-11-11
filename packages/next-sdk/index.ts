@@ -27,7 +27,7 @@ export * from './transport/ExtensionPageServerTransport'
 export * from './transport/ExtensionContentServerTransport'
 
 // 快速创建一个悬浮图标和菜单，是扫码和聊天框的入口
-export { createRemoter } from './remoter/createRemoter'
+export * from './remoter/createRemoter'
 
 // 一个通用的ai-sdk的agent封装
 export { AgentModelProvider } from './agent/AgentModelProvider'

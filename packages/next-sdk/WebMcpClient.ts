@@ -76,7 +76,7 @@ export class WebMcpClient {
   public readonly client: Client
   public transport: Transport | undefined
 
-  constructor(clientInfo: Implementation, options?: ClientOptions) {
+  constructor(clientInfo?: Implementation, options?: ClientOptions) {
     const info: Implementation = {
       name: 'web-mcp-client',
       version: '1.0.0'

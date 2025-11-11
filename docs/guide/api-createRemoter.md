@@ -25,8 +25,7 @@ const remoter = createRemoter({
   qrCodeUrl: 'https://your-app.com/remote-control',
   sessionId: 'your-session-id',
   onShowAIChat: () => {
-    // 显示AI对话界面
-    showAIChatDialog()
+    // 当用户点击悬浮按钮时触发，可在此处打开自定义的AI对话界面
   }
 })
 ```
@@ -43,7 +42,7 @@ const remoter = createRemoter({
 ### 1. `qrCodeUrl` 配置
 
 `qrCodeUrl`是设置了扫码后跳转到的网址，默认为：`https://ai.opentiny.design/next-remoter`，该网址默认展示一些办公场景的标题和提示词。
-如果需要定制网址上的默认信息，可以在地址后面拼接一些请求参数，比如 qrCode:'https://ai.xxx/xxx?title=AI助手&welcome-title=办公AI助手'。
+如果需要定制网址上的默认信息，可以在地址后面拼接一些请求参数，比如 qrCode:'<https://ai.xxx/xxx?title=AI助手&welcome-title=办公AI助手'。>
 
 目前它支持以下请求参数：
 

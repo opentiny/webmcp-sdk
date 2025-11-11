@@ -61,7 +61,7 @@ export class WebMcpServer {
   public readonly server: McpServer
   public transport: Transport | undefined
 
-  constructor(serverInfo: Implementation, options?: ServerOptions) {
+  constructor(serverInfo?: Implementation, options?: ServerOptions) {
     const info: Implementation = {
       name: 'web-mcp-server',
       version: '1.0.0'

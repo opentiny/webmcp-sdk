@@ -50,16 +50,11 @@ export default defineConfig(({ mode }) => {
       lib: {
         entry: resolve(__dirname, 'src/index.ts'),
         name: 'NextRemoter',
-        formats: ['es', 'cjs', 'umd'],
+        formats: ['es', 'cjs'],
         fileName: (format) => `next-remoter.${format}.js`
       },
       rollupOptions: {
-        external: ['vue', /@opentiny\//],
-        output: {
-          globals: {
-            vue: 'Vue'
-          }
-        }
+        external: ['vue', /@opentiny\//]
       }
     }
   }
