@@ -78,6 +78,21 @@ export const createProxyMcpServer = async (tabId: number) => {
     }
   })
 
+  onRuntimeMessage(
+    'sidepanel-ready',
+    () => {
+      sendRuntimeMessage(
+        'define-tool-from-content-to-sidepanel',
+        {
+          host: window.location.hostname
+        },
+        'content->side'
+      )
+    },
+    'side->content',
+    tabId
+  )
+
   sendRuntimeMessage(
     'define-tool-from-content-to-sidepanel',
     {

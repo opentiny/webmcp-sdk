@@ -20,10 +20,12 @@ export const createMcpServer = async () => {
           return (...args: any[]) => {
             const toolName = args[0]
             args[args.length - 1] = async (...args: any[]) => {
-              const tabId = (browser as any).hostNameMap.get(meta.name)?.[0]
-              if (!tabId) {
+              const tabIds = (browser as any).hostNameMap.get(meta.name)
+              if (!tabIds) {
                 throw new Error(`Tab not found for host: ${meta.name}`)
               }
+              const tabId = tabIds[tabIds.length - 1]
+              console.log('tabids:', tabIds, 'toolName:', toolName, 'args:', args)
               const result = new Promise((resolve, reject) => {
                 browser.tabs.sendMessage(
                   tabId,

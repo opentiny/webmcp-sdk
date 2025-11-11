@@ -12,30 +12,6 @@ const hostNameMap = new Map<string, number[]>()
 ;(browser as any).sessionRegistry = sessionRegistry
 ;(browser as any).hostNameMap = hostNameMap
 
-onRuntimeMessage(
-  'define-tool-from-content-to-sidepanel',
-  (data, sender) => {
-    const { host } = data
-    const tabId: number = sender.tab!.id!
-
-    const existingHost = hostNameMap.get(host)
-
-    // 已存在该 host，只需追加 tabId
-    if (existingHost) {
-      if (!existingHost.includes(tabId)) {
-        existingHost.push(tabId)
-      }
-      console.log('【useBrowserExt】tabId 已记录在 hostNameMap')
-    } else {
-      // 新的 host，创建 tabIds 数组
-      hostNameMap.set(host, [tabId])
-      console.log('【useBrowserExt】新 host 已添加到 hostNameMap')
-    }
-
-    console.log('【useBrowserExt】hostNameMap', hostNameMap)
-  },
-  'content->side'
-)
 export const useBrowserExtensions = async ({
   agent,
   loadMcpServerToPlugin,
@@ -45,6 +21,18 @@ export const useBrowserExtensions = async ({
   loadMcpServerToPlugin: (serverName: string, mcpServer: McpServerConfig) => Promise<void>
   handleClientDisconnected: (serverName: string) => Promise<void>
 }) => {
+  /**
+   * 发现已存在的服务器
+   * Sidepanel 启动时，向所有标签页广播，请求已有的 MCP Server 重新注册
+   */
+  onMounted(async () => {
+    try {
+      console.log('【useBrowserExt】即将发送 sidepanel-ready 广播')
+      sendRuntimeMessage('sidepanel-ready', {}, 'side->content')
+    } catch (error) {
+      console.error('【useBrowserExt】 sidePanel onMounted 时，通知所有tabs 的任务中，有报错：', error as any)
+    }
+  })
   // 注册队列：确保 MCP server 注册操作串行执行，避免并发时 closeAll() 导致冲突
   let registerQueue = Promise.resolve()
 
@@ -177,16 +165,28 @@ export const useBrowserExtensions = async ({
     }
   })
 
-  /**
-   * 发现已存在的服务器
-   * Sidepanel 启动时，向所有标签页广播，请求已有的 MCP Server 重新注册
-   */
-  onMounted(async () => {
-    try {
-      console.log('【useBrowserExt】即将发送 sidepanel-ready 广播')
-      sendRuntimeMessage('sidepanel-ready', {}, 'side->content')
-    } catch (error) {
-      console.error('【useBrowserExt】 sidePanel onMounted 时，通知所有tabs 的任务中，有报错：', error as any)
-    }
-  })
+  onRuntimeMessage(
+    'define-tool-from-content-to-sidepanel',
+    (data, sender) => {
+      const { host } = data
+      const tabId: number = sender.tab!.id!
+
+      const existingHost = hostNameMap.get(host)
+
+      // 已存在该 host，只需追加 tabId
+      if (existingHost) {
+        if (!existingHost.includes(tabId)) {
+          existingHost.push(tabId)
+        }
+        console.log('【useBrowserExt】tabId 已记录在 hostNameMap')
+      } else {
+        // 新的 host，创建 tabIds 数组
+        hostNameMap.set(host, [tabId])
+        console.log('【useBrowserExt】新 host 已添加到 hostNameMap')
+      }
+
+      console.log('【useBrowserExt】hostNameMap', hostNameMap)
+    },
+    'content->side'
+  )
 }
