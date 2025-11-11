@@ -496,8 +496,7 @@ watch(
     if (value) {
       handleScanSuccess(value)
     }
-  },
-  { immediate: true }
+  }
 )
 
 // 整个插件的打开或关闭

@@ -4,7 +4,7 @@
     <div class="main-content">
       <router-view />
     </div>
-    <tiny-remoter :sessionId="SSEION_ID" :menuItems="menuItems" v-if="loadingSessionId">
+    <tiny-remoter :sessionId="sessionId" :menuItems="menuItems">
       <template #chat v-if="isAntDesignX">
         <ant-design-x></ant-design-x>
       </template>
@@ -17,11 +17,10 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 import antDesignX from './components/ant-design-x.vue'
 import { WebMcpClient, createMessageChannelPairTransport } from '@opentiny/next-sdk'
 import type { Transport, MenuItemConfig } from '@opentiny/next-sdk'
-import { AGENT_ROOT, SSEION_ID } from './const'
+import { AGENT_ROOT } from './const'
 import { provide, ref } from 'vue'
 
 const [serverTransport, clientTransport] = createMessageChannelPairTransport()
-const loadingSessionId = ref(false)
 const menuItems = ref<MenuItemConfig[]>([])
 const query = new URLSearchParams(window.location.search)
 const dialogId = query.get('dialog')
@@ -58,6 +57,8 @@ serverTransport.onerror = (error) => {
   console.error(`ServerTransport error:`, error)
 }
 
+const sessionId = ref('')
+
 const createProxyTransport = async () => {
   const client = new WebMcpClient(
     { name: 'mcp-web-client', version: '1.0.0' },
@@ -68,18 +69,18 @@ const createProxyTransport = async () => {
   await client.connect(clientTransport)
 
   try {
-    const { sessionId } = await client.connect({
+    const { sessionId: _sessionId } = await client.connect({
       url: AGENT_ROOT + 'mcp',
-      sessionId: SSEION_ID,
+      sessionId: localStorage.getItem('mcp-sessionId') || undefined,
       agent: true,
       onError: (error: Error) => {
         console.error('Connect proxy error:', error)
       }
     })
 
-    loadingSessionId.value = true //  加载sessionId成功后，再执行后续
-
-    console.log('sessionId', sessionId)
+    console.log('sessionId', _sessionId)
+    localStorage.setItem('mcp-sessionId', _sessionId)
+    sessionId.value = _sessionId
   } catch (error) {
     console.error('WebMcpClient的连接失败', error)
   }
