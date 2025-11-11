@@ -5,10 +5,37 @@ import { clientTransport, createMcpServer } from './mcpServer'
 // Session 注册表：sessionId → {tabIds, serverInfo, timestamp}
 // 用于 Port 连接时查找 Server 所在的 tabs（支持同域名多页签）
 const sessionRegistry = new Map<string, { tabIds: number[]; serverInfo: any; timestamp: number }>()
+// 主机名映射表：host → tabIds[]（支持同域名多页签）
+const hostNameMap = new Map<string, number[]>()
 
 // 将 sessionRegistry 挂载到 browser 对象上供 ExtensionClientTransport 使用
 ;(browser as any).sessionRegistry = sessionRegistry
+;(browser as any).hostNameMap = hostNameMap
 
+onRuntimeMessage(
+  'define-tool-from-content-to-sidepanel',
+  (data, sender) => {
+    const { host } = data
+    const tabId: number = sender.tab!.id!
+
+    const existingHost = hostNameMap.get(host)
+
+    // 已存在该 host，只需追加 tabId
+    if (existingHost) {
+      if (!existingHost.includes(tabId)) {
+        existingHost.push(tabId)
+      }
+      console.log('【useBrowserExt】tabId 已记录在 hostNameMap')
+    } else {
+      // 新的 host，创建 tabIds 数组
+      hostNameMap.set(host, [tabId])
+      console.log('【useBrowserExt】新 host 已添加到 hostNameMap')
+    }
+
+    console.log('【useBrowserExt】hostNameMap', hostNameMap)
+  },
+  'content->side'
+)
 export const useBrowserExtensions = async ({
   agent,
   loadMcpServerToPlugin,
@@ -112,6 +139,17 @@ export const useBrowserExtensions = async ({
         break // ---> tabId 只能在一个sessionId下面，所以立即退出for
       }
     }
+
+    // 清理 hostNameMap 中的 tabId
+    for (const [host, tabIds] of hostNameMap.entries()) {
+      const index = tabIds.indexOf(tabId)
+      if (index !== -1) {
+        // 从数组中移除该 tabId（即使变为空数组也保留）
+        tabIds.splice(index, 1)
+        console.log(`【useBrowserExt】从 hostNameMap 移除 tabId: ${tabId}, host: ${host}`)
+        break
+      }
+    }
   })
 
   // 每次只调用最后激活的页面
@@ -122,6 +160,18 @@ export const useBrowserExtensions = async ({
         // 从数组中移除该 tabId,之后追加在最后
         info.tabIds.splice(index, 1)
         info.tabIds.push(tabId)
+        break
+      }
+    }
+
+    // 维护 hostNameMap 中的 tabId 顺序
+    for (const [host, tabIds] of hostNameMap.entries()) {
+      const index = tabIds.indexOf(tabId)
+      if (index !== -1) {
+        // 从数组中移除该 tabId，之后追加在最后
+        tabIds.splice(index, 1)
+        tabIds.push(tabId)
+        console.log(`【useBrowserExt】hostNameMap 更新激活顺序, host: ${host}, tabId: ${tabId}`)
         break
       }
     }

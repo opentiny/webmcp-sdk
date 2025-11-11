@@ -13,32 +13,39 @@ export const createMcpServer = async () => {
   // 获取所有 type='sideMcpServer' 的工具配置
   const mcpServers = getAllMcpServersByIsAlwaysEnabled()
 
-  const proxServer = new Proxy(server, {
-    get(target, prop, receiver) {
-      if (prop === 'registerTool') {
-        return (...args: any[]) => {
-          args[args.length - 1] = async (...args: any[]) => {
-            const result = new Promise((resolve, reject) => {
-              browser.tabs.sendMessage(
-                tabId,
-                {
-                  type: 'execute-tool-from-sidepanel-to-content',
-                  data: args
-                },
-                (response: any) => {
-                  resolve(response)
-                }
-              )
-            })
-            return result
-          }
+  const createProxServer = (meta: any) => {
+    return new Proxy(server, {
+      get(target, prop, receiver) {
+        if (prop === 'registerTool') {
+          return (...args: any[]) => {
+            const toolName = args[0]
+            args[args.length - 1] = async (...args: any[]) => {
+              const tabId = (browser as any).hostNameMap.get(meta.name)?.[0]
+              if (!tabId) {
+                throw new Error(`Tab not found for host: ${meta.name}`)
+              }
+              const result = new Promise((resolve, reject) => {
+                browser.tabs.sendMessage(
+                  tabId,
+                  {
+                    type: 'execute-tool-from-sidepanel-to-content',
+                    data: [toolName, ...args]
+                  },
+                  (response: any) => {
+                    resolve(response)
+                  }
+                )
+              })
+              return result
+            }
 
-          target[prop](...(args as unknown as any[]))
+            return target[prop](...(args as any))
+          }
         }
+        return target[prop as keyof typeof target]
       }
-      return target[prop as keyof typeof target]
-    }
-  })
+    })
+  }
 
   // 遍历并注册所有工具
   for (const { meta, tool, domain } of mcpServers) {
@@ -46,7 +53,7 @@ export const createMcpServer = async () => {
       console.log(`[Sidepanel MCP] 正在加载工具: ${meta.name} (${domain})`)
 
       // 调用工具注册函数
-      tool({ server: proxServer, z })
+      tool({ server: createProxServer(meta), z })
 
       console.log(`[Sidepanel MCP] ✓ 工具加载成功: ${meta.name}`)
     } catch (error) {

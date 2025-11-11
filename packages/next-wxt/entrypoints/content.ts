@@ -33,7 +33,6 @@ export default defineContentScript({
       const hostname = window.location.hostname
       const mcpMeta = getMcpMetaInfo(hostname)
 
-      debugger
       if (mcpMeta) {
         if (mcpMeta.isAlwaysEnabled) {
           if (mcpMeta.type === 'contentScriptMcpServer') {

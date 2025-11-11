@@ -69,10 +69,22 @@ export const createProxyMcpServer = async (tabId: number) => {
       const toolName = message.data[0]
       const callback = toolMap.get(toolName)
       if (callback) {
-        callback(message.data[1])
+        callback(message.data[1]).then((response: any) => {
+          sendResponse(response)
+        })
       }
+
+      return true
     }
   })
+
+  sendRuntimeMessage(
+    'define-tool-from-content-to-sidepanel',
+    {
+      host: window.location.hostname
+    },
+    'content->side'
+  )
 
   // 如果找到匹配的工具配置，则注册
   if (mcpTool) {
