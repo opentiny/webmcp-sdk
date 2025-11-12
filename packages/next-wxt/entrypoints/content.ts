@@ -32,12 +32,15 @@ export default defineContentScript({
       // 2.2 根据配置类型选择不同的 MCP 加载方式
       const hostname = window.location.hostname
       const mcpMeta = getMcpMetaInfo(hostname)
-
       if (mcpMeta) {
         if (mcpMeta.isAlwaysEnabled) {
           if (mcpMeta.type === 'contentScriptMcpServer') {
             // 编译态在 content-script 中申明 mcp-server 和 tools
             await createProxyMcpServer(tabId)
+          } else if (mcpMeta.type === 'pageMcpServer') {
+            createContentProxy(tabId)
+            // 运行时插入 user-script，直接在页面中申明 mcp-server 和 tools
+            await initWebTools()
           }
         } else {
           console.log('【Content Script】找到 MCP 配置:', mcpMeta)
@@ -68,6 +71,12 @@ export default defineContentScript({
       const hostname = window.location.hostname
       const reply = await browser.runtime.sendMessage({ type: 'inject-mcp-scripts', hostname })
       console.log('【Content Script】 initWebMCP 插入脚本结果：', reply)
+    }
+
+    const initWebTools = async () => {
+      const hostname = window.location.hostname
+      const reply = await browser.runtime.sendMessage({ type: 'inject-tools-script', hostname })
+      console.log('【Content Script】 initWebTools 插入脚本结果：', reply)
     }
 
     function mountPageApp() {

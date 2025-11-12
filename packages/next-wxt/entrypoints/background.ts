@@ -13,6 +13,19 @@ export default defineBackground(() => {
       }
       return true
     }
+
+    if (message.type === 'inject-tools-script') {
+      const { hostname } = message
+      try {
+        injectToolsScript(hostname).then((success: boolean) => {
+          sendResponse({ success, hostname })
+        })
+      } catch (error: any) {
+        console.error('脚本注入失败:', error)
+        sendResponse({ success: false, hostname, error })
+      }
+      return true
+    }
   })
 
   onRuntimeMessage(

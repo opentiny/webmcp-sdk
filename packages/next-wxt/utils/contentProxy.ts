@@ -1,4 +1,17 @@
 export const createContentProxy = (tabId: number) => {
+  browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'execute-tool-from-sidepanel-to-content') {
+      window.postMessage(message, '*')
+      return true
+    }
+  })
+
+  window.addEventListener('message', (event) => {
+    if (event.data.type === 'define-tool-from-page-to-content') {
+      debugger
+      sendRuntimeMessage('define-tool-from-content-to-sidepanel', event.data.data, 'content->side')
+    }
+  })
   // 页面 ===》 content
   onWindowMessage(
     'mcp-server-to-client-from-page',
