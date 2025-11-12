@@ -25,18 +25,13 @@ export const createMcpServer = async () => {
 
               if (!tabIds || tabIds.length === 0) {
                 // 页面未打开，需要打开新页签并等待初始化
-                console.log(`【Sidepanel MCP】页面 ${meta.name} 未打开，正在打开新页签...`)
-
                 try {
-                  // 打开新页签
-                  const tab = await browser.tabs.create({ url: meta.url, active: false })
-                  console.log(`【Sidepanel MCP】已打开新页签: ${tab.id}, URL: ${meta.url}`)
+                  // 打开新页签（直接激活以显示页签切换效果）
+                  const tab = await browser.tabs.create({ url: meta.url, active: true })
 
                   // 等待 content script 初始化完成并注册到 hostNameMap
                   tabId = await (browser as any).waitForHostInit(meta.name)
-                  console.log(`【Sidepanel MCP】页签 ${tabId} 初始化完成`)
                 } catch (error) {
-                  console.error(`【Sidepanel MCP】打开页签或等待初始化失败: ${meta.name}`, error)
                   throw new Error(`无法打开或初始化页面: ${meta.name}`)
                 }
               } else {
@@ -78,8 +73,6 @@ export const createMcpServer = async () => {
   // 遍历并注册所有工具
   for (const { meta, tool, domain } of mcpServers) {
     try {
-      console.log(`[Sidepanel MCP] 正在加载工具: ${meta.name} (${domain})`)
-
       // 调用工具注册函数
       tool({ server: createProxServer(meta), z })
 
