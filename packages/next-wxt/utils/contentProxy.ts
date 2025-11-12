@@ -5,6 +5,10 @@ export const createContentProxy = (tabId: number) => {
     if (message.type === 'execute-tool-from-sidepanel-to-content') {
       const requestId = `${Date.now()}-${Math.random().toString(16).slice(2)}` // 生成简单唯一ID
       pendingToolResponses.set(requestId, sendResponse)
+      const toolName = message.data?.[0] // 取得工具名称，触发页面动画
+      if (toolName) {
+        sendWindowMessage('update-page-app-message', { status: 'run', message: toolName }, 'page->content')
+      }
       window.postMessage({ ...message, requestId }, '*')
       return true
     }
@@ -18,6 +22,7 @@ export const createContentProxy = (tabId: number) => {
       if (responder) {
         responder(result)
         pendingToolResponses.delete(requestId)
+        sendWindowMessage('update-page-app-message', { status: 'ready', message: '' }, 'page->content') // 工具执行完成后恢复动画状态
       }
     },
     'page->content'
