@@ -5,7 +5,7 @@ async function waitForContentProxy() {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
       resolve(false)
-    }, 1000)
+    }, 100)
   })
 }
 
@@ -32,7 +32,7 @@ function getTabId() {
     window.postMessage({ type: 'ask-tabid', direction: 'page->content', data: {} }, '*')
     setTimeout(() => {
       reject(-1)
-    }, 1000)
+    }, 10000)
   })
 }
 
