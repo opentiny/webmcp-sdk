@@ -63,7 +63,7 @@ async function connect() {
     console.log('Main 页面自己的tabId=', tabId)
   }
 
-  const toolsMap = new Map()
+  const toolsMap = new Map() // 记录工具名称与回调映射方便调用
 
   const server = {
     registerTool: (...args) => {
@@ -76,13 +76,45 @@ async function connect() {
 
   window.addEventListener('message', (event) => {
     if (event.data.type === 'execute-tool-from-sidepanel-to-content') {
-      const toolName = event.data.data[0]
+      const { requestId, data } = event.data // 拿到请求ID和调用参数
+      const toolName = data[0]
       const callback = toolsMap.get(toolName)
       if (callback) {
-        callback(event.data.data[1]).then((response) => {
-          window.postMessage({ type: 'execute-tool-from-content-to-sidepanel', data: [toolName, response] }, '*')
-        })
+        const [, ...toolArgs] = data
+        Promise.resolve(callback(...toolArgs)) // 调用工具函数并兼容多参数
+          .then((response) => {
+            window.postMessage(
+              {
+                type: 'execute-tool-from-content-to-sidepanel',
+                direction: 'page->content',
+                data: { requestId, result: response }
+              },
+              '*'
+            )
+          })
+          .catch((error) => {
+            window.postMessage(
+              {
+                type: 'execute-tool-from-content-to-sidepanel',
+                direction: 'page->content',
+                data: { requestId, result: { error: error?.message ?? 'Unknown error' } }
+              },
+              '*'
+            )
+          })
+      } else {
+        window.postMessage(
+          {
+            type: 'execute-tool-from-content-to-sidepanel',
+            direction: 'page->content',
+            data: { requestId, result: { error: `tool ${toolName} not found` } }
+          },
+          '*'
+        )
       }
+    }
+    if (event.data.type === 'sidepanel-ready-to-page') {
+      window.postMessage({ type: 'define-tool-from-page-to-content', data: { host: window.location.hostname } }, '*')
     }
   })
 
