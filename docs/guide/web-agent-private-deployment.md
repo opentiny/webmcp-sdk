@@ -77,7 +77,7 @@ npx dotenv -e .env -- node index.js
 
 若控制台输出如下信息，表示服务启动成功：
 
-![](../assets/images/1.png)
+![](../assets/images/private-deployment/1.png)
 
 > 注意：WebAgent 服务需保持运行状态，请勿关闭终端窗口。若已安装 pm2，也可使用以下命令在后台运行：
 
@@ -190,7 +190,7 @@ onMounted(async () => {
 
 若页面右下角出现 AI 智能助手图标，表示连接成功。
 
-![](../assets/images/2.png)
+![](../assets/images/private-deployment/2.png)
 
 参考文档：[https://docs.opentiny.design/next-sdk/guide/](https://docs.opentiny.design/next-sdk/guide/)
 
@@ -211,27 +211,27 @@ MCP Inspector 是 [MCP](https://modelcontextprotocol.io/) 官方提供的一款�
 npx @modelcontextprotocol/inspector
 ```
 
-启动成功后，浏览器将自动打开调试页面（如未自动打开，可手动访问 http://localhost:6274）。
+启动成功后，浏览器将自动打开调试页面（如未自动打开，可手动访问 `http://localhost:6274`）。
 
-![](../assets/images/3-0.png)
+![](../assets/images/private-deployment/3-0.png)
 
 配置参数如下：
 - Transport Type: Streamable HTTP
-- URL: http://localhost:3000/api/v1/webmcp/mcp?sessionId=d299a869-c674-4125-a84b-bb4e24079b99
+- URL: `http://localhost:3000/api/v1/webmcp/mcp?sessionId=d299a869-c674-4125-a84b-bb4e24079b99`
 
 > 注意：这里的 sessionId 是连接 WebAgent 之后返回的 sessionId（可以 F12 打开浏览器控制台进行查看）。
 
 点击“Connect”按钮连接。
 
-![](../assets/images/3-1.png)
+![](../assets/images/private-deployment/3-1.png)
 
 连接成功后，可在 Tools 标签页中查看并调用定义的 MCP 工具。
 
-![](../assets/images/3-2.png)
+![](../assets/images/private-deployment/3-2.png)
 
 演示动画：
 
-![](../assets/images/./MCP-Inspector调试.gif)
+![](../assets/images/private-deployment/./MCP-Inspector调试.gif)
 
 上述动画展示了如何配置 WebAgent 服务的访问地址，并通过 MCP Inspector 工具建立连接。在 Inspector 中可查看 Web 应用中所定义的 MCP 工具，手动调用 counter 工具以执行数字自增操作，并观察其执行结果。
 
@@ -241,15 +241,15 @@ npx @modelcontextprotocol/inspector
 
 点击页面右下角的 AI 助手图标，打开对话框。
 
-![](../assets/images/4.png)
+![](../assets/images/private-deployment/4.png)
 
 在输入框中使用自然语言描述操作，例如：“自增6”，AI Agent 将自动调用 MCP 工具完成操作。
 
-![](../assets/images/5.png)
+![](../assets/images/private-deployment/5.png)
 
 演示动画：
 
-![](../assets/images/NEXT-Remoter调试.gif)
+![](../assets/images/private-deployment/NEXT-Remoter调试.gif)
 
 上述动画演示了通过点击页面右下角图标唤醒 AI 智能助手，并在对话框中输入自然语言指令，使 AI Agent 调用相应的 MCP 工具，从而实现对 Web 应用的自动化操作，提升任务执行效率。
 
@@ -296,7 +296,7 @@ pm2 start index.js --name webagent --env production
 
 若控制台出现以下界面，表示启动成功。
 
-![](../assets/images/6.png)
+![](../assets/images/private-deployment/6.png)
 
 常用 pm2 命令：
 
