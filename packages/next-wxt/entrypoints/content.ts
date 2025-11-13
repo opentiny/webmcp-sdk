@@ -75,7 +75,8 @@ export default defineContentScript({
 
     const initWebTools = async () => {
       const hostname = window.location.hostname
-      const reply = await browser.runtime.sendMessage({ type: 'inject-tools-script', hostname })
+      // 这里携带 tabId，便于后台在首次注册脚本时主动刷新当前页面
+      const reply = await browser.runtime.sendMessage({ type: 'inject-tools-script', hostname, tabId })
       console.log('【Content Script】 initWebTools 插入脚本结果：', reply)
     }
 

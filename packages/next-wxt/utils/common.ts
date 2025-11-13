@@ -14,12 +14,13 @@ export const injectUrls = {
 type ScriptInjectionOptions = {
   hostname: string
   extraScripts?: string[]
+  tabId?: number
 }
 
 const getServerScriptPath = (hostname: string) =>
   `/mcp-servers/${hostname}/index.js` as Parameters<typeof browser.runtime.getURL>[0]
 
-const performScriptInjection = async ({ hostname, extraScripts = [] }: ScriptInjectionOptions) => {
+const performScriptInjection = async ({ hostname, extraScripts = [], tabId }: ScriptInjectionOptions) => {
   const scriptPath = getServerScriptPath(hostname)
   const url = browser.runtime.getURL(scriptPath)
   if (!url) {
@@ -37,6 +38,11 @@ const performScriptInjection = async ({ hostname, extraScripts = [] }: ScriptInj
     })
 
     const injectType = existingScripts.length ? 'update' : 'register'
+    const isFirstRegister = existingScripts.length === 0
+
+    console.log('existingScripts.length', existingScripts)
+
+    console.log('【Common】 injectType', injectType, url, hostname)
 
     // 注册或更新用户脚本
     await browser.userScripts[injectType]([
@@ -47,6 +53,30 @@ const performScriptInjection = async ({ hostname, extraScripts = [] }: ScriptInj
         world: 'MAIN'
       }
     ])
+
+    console.log('existingScripts.length', existingScripts)
+
+    console.log('【Common】 injectType success', injectType, url, hostname)
+
+    if (isFirstRegister) {
+      // 首次注册用户脚本后，当前页面不会立刻生效，这里尝试刷新标签页以加载刚注册的脚本
+      try {
+        if (typeof tabId === 'number') {
+          await browser.tabs.reload(tabId)
+          console.log('【Common】 首次注册后刷新当前标签页', { hostname, tabId })
+        } else {
+          const candidates = await browser.tabs.query({ url: [`https://${hostname}/*`, `http://${hostname}/*`] })
+          if (candidates.length) {
+            await browser.tabs.reload(candidates[0].id!)
+            console.log('【Common】 首次注册后刷新匹配标签页', { hostname, tabId: candidates[0].id })
+          } else {
+            console.warn('【Common】 首次注册后未找到可刷新的标签页', { hostname })
+          }
+        }
+      } catch (refreshError) {
+        console.error('【Common】 首次注册后刷新标签页失败', refreshError, { hostname, tabId })
+      }
+    }
 
     return true
   } catch (error) {
@@ -66,7 +96,7 @@ const performScriptInjection = async ({ hostname, extraScripts = [] }: ScriptInj
   }
 }
 
-export const injectMainScript = async (hostname: string, withNextSdk = true) => {
+export const injectMainScript = async (hostname: string, tabId?: number, withNextSdk = true) => {
   const extraScripts: string[] = []
   if (withNextSdk) {
     const nextSdkScript = await fetch(injectUrls.nextSdk).then((res) => res.text())
@@ -74,14 +104,15 @@ export const injectMainScript = async (hostname: string, withNextSdk = true) => 
     extraScripts.push(nextSdkScript.replace('define.amd', 'define.amdx'), mcpServerScript)
   }
 
-  return performScriptInjection({ hostname, extraScripts })
+  return performScriptInjection({ hostname, extraScripts, tabId })
 }
 
-export const injectToolsScript = async (hostname: string) => {
+export const injectToolsScript = async (hostname: string, tabId?: number) => {
   const mcpInjectToolsScript = await fetch(injectUrls.mcpInjectTools).then((res) => res.text())
 
   return performScriptInjection({
     hostname,
-    extraScripts: [mcpInjectToolsScript]
+    extraScripts: [mcpInjectToolsScript],
+    tabId
   })
 }

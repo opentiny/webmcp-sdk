@@ -1,4 +1,5 @@
 export const createContentProxy = (tabId: number) => {
+  console.log('【Content Proxy】 createContentProxy', tabId)
   const pendingToolResponses = new Map<string, (response: any) => void>() // 保存等待返回的执行请求
 
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -64,7 +65,10 @@ export const createContentProxy = (tabId: number) => {
   // 回复Main Page 当前的tabId
   onWindowMessage(
     'ask-tabid',
-    () => sendWindowMessage('answer-tabid', { tabId }, 'content->page'), //
+    () => {
+      sendWindowMessage('answer-tabid', { tabId }, 'content->page')
+      console.log('【Content Proxy】 ask-tabid', tabId)
+    },
     'page->content'
   )
 }
