@@ -130,8 +130,8 @@ onMounted(async () => {
     },
     async ({ number }) => {
       console.log('number:', number)
-      numberValue.value = number
-      return { content: [{ type: 'text', text: `收到: ${number}` }] }
+      numberValue.value += number
+      return { content: [{ type: 'text', text: `收到: ${numberValue.value}` }] }
     }
   )
 
