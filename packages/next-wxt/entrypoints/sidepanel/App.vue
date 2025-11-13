@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 import { TinyRemoter } from '@opentiny/next-remoter'
 import { useBrowserExtensions } from './useBrowserExtensions'
+import { EXCALIDRAW_PROMPT, OFFICE_PROMPT } from '@/utils/prompt'
 
 const llmConfig = {
   apiKey: import.meta.env.VITE_LLM_API_KEY,
@@ -19,6 +20,7 @@ const llmConfig = {
       fullscreen
       title=""
       :llmConfig="llmConfig"
+      :systemPrompt="`${OFFICE_PROMPT}${EXCALIDRAW_PROMPT}`"
     >
     </TinyRemoter>
   </div>
