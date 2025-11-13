@@ -143,7 +143,6 @@ import { handleError } from './error-handle'
 import { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import type { MenuItemConfig } from '@opentiny/next-sdk'
 import TinyUser from '@opentiny/vue-user'
-import { OFFICE_PROMPT, EXCALIDRAW_PROMPT } from '../const'
 
 defineOptions({
   name: 'TinyRemoter'
@@ -167,7 +166,7 @@ const props = defineProps({
   /** 系统提示词 */
   systemPrompt: {
     type: String,
-    default: `${OFFICE_PROMPT}${EXCALIDRAW_PROMPT}  `
+    default: '你是一个智能生活助手，擅长通过工具调用帮助用户完成任务'
   },
   /** 左上角的标题 */
   title: {
@@ -205,11 +204,6 @@ const props = defineProps({
   /** ai-sdk官方的Provider实例，不能与 llmConfig 同时传入 */
   llm: {
     type: Object,
-    default: undefined
-  },
-  /** 浏览器扩展 */
-  browserExtensions: {
-    type: Function,
     default: undefined
   }
 })
@@ -424,12 +418,6 @@ const loadMcpServerToPlugin = async (serverName: string, mcpServer: McpServerCon
   }
 }
 
-props.browserExtensions?.({
-  agent,
-  loadMcpServerToPlugin,
-  handleClientDisconnected
-})
-
 onMounted(async () => {
   // 统一报错
   agent.onError = (msg) => {
@@ -585,6 +573,8 @@ defineSlots<{
 
 // 定义输出：  暴露一些重要方法，方便用户写插槽时，可以使用。
 defineExpose({
+  /** 大模型代理 */
+  agent,
   /** 欢迎图标 */
   welcomeIcon,
   /** 对话消息 */
@@ -600,7 +590,11 @@ defineExpose({
   /** 取消发送 */
   abortRequest,
   /** 发送消息 */
-  sendMessage
+  sendMessage,
+  /** 向插件市场添加一个server */
+  loadMcpServerToPlugin,
+  /** mcp client断开时，自动清理已断开的插件和资源  */
+  handleClientDisconnected
 })
 </script>
 

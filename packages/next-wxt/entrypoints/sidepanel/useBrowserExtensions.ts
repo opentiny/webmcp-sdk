@@ -1,6 +1,7 @@
-import { AgentModelProvider, type McpServerConfig } from '@opentiny/next-sdk'
+import { type McpServerConfig } from '@opentiny/next-sdk'
 import { onMounted } from 'vue'
 import { clientTransport, createMcpServer } from './mcpServer'
+import { TinyRemoter } from '@opentiny/next-remoter'
 
 // Session 注册表：sessionId → {tabIds, serverInfo, timestamp}
 // 用于 Port 连接时查找 Server 所在的 tabs（支持同域名多页签）
@@ -38,15 +39,7 @@ const hostInitPromises = new Map<string, { resolve: (tabId: number) => void; rej
   })
 }
 
-export const useBrowserExtensions = async ({
-  agent,
-  loadMcpServerToPlugin,
-  handleClientDisconnected
-}: {
-  agent: AgentModelProvider
-  loadMcpServerToPlugin: (serverName: string, mcpServer: McpServerConfig) => Promise<void>
-  handleClientDisconnected: (serverName: string) => Promise<void>
-}) => {
+export const useBrowserExtensions = async (remoterRef: Ref<InstanceType<typeof TinyRemoter>>) => {
   /**
    * 发现已存在的服务器
    * Sidepanel 启动时，向所有标签页广播，请求已有的 MCP Server 重新注册
@@ -73,9 +66,9 @@ export const useBrowserExtensions = async ({
       const serverName = `mcp-server-localhost`
 
       // 1、 插入McpServers, 此时内部会判断重复。  不重复则插入，并连接和查询tools到agent上。
-      const inserted = await agent.insertMcpServer(serverName, clientTransport as any)
+      const inserted = await remoterRef.value.agent.insertMcpServer(serverName, clientTransport as any)
       if (inserted) {
-        await loadMcpServerToPlugin(serverName, mcpServer as McpServerConfig)
+        await remoterRef.value.loadMcpServerToPlugin(serverName, mcpServer as McpServerConfig)
       } else {
         console.error(`【useBrowserExt】 mcpServer插件添加失败: localhost:3000`)
       }
@@ -119,10 +112,10 @@ export const useBrowserExtensions = async ({
           const serverName = `mcp-server-${sessionId}`
 
           // 1、 插入McpServers, 此时内部会判断重复。  不重复则插入，并连接和查询tools到agent上。
-          const inserted = await agent.insertMcpServer(serverName, mcpServer as McpServerConfig)
+          const inserted = await remoterRef.value.agent.insertMcpServer(serverName, mcpServer as McpServerConfig)
           if (inserted) {
-            await loadMcpServerToPlugin(serverName, mcpServer as McpServerConfig)
-            await agent.closeAll()
+            await remoterRef.value.loadMcpServerToPlugin(serverName, mcpServer as McpServerConfig)
+            await remoterRef.value.agent.closeAll()
             showToast(`插件已添加: ${serverInfo.url}`)
             console.log(`【useBrowserExt】 mcpServer插件已添加: ${serverInfo.url}`)
           } else {
@@ -147,7 +140,7 @@ export const useBrowserExtensions = async ({
         if (info.tabIds.length === 0) {
           sessionRegistry.delete(sessionId)
           const serverName = `mcp-server-${sessionId}`
-          await handleClientDisconnected(serverName) // ---> 转到 remoter内部方法去关闭client
+          await remoterRef.value.handleClientDisconnected(serverName) // ---> 转到 remoter内部方法去关闭client
         }
         break // ---> tabId 只能在一个sessionId下面，所以立即退出for
       }
