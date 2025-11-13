@@ -1,7 +1,7 @@
 export default {
   name: 'www.baidu.com',
-  type: 'pageMcpServer',
+  type: 'contentScriptMcpServer',
   url: 'https://www.baidu.com',
-  isAlwaysEnabled: false,
+  isAlwaysEnabled: true,
   version: '1.0.0'
 }

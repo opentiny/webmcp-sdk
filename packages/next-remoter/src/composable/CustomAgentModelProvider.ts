@@ -214,20 +214,31 @@ export class CustomAgentModelProvider extends BaseModelProvider {
                   schema: {
                     properties: [
                       {
-                        property: 'name',
-                        description: '搜索用户名称，支持模糊搜索',
-                        type: 'string',
-                        required: true
+                        property: 'modelValue',
+                        label: '用户绑定工号',
+                        required: true,
+                        description: '用户的工号，双向绑定值',
+                        type: 'string'
+                      },
+                      {
+                        property: 'valueField',
+                        label: '值字段',
+                        required: true,
+                        description: '用户工号值的绑定字段',
+                        type: 'string'
                       }
                     ]
                   }
                 }
-              ] as IGenPromptComponent[],
+              ] as unknown as IGenPromptComponent[],
               customExamples: [
                 {
                   name: '选择用户示例',
                   schema: {
                     componentName: 'Page',
+                    state: {
+                      reviewer: ''
+                    },
                     children: [
                       {
                         componentName: 'h3',
@@ -237,7 +248,18 @@ export class CustomAgentModelProvider extends BaseModelProvider {
                       {
                         componentName: 'TinyUser',
                         props: {
-                          name: '张三'
+                          modelValue: {
+                            type: 'JSExpression',
+                            model: true,
+                            value: 'this.state.reviewer'
+                          },
+                          valueField: 'uid'
+                        }
+                      },
+                      {
+                        componentName: 'TinyButton',
+                        props: {
+                          text: '提交'
                         }
                       }
                     ]
