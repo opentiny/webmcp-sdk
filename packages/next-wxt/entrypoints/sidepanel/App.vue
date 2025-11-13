@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { type Ref } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
 import { useBrowserExtensions } from './useBrowserExtensions'
 import { EXCALIDRAW_PROMPT, OFFICE_PROMPT } from '@/utils/prompt'
@@ -9,11 +10,16 @@ const llmConfig = {
   providerType: import.meta.env.VITE_LLM_PROVIDER_TYPE,
   model: import.meta.env.VITE_LLM_MODEL
 }
+
+const remoterRef = ref<Ref<InstanceType<typeof TinyRemoter>>>()
+
+useBrowserExtensions(remoterRef)
 </script>
 
 <template>
   <div>
     <TinyRemoter
+      ref="remoterRef"
       mode="chat-dialog"
       :browserExtensions="useBrowserExtensions"
       show

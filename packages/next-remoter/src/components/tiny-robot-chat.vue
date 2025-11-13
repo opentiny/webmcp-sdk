@@ -205,11 +205,6 @@ const props = defineProps({
   llm: {
     type: Object,
     default: undefined
-  },
-  /** 浏览器扩展 */
-  browserExtensions: {
-    type: Function,
-    default: undefined
   }
 })
 
@@ -423,12 +418,6 @@ const loadMcpServerToPlugin = async (serverName: string, mcpServer: McpServerCon
   }
 }
 
-props.browserExtensions?.({
-  agent,
-  loadMcpServerToPlugin,
-  handleClientDisconnected
-})
-
 onMounted(async () => {
   // 统一报错
   agent.onError = (msg) => {
@@ -584,6 +573,8 @@ defineSlots<{
 
 // 定义输出：  暴露一些重要方法，方便用户写插槽时，可以使用。
 defineExpose({
+  /** 大模型代理 */
+  agent,
   /** 欢迎图标 */
   welcomeIcon,
   /** 对话消息 */
@@ -599,7 +590,11 @@ defineExpose({
   /** 取消发送 */
   abortRequest,
   /** 发送消息 */
-  sendMessage
+  sendMessage,
+  /** 向插件市场添加一个server */
+  loadMcpServerToPlugin,
+  /** mcp client断开时，自动清理已断开的插件和资源  */
+  handleClientDisconnected
 })
 </script>
 
