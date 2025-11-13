@@ -2,6 +2,7 @@ import { transform } from '@babel/standalone'
 import { Interpreter, Function } from 'eval5'
 Interpreter.global = window
 
+/** 使用自定义的Function, 代替浏览器原生的 Function。 当在chrome 插件中使用TinyRemoter时传入 */
 export class CustomFunction {
   constructor(...argv: any[]) {
     // console.log('---------argv------------', argv)
