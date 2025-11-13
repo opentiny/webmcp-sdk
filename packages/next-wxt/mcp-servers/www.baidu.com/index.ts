@@ -20,4 +20,15 @@ export default ({ server, z }) => {
       }
     }
   )
+
+  server.registerTool(
+    'get-page-title',
+    {
+      title: '获取页面标题',
+      description: '获取页面标题'
+    },
+    async () => {
+      return { content: [{ type: 'text', text: document.title }] }
+    }
+  )
 }

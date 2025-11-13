@@ -1,5 +1,5 @@
 import PageUI from '@/components/pageUI.vue'
-import { createMcpServer } from '@/utils/createMcpServer'
+import { createMcpServer, createProxyMcpServer } from '@/utils/createMcpServer'
 import { createContentProxy } from '@/utils/contentProxy'
 import { getMcpMetaInfo } from '@/mcp-servers'
 
@@ -32,18 +32,28 @@ export default defineContentScript({
       // 2.2 根据配置类型选择不同的 MCP 加载方式
       const hostname = window.location.hostname
       const mcpMeta = getMcpMetaInfo(hostname)
-
       if (mcpMeta) {
-        console.log('【Content Script】找到 MCP 配置:', mcpMeta)
-        if (mcpMeta.type === 'pageMcpServer') {
-          createContentProxy(tabId)
-          // 运行时插入 user-script，直接在页面中申明 mcp-server 和 tools
-          await initWebMCP()
-        } else if (mcpMeta.type === 'contentScriptMcpServer') {
-          // 编译态在 content-script 中申明 mcp-server 和 tools
-          await createMcpServer(tabId)
+        if (mcpMeta.isAlwaysEnabled) {
+          if (mcpMeta.type === 'contentScriptMcpServer') {
+            // 编译态在 content-script 中申明 mcp-server 和 tools
+            await createProxyMcpServer(tabId)
+          } else if (mcpMeta.type === 'pageMcpServer') {
+            createContentProxy(tabId)
+            // 运行时插入 user-script，直接在页面中申明 mcp-server 和 tools
+            await initWebTools()
+          }
         } else {
-          console.warn('【Content Script】未知的 MCP 服务器类型:', mcpMeta.type)
+          console.log('【Content Script】找到 MCP 配置:', mcpMeta)
+          if (mcpMeta.type === 'pageMcpServer') {
+            createContentProxy(tabId)
+            // 运行时插入 user-script，直接在页面中申明 mcp-server 和 tools
+            await initWebMCP()
+          } else if (mcpMeta.type === 'contentScriptMcpServer') {
+            // 编译态在 content-script 中申明 mcp-server 和 tools
+            await createMcpServer(tabId)
+          } else {
+            console.warn('【Content Script】未知的 MCP 服务器类型:', mcpMeta.type)
+          }
         }
       }
 
@@ -59,8 +69,15 @@ export default defineContentScript({
 
     const initWebMCP = async () => {
       const hostname = window.location.hostname
-      const reply = await browser.runtime.sendMessage({ type: 'inject-mcp-scripts', hostname })
+      const reply = await browser.runtime.sendMessage({ type: 'inject-mcp-scripts', hostname, tabId })
       console.log('【Content Script】 initWebMCP 插入脚本结果：', reply)
+    }
+
+    const initWebTools = async () => {
+      const hostname = window.location.hostname
+      // 这里携带 tabId，便于后台在首次注册脚本时主动刷新当前页面
+      const reply = await browser.runtime.sendMessage({ type: 'inject-tools-script', hostname, tabId })
+      console.log('【Content Script】 initWebTools 插入脚本结果：', reply)
     }
 
     function mountPageApp() {

@@ -106,7 +106,7 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt, llmConfig
             lastMessage.uiContent[lastMessage.uiContent.length - 1] = accmulateMessages[arrLength - 1]
           }
           accmulateMessagesLength = arrLength
-          console.log('accmulateMessages', accmulateMessages)
+          // console.log('accmulateMessages', accmulateMessages)
           // const markdownContent = lastMessage.uiContent.find(
           //   (item) => item.type === data.type && item.textId === data.textId
           // )

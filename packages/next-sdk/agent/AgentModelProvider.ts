@@ -2,6 +2,7 @@ import { streamText, stepCountIs, generateText, StreamTextResult } from 'ai'
 import { experimental_createMCPClient as createMCPClient, experimental_MCPClientConfig as MCPClientConfig } from 'ai'
 import type { ToolSet } from 'ai'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import type { IAgentModelProviderOption, McpServerConfig } from './type'
 import { ProviderV2 } from '@ai-sdk/provider'
 import { OpenAIProvider } from '@ai-sdk/openai'
@@ -93,8 +94,16 @@ export class AgentModelProvider {
   /** 关闭一个 mcpClient */
   private async _closeOneClient(client: any) {
     try {
-      await client['__transport__']?.terminateSession?.()
-      await client['__transport__']?.close?.()
+      const transport = client['__transport__']
+
+      // 如果是 InMemoryTransport，不关闭传输层 因为它是配对的，关闭一端会影响另一端（服务端）
+      if (transport && transport instanceof InMemoryTransport) {
+        return
+      }
+
+      // 其他类型的传输正常关闭
+      await transport?.terminateSession?.()
+      await transport?.close?.()
       await client?.close?.()
     } catch (error) {}
   }
