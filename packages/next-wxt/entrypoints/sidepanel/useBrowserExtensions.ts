@@ -24,13 +24,13 @@ const hostInitPromises = new Map<string, { resolve: (tabId: number) => void; rej
       resolve(existingTabIds[existingTabIds.length - 1])
       return
     }
-    
+
     // 否则添加到等待队列
     if (!hostInitPromises.has(hostname)) {
       hostInitPromises.set(hostname, [])
     }
     hostInitPromises.get(hostname)!.push({ resolve, reject })
-    
+
     // 设置超时（30秒）
     setTimeout(() => {
       reject(new Error(`等待 ${hostname} 初始化超时`))
@@ -64,11 +64,11 @@ export const useBrowserExtensions = async ({
 
   await createMcpServer()
 
-  // 1.3 串行执行： agent 添加 mcpServer, 更新侧边中的插件列表
+  // 首先加载sidepanel面板自身的mcpServer
   registerQueue = registerQueue.then(async () => {
     try {
       const mcpServer = {
-        url: 'http://localhost:3000'
+        url: '本地工具'
       }
       const serverName = `mcp-server-localhost`
 
@@ -76,7 +76,6 @@ export const useBrowserExtensions = async ({
       const inserted = await agent.insertMcpServer(serverName, clientTransport as any)
       if (inserted) {
         await loadMcpServerToPlugin(serverName, mcpServer as McpServerConfig)
-        showToast(`插件已添加: localhost:3000`)
       } else {
         console.error(`【useBrowserExt】 mcpServer插件添加失败: localhost:3000`)
       }
@@ -212,7 +211,7 @@ export const useBrowserExtensions = async ({
       }
 
       console.log('【useBrowserExt】hostNameMap', hostNameMap)
-      
+
       // 触发等待队列中的 Promise
       const waitingPromises = hostInitPromises.get(host)
       if (waitingPromises && waitingPromises.length > 0) {

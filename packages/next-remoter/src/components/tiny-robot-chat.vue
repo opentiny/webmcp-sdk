@@ -375,8 +375,13 @@ const handlePillItemClick = (item: ReturnType<typeof mapMake>) => {
 }
 
 const loadMcpServerToPlugin = async (serverName: string, mcpServer: McpServerConfig) => {
-  const url = new URL('url' in mcpServer ? mcpServer.url : '')
-  const sessionId = url.searchParams.get('sessionId') || ('sessionId' in mcpServer ? mcpServer.sessionId : '') || ''
+  debugger
+  const url =
+    serverName === 'mcp-server-localhost' ? { origin: '本地工具' } : new URL('url' in mcpServer ? mcpServer.url : '')
+  const sessionId =
+    serverName === 'mcp-server-localhost'
+      ? '本地工具列表'
+      : url.searchParams.get('sessionId') || ('sessionId' in mcpServer ? mcpServer.sessionId : '') || ''
 
   // 直接使用 serverName 获取 tools，无需索引查找
   const currTool = agent.mcpTools[serverName]

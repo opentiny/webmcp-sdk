@@ -15,7 +15,7 @@ export const createMcpServer = async () => {
 
   const createProxServer = (meta: { name: string; url: string; [key: string]: any }) => {
     return new Proxy(server, {
-      get(target, prop, receiver) {
+      get(target, prop) {
         if (prop === 'registerTool') {
           return (...args: any[]) => {
             const toolName = args[0]
@@ -27,7 +27,7 @@ export const createMcpServer = async () => {
                 // 页面未打开，需要打开新页签并等待初始化
                 try {
                   // 打开新页签（直接激活以显示页签切换效果）
-                  const tab = await browser.tabs.create({ url: meta.url, active: true })
+                  await browser.tabs.create({ url: meta.url, active: true })
 
                   // 等待 content script 初始化完成并注册到 hostNameMap
                   tabId = await (browser as any).waitForHostInit(meta.name)
@@ -71,7 +71,7 @@ export const createMcpServer = async () => {
   }
 
   // 遍历并注册所有工具
-  for (const { meta, tool, domain } of mcpServers) {
+  for (const { meta, tool } of mcpServers) {
     try {
       // 调用工具注册函数
       tool({ server: createProxServer(meta), z })

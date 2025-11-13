@@ -69,7 +69,7 @@ export default defineContentScript({
 
     const initWebMCP = async () => {
       const hostname = window.location.hostname
-      const reply = await browser.runtime.sendMessage({ type: 'inject-mcp-scripts', hostname })
+      const reply = await browser.runtime.sendMessage({ type: 'inject-mcp-scripts', hostname, tabId })
       console.log('【Content Script】 initWebMCP 插入脚本结果：', reply)
     }
 
