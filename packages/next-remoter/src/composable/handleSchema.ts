@@ -2,6 +2,7 @@ export type ExtractedBlock =
   | { type: 'markdown'; content: string }
   | { type: 'schema-card'; content: string | Record<string, any> }
 
+/** 在处理流消息时，从一段文本中，提取 markdown  schemaJson, 未来会从genui-sdk 中导出 */
 export function extractTextAndJson(input: string): ExtractedBlock[] {
   const result: ExtractedBlock[] = []
   let cursor = 0

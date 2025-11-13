@@ -148,10 +148,6 @@ defineOptions({
   name: 'TinyRemoter'
 })
 
-provide(RENDERER_SETTINGS_KEY, {
-  Function: CustomFunction
-})
-
 const props = defineProps({
   /** 必传的会话id */
   sessionId: {
@@ -205,35 +201,50 @@ const props = defineProps({
   llm: {
     type: Object,
     default: undefined
+  },
+  /** 设置组件运行在普通页面还是浏览器的扩展中 */
+  inBrowserExt: {
+    type: Boolean,
+    default: false
+  },
+  /** 是否启用生成式UI */
+  genUiAble: {
+    type: Boolean,
+    default: true
+  },
+  /** 生成式UI 需要引入的组件。生成式UI内置了一批组件，如果需要引入新组件，需要通过这里导入。
+   * 参考示例： shallowReactive({TinyUser, TinyAlert }) */
+  genUiComponents: {
+    type: Object,
+    default: () => ({})
   }
 })
+
+if (props.inBrowserExt) {
+  provide(RENDERER_SETTINGS_KEY, {
+    Function: CustomFunction
+  })
+}
 
 const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })
 const show = defineModel('show', { type: Boolean, default: false })
 
-const customComponents = shallowReactive({
-  TinyUser
-})
-const generating = computed(() => GeneratingStatus.includes(messageState.status))
-
-const onAction = ({ llmFriendlyMessage, humanFriendlyMessage }: any) => {
-  addMessage({
-    role: 'user',
-    content: llmFriendlyMessage,
-    uiContent: [{ type: 'text', content: humanFriendlyMessage }]
-  })
-  send()
-}
-
-// 自定义消息渲染器
+// 自定义消息渲染器 ---- 默认支持markdown 和 生成式UI（生成式UI有很多流处理，不容易解耦出来，所以统一处理）
 const contentRenderer = {
   markdown: new BubbleMarkdownContentRenderer({ mdConfig: { html: true } }),
   'schema-card': (schemaCardProps: any) =>
     h(SchemaRenderer, {
       ...schemaCardProps,
-      onAction,
-      generating: generating.value,
-      customComponents,
+      onAction: ({ llmFriendlyMessage, humanFriendlyMessage }: any) => {
+        addMessage({
+          role: 'user',
+          content: llmFriendlyMessage,
+          uiContent: [{ type: 'text', content: humanFriendlyMessage }]
+        })
+        send()
+      },
+      generating: GeneratingStatus.includes(messageState.status),
+      customComponents: props.genUiComponents,
       requiredCompleteFieldSelectors: ['[componentName=TinyUser] > props > modelValue']
     })
 }
