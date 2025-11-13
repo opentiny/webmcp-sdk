@@ -3,7 +3,7 @@ async function waitForContentProxy() {
   return new Promise((resolve, reject) => {
     setTimeout(() => {
       resolve(false)
-    }, 100)
+    }, 1000)
   })
 }
 
