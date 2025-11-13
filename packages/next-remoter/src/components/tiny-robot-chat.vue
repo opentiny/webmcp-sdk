@@ -142,7 +142,7 @@ import { getLang, mapMake } from './lang'
 import { handleError } from './error-handle'
 import { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import type { MenuItemConfig } from '@opentiny/next-sdk'
-import TinyUser from './TinyUser.vue'
+import TinyUser from '@opentiny/vue-user'
 import { OFFICE_PROMPT, EXCALIDRAW_PROMPT } from '../const'
 
 defineOptions({
@@ -239,7 +239,8 @@ const contentRenderer = {
       ...schemaCardProps,
       onAction,
       generating: generating.value,
-      customComponents
+      customComponents,
+      requiredCompleteFieldSelectors: ['[componentName=TinyUser] > props > modelValue']
     })
 }
 
@@ -375,7 +376,6 @@ const handlePillItemClick = (item: ReturnType<typeof mapMake>) => {
 }
 
 const loadMcpServerToPlugin = async (serverName: string, mcpServer: McpServerConfig) => {
-  debugger
   const url =
     serverName === 'mcp-server-localhost' ? { origin: '本地工具' } : new URL('url' in mcpServer ? mcpServer.url : '')
   const sessionId =

@@ -35,4 +35,19 @@ const llmConfig = {
     display: flex;
   }
 }
+
+:deep(.tr-bubble__content-items) {
+  p {
+    font-size: 16px;
+  }
+
+  li {
+    font-size: 14px;
+    color: #555;
+  }
+
+  .tr-bubble__text {
+    font-size: 16px;
+  }
+}
 </style>
