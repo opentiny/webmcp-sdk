@@ -11,7 +11,7 @@ const llmConfig = {
   model: import.meta.env.VITE_LLM_MODEL
 }
 
-const remoterRef = ref<Ref<InstanceType<typeof TinyRemoter>>>()
+const remoterRef = ref() as Ref<InstanceType<typeof TinyRemoter>>
 
 useBrowserExtensions(remoterRef)
 </script>
