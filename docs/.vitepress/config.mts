@@ -47,6 +47,13 @@ export default defineConfig({
             { text: 'TinyRobot 版本', link: '/guide/tiny-robot-remoter' },
             { text: 'useNextAgent 函数', link: '/guide/use-next-agent' }
           ]
+        },
+        {
+          text: 'AI Extension',
+          items: [
+            { text: 'mcp-servers 插件工具开发指南', link: '/guide/ai-extension-next-wxt' },
+            { text: 'AI Extension 插件安装指南', link: '/guide/ai-extension-install' }
+          ]
         }
       ]
     },
