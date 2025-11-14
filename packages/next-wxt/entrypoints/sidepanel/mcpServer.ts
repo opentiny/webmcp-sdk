@@ -1,13 +1,8 @@
-import { WebMcpServer, z, InMemoryTransport } from '@opentiny/next-sdk'
+import { WebMcpServer, z, createMessageChannelPairTransport } from '@opentiny/next-sdk'
 import { getAllMcpServersByIsAlwaysEnabled } from '@/mcp-servers'
 
-// 使用 InMemoryTransport 创建传输对
-// InMemoryTransport 适用于客户端和服务器在同一进程中的场景
-const [serverTransport, clientTransport] = InMemoryTransport.createLinkedPair()
-
-export { clientTransport }
-
 export const createMcpServer = async () => {
+  const [serverTransport, clientTransport] = createMessageChannelPairTransport()
   const server = new WebMcpServer({ name: 'sidepanel-mcp-server', version: '1.0.0' })
 
   // 获取所有 type='sideMcpServer' 的工具配置
@@ -84,5 +79,6 @@ export const createMcpServer = async () => {
 
   // 连接服务器到 InMemoryTransport
   await server.connect(serverTransport)
-  return server
+
+  return { server, clientTransport }
 }
