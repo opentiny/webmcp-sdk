@@ -141,7 +141,6 @@ export class AgentModelProvider {
       clientEntries.map(async ([serverName, client]) => {
         try {
           const result = client ? await getAISDKTools(client) : null
-          debugger
           return { serverName, tools: result }
         } catch (error: unknown) {
           if (this.onError) {
