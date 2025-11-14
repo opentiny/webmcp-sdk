@@ -87,7 +87,6 @@ export class AgentModelProvider {
       )
       await client.connect(transport)
 
-      // const client = await createMCPClient({ transport: transport as MCPClientConfig['transport'] })
       //@ts-ignore
       client['__transport__'] = transport
 
