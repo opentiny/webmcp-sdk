@@ -15,7 +15,8 @@ const DEFAULT_CONFIG: ICustomAgentModelProviderLlmConfig = {
   baseURL: 'https://agent.opentiny.design/api/v1/ai/prompt/',
   providerType: 'deepseek',
   model: 'deepseek-ai/DeepSeek-V3',
-  maxSteps: 15
+  maxSteps: 15,
+  providerOptions: {}
 }
 
 /** Tiny-robot 所需要的自定义大语言的Provider */
@@ -200,76 +201,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       abortSignal: request.options?.signal,
       tools: { ['get-today']: getToday },
       maxSteps: this.llmConfig.maxSteps,
-      providerOptions: {
-        deepseek: {
-          'prompt': {
-            strategy: 'append',
-            'id': '5ed1b9071c15d1ed59b5827ea5dcabd4',
-            'params': {
-              customComponents: [
-                {
-                  name: '选择用户组件',
-                  description: '选择用户组件，用于选择用户，支持模糊搜索',
-                  component: 'TinyUser',
-                  schema: {
-                    properties: [
-                      {
-                        property: 'modelValue',
-                        label: '用户绑定工号',
-                        required: true,
-                        description: '用户的工号，双向绑定值',
-                        type: 'string'
-                      },
-                      {
-                        property: 'valueField',
-                        label: '值字段',
-                        required: true,
-                        description: '用户工号值的绑定字段',
-                        type: 'string'
-                      }
-                    ]
-                  }
-                }
-              ] as unknown as IGenPromptComponent[],
-              customExamples: [
-                {
-                  name: '选择用户示例',
-                  schema: {
-                    componentName: 'Page',
-                    state: {
-                      reviewer: ''
-                    },
-                    children: [
-                      {
-                        componentName: 'h3',
-                        props: {},
-                        children: '输入用户名搜索工号并选择用户'
-                      },
-                      {
-                        componentName: 'TinyUser',
-                        props: {
-                          modelValue: {
-                            type: 'JSExpression',
-                            model: true,
-                            value: 'this.state.reviewer'
-                          },
-                          valueField: 'uid'
-                        }
-                      },
-                      {
-                        componentName: 'TinyButton',
-                        props: {
-                          text: '提交'
-                        }
-                      }
-                    ]
-                  }
-                }
-              ]
-            }
-          } as any
-        }
-      },
+      providerOptions: this.llmConfig.providerOptions || {},
       onFinish: async () => {
         await this.agent.closeAll()
         handler.onDone()

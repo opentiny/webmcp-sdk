@@ -13,4 +13,5 @@ export interface StreamPart {
 export interface ICustomAgentModelProviderLlmConfig extends IAgentModelProviderLlmConfig {
   model: string
   maxSteps: number
+  providerOptions: any
 }

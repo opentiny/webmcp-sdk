@@ -34,8 +34,11 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 - `qrCodeUrl` 二维码URL，用于显示在遥控器模式下，点击遥控器图标后，弹出二维码对应的链接 url。
 - `menuItems` 菜单项配置数组，用于显示在遥控器模式下，点击遥控器图标后，显示的菜单项。具体配置项见 [api-createRemoter](./api-createRemoter.md)
 - `systemPrompt` 对话llm 时，传入的 system message: system-prompt=你是一个智能助手，工作地点是深圳
-- `llmConfig` 大语言模型配置对象，不能与 `llm` 同时传入。支持配置 `apiKey`、`baseURL` 、 `model` 和 `maxSteps` 和 `providerType`
+- `llmConfig` 大语言模型配置对象，不能与 `llm` 同时传入。支持配置 `apiKey`、`baseURL` 、 `model` 和 `maxSteps` 和 `providerType` 和 `providerOptions`
 - `llm` ai-sdk官方的Provider实例，不能与 `llmConfig` 同时传入。可以传入自定义的Provider实例
+- `inBrowserExt` 设置组件运行在普通页面还是浏览器的扩展中，默认值为：false
+- `genUiAble` 设置是否支持生成式UI的渲染
+- `genUiComponents` 生成式UI内置了一批组件，如果需要引入新组件，需要通过这里导入。 参考示例： shallowReactive({TinyUser, TinyAlert })
 
 ### llmConfig 配置详情
 
