@@ -12,29 +12,45 @@ const hostNameMap = new Map<string, number[]>()
 // 等待特定 host 初始化完成的 Promise Map
 const hostInitPromises = new Map<string, { resolve: (tabId: number) => void; reject: (err: Error) => void }[]>()
 
+// 统一处理地址匹配键，去除末尾斜杠避免无法命中等待队列
+// 当传入非空字符串时，保证返回非空字符串
+const normalizeUrlKey = (value?: string): string | undefined => {
+  if (!value) return value
+  return value.endsWith('/') ? value.slice(0, -1) : value
+}
+
 // 将 sessionRegistry 挂载到 browser 对象上供 ExtensionClientTransport 使用
 ;(browser as any).sessionRegistry = sessionRegistry
 ;(browser as any).hostNameMap = hostNameMap
 
 // 暴露给 mcpServer 使用的等待函数
-;(browser as any).waitForHostInit = (hostname: string): Promise<number> => {
+;(browser as any).waitForHostInit = (url: string): Promise<number> => {
   return new Promise((resolve, reject) => {
+    const normalizedUrl = normalizeUrlKey(url)
+
+    // 如果标准化后的 URL 为空，直接拒绝
+    if (!normalizedUrl) {
+      reject(new Error(`无效的 URL: ${url}`))
+      return
+    }
+
     // 先检查是否已经存在
-    const existingTabIds = hostNameMap.get(hostname)
+    const existingTabIds = hostNameMap.get(normalizedUrl)
     if (existingTabIds && existingTabIds.length > 0) {
       resolve(existingTabIds[existingTabIds.length - 1])
       return
     }
 
+    // 将等待 Promise 按标准化后的地址存储，避免不同书写导致匹配失败
     // 否则添加到等待队列
-    if (!hostInitPromises.has(hostname)) {
-      hostInitPromises.set(hostname, [])
+    if (!hostInitPromises.has(normalizedUrl)) {
+      hostInitPromises.set(normalizedUrl, [])
     }
-    hostInitPromises.get(hostname)!.push({ resolve, reject })
+    hostInitPromises.get(normalizedUrl)!.push({ resolve, reject })
 
     // 设置超时（30秒）
     setTimeout(() => {
-      reject(new Error(`等待 ${hostname} 初始化超时`))
+      reject(new Error(`等待 ${normalizedUrl} 初始化超时`))
     }, 30000)
   })
 }
@@ -186,7 +202,7 @@ export const useBrowserExtensions = async (remoterRef: Ref<InstanceType<typeof T
   onRuntimeMessage(
     'define-tool-from-content-to-sidepanel',
     (data, sender) => {
-      const { host } = data
+      const { host, url } = data
       const tabId: number = sender.tab!.id!
 
       const existingHost = hostNameMap.get(host)
@@ -204,13 +220,13 @@ export const useBrowserExtensions = async (remoterRef: Ref<InstanceType<typeof T
       }
 
       console.log('【useBrowserExt】hostNameMap', hostNameMap)
-
       // 触发等待队列中的 Promise
-      const waitingPromises = hostInitPromises.get(host)
+      const normalizedUrl = normalizeUrlKey(url)
+      const waitingPromises = normalizedUrl ? hostInitPromises.get(normalizedUrl) : undefined
       if (waitingPromises && waitingPromises.length > 0) {
         waitingPromises.forEach(({ resolve }) => resolve(tabId))
-        hostInitPromises.delete(host)
-        console.log(`【useBrowserExt】触发 ${host} 的等待队列，共 ${waitingPromises.length} 个`)
+        hostInitPromises.delete(normalizedUrl!)
+        console.log(`【useBrowserExt】触发 ${normalizedUrl} 的等待队列，共 ${waitingPromises.length} 个`)
       }
     },
     'content->side'

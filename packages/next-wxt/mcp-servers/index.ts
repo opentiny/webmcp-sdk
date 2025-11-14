@@ -1,5 +1,3 @@
-import type { McpServerType } from './types'
-
 const modules = import.meta.glob('./*/index.ts', { eager: true })
 const metaModules = import.meta.glob('./*/meta.ts', { eager: true })
 
