@@ -1,5 +1,5 @@
 import { streamText, stepCountIs, generateText, StreamTextResult } from 'ai'
-import { experimental_createMCPClient as createMCPClient, experimental_MCPClientConfig as MCPClientConfig } from 'ai'
+import { experimental_MCPClientConfig as MCPClientConfig } from 'ai'
 import type { ToolSet } from 'ai'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
@@ -9,6 +9,9 @@ import { OpenAIProvider } from '@ai-sdk/openai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createDeepSeek } from '@ai-sdk/deepseek'
 import { ExtensionClientTransport } from '../transport/ExtensionClientTransport'
+import { MessageChannelTransport } from '@opentiny/next'
+import { WebMcpClient } from '../WebMcpClient'
+import { getAISDKTools } from './utils/getAISDKTools'
 
 export const AIProviderFactories = {
   ['openai']: createOpenAI,
@@ -78,7 +81,12 @@ export class AgentModelProvider {
         transport = serverConfig as MCPClientConfig['transport']
       }
 
-      const client = await createMCPClient({ transport: transport as MCPClientConfig['transport'] })
+      const client = new WebMcpClient(
+        { name: 'mcp-web-client', version: '1.0.0' },
+        { capabilities: { roots: { listChanged: true }, sampling: {}, elicitation: {} } }
+      )
+      await client.connect(transport)
+
       //@ts-ignore
       client['__transport__'] = transport
 
@@ -97,7 +105,10 @@ export class AgentModelProvider {
       const transport = client['__transport__']
 
       // 如果是 InMemoryTransport，不关闭传输层 因为它是配对的，关闭一端会影响另一端（服务端）
-      if (transport && transport instanceof InMemoryTransport) {
+      if (
+        (transport && transport instanceof InMemoryTransport) ||
+        (transport && transport instanceof MessageChannelTransport)
+      ) {
         return
       }
 
@@ -129,7 +140,8 @@ export class AgentModelProvider {
     const tools = await Promise.all(
       clientEntries.map(async ([serverName, client]) => {
         try {
-          const result = client ? await client?.tools?.() : null
+          const result = client ? await getAISDKTools(client) : null
+          debugger
           return { serverName, tools: result }
         } catch (error: unknown) {
           if (this.onError) {
@@ -143,7 +155,8 @@ export class AgentModelProvider {
     // 将结果存储到对象中，使用 serverName 作为键
     this.mcpTools = {}
     tools.forEach(({ serverName, tools: toolsData }) => {
-      this.mcpTools[serverName] = toolsData
+      const normalizedTools = toolsData && typeof toolsData === 'object' ? (toolsData as Record<string, any>) : {}
+      this.mcpTools[serverName] = normalizedTools
     })
   }
   /** 关闭所有的 clients */
@@ -184,12 +197,19 @@ export class AgentModelProvider {
     }
 
     const client = await this._createOneClient(mcpServer)
+    if (!client) {
+      // 创建客户端失败时直接返回，避免后续出现空指针问题
+      this.onError?.(`Failed to create MCP client: ${serverName}`)
+      return null
+    }
     this.mcpClients[serverName] = client
-    this.mcpTools[serverName] = (await client?.tools?.()) as Record<string, any>
+    const tools = await getAISDKTools(client)
+    // 工具列表可能为 null，统一兜底为空对象，确保类型安全
+    this.mcpTools[serverName] = tools && typeof tools === 'object' ? (tools as Record<string, any>) : {}
     this.mcpServers[serverName] = mcpServer
     this.onUpdatedTools?.()
 
-    return true
+    return client
   }
   /** 通过服务器名称删除mcpServer： mcpServers mcpClients  mcpTools ignoreToolnames  */
   async removeMcpServer(serverName: string) {

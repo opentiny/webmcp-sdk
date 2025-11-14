@@ -1,6 +1,6 @@
 import { type McpServerConfig } from '@opentiny/next-sdk'
 import { onMounted } from 'vue'
-import { clientTransport, createMcpServer } from './mcpServer'
+import { createMcpServer } from './mcpServer'
 import { TinyRemoter } from '@opentiny/next-remoter'
 
 // Session 注册表：sessionId → {tabIds, serverInfo, timestamp}
@@ -55,7 +55,7 @@ export const useBrowserExtensions = async (remoterRef: Ref<InstanceType<typeof T
   // 注册队列：确保 MCP server 注册操作串行执行，避免并发时 closeAll() 导致冲突
   let registerQueue = Promise.resolve()
 
-  await createMcpServer()
+  const { clientTransport } = await createMcpServer()
 
   // 首先加载sidepanel面板自身的mcpServer
   registerQueue = registerQueue.then(async () => {

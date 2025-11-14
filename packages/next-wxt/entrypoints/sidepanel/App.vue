@@ -3,6 +3,7 @@ import { type Ref } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
 import { useBrowserExtensions } from './useBrowserExtensions'
 import { EXCALIDRAW_PROMPT, OFFICE_PROMPT } from '@/utils/prompt'
+import { useWebAgentServer } from './useWebAgentServer'
 import TinyUser from '@opentiny/vue-user'
 
 const llmConfig = {
@@ -85,6 +86,7 @@ const llmConfig = {
 
 const remoterRef = ref() as Ref<InstanceType<typeof TinyRemoter>>
 useBrowserExtensions(remoterRef)
+useWebAgentServer()
 
 const genUiComponents = shallowReactive({ TinyUser })
 </script>
