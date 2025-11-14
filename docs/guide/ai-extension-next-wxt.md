@@ -1,0 +1,721 @@
+# mcp-servers 扩展插件工具开发指南
+
+本文档将详细介绍如何在 AI Extension 浏览器扩展中开发 mcp-server 工具，包括工具调用的参数说明、meta.ts 配置文件的字段含义以及工具注册方法。
+
+## 概述
+
+mcp-servers 是 AI Extension 浏览器扩展的核心功能模块，它允许你为特定的网站域名注册 MCP（Model Context Protocol）工具。当用户访问匹配的网站时，这些工具可以被 AI 助手调用，实现对网页的操作和控制。
+
+## 浏览器版本要求
+
+由于扩展使用了 `userScripts` API，需要以下最低浏览器版本：
+
+- **Chrome**：>= 120.0.0
+- **Microsoft Edge**：>= 120.0.0
+- **其他基于 Chromium 的浏览器**：版本 >= 120.0.0（基于 Chromium 120+）
+
+**重要提示**：
+
+- `userScripts` API 是 Chrome 120 中引入的新特性，用于在页面的主世界（Main World）中执行脚本
+- 如果你的浏览器版本低于 120，请先更新浏览器
+- 如果 `meta.ts` 中的 `type` 设置为 `'pageMcpServer'`，**必须**在扩展管理页面开启 User Scripts 权限
+- 如果 `meta.ts` 中的 `type` 设置为 `'contentScriptMcpServer'`，不需要开启 User Scripts 权限
+
+## 目录结构
+
+mcp-servers 工具位于 `packages/next-wxt/mcp-servers/` 目录下，每个域名对应一个子目录：
+
+```text
+packages/next-wxt/mcp-servers/
+├── index.ts              # 工具加载和匹配逻辑
+├── types.d.ts            # TypeScript 类型定义
+├── www.baidu.com/        # 百度网站工具示例
+│   ├── meta.ts          # 工具元信息配置
+│   └── index.ts         # 工具注册实现
+├── opentiny.design/      # OpenTiny 网站工具示例
+│   ├── meta.ts
+│   └── index.ts
+└── excalidraw.com/       # Excalidraw 网站工具示例
+    ├── meta.ts
+    └── index.ts
+```
+
+## 创建新的 mcp-server 工具
+
+### 步骤一：创建工具目录
+
+在 `packages/next-wxt/mcp-servers/` 目录下创建以目标网站域名命名的文件夹，例如：
+
+```bash
+mkdir -p packages/next-wxt/mcp-servers/example.com
+```
+
+### 步骤二：创建 meta.ts 配置文件
+
+在新建的目录中创建 `meta.ts` 文件，用于定义工具的元信息。
+
+## meta.ts 配置文件详解
+
+`meta.ts` 文件用于配置 mcp-server 的基本信息和行为。以下是所有可用字段的详细说明：
+
+### 完整配置示例
+
+```typescript
+export default {
+  name: 'example.com',                    // 必填：域名标识
+  type: 'contentScriptMcpServer',         // 必填：MCP 服务器类型
+  url: 'https://example.com',             // 必填：目标网站 URL
+  isAlwaysEnabled: true,                  // 必填：是否始终启用
+  toolsJumpLinks: {                       // 可选：工具跳转链接映射
+    'tool-name': 'https://example.com/path'
+  },
+  version: '1.0.0'                        // 必填：版本号
+}
+```
+
+### 字段说明
+
+#### name（必填）
+
+- **类型**：`string`
+- **说明**：工具的唯一标识符，通常使用目标网站的域名（不包含协议和路径）
+- **示例**：`'www.baidu.com'`、`'opentiny.design'`、`'excalidraw.com'`
+- **注意**：此字段必须与目录名称一致，系统会根据此字段匹配当前访问的网站域名
+
+```typescript
+name: 'example.com'
+```
+
+#### type（必填）
+
+- **类型**：`'pageMcpServer' | 'contentScriptMcpServer'`
+- **说明**：MCP 服务器的类型，决定工具在哪个上下文中执行
+- **可选值**：
+  - `'pageMcpServer'`：页面级 MCP 服务器，工具在页面的主世界（Main World）中执行，可以访问页面的完整 DOM 和 JavaScript 环境
+  - `'contentScriptMcpServer'`：内容脚本级 MCP 服务器，工具在内容脚本（Content Script）隔离环境中执行
+- **选择建议**：
+  - 如果需要访问页面的全局变量、React/Vue 等框架的内部状态，使用 `'pageMcpServer'`
+  - 如果需要与扩展的其他部分（如 background、sidepanel）进行通信，使用 `'contentScriptMcpServer'`
+
+**重要提示**：如果 `type` 设置为 `'pageMcpServer'`，**必须**在扩展管理页面开启 User Scripts 权限，否则工具将无法正常工作。
+
+**为什么需要开启 User Scripts 权限？**
+
+- `pageMcpServer` 类型的工具需要在页面的主世界（Main World）中执行脚本
+- 传统的 Content Script 运行在隔离环境中，无法访问页面的全局变量和 JavaScript 上下文
+- User Scripts API 允许扩展在页面的主世界中执行脚本，从而可以访问页面的完整 JavaScript 环境
+- User Scripts API 需要 Chrome 120+ 版本的浏览器支持
+
+**如何开启 User Scripts 权限？**
+
+1. 打开扩展管理页面（`chrome://extensions/` 或 `edge://extensions/`）
+2. 找到已安装的扩展卡片
+3. 点击扩展卡片上的"详细信息"或展开按钮
+4. 找到"User Scripts"或"用户脚本"选项
+5. 将开关切换到"开启"状态
+
+**未开启 User Scripts 权限会怎样？**
+
+- 扩展会显示通知提示你开启 User Scripts 权限
+- `pageMcpServer` 类型的工具将无法正常工作
+- 工具调用会失败，并显示错误信息
+
+```typescript
+type: 'contentScriptMcpServer'  // 或 'pageMcpServer'
+```
+
+#### url（必填）
+
+- **类型**：`string`
+- **说明**：目标网站的完整 URL，包括协议（http/https）
+- **示例**：`'https://www.baidu.com'`、`'https://excalidraw.com'`
+- **注意**：此 URL 用于在 sidepanel 中打开新标签页时使用，确保 URL 格式正确
+
+```typescript
+url: 'https://example.com'
+```
+
+#### isAlwaysEnabled（必填）
+
+- **类型**：`boolean`
+- **说明**：是否始终启用此工具。当设置为 `true` 时，无论用户是否访问该网站，工具都会在 sidepanel 中显示并可用
+- **用途**：
+  - `true`：工具始终可用，AI 助手可以在任何页面调用此工具，系统会自动打开或切换到目标网站
+  - `false`：工具仅在用户访问匹配的网站时可用
+- **推荐**：对于常用的工具，建议设置为 `true`，提高工具的可用性
+
+```typescript
+isAlwaysEnabled: true  // 或 false
+```
+
+#### toolsJumpLinks（可选）
+
+- **类型**：`Record<string, string>`
+- **说明**：工具名称到 URL 的映射，用于定义每个工具对应的页面 URL
+- **用途**：当 AI 助手调用某个工具时，如果当前页面不匹配，系统会根据此映射打开相应的 URL
+- **格式**：键为工具名称（与 `registerTool` 中注册的工具名称一致），值为对应的 URL
+- **示例**：
+
+```typescript
+toolsJumpLinks: {
+  'get-page-title': 'https://www.baidu.com/s?wd=get-page-title',
+  'search-content': 'https://www.baidu.com/s?wd=search'
+}
+```
+
+**注意**：
+
+- 如果工具需要特定的页面状态或 URL 参数，可以通过此字段配置
+- 如果不配置此字段，系统会使用 `url` 字段的值作为默认 URL
+
+#### version（必填）
+
+- **类型**：`string`
+- **说明**：工具的版本号，遵循语义化版本规范（Semantic Versioning）
+- **格式**：`'主版本号.次版本号.修订号'`，例如 `'1.0.0'`、`'1.2.3'`
+- **用途**：用于版本管理和工具更新追踪
+
+```typescript
+version: '1.0.0'
+```
+
+### meta.ts 完整示例
+
+```typescript
+// packages/next-wxt/mcp-servers/www.baidu.com/meta.ts
+export default {
+  name: 'www.baidu.com',
+  type: 'contentScriptMcpServer',
+  url: 'https://www.baidu.com',
+  isAlwaysEnabled: true,
+  toolsJumpLinks: {
+    'get-page-title': 'https://www.baidu.com/s?wd=get-page-title'
+  },
+  version: '1.0.0'
+}
+```
+
+## 工具注册实现（index.ts）
+
+在工具目录中创建 `index.ts` 文件，用于注册具体的 MCP 工具。
+
+### 工具注册函数签名
+
+工具注册函数接收一个参数对象，包含以下属性：
+
+```typescript
+export default ({ server, z, cookie }) => {
+  // 工具注册逻辑
+}
+```
+
+### 参数说明
+
+#### server
+
+- **类型**：`WebMcpServer` 实例或代理对象
+- **说明**：MCP 服务器实例，用于注册工具
+- **方法**：
+  - `server.registerTool(toolName, config, handler)`：注册一个工具
+    - `toolName`（string）：工具名称，唯一标识符
+    - `config`（object）：工具配置对象
+      - `title`（string）：工具标题，用于 AI 助手识别工具用途
+      - `description`（string）：工具描述，详细说明工具的功能
+      - `inputSchema`（object）：输入参数模式，使用 Zod 定义
+    - `handler`（function）：工具处理函数，接收参数对象，返回结果
+
+```typescript
+server.registerTool(
+  'tool-name',
+  {
+    title: '工具标题',
+    description: '工具详细描述',
+    inputSchema: {
+      param1: z.string().describe('参数1描述'),
+      param2: z.number().describe('参数2描述')
+    }
+  },
+  async ({ param1, param2 }) => {
+    // 工具执行逻辑
+    return {
+      content: [{ type: 'text', text: '执行结果' }]
+    }
+  }
+)
+```
+
+#### z
+
+- **类型**：Zod 模式验证库
+- **说明**：用于定义工具输入参数的类型和验证规则
+- **常用方法**：
+  - `z.string()`：字符串类型
+  - `z.number()`：数字类型
+  - `z.boolean()`：布尔类型
+  - `z.object({})`：对象类型
+  - `z.array()`：数组类型
+  - `.describe()`：添加参数描述
+  - `.optional()`：可选参数
+  - `.default()`：默认值
+
+**示例**：
+
+```typescript
+// 字符串参数
+inputSchema: {
+  text: z.string().describe('要搜索的文本内容')
+}
+
+// 数字参数
+inputSchema: {
+  count: z.number().describe('要获取的数量')
+}
+
+// 对象参数
+inputSchema: {
+  options: z.object({
+    color: z.string().describe('颜色值'),
+    size: z.number().describe('尺寸大小')
+  }).describe('配置选项')
+}
+
+// 可选参数
+inputSchema: {
+  text: z.string().optional().describe('可选文本')
+}
+
+// 带默认值的参数
+inputSchema: {
+  timeout: z.number().default(5000).describe('超时时间（毫秒）')
+}
+```
+
+#### cookie
+
+- **类型**：`Record<string, string>`
+- **说明**：当前页面的 Cookie 数据，以键值对形式提供
+- **用途**：用于需要认证的操作，例如获取用户信息、执行需要登录的操作等
+- **注意**：Cookie 数据是只读的，不能直接修改，修改 Cookie 需要通过 `document.cookie` API
+
+**示例**：
+
+```typescript
+export default ({ server, z, cookie }) => {
+  server.registerTool(
+    'get-user-info',
+    {
+      title: '获取用户信息',
+      description: '根据 Cookie 获取当前登录用户信息',
+      inputSchema: {}
+    },
+    async () => {
+      // 使用 cookie 参数
+      const userId = cookie['user_id']
+      const token = cookie['auth_token']
+      
+      if (!userId || !token) {
+        return {
+          content: [{ type: 'text', text: '用户未登录' }]
+        }
+      }
+      
+      // 执行需要认证的操作
+      // ...
+      
+      return {
+        content: [{ type: 'text', text: `用户ID: ${userId}` }]
+      }
+    }
+  )
+}
+```
+
+### 工具注册完整示例
+
+#### 示例一：简单工具（获取页面标题）
+
+```typescript
+// packages/next-wxt/mcp-servers/www.baidu.com/index.ts
+export default ({ server, z }) => {
+  server.registerTool(
+    'get-page-title',
+    {
+      title: '获取页面标题',
+      description: '获取当前页面的标题文本'
+    },
+    async () => {
+      const title = document.title
+      return {
+        content: [{ type: 'text', text: title }]
+      }
+    }
+  )
+}
+```
+
+#### 示例二：带参数的工具（填充搜索框）
+
+```typescript
+// packages/next-wxt/mcp-servers/www.baidu.com/index.ts
+export default ({ server, z }) => {
+  server.registerTool(
+    'fill-search-box',
+    {
+      title: '填充搜索框',
+      description: '在搜索框中填充指定的文本内容',
+      inputSchema: {
+        text: z.string().describe('要填充的文本内容')
+      }
+    },
+    async ({ text }) => {
+      const searchBox = document.querySelector('#kw') // 百度搜索框的选择器
+      if (searchBox) {
+        searchBox.value = text
+        // 触发输入事件，确保页面能识别输入
+        searchBox.dispatchEvent(new Event('input', { bubbles: true }))
+        return {
+          content: [{ type: 'text', text: `已填充文本: ${text}` }]
+        }
+      } else {
+        return {
+          content: [{ type: 'text', text: '未找到搜索框' }]
+        }
+      }
+    }
+  )
+}
+```
+
+#### 示例三：复杂工具（使用 Cookie）
+
+```typescript
+// packages/next-wxt/mcp-servers/example.com/index.ts
+export default ({ server, z, cookie }) => {
+  server.registerTool(
+    'get-user-profile',
+    {
+      title: '获取用户资料',
+      description: '获取当前登录用户的资料信息',
+      inputSchema: {}
+    },
+    async () => {
+      // 检查用户是否登录
+      const sessionId = cookie['session_id']
+      if (!sessionId) {
+        return {
+          content: [{ type: 'text', text: '用户未登录，请先登录' }]
+        }
+      }
+      
+      // 模拟获取用户信息
+      try {
+        // 这里可以调用 API 或从 DOM 中提取信息
+        const userInfo = {
+          name: '示例用户',
+          email: 'user@example.com',
+          role: 'admin'
+        }
+        
+        return {
+          content: [{ 
+            type: 'text', 
+            text: JSON.stringify(userInfo, null, 2) 
+          }]
+        }
+      } catch (error) {
+        return {
+          content: [{ 
+            type: 'text', 
+            text: `获取用户信息失败: ${error.message}` 
+          }]
+        }
+      }
+    }
+  )
+}
+```
+
+#### 示例四：多工具注册
+
+```typescript
+// packages/next-wxt/mcp-servers/opentiny.design/index.ts
+export default ({ server, z }) => {
+  // 工具一：生成页面背景颜色
+  server.registerTool(
+    'generate-color',
+    {
+      title: '生成页面背景颜色',
+      description: '根据传入的颜色值设置页面背景颜色',
+      inputSchema: {
+        color: z.string().describe('十六进制颜色值，例如 #000000')
+      }
+    },
+    async ({ color }) => {
+      document.body.style.backgroundColor = color
+      return {
+        content: [{ type: 'text', text: `背景颜色已设置为: ${color}` }]
+      }
+    }
+  )
+  
+  // 工具二：获取页面元素
+  server.registerTool(
+    'get-elements',
+    {
+      title: '获取页面元素',
+      description: '根据选择器获取页面元素信息',
+      inputSchema: {
+        selector: z.string().describe('CSS 选择器，例如 .class-name 或 #id-name')
+      }
+    },
+    async ({ selector }) => {
+      const elements = document.querySelectorAll(selector)
+      const result = Array.from(elements).map((el, index) => ({
+        index,
+        tagName: el.tagName,
+        textContent: el.textContent?.trim().substring(0, 100), // 限制文本长度
+        className: el.className,
+        id: el.id
+      }))
+      
+      return {
+        content: [{ 
+          type: 'text', 
+          text: JSON.stringify(result, null, 2) 
+        }]
+      }
+    }
+  )
+}
+```
+
+## 工具返回值格式
+
+工具处理函数必须返回一个包含 `content` 属性的对象：
+
+```typescript
+return {
+  content: [
+    {
+      type: 'text',
+      text: '返回的文本内容'
+    }
+  ]
+}
+```
+
+### content 数组
+
+- **类型**：`Array<{ type: string, text: string }>`
+- **说明**：返回内容数组，目前支持 `type: 'text'` 类型
+- **text**：要返回的文本内容，可以是普通文本或 JSON 字符串
+
+### 错误处理
+
+工具执行过程中如果发生错误，应该返回错误信息而不是抛出异常：
+
+```typescript
+try {
+  // 工具执行逻辑
+  return {
+    content: [{ type: 'text', text: '执行成功' }]
+  }
+} catch (error) {
+  return {
+    content: [{ 
+      type: 'text', 
+      text: `执行失败: ${error.message}` 
+    }]
+  }
+}
+```
+
+## 工具匹配机制
+
+系统会根据当前访问的网站域名自动匹配对应的工具：
+
+1. 获取当前页面的域名（`window.location.hostname`）
+2. 在 `mcp-servers` 目录中查找匹配的目录名称
+3. 如果找到匹配的目录，加载该目录下的 `index.ts` 文件
+4. 调用工具注册函数，传入 `server`、`z` 和 `cookie` 参数
+
+### 域名匹配规则
+
+- 域名必须完全匹配，例如 `www.baidu.com` 不能匹配 `baidu.com`
+- 系统会自动处理子域名，例如 `subdomain.example.com` 会匹配 `example.com` 目录（如果存在）
+
+## 调试技巧
+
+### 1. 查看工具是否加载
+
+在浏览器控制台中查看日志：
+
+```javascript
+// 如果工具加载成功，会输出：
+找到匹配的 MCP 工具配置，正在注册...
+
+// 如果工具未加载，会输出：
+当前域名没有配置 MCP 工具
+```
+
+### 2. 测试工具注册
+
+在工具注册函数中添加日志：
+
+```typescript
+export default ({ server, z }) => {
+  console.log('工具注册函数被调用')
+  
+  server.registerTool(
+    'test-tool',
+    {
+      title: '测试工具',
+      description: '用于测试的工具',
+      inputSchema: {}
+    },
+    async () => {
+      console.log('工具被执行')
+      return {
+        content: [{ type: 'text', text: '测试成功' }]
+      }
+    }
+  )
+  
+  console.log('工具注册完成')
+}
+```
+
+### 3. 检查 DOM 元素
+
+在工具中使用 `document.querySelector` 检查元素是否存在：
+
+```typescript
+server.registerTool(
+  'check-element',
+  {
+    title: '检查元素',
+    description: '检查指定元素是否存在',
+    inputSchema: {
+      selector: z.string().describe('CSS 选择器')
+    }
+  },
+  async ({ selector }) => {
+    const element = document.querySelector(selector)
+    if (element) {
+      return {
+        content: [{ 
+          type: 'text', 
+          text: `元素存在: ${element.tagName}` 
+        }]
+      }
+    } else {
+      return {
+        content: [{ type: 'text', text: '元素不存在' }]
+      }
+    }
+  }
+)
+```
+
+## 最佳实践
+
+### 1. 工具命名
+
+- 使用有意义的工具名称，例如 `get-page-title` 而不是 `tool1`
+- 使用小写字母和连字符，遵循 kebab-case 命名规范
+- 工具名称应该清晰描述工具的功能
+
+### 2. 参数定义
+
+- 为每个参数添加详细的描述，帮助 AI 助手理解参数用途
+- 使用合适的 Zod 类型验证，确保参数类型正确
+- 为可选参数使用 `.optional()`
+- 为有默认值的参数使用 `.default()`
+
+### 3. 错误处理
+
+- 始终使用 try-catch 捕获错误
+- 返回有意义的错误信息，而不是抛出异常
+- 检查 DOM 元素是否存在，避免空指针错误
+
+### 4. 性能优化
+
+- 避免在工具中执行耗时的操作
+- 对于需要等待的操作，使用 `setTimeout` 或 `Promise`
+- 限制返回数据的体积，避免返回过大的 JSON 对象
+
+### 5. 安全性
+
+- 不要在处理函数中执行危险的 DOM 操作
+- 验证用户输入，防止 XSS 攻击
+- 谨慎使用 `eval` 或 `Function` 构造函数
+
+## 常见问题
+
+### Q1: 工具没有被加载怎么办？
+
+**A:** 检查以下几点：
+
+1. 目录名称是否与 `meta.ts` 中的 `name` 字段一致
+2. `meta.ts` 文件是否存在且格式正确
+3. `index.ts` 文件是否存在且导出了默认函数
+4. 当前访问的网站域名是否匹配
+
+### Q2: 工具注册后无法调用怎么办？
+
+**A:** 检查以下几点：
+
+1. 工具名称是否正确
+2. 参数定义是否与调用时传入的参数一致
+3. 工具处理函数是否返回了正确格式的结果
+4. 查看浏览器控制台是否有错误信息
+
+### Q3: 如何访问页面的全局变量？
+
+**A:** 如果需要在工具中访问页面的全局变量，需要将工具类型设置为 `'pageMcpServer'`，这样工具会在页面的主世界中执行，可以访问完整的 JavaScript 环境。
+
+**重要**：使用 `'pageMcpServer'` 类型时，必须满足以下条件：
+
+1. 浏览器版本 >= 120.0.0（Chrome 120+ 或 Edge 120+）
+2. 在扩展管理页面开启 User Scripts 权限
+3. 确保扩展已启用并正常运行
+
+如果不满足以上条件，`pageMcpServer` 类型的工具将无法正常工作。
+
+### Q4: Cookie 参数如何使用？
+
+**A:** Cookie 参数是一个键值对对象，可以直接访问：
+
+```typescript
+const userId = cookie['user_id']
+const token = cookie['auth_token']
+```
+
+注意：Cookie 数据是只读的，不能直接修改。
+
+### Q5: 如何处理异步操作？
+
+**A:** 工具处理函数本身是异步的，可以使用 `async/await` 或 `Promise`：
+
+```typescript
+async ({ url }) => {
+  const response = await fetch(url)
+  const data = await response.json()
+  return {
+    content: [{ type: 'text', text: JSON.stringify(data) }]
+  }
+}
+```
+
+## 总结
+
+通过本文档，你应该已经了解了如何开发 mcp-server 工具：
+
+1. 创建工具目录和配置文件（`meta.ts`）
+2. 实现工具注册逻辑（`index.ts`）
+3. 使用 `server.registerTool` 注册工具
+4. 使用 `z` 定义参数验证规则
+5. 使用 `cookie` 访问 Cookie 数据
+6. 返回正确格式的结果
+
+如果你在开发过程中遇到问题，可以参考项目中的示例代码，或查看浏览器控制台的错误信息。
