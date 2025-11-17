@@ -66,8 +66,9 @@ onWindowMessage(
   display: flex;
   gap: 8px;
   position: fixed;
-  right: 70px;
+  right: 164px;
   bottom: 90px;
+  transform: translate(50%, 0);
   z-index: 99999;
   pointer-events: none;
 
@@ -80,8 +81,8 @@ onWindowMessage(
   display: none;
 }
 
-/** 待设置小三角 */
-/* [data-wxt-integrated] .wxt-ingt-message::after {
+/** 设置小三角 */
+[data-wxt-integrated] .wxt-ingt-message::after {
   position: absolute;
   transform: translate(-50%, -50%) rotate(45deg);
   display: block;
@@ -97,7 +98,7 @@ onWindowMessage(
   clip-path: polygon(0 100%, 100% 100%, 100% 0);
   top: 100%;
   left: 50%;
-} */
+}
 
 [data-wxt-integrated] .wxt-message__loading {
   width: 14px;
