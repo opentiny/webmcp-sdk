@@ -16,8 +16,8 @@ const DEFAULT_CONFIG: ICustomAgentModelProviderLlmConfig = {
   providerType: 'deepseek',
   model: 'deepseek-ai/DeepSeek-V3',
   maxSteps: 15,
-  providerOptions: {}
-  extraTools:{}
+  providerOptions: {},
+  extraTools: {}
 }
 
 /** Tiny-robot 所需要的自定义大语言的Provider */
@@ -200,7 +200,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       model: this.llmConfig.model,
       system: this.systemPrompt,
       abortSignal: request.options?.signal,
-      tools: { ['get-today']: getToday, ...(this.llmConfig.extraTools ||{}) },
+      tools: { ['get-today']: getToday, ...(this.llmConfig.extraTools || {}) },
       maxSteps: this.llmConfig.maxSteps,
       providerOptions: this.llmConfig.providerOptions || {},
       onFinish: async () => {
