@@ -5,6 +5,7 @@ import { useBrowserExtensions } from './useBrowserExtensions'
 import { EXCALIDRAW_PROMPT, OFFICE_PROMPT } from '@/utils/prompt'
 import { useWebAgentServer } from './useWebAgentServer'
 import TinyUser from '@opentiny/vue-user'
+import { openUrl } from './extraTools'
 
 const llmConfig = {
   apiKey: import.meta.env.VITE_LLM_API_KEY,
@@ -81,7 +82,8 @@ const llmConfig = {
         }
       } as any
     }
-  }
+  },
+  extraTools: { openUrl }
 }
 
 const remoterRef = ref() as Ref<InstanceType<typeof TinyRemoter>>

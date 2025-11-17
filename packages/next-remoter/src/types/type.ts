@@ -14,4 +14,5 @@ export interface ICustomAgentModelProviderLlmConfig extends IAgentModelProviderL
   model: string
   maxSteps: number
   providerOptions: any
+  extraTools: any
 }
