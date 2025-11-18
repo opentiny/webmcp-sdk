@@ -202,7 +202,8 @@ export const useBrowserExtensions = async (remoterRef: Ref<InstanceType<typeof T
   onRuntimeMessage(
     'define-tool-from-content-to-sidepanel',
     (data, sender) => {
-      const { host, url } = data
+      const { host } = data
+      const { url } = sender
       const tabId: number = sender.tab!.id!
 
       const existingHost = hostNameMap.get(host)

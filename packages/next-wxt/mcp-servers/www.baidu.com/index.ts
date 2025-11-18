@@ -8,7 +8,7 @@ export default ({ server, z }) => {
       inputSchema: { text: z.string() }
     },
     async ({ text }) => {
-      const textarea = document.getElementById('chat-textarea')
+      const textarea = document.getElementById('chat-textarea') || document.getElementById('kw')
       textarea.value = text
       await new Promise((resolve) =>
         setTimeout(() => {
