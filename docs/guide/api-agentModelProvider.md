@@ -13,18 +13,20 @@ AgentModelProvider 类是对 ai-sdk Provider 一个简单封装，通过它可�
 `AgentModelProvider` 是一个 Class, 它的构造函数入参为：
 
 ```typescript
-/** 代理模型提供器的大语言配置对象 */
-export interface IAgentModelProviderLlmConfig {
-  apiKey?: string
-  baseURL?: string
-  /** 支持内置的常用模型，或者传入一个ai-sdk官方的Provider工厂函数
-   * @example
-   * import { createOpenAI } from '@ai-sdk/openai'
-   */
-  providerType?: 'openai' | 'deepseek' | ((options: any) => ProviderV2)
-  /** 直接传入 ai-sdk Provider 实例，优先级最高 */
-  llm?: ProviderV2
+type ProviderFactoryConfig = {
+  apiKey: string
+  baseURL: string
+  /** 支持内置的常用模型，或者传入一个ai-sdk官方的Provider工厂函数 */
+  providerType: 'openai' | 'deepseek' | ((options: any) => ProviderV2)
 }
+
+type ProviderInstanceConfig = {
+  /** 直接传入 ai-sdk Provider 实例，优先级最高 */
+  llm: ProviderV2
+}
+
+/** 代理模型提供器的大语言配置对象（二选一） */
+export type IAgentModelProviderLlmConfig = ProviderFactoryConfig | ProviderInstanceConfig
 
 export interface IAgentModelProviderOption {
   /** 代理模型提供器的大语言配置对象 */

@@ -55,12 +55,13 @@ export class AgentModelProvider {
     if (llmConfig.llm) {
       this.llm = llmConfig.llm
     } else if (llmConfig.providerType) {
+      const providerType = llmConfig.providerType
       let providerFn: (options: any) => ProviderV2 | OpenAIProvider
 
-      if (typeof llmConfig.providerType === 'string') {
-        providerFn = AIProviderFactories[llmConfig.providerType]
+      if (typeof providerType === 'string') {
+        providerFn = AIProviderFactories[providerType]
       } else {
-        providerFn = llmConfig.providerType
+        providerFn = providerType
       }
       this.llm = providerFn({
         apiKey: llmConfig.apiKey,

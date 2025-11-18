@@ -10,7 +10,7 @@ export interface StreamPart {
   toolCallId?: string
 }
 
-export interface ICustomAgentModelProviderLlmConfig extends IAgentModelProviderLlmConfig {
+export type ICustomAgentModelProviderLlmConfig = IAgentModelProviderLlmConfig & {
   model: string
   maxSteps?: number
   providerOptions?: Record<string, any>

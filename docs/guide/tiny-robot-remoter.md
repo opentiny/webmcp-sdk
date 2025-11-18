@@ -34,7 +34,7 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 - `qrCodeUrl` 二维码URL，用于显示在遥控器模式下，点击遥控器图标后，弹出二维码对应的链接 url。
 - `menuItems` 菜单项配置数组，用于显示在遥控器模式下，点击遥控器图标后，显示的菜单项。具体配置项见 [api-createRemoter](./api-createRemoter.md)
 - `systemPrompt` 对话llm 时，传入的 system message: system-prompt=你是一个智能助手，工作地点是深圳
-- `llmConfig` 大语言模型配置对象，支持配置 `apiKey`、`baseURL` 、 `model` 、`maxSteps` 、 `providerType` 、 `providerOptions`、`extraTools`，也可以直接通过 `llmConfig.llm` 传入自定义 Provider，优先级最高
+- `llmConfig` 大语言模型配置对象，支持配置 `apiKey`、`baseURL` 、 `model` 、`maxSteps` 、 `providerType` 、 `providerOptions`、`extraTools`，其中 `apiKey/baseURL/providerType` 与 `llmConfig.llm` 二选一
 - `inBrowserExt` 设置组件运行在普通页面还是浏览器的扩展中，默认值为：false
 - `genUiAble` 设置是否支持生成式UI的渲染
 - `genUiComponents` 生成式UI内置了一批组件，如果需要引入新组件，需要通过这里导入。 参考示例： shallowReactive({TinyUser, TinyAlert })
@@ -42,19 +42,25 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 ### llmConfig 配置详情
 
 ```typescript
-interface ICustomAgentModelProviderLlmConfig {
+type ProviderFactoryConfig = {
   /** API密钥 */
-  apiKey?: string
+  apiKey: string
   /** API基础URL */
-  baseURL?: string
+  baseURL: string
   /** 提供商类型，支持 'openai' | 'deepseek' 或自定义Provider函数 */
-  providerType?: 'openai' | 'deepseek' | ((options: any) => ProviderV2)
+  providerType: 'openai' | 'deepseek' | ((options: any) => ProviderV2)
+}
+
+type ProviderInstanceConfig = {
   /** 直接传入 ai-sdk Provider 实例，优先级最高 */
-  llm?: ProviderV2
+  llm: ProviderV2
+}
+
+type ICustomAgentModelProviderLlmConfig = (ProviderFactoryConfig | ProviderInstanceConfig) & {
   /** 模型名称 */
   model: string
-  /** 工具调用最大步数 */
-  maxSteps: number
+  /** 工具调用最大步数，默认为15 */
+  maxSteps?: number
   /** Provider 额外参数 */
   providerOptions?: Record<string, any>
   /** 额外自定义工具 */

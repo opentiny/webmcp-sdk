@@ -2,18 +2,30 @@ export type { experimental_MCPClient as MCPClient } from 'ai'
 import type { ProviderV2 } from '@ai-sdk/provider'
 import type { MCPTransport } from 'ai'
 
-/** 代理模型提供器的大语言配置对象 */
-export interface IAgentModelProviderLlmConfig {
-  apiKey?: string
-  baseURL?: string
-  /** 支持内置的常用模型，或者传入一个ai-sdk官方的Provider工厂函数
-   * @example
-   * import { createOpenAI } from '@ai-sdk/openai'
-   */
-  providerType?: 'openai' | 'deepseek' | ((options: any) => ProviderV2)
-  /** 自定义 Provider 实例，优先级最高 */
-  llm?: ProviderV2
+type ProviderFactory = 'openai' | 'deepseek' | ((options: any) => ProviderV2)
+
+type LlmFactoryConfig = {
+  /** API密钥 */
+  apiKey: string
+  /** API基础URL */
+  baseURL: string
+  /** 内置或自定义 Provider 工厂函数 */
+  providerType: ProviderFactory
+  /** 互斥：当使用 providerType 分支时不允许传入 llm */
+  llm?: never
 }
+
+type LlmInstanceConfig = {
+  /** 自定义 Provider 实例，优先级最高 */
+  llm: ProviderV2
+  /** 互斥：当传入 llm 实例时不需要 apiKey/baseURL/providerType */
+  apiKey?: never
+  baseURL?: never
+  providerType?: never
+}
+
+/** 代理模型提供器的大语言配置对象, 通过 XOR 表达二选一 */
+export type IAgentModelProviderLlmConfig = LlmFactoryConfig | LlmInstanceConfig
 
 /** Mcp Server的配置对象 */
 export type McpServerConfig =

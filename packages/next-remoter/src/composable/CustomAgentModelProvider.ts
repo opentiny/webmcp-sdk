@@ -8,14 +8,16 @@ import { AgentModelProvider, McpServerConfig, IAgentModelProviderOption } from '
 import { getToday } from './tools'
 import type { ICustomAgentModelProviderLlmConfig, StreamPart } from '../types/type'
 
-// 配置常量
-const DEFAULT_CONFIG: ICustomAgentModelProviderLlmConfig = {
-  apiKey: 'sk-trial',
-  baseURL: 'https://agent.opentiny.design/api/v1/ai',
-  providerType: 'deepseek',
+const DEFAULT_SHARED_CONFIG = {
   model: 'deepseek-ai/DeepSeek-V3',
   maxSteps: 15,
   extraTools: {}
+}
+
+const DEFAULT_FACTORY_CONFIG = {
+  apiKey: 'sk-trial',
+  baseURL: 'https://agent.opentiny.design/api/v1/ai',
+  providerType: 'deepseek' as const
 }
 
 /** Tiny-robot 所需要的自定义大语言的Provider */
@@ -24,7 +26,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   /** 一个 ai-sdk agent 封装 */
   agent: AgentModelProvider
   systemPrompt: string
-  llmConfig: ICustomAgentModelProviderLlmConfig = DEFAULT_CONFIG
+  llmConfig: ICustomAgentModelProviderLlmConfig = { ...DEFAULT_SHARED_CONFIG, ...DEFAULT_FACTORY_CONFIG }
 
   constructor(
     config: AIModelConfig,
@@ -35,21 +37,33 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   ) {
     super(config)
 
-    const mergedConfig: ICustomAgentModelProviderLlmConfig = {
-      ...DEFAULT_CONFIG,
-      ...(llmConfig || {})
+    let mergedConfig: ICustomAgentModelProviderLlmConfig
+    if (llmConfig && 'llm' in llmConfig) {
+      mergedConfig = {
+        ...DEFAULT_SHARED_CONFIG,
+        ...llmConfig
+      }
+    } else {
+      mergedConfig = {
+        ...DEFAULT_SHARED_CONFIG,
+        ...DEFAULT_FACTORY_CONFIG,
+        ...(llmConfig || {})
+      }
     }
 
     this.llmConfig = mergedConfig
 
+    const llmConfigOption = mergedConfig.llm
+      ? { llm: mergedConfig.llm }
+      : {
+          apiKey: mergedConfig.apiKey!,
+          baseURL: mergedConfig.baseURL!,
+          providerType: mergedConfig.providerType!
+        }
+
     const options: IAgentModelProviderOption = {
       mcpServers: this.createMcpServers(sessionId.value, agentRoot.value),
-      llmConfig: {
-        apiKey: mergedConfig.apiKey,
-        baseURL: mergedConfig.baseURL,
-        providerType: mergedConfig.providerType,
-        llm: mergedConfig.llm
-      }
+      llmConfig: llmConfigOption
     }
 
     this.agent = new AgentModelProvider(options)
