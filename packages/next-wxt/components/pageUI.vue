@@ -39,7 +39,7 @@ onWindowMessage(
 <style>
 [data-wxt-integrated] .wxt-ingt-svg {
   position: fixed;
-  right: 80px;
+  right: 140px;
   bottom: 40px;
   width: 48px;
   height: 48px;
@@ -63,9 +63,12 @@ onWindowMessage(
 }
 
 [data-wxt-integrated] .wxt-ingt-message {
+  display: flex;
+  gap: 8px;
   position: fixed;
-  top: 100px;
-  left: 32px;
+  right: 164px;
+  bottom: 90px;
+  transform: translate(50%, 0);
   z-index: 99999;
   pointer-events: none;
 
@@ -76,6 +79,25 @@ onWindowMessage(
   font-size: 14px;
   line-height: 20px;
   display: none;
+}
+
+/** 设置小三角 */
+[data-wxt-integrated] .wxt-ingt-message::after {
+  position: absolute;
+  transform: translate(-50%, -50%) rotate(45deg);
+  display: block;
+  width: 12px;
+  height: 12px;
+  z-index: 1;
+  content: ' ';
+
+  border: 1px solid #1476ff80;
+  background-color: #f3f8ff;
+  border-radius: 2px;
+
+  clip-path: polygon(0 100%, 100% 100%, 100% 0);
+  top: 100%;
+  left: 50%;
 }
 
 [data-wxt-integrated] .wxt-message__loading {

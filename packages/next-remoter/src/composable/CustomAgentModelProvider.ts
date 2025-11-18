@@ -3,7 +3,6 @@ import type { ChatCompletionRequest } from '@opentiny/tiny-robot-kit'
 import type { StreamHandler } from '@opentiny/tiny-robot-kit'
 import { BaseModelProvider } from '@opentiny/tiny-robot-kit'
 import type { AIModelConfig } from '@opentiny/tiny-robot-kit'
-import type { IGenPromptComponent } from '@opentiny/genui-sdk'
 import { type Ref } from 'vue'
 import { AgentModelProvider, McpServerConfig, IAgentModelProviderOption } from '@opentiny/next-sdk'
 import { getToday } from './tools'
@@ -16,7 +15,8 @@ const DEFAULT_CONFIG: ICustomAgentModelProviderLlmConfig = {
   providerType: 'deepseek',
   model: 'deepseek-ai/DeepSeek-V3',
   maxSteps: 15,
-  providerOptions: {}
+  providerOptions: {},
+  extraTools: {}
 }
 
 /** Tiny-robot 所需要的自定义大语言的Provider */
@@ -199,7 +199,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       model: this.llmConfig.model,
       system: this.systemPrompt,
       abortSignal: request.options?.signal,
-      tools: { ['get-today']: getToday },
+      tools: { ['get-today']: getToday, ...(this.llmConfig.extraTools || {}) },
       maxSteps: this.llmConfig.maxSteps,
       providerOptions: this.llmConfig.providerOptions || {},
       onFinish: async () => {
