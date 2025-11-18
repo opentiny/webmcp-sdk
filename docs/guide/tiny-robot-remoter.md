@@ -34,8 +34,7 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 - `qrCodeUrl` 二维码URL，用于显示在遥控器模式下，点击遥控器图标后，弹出二维码对应的链接 url。
 - `menuItems` 菜单项配置数组，用于显示在遥控器模式下，点击遥控器图标后，显示的菜单项。具体配置项见 [api-createRemoter](./api-createRemoter.md)
 - `systemPrompt` 对话llm 时，传入的 system message: system-prompt=你是一个智能助手，工作地点是深圳
-- `llmConfig` 大语言模型配置对象，不能与 `llm` 同时传入。支持配置 `apiKey`、`baseURL` 、 `model` 、`maxSteps` 、 `providerType` 、 `providerOptions` 和 `extraTools`
-- `llm` ai-sdk官方的Provider实例，不能与 `llmConfig` 同时传入。可以传入自定义的Provider实例
+- `llmConfig` 大语言模型配置对象，支持配置 `apiKey`、`baseURL` 、 `model` 、`maxSteps` 、 `providerType` 、 `providerOptions`、`extraTools`，其中 `apiKey/baseURL/providerType` 与 `llmConfig.llm` 二选一
 - `inBrowserExt` 设置组件运行在普通页面还是浏览器的扩展中，默认值为：false
 - `genUiAble` 设置是否支持生成式UI的渲染
 - `genUiComponents` 生成式UI内置了一批组件，如果需要引入新组件，需要通过这里导入。 参考示例： shallowReactive({TinyUser, TinyAlert })
@@ -43,38 +42,54 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 ### llmConfig 配置详情
 
 ```typescript
-interface ICustomAgentModelProviderLlmConfig {
+type ProviderFactoryConfig = {
   /** API密钥 */
   apiKey: string
   /** API基础URL */
   baseURL: string
   /** 提供商类型，支持 'openai' | 'deepseek' 或自定义Provider函数 */
   providerType: 'openai' | 'deepseek' | ((options: any) => ProviderV2)
+}
+
+type ProviderInstanceConfig = {
+  /** 直接传入 ai-sdk Provider 实例，优先级最高 */
+  llm: ProviderV2
+}
+
+type ICustomAgentModelProviderLlmConfig = (ProviderFactoryConfig | ProviderInstanceConfig) & {
   /** 模型名称 */
   model: string
-  /** 工具调用最大步数 */
-  maxSteps: number
+  /** 工具调用最大步数，默认为15 */
+  maxSteps?: number
+  /** Provider 额外参数 */
+  providerOptions?: Record<string, any>
+  /** 额外自定义工具 */
+  extraTools?: Record<string, any>
 }
 ```
 
-### llm Provider 实例
+### 通过 llmConfig.llm 使用自定义 Provider
 
-`llm` 参数接受任何符合 ai-sdk Provider 规范的实例，例如：
+`llmConfig.llm` 可以接受任何符合 ai-sdk Provider 规范的实例，例如：
 
 ```typescript
 import { createOpenAI } from '@ai-sdk/openai'
 import { createAnthropic } from '@ai-sdk/anthropic'
 
-// OpenAI Provider
-const openaiProvider = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-  baseURL: 'https://api.openai.com/v1'
-})
+const llmConfig = {
+  // OpenAI Provider
+  llm: createOpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    baseURL: 'https://api.openai.com/v1'
+  })
+}
 
-// Anthropic Provider
-const anthropicProvider = createAnthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY
-})
+const claudeConfig = {
+  // Anthropic Provider
+  llm: createAnthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY
+  })
+}
 ```
 
 ## 插槽
@@ -171,7 +186,7 @@ const llmConfig = {
     sessionId="your-session-id"
     title="我的AI助手"
     systemPrompt="你是一个智能助手"
-    :llm="customProvider"
+    :llmConfig="llmConfig"
   />
 </template>
 
@@ -183,10 +198,12 @@ import { createOpenAI } from '@ai-sdk/openai'
 const show = ref(false)
 
 // 使用自定义Provider实例
-const customProvider = createOpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-  baseURL: 'https://api.openai.com/v1'
-})
+const llmConfig = {
+  llm: createOpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    baseURL: 'https://api.openai.com/v1'
+  })
+}
 </script>
 ```
 
@@ -229,7 +246,7 @@ const deepSeekConfig = {
     sessionId="your-session-id"
     title="我的AI助手"
     systemPrompt="你是一个智能助手"
-    :llm="anthropicProvider"
+    :llmConfig="anthropicConfig"
   />
 </template>
 
@@ -241,9 +258,11 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 const show = ref(false)
 
 // 使用Anthropic Provider
-const anthropicProvider = createAnthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY
-})
+const anthropicConfig = {
+  llm: createAnthropic({
+    apiKey: process.env.ANTHROPIC_API_KEY
+  })
+}
 </script>
 ```
 

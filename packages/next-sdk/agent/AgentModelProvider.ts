@@ -44,27 +44,31 @@ export class AgentModelProvider {
   /** 缓存 ai-sdk response 中的 多轮会话的上下文 */
   messages: any[] = []
 
-  constructor({ llmConfig, mcpServers, llm }: IAgentModelProviderOption) {
+  constructor({ llmConfig, mcpServers }: IAgentModelProviderOption) {
+    if (!llmConfig) {
+      throw new Error('llmConfig is required to initialize AgentModelProvider')
+    }
     this.mcpServers = mcpServers || {}
     this.mcpClients = {}
     this.mcpTools = {}
 
-    if (llm) {
-      this.llm = llm
-    } else if (llmConfig) {
+    if (llmConfig.llm) {
+      this.llm = llmConfig.llm
+    } else if (llmConfig.providerType) {
+      const providerType = llmConfig.providerType
       let providerFn: (options: any) => ProviderV2 | OpenAIProvider
 
-      if (typeof llmConfig.providerType === 'string') {
-        providerFn = AIProviderFactories[llmConfig.providerType]
+      if (typeof providerType === 'string') {
+        providerFn = AIProviderFactories[providerType]
       } else {
-        providerFn = llmConfig.providerType
+        providerFn = providerType
       }
       this.llm = providerFn({
         apiKey: llmConfig.apiKey,
         baseURL: llmConfig.baseURL
       })
     } else {
-      throw new Error('Either llmConfig or llm must be provided')
+      throw new Error('Either llmConfig.llm or llmConfig.providerType must be provided')
     }
   }
 
