@@ -192,14 +192,9 @@ const props = defineProps({
     type: String,
     default: 'remoter'
   },
-  /** 大语言模型配置对象，不能与 llm 同时传入 */
+  /** 大语言模型配置对象 */
   llmConfig: {
     type: Object as () => ICustomAgentModelProviderLlmConfig | undefined,
-    default: undefined
-  },
-  /** ai-sdk官方的Provider实例，不能与 llmConfig 同时传入 */
-  llm: {
-    type: Object,
     default: undefined
   },
   /** 设置组件运行在普通页面还是浏览器的扩展中 */
@@ -292,8 +287,7 @@ const {
   sessionId: toRef(props, 'sessionId'),
   agentRoot: toRef(props, 'agentRoot'),
   systemPrompt: props.systemPrompt || '',
-  llmConfig: props.llmConfig,
-  llm: props.llm
+  llmConfig: props.llmConfig
 })
 
 /**

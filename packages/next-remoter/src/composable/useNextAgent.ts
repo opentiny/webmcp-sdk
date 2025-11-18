@@ -18,7 +18,8 @@ export type INextAgetOption = {
    * 如果设置，则代替内部默认的流处理函数。
    */
   processStream?: (stream: ReadableStream<string>, messages: Ref<any[]>, senderContent: string) => Promise<void>
-} & Partial<Pick<IAgentModelProviderOption, 'llm' | 'llmConfig'>>
+  llmConfig: IAgentModelProviderOption['llmConfig']
+}
 
 /** 快速实现Opentiny Next遥控器的智能体
  *
@@ -30,7 +31,6 @@ export type INextAgetOption = {
 export function useNextAgent(option: INextAgetOption) {
   const initMcpServers: any = option.sessionId ? createMcpServers(option.sessionId, option.agentRoot) : []
   const agent = new AgentModelProvider({
-    llm: option.llm,
     llmConfig: option.llmConfig,
     mcpServers: initMcpServers
   })

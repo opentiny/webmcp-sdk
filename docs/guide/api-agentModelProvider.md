@@ -15,43 +15,45 @@ AgentModelProvider 类是对 ai-sdk Provider 一个简单封装，通过它可�
 ```typescript
 /** 代理模型提供器的大语言配置对象 */
 export interface IAgentModelProviderLlmConfig {
-  apiKey: string
-  baseURL: string
+  apiKey?: string
+  baseURL?: string
   /** 支持内置的常用模型，或者传入一个ai-sdk官方的Provider工厂函数
    * @example
    * import { createOpenAI } from '@ai-sdk/openai'
    */
-  providerType: 'openai' | 'deepseek' | ((options: any) => ProviderV2)
+  providerType?: 'openai' | 'deepseek' | ((options: any) => ProviderV2)
+  /** 直接传入 ai-sdk Provider 实例，优先级最高 */
+  llm?: ProviderV2
 }
 
 export interface IAgentModelProviderOption {
-  /** ai-sdk官方的Provider实例，不能与 llmConfig 同时传入
-   * @example
-   * import { openai } from '@ai-sdk/openai'
-   */
-  llm?: ProviderV2
-  /** 代理模型提供器的大语言配置对象, 不能与 llm 同时传入 */
-  llmConfig?: IAgentModelProviderLlmConfig
+  /** 代理模型提供器的大语言配置对象 */
+  llmConfig: IAgentModelProviderLlmConfig
   /** Mcp Server的配置对象的集合，键为服务器名称，值为配置对象 */
   mcpServers?: Record<string, McpServerConfig>
 }
 ```
 
-其中 `llm` 与 `llmConfig` 都是定义如何连接大模型，使用其中之一即可
+`llmConfig` 统一承载了所有 LLM 连接方式，优先级为 `llmConfig.llm` > `llmConfig.providerType`。根据需要选择以下方式：
 
-1. 通过 `llm` 来定义连接
+1. **通过 `llmConfig.llm` 传入自定义 Provider 实例**
 
 ```typescript
-import { openAI } from '@ai-sdk/openai'
+import { createOpenAI } from '@ai-sdk/openai'
 
 const webAgent = new AgentModelProvider({
-  llm: openAI
+  llmConfig: {
+    llm: createOpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+      baseURL: 'https://api.openai.com/v1'
+    })
+  }
 })
 ```
 
-这种形式可以隐藏`apiKey`等敏感信息，通常是由环境变量来提供。 如何设置环境变量，请参考`ai-sdk Provider`的相关文档页面
+这种形式可以隐藏 `apiKey` 等敏感信息，通常通过环境变量创建 Provider。
 
-2. 通过 `llmConfig` 来定义连接
+2. **通过 `llmConfig.providerType` 来定义连接**
 
 ```typescript
 const webAgent = new AgentModelProvider({

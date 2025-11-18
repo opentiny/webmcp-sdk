@@ -78,9 +78,9 @@ createRemoter({
 
 ## LLM配置
 
-TinyRemoter组件支持自定义大语言模型配置，有两种方式：
+TinyRemoter组件支持自定义大语言模型配置，统一通过 `llmConfig` 传入：
 
-### 1. 使用llmConfig配置对象
+### 1. 使用 llmConfig.providerType 配置对象
 
 ```typescript
 const llmConfig = {
@@ -90,7 +90,7 @@ const llmConfig = {
 }
 ```
 
-### 2. 使用自定义Provider实例
+### 2. 使用自定义Provider实例（通过 llmConfig.llm）
 
 ```typescript
 import { createOpenAI } from '@ai-sdk/openai'
@@ -99,13 +99,17 @@ const customProvider = createOpenAI({
   apiKey: process.env.OPENAI_API_KEY,
   baseURL: 'https://api.openai.com/v1'
 })
+
+const llmConfig = {
+  llm: customProvider
+}
 ```
 
 然后在组件中使用：
 
 ```html
 <tiny-remoter 
-  :llm="customProvider"
+  :llmConfig="llmConfig"
   :sessionId="sessionId" 
 />
 ```

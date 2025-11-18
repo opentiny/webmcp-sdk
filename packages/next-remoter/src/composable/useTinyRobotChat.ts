@@ -12,21 +12,19 @@ interface useTinyRobotOption {
   agentRoot: Ref<string>
   systemPrompt: string
   llmConfig?: ICustomAgentModelProviderLlmConfig
-  llm?: any
 }
 
 let accmulateText = ''
 let summaryText = ''
 let accmulateMessagesLength: number = 0
 
-export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt, llmConfig, llm }: useTinyRobotOption) => {
+export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt, llmConfig }: useTinyRobotOption) => {
   const customAgentProvider = new CustomAgentModelProvider(
     { provider: 'custom' },
     sessionId,
     agentRoot,
     systemPrompt,
-    llmConfig,
-    llm
+    llmConfig
   )
   const client = new AIClient({
     providerImplementation: customAgentProvider,

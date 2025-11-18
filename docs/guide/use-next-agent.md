@@ -33,10 +33,8 @@ const {
 
 ```typescript
 export type INextAgetOption = {
-  /** ai-sdk官方的Provider实例，不能与 llmConfig 同时传入 */
-  llm?: ProviderV2
-  /** 代理模型提供器的大语言配置对象, 不能与 llm 同时传入 */
-  llmConfig?: IAgentModelProviderLlmConfig
+  /** 代理模型提供器的大语言配置对象，llmConfig.llm 优先级最高 */
+  llmConfig: IAgentModelProviderLlmConfig
   /** 访问 llm 时，预置的系统提示词 */
   systemPrompt?: string
   /** 大语言模型 的 modelId， 比如：'deepseek-ai/DeepSeek-V3' */
@@ -56,7 +54,7 @@ export type INextAgetOption = {
 }
 ```
 
-- llm 与 llmConfig 都是`LLM`的配置信息，二者填写一个即可。
+- llmConfig 统一承载所有 `LLM` 连接方式，可通过 `llmConfig.llm` 或 `llmConfig.providerType` 定义具体 Provider。
 - systemPrompt,model,maxStep 都是与`LLM`对话时的基本配置。
 - agentRoot 与 sessionId 都是配置智能化WEB应用的信息。 `sessionId` 可以不填写，后面通过 `addSessionId` 来添加待操控的WEB应用。
 - ui ：当前函数内置的流行Chat UI库的支持，能返回正确的 `messages` 的会话数据。

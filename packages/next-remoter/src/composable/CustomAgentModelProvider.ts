@@ -11,11 +11,10 @@ import type { ICustomAgentModelProviderLlmConfig, StreamPart } from '../types/ty
 // 配置常量
 const DEFAULT_CONFIG: ICustomAgentModelProviderLlmConfig = {
   apiKey: 'sk-trial',
-  baseURL: 'https://agent.opentiny.design/api/v1/ai/prompt/',
+  baseURL: 'https://agent.opentiny.design/api/v1/ai',
   providerType: 'deepseek',
   model: 'deepseek-ai/DeepSeek-V3',
   maxSteps: 15,
-  providerOptions: {},
   extraTools: {}
 }
 
@@ -25,34 +24,31 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   /** 一个 ai-sdk agent 封装 */
   agent: AgentModelProvider
   systemPrompt: string
-  llmConfig = DEFAULT_CONFIG
+  llmConfig: ICustomAgentModelProviderLlmConfig = DEFAULT_CONFIG
 
   constructor(
     config: AIModelConfig,
     sessionId: Ref<string>,
     agentRoot: Ref<string>,
     systemPrompt: string,
-    llmConfig?: ICustomAgentModelProviderLlmConfig,
-    llm?: any
+    llmConfig?: ICustomAgentModelProviderLlmConfig
   ) {
     super(config)
 
-    // 构建AgentModelProvider的选项
-    const options: IAgentModelProviderOption = {
-      mcpServers: this.createMcpServers(sessionId.value, agentRoot.value)
+    const mergedConfig: ICustomAgentModelProviderLlmConfig = {
+      ...DEFAULT_CONFIG,
+      ...(llmConfig || {})
     }
 
-    // 优先使用传入的llm实例，其次使用llmConfig，最后使用默认配置
-    if (llm) {
-      options.llm = llm
-    } else {
-      if (llmConfig) {
-        this.llmConfig = Object.assign(DEFAULT_CONFIG, llmConfig)
-      }
-      options.llmConfig = {
-        apiKey: this.llmConfig.apiKey,
-        baseURL: this.llmConfig.baseURL,
-        providerType: this.llmConfig.providerType
+    this.llmConfig = mergedConfig
+
+    const options: IAgentModelProviderOption = {
+      mcpServers: this.createMcpServers(sessionId.value, agentRoot.value),
+      llmConfig: {
+        apiKey: mergedConfig.apiKey,
+        baseURL: mergedConfig.baseURL,
+        providerType: mergedConfig.providerType,
+        llm: mergedConfig.llm
       }
     }
 
@@ -201,7 +197,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       abortSignal: request.options?.signal,
       tools: { ['get-today']: getToday, ...(this.llmConfig.extraTools || {}) },
       maxSteps: this.llmConfig.maxSteps,
-      providerOptions: this.llmConfig.providerOptions || {},
+      providerOptions: this.llmConfig.providerOptions,
       onFinish: async () => {
         await this.agent.closeAll()
         handler.onDone()
