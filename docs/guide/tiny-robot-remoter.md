@@ -202,7 +202,7 @@ const llmConfig = {
   llm: createOpenAI({
     apiKey: process.env.OPENAI_API_KEY,
     baseURL: 'https://api.openai.com/v1',
-    fetch:(...args)=>{
+    fetch: (...args) => {
       // 这里可以自定义大模型请求链接地址，非必要无需配置fetch
       args[0] = args[0] + '?test=123'
       return fetch(...args)
