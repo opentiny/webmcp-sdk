@@ -100,8 +100,7 @@ export const createProxyMcpServer = async (tabId: number) => {
       sendRuntimeMessage(
         'define-tool-from-content-to-sidepanel',
         {
-          host: window.location.hostname,
-          url: window.location.href
+          host: window.location.hostname
         },
         'content->side'
       )
@@ -113,8 +112,7 @@ export const createProxyMcpServer = async (tabId: number) => {
   sendRuntimeMessage(
     'define-tool-from-content-to-sidepanel',
     {
-      host: window.location.hostname,
-      url: window.location.href
+      host: window.location.hostname
     },
     'content->side'
   )
