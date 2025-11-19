@@ -1,5 +1,6 @@
 import { WebMcpServer, z, createMessageChannelPairTransport } from '@opentiny/next-sdk'
 import { getAllMcpServersByIsAlwaysEnabled } from '@/mcp-servers'
+import { useExtraTools } from './extraTools'
 
 export const createMcpServer = async () => {
   const [serverTransport, clientTransport] = createMessageChannelPairTransport()
@@ -132,6 +133,9 @@ export const createMcpServer = async () => {
       console.error(`[Sidepanel MCP] ✗ 工具加载失败: ${meta.name}`, error)
     }
   }
+
+  // 注册插件内部自带的工具
+  useExtraTools(server)
 
   // 连接服务器到 InMemoryTransport
   await server.connect(serverTransport)
