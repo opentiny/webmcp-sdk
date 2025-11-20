@@ -133,7 +133,7 @@ import { SchemaRenderer, RENDERER_SETTINGS_KEY } from '@opentiny/genui-sdk-vue'
 import { GeneratingStatus, STATUS } from '@opentiny/tiny-robot-kit'
 import { IconNewSession, IconPlugin, IconHistory } from '@opentiny/tiny-robot-svgs'
 import { useTinyRobotChat } from '../composable/useTinyRobotChat'
-import { toRef, computed, ref, onMounted, markRaw, shallowReactive, h, watch, provide } from 'vue'
+import { toRef, computed, ref, onMounted, markRaw, h, watch, provide } from 'vue'
 import { createRemoter, McpServerConfig } from '@opentiny/next-sdk'
 import QrCodeScan from './qr-code-scan.vue'
 import { DEFAULT_SERVERS } from './default-mcps'
@@ -142,7 +142,6 @@ import { getLang, mapMake } from './lang'
 import { handleError } from './error-handle'
 import { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import type { MenuItemConfig } from '@opentiny/next-sdk'
-import TinyUser from '@opentiny/vue-user'
 
 defineOptions({
   name: 'TinyRemoter'
@@ -363,6 +362,8 @@ const handleSendMessageCustom = async () => {
   }
 }
 
+const LOCAL_TOOL_STORAGE_KEY = 'local-tool-storage'
+
 // 自动计算的变量
 const senderPlaceholder = computed(() =>
   GeneratingStatus.includes(messageState.status) ? lang[props.locale].thinking : lang[props.locale].placeholder
@@ -375,12 +376,12 @@ const handlePillItemClick = (item: ReturnType<typeof mapMake>) => {
 }
 
 const loadMcpServerToPlugin = async (serverName: string, mcpServer: McpServerConfig) => {
-  const url =
-    serverName === 'mcp-server-localhost' ? { origin: '本地工具' } : new URL('url' in mcpServer ? mcpServer.url : '')
-  const sessionId =
-    serverName === 'mcp-server-localhost'
-      ? '本地工具列表'
-      : url.searchParams.get('sessionId') || ('sessionId' in mcpServer ? mcpServer.sessionId : '') || ''
+  const LOCAL_TOOL_STORAGE = JSON.parse(localStorage.getItem(LOCAL_TOOL_STORAGE_KEY) || '{}')
+  const isLocalTool = serverName === 'mcp-server-localhost'
+  const url = isLocalTool ? { origin: '本地工具' } : new URL('url' in mcpServer ? mcpServer.url : '')
+  const sessionId = isLocalTool
+    ? '本地工具列表'
+    : url.searchParams.get('sessionId') || ('sessionId' in mcpServer ? mcpServer.sessionId : '') || ''
 
   // 直接使用 serverName 获取 tools，无需索引查找
   const currTool = agent.mcpTools[serverName]
@@ -391,7 +392,7 @@ const loadMcpServerToPlugin = async (serverName: string, mcpServer: McpServerCon
         id: key,
         name: key,
         description: currTool[key].description as string,
-        enabled: true
+        enabled: isLocalTool ? Boolean(LOCAL_TOOL_STORAGE[key]) : true
       }
     })
 
@@ -505,10 +506,22 @@ const handlePluginToggle = () => {
 
 // 某个tool的打开或关闭。  全部tool状态一致时，会同时触发handlePluginToggle 一下。
 const handleToolToggle = (_plugin: PluginInfo, toolId: string, enabled: boolean) => {
+  const LOCAL_TOOL_STORAGE = JSON.parse(localStorage.getItem(LOCAL_TOOL_STORAGE_KEY) || '{}')
+  const isLocalTool = _plugin.id === 'plugin-本地工具列表'
+
+  _plugin.tools.forEach((tool) => {
+    if (tool.id === toolId) {
+      tool.enabled = enabled
+    }
+  })
   if (enabled) {
     agent.ignoreToolnames = agent.ignoreToolnames.filter((name) => name !== toolId)
   } else {
     agent.ignoreToolnames.push(toolId)
+  }
+  if (isLocalTool) {
+    LOCAL_TOOL_STORAGE[toolId] = enabled
+    localStorage.setItem(LOCAL_TOOL_STORAGE_KEY, JSON.stringify(LOCAL_TOOL_STORAGE))
   }
 }
 // 点垃圾桶图标的插件删除
