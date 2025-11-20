@@ -24,7 +24,7 @@ export const useExtraTools = (server: WebMcpServer) => {
     {
       title: '获取浏览器页面文本信息、文档内容',
       description:
-        '使用 Chrome DevTools Protocol (CDP) 获取当前页面的无障碍树，并提取其中的文本信息（包括按钮文本、链接文本、输入框值等），用于分析页面内容。只返回文本信息，不返回完整的树结构，以减少 token 使用。',
+        '获取当前页面的无障碍树，并提取其中的文本信息（包括按钮文本、链接文本、输入框值等），用于分析页面内容。只返回文本信息，不返回完整的树结构，以减少 token 使用。',
       inputSchema: {
         tabId: z.number().optional().describe('目标标签页 ID，如果不提供则使用当前活动标签页')
       }
