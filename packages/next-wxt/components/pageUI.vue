@@ -123,15 +123,15 @@ onWindowMessage(
 /* 呼吸灯动画关键帧，控制内部阴影和透明度变化 */
 @keyframes breathing-inset {
   0% {
-    box-shadow: inset 0 0 0 0 #1476ff80;
+    box-shadow: inset 0 0 0 0 rgba(4, 55, 128, 0.74);
     opacity: 0.7;
   }
   50% {
-    box-shadow: inset 0 0 10px 20px #1476ff30;
+    box-shadow: inset 0 0 10px 20px rgba(20, 118, 255, 0.3);
     opacity: 1;
   }
   100% {
-    box-shadow: inset 0 0 0 0 #1476ff80;
+    box-shadow: inset 0 0 0 0 rgba(4, 55, 128, 0.74);
     opacity: 0.7;
   }
 }

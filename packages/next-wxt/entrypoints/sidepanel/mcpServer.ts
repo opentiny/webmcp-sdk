@@ -122,6 +122,9 @@ export const createMcpServer = async () => {
     })
   }
 
+  // 注册插件内部自带的工具
+  useExtraTools(server)
+
   // 遍历并注册所有工具
   for (const { meta, tool } of mcpServers) {
     try {
@@ -133,9 +136,6 @@ export const createMcpServer = async () => {
       console.error(`[Sidepanel MCP] ✗ 工具加载失败: ${meta.name}`, error)
     }
   }
-
-  // 注册插件内部自带的工具
-  useExtraTools(server)
 
   // 连接服务器到 InMemoryTransport
   await server.connect(serverTransport)

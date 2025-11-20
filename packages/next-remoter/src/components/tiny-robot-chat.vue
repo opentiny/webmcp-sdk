@@ -388,11 +388,16 @@ const loadMcpServerToPlugin = async (serverName: string, mcpServer: McpServerCon
   if (currTool) {
     let pluginTools: PluginTool[] = []
     pluginTools = Object.keys(currTool).map((key) => {
+      const enabled = isLocalTool ? Boolean(LOCAL_TOOL_STORAGE[key]) : true
+      agent.ignoreToolnames = agent.ignoreToolnames.filter((name) => name !== key)
+      if (!enabled) {
+        agent.ignoreToolnames.push(key)
+      }
       return {
         id: key,
         name: key,
         description: currTool[key].description as string,
-        enabled: isLocalTool ? Boolean(LOCAL_TOOL_STORAGE[key]) : true
+        enabled
       }
     })
 
@@ -500,8 +505,24 @@ watch(
 )
 
 // 整个插件的打开或关闭
-const handlePluginToggle = () => {
-  // Keep empty!
+const handlePluginToggle = (_plugin: PluginInfo, enabled: boolean) => {
+  const isLocalTool = _plugin.id === 'plugin-本地工具列表'
+  const LOCAL_TOOL_STORAGE = JSON.parse(localStorage.getItem(LOCAL_TOOL_STORAGE_KEY) || '{}')
+  _plugin.tools.forEach((tool) => {
+    tool.enabled = enabled
+    if (enabled) {
+      agent.ignoreToolnames = agent.ignoreToolnames.filter((name) => name !== tool.id)
+    } else {
+      agent.ignoreToolnames.push(tool.id)
+    }
+  })
+
+  if (isLocalTool) {
+    Object.keys(LOCAL_TOOL_STORAGE).forEach((key) => {
+      LOCAL_TOOL_STORAGE[key] = enabled
+    })
+    localStorage.setItem(LOCAL_TOOL_STORAGE_KEY, JSON.stringify(LOCAL_TOOL_STORAGE))
+  }
 }
 
 // 某个tool的打开或关闭。  全部tool状态一致时，会同时触发handlePluginToggle 一下。
