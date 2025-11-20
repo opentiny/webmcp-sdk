@@ -223,7 +223,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     let thinkId = 1
     for await (const part of result.fullStream) {
       // 开始节点处理
-      if (part.type === 'start') {
+      if (part.type.includes('start-') || part.type.includes('-start')) {
         handler.onData({ type: 'start' } as any)
       }
       // 处理文本流数据

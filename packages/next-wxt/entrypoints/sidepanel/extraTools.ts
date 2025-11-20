@@ -20,11 +20,11 @@ export const useExtraTools = (server: WebMcpServer) => {
 
   // 注册获取无障碍树的工具
   server.registerTool(
-    'getAccessibilityTree',
+    'getPageInfomation',
     {
-      title: '获取浏览器页面文本信息、文档内容',
+      title: '获取浏览器页面文本信息、文档、文章、wiki、博客、知识库内容，用来总结文章或知识库',
       description:
-        '获取当前页面的无障碍树，并提取其中的文本信息（包括按钮文本、链接文本、输入框值等），用于分析页面内容。只返回文本信息，不返回完整的树结构，以减少 token 使用。',
+        '获取文本信息、文档、文章、wiki、博客、知识库，并提取其中的文本信息（包括按钮文本、链接文本、输入框值等），用于分析页面内容。只返回文本信息。',
       inputSchema: {
         tabId: z.number().optional().describe('目标标签页 ID，如果不提供则使用当前活动标签页')
       }
