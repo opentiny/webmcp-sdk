@@ -1,4 +1,5 @@
 import { IAgentModelProviderLlmConfig } from '@opentiny/next-sdk'
+import { PluginInfo } from '@opentiny/tiny-robot'
 
 // 类型定义
 export interface StreamPart {
@@ -16,3 +17,5 @@ export type ICustomAgentModelProviderLlmConfig = IAgentModelProviderLlmConfig & 
   providerOptions?: Record<string, any>
   extraTools?: Record<string, any>
 }
+
+export type ICustomMarketMcpServers = PluginInfo[]

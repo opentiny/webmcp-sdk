@@ -1,5 +1,5 @@
 const modules = import.meta.glob('./*/index.ts', { eager: true })
-const metaModules = import.meta.glob('./*/meta.ts', { eager: true })
+export const metaModules = import.meta.glob('./*/meta.ts', { eager: true })
 
 /**
  * 根据域名获取对应的 MCP 工具配置

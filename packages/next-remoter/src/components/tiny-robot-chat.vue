@@ -211,6 +211,11 @@ const props = defineProps({
   genUiComponents: {
     type: Object,
     default: () => ({})
+  },
+  /** 自定义 MCP 市场服务列表 */
+  customMarketMcpServers: {
+    type: Array as () => PluginInfo[],
+    default: () => []
   }
 })
 
@@ -250,7 +255,7 @@ const pluginVisible = ref(false)
 const installedPlugins = ref<PluginInfo[]>([])
 
 // 市场插件数据
-const marketPlugins = ref<PluginInfo[]>([...DEFAULT_SERVERS])
+const marketPlugins = ref<PluginInfo[]>([...DEFAULT_SERVERS, ...props.customMarketMcpServers])
 
 // 市场分类选项
 const marketCategoryOptions = ref<MarketCategoryOption[]>([
