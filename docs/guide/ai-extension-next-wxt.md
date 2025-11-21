@@ -69,6 +69,19 @@ export default {
   toolsJumpLinks: {                       // 可选：工具跳转链接映射
     'tool-name': 'https://example.com/path'
   },
+  customMarketMcpServers: [               // 可选：自定义 MCP 市场服务列表
+    {
+      id: 'ppt-mcp',
+      name: 'PPT文档MCP服务器',
+      description: '可以创建、编辑、保存PPT文档',
+      icon: 'https://your-mcp-server-icon-url.com/icon.png',
+      url: 'https://your-mcp-server-url.com/servers/ppt-mcp/sse',
+      type: 'sse',
+      enabled: false,
+      addState: 'idle',
+      tools: []
+    }
+  ],
   version: '1.0.0'                        // 必填：版本号
 }
 ```
@@ -167,6 +180,30 @@ toolsJumpLinks: {
 
 - 如果工具需要特定的页面状态或 URL 参数，可以通过此字段配置
 - 如果不配置此字段，系统会使用 `url` 字段的值作为默认 URL
+
+#### customMarketMcpServers（可选）
+
+- **类型**：`PluginInfo[]`
+- **说明**：定义需要追加到 TinyRemoter 插件市场的自定义 MCP 服务器配置，sidepanel 会自动收集并合并这些配置
+- **结构示例**：
+
+```typescript
+customMarketMcpServers: [
+  {
+    id: 'ppt-mcp',
+    name: 'PPT文档MCP服务器',
+    description: '可以创建、编辑、保存PPT文档',
+    icon: 'https://your-mcp-server-icon-url.com/icon.png',
+    url: 'https://your-mcp-server-url.com/servers/ppt-mcp/sse',
+    type: 'sse',
+    enabled: false,
+    addState: 'idle',
+    tools: []
+  }
+]
+```
+
+**提示**：该字段完全可选，仅在某个站点需要对插件市场推荐/预设特定 MCP 服务时才需要配置（中文注释：未配置则不会额外展示该站点的专属服务）。
 
 #### version（必填）
 
@@ -488,6 +525,16 @@ export default ({ server, z }) => {
   )
 }
 ```
+
+## 自定义市场 MCP 插件聚合
+
+若某些站点 `meta.ts` 配置了 `customMarketMcpServers`，sidepanel 会自动把它们聚合并传给 TinyRemoter，流程如下：
+
+1. `packages/next-wxt/entrypoints/sidepanel/useCustomMarketMcpServers.ts` 遍历所有 `metaModules`，收集存在 `customMarketMcpServers` 字段的站点配置，然后拼成一个 `Ref<PluginInfo[]>`（中文注释：空配置会被过滤，避免重复）
+2. `packages/next-wxt/entrypoints/sidepanel/App.vue` 中，通过 `const customMarketMcpServers = useCustomMarketMcpServers()` 拿到 Step1 的结果，并在 `<TinyRemoter :custom-market-mcp-servers="customMarketMcpServers" />` 中直接传入
+3. TinyRemoter 内部会把这些扩展端的配置与内置 `DEFAULT_SERVERS` 合并，最终统一显示在“插件市场”中
+
+借助该机制，每个网站目录都可以按需推荐专属 MCP 服务，而 sidepanel 与组件层的代码保持稳定；普通 Web 应用同样可以直接传入 `customMarketMcpServers`，实现与扩展一致的市场展示体验。
 
 ## 工具返回值格式
 
