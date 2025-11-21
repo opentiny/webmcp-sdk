@@ -5,6 +5,7 @@ import { useBrowserExtensions } from './useBrowserExtensions'
 import { EXCALIDRAW_PROMPT, OFFICE_PROMPT } from '@/utils/prompt'
 import { useWebAgentServer } from './useWebAgentServer'
 import TinyUser from '@opentiny/vue-user'
+import { useCustomMarketMcpServers } from './useCustomMarketMcpServers'
 
 const llmConfig = {
   apiKey: import.meta.env.VITE_LLM_API_KEY,
@@ -89,6 +90,8 @@ useBrowserExtensions(remoterRef)
 useWebAgentServer()
 
 const genUiComponents = shallowReactive({ TinyUser })
+// 汇总自定义 MCP Server 配置（中文注释：用于传给 TinyRemoter 的插件市场）
+const customMarketMcpServers = useCustomMarketMcpServers()
 </script>
 
 <template>
@@ -104,6 +107,7 @@ const genUiComponents = shallowReactive({ TinyUser })
       :systemPrompt="`${OFFICE_PROMPT}${EXCALIDRAW_PROMPT}`"
       inBrowserExt
       gen-ui-able
+      :custom-market-mcp-servers="customMarketMcpServers"
       :gen-ui-components="genUiComponents"
     >
     </TinyRemoter>

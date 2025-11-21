@@ -16,6 +16,7 @@
   :sessionId="sessionId" 
   :title="项目名字"
   :llmConfig="llmConfig"
+  :custom-market-mcp-servers="customMarketMcpServers"
 >
   <template #welcome>
     <!-- 自定义标题+图标
@@ -119,6 +120,32 @@ const llmConfig = {
 - OpenAI (`providerType: 'openai'`)
 - DeepSeek (`providerType: 'deepseek'`)
 - 其他ai-sdk兼容的提供商（通过自定义Provider函数）
+
+## 自定义 MCP 插件（customMcpServers）
+
+`TinyRemoter` 暴露 `customMarketMcpServers` 属性，用于在插件市场中追加自定义 MCP 插件。传入的数组会和组件内置的 `DEFAULT_SERVERS` 合并，示例：
+
+```ts
+const customMarketMcpServers = [
+  {
+    id: 'ppt-mcp',
+    name: 'PPT文档MCP服务器',
+    description: '可以创建、编辑、保存PPT文档',
+    icon: 'https://agent.opentiny.design/public-assets/icons/icon-ppt.png',
+    url: 'https://agent.opentiny.design/servers/ppt-mcp/sse',
+    type: 'sse',
+    enabled: false,
+    addState: 'idle',
+    tools: []
+  }
+]
+```
+
+- `id`：需要保持唯一性，对应插件注册名称（会拼成 `plugin-${id}`）
+- `type`：与后端 MCP 服务器协议保持一致，如 `sse`、`StreamableHTTP`
+- `enabled/addState/tools`：驱动 TinyRemoter 市场 UI 的状态字段
+
+在浏览器扩展侧，可通过 `packages/next-wxt/entrypoints/sidepanel/useCustomMarketMcpServers.ts` 自动聚合 `meta.ts` 定义的 `customMarketMcpServers`，再传入 `TinyRemoter`。
 
 ## 构建发包
 

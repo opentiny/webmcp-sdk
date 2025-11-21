@@ -48,17 +48,6 @@ export const DEFAULT_SERVERS: PluginInfo[] = [
     tools: []
   },
   {
-    id: 'ppt-mcp',
-    name: 'PPT文档MCP服务器',
-    description: 'PPT文档MCP服务器，可以创建、编辑、保存PPT文档',
-    icon: 'https://agent.opentiny.design/public-assets/icons/icon-ppt.png',
-    url: mcpHost + '/servers/ppt-mcp/sse',
-    type: 'sse',
-    enabled: false,
-    addState: 'idle',
-    tools: []
-  },
-  {
     id: 'doc-tools-mcp',
     name: '文档工具MCP服务器',
     description: '文档工具MCP服务器，可以创建、编辑、保存文档',

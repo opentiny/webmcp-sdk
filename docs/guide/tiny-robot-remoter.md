@@ -38,6 +38,7 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 - `inBrowserExt` 设置组件运行在普通页面还是浏览器的扩展中，默认值为：false
 - `genUiAble` 设置是否支持生成式UI的渲染
 - `genUiComponents` 生成式UI内置了一批组件，如果需要引入新组件，需要通过这里导入。 参考示例： shallowReactive({TinyUser, TinyAlert })
+- `customMarketMcpServers` 追加自定义 MCP 市场服务列表（`PluginInfo[]`），传入后会与组件内置的 `DEFAULT_SERVERS` 合并，用于扩展市场内容
 
 ### llmConfig 配置详情
 
@@ -129,6 +130,32 @@ function promtClick(item) {
   robotRef.sendMessage(item.description)
 }
 ```
+
+## 自定义市场 MCP 插件（customMarketMcpServers）
+
+`customMarketMcpServers` 属性让你可以在 TinyRemoter 的“插件市场”中动态追加自有 MCP 服务，数组结构遵循 `PluginInfo` 定义，常用字段如下：
+
+```ts
+const customMarketMcpServers = [
+  {
+    id: 'ppt-mcp',
+    name: 'PPT文档MCP服务器',
+    description: '可以创建、编辑、保存PPT文档',
+    icon: 'https://your-mcp-server-icon-url.com/icon.png',
+    url: 'https://your-mcp-server-url.com/servers/ppt-mcp/sse',
+    type: 'sse',
+    enabled: false,
+    addState: 'idle',
+    tools: []
+  }
+]
+```
+
+- `id` 需要保持唯一（最终会拼接成 `plugin-${id}`）
+- `type` 对应该 MCP 服务的协议类型，例如 `sse`、`StreamableHTTP`
+- `enabled/addState/tools` 驱动 TinyRemoter 市场内的状态展示（中文注释：配合 UI 控制按钮、进度等）
+
+组件初始化时会把上述数组与 `DEFAULT_SERVERS` 合并，因此你可以通过简单传参扩展默认市场。
 
 ## 使用示例
 
