@@ -58,6 +58,18 @@ export class SnapshotManager {
    */
   async connect(tabId: number): Promise<void> {
     try {
+      // 在连接前，先获取当前标签页的窗口大小，以便保持原有大小
+      let originalViewport: { width?: number; height?: number } | null = null
+      try {
+        const tab = await browser.tabs.get(tabId)
+        if (tab.width && tab.height) {
+          originalViewport = { width: tab.width, height: tab.height }
+        }
+      } catch (e) {
+        // 如果获取失败，忽略错误
+        console.warn('无法获取标签页大小:', e)
+      }
+
       // 使用 ExtensionTransport 连接到标签页
       const transport = await ExtensionTransport.connectTab(tabId)
       this.browser = await connect({ transport })
@@ -67,6 +79,49 @@ export class SnapshotManager {
 
       if (!this.page) {
         throw new Error('无法获取页面对象')
+      }
+
+      // 如果获取到了原始视口大小，保持原有大小
+      // 注意：在浏览器扩展中使用 ExtensionTransport 时，可能无法直接设置视口
+      // 但我们可以尝试通过 CDP 命令来保持视口大小
+      if (originalViewport?.width && originalViewport?.height) {
+        try {
+          // 尝试设置视口大小（如果 Puppeteer 支持）
+          await this.page
+            .setViewport({
+              width: originalViewport.width,
+              height: originalViewport.height,
+              deviceScaleFactor: 1
+            })
+            .catch((e) => {
+              // 如果设置失败（在 ExtensionTransport 中可能不支持），尝试使用 CDP
+              console.warn('设置视口大小失败，尝试使用 CDP:', e)
+            })
+
+          // 备用方案：如果 setViewport 不可用，尝试通过 CDP 设置
+          // 注意：这可能在 ExtensionTransport 中不可用
+          try {
+            const frame = this.page.mainFrame()
+            const cdpSession = (frame as any)._client
+            if (cdpSession && typeof cdpSession.send === 'function') {
+              await cdpSession
+                .send('Emulation.setDeviceMetricsOverride', {
+                  width: originalViewport.width,
+                  height: originalViewport.height,
+                  deviceScaleFactor: 1,
+                  mobile: false
+                })
+                .catch(() => {
+                  // 忽略错误，保持原有大小可能不可用
+                })
+            }
+          } catch (e) {
+            // 忽略错误
+            console.warn('通过 CDP 设置视口大小失败:', e)
+          }
+        } catch (e) {
+          console.warn('保持视口大小失败:', e)
+        }
       }
     } catch (error: any) {
       const errorMessage = error.message || String(error)
