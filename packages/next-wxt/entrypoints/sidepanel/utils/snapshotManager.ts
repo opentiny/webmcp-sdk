@@ -188,10 +188,14 @@ export class SnapshotManager {
   /**
    * 通过 UID 获取 ElementHandle
    * 参考 chrome-devtools-mcp 的 getElementByUid -> node.elementHandle()
+   * 在浏览器扩展中使用 ExtensionTransport 时，避免使用 createCDPSession（可能会卡住）
+   * 改用直接使用 Puppeteer 的内部方法或通过属性选择器查找元素
    * @param uid 节点 UID
    */
   async getElementHandleByUid(uid: string): Promise<ElementHandle | null> {
     const node = this.getNodeByUid(uid)
+
+    debugger
 
     if (!node) {
       throw new Error(`快照中未找到节点 UID: ${uid}。请先获取新的快照。`)
@@ -207,38 +211,13 @@ export class SnapshotManager {
       throw new Error('页面未连接')
     }
 
-    // 通过 backendNodeId 获取 ElementHandle
-    // 参考 chrome-devtools-mcp 和 puppeteerAXOperations
+    // 方法 1: 尝试使用 Puppeteer 的内部方法 _adoptBackendNodeId
+    // 这是最直接的方法，在浏览器扩展中可能可用
     try {
-      const client = await this.page.createCDPSession()
-      await client.send('DOM.enable')
-
-      // 使用 DOM.describeNode 通过 backendNodeId 获取节点信息
-      const describeResult = await client.send('DOM.describeNode', {
-        backendNodeId: backendNodeId
-      })
-
-      if (!describeResult?.node?.nodeId) {
-        throw new Error(`无法通过 backendNodeId 获取节点信息: ${backendNodeId}`)
-      }
-
-      const nodeId = describeResult.node.nodeId
-
-      // 使用 DOM.resolveNode 通过 nodeId 获取 objectId
-      const resolveResult = await client.send('DOM.resolveNode', {
-        nodeId: nodeId
-      })
-
-      if (!resolveResult?.object?.objectId) {
-        throw new Error(`无法通过 nodeId 获取 objectId: ${nodeId}`)
-      }
-
-      const objectId = resolveResult.object.objectId
-
-      // 尝试使用 Puppeteer 的内部方法 _adoptBackendNodeId
       const frame = this.page.mainFrame()
       const context = (frame as any)._mainWorld || frame
 
+      // 尝试直接访问 _adoptBackendNodeId
       if (typeof (context as any)._adoptBackendNodeId === 'function') {
         try {
           const handle = await (context as any)._adoptBackendNodeId(backendNodeId)
@@ -246,78 +225,187 @@ export class SnapshotManager {
             return handle as ElementHandle
           }
         } catch (e) {
-          console.warn('_adoptBackendNodeId 方法失败，尝试备用方法:', e)
+          console.warn('_adoptBackendNodeId 方法失败:', e)
         }
       }
 
-      // 备用方法：通过 evaluateHandle 和 objectId 创建 ElementHandle
-      // 这是 Puppeteer 内部的创建方式
-      try {
-        const executionContext = frame.executionContext()
-        const handle = await executionContext.evaluateHandle((objId) => {
-          // 这里无法直接访问 objectId，需要其他方式
-          return null
-        }, objectId)
+      // 尝试通过 frame 的 CDP 客户端（不通过 createCDPSession）
+      const cdpSession = (frame as any)._client
+      if (cdpSession && typeof cdpSession.send === 'function') {
+        try {
+          // 使用 frame 的 CDP 客户端（这是已经存在的连接）
+          await cdpSession.send('DOM.enable').catch(() => {
+            // 如果已经启用，忽略错误
+          })
 
-        // 如果上述方法失败，尝试使用节点的属性构建选择器
-        // 这是一个备用方案，可能不够精确
-        const attributes = describeResult.node.attributes || []
-        let selector = ''
+          const describeResult = await cdpSession.send('DOM.describeNode', {
+            backendNodeId: backendNodeId
+          })
 
-        // 优先使用 id
-        for (let i = 0; i < attributes.length; i += 2) {
-          if (attributes[i] === 'id') {
-            selector = `#${attributes[i + 1]}`
-            break
-          }
-        }
-
-        // 如果没有 id，使用 data-testid
-        if (!selector) {
-          for (let i = 0; i < attributes.length; i += 2) {
-            if (attributes[i]?.startsWith('data-')) {
-              selector = `[${attributes[i]}="${attributes[i + 1]}"]`
-              break
-            }
-          }
-        }
-
-        if (selector) {
-          const handle = await this.page.$(selector)
-          if (handle) {
-            return handle
-          }
-        }
-
-        // 最后的手段：使用标签名和索引
-        if (describeResult.node.localName) {
-          const parentId = describeResult.node.parentId
-          if (parentId) {
-            const parentInfo = await client.send('DOM.describeNode', {
-              nodeId: parentId,
-              depth: 1
+          if (describeResult?.node?.nodeId) {
+            const nodeId = describeResult.node.nodeId
+            const resolveResult = await cdpSession.send('DOM.resolveNode', {
+              nodeId: nodeId
             })
 
-            if (parentInfo?.node?.children) {
-              const index = parentInfo.node.children.findIndex((child: any) => child.nodeId === nodeId)
-              if (index >= 0) {
-                selector = `${describeResult.node.localName}:nth-of-type(${index + 1})`
-                const handle = await this.page.$(selector)
-                if (handle) {
-                  return handle
+            if (resolveResult?.object?.objectId) {
+              // 如果无法直接通过 objectId 创建 ElementHandle
+              // 使用属性选择器作为备用方案
+              const attributes = describeResult.node.attributes || []
+              const selector = this.buildSelectorFromAttributes(attributes, describeResult.node)
+
+              if (selector) {
+                const elementHandle = await this.page.$(selector)
+                if (elementHandle) {
+                  return elementHandle
                 }
               }
             }
           }
+        } catch (e) {
+          console.warn('通过 frame CDP 客户端获取节点失败:', e)
         }
-
-        throw new Error('无法通过任何方式获取 ElementHandle')
-      } catch (e) {
-        throw new Error(`获取 ElementHandle 失败: ${e}`)
       }
     } catch (error: any) {
-      throw new Error(`通过 UID 获取 ElementHandle 失败: ${error.message}`)
+      console.warn('方法 1 失败:', error)
     }
+
+    // 方法 2: 使用节点的属性信息构建选择器（备用方案）
+    // 通过页面的 evaluate 方法在页面上下文中查找元素
+    try {
+      const role = typeof node.role === 'string' ? node.role : node.role?.value
+      const name = typeof node.name === 'string' ? node.name : node.name?.value
+      const value = typeof node.value === 'string' ? node.value : node.value?.value
+
+      // 如果节点有名称，尝试通过文本内容查找
+      if (name) {
+        // 使用 evaluateHandle 查找包含文本的元素
+        try {
+          // 使用 evaluateHandle 在页面上下文中查找包含文本的元素
+          const handle = await this.page.evaluateHandle(
+            (searchText: string, searchRole?: string) => {
+              // 查找包含指定文本的元素
+              const walker = document.createTreeWalker(
+                document.body,
+                NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT,
+                null
+              )
+
+              let node
+              while ((node = walker.nextNode())) {
+                if (node.nodeType === Node.TEXT_NODE && node.textContent?.includes(searchText)) {
+                  const parent = node.parentElement
+                  if (parent) {
+                    // 如果提供了 role，检查是否匹配
+                    if (searchRole) {
+                      const elementRole = parent.getAttribute('role') || parent.tagName.toLowerCase()
+                      if (elementRole.toLowerCase().includes(searchRole.toLowerCase())) {
+                        return parent
+                      }
+                    } else {
+                      return parent
+                    }
+                  }
+                }
+              }
+              return null
+            },
+            name,
+            role
+          )
+
+          if (handle) {
+            try {
+              const isNull = await (handle as any).evaluate((el: Element | null) => el === null)
+              if (!isNull) {
+                return handle as ElementHandle
+              }
+            } catch (e) {
+              // 如果 evaluate 失败，尝试直接返回
+              console.warn('evaluate 失败，尝试直接返回 handle:', e)
+              return handle as ElementHandle
+            }
+          }
+
+          // 如果上述方法失败，尝试使用 querySelector 查找包含文本的元素
+          // 注意：这可能不够精确，会找到第一个匹配的元素
+          try {
+            const elements = await this.page.$$(`*`)
+            for (const element of elements) {
+              const text = await element.evaluate((el: Element) => el.textContent || '')
+              if (text.includes(name)) {
+                // 检查 role 是否匹配（如果提供）
+                if (role) {
+                  const elementRole = await element.evaluate((el: Element) => {
+                    return el.getAttribute('role') || el.tagName.toLowerCase()
+                  })
+                  if (elementRole.toLowerCase().includes(role.toLowerCase())) {
+                    return element
+                  }
+                } else {
+                  return element
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('通过文本内容查找元素失败:', e)
+          }
+        } catch (e) {
+          console.warn('使用文本内容查找元素失败:', e)
+        }
+      }
+    } catch (error: any) {
+      console.warn('方法 2 失败:', error)
+    }
+
+    // 如果所有方法都失败，抛出错误
+    throw new Error(
+      `无法通过 UID 获取 ElementHandle。UID: ${uid}, backendNodeId: ${backendNodeId}。` +
+        `在浏览器扩展中使用 ExtensionTransport 时，createCDPSession() 可能不可用。` +
+        `请确保页面已完全加载，并且节点仍然存在于页面中。`
+    )
+  }
+
+  /**
+   * 从节点属性构建选择器
+   * @param attributes 节点属性数组
+   * @param nodeInfo 节点信息
+   */
+  private buildSelectorFromAttributes(attributes: any[], nodeInfo: any): string | null {
+    if (!attributes || attributes.length === 0) {
+      return null
+    }
+
+    // 优先使用 id
+    for (let i = 0; i < attributes.length; i += 2) {
+      if (attributes[i] === 'id') {
+        return `#${attributes[i + 1]}`
+      }
+    }
+
+    // 使用 data-testid 或其他 data 属性
+    for (let i = 0; i < attributes.length; i += 2) {
+      if (attributes[i]?.startsWith('data-')) {
+        return `[${attributes[i]}="${attributes[i + 1]}"]`
+      }
+    }
+
+    // 使用 class（取第一个 class）
+    for (let i = 0; i < attributes.length; i += 2) {
+      if (attributes[i] === 'class') {
+        const classes = attributes[i + 1].split(' ').filter(Boolean)
+        if (classes.length > 0) {
+          return `.${classes[0]}`
+        }
+      }
+    }
+
+    // 如果都没有，使用标签名（不够精确）
+    if (nodeInfo?.localName) {
+      return nodeInfo.localName
+    }
+
+    return null
   }
 
   /**
