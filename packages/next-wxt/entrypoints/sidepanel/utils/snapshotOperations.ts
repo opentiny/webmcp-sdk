@@ -113,26 +113,47 @@ export async function clickNodeByUid(
     // 执行点击操作
     // 参考 chrome-devtools-mcp: handle.asLocator().click()
     await waitForEventsAfterAction(page, async () => {
-      if (typeof (handle as any).asLocator === 'function') {
+      // 检查 handle 是否有 click 方法（ElementHandle）
+      const hasClickMethod = typeof (handle as any).click === 'function'
+      const hasAsLocator = typeof (handle as any).asLocator === 'function'
+
+      if (hasAsLocator) {
+        // 使用 Locator API（推荐）
         const locator = (handle as any).asLocator()
         await locator.click({ count: clickCount })
-      } else {
-        // 如果不支持 asLocator，使用原生 click
+      } else if (hasClickMethod) {
+        // 使用 ElementHandle 的 click 方法
         if (clickCount === 1) {
-          await handle.click({ button })
+          await (handle as any).click({ button })
         } else {
           // 多次点击
           for (let i = 0; i < clickCount; i++) {
-            await handle.click({ button })
+            await (handle as any).click({ button })
             if (i < clickCount - 1) {
               await delay(50)
             }
           }
         }
+      } else {
+        // 如果 handle 没有 click 方法，尝试通过 evaluate 来点击
+        // 这可能是一个 JSHandle 而不是 ElementHandle
+        for (let i = 0; i < clickCount; i++) {
+          await handle.evaluate((el: Element) => {
+            if (el && typeof (el as HTMLElement).click === 'function') {
+              ;(el as HTMLElement).click()
+            }
+          })
+          if (i < clickCount - 1) {
+            await delay(50)
+          }
+        }
       }
     })
   } finally {
-    await handle.dispose()
+    // 确保清理资源
+    if (handle && typeof (handle as any).dispose === 'function') {
+      await (handle as any).dispose()
+    }
   }
 }
 
@@ -159,19 +180,43 @@ export async function typeIntoNodeByUid(
 
   // 获取 ElementHandle
   const handle = await manager.getElementHandleByUid(uid)
-
   if (!handle) {
     throw new Error(`无法获取元素句柄，UID: ${uid}`)
   }
 
   try {
     await waitForEventsAfterAction(page, async () => {
+      // 检查 handle 是否有 click 方法（ElementHandle）
+      // 如果 handle 是 JSHandle，需要通过 evaluate 来操作
+      const hasClickMethod = typeof (handle as any).click === 'function'
+      const hasAsLocator = typeof (handle as any).asLocator === 'function'
+      const hasTypeMethod = typeof (handle as any).type === 'function'
+
       // 先点击以聚焦
-      if (typeof (handle as any).asLocator === 'function') {
+      if (hasAsLocator) {
+        // 使用 Locator API（推荐）
         const locator = (handle as any).asLocator()
         await locator.click()
+      } else if (hasClickMethod) {
+        // 使用 ElementHandle 的 click 方法
+        await (handle as any).click()
       } else {
-        await handle.click()
+        // 如果 handle 没有 click 方法，尝试通过 evaluate 来聚焦
+        // 这可能是一个 JSHandle 而不是 ElementHandle
+        try {
+          await handle.evaluate((el: Element) => {
+            if (el && typeof (el as HTMLElement).focus === 'function') {
+              ;(el as HTMLElement).focus()
+            }
+            if (el && typeof (el as HTMLElement).click === 'function') {
+              ;(el as HTMLElement).click()
+            }
+          })
+        } catch (e) {
+          console.warn('通过 evaluate 聚焦元素失败:', e)
+          // 如果 evaluate 也失败，尝试使用键盘导航到元素
+          // 这是一个备用方案
+        }
       }
 
       await delay(100)
@@ -187,15 +232,45 @@ export async function typeIntoNodeByUid(
       }
 
       // 输入文本
-      if (typeof (handle as any).asLocator === 'function') {
+      if (hasAsLocator) {
+        // 使用 Locator API 的 fill 方法（推荐）
         const locator = (handle as any).asLocator()
         await locator.fill(text)
+      } else if (hasTypeMethod) {
+        // 使用 ElementHandle 的 type 方法
+        await (handle as any).type(text, { delay: 10 })
       } else {
-        await handle.type(text, { delay: 10 })
+        // 如果 handle 没有 type 方法，尝试通过 evaluate 来输入文本
+        // 或者直接使用键盘输入
+        try {
+          // 方法 1: 尝试通过 evaluate 设置 value（适用于 input 元素）
+          const success = await handle.evaluate((el: Element, value: string) => {
+            if (el && typeof (el as HTMLInputElement).value !== 'undefined') {
+              ;(el as HTMLInputElement).value = value
+              // 触发 input 事件
+              el.dispatchEvent(new Event('input', { bubbles: true }))
+              el.dispatchEvent(new Event('change', { bubbles: true }))
+              return true
+            }
+            return false
+          }, text)
+
+          // 方法 2: 如果设置 value 失败，直接使用键盘输入
+          if (!success) {
+            await page.keyboard.type(text, { delay: 10 })
+          }
+        } catch (e) {
+          console.warn('通过 evaluate 输入文本失败，使用键盘输入:', e)
+          // 最后的手段：直接使用键盘输入
+          await page.keyboard.type(text, { delay: 10 })
+        }
       }
     })
   } finally {
-    await handle.dispose()
+    // 确保清理资源
+    if (handle && typeof (handle as any).dispose === 'function') {
+      await (handle as any).dispose()
+    }
   }
 }
 
