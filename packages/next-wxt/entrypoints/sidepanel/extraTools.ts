@@ -119,16 +119,7 @@ export const useExtraTools = (server: WebMcpServer) => {
         }
       } catch (error: any) {
         const errorMessage = error.message || '未知错误'
-        let friendlyMessage = `获取页面文本信息失败：${errorMessage}`
-
-        // 根据错误类型提供解决建议
-        if (errorMessage.includes('不支持无障碍树访问')) {
-          friendlyMessage += '\n\n建议：请确保当前页面是普通的网页（如 https:// 或 http://），而不是系统页面。'
-        } else if (errorMessage.includes('尚未完全加载')) {
-          friendlyMessage += '\n\n建议：请等待页面完全加载后再试。'
-        } else if (errorMessage.includes('另一个调试器')) {
-          friendlyMessage += '\n\n建议：请关闭 Chrome DevTools 或其他调试工具后重试。'
-        }
+        const friendlyMessage = `获取页面文本信息失败：${errorMessage}`
 
         return {
           content: [
@@ -229,7 +220,6 @@ export const useExtraTools = (server: WebMcpServer) => {
     },
     async ({ tabId, uid, button, dblClick }) => {
       const manager = new SnapshotManager()
-      debugger
       try {
         // 获取当前标签页
         const currentTabId = tabId || (await getCurrentTabId())

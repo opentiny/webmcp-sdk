@@ -250,8 +250,6 @@ export class SnapshotManager {
   async getElementHandleByUid(uid: string): Promise<ElementHandle | null> {
     const node = this.getNodeByUid(uid)
 
-    debugger
-
     if (!node) {
       throw new Error(`快照中未找到节点 UID: ${uid}。请先获取新的快照。`)
     }
@@ -264,6 +262,10 @@ export class SnapshotManager {
 
     if (!this.page) {
       throw new Error('页面未连接')
+    }
+
+    if (node.elementHandle) {
+      return node.elementHandle()
     }
 
     // 方法 1: 尝试使用 Puppeteer 的内部方法 _adoptBackendNodeId

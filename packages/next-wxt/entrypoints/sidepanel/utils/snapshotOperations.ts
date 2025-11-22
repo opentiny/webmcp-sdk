@@ -177,7 +177,6 @@ export async function typeIntoNodeByUid(
   if (!page) {
     throw new Error('页面未连接')
   }
-
   // 获取 ElementHandle
   const handle = await manager.getElementHandleByUid(uid)
   if (!handle) {
