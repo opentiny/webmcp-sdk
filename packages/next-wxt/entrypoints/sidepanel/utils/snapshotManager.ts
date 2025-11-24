@@ -87,31 +87,8 @@ export class SnapshotManager {
               deviceScaleFactor: 1
             })
             .catch((e) => {
-              // 如果设置失败（在 ExtensionTransport 中可能不支持），尝试使用 CDP
-              console.warn('设置视口大小失败，尝试使用 CDP:', e)
+              console.warn('设置视口大小失败:', e)
             })
-
-          // 备用方案：如果 setViewport 不可用，尝试通过 CDP 设置
-          // 注意：这可能在 ExtensionTransport 中不可用
-          try {
-            const frame = this.page.mainFrame()
-            const cdpSession = (frame as any)._client
-            if (cdpSession && typeof cdpSession.send === 'function') {
-              await cdpSession
-                .send('Emulation.setDeviceMetricsOverride', {
-                  width: originalViewport.width,
-                  height: originalViewport.height,
-                  deviceScaleFactor: 1,
-                  mobile: false
-                })
-                .catch(() => {
-                  // 忽略错误，保持原有大小可能不可用
-                })
-            }
-          } catch (e) {
-            // 忽略错误
-            console.warn('通过 CDP 设置视口大小失败:', e)
-          }
         } catch (e) {
           console.warn('保持视口大小失败:', e)
         }

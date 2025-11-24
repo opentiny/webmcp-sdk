@@ -45,7 +45,6 @@ function getAttributes(node: SnapshotNode): string[] {
 
 /**
  * 格式化快照节点为文本
- * 参考 chrome-devtools-mcp 的 formatSnapshotNode
  * @param root 根节点
  * @param snapshot 快照对象（可选）
  * @param depth 当前深度
