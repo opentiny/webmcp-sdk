@@ -1,23 +1,3 @@
-// 无障碍树工具函数
-// 只保留仍在使用的函数
-
-// 声明 chrome.debugger API 的类型（Chrome 扩展全局对象）
-export declare const chrome: {
-  debugger: {
-    attach: (debuggee: { tabId: number }, requiredVersion: string, callback?: (error?: Error) => void) => void
-    detach: (debuggee: { tabId: number }, callback?: () => void) => void
-    sendCommand: (
-      debuggee: { tabId: number },
-      method: string,
-      commandParams?: any,
-      callback?: (result?: any, error?: Error) => void
-    ) => void
-  }
-  runtime: {
-    lastError?: { message?: string }
-  }
-}
-
 type AccessibilityTextItem = { role?: string; text: string; type: string }
 
 /** 尝试从字段中提取字符串值 */

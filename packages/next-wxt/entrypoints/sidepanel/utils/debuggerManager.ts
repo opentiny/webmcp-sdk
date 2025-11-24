@@ -1,28 +1,4 @@
-// 全局调试器管理器
-// 统一管理 chrome.debugger 的附加和分离，避免多个地方同时附加导致冲突
-
-// 声明 chrome.debugger API 的类型
-export declare const chrome: {
-  debugger: {
-    attach: (debuggee: { tabId: number }, requiredVersion: string, callback?: (error?: Error) => void) => void
-    detach: (debuggee: { tabId: number }, callback?: () => void) => void
-    sendCommand: (
-      debuggee: { tabId: number },
-      method: string,
-      commandParams?: any,
-      callback?: (result?: any, error?: Error) => void
-    ) => void
-    onEvent: {
-      addListener: (callback: (source: any, method: string, params?: any) => void) => void
-      removeListener: (callback: (source: any, method: string, params?: any) => void) => void
-    }
-  }
-  runtime: {
-    lastError?: { message?: string }
-  }
-}
-
-// 标签页的调试器状态
+// 调试器状态
 interface TabDebuggerState {
   refCount: number // 引用计数
   isAttached: boolean // 是否已附加
@@ -70,9 +46,9 @@ export async function attachDebugger(tabId: number): Promise<void> {
   state.attachPromise = new Promise<void>((resolve, reject) => {
     const debuggee = { tabId }
 
-    chrome.debugger.attach(debuggee, '1.3', (attachError?: Error) => {
-      if (chrome.runtime.lastError || attachError) {
-        const errorMsg = chrome.runtime.lastError?.message || attachError?.message || '附加调试器失败'
+    browser.debugger.attach(debuggee, '1.3', (attachError?: Error) => {
+      if (browser.runtime.lastError || attachError) {
+        const errorMsg = browser.runtime.lastError?.message || attachError?.message || '附加调试器失败'
 
         // 如果错误是"另一个调试器已附加"，说明已经附加过了（可能是其他工具附加的）
         // 这种情况下，我们标记为已附加，继续使用
@@ -130,9 +106,9 @@ export async function detachDebugger(tabId: number): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     const debuggee = { tabId }
 
-    chrome.debugger.detach(debuggee, () => {
-      if (chrome.runtime.lastError) {
-        const errorMsg = chrome.runtime.lastError.message
+    browser.debugger.detach(debuggee, () => {
+      if (browser.runtime.lastError) {
+        const errorMsg = browser.runtime.lastError.message
         // 如果分离失败，可能是因为调试器已经被其他工具分离了
         // 这种情况下，我们只更新状态，不抛出错误
         console.warn(`分离调试器失败（可能已被其他工具分离）: ${errorMsg}`)
@@ -160,9 +136,9 @@ export async function executeCDPCommand(tabId: number, method: string, params: a
   return new Promise((resolve, reject) => {
     const debuggee = { tabId }
 
-    chrome.debugger.sendCommand(debuggee, method, params, (result?: any, error?: Error) => {
-      if (chrome.runtime.lastError || error) {
-        const errorMsg = chrome.runtime.lastError?.message || error?.message || '执行 CDP 命令失败'
+    browser.debugger.sendCommand(debuggee, method, params, (result?: any, error?: Error) => {
+      if (browser.runtime.lastError || error) {
+        const errorMsg = browser.runtime.lastError?.message || error?.message || '执行 CDP 命令失败'
 
         // 如果错误是"未附加调试器"，更新状态
         if (errorMsg.includes('not attached') || errorMsg.includes('No target with given id')) {
@@ -207,4 +183,3 @@ export async function detachAllDebuggers(): Promise<void> {
   }
   await Promise.all(promises)
 }
-

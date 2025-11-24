@@ -1,11 +1,7 @@
-// 快照格式化工具
-// 参考 chrome-devtools-mcp 的 snapshotFormatter.ts
-
 import type { SnapshotNode, Snapshot } from './snapshotManager'
 
 /**
  * 获取节点的属性字符串
- * 参考 chrome-devtools-mcp 的 getAttributes
  */
 function getAttributes(node: SnapshotNode): string[] {
   const attrs: string[] = []

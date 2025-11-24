@@ -1,13 +1,8 @@
-// 快照管理器
-// 参考 chrome-devtools-mcp 的技术方案
-// 负责管理快照生成、UID 分配、节点映射
-
 import { connect, ExtensionTransport } from 'puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js'
 import type { Page, ElementHandle } from 'puppeteer-core'
 
 /**
  * 无障碍树节点类型（SerializedAXNode）
- * 与 chrome-devtools-mcp 保持一致
  */
 export interface SerializedAXNode {
   role?: { value?: string } | string
@@ -23,7 +18,6 @@ export interface SerializedAXNode {
 
 /**
  * 带 UID 的快照节点
- * 参考 chrome-devtools-mcp 的 TextSnapshotNode
  */
 export interface SnapshotNode extends SerializedAXNode {
   id: string // UID，格式：${snapshotId}_${idCounter}
@@ -33,7 +27,6 @@ export interface SnapshotNode extends SerializedAXNode {
 
 /**
  * 快照数据结构
- * 参考 chrome-devtools-mcp 的 TextSnapshot
  */
 export interface Snapshot {
   root: SnapshotNode
@@ -44,9 +37,9 @@ export interface Snapshot {
 
 /**
  * 快照管理器
- * 参考 chrome-devtools-mcp 的 McpContext
  */
 export class SnapshotManager {
+  // 当前快照id
   private nextSnapshotId = 1
   private currentSnapshot: Snapshot | null = null
   private page: Page | null = null
@@ -150,7 +143,6 @@ export class SnapshotManager {
 
   /**
    * 创建文本快照
-   * 参考 chrome-devtools-mcp 的 createTextSnapshot
    * @param verbose 是否包含所有节点（false 时只包含重要节点）
    */
   async createTextSnapshot(verbose = false): Promise<Snapshot> {
@@ -159,9 +151,9 @@ export class SnapshotManager {
     }
 
     // 使用 Puppeteer 的 accessibility API 获取无障碍树
-    // 参考 chrome-devtools-mcp: page.accessibility.snapshot()
     const rootNode = await this.page.accessibility.snapshot({
       includeIframes: true,
+      // 是否只包含重要节点
       interestingOnly: !verbose
     })
 
@@ -173,7 +165,6 @@ export class SnapshotManager {
     const snapshotId = String(this.nextSnapshotId++)
 
     // 遍历树并分配 UID
-    // 参考 chrome-devtools-mcp 的 assignIds
     let idCounter = 0
     const idToNode = new Map<string, SnapshotNode>()
 
@@ -188,7 +179,6 @@ export class SnapshotManager {
       }
 
       // 处理 option 节点：如果 name 存在但没有 value，将 name 作为 value
-      // 参考 chrome-devtools-mcp 的逻辑
       if (
         nodeWithId.role === 'option' ||
         (typeof nodeWithId.role === 'object' && nodeWithId.role?.value === 'option')
@@ -223,7 +213,6 @@ export class SnapshotManager {
 
   /**
    * 通过 UID 获取节点
-   * 参考 chrome-devtools-mcp 的 getElementByUid
    * @param uid 节点 UID
    */
   getNodeByUid(uid: string): SnapshotNode | null {
@@ -242,9 +231,6 @@ export class SnapshotManager {
 
   /**
    * 通过 UID 获取 ElementHandle
-   * 参考 chrome-devtools-mcp 的 getElementByUid -> node.elementHandle()
-   * 在浏览器扩展中使用 ExtensionTransport 时，避免使用 createCDPSession（可能会卡住）
-   * 改用直接使用 Puppeteer 的内部方法或通过属性选择器查找元素
    * @param uid 节点 UID
    */
   async getElementHandleByUid(uid: string): Promise<ElementHandle | null> {
@@ -268,12 +254,7 @@ export class SnapshotManager {
       return node.elementHandle()
     }
 
-    // 如果所有方法都失败，抛出错误
-    throw new Error(
-      `无法通过 UID 获取 ElementHandle。UID: ${uid}, backendNodeId: ${backendNodeId}。` +
-        `在浏览器扩展中使用 ExtensionTransport 时，createCDPSession() 可能不可用。` +
-        `请确保页面已完全加载，并且节点仍然存在于页面中。`
-    )
+    throw new Error(`无法通过 UID 获取 ElementHandle。UID: ${uid}, backendNodeId: ${backendNodeId}。`)
   }
 
   /**

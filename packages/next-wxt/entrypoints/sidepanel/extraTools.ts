@@ -1,25 +1,9 @@
-// 工具注册
-// 使用新的快照管理器重构，参考 chrome-devtools-mcp 的技术方案
-
 import { z, type WebMcpServer } from '@opentiny/next-sdk'
 import { extractTextFromTree } from './utils/accessibilityTree'
 import { SnapshotManager } from './utils/snapshotManager'
 import { formatSnapshot } from './utils/snapshotFormatter'
 import { clickNodeByUid, typeIntoNodeByUid, selectOptionByUid } from './utils/snapshotOperations'
-
-// 延迟函数
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
-}
-
-// 获取当前活动标签页 ID
-async function getCurrentTabId(): Promise<number> {
-  const tabs = await browser.tabs.query({ active: true, currentWindow: true })
-  if (!tabs[0]?.id) {
-    throw new Error('无法获取当前活动标签页')
-  }
-  return tabs[0].id
-}
+import { delay, getCurrentTabId } from './utils/utils'
 
 export const useExtraTools = (server: WebMcpServer) => {
   // 打开新网址
