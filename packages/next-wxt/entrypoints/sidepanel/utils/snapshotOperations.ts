@@ -28,7 +28,6 @@ export async function clickNodeByUid(
 
   try {
     // 执行点击操作
-    // 参考 chrome-devtools-mcp: handle.asLocator().click()
     await waitForEventsAfterAction(page, async () => {
       // 检查 handle 是否有 click 方法（ElementHandle）
       const hasClickMethod = typeof (handle as any).click === 'function'
@@ -51,19 +50,6 @@ export async function clickNodeByUid(
             }
           }
         }
-      } else {
-        // 如果 handle 没有 click 方法，尝试通过 evaluate 来点击
-        // 这可能是一个 JSHandle 而不是 ElementHandle
-        for (let i = 0; i < clickCount; i++) {
-          await handle.evaluate((el: Element) => {
-            if (el && typeof (el as HTMLElement).click === 'function') {
-              ;(el as HTMLElement).click()
-            }
-          })
-          if (i < clickCount - 1) {
-            await delay(50)
-          }
-        }
       }
     })
   } finally {
@@ -76,7 +62,6 @@ export async function clickNodeByUid(
 
 /**
  * 通过 UID 在节点中输入文本
- * 参考 chrome-devtools-mcp 的 fill 工具
  * @param manager 快照管理器
  * @param uid 节点 UID
  * @param text 要输入的文本
@@ -130,8 +115,6 @@ export async function typeIntoNodeByUid(
           })
         } catch (e) {
           console.warn('通过 evaluate 聚焦元素失败:', e)
-          // 如果 evaluate 也失败，尝试使用键盘导航到元素
-          // 这是一个备用方案
         }
       }
 
