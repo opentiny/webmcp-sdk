@@ -1,4 +1,4 @@
-import { attachDebugger, detachDebugger, executeCDPCommand } from './debuggerManager'
+import { attachDebugger, detachDebugger, executeCDPCommand, getDebuggerState } from './debuggerManager'
 
 export interface RecordedPostRequest {
   url: string
@@ -84,18 +84,20 @@ export const startDebuggerRecorder = async (tabId: number, callback: (request: R
 }
 
 export const stopDebuggerRecorder = async (tabId: number) => {
-  const state = recorderStates.get(tabId)
-  if (!state) {
-    return
+  const recorderState = recorderStates.get(tabId)
+
+  if (recorderState) {
+    browser.debugger.onEvent.removeListener(recorderState.listener)
+    recorderStates.delete(tabId)
   }
 
-  browser.debugger.onEvent.removeListener(state.listener)
-  recorderStates.delete(tabId)
-
-  try {
-    await executeCDPCommand(tabId, 'Network.disable', {})
-  } catch (error) {
-    console.warn('Network.disable 调用失败，可忽略', error)
+  const debuggerState = getDebuggerState(tabId)
+  if (debuggerState?.isAttached) {
+    try {
+      await executeCDPCommand(tabId, 'Network.disable', {})
+    } catch (error) {
+      console.warn('Network.disable 调用失败，可忽略', error)
+    }
   }
 
   await detachDebugger(tabId)

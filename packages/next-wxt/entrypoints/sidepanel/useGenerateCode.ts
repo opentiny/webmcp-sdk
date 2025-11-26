@@ -83,8 +83,6 @@ const postToRecorderEndpoint = async (payload: { hostname: string; toolCode: str
   if (!CODE_RECORDER_ENDPOINT) {
     throw new Error('DEV 环境未就绪，无法写入 MCP 工具文件')
   }
-
-  debugger
   const response = await fetch(CODE_RECORDER_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
