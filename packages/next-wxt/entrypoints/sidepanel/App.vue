@@ -8,6 +8,7 @@ import TinyUser from '@opentiny/vue-user'
 import { useCustomMarketMcpServers } from './useCustomMarketMcpServers'
 import { TrSuggestionPillButton, TrDropdownMenu } from '@opentiny/tiny-robot'
 import { AGENT_ROOT, ROBOT_URL } from './const'
+import { useGenerateCode } from './useGenerateCode'
 
 const llmConfig = {
   apiKey: import.meta.env.VITE_LLM_API_KEY,
@@ -105,6 +106,7 @@ useWebAgentServer()
 const genUiComponents = shallowReactive({ TinyUser })
 // 汇总自定义 MCP Server 配置（中文注释：用于传给 TinyRemoter 的插件市场）
 const customMarketMcpServers = useCustomMarketMcpServers()
+const { isRecording, toggleRecording } = useGenerateCode()
 
 // pillItems 依赖 sessionId 动态生成识别码与分享链接
 const pillItems = computed(() => {
@@ -161,7 +163,7 @@ async function handlePillItemClick(item: any) {
 </script>
 
 <template>
-  <div>
+  <div class="sidepanel-wrapper">
     <TinyRemoter
       ref="remoterRef"
       mode="chat-dialog"
@@ -177,6 +179,9 @@ async function handlePillItemClick(item: any) {
       :gen-ui-components="genUiComponents"
     >
       <template #suggestions>
+        <button class="record-button" type="button" @click="toggleRecording">
+          {{ isRecording ? '停止录制' : '开始录制' }}
+        </button>
         <div class="chat-input-pills">
           <tr-dropdown-menu
             v-for="pill in pillItems"
@@ -235,5 +240,31 @@ async function handlePillItemClick(item: any) {
   margin-bottom: 8px;
   display: flex;
   gap: 16px;
+}
+
+.sidepanel-wrapper {
+  position: relative;
+}
+
+.record-button {
+  position: absolute;
+  top: 12px;
+  left: 24px;
+  z-index: 5;
+  padding: 6px 16px;
+  border-radius: 16px;
+  border: none;
+  background: #f53f3f;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.record-button:hover {
+  opacity: 0.9;
+}
+
+.record-button:active {
+  transform: scale(0.98);
 }
 </style>
