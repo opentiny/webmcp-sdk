@@ -106,6 +106,7 @@ useWebAgentServer()
 const genUiComponents = shallowReactive({ TinyUser })
 // 汇总自定义 MCP Server 配置（中文注释：用于传给 TinyRemoter 的插件市场）
 const customMarketMcpServers = useCustomMarketMcpServers()
+const isDev = import.meta.env.DEV
 const { isRecording, toggleRecording } = useGenerateCode()
 
 // pillItems 依赖 sessionId 动态生成识别码与分享链接
@@ -179,7 +180,7 @@ async function handlePillItemClick(item: any) {
       :gen-ui-components="genUiComponents"
     >
       <template #suggestions>
-        <button class="record-button" type="button" @click="toggleRecording">
+        <button v-if="isDev" class="record-button" type="button" @click="toggleRecording">
           {{ isRecording ? '停止录制' : '开始录制' }}
         </button>
         <div class="chat-input-pills">

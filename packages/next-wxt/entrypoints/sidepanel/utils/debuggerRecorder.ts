@@ -16,20 +16,6 @@ type RecorderState = {
 
 const recorderStates = new Map<number, RecorderState>()
 
-const isFormSubmission = (initiatorType?: string, resourceType?: string) => {
-  if (!initiatorType && !resourceType) {
-    return false
-  }
-  if (initiatorType && initiatorType.toLowerCase() === 'form submission') {
-    return true
-  }
-  // 当表单提交导致整页导航时，resourceType 会是 Document
-  if (resourceType && resourceType.toLowerCase() === 'document') {
-    return true
-  }
-  return false
-}
-
 const sanitizeHeaders = (headers: Record<string, string> | undefined) => {
   if (!headers) return {}
   const forbidden = new Set(['content-length', 'host', 'origin'])
@@ -42,10 +28,7 @@ const sanitizeHeaders = (headers: Record<string, string> | undefined) => {
   return normalized
 }
 
-export const startDebuggerRecorder = async (
-  tabId: number,
-  callback: (request: RecordedPostRequest) => void
-) => {
+export const startDebuggerRecorder = async (tabId: number, callback: (request: RecordedPostRequest) => void) => {
   if (recorderStates.has(tabId)) {
     return
   }
@@ -57,6 +40,7 @@ export const startDebuggerRecorder = async (
   })
 
   const listener: Parameters<typeof browser.debugger.onEvent.addListener>[0] = (source, method, params) => {
+    debugger
     if (!source?.tabId || source.tabId !== tabId) {
       return
     }
@@ -64,10 +48,6 @@ export const startDebuggerRecorder = async (
     if (method === 'Network.requestWillBeSent' && params?.request) {
       const { requestId, request, initiator, type } = params
       if (request.method !== 'POST') {
-        return
-      }
-
-      if (!isFormSubmission(initiator?.type, type)) {
         return
       }
 
@@ -121,4 +101,3 @@ export const stopDebuggerRecorder = async (tabId: number) => {
 
   await detachDebugger(tabId)
 }
-
