@@ -40,13 +40,12 @@ export const startDebuggerRecorder = async (tabId: number, callback: (request: R
   })
 
   const listener: Parameters<typeof browser.debugger.onEvent.addListener>[0] = (source, method, params) => {
-    debugger
     if (!source?.tabId || source.tabId !== tabId) {
       return
     }
 
-    if (method === 'Network.requestWillBeSent' && params?.request) {
-      const { requestId, request, initiator, type } = params
+    if (method === 'Network.requestWillBeSent' && (params as any)?.request) {
+      const { requestId, request, initiator } = params as any
       if (request.method !== 'POST') {
         return
       }

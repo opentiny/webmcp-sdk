@@ -116,4 +116,3 @@ export const codeRecorderPlugin = (): Plugin => {
     }
   }
 }
-

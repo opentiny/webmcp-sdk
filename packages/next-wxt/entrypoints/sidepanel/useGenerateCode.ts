@@ -10,7 +10,10 @@ const resolveRecorderEndpoint = () => {
   if (explicit) {
     return explicit
   }
-  const devOrigin = import.meta.env.VITE_DEV_SERVER_ORIGIN || 'http://localhost:5173'
+  const runtimeOrigin =
+    typeof window !== 'undefined' && window.location?.origin?.startsWith('http') ? window.location.origin : undefined
+  const moduleOrigin = import.meta.url?.startsWith('http') ? new URL(import.meta.url).origin : undefined
+  const devOrigin = runtimeOrigin || moduleOrigin || import.meta.env.VITE_DEV_SERVER_ORIGIN || 'http://localhost:5173'
   return `${devOrigin.replace(/\/$/, '')}/__next-wxt__/code-recorder`
 }
 
@@ -80,6 +83,8 @@ const postToRecorderEndpoint = async (payload: { hostname: string; toolCode: str
   if (!CODE_RECORDER_ENDPOINT) {
     throw new Error('DEV 环境未就绪，无法写入 MCP 工具文件')
   }
+
+  debugger
   const response = await fetch(CODE_RECORDER_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
