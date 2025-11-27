@@ -48,7 +48,7 @@
     </tr-bubble-provider>
 
     <template #footer>
-      <div class="chat-input">
+      <div class="chat-input" @keydown="handleKeyDown">
         <slot name="suggestions">
           <div class="chat-input-pills">
             <tr-dropdown-menu
@@ -75,6 +75,8 @@
           :maxLength="1000"
           @submit="handleSendMessageCustom"
           @cancel="abortRequest"
+          v-model:template-data="templateData"
+          @trigger-char="handleTriggerChar"
         >
           <template #footer-left>
             <div class="sender-left-icon">
@@ -83,6 +85,17 @@
             </div>
           </template>
         </tr-sender>
+
+        <!-- @角色功能 未来移除 -->
+        <SkillSelector
+          ref="skillSelectorRef"
+          :visible="showSkillSelector"
+          :skills="skills"
+          :position="skillSelectorPosition"
+          :filter-text="filterText"
+          @select="selectSkill"
+          @close="closeSkillSelector"
+        />
 
         <!-- 插件面板 -->
         <TrMcpServerPicker
@@ -142,6 +155,9 @@ import { getLang, mapMake } from './lang'
 import { handleError } from './error-handle'
 import { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import type { MenuItemConfig } from '@opentiny/next-sdk'
+import { type SkillOption } from './SkillSelector.vue'
+import SkillSelector from './SkillSelector.vue'
+import { useSkill } from '../composable/useSkill'
 
 defineOptions({
   name: 'TinyRemoter'
@@ -216,6 +232,11 @@ const props = defineProps({
   customMarketMcpServers: {
     type: Array as () => PluginInfo[],
     default: () => []
+  },
+
+  skills: {
+    type: Object as () => SkillOption[],
+    default: () => ({})
   }
 })
 
@@ -640,6 +661,20 @@ defineExpose({
   /** mcp client断开时，自动清理已断开的插件和资源  */
   handleClientDisconnected
 })
+
+// TODO 未来版本移除
+const {
+  templateData,
+  showSkillSelector,
+  skillSelectorPosition,
+  filterText,
+  skillSelectorRef,
+
+  handleTriggerChar,
+  selectSkill,
+  closeSkillSelector,
+  handleKeyDown
+} = useSkill(inputMessage, senderRef, props)
 </script>
 
 <style scoped lang="less">
@@ -647,6 +682,7 @@ defineExpose({
 .chat-input {
   margin-top: 8px;
   padding: 10px 15px;
+  position: relative;
 }
 
 .tr-container {

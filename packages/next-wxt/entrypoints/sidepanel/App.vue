@@ -88,6 +88,11 @@ const llmConfig = {
   }
 }
 
+const skills = ref([
+  { label: '办公助手', value: OFFICE_PROMPT },
+  { label: '画图专家', value: EXCALIDRAW_PROMPT }
+])
+
 const remoterRef = ref() as Ref<InstanceType<typeof TinyRemoter>>
 useBrowserExtensions(remoterRef)
 
@@ -173,11 +178,11 @@ async function handlePillItemClick(item: any) {
       fullscreen
       title=""
       :llmConfig="llmConfig"
-      :systemPrompt="`${OFFICE_PROMPT}${EXCALIDRAW_PROMPT}`"
       inBrowserExt
       gen-ui-able
       :custom-market-mcp-servers="customMarketMcpServers"
       :gen-ui-components="genUiComponents"
+      :skills="skills"
     >
       <template #suggestions>
         <button v-if="isDev" class="record-button" type="button" @click="toggleRecording">
