@@ -26,7 +26,7 @@ AI Extension 是一个基于 WXT 框架开发的浏览器扩展插件，它提�
 
 访问扩展下载地址，下载扩展 ZIP 文件：
 
-**下载地址**：https://ai.opentiny.design/extension.zip
+**下载地址**：https://docs.opentiny.design/download/extension.zip
 
 下载完成后，你会得到一个 ZIP 压缩文件，例如 `extension.zip`。
 
@@ -53,11 +53,16 @@ AI Extension 是一个基于 WXT 框架开发的浏览器扩展插件，它提�
 1. 在扩展管理页面的右上角，找到"开发者模式"开关
 2. 将开关切换到"开启"状态
 
+![](../assets/images/extension/5.png)
+
 #### 步骤三：加载扩展
 
 1. 点击"加载已解压的扩展程序"按钮
 2. 在文件选择对话框中，导航到解压后的扩展文件夹
 3. 选择扩展文件夹（包含 `manifest.json` 文件的文件夹）并点击"选择文件夹"
+
+![](../assets/images/extension/1.png)
+
 
 #### 步骤四：开启 User Scripts 权限（重要）
 
@@ -67,12 +72,15 @@ AI Extension 是一个基于 WXT 框架开发的浏览器扩展插件，它提�
 2. 点击扩展卡片上的"详细信息"或展开按钮
 3. 找到"User Scripts"或"用户脚本"选项
 4. 将开关切换到"开启"状态
+ 
+![](../assets/images/extension/3.png)
 
 **注意**：如果未开启 User Scripts 权限，`pageMcpServer` 类型的工具将无法正常工作，扩展会显示通知提示你开启此权限。
 
 #### 步骤五：确认安装
 
 1. 扩展加载成功后，会在扩展管理页面显示
+![](../assets/images/extension/2.png)
 2. 检查扩展是否已启用（开关处于开启状态）
 3. 检查 User Scripts 权限是否已开启（如果使用了 `pageMcpServer` 类型的工具）
 4. 如果扩展图标显示在浏览器工具栏，说明安装成功
@@ -102,6 +110,7 @@ AI Extension 是一个基于 WXT 框架开发的浏览器扩展插件，它提�
 
 1. 在扩展管理页面，找到已安装的扩展卡片
 2. 点击扩展卡片上的"详细信息"或展开按钮
+![](../assets/images/extension/4.png)
 3. 找到"User Scripts"或"用户脚本"选项
 4. 将开关切换到"开启"状态
 
