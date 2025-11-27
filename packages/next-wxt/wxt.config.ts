@@ -6,6 +6,7 @@ import svgLoader from 'vite-svg-loader'
 import { VantResolver } from '@vant/auto-import-resolver'
 import { mcpServersPlugin } from './plugins/vite-plugin-mcp-servers'
 import { vendorSdkPlugin } from './plugins/vite-plugin-vendor-sdk'
+import { codeRecorderPlugin } from './plugins/vite-plugin-code-recorder'
 
 // See https://wxt.dev/api/config.html
 export default defineConfig({
@@ -53,7 +54,8 @@ export default defineConfig({
         svgo: false
       }) as any,
       vendorSdkPlugin(), // 自动构建和更新 vendor/next-sdk.js
-      mcpServersPlugin() // 添加 mcp-servers 编译插件
+      mcpServersPlugin(), // 添加 mcp-servers 编译插件
+      codeRecorderPlugin() // dev 环境录制生成工具写入支持
     ]
   })
 })
