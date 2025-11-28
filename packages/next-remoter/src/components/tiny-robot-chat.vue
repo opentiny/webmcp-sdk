@@ -102,6 +102,10 @@
           @plugin-delete="handlePluginDelete"
           @tool-toggle="handleToolToggle"
         >
+          <template #header-actions>
+            <!-- @vue-ignore -->
+            <slot name="header-actions" />
+          </template>
         </TrMcpServerPicker>
       </div>
     </template>
