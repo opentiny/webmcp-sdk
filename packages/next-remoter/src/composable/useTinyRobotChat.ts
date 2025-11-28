@@ -149,7 +149,27 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt, llmConfig
   const senderRef = ref<InstanceType<typeof TrSender>>()
 
   // 发送消息。 第一次发送，修改会话title
-  const handleSendMessage = () => {
+  const handleSendMessage = (inputValue: string, templateDataParam?: any[]) => {
+    // 增加 @ 功能， 如果有指定角色，则在这里进行处理， 生成正确的： inputMessage.value 和 最终的系统提示词
+    if (templateDataParam && templateDataParam.length > 0) {
+      inputMessage.value = templateDataParam
+        .map((data) => {
+          if (data.type === 'skill') return `@${data.label}`
+          if (data.type === 'text') return data.content
+        })
+        .join(' ')
+
+      const finalPrompt =
+        systemPrompt +
+        templateDataParam
+          .filter((data) => data.type === 'skill')
+          .map((data) => data.value)
+          .join(' ')
+      customAgentProvider.systemPrompt = finalPrompt
+    } else {
+      customAgentProvider.systemPrompt = systemPrompt
+    }
+
     const conv = getCurrentConversation()
     if (conv && conv.title === '新会话') {
       updateTitle(conv.id, inputMessage.value.slice(0, 15))

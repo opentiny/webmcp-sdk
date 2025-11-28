@@ -72,7 +72,7 @@
           :clearable="!!inputMessage"
           :loading="senderLoading"
           :showWordLimit="true"
-          :maxLength="1000"
+          :maxLength="20000"
           @submit="handleSendMessageCustom"
           @cancel="abortRequest"
           v-model:template-data="templateData"
@@ -370,7 +370,7 @@ const handleScanSuccess = async (sessionId: string) => {
   }
 }
 
-const handleSendMessageCustom = async () => {
+const handleSendMessageCustom = async (inputValue: string, templateDataParam?: any[]) => {
   const input = inputMessage.value
   if (/^\/[A-Za-z0-9-]{6,}$/.test(input)) {
     const res = await fetch(`${props.agentRoot}client?sessionId=${input.slice(1)}`).then((res) => res.json())
@@ -384,7 +384,7 @@ const handleSendMessageCustom = async () => {
 
     inputMessage.value = ''
   } else {
-    handleSendMessage()
+    handleSendMessage(inputValue, templateDataParam)
   }
 }
 
