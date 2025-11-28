@@ -57,8 +57,8 @@ const writeToolFiles = async (root: string, payload: RecorderPayload) => {
   const indexPath = path.join(domainDir, 'index.ts')
   const metaPath = path.join(domainDir, 'meta.ts')
   await fs.mkdir(domainDir, { recursive: true })
-  await ensureMetaFile(metaPath, payload.hostname, payload.origin)
   await injectToolCode(indexPath, payload.toolCode)
+  await ensureMetaFile(metaPath, payload.hostname, payload.origin)
 }
 
 const respond = (res: ServerResponse, statusCode: number, message: Record<string, any>) => {
