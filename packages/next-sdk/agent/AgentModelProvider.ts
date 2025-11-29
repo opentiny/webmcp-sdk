@@ -1,5 +1,5 @@
 import { streamText, stepCountIs, generateText, StreamTextResult } from 'ai'
-import { experimental_MCPClientConfig as MCPClientConfig } from 'ai'
+import { experimental_MCPClientConfig as MCPClientConfig, experimental_createMCPClient as createMCPClient } from 'ai'
 import type { ToolSet } from 'ai'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
@@ -85,16 +85,28 @@ export class AgentModelProvider {
         transport = serverConfig as MCPClientConfig['transport']
       }
 
-      const client = new WebMcpClient(
-        { name: 'mcp-web-client', version: '1.0.0' },
-        { capabilities: { roots: { listChanged: true }, sampling: {}, elicitation: {} } }
-      )
-      await client.connect(transport)
+      // 根据 useAISdkClient 配置决定使用哪种 client 创建方式
+      const useAISdkClient = serverConfig.useAISdkClient ?? false
 
-      //@ts-ignore
-      client['__transport__'] = transport
+      if (useAISdkClient) {
+        // 使用 ai-sdk 的 createMCPClient
+        const client = await createMCPClient({ transport: transport as MCPClientConfig['transport'] })
+        //@ts-ignore
+        client['__transport__'] = transport
+        return client
+      } else {
+        // 使用 WebMcpClient
+        const client = new WebMcpClient(
+          { name: 'mcp-web-client', version: '1.0.0' },
+          { capabilities: { roots: { listChanged: true }, sampling: {}, elicitation: {} } }
+        )
+        await client.connect(transport)
 
-      return client
+        //@ts-ignore
+        client['__transport__'] = transport
+
+        return client
+      }
     } catch (error: unknown) {
       if (this.onError) {
         this.onError((error as Error)?.message || `Failed to create MCP client`, error)
@@ -138,21 +150,37 @@ export class AgentModelProvider {
       this.mcpClients[serverName] = client
     })
   }
+  /** 兼容两种 client 类型的 tools 获取方法 */
+  private async _getClientTools(client: any, serverName: string): Promise<ToolSet | null> {
+    if (!client) {
+      return null
+    }
+
+    try {
+      // 判断是否为 ai-sdk 的 client（有 tools 方法）
+      if (typeof client.tools === 'function') {
+        // ai-sdk 的 client，直接调用 tools() 方法
+        return await client.tools()
+      } else {
+        // WebMcpClient，使用 getAISDKTools 函数
+        return await getAISDKTools(client)
+      }
+    } catch (error: unknown) {
+      if (this.onError) {
+        this.onError((error as Error)?.message || `Failed to query tools for ${serverName}`, error)
+      }
+      console.error(`Failed to query tools for ${serverName}`, error)
+      return null
+    }
+  }
+
   /** 查询所有 mcpClients 的 tools, 失败则保存为null */
   private async _createMpcTools() {
     const clientEntries = Object.entries(this.mcpClients)
     const tools = await Promise.all(
       clientEntries.map(async ([serverName, client]) => {
-        try {
-          const result = client ? await getAISDKTools(client) : null
-          return { serverName, tools: result }
-        } catch (error: unknown) {
-          if (this.onError) {
-            this.onError((error as Error)?.message || `Failed to query tools`, error)
-          }
-          console.error(`Failed to query tools`, error)
-          return { serverName, tools: null }
-        }
+        const result = await this._getClientTools(client, serverName)
+        return { serverName, tools: result }
       })
     )
     // 将结果存储到对象中，使用 serverName 作为键
@@ -206,7 +234,8 @@ export class AgentModelProvider {
       return null
     }
     this.mcpClients[serverName] = client
-    const tools = await getAISDKTools(client)
+    // 使用兼容的工具获取方法
+    const tools = await this._getClientTools(client, serverName)
     // 工具列表可能为 null，统一兜底为空对象，确保类型安全
     this.mcpTools[serverName] = tools && typeof tools === 'object' ? (tools as Record<string, any>) : {}
     this.mcpServers[serverName] = mcpServer
