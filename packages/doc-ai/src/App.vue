@@ -4,7 +4,7 @@
     <div class="main-content">
       <router-view />
     </div>
-    <tiny-remoter :sessionId="sessionId" :menuItems="menuItems">
+    <tiny-remoter :sessionId="sessionId" :menuItems="menuItems" :llmConfig="llmConfig">
       <template #chat v-if="isAntDesignX">
         <ant-design-x></ant-design-x>
       </template>
@@ -19,6 +19,61 @@ import { WebMcpClient, createMessageChannelPairTransport } from '@opentiny/next-
 import type { Transport, MenuItemConfig } from '@opentiny/next-sdk'
 import { AGENT_ROOT } from './const'
 import { provide, ref } from 'vue'
+// 导入自定义 Provider
+import { createCustomProvider } from './providers/custom-provider'
+// 导入 Mock Fetch（用于测试）
+import { createMockFetch } from './providers/mock-fetch'
+
+// 方式一：使用现有的 ollama provider（当前使用）
+// const llmConfig = {
+//   model: 'deepseek-r1:1.5b',
+//   llm: createOllama({
+//     // baseURL: 'https://agent.opentiny.design/api/v1/ai/chat/completions',
+//     baseURL: 'http://localhost:11434/api'
+//     // fetch: (...args) => {
+//     //   const urls = args[0].split('/chat')
+//     //   urls.pop()
+//     //   args[0] = urls.join('/chat')
+//     //   args[1].headers.authorization = 'Bearer sk-trial'
+//     //   console.log('ollama fetch args:' + args)
+//     //   return fetch(...args)
+//     // }
+//   })
+// }
+
+// 方式二：使用自定义 Provider + Mock Fetch（用于测试，当前启用）
+// 简单配置：直接使用 createMockFetch() 即可，无需传参数
+const llmConfig = {
+  model: 'mock-model',
+  llm: createCustomProvider({
+    baseURL: 'http://mock-api/v1', // URL 可以是任意值，会被 mock 拦截
+    fetch: createMockFetch() // 使用默认配置即可
+  })
+}
+
+// 方式三：使用自定义 Provider + 真实 API（取消注释即可使用）
+// const llmConfig = {
+//   model: 'your-model-name', // 替换为你的模型名称
+//   llm: createCustomProvider({
+//     // API 基础 URL
+//     baseURL: 'https://api.your-llm.com/v1',
+//     // API 密钥（如果需要）
+//     apiKey: 'your-api-key',
+//     // 自定义请求头（可选）
+//     headers: {
+//       'X-Custom-Header': 'custom-value'
+//     },
+//     // 自定义 fetch 函数（可选，可用于代理或拦截请求）
+//     // fetch: (...args) => {
+//     //   // 可以在这里修改请求 URL、添加认证等
+//     //   return fetch(...args)
+//     // },
+//     // API 路径（可选，默认为 /chat/completions）
+//     // apiPath: '/chat/completions',
+//     // 是否启用流式响应（可选，默认为 true）
+//     // stream: true
+//   })
+// }
 
 const [serverTransport, clientTransport] = createMessageChannelPairTransport()
 const menuItems = ref<MenuItemConfig[]>([])
