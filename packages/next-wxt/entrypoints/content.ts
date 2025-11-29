@@ -37,10 +37,24 @@ export default defineContentScript({
           if (mcpMeta.type === 'contentScriptMcpServer') {
             // 编译态在 content-script 中申明 mcp-server 和 tools
             await createProxyMcpServer(tabId)
+            mountPageApp()
+            console.log('【Content Script】页面初始化完成（contentScriptMcpServer）', {
+              self,
+              tabId,
+              hostname,
+              mcpMeta
+            })
           } else if (mcpMeta.type === 'pageMcpServer') {
             createContentProxy(tabId)
             // 运行时插入 user-script，直接在页面中申明 mcp-server 和 tools
             await initWebTools()
+            mountPageApp()
+            console.log('【Content Script】页面初始化完成（pageMcpServer）', {
+              self,
+              tabId,
+              hostname,
+              mcpMeta
+            })
           }
         } else {
           console.log('【Content Script】找到 MCP 配置:', mcpMeta)
@@ -48,18 +62,23 @@ export default defineContentScript({
             createContentProxy(tabId)
             // 运行时插入 user-script，直接在页面中申明 mcp-server 和 tools
             await initWebMCP()
+            mountPageApp()
+            console.log('【Content Script】页面初始化完成（pageMcpServer）', { self, tabId, hostname, mcpMeta })
           } else if (mcpMeta.type === 'contentScriptMcpServer') {
             // 编译态在 content-script 中申明 mcp-server 和 tools
             await createMcpServer(tabId)
+            mountPageApp()
+            console.log('【Content Script】页面初始化完成（contentScriptMcpServer）', {
+              self,
+              tabId,
+              hostname,
+              mcpMeta
+            })
           } else {
             console.warn('【Content Script】未知的 MCP 服务器类型:', mcpMeta.type)
           }
         }
       }
-
-      // 2.3 加载页面UI
-      mountPageApp()
-      console.log('【Content Script】页面初始化完成', { self, tabId, hostname, mcpMeta })
     }
 
     async function getTabId() {

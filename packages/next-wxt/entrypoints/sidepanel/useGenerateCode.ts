@@ -116,11 +116,12 @@ export const useGenerateCode = () => {
 
   const startRecording = async () => {
     if (!import.meta.env.DEV) {
-      showToast('录制功能仅在 DEV 环境可用')
-      return
+      const error = new Error('录制功能仅在 DEV 环境可用')
+      showToast(error.message)
+      throw error
     }
     if (isRecording.value) {
-      return
+      return true
     }
     try {
       const tabId = await getCurrentTabId()
@@ -128,26 +129,30 @@ export const useGenerateCode = () => {
       activeTabId.value = tabId
       isRecording.value = true
       showToast('开始录制 POST 表单请求')
+      return true
     } catch (error: any) {
       console.error('启动录制失败', error)
       showToast(error?.message || '启动录制失败')
+      throw error
     }
   }
 
   const stopRecording = async () => {
     if (!isRecording.value) {
-      return
+      return true
     }
     if (activeTabId.value === null) {
       isRecording.value = false
-      return
+      return true
     }
     try {
       await stopDebuggerRecorder(activeTabId.value)
       showToast('录制已停止')
+      return true
     } catch (error: any) {
       console.error('停止录制失败', error)
       showToast(error?.message || '停止录制失败')
+      throw error
     } finally {
       isRecording.value = false
       activeTabId.value = null
@@ -156,14 +161,15 @@ export const useGenerateCode = () => {
 
   const toggleRecording = async () => {
     if (isRecording.value) {
-      await stopRecording()
-    } else {
-      await startRecording()
+      return await stopRecording()
     }
+    return await startRecording()
   }
 
   return {
     isRecording,
+    startRecording,
+    stopRecording,
     toggleRecording
   }
 }

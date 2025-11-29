@@ -9,6 +9,7 @@ import { useCustomMarketMcpServers } from './useCustomMarketMcpServers'
 import { TrSuggestionPillButton, TrDropdownMenu } from '@opentiny/tiny-robot'
 import { AGENT_ROOT, ROBOT_URL } from './const'
 import { useGenerateCode } from './useGenerateCode'
+import RecordModal from './components/RecordModal.vue'
 
 const llmConfig = {
   apiKey: import.meta.env.VITE_LLM_API_KEY,
@@ -107,7 +108,36 @@ const genUiComponents = shallowReactive({ TinyUser })
 // 汇总自定义 MCP Server 配置（中文注释：用于传给 TinyRemoter 的插件市场）
 const customMarketMcpServers = useCustomMarketMcpServers()
 const isDev = import.meta.env.DEV
-const { isRecording, toggleRecording } = useGenerateCode()
+const { isRecording, startRecording, stopRecording, toggleRecording } = useGenerateCode()
+const isRecordModalVisible = ref(false)
+
+const openRecordModal = () => {
+  isRecordModalVisible.value = true
+}
+
+const closeRecordModal = () => {
+  isRecordModalVisible.value = false
+}
+
+const handleStartRecording = async () => {
+  try {
+    await startRecording()
+    showToast('录制操作成功: 已开始录制')
+  } catch (error: any) {
+    console.error('handleStartRecording error', error)
+    showToast(`录制操作失败: ${error?.message || '未知错误'}`)
+  }
+}
+
+const handleStopRecording = async () => {
+  try {
+    await stopRecording()
+    showToast('录制操作成功: 已停止录制')
+  } catch (error: any) {
+    console.error('handleStopRecording error', error)
+    showToast(`录制操作失败: ${error?.message || '未知错误'}`)
+  }
+}
 
 // pillItems 依赖 sessionId 动态生成识别码与分享链接
 const pillItems = computed(() => {
@@ -179,10 +209,13 @@ async function handlePillItemClick(item: any) {
       :custom-market-mcp-servers="customMarketMcpServers"
       :gen-ui-components="genUiComponents"
     >
-      <template #suggestions>
-        <button v-if="isDev" class="record-button" type="button" @click="toggleRecording">
-          {{ isRecording ? '停止录制' : '开始录制' }}
+      <template #header-actions>
+        <button v-if="isDev" class="record-button" type="button" @click="openRecordModal">
+          <span class="record-button__icon">+</span>
+          自定义添加
         </button>
+      </template>
+      <template #suggestions>
         <div class="chat-input-pills">
           <tr-dropdown-menu
             v-for="pill in pillItems"
@@ -198,6 +231,13 @@ async function handlePillItemClick(item: any) {
         </div>
       </template>
     </TinyRemoter>
+    <RecordModal
+      :visible="isRecordModalVisible"
+      :isRecording="isRecording"
+      @close="closeRecordModal"
+      @start-recording="handleStartRecording"
+      @stop-recording="handleStopRecording"
+    />
   </div>
 </template>
 
@@ -248,24 +288,37 @@ async function handlePillItemClick(item: any) {
 }
 
 .record-button {
-  position: absolute;
-  top: 12px;
-  left: 24px;
-  z-index: 5;
-  padding: 6px 16px;
-  border-radius: 16px;
-  border: none;
-  background: #f53f3f;
-  color: #fff;
-  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(79, 140, 255, 0.4);
+  background: rgba(79, 140, 255, 0.08);
+  color: #2b5bd9;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
+  transition:
+    background 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.record-button__icon {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #2b5bd9;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  line-height: 1;
 }
 
 .record-button:hover {
-  opacity: 0.9;
-}
-
-.record-button:active {
-  transform: scale(0.98);
+  background: rgba(79, 140, 255, 0.16);
+  box-shadow: 0 4px 12px rgba(43, 91, 217, 0.2);
 }
 </style>
