@@ -1,8 +1,8 @@
-# Next-WXT 浏览器插件技术架构文档
+# AI-Extension 浏览器插件技术架构文档
 
 ## 一、架构概述
 
-Next-WXT 是一个基于 WXT 框架构建的智能浏览器扩展插件，通过集成 MCP (Model Context Protocol) 协议，将任意网页转换为可被 AI 智能体操控的智能应用。该插件采用模块化设计，支持多域名工具协同、灵活的执行环境配置、远程控制以及内置的智能无障碍操作能力。
+AI-Extension 是一个基于 WXT 框架构建的智能浏览器扩展插件，通过集成 MCP (Model Context Protocol) 协议，将任意网页转换为可被 AI 智能体操控的智能应用。该插件采用模块化设计，支持多域名工具协同、灵活的执行环境配置、远程控制以及内置的智能无障碍操作能力。
 
 ### 核心设计理念
 
@@ -13,101 +13,69 @@ Next-WXT 是一个基于 WXT 框架构建的智能浏览器扩展插件，通过
 
 ### 快速架构概览
 
-```mermaid
-graph LR
-    A[AI Agent] -->|MCP 协议| B[Sidepanel MCP Server]
-    B -->|消息通道| C[Content Proxy]
-    C -->|Page/Content| D[网页工具]
-    
-    E[工具配置<br/>mcp-servers/] -->|按域名加载| D
-    F[内置工具<br/>无障碍树] -->|自动识别| B
-    
-    G[远程控制<br/>Remoter] -->|MCP 协议| B
-    H[云端工具<br/>MCP Market] -->|集成| B
-    
-    style A fill:#ffebee
-    style B fill:#e8f5e9
-    style D fill:#e1f5ff
-    style F fill:#fff4e1
-```
+![AI-Extension 浏览器插件架构图](../assets/images/ai-extension/architecture.png)
 
-## 二、系统架构图
+上图展示了 AI-Extension 浏览器插件的整体架构。插件通过 MCP 协议连接 AI Agent 与网页工具，支持在 Sidepanel、Content Script 和 Page World 三种环境中执行工具。工具配置通过 `mcp-servers/` 目录按域名组织，系统自动匹配并加载对应的工具。同时，插件内置了无障碍树操作能力，支持远程控制和云端工具集成，实现了从工具定义到 AI 操控的完整闭环。
 
-```mermaid
-graph TB
-    subgraph "浏览器环境"
-        subgraph "Page World (主世界)"
-            PW[网页页面]
-            US[User Script<br/>动态注入]
-            MCPPAGE[MCP Server<br/>Page Context]
-        end
-        
-        subgraph "Content Script 隔离环境"
-            CS[Content Script]
-            MCPCS[MCP Server<br/>Content Context]
-            CP[Content Proxy<br/>消息代理]
-        end
-        
-        subgraph "Extension 环境"
-            subgraph "Background"
-                BG[Background Script]
-                IS[脚本注入器]
-            end
-            
-            subgraph "Sidepanel"
-                SP[Sidepanel UI]
-                MCPSIDE[MCP Server<br/>Sidepanel Context]
-                AT[无障碍树<br/>Accessibility Tree]
-                EXT[额外工具集<br/>Extra Tools]
-            end
-        end
-    end
-    
-    subgraph "外部系统"
-        AGENT[AI Agent<br/>Cursor/CodeMate/Coze]
-        REMOTE[远程控制器<br/>Remoter]
-        MCPCLOUD[云端 MCP 服务]
-    end
-    
-    subgraph "MCP 工具配置"
-        META[meta.ts<br/>工具元配置]
-        TOOLS[工具注册<br/>index.ts]
-        DIR[域名目录<br/>mcp-servers/]
-    end
-    
-    PW -->|DOM 操作| US
-    US -->|注册工具| MCPPAGE
-    CS -->|注册工具| MCPCS
-    CS -->|消息代理| CP
-    
-    BG -->|动态注入| IS
-    IS -->|User Script| US
-    
-    SP --> MCPSIDE
-    MCPSIDE --> EXT
-    MCPSIDE --> AT
-    AT -->|Puppeteer| PW
-    
-    MCPPAGE <-->|消息通道| CP
-    MCPCS <-->|消息通道| CP
-    CP <-->|消息通道| MCPSIDE
-    
-    MCPSIDE <-->|MCP 协议| AGENT
-    MCPSIDE <-->|MCP 协议| REMOTE
-    MCPSIDE <-->|MCP 协议| MCPCLOUD
-    
-    DIR -->|加载配置| META
-    DIR -->|加载工具| TOOLS
-    META -->|匹配域名| CS
-    META -->|匹配域名| BG
-    
-    style PW fill:#e1f5ff
-    style CS fill:#fff4e1
-    style SP fill:#e8f5e9
-    style BG fill:#f3e5f5
-    style AGENT fill:#ffebee
-    style MCPCLOUD fill:#ffebee
-```
+## 二、系统架构概述
+
+AI-Extension 浏览器插件的系统架构分为三个主要层次：
+
+### 浏览器环境层
+
+**Page World (主世界)**：
+
+- 网页页面：用户访问的实际网页
+- User Script：通过动态注入的方式在主世界执行脚本
+- MCP Server (Page Context)：在主世界上下文中注册的 MCP 服务器和工具
+
+**Content Script 隔离环境**：
+
+- Content Script：浏览器扩展的隔离脚本执行环境
+- MCP Server (Content Context)：在 Content Script 中注册的 MCP 服务器和工具
+- Content Proxy：作为消息代理，在不同上下文间路由消息
+
+**Extension 环境**：
+
+- Background Script：后台脚本，负责脚本注入和消息处理
+- 脚本注入器：动态注入 User Script 到页面主世界
+- Sidepanel UI：侧边栏用户界面
+- MCP Server (Sidepanel Context)：侧边栏中的 MCP 服务器
+- 无障碍树 (Accessibility Tree)：基于 Puppeteer 的页面无障碍信息获取
+- 额外工具集 (Extra Tools)：内置的智能操作工具
+
+### 外部系统层
+
+- **AI Agent**：支持 Cursor、CodeMate、Coze 等各类 MCP Host
+- **远程控制器 (Remoter)**：支持 PC 端、移动端的远程控制
+- **云端 MCP 服务**：支持集成云端 MCP 工具市场
+
+### MCP 工具配置层
+
+- **meta.ts**：工具元信息配置文件，定义工具的基本信息和行为
+- **工具注册 (index.ts)**：工具的具体实现和注册逻辑
+- **域名目录 (mcp-servers/)**：按域名组织的工具目录结构
+
+### 架构交互流程
+
+1. **工具加载流程**：系统根据页面 hostname 从 `mcp-servers/` 目录匹配对应的工具配置，通过 `meta.ts` 确定执行环境类型，然后加载相应的工具代码。
+
+2. **消息通信流程**：
+   - AI Agent 通过 MCP 协议与 Sidepanel MCP Server 通信
+   - Sidepanel MCP Server 通过 Runtime Message 与 Content Proxy 通信
+   - Content Proxy 通过 Window Message 与 Page World 或 Content Script 通信
+   - 工具执行结果按相反路径返回
+
+3. **工具执行流程**：
+   - 对于 `pageMcpServer` 类型：Background Script 注入 User Script 到主世界，工具在主世界执行
+   - 对于 `contentScriptMcpServer` 类型：工具直接在 Content Script 环境中执行
+   - 所有工具调用都通过 Content Proxy 进行消息路由
+
+4. **智能操作流程**：
+   - Sidepanel 中的无障碍树工具通过 Puppeteer 连接页面
+   - 获取页面无障碍信息并分配唯一 UID
+   - AI 根据 UID 执行点击、输入等操作
+   - 操作后自动获取新快照以验证结果
 
 ## 三、核心架构组件
 
@@ -183,29 +151,19 @@ mcp-servers/
 
 #### 3.2.2 工具匹配流程
 
-```mermaid
-sequenceDiagram
-    participant Page as 页面加载
-    participant Content as Content Script
-    participant Match as 工具匹配器
-    participant Meta as meta.ts
-    participant Tool as 工具注册器
-    
-    Page->>Content: 页面 hostname
-    Content->>Match: getMcpMetaInfo(hostname)
-    Match->>Meta: 遍历 meta.ts 文件
-    Meta-->>Match: 返回匹配的 meta 配置
-    Match-->>Content: 返回 mcpMeta
-    
-    alt type === 'pageMcpServer'
-        Content->>Page: 注入 User Script
-        Page->>Tool: 执行工具注册
-    else type === 'contentScriptMcpServer'
-        Content->>Tool: 直接注册工具
-    end
-    
-    Tool->>Tool: server.registerTool()
-```
+工具匹配流程如下：
+
+1. **页面加载**：当用户访问网页时，Content Script 获取当前页面的 hostname（如 `www.baidu.com`）
+
+2. **工具匹配**：Content Script 调用 `getMcpMetaInfo(hostname)` 方法，系统遍历 `mcp-servers/` 目录下所有域名的 `meta.ts` 文件
+
+3. **配置返回**：找到匹配的域名配置后，返回对应的 `meta.ts` 配置信息（包含 `type`、`url`、`isAlwaysEnabled` 等字段）
+
+4. **执行环境判断**：
+   - 如果 `type === 'pageMcpServer'`：Content Script 通知 Background Script 注入 User Script 到页面主世界，工具在主世界中注册和执行
+   - 如果 `type === 'contentScriptMcpServer'`：工具直接在 Content Script 环境中注册和执行
+
+5. **工具注册**：根据匹配到的域名配置，加载对应的 `index.ts` 文件，调用 `server.registerTool()` 注册工具
 
 #### 3.2.3 工具注册示例
 
@@ -231,29 +189,30 @@ export default ({ server, z }) => {
 
 ### 3.3 消息通信架构
 
-插件内部采用多层消息通道实现不同上下文间的通信：
+插件内部采用多层消息通道实现不同上下文间的通信，确保 AI Agent、Sidepanel、Content Script 和 Page World 之间的消息能够正确路由。
 
-```mermaid
-graph LR
-    subgraph "消息流向"
-        A[AI Agent] -->|MCP 协议| B[Sidepanel MCP Server]
-        B -->|Runtime Message| C[Content Proxy]
-        C -->|Window Message| D[Page World]
-        C -->|Window Message| E[Content Script]
-        
-        D -->|Window Message| C
-        E -->|Window Message| C
-        C -->|Runtime Message| B
-        B -->|MCP 协议| A
-    end
-    
-    subgraph "消息类型"
-        F[工具调用请求]
-        G[工具执行结果]
-        H[工具注册通知]
-        I[快照数据]
-    end
-```
+#### 消息流向
+
+**请求流向（AI Agent → 工具执行）**：
+
+1. AI Agent 通过 MCP 协议向 Sidepanel MCP Server 发送工具调用请求
+2. Sidepanel MCP Server 通过 Runtime Message 将请求转发给 Content Proxy
+3. Content Proxy 根据工具类型，通过 Window Message 将请求发送到：
+   - Page World（如果工具在主世界执行）
+   - Content Script（如果工具在 Content Script 环境执行）
+
+**响应流向（工具执行结果 → AI Agent）**：
+
+1. Page World 或 Content Script 执行工具后，通过 Window Message 将结果返回给 Content Proxy
+2. Content Proxy 通过 Runtime Message 将结果转发给 Sidepanel MCP Server
+3. Sidepanel MCP Server 通过 MCP 协议将结果返回给 AI Agent
+
+#### 消息类型
+
+- **工具调用请求**：AI Agent 发起的工具调用，包含工具名称和参数
+- **工具执行结果**：工具执行完成后返回的结果，包含执行状态和返回内容
+- **工具注册通知**：工具注册时向 Sidepanel 发送的通知，用于更新可用工具列表
+- **快照数据**：无障碍树快照数据，用于 AI 理解页面结构
 
 #### 3.3.1 Content Proxy 消息代理
 
@@ -284,22 +243,25 @@ export const createContentProxy = (tabId: number) => {
 
 #### 3.4.1 无障碍树快照系统
 
-插件内置了类似 Chrome DevTools MCP 的无障碍树操作能力：
+插件内置了类似 Chrome DevTools MCP 的无障碍树操作能力，使 AI 能够自动识别页面元素并执行操作。
 
-```mermaid
-graph TD
-    A[AI 请求操作] --> B[takeSnapshot]
-    B --> C[Puppeteer 连接]
-    C --> D[获取无障碍树]
-    D --> E[分配 UID]
-    E --> F[返回快照结构]
-    
-    F --> G[AI 选择 UID]
-    G --> H[click/fill/selectOption]
-    H --> C
-    C --> I[执行 DOM 操作]
-    I --> J[自动获取新快照]
-```
+**操作流程**：
+
+1. **AI 请求操作**：AI Agent 需要操作页面时，首先调用 `takeSnapshot` 工具获取页面当前状态
+
+2. **获取快照**：
+   - 系统通过 Puppeteer 连接到目标标签页
+   - 使用 Puppeteer 的 `accessibility.snapshot()` API 获取页面的无障碍树结构
+   - 为每个可操作的节点分配唯一的 UID（格式：`snapshotId_counter`，如 `1_5`）
+   - 返回包含所有节点信息的快照结构
+
+3. **AI 分析选择**：AI 根据用户意图和快照中的节点信息（角色、名称、描述等），选择需要操作的节点 UID
+
+4. **执行操作**：AI 调用相应的操作工具（`click`、`fill`、`selectOption` 等），传入选定的 UID
+
+5. **DOM 操作**：系统根据 UID 找到对应的 DOM 节点，执行实际的点击、输入等操作
+
+6. **自动更新快照**：操作完成后，系统自动获取新的快照，确保 AI 能够感知页面状态的变化，继续后续操作
 
 **核心实现**：
 
@@ -346,40 +308,32 @@ AI 可以通过以下流程自动规划操作路径：
 
 #### 3.5.1 Remoter 组件
 
-插件支持通过 Remoter 实现远程控制，架构如下：
+插件支持通过 Remoter 实现远程控制，允许用户通过移动端、PC 端或 Web 页面远程操控浏览器中的网页。
 
-```mermaid
-graph TB
-    subgraph "被控端 (Extension)"
-        A[Page MCP Server]
-        B[Session ID]
-        C[Remoter 浮动按钮]
-    end
-    
-    subgraph "控制端"
-        D[移动端扫码]
-        E[PC 端对话框]
-        F[Remoter Web 页面]
-    end
-    
-    subgraph "代理服务器"
-        G[Agent Server<br/>WebMCP Proxy]
-    end
-    
-    A -->|注册| B
-    B -->|生成二维码| C
-    C -->|显示| D
-    C -->|显示| E
-    
-    D -->|连接| G
-    E -->|连接| G
-    F -->|连接| G
-    
-    G -->|MCP 协议| A
-    A -->|工具调用| G
-    G -->|结果返回| D
-    G -->|结果返回| E
-```
+**被控端（Extension）**：
+
+- **Page MCP Server**：在页面中注册的 MCP 服务器，提供工具能力
+- **Session ID**：每个被控页面都有唯一的 Session ID，用于标识连接
+- **Remoter 浮动按钮**：页面右下角的浮动按钮，提供二维码和连接信息
+
+**控制端**：
+
+- **移动端扫码**：通过扫描二维码连接，在手机上远程控制
+- **PC 端对话框**：通过 Sidepanel 中的对话框直接连接
+- **Remoter Web 页面**：通过访问 Web 页面输入 Session ID 连接
+
+**代理服务器**：
+
+- **Agent Server (WebMCP Proxy)**：作为中间代理服务器，转发 MCP 协议消息
+
+**连接流程**：
+
+1. 页面中的 MCP Server 注册并生成 Session ID
+2. Remoter 浮动按钮显示二维码和 Session ID
+3. 控制端（移动端/PC 端/Web 页面）通过扫码或输入 Session ID 连接到代理服务器
+4. 代理服务器通过 Session ID 找到对应的被控端 MCP Server
+5. 控制端通过 MCP 协议调用工具，代理服务器转发到被控端
+6. 被控端执行工具后，结果通过代理服务器返回给控制端
 
 #### 3.5.2 Session 管理
 
@@ -563,171 +517,9 @@ customMarketMcpServers: [
 ]
 ```
 
-## 五、构建与部署架构
+## 五、总结
 
-### 5.1 构建流程
-
-```mermaid
-graph LR
-    A[源代码] --> B[Vite 构建]
-    B --> C[mcp-servers 编译]
-    B --> D[vendor SDK 构建]
-    B --> E[Extension 打包]
-    
-    C --> F[IIFE 格式输出]
-    D --> G[UMD 格式输出]
-    E --> H[浏览器扩展包]
-    
-    F --> H
-    G --> H
-```
-
-### 5.2 插件编译系统
-
-**自定义 Vite 插件**：
-
-1. **mcp-servers-plugin**：
-   - 扫描 `mcp-servers/` 目录
-   - 为每个域名工具独立构建
-   - 输出 IIFE 格式，便于动态加载
-
-2. **vendor-sdk-plugin**：
-   - 构建 `next-sdk` 为 UMD 格式
-   - 注入到页面作为全局变量
-   - 供工具代码使用
-
-3. **code-recorder-plugin**：
-   - 开发环境工具录制
-   - 自动生成工具代码
-
-## 六、安全与隔离机制
-
-### 6.1 执行环境隔离
-
-- **Content Script 隔离**：工具在隔离环境中执行，无法访问页面变量
-- **User Script 沙箱**：主世界工具通过浏览器沙箱机制隔离
-
-### 6.2 权限控制
-
-插件采用最小权限原则：
-
-- `host_permissions`: 仅声明需要的域名权限
-- `permissions`: 仅声明必要的浏览器 API 权限
-
-### 6.3 消息验证
-
-- 所有跨上下文消息都经过验证
-- 工具调用需要匹配域名配置
-- Session ID 验证确保连接安全
-
-## 七、性能优化
-
-### 7.1 按需加载
-
-- 工具代码按域名按需加载
-- 未访问的域名工具不会加载
-- 减少内存占用
-
-### 7.2 快照缓存
-
-- 快照结果缓存，避免重复获取
-- 操作后自动更新，保持一致性
-
-### 7.3 流式处理
-
-- 工具执行结果流式返回
-- 减少等待时间
-- 提升用户体验
-
-## 八、扩展性设计
-
-### 8.1 工具市场
-
-- 支持从市场加载工具
-- 支持工具的动态启用/禁用
-- 支持工具版本管理
-
-### 8.2 自定义 UI
-
-- 支持自定义生成式 UI 组件
-- 支持自定义工具交互界面
-- 支持主题定制
-
-### 8.3 插件系统
-
-- 支持第三方插件扩展
-- 支持自定义构建插件
-- 支持工具模板生成
-
-## 九、技术亮点总结
-
-### 9.1 八大核心亮点
-
-#### ✅ 1. 专属 MCP 工具快速定义
-
-- **特性**：可快速创建属于你域名的 MCP 工具，无需关注 MCP-Server 定义或 Transport 连接
-- **能力**：既支持接口调用，也能直接操作 DOM，使用更便捷
-- **实现**：通过 `mcp-servers/域名/` 目录结构，声明式工具注册，自动构建打包
-
-#### ✅ 2. 极低改造成本
-
-- **特性**：无需改动现有应用，通过插件中的 mcp-servers 工具即可快速实现应用智能化
-- **优势**：零侵入式设计，工具配置与业务代码完全分离
-- **流程**：创建域名目录 → 编写工具代码 → 重启插件即可生效
-
-#### ✅ 3. 灵活的执行环境配置
-
-- **特性**：通过 `meta.ts` 定义工具的运行环境
-- **支持**：
-  - 主世界（Main World）：可访问页面 JS 内存，深度集成
-  - Content Script 环境：不访问主页面 JS 内存，安全隔离
-- **应用**：适应不同场景需求，灵活选择执行环境
-
-#### ✅ 4. 多域名工具协同
-
-- **特性**：支持组合多个域名的工具协同完成任务
-- **能力**：`meta.ts` 可定义工具运行前需打开的网址，插件将自动打开对应页面
-- **效果**：提升操作效率，支持跨域工作流程编排
-
-#### ✅ 5. 内置智能功能，类比 Chrome DevTools MCP
-
-- **特性**：插件内置类似 Chrome DevTools MCP 的能力
-- **能力**：可自动识别网页无障碍信息并规划执行路径
-- **优势**：无需手动编写工具代码，开箱即用
-- **工具集**：`takeSnapshot`、`click`、`fill`、`selectOption`、`getPageInfomation` 等
-
-#### ✅ 6. 远程操控支持
-
-- **特性**：支持远程控制，复制识别码或 remoter 链接地址
-- **接入**：可在 codeMate、Cursor、Coze 空间等智能体中加载并使用该插件
-- **能力**：实现跨设备协同，支持 PC 端和移动端远程操作
-
-#### ✅ 7. 极速与 AI 互动反馈
-
-- **特性**：集成生成式 UI，可快速将必要信息反馈给 AI
-- **能力**：支持流式响应、动态 UI 渲染、交互式卡片展示
-- **效果**：提升协作效率，减少等待时间
-
-#### ✅ 8. 快速接入云端工具
-
-- **特性**：可集成云端 MCP 能力与 Web 端 MCP 工具
-- **能力**：支持从 MCP 市场加载工具，本地工具与云端工具协同完成复杂需求
-- **配置**：通过 `customMarketMcpServers` 配置云端工具
-
-### 9.2 架构优势总结
-
-| 优势维度 | 具体体现 |
-|---------|---------|
-| **开发效率** | 声明式工具定义，自动化构建，零配置即可使用 |
-| **集成成本** | 零侵入式设计，无需修改现有应用代码 |
-| **灵活性** | 支持多种执行环境，适应不同业务场景 |
-| **智能化** | 内置无障碍树操作，自动路径规划 |
-| **扩展性** | 支持工具市场，多域名协同，云端工具集成 |
-| **易用性** | 远程控制，多端支持，流式反馈 |
-
-## 十、总结
-
-Next-WXT 浏览器插件通过创新的架构设计，实现了：
+AI-Extension 浏览器插件通过创新的架构设计，实现了：
 
 1. **零侵入式智能化**：无需修改现有应用即可接入 AI 能力
 2. **灵活的配置方式**：支持多种执行环境和工具注册方式
@@ -735,4 +527,4 @@ Next-WXT 浏览器插件通过创新的架构设计，实现了：
 4. **完善的远程控制**：支持多端远程操控和云端工具集成
 5. **高效的开发体验**：声明式工具定义，自动化构建部署
 
-该架构为 Web 应用的智能化提供了完整的解决方案，为开发者提供了便捷的工具定义方式，为 AI Agent 提供了强大的网页操控能力。通过八大核心亮点的有机结合，Next-WXT 实现了从工具定义到 AI 操控的完整闭环，为 Web 应用智能化领域树立了新的标杆。
+该架构为 Web 应用的智能化提供了完整的解决方案，为开发者提供了便捷的工具定义方式，为 AI Agent 提供了强大的网页操控能力。通过八大核心亮点的有机结合，AI-Extension 实现了从工具定义到 AI 操控的完整闭环，为 Web 应用智能化领域树立了新的标杆。
