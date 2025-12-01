@@ -10,7 +10,7 @@
   "description": "OpenTiny NEXT SDK",
   "scripts": {
     "build:all": "pnpm build:cdn && pnpm build:cdn:dev && pnpm build",
-    "build": "tsc && vite build",
+    "build": "vite build --config vite-build-tsc.ts",
     "build:cdn": "vite build && pnpm build:webAgent && pnpm build:webMcp && pnpm build:mcpSdk && pnpm build:zod && pnpm build:webMcpFull",
     "build:cdn:dev": "vite build --mode dev && pnpm build:webAgent:dev && pnpm build:webMcp:dev && pnpm build:mcpSdk:dev && pnpm build:zod:dev && pnpm build:webMcpFull:dev",
     "build:webAgent": "vite build --config vite.config.webAgent.ts",
@@ -38,6 +38,7 @@
   "devDependencies": {
     "typescript": "^5.2.2",
     "vite": "^5.0.8",
+    "vite-plugin-dts": "^3.9.1",
     "@types/qrcode": "^1.5.5",
     "@types/node": "^24.3.0"
   },

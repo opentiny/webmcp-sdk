@@ -5,11 +5,12 @@
     "target": "ES2015",
     "lib": ["ES2015", "DOM"],
     "moduleResolution": "node",
-    "module": "es6",
+    "module": "esnext",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "types": ["vite/client"]
   },
-  "include": ["index.ts"]
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
 }
