@@ -1,4 +1,10 @@
 import { QrCode } from './QrCode'
+import { Tooltip } from './tooltips';
+import chat from './svgs/chat.svg?url'; 
+import scan from './svgs/scan.svg?url'; 
+import link from './svgs/link.svg?url'; 
+import qrCode from './svgs/qrcode.svg?url'; 
+import iconCopy from './svgs/icon-copy.svg?url'; 
 
 const DEFAULT_REMOTE_URL = 'https://agent.opentiny.design/tiny-robot'
 const DEFAULT_QR_CODE_URL = 'https://ai.opentiny.design/next-remoter'
@@ -11,6 +17,12 @@ export interface MenuItemConfig {
   show?: boolean
   /** 菜单项文本 */
   text?: string
+  /** 菜单文字颜色 */
+  active?: boolean
+  /** 识别码 */
+  know?: boolean  
+  /** 菜单项描述 */
+  desc?: string
   /** 菜单项提示 */
   tip?: string
   /** 菜单项图标SVG */
@@ -42,57 +54,36 @@ const getDefaultMenuItems = (options: FloatingBlockOptions): MenuItemConfig[] =>
     {
       action: 'qr-code',
       show: true,
-      text: '弹出二维码',
-      icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="3" y="3" width="6" height="6" rx="1" stroke="currentColor" stroke-width="2" fill="none"/>
-      <rect x="15" y="3" width="6" height="6" rx="1" stroke="currentColor" stroke-width="2" fill="none"/>
-      <rect x="3" y="15" width="6" height="6" rx="1" stroke="currentColor" stroke-width="2" fill="none"/>
-      <line x1="9" y1="6" x2="9" y2="18" stroke="currentColor" stroke-width="1.5"/>
-      <line x1="15" y1="6" x2="15" y2="18" stroke="currentColor" stroke-width="1.5"/>
-      <line x1="6" y1="9" x2="18" y2="9" stroke="currentColor" stroke-width="1.5"/>
-      <line x1="6" y1="15" x2="18" y2="15" stroke="currentColor" stroke-width="1.5"/>
-      <circle cx="12" cy="12" r="1" fill="currentColor"/>
-    </svg>`
+      text: '扫码登录',
+      desc: '使用手机遥控页面',
+      icon: qrCode
     },
     {
       action: 'ai-chat',
       show: true,
-      text: '弹出 AI 对话框',
-      icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2ZM20 16H6L4 18V4H20V16Z" fill="currentColor"/>
-      <path d="M7 9H17V11H7V9Z" fill="currentColor"/>
-      <path d="M7 12H14V14H7V12Z" fill="currentColor"/>
-    </svg>`
-    },
-    {
-      action: 'remote-control',
-      show: true,
-      text: `识别码：${options.sessionId.slice(-6)}`,
-      showCopyIcon: true,
-      icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2" fill="none"/>
-      <rect x="6" y="6" width="3" height="2" rx="0.5" fill="currentColor"/>
-      <rect x="10" y="6" width="3" height="2" rx="0.5" fill="currentColor"/>
-      <rect x="14" y="6" width="3" height="2" rx="0.5" fill="currentColor"/>
-      <rect x="6" y="9" width="3" height="2" rx="0.5" fill="currentColor"/>
-      <rect x="10" y="9" width="3" height="2" rx="0.5" fill="currentColor"/>
-      <rect x="14" y="9" width="3" height="2" rx="0.5" fill="currentColor"/>
-      <rect x="6" y="12" width="3" height="2" rx="0.5" fill="currentColor"/>
-      <rect x="10" y="12" width="3" height="2" rx="0.5" fill="currentColor"/>
-      <rect x="14" y="12" width="3" height="2" rx="0.5" fill="currentColor"/>
-    </svg>`
+      text: '打开对话框',
+      desc: '支持在网页端操作AI',
+      icon: chat
     },
     {
       action: 'remote-url',
       show: true,
-      text: `${options.remoteUrl}`,
+      text: `遥控器链接`,
+      desc: `${options.remoteUrl}`,
+      active: true,
       tip: options.remoteUrl,
       showCopyIcon: true,
-      icon: `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-    </svg>`
-    }
+      icon: link
+    },
+    {
+      action: 'remote-control',
+      show: true,
+      text: `识别码`,
+      desc: `${options.sessionId.slice(-6)}`,
+      know: true,
+      showCopyIcon: true,
+      icon: scan
+    },
   ]
 }
 
@@ -123,6 +114,27 @@ class FloatingBlock {
     this.menuItems = this.mergeMenuItems(options.menuItems)
 
     this.init()
+  }
+
+  private getImageUrl = (asset: string | undefined): HTMLImageElement | undefined => {
+    if (!asset) return;
+    const img = new Image();
+    img.src = asset;
+    return img;
+  }
+
+  private renderItem = (): void => {
+    this.menuItems
+      .filter((item) => item.show !== false) // 过滤掉show为false的菜单项
+      .map(
+        (item) => {
+          const wrapper = document.getElementById(`tiny-remoter-icon-item-${item.action}`) as HTMLDivElement;
+          if (!wrapper) return;
+          wrapper.innerHTML = '';
+          const img = this.getImageUrl(item.icon);
+          if (img) wrapper.appendChild(img);
+      }
+    );
   }
 
   /**
@@ -169,6 +181,18 @@ class FloatingBlock {
     document.body.appendChild(this.floatingBlock)
   }
 
+  private readyTips = (el: string): void => {
+    const element = document.getElementById(el)
+    if (!element) {
+      return
+    }
+    new Tooltip(element, {
+      content: '复制',
+      placement: 'top',
+      trigger: 'hover'
+    })
+  }
+
   // 创建下拉菜单
   private createDropdownMenu(): void {
     this.dropdownMenu = document.createElement('div')
@@ -180,30 +204,36 @@ class FloatingBlock {
       .map(
         (item) => `
         <div class="tiny-remoter-dropdown-item" data-action="${item.action}">
-          <div class="tiny-remoter-dropdown-item__icon">
-            ${item.icon}
+          <div id="tiny-remoter-icon-item-${item.action}" class="tiny-remoter-dropdown-item__icon">
           </div>
-          <span title="${item.tip}">${item.text}</span>
-          ${
-            item.showCopyIcon
-              ? `
-            <div class="tiny-remoter-copy-icon" data-action="${item.action}">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M16 1H4C2.9 1 2 1.9 2 3V17H4V3H16V1ZM19 5H8C6.9 5 6 5.9 6 7V21C6 22.1 6.9 23 8 23H19C20.1 23 21 22.1 21 21V7C21 5.9 20.1 5 19 5ZM19 21H8V7H19V21Z" fill="currentColor"/>
-              </svg>
+          <div class="tiny-remoter-dropdown-item__content">
+            <div title="${item.tip}">${item.text}</div>
+            <div class="tiny-remoter-dropdown-item__desc-wrapper">
+              <div class="tiny-remoter-dropdown-item__desc ${item.active ? 'tiny-remoter-dropdown-item__desc--active' : ''} ${item.know ? 'tiny-remoter-dropdown-item__desc--know' : ''}">${item.desc}</div>
+              <div>
+                ${item.showCopyIcon
+                     ? `
+                   <div class="tiny-remoter-copy-icon" id="${item.action}" data-action="${item.action}">
+                      <img src="${iconCopy}"/>
+                   </div>
+                 `
+                     : ''
+                }
+              </div>
             </div>
-          `
-              : ''
-          }
+          </div>
         </div>
       `
       )
       .join('')
 
     this.dropdownMenu.innerHTML = menuItemsHTML
-
     document.body.appendChild(this.dropdownMenu)
+    this.renderItem()
+    this.readyTips(`remote-control`)
+    this.readyTips(`remote-url`)
   }
+
 
   private bindEvents(): void {
     // 绑定浮动块点击事件
@@ -531,15 +561,17 @@ class FloatingBlock {
         bottom: 100px;
         right: 30px;
         background: white;
-        border-radius: 16px;
+        border-radius: 18px;
         box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
-        padding: 8px;
+        padding: 24px 24px 0px 24px;
         opacity: 0;
         visibility: hidden;
         transform: translateY(20px) scale(0.95);
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         z-index: 999;
         min-width: 200px;
+        width: 223px;
+        height: auto;
       }
 
       .tiny-remoter-floating-dropdown.show {
@@ -551,12 +583,16 @@ class FloatingBlock {
       .tiny-remoter-dropdown-item {
         display: flex;
         align-items: center;
-        gap: 12px;
-        padding: 12px 16px;
         border-radius: 12px;
         cursor: pointer;
         transition: all 0.2s ease;
         color: #333;
+        margin-bottom: 24px;
+        height: 40px;
+      }
+
+      .tiny-remoter-dropdown-item:last-child {
+        margin-bottom: 32px;
       }
 
       .tiny-remoter-dropdown-item > span {
@@ -567,20 +603,46 @@ class FloatingBlock {
         white-space: nowrap;
       }
 
-      .tiny-remoter-dropdown-item:hover {
-        background: #f8f9fa;
-        transform: translateX(4px);
-      }
-
       .tiny-remoter-dropdown-item__icon {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 32px;
-        height: 32px;
+        width: 40px;
+        height: 40px;
         background: #f8f9fa;
         border-radius: 8px;
         color: #667eea;
+      }
+
+      .tiny-remoter-dropdown-item__content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        overflow: hidden;
+        font-size: 12px;
+        margin-left: 16px;
+      }
+
+      .tiny-remoter-dropdown-item__desc-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .tiny-remoter-dropdown-item__desc {
+        color: #808080;
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+
+      .tiny-remoter-dropdown-item__desc--active {
+        color: #1476ff;
+      }
+
+      .tiny-remoter-dropdown-item__desc--know {
+        color: #191919;
       }
 
       /* 复制图标样式 */
@@ -771,13 +833,6 @@ class FloatingBlock {
           color: white;
         }
 
-        .tiny-remoter-dropdown-item:hover {
-          background: #2a2a2a;
-        }
-
-        .tiny-remoter-dropdown-item__icon {
-          background: #2a2a2a;
-        }
 
         .tiny-remoter-copy-icon {
           background: #2a2a2a;

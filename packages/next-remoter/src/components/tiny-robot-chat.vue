@@ -115,6 +115,10 @@
           @plugin-delete="handlePluginDelete"
           @tool-toggle="handleToolToggle"
         >
+          <template #header-actions>
+            <!-- @vue-ignore -->
+            <slot name="header-actions" />
+          </template>
         </TrMcpServerPicker>
       </div>
     </template>
@@ -599,7 +603,7 @@ const handlePluginAdd = async (plugin: PluginInfo) => {
   }
 
   // 立即注册服务，查询工具
-  const mcpServer = { type: (plugin as any).type, url: (plugin as any).url } as McpServerConfig
+  const mcpServer = { type: (plugin as any).type, url: (plugin as any).url, useAISdkClient: true } as McpServerConfig
   const serverName = `mcp-server-${plugin.id}`
   const inserted = await agent.insertMcpServer(serverName, mcpServer) // 插入时，会自动去重，且initClientAndTools
   if (inserted) {
