@@ -4,6 +4,7 @@ import { SnapshotManager } from './utils/snapshotManager'
 import { formatSnapshot } from './utils/snapshotFormatter'
 import { clickNodeByUid, typeIntoNodeByUid, selectOptionByUid } from './utils/snapshotOperations'
 import { delay, getCurrentTabId } from './utils/utils'
+import { withToolAnimation } from './utils/toolAnimationWrapper'
 
 export const useExtraTools = (server: WebMcpServer) => {
   // 打开新网址
@@ -34,7 +35,8 @@ export const useExtraTools = (server: WebMcpServer) => {
         tabId: z.number().optional().describe('目标标签页 ID，如果不提供则使用当前活动标签页')
       }
     },
-    async ({ tabId }) => {
+    withToolAnimation('getPageInfomation', async ({ tabId }) => {
+      await delay(3000)
       const manager = new SnapshotManager()
       try {
         // 获取当前标签页
@@ -116,7 +118,7 @@ export const useExtraTools = (server: WebMcpServer) => {
       } finally {
         await manager.disconnect()
       }
-    }
+    })
   )
 
   // 获取无障碍树快照（包含 UID）
@@ -132,60 +134,64 @@ export const useExtraTools = (server: WebMcpServer) => {
         verbose: z.boolean().optional().describe('是否包含所有节点（false 时只包含重要节点），默认为 false')
       }
     },
-    async ({ tabId, verbose = false }) => {
-      const manager = new SnapshotManager()
-      try {
-        // 获取当前标签页
-        const currentTabId = tabId || (await getCurrentTabId())
+    withToolAnimation(
+      'takeSnapshot',
+      async ({ tabId, verbose = false }) => {
+        const manager = new SnapshotManager()
+        try {
+          // 获取当前标签页
+          const currentTabId = tabId || (await getCurrentTabId())
 
-        // 连接到标签页
-        await manager.connect(currentTabId)
+          // 连接到标签页
+          await manager.connect(currentTabId)
 
-        // 创建快照
-        const snapshot = await manager.createTextSnapshot(verbose)
+          // 创建快照
+          const snapshot = await manager.createTextSnapshot(verbose)
 
-        console.log(snapshot, 'snapshot')
+          console.log(snapshot, 'snapshot')
 
-        // 格式化快照为文本
-        const formattedSnapshot = formatSnapshot(snapshot)
+          // 格式化快照为文本
+          const formattedSnapshot = formatSnapshot(snapshot)
 
-        // 统计信息
-        const actionableNodes = Array.from(snapshot.idToNode.values()).filter(
-          (n) => n.backendNodeId || n.backendDOMNodeId
-        ).length
+          // 统计信息
+          const actionableNodes = Array.from(snapshot.idToNode.values()).filter(
+            (n) => n.backendNodeId || n.backendDOMNodeId
+          ).length
 
-        let resultText = `已成功获取页面无障碍树快照（快照 ID: ${snapshot.snapshotId}）。\n\n`
-        resultText += `统计信息：\n`
-        resultText += `- 总节点数：${snapshot.idToNode.size}\n`
-        resultText += `- 可操作节点（有 backendNodeId）：${actionableNodes}\n`
-        resultText += `- 详细模式：${verbose ? '是' : '否'}\n\n`
-        resultText += `快照内容：\n\`\`\`\n${formattedSnapshot}\n\`\`\`\n\n`
-        resultText += `提示：您可以使用快照中每个节点的 UID（如 "1_5"）进行后续操作，例如点击、输入文本等。`
+          let resultText = `已成功获取页面无障碍树快照（快照 ID: ${snapshot.snapshotId}）。\n\n`
+          resultText += `统计信息：\n`
+          resultText += `- 总节点数：${snapshot.idToNode.size}\n`
+          resultText += `- 可操作节点（有 backendNodeId）：${actionableNodes}\n`
+          resultText += `- 详细模式：${verbose ? '是' : '否'}\n\n`
+          resultText += `快照内容：\n\`\`\`\n${formattedSnapshot}\n\`\`\`\n\n`
+          resultText += `提示：您可以使用快照中每个节点的 UID（如 "1_5"）进行后续操作，例如点击、输入文本等。`
 
-        return {
-          content: [
-            {
-              type: 'text',
-              text: resultText
-            }
-          ]
+          return {
+            content: [
+              {
+                type: 'text',
+                text: resultText
+              }
+            ]
+          }
+        } catch (error: any) {
+          const errorMessage = error.message || '未知错误'
+          const friendlyMessage = `获取快照失败：${errorMessage}`
+
+          return {
+            content: [
+              {
+                type: 'text',
+                text: friendlyMessage
+              }
+            ]
+          }
+        } finally {
+          await manager.disconnect()
         }
-      } catch (error: any) {
-        const errorMessage = error.message || '未知错误'
-        const friendlyMessage = `获取快照失败：${errorMessage}`
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: friendlyMessage
-            }
-          ]
-        }
-      } finally {
-        await manager.disconnect()
       }
-    }
+      // 不提供 getTabId，装饰器会自动从参数中提取 tabId，如果没有则使用当前活动标签页
+    )
   )
 
   // 点击节点（通过 UID）
@@ -202,7 +208,7 @@ export const useExtraTools = (server: WebMcpServer) => {
         dblClick: z.boolean().optional().describe('是否双击，默认为 false')
       }
     },
-    async ({ tabId, uid, button, dblClick }) => {
+    withToolAnimation('click', async ({ tabId, uid, button, dblClick }) => {
       const manager = new SnapshotManager()
       try {
         // 获取当前标签页
@@ -254,7 +260,7 @@ export const useExtraTools = (server: WebMcpServer) => {
       } finally {
         await manager.disconnect()
       }
-    }
+    })
   )
 
   // 输入文本（通过 UID）
@@ -272,7 +278,7 @@ export const useExtraTools = (server: WebMcpServer) => {
         clearFirst: z.boolean().optional().describe('是否先清空输入框，默认为 true')
       }
     },
-    async ({ tabId, uid, text, clearFirst = true }) => {
+    withToolAnimation('fill', async ({ tabId, uid, text, clearFirst = true }) => {
       const manager = new SnapshotManager()
       try {
         // 获取当前标签页
@@ -320,7 +326,7 @@ export const useExtraTools = (server: WebMcpServer) => {
       } finally {
         await manager.disconnect()
       }
-    }
+    })
   )
 
   // 选择下拉选项（通过 UID）
@@ -336,7 +342,7 @@ export const useExtraTools = (server: WebMcpServer) => {
         optionValue: z.union([z.string(), z.number()]).describe('选项值（字符串）或索引（数字）')
       }
     },
-    async ({ tabId, uid, optionValue }) => {
+    withToolAnimation('selectOption', async ({ tabId, uid, optionValue }) => {
       const manager = new SnapshotManager()
       try {
         // 获取当前标签页
@@ -384,6 +390,6 @@ export const useExtraTools = (server: WebMcpServer) => {
       } finally {
         await manager.disconnect()
       }
-    }
+    })
   )
 }

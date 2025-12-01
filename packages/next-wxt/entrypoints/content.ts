@@ -2,6 +2,7 @@ import PageUI from '@/components/pageUI.vue'
 import { createMcpServer, createProxyMcpServer } from '@/utils/createMcpServer'
 import { createContentProxy } from '@/utils/contentProxy'
 import { getMcpMetaInfo } from '@/mcp-servers'
+import { sendRuntimeMessage } from '@/utils/messages'
 
 export default defineContentScript({
   matches: ['*://*/*'],
@@ -104,7 +105,7 @@ export default defineContentScript({
         position: 'inline',
         anchor: 'body',
         onMount: async (container) => {
-          const app = createApp(PageUI)
+          const app = createApp(PageUI, { tabId })
           app.mount(container)
         }
       })
