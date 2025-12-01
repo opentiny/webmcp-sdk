@@ -1,7 +1,7 @@
 # 工作流名称
-name: Dispatch Publish
+name: Dispatch NextSDK Publish
 # 运行时显示的名称
-run-name: Dispatch Publish
+run-name: Dispatch NextSDK Publish
 
 # 触发条件配置
 on:
@@ -66,11 +66,11 @@ jobs:
         run: pnpm i --no-frozen-lockfile
 
       # 步骤7: 构建组件
-      - name: Run Build Components
+      - name: Run Build NextSDK
         run: pnpm build
 
       # 步骤8: 发布组件到NPM
-      - name: Publish components
+      - name: Publish NextSDK
         run: pnpm -F @opentiny/next-sdk publish --tag ${{ inputs.tag }} --no-git-checks
         env:
           # 使用NPM令牌进行身份验证
