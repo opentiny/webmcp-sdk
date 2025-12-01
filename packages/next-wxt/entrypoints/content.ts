@@ -38,7 +38,6 @@ export default defineContentScript({
           if (mcpMeta.type === 'contentScriptMcpServer') {
             // 编译态在 content-script 中申明 mcp-server 和 tools
             await createProxyMcpServer(tabId)
-            mountPageApp()
             console.log('【Content Script】页面初始化完成（contentScriptMcpServer）', {
               self,
               tabId,
@@ -49,7 +48,7 @@ export default defineContentScript({
             createContentProxy(tabId)
             // 运行时插入 user-script，直接在页面中申明 mcp-server 和 tools
             await initWebTools()
-            mountPageApp()
+
             console.log('【Content Script】页面初始化完成（pageMcpServer）', {
               self,
               tabId,
@@ -63,12 +62,11 @@ export default defineContentScript({
             createContentProxy(tabId)
             // 运行时插入 user-script，直接在页面中申明 mcp-server 和 tools
             await initWebMCP()
-            mountPageApp()
             console.log('【Content Script】页面初始化完成（pageMcpServer）', { self, tabId, hostname, mcpMeta })
           } else if (mcpMeta.type === 'contentScriptMcpServer') {
             // 编译态在 content-script 中申明 mcp-server 和 tools
             await createMcpServer(tabId)
-            mountPageApp()
+
             console.log('【Content Script】页面初始化完成（contentScriptMcpServer）', {
               self,
               tabId,
@@ -80,6 +78,7 @@ export default defineContentScript({
           }
         }
       }
+      mountPageApp()
     }
 
     async function getTabId() {

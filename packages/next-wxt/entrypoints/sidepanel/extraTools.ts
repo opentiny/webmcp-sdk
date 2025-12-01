@@ -3,7 +3,7 @@ import { extractTextFromTree } from './utils/accessibilityTree'
 import { SnapshotManager } from './utils/snapshotManager'
 import { formatSnapshot } from './utils/snapshotFormatter'
 import { clickNodeByUid, typeIntoNodeByUid, selectOptionByUid } from './utils/snapshotOperations'
-import { delay, getCurrentTabId } from './utils/utils'
+import { getCurrentTabId, waitForTabLoad } from './utils/utils'
 import { withToolAnimation } from './utils/toolAnimationWrapper'
 
 export const useExtraTools = (server: WebMcpServer) => {
@@ -19,7 +19,8 @@ export const useExtraTools = (server: WebMcpServer) => {
     },
     async ({ url }) => {
       const createdTab = await browser.tabs.create({ url })
-      await delay(1000)
+      // 等待页面加载完成
+      await waitForTabLoad(createdTab.id!)
       return { content: [{ type: 'text', text: `打开网址成功, tabId: ${createdTab.id}` }] }
     }
   )
@@ -36,7 +37,6 @@ export const useExtraTools = (server: WebMcpServer) => {
       }
     },
     withToolAnimation('getPageInfomation', async ({ tabId }) => {
-      await delay(3000)
       const manager = new SnapshotManager()
       try {
         // 获取当前标签页
