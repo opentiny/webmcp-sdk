@@ -32,18 +32,15 @@ jobs:
         with:
           version: 9
       - name: Install deps
-        run: pnpm -F docs i --no-frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
       - name: Build site
-        run: pnpm -F docs build
+        run: pnpm -F next-docs build
       - name: Setup Pages
         uses: actions/configure-pages@v2
-      - name: Build with Jekyll
-        uses: actions/jekyll-build-pages@v1
-        with:
-          source: ./docs/.vitepress/dist
-          destination: ./_site
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./docs/.vitepress/dist
 
   # Deployment job
   deploy:
