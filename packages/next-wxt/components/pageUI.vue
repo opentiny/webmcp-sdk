@@ -1,25 +1,50 @@
 <script lang="ts" setup>
 import AiSvgReady from '@/assets/logo-next.svg'
 import AiSvgRun from '@/assets/logo-next-eye-open.svg'
+import { onRuntimeMessage, sendRuntimeMessage } from '@/utils/messages'
+
+/** 当前标签页 ID，由父组件传入 */
+const props = defineProps<{
+  tabId: number
+}>()
 
 /** 插件状态：  ready, run */
 const status = defineModel('status', { type: String, default: 'ready' })
 /** 要显示的消息, 目前传入的就是toolName */
 const message = defineModel('message', { type: String, default: '' })
 
+// 处理动画状态更新的通用函数
+const updateAnimationStatus = (data: { status: string; message: string }) => {
+  if (data.status === 'run') {
+    sendRuntimeMessage('focus-current-tab', data, 'content->bg')
+  }
+
+  status.value = data.status
+  message.value = data.message
+  nextTick(() => {
+    const el = document.querySelector('[data-wxt-integrated]')
+    el?.classList.toggle('wxt-ingt-active', status.value === 'run')
+  })
+}
+
+// 监听来自 sidepanel 的 runtime message（工具调用动画）
+onRuntimeMessage(
+  'update-page-app-message',
+  (data) => {
+    // 只处理当前标签页的消息
+    if (data.tabId === props.tabId) {
+      updateAnimationStatus({ status: data.status, message: data.message })
+    }
+  },
+  'side->content',
+  props.tabId
+)
+
+// 监听来自页面的 window message（保持向后兼容）
 onWindowMessage(
   'update-page-app-message',
   (data) => {
-    if (data.status === 'run') {
-      sendRuntimeMessage('focus-current-tab', data, 'content->bg')
-    }
-
-    status.value = data.status
-    message.value = data.message
-    nextTick(() => {
-      const el = document.querySelector('[data-wxt-integrated]')
-      el?.classList.toggle('wxt-ingt-active', status.value === 'run')
-    })
+    updateAnimationStatus(data)
   },
   'page->content'
 )
