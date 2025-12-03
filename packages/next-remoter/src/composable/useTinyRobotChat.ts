@@ -151,7 +151,10 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt, llmConfig
   // 发送消息。 第一次发送，修改会话title
   const handleSendMessage = (inputValue: string, templateDataParam?: any[]) => {
     // 增加 @ 功能， 如果有指定角色，则在这里进行处理， 生成正确的： inputMessage.value 和 最终的系统提示词
+    debugger
     if (templateDataParam && templateDataParam.length > 0) {
+      const skillItems = templateDataParam.filter((data) => data.type === 'skill')
+
       inputMessage.value = templateDataParam
         .map((data) => {
           if (data.type === 'skill') return `@${data.label}`
@@ -159,13 +162,37 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt, llmConfig
         })
         .join(' ')
 
-      const finalPrompt =
-        systemPrompt +
-        templateDataParam
-          .filter((data) => data.type === 'skill')
-          .map((data) => data.value)
-          .join(' ')
-      customAgentProvider.systemPrompt = finalPrompt
+      // 组合提示词：基础提示词 + skill 提示词
+      // skill 对象通过 props 传递，包含 label、value（skill name）和 prompt（提示词内容）
+      const skillPrompts = skillItems
+        .map((item) => {
+          // 优先使用 prompt 字段，如果没有则使用 value（兼容旧格式）
+          return (item as any).prompt || item.value
+        })
+        .filter((prompt) => prompt && typeof prompt === 'string')
+
+      if (skillPrompts.length > 0) {
+        // 组合多个 skill 的提示词
+        let combinedSkillPrompt = ''
+        if (skillPrompts.length === 1) {
+          // 单个 skill，直接使用其提示词
+          combinedSkillPrompt = skillPrompts[0]
+        } else {
+          // 多个 skill，组合为多专家协作模式
+          const skillLabels = skillItems.map((item) => item.label)
+          combinedSkillPrompt = `# 多专家协作模式\n\n你同时具备以下 ${skillPrompts.length} 位专家的能力，请根据用户需求选择合适的专家视角来回答问题：\n\n`
+          skillPrompts.forEach((prompt, index) => {
+            combinedSkillPrompt += `## ${skillLabels[index]}（专家 ${index + 1}）\n\n${prompt}\n\n---\n\n`
+          })
+        }
+
+        // 组合基础提示词和 skill 提示词
+        const finalPrompt = systemPrompt ? `${systemPrompt}\n\n${combinedSkillPrompt}` : combinedSkillPrompt
+        customAgentProvider.systemPrompt = finalPrompt
+      } else {
+        // 没有有效的 skill 提示词，使用基础提示词
+        customAgentProvider.systemPrompt = systemPrompt
+      }
     } else {
       customAgentProvider.systemPrompt = systemPrompt
     }

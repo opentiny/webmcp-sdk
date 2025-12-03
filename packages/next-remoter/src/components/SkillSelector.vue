@@ -4,6 +4,7 @@ import { computed, ref, watch, nextTick } from 'vue'
 export interface SkillOption {
   label: string
   value: string
+  prompt?: string // 可选的提示词内容，用于组合
 }
 
 interface Props {
