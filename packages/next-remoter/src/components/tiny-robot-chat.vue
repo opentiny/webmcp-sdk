@@ -316,7 +316,8 @@ const {
   sessionId: toRef(props, 'sessionId'),
   agentRoot: toRef(props, 'agentRoot'),
   systemPrompt: props.systemPrompt || '',
-  llmConfig: props.llmConfig
+  llmConfig: props.llmConfig,
+  skills: props.skills || [] // 传递 skills 列表给 useTinyRobotChat
 })
 
 /**

@@ -12,13 +12,20 @@ interface useTinyRobotOption {
   agentRoot: Ref<string>
   systemPrompt: string
   llmConfig?: ICustomAgentModelProviderLlmConfig
+  skills?: Array<{ label: string; value: string; prompt?: string }> // 添加 skills 参数
 }
 
 let accmulateText = ''
 let summaryText = ''
 let accmulateMessagesLength: number = 0
 
-export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt, llmConfig }: useTinyRobotOption) => {
+export const useTinyRobotChat = ({
+  sessionId,
+  agentRoot,
+  systemPrompt,
+  llmConfig,
+  skills = []
+}: useTinyRobotOption) => {
   const customAgentProvider = new CustomAgentModelProvider(
     { provider: 'custom' },
     sessionId,
@@ -164,12 +171,23 @@ export const useTinyRobotChat = ({ sessionId, agentRoot, systemPrompt, llmConfig
 
       // 组合提示词：基础提示词 + skill 提示词
       // skill 对象通过 props 传递，包含 label、value（skill name）和 prompt（提示词内容）
+      // 注意：tr-sender 组件可能只传递了部分字段，所以需要从 skills 列表中查找完整的 skill 信息
       const skillPrompts = skillItems
         .map((item) => {
-          // 优先使用 prompt 字段，如果没有则使用 value（兼容旧格式）
-          return (item as any).prompt || item.value
+          // 优先使用 item 中的 prompt 字段
+          if ((item as any).prompt) {
+            return (item as any).prompt
+          }
+          // 如果没有 prompt，从 skills 列表中根据 value（skill name）查找完整的 skill 对象
+          const fullSkill = skills.find((s) => s.value === item.value)
+          if (fullSkill?.prompt) {
+            return fullSkill.prompt
+          }
+          // 如果都没有，返回 value（兼容旧格式，但这种情况不应该发生）
+          console.warn(`[useTinyRobotChat] Skill "${item.value}" 没有找到 prompt，使用 value 作为 fallback`)
+          return item.value
         })
-        .filter((prompt) => prompt && typeof prompt === 'string')
+        .filter((prompt) => prompt && typeof prompt === 'string' && prompt.length > 0)
 
       if (skillPrompts.length > 0) {
         // 组合多个 skill 的提示词

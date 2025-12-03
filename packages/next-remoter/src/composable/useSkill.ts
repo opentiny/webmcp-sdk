@@ -22,6 +22,17 @@ export function useSkill(inputMessage: any, senderRef: any, props: any) {
     showSkillSelector.value = false
     filterText.value = ''
 
+    // 构建完整的 skill 数据，包含 prompt 字段
+    const skillData: any = {
+      type: 'skill',
+      label: skill.label,
+      value: skill.value
+    }
+    // 如果 skill 对象包含 prompt 字段，也保存它
+    if ((skill as any).prompt) {
+      skillData.prompt = (skill as any).prompt
+    }
+
     if (templateData.value.length === 0) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const newData: any[] = []
@@ -30,7 +41,7 @@ export function useSkill(inputMessage: any, senderRef: any, props: any) {
         const beforeAt = atIndex !== -1 ? inputMessage.value.substring(0, atIndex) : inputMessage.value
         if (beforeAt) newData.push({ type: 'text', content: beforeAt })
       }
-      newData.push({ type: 'skill', label: skill.label, value: skill.value })
+      newData.push(skillData)
       newData.push({ type: 'text', content: ' ' })
       templateData.value = newData
       inputMessage.value = ''
@@ -53,7 +64,7 @@ export function useSkill(inputMessage: any, senderRef: any, props: any) {
         } else {
           newData.pop()
         }
-        newData.push({ type: 'skill', label: skill.label, value: skill.value })
+        newData.push(skillData)
         templateData.value = newData
       }
     }
