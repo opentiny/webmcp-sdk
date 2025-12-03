@@ -1,10 +1,6 @@
 import { WebMcpServer, z, createMessageChannelPairTransport } from '@opentiny/next-sdk'
 import { getAllMcpServersByIsAlwaysEnabled } from '@/mcp-servers'
 import { useExtraTools } from './extraTools'
-import { combinePrompts, getToolsForSkills } from '@/skills/skillManager'
-
-// 当前激活的 skill 名称列表
-let activeSkillNames: string[] = []
 
 export const createMcpServer = async () => {
   const [serverTransport, clientTransport] = createMessageChannelPairTransport()
@@ -141,30 +137,11 @@ export const createMcpServer = async () => {
     }
   }
 
-  // 根据激活的 skill 注册对应的工具
-  const registerSkillTools = () => {
-    if (activeSkillNames.length === 0) {
-      return
-    }
-
-    // 获取 skill 需要的工具列表
-    const requiredTools = getToolsForSkills(activeSkillNames)
-    console.log('[Sidepanel MCP] Skill 需要的工具:', requiredTools)
-
-    // 注意：工具已经在 useExtraTools 中注册了，这里只是记录日志
-    // 如果需要动态注册工具，可以在这里实现
-  }
-
-  // 初始注册
-  registerSkillTools()
-
   // 连接服务器到 InMemoryTransport
   await server.connect(serverTransport)
 
   return {
     server,
-    clientTransport,
-    getActiveSkills: () => activeSkillNames,
-    getCombinedPrompt: () => combinePrompts(activeSkillNames)
+    clientTransport
   }
 }

@@ -158,7 +158,6 @@ export const useTinyRobotChat = ({
   // 发送消息。 第一次发送，修改会话title
   const handleSendMessage = (inputValue: string, templateDataParam?: any[]) => {
     // 增加 @ 功能， 如果有指定角色，则在这里进行处理， 生成正确的： inputMessage.value 和 最终的系统提示词
-    debugger
     if (templateDataParam && templateDataParam.length > 0) {
       const skillItems = templateDataParam.filter((data) => data.type === 'skill')
 
