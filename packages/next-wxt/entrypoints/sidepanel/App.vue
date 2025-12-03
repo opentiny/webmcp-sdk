@@ -1,8 +1,7 @@
 <script lang="ts" setup>
-import { ref, type Ref, shallowReactive, computed, onMounted } from 'vue'
+import { ref, type Ref, shallowReactive, computed } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
 import { useBrowserExtensions } from './useBrowserExtensions'
-import { EXCALIDRAW_PROMPT, OFFICE_PROMPT } from '@/utils/prompt'
 import { useWebAgentServer } from './useWebAgentServer'
 import TinyUser from '@opentiny/vue-user'
 import { useCustomMarketMcpServers } from './useCustomMarketMcpServers'
@@ -90,31 +89,13 @@ const llmConfig = {
   }
 }
 
+const allSkills = getAllSkills().map((skill: any) => ({
+  label: skill.meta.label,
+  value: skill.meta.name, // skill 的唯一标识
+  prompt: skill.prompt // 完整的提示词内容，用于组合
+}))
 // 从 skill 系统加载 skill 列表，传递完整的 skill 信息给 remoter
-const skills = ref<Array<{ label: string; value: string; prompt?: string }>>([])
-
-// 初始化 skill 列表
-onMounted(() => {
-  try {
-    const allSkills = getAllSkills()
-    debugger
-    // 将 skill 转换为 remoter 需要的格式
-    // value 存储 skill 的 name，prompt 存储完整的提示词内容
-    skills.value = allSkills.map((skill: any) => ({
-      label: skill.meta.label,
-      value: skill.meta.name, // skill 的唯一标识
-      prompt: skill.prompt // 完整的提示词内容，用于组合
-    }))
-    console.log('[Sidepanel] Skill 列表加载成功:', skills.value.length, '个技能')
-  } catch (error) {
-    console.error('[Sidepanel] Skill 列表加载失败:', error)
-    // 降级到旧的硬编码方式
-    skills.value = [
-      { label: '办公助手', value: 'office', prompt: OFFICE_PROMPT },
-      { label: '画图专家', value: 'excalidraw', prompt: EXCALIDRAW_PROMPT }
-    ]
-  }
-})
+const skills = ref<Array<{ label: string; value: string; prompt?: string }>>(allSkills)
 
 const remoterRef = ref() as Ref<InstanceType<typeof TinyRemoter>>
 useBrowserExtensions(remoterRef)
