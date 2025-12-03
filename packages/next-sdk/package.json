@@ -27,13 +27,14 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.16.0",
     "@opentiny/next": "^0.3.1",
-    "@ai-sdk/openai": "^2.0.0",
-    "@ai-sdk/deepseek": "^1.0.7",
+    "@ai-sdk/openai": "^2.0.76",
+    "@ai-sdk/deepseek": "^1.0.31",
     "@ai-sdk/provider": "^2.0.0",
+    "@ai-sdk/mcp": "^0.0.11",
     "qrcode": "^1.5.4",
-    "zod": "^3.23.8",
+    "zod": "^3.25.76",
     "ajv": "^8.17.1",
-    "ai": "5.0.76"
+    "ai": "5.0.106"
   },
   "devDependencies": {
     "typescript": "^5.2.2",

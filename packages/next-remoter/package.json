@@ -31,13 +31,13 @@
     "@opentiny/tiny-robot-svgs": "0.3.1-alpha.2",
     "@opentiny/vue": "^3.25.0",
     "@opentiny/vue-icon": "^3.25.0",
-    "ai": "5.0.76",
+    "ai": "5.0.106",
     "dayjs": "^1.11.15",
     "eval5": "^1.4.8",
     "html5-qrcode": "^2.3.8",
     "vant": "^4.9.21",
     "vue": "^3.3.11",
-    "zod": "^3.23.8"
+    "zod": "^3.25.76"
   },
   "devDependencies": {
     "@opentiny/unplugin-tiny-vue": "^1.0.0",
