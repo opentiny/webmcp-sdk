@@ -308,7 +308,6 @@ export const useExtraTools = (server: WebMcpServer) => {
     withToolAnimation('click', async ({ tabId, uid, button, dblClick }) => {
       // 获取当前标签页
       const currentTabId = tabId || (await getCurrentTabId())
-
       // 从连接池获取管理器（连接会被复用，不会频繁断开）
       const manager = await snapshotManagerPool.getManager(currentTabId)
       try {
