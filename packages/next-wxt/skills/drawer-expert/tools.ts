@@ -1,12 +1,15 @@
 /**
  * 设计专家需要的 MCP 工具列表
  * 这些工具将在激活该 skill 时自动注册
+ * 根据所需域名从 mcp-servers 中动态获取工具
  */
-export default [
-  'openUrl', // 打开设计工具或参考网站
-  'takeSnapshot', // 获取页面快照，查看设计效果
-  'click', // 点击页面元素，测试交互
-  'type', // 输入文本内容
-  'selectOption' // 选择设计选项
-]
+import { getToolsByDomains } from '../utils/getToolsByDomains'
+import meta from './meta'
 
+// 定义该 skill 需要的域名列表
+const requiredDomains = meta.requiredDomains
+
+// 根据域名动态获取工具列表
+const tools = getToolsByDomains(requiredDomains)
+
+export default tools

@@ -12,7 +12,7 @@ interface useTinyRobotOption {
   agentRoot: Ref<string>
   systemPrompt: string
   llmConfig?: ICustomAgentModelProviderLlmConfig
-  skills?: Array<{ label: string; value: string; prompt?: string }> // 添加 skills 参数
+  skills?: Array<{ label: string; value: string; prompt?: string; tools?: string[] }> // 添加 skills 参数，tools 字段用于指定该 skill 需要的工具列表
 }
 
 let accmulateText = ''
@@ -155,70 +155,181 @@ export const useTinyRobotChat = ({
   }
   const senderRef = ref<InstanceType<typeof TrSender>>()
 
+  /**
+   * 检查工具是否已加载和启用
+   * @param toolName 工具名称
+   * @returns 工具是否可用（已加载且已启用）
+   */
+  const isToolAvailable = (toolName: string): boolean => {
+    // 检查工具是否存在于任何 mcpTools 中
+    for (const serverName in customAgentProvider.agent.mcpTools) {
+      const serverTools = customAgentProvider.agent.mcpTools[serverName]
+      if (serverTools && serverTools[toolName]) {
+        // 检查工具是否被禁用（在 ignoreToolnames 中）
+        return !customAgentProvider.agent.ignoreToolnames.includes(toolName)
+      }
+    }
+    return false
+  }
+
+  /**
+   * 检查 skill 对应的工具是否已加载和启用
+   * @param skillItems skill 项列表
+   * @returns Promise<boolean> 如果有缺失的工具，返回用户的选择：true 表示阻止发送，false 表示仍然发送；如果没有缺失工具，返回 false
+   */
+  const checkSkillToolsAvailability = async (skillItems: any[]): Promise<boolean> => {
+    if (skillItems.length === 0) return false
+
+    const missingTools: Array<{ skillLabel: string; toolNames: string[] }> = []
+
+    for (const skillItem of skillItems) {
+      // 从 skills 列表中查找完整的 skill 信息
+      const fullSkill = skills.find((s) => s.value === skillItem.value)
+
+      // 如果 skill 定义了需要的工具列表
+      if (fullSkill?.tools && fullSkill.tools.length > 0) {
+        const unavailableTools: string[] = []
+
+        // 检查每个工具是否已加载和启用
+        for (const toolName of fullSkill.tools) {
+          if (!isToolAvailable(toolName)) {
+            unavailableTools.push(toolName)
+          }
+        }
+
+        // 如果有不可用的工具，记录到 missingTools
+        if (unavailableTools.length > 0) {
+          missingTools.push({
+            skillLabel: skillItem.label || fullSkill.label,
+            toolNames: unavailableTools
+          })
+        }
+      }
+    }
+
+    // 如果有缺失的工具，显示确认对话框
+    if (missingTools.length > 0) {
+      const toolMessages = missingTools
+        .map((item) => {
+          return `${item.skillLabel} 需要以下工具：${item.toolNames.join('、')}`
+        })
+        .join('\n')
+
+      try {
+        await showConfirmDialog({
+          title: '工具未准备好',
+          message: `无法发送消息：\n${toolMessages}\n\n请先加载或启用对应的工具。\n\n是否仍然发送？`,
+          confirmButtonText: '仍然发送',
+          cancelButtonText: '确定',
+          showCancelButton: true
+        })
+        // 用户点击了"仍然发送"，返回 false 表示不阻止发送
+        return false
+      } catch {
+        // 用户点击了"确定"或关闭对话框，返回 true 表示阻止发送
+        return true
+      }
+    }
+
+    return false
+  }
+
+  /**
+   * 从 templateDataParam 构建输入消息
+   * @param templateDataParam 模板数据参数
+   * @returns 构建好的输入消息字符串
+   */
+  const buildInputMessage = (templateDataParam: any[]): string => {
+    return templateDataParam
+      .map((data) => {
+        if (data.type === 'skill') return `@${data.label}`
+        if (data.type === 'text') return data.content
+      })
+      .join(' ')
+  }
+
+  /**
+   * 从 skillItems 中提取提示词数组
+   * @param skillItems skill 项列表
+   * @returns 提示词字符串数组
+   */
+  const extractSkillPrompts = (skillItems: any[]): string[] => {
+    return skillItems
+      .map((item) => {
+        // 优先使用 item 中的 prompt 字段
+        if ((item as any).prompt) {
+          return (item as any).prompt
+        }
+        // 如果没有 prompt，从 skills 列表中根据 value（skill name）查找完整的 skill 对象
+        const fullSkill = skills.find((s) => s.value === item.value)
+        if (fullSkill?.prompt) {
+          return fullSkill.prompt
+        }
+        // 如果都没有，返回 value（兼容旧格式，但这种情况不应该发生）
+        console.warn(`[useTinyRobotChat] Skill "${item.value}" 没有找到 prompt，使用 value 作为 fallback`)
+        return item.value
+      })
+      .filter((prompt) => prompt && typeof prompt === 'string' && prompt.length > 0)
+  }
+
+  /**
+   * 组合基础提示词和 skill 提示词
+   * @param skillPrompts skill 提示词数组
+   * @param skillItems skill 项列表（用于获取 label）
+   */
+  const combineSystemPrompt = (skillPrompts: string[], skillItems: any[]): void => {
+    if (skillPrompts.length > 0) {
+      // 组合多个 skill 的提示词
+      let combinedSkillPrompt = ''
+      if (skillPrompts.length === 1) {
+        // 单个 skill，直接使用其提示词
+        combinedSkillPrompt = skillPrompts[0]
+      } else {
+        // 多个 skill，组合为多专家协作模式
+        const skillLabels = skillItems.map((item) => item.label)
+        combinedSkillPrompt = `# 多专家协作模式\n\n你同时具备以下 ${skillPrompts.length} 位专家的能力，请根据用户需求选择合适的专家视角来回答问题：\n\n`
+        skillPrompts.forEach((prompt, index) => {
+          combinedSkillPrompt += `## ${skillLabels[index]}（专家 ${index + 1}）\n\n${prompt}\n\n---\n\n`
+        })
+      }
+
+      // 组合基础提示词和 skill 提示词
+      const finalPrompt = systemPrompt ? `${systemPrompt}\n\n${combinedSkillPrompt}` : combinedSkillPrompt
+      customAgentProvider.systemPrompt = finalPrompt
+    } else {
+      // 没有有效的 skill 提示词，使用基础提示词
+      customAgentProvider.systemPrompt = systemPrompt
+    }
+  }
+
   // 发送消息。 第一次发送，修改会话title
-  const handleSendMessage = (inputValue: string, templateDataParam?: any[]) => {
+  // 返回值：Promise<boolean> true 表示成功发送，false 表示被阻止（工具未准备好）
+  const handleSendMessage = async (_inputValue: string, templateDataParam?: any[]): Promise<boolean> => {
     // 增加 @ 功能， 如果有指定角色，则在这里进行处理， 生成正确的： inputMessage.value 和 最终的系统提示词
     if (templateDataParam && templateDataParam.length > 0) {
       const skillItems = templateDataParam.filter((data) => data.type === 'skill')
 
-      inputMessage.value = templateDataParam
-        .map((data) => {
-          if (data.type === 'skill') return `@${data.label}`
-          if (data.type === 'text') return data.content
-        })
-        .join(' ')
-
-      // 组合提示词：基础提示词 + skill 提示词
-      // skill 对象通过 props 传递，包含 label、value（skill name）和 prompt（提示词内容）
-      // 注意：tr-sender 组件可能只传递了部分字段，所以需要从 skills 列表中查找完整的 skill 信息
-      const skillPrompts = skillItems
-        .map((item) => {
-          // 优先使用 item 中的 prompt 字段
-          if ((item as any).prompt) {
-            return (item as any).prompt
-          }
-          // 如果没有 prompt，从 skills 列表中根据 value（skill name）查找完整的 skill 对象
-          const fullSkill = skills.find((s) => s.value === item.value)
-          if (fullSkill?.prompt) {
-            return fullSkill.prompt
-          }
-          // 如果都没有，返回 value（兼容旧格式，但这种情况不应该发生）
-          console.warn(`[useTinyRobotChat] Skill "${item.value}" 没有找到 prompt，使用 value 作为 fallback`)
-          return item.value
-        })
-        .filter((prompt) => prompt && typeof prompt === 'string' && prompt.length > 0)
-
-      if (skillPrompts.length > 0) {
-        // 组合多个 skill 的提示词
-        let combinedSkillPrompt = ''
-        if (skillPrompts.length === 1) {
-          // 单个 skill，直接使用其提示词
-          combinedSkillPrompt = skillPrompts[0]
-        } else {
-          // 多个 skill，组合为多专家协作模式
-          const skillLabels = skillItems.map((item) => item.label)
-          combinedSkillPrompt = `# 多专家协作模式\n\n你同时具备以下 ${skillPrompts.length} 位专家的能力，请根据用户需求选择合适的专家视角来回答问题：\n\n`
-          skillPrompts.forEach((prompt, index) => {
-            combinedSkillPrompt += `## ${skillLabels[index]}（专家 ${index + 1}）\n\n${prompt}\n\n---\n\n`
-          })
-        }
-
-        // 组合基础提示词和 skill 提示词
-        const finalPrompt = systemPrompt ? `${systemPrompt}\n\n${combinedSkillPrompt}` : combinedSkillPrompt
-        customAgentProvider.systemPrompt = finalPrompt
-      } else {
-        // 没有有效的 skill 提示词，使用基础提示词
-        customAgentProvider.systemPrompt = systemPrompt
+      // 检查 skill 对应的工具是否已加载和启用，如果有缺失则显示确认对话框
+      const shouldBlock = await checkSkillToolsAvailability(skillItems)
+      if (shouldBlock) {
+        return false // 用户选择取消，阻止发送消息
       }
-    } else {
-      customAgentProvider.systemPrompt = systemPrompt
+
+      // 构建输入消息
+      inputMessage.value = buildInputMessage(templateDataParam)
+
+      // 提取并组合 skill 提示词
+      const skillPrompts = extractSkillPrompts(skillItems)
+      combineSystemPrompt(skillPrompts, skillItems)
     }
 
+    // 第一次发送时，修改会话标题
     const conv = getCurrentConversation()
     if (conv && conv.title === '新会话') {
       updateTitle(conv.id, inputMessage.value.slice(0, 15))
     }
     sendMessage(inputMessage.value)
+    return true // 成功发送
   }
 
   const handleCreateConversation = () => {

@@ -150,7 +150,7 @@ import { SchemaRenderer, RENDERER_SETTINGS_KEY } from '@opentiny/genui-sdk-vue'
 import { GeneratingStatus, STATUS } from '@opentiny/tiny-robot-kit'
 import { IconNewSession, IconPlugin, IconHistory } from '@opentiny/tiny-robot-svgs'
 import { useTinyRobotChat } from '../composable/useTinyRobotChat'
-import { toRef, computed, ref, onMounted, markRaw, h, watch, provide } from 'vue'
+import { toRef, computed, ref, onMounted, markRaw, h, watch, provide, nextTick } from 'vue'
 import { createRemoter, McpServerConfig } from '@opentiny/next-sdk'
 import QrCodeScan from './qr-code-scan.vue'
 import { DEFAULT_SERVERS } from './default-mcps'
@@ -389,7 +389,22 @@ const handleSendMessageCustom = async (inputValue: string, templateDataParam?: a
 
     inputMessage.value = ''
   } else {
-    handleSendMessage(inputValue, templateDataParam)
+    // 保存当前的 templateData，以便在工具检查失败时恢复
+    // 优先使用 templateDataParam（tr-sender 传递的），如果没有则使用 templateData.value
+    const savedTemplateData = templateDataParam
+      ? [...templateDataParam]
+      : templateData.value.length > 0
+        ? [...templateData.value]
+        : undefined
+    const success = await handleSendMessage(inputValue, templateDataParam)
+
+    // 如果工具检查失败，恢复 templateData，避免输入框被清空
+    if (!success && savedTemplateData) {
+      // 使用 nextTick 确保在 tr-sender 组件清空后再恢复
+      nextTick(() => {
+        templateData.value = savedTemplateData
+      })
+    }
   }
 }
 
