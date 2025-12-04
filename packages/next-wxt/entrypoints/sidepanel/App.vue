@@ -2,7 +2,6 @@
 import { ref, type Ref, shallowReactive, computed } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
 import { useBrowserExtensions } from './useBrowserExtensions'
-import { EXCALIDRAW_PROMPT, OFFICE_PROMPT } from '@/utils/prompt'
 import { useWebAgentServer } from './useWebAgentServer'
 import TinyUser from '@opentiny/vue-user'
 import { useCustomMarketMcpServers } from './useCustomMarketMcpServers'
@@ -10,6 +9,7 @@ import { TrSuggestionPillButton, TrDropdownMenu } from '@opentiny/tiny-robot'
 import { AGENT_ROOT, ROBOT_URL } from './const'
 import { useGenerateCode } from './useGenerateCode'
 import RecordModal from './components/RecordModal.vue'
+import { getAllSkills } from '@/skills'
 
 const llmConfig = {
   apiKey: import.meta.env.VITE_LLM_API_KEY,
@@ -89,10 +89,14 @@ const llmConfig = {
   }
 }
 
-const skills = ref([
-  { label: '办公助手', value: OFFICE_PROMPT },
-  { label: '画图专家', value: EXCALIDRAW_PROMPT }
-])
+const allSkills = getAllSkills().map((skill: any) => ({
+  label: skill.meta.label,
+  value: skill.meta.name, // skill 的唯一标识
+  prompt: skill.prompt, // 完整的提示词内容，用于组合
+  tools: skill.tools || [] // 该 skill 需要的 MCP 工具名称列表
+}))
+// 从 skill 系统加载 skill 列表，传递完整的 skill 信息给 remoter
+const skills = ref<Array<{ label: string; value: string; prompt?: string; tools?: string[] }>>(allSkills)
 
 const remoterRef = ref() as Ref<InstanceType<typeof TinyRemoter>>
 useBrowserExtensions(remoterRef)

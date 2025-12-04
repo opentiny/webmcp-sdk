@@ -140,5 +140,8 @@ export const createMcpServer = async () => {
   // 连接服务器到 InMemoryTransport
   await server.connect(serverTransport)
 
-  return { server, clientTransport }
+  return {
+    server,
+    clientTransport
+  }
 }

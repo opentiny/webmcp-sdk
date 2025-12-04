@@ -4,6 +4,8 @@ import { computed, ref, watch, nextTick } from 'vue'
 export interface SkillOption {
   label: string
   value: string
+  prompt?: string // 可选的提示词内容，用于组合
+  tools?: string[] // 该 skill 需要的 MCP 工具名称列表（可选）
 }
 
 interface Props {
