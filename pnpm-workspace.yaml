@@ -3,7 +3,7 @@ packages:
   - docs
 
 catalog:
-  "@ai-sdk/deepseek": ^1.0.31
+  "@ai-sdk/deepseek": ^1.0.28
   "@ai-sdk/mcp": ^0.0.11
   "@ai-sdk/openai": ^2.0.76
   "@ai-sdk/provider": ^2.0.0
@@ -31,10 +31,11 @@ catalog:
   "@opentiny/unplugin-tiny-vue": ^1.0.0
 
   # tinyVue
-  "@opentiny/vue": 3.27.0
-  "@opentiny/vue-common": 3.27.0
-  "@opentiny/vue-icon": 3.27.0
-  "@opentiny/vue-locale": 3.27.0
+  "@opentiny/vue": ^3.27.0
+  "@opentiny/vue-common": ^3.27.0
+  "@opentiny/vue-icon": ^3.27.0
+  "@opentiny/vue-locale": ^3.27.0
+  "@opentiny/vue-theme": ^3.27.0
   "@opentiny/vue-vite-import": ^1.4.0
 
   "@tdesign-vue-next/chat": ^0.4.6
