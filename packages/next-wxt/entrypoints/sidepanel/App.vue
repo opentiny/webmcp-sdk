@@ -16,7 +16,7 @@ const llmConfig = {
   baseURL: import.meta.env.VITE_LLM_BASE_URL,
   providerType: import.meta.env.VITE_LLM_PROVIDER_TYPE,
   model: import.meta.env.VITE_LLM_MODEL,
-  maxSteps: 15,
+  maxSteps: 300,
   providerOptions: {
     deepseek: {
       'prompt': {
