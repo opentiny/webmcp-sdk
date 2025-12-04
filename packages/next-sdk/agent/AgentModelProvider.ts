@@ -1,5 +1,8 @@
 import { streamText, stepCountIs, generateText, StreamTextResult } from 'ai'
-import { experimental_MCPClientConfig as MCPClientConfig, experimental_createMCPClient as createMCPClient } from 'ai'
+import {
+  experimental_MCPClientConfig as MCPClientConfig,
+  experimental_createMCPClient as createMCPClient
+} from '@ai-sdk/mcp'
 import type { ToolSet } from 'ai'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'

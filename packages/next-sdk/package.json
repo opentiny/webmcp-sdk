@@ -25,21 +25,22 @@
     "build:webMcpFull:dev": "vite build --config vite.config.webMcpFull.ts --mode dev"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.16.0",
-    "@opentiny/next": "^0.3.1",
-    "@ai-sdk/openai": "^2.0.0",
-    "@ai-sdk/deepseek": "^1.0.7",
-    "@ai-sdk/provider": "^2.0.0",
-    "qrcode": "^1.5.4",
-    "zod": "^3.23.8",
-    "ajv": "^8.17.1",
-    "ai": "5.0.76"
+    "@modelcontextprotocol/sdk": "catalog:",
+    "@opentiny/next": "catalog:",
+    "@ai-sdk/openai": "catalog:",
+    "@ai-sdk/deepseek": "catalog:",
+    "@ai-sdk/provider": "catalog:",
+    "@ai-sdk/mcp": "catalog:",
+    "qrcode": "catalog:",
+    "zod": "catalog:",
+    "ajv": "catalog:",
+    "ai": "catalog:"
   },
   "devDependencies": {
-    "typescript": "^5.2.2",
-    "vite": "^5.0.8",
-    "vite-plugin-dts": "^3.9.1",
-    "@types/qrcode": "^1.5.5",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plugin-dts": "catalog:",
+    "@types/qrcode": "catalog:",
     "@types/node": "^24.3.0"
   },
   "publishConfig": {
