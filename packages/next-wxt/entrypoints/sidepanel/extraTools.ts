@@ -26,6 +26,67 @@ function checkSnapshotExists(manager: SnapshotManager): { content: Array<{ type:
 }
 
 /**
+ * 格式化快照结果为文本
+ * @param snapshot 快照对象
+ * @param formattedSnapshot 格式化后的快照文本
+ * @param options 选项
+ * @returns 格式化的结果文本
+ */
+function formatSnapshotResult(
+  snapshot: Snapshot,
+  formattedSnapshot: string,
+  options?: {
+    prefixMessage?: string // 前缀消息（如成功消息）
+    verbose?: boolean // 是否详细模式
+    includeUidExample?: boolean // 是否包含 UID 示例
+  }
+): string {
+  // 计算可操作节点数量
+  const actionableNodes = Array.from(snapshot.idToNode.values()).filter(
+    (n) => n.backendNodeId || n.backendDOMNodeId
+  ).length
+
+  let resultText = ''
+
+  // 添加前缀消息（如果有）
+  if (options?.prefixMessage) {
+    resultText += `${options.prefixMessage}\n\n`
+  }
+
+  // 添加快照标题和统计信息
+  const snapshotTitle = options?.prefixMessage
+    ? `操作后的页面快照（快照 ID: ${snapshot.snapshotId}）`
+    : `已成功获取页面无障碍树快照（快照 ID: ${snapshot.snapshotId}）`
+  resultText += `${snapshotTitle}。\n\n`
+  resultText += `统计信息：\n`
+  resultText += `- 总节点数：${snapshot.idToNode.size}\n`
+  resultText += `- 可操作节点（有 backendNodeId）：${actionableNodes}\n`
+
+  // 如果提供了 verbose 选项，添加详细模式信息
+  if (options?.verbose !== undefined) {
+    resultText += `- 详细模式：${options.verbose ? '是' : '否'}\n`
+  }
+
+  resultText += `\n`
+  resultText += `快照内容：\n\`\`\`\n${formattedSnapshot}\n\`\`\`\n\n`
+
+  // 添加 UID 提示（如果需要）
+  if (options?.includeUidExample !== false) {
+    const uidExample = options?.prefixMessage ? `"${snapshot.snapshotId}_5"` : `"1_5"`
+    resultText += `提示：您可以使用快照中每个节点的 UID（如 ${uidExample}）进行后续操作`
+    if (options?.prefixMessage) {
+      resultText += '。'
+    } else {
+      resultText += '，例如点击、输入文本等。'
+    }
+  }
+
+  console.log(resultText, 'resultText')
+
+  return resultText
+}
+
+/**
  * 获取操作后的最新快照并格式化为返回结果
  * @param manager 快照管理器
  * @param successMessage 操作成功的消息
@@ -39,17 +100,11 @@ async function getLatestSnapshotAfterOperation(
   const newSnapshot = await manager.createTextSnapshot(false)
   const formattedSnapshot = formatSnapshot(newSnapshot)
 
-  // 统计信息
-  const actionableNodes = Array.from(newSnapshot.idToNode.values()).filter(
-    (n) => n.backendNodeId || n.backendDOMNodeId
-  ).length
-
-  let resultText = `${successMessage}\n\n`
-  resultText += `操作后的页面快照（快照 ID: ${newSnapshot.snapshotId}）：\n`
-  resultText += `- 总节点数：${newSnapshot.idToNode.size}\n`
-  resultText += `- 可操作节点（有 backendNodeId）：${actionableNodes}\n\n`
-  resultText += `快照内容：\n\`\`\`\n${formattedSnapshot}\n\`\`\`\n\n`
-  resultText += `提示：您可以使用快照中每个节点的 UID（如 "${newSnapshot.snapshotId}_5"）进行后续操作。`
+  // 使用公共函数格式化结果
+  const resultText = formatSnapshotResult(newSnapshot, formattedSnapshot, {
+    prefixMessage: successMessage,
+    includeUidExample: true
+  })
 
   return {
     content: [
@@ -203,20 +258,11 @@ export const useExtraTools = (server: WebMcpServer) => {
         // 格式化快照为文本
         const formattedSnapshot = formatSnapshot(snapshot)
 
-        // 统计信息
-        const actionableNodes = Array.from(snapshot.idToNode.values()).filter(
-          (n) => n.backendNodeId || n.backendDOMNodeId
-        ).length
-
-        let resultText = `已成功获取页面无障碍树快照（快照 ID: ${snapshot.snapshotId}）。\n\n`
-        resultText += `统计信息：\n`
-        resultText += `- 总节点数：${snapshot.idToNode.size}\n`
-        resultText += `- 可操作节点（有 backendNodeId）：${actionableNodes}\n`
-        resultText += `- 详细模式：${verbose ? '是' : '否'}\n\n`
-        resultText += `快照内容：\n\`\`\`\n${formattedSnapshot}\n\`\`\`\n\n`
-        resultText += `提示：您可以使用快照中每个节点的 UID（如 "1_5"）进行后续操作，例如点击、输入文本等。`
-
-        console.log(resultText, 'resultText')
+        // 使用公共函数格式化结果
+        const resultText = formatSnapshotResult(snapshot, formattedSnapshot, {
+          verbose,
+          includeUidExample: true
+        })
 
         return {
           content: [
