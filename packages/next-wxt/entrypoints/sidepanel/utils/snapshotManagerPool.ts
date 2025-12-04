@@ -13,7 +13,7 @@ class SnapshotManagerPool {
   private initialized = false
 
   /**
-   * 初始化连接池，注册标签页关闭监听器
+   * 初始化连接池，注册标签页关闭监听器和调试器断开监听器
    */
   private init() {
     if (this.initialized) {
@@ -28,7 +28,48 @@ class SnapshotManagerPool {
       }
     })
 
+    // 监听调试器断开事件，当用户手动关闭调试器时自动清理连接
+    // 这解决了用户手动点击调试器关闭/取消按钮后，连接池仍然认为连接有效的问题
+    browser.debugger.onDetach.addListener(async (source, reason) => {
+      // source 是一个 Debuggee 对象，包含 tabId 属性
+      const tabId = source.tabId
+      if (tabId !== undefined && this.managers.has(tabId)) {
+        console.log(`标签页 ${tabId} 的调试器已断开（原因: ${reason}），自动清理连接池中的连接`)
+        try {
+          await this.disconnect(tabId)
+        } catch (error) {
+          console.error(`清理标签页 ${tabId} 的连接时出错:`, error)
+        }
+      }
+    })
+
     this.initialized = true
+  }
+
+  /**
+   * 检查连接是否仍然有效（通过实际调用 CDP 命令验证）
+   * @param manager SnapshotManager 实例
+   * @returns 连接是否有效
+   */
+  private async isConnectionValid(manager: SnapshotManager): Promise<boolean> {
+    const page = manager.getPage()
+    if (!page) {
+      return false
+    }
+
+    try {
+      // 尝试执行一个轻量级的 CDP 命令来验证连接是否真的可用
+      // 使用 Runtime.evaluate 是一个轻量级且可靠的方法
+      await page.evaluate(() => {
+        // 简单的验证，不执行任何实际操作
+        return true
+      })
+      return true
+    } catch (error) {
+      // 如果调用失败，说明连接已断开
+      console.warn(`[连接池] 连接验证失败:`, error)
+      return false
+    }
   }
 
   /**
@@ -43,17 +84,18 @@ class SnapshotManagerPool {
     // 如果已存在连接，检查连接是否仍然有效
     if (this.managers.has(tabId)) {
       const manager = this.managers.get(tabId)!
-      const page = manager.getPage()
 
-      // 检查连接是否仍然有效（通过检查 page 对象是否存在）
-      if (page) {
+      // 使用实际 CDP 调用验证连接是否真的有效
+      // 这比仅仅检查 page 对象是否存在更可靠
+      const isValid = await this.isConnectionValid(manager)
+      if (isValid) {
         // 连接有效，增加引用计数并返回
         const currentRefCount = this.refCounts.get(tabId) || 0
         this.refCounts.set(tabId, currentRefCount + 1)
         console.log(`[连接池] 标签页 ${tabId} 复用现有连接，引用计数: ${currentRefCount + 1}`)
         return manager
       } else {
-        // 连接已断开，清理并重新创建
+        // 连接已断开（可能是用户手动关闭了调试器），清理并重新创建
         console.warn(`[连接池] 标签页 ${tabId} 的连接已断开，重新创建连接`)
         this.managers.delete(tabId)
         this.refCounts.delete(tabId)
