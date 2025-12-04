@@ -6,6 +6,56 @@
 
 mcp-servers 是 AI Extension 浏览器扩展的核心功能模块，它允许你为特定的网站域名注册 MCP（Model Context Protocol）工具。当用户访问匹配的网站时，这些工具可以被 AI 助手调用，实现对网页的操作和控制。
 
+## 前置准备
+
+在开始开发 mcp-server 工具之前，你需要先获取项目代码并完成环境配置。
+
+### Fork 仓库
+
+1. 访问 [next-sdk 仓库](https://github.com/opentiny/next-sdk)
+2. 点击右上角的 "Fork" 按钮，将仓库 Fork 到你的 GitHub 账号
+
+### Clone 仓库
+
+Fork 完成后，将仓库克隆到本地：
+
+```bash
+# 克隆你 Fork 的仓库（将 YOUR_USERNAME 替换为你的 GitHub 用户名）
+git clone https://github.com/YOUR_USERNAME/next-sdk.git
+
+# 或者使用 SSH（如果你配置了 SSH 密钥）
+git clone git@github.com:YOUR_USERNAME/next-sdk.git
+
+# 进入项目目录
+cd next-sdk
+```
+
+### 安装依赖
+
+项目使用 pnpm 作为包管理器，请先确保已安装 pnpm：
+
+```bash
+# 如果未安装 pnpm，可以使用 npm 安装
+npm install -g pnpm
+
+# 安装项目依赖
+pnpm install
+```
+
+### 配置上游仓库（可选）
+
+为了保持与主仓库同步，建议添加上游仓库：
+
+```bash
+# 添加上游仓库
+git remote add upstream https://github.com/opentiny/next-sdk.git
+
+# 验证远程仓库配置
+git remote -v
+```
+
+完成以上步骤后，你就可以开始开发 mcp-server 工具了。
+
 ## 浏览器版本要求
 
 由于扩展使用了 `userScripts` API，需要以下最低浏览器版本：
@@ -591,79 +641,6 @@ try {
 - 域名必须完全匹配，例如 `www.baidu.com` 不能匹配 `baidu.com`
 - 系统会自动处理子域名，例如 `subdomain.example.com` 会匹配 `example.com` 目录（如果存在）
 
-## 调试技巧
-
-### 1. 查看工具是否加载
-
-在浏览器控制台中查看日志：
-
-```javascript
-// 如果工具加载成功，会输出：
-找到匹配的 MCP 工具配置，正在注册...
-
-// 如果工具未加载，会输出：
-当前域名没有配置 MCP 工具
-```
-
-### 2. 测试工具注册
-
-在工具注册函数中添加日志：
-
-```typescript
-export default ({ server, z }) => {
-  console.log('工具注册函数被调用')
-  
-  server.registerTool(
-    'test-tool',
-    {
-      title: '测试工具',
-      description: '用于测试的工具',
-      inputSchema: {}
-    },
-    async () => {
-      console.log('工具被执行')
-      return {
-        content: [{ type: 'text', text: '测试成功' }]
-      }
-    }
-  )
-  
-  console.log('工具注册完成')
-}
-```
-
-### 3. 检查 DOM 元素
-
-在工具中使用 `document.querySelector` 检查元素是否存在：
-
-```typescript
-server.registerTool(
-  'check-element',
-  {
-    title: '检查元素',
-    description: '检查指定元素是否存在',
-    inputSchema: {
-      selector: z.string().describe('CSS 选择器')
-    }
-  },
-  async ({ selector }) => {
-    const element = document.querySelector(selector)
-    if (element) {
-      return {
-        content: [{ 
-          type: 'text', 
-          text: `元素存在: ${element.tagName}` 
-        }]
-      }
-    } else {
-      return {
-        content: [{ type: 'text', text: '元素不存在' }]
-      }
-    }
-  }
-)
-```
-
 ## 最佳实践
 
 ### 1. 工具命名
@@ -696,63 +673,6 @@ server.registerTool(
 - 不要在处理函数中执行危险的 DOM 操作
 - 验证用户输入，防止 XSS 攻击
 - 谨慎使用 `eval` 或 `Function` 构造函数
-
-## 常见问题
-
-### Q1: 工具没有被加载怎么办？
-
-**A:** 检查以下几点：
-
-1. 目录名称是否与 `meta.ts` 中的 `name` 字段一致
-2. `meta.ts` 文件是否存在且格式正确
-3. `index.ts` 文件是否存在且导出了默认函数
-4. 当前访问的网站域名是否匹配
-
-### Q2: 工具注册后无法调用怎么办？
-
-**A:** 检查以下几点：
-
-1. 工具名称是否正确
-2. 参数定义是否与调用时传入的参数一致
-3. 工具处理函数是否返回了正确格式的结果
-4. 查看浏览器控制台是否有错误信息
-
-### Q3: 如何访问页面的全局变量？
-
-**A:** 如果需要在工具中访问页面的全局变量，需要将工具类型设置为 `'pageMcpServer'`，这样工具会在页面的主世界中执行，可以访问完整的 JavaScript 环境。
-
-**重要**：使用 `'pageMcpServer'` 类型时，必须满足以下条件：
-
-1. 浏览器版本 >= 120.0.0（Chrome 120+ 或 Edge 120+）
-2. 在扩展管理页面开启 User Scripts 权限
-3. 确保扩展已启用并正常运行
-
-如果不满足以上条件，`pageMcpServer` 类型的工具将无法正常工作。
-
-### Q4: Cookie 参数如何使用？
-
-**A:** Cookie 参数是一个键值对对象，可以直接访问：
-
-```typescript
-const userId = cookie['user_id']
-const token = cookie['auth_token']
-```
-
-注意：Cookie 数据是只读的，不能直接修改。
-
-### Q5: 如何处理异步操作？
-
-**A:** 工具处理函数本身是异步的，可以使用 `async/await` 或 `Promise`：
-
-```typescript
-async ({ url }) => {
-  const response = await fetch(url)
-  const data = await response.json()
-  return {
-    content: [{ type: 'text', text: JSON.stringify(data) }]
-  }
-}
-```
 
 ## 总结
 
