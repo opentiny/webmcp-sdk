@@ -21,8 +21,8 @@
     "pub:remoter": "pnpm -F @opentiny/next-remoter publish --no-git-checks"
   },
   "devDependencies": {
-    "prettier": "^3.0.3",
-    "@modelcontextprotocol/inspector": "^0.16.1"
+    "prettier": "catalog:",
+    "@modelcontextprotocol/inspector": "catalog:"
   },
   "pnpm": {
     "overrides": {

@@ -1,3 +1,90 @@
 packages:
   - "packages/**"
   - docs
+
+catalog:
+  "@ai-sdk/deepseek": ^1.0.31
+  "@ai-sdk/mcp": ^0.0.11
+  "@ai-sdk/openai": ^2.0.76
+  "@ai-sdk/provider": ^2.0.0
+  "@ant-design/icons-vue": ^7.0.1
+  "@babel/standalone": ^7.28.5
+  "@devui-design/icons": ^1.4.0
+  "@element-plus/icons-vue": ^2.3.2
+  "@matechat/core": ^1.9.0
+  # mcp
+  "@modelcontextprotocol/inspector": ^0.16.1
+  "@modelcontextprotocol/sdk": ^1.16.0
+
+  # 生成ui
+  "@opentiny/genui-sdk": 0.0.1-alpha.0
+  "@opentiny/genui-sdk-vue": 0.0.1-alpha.7
+
+  # next
+  "@opentiny/next": ^0.3.1
+
+  # robot 版本
+  "@opentiny/tiny-robot": 0.3.1-alpha.2
+  "@opentiny/tiny-robot-kit": 0.3.1-alpha.2
+  "@opentiny/tiny-robot-svgs": 0.3.1-alpha.2
+  "@opentiny/tiny-vue-mcp": ^0.0.3 # tiny vue 组件库的mcp, 全局未引用了
+  "@opentiny/unplugin-tiny-vue": ^1.0.0
+
+  # tinyVue
+  "@opentiny/vue": 3.27.0
+  "@opentiny/vue-common": 3.27.0
+  "@opentiny/vue-icon": 3.27.0
+  "@opentiny/vue-locale": 3.27.0
+  "@opentiny/vue-vite-import": ^1.4.0
+
+  "@tdesign-vue-next/chat": ^0.4.6
+  "@types/markdown-it": ^14.1.2
+  "@types/node": ^24.6.0
+  "@types/qrcode": ^1.5.5
+  "@vant/auto-import-resolver": ^1.3.0
+  "@vitejs/plugin-vue": ^6.0.1
+  "@vitejs/plugin-vue-jsx": ^5.0.1
+  "@vue/tsconfig": ^0.8.1
+  "@wxt-dev/auto-icons": 1.1.0
+  "@wxt-dev/module-vue": ^1.0.2
+  ajv: ^8.17.1
+  ai: 5.0.106
+  ant-design-vue: ^4.2.6
+  ant-design-x-vue: ^1.3.2
+  chokidar: ^3.5.3
+  crypto-js: ^4.2.0
+  dayjs: ^1.11.15
+  devui-theme: ^0.1.0
+  dotenv: ^16.5.0
+  dotenv-cli: ^8.0.0
+  element-plus: ^2.11.5
+  eval5: ^1.4.8
+  glob: ^10.3.10
+  html5-qrcode: ^2.3.8
+  less: ^4.2.3
+  markdown-it: ^14.1.0
+  prettier: ^3.0.3
+  puppeteer-core: ^24.31.0 # 测试puppeteer-core 工具调用
+  qrcode: ^1.5.4
+  rollup-plugin-visualizer: ^6.0.3
+  typescript: ~5.9.3
+  unocss: 66.1.0-beta.12
+  unplugin-auto-import: ^0.18.3
+  unplugin-vue-components: ^0.26.0
+  vite: ^7.1.7
+  vite-plugin-dts: ^3.9.1
+  vite-svg-loader: ^5.1.0
+  vitepress: ^1.6.4
+
+  vue: ^3.5.22
+  vue-devui: ^1.6.34
+  vue-element-plus-x: ^1.3.7
+  vue-i18n: ^9.1.7
+  vue-router: ^4.5.1
+  vue-tsc: ^3.1.0
+  wxt: ^0.20.6
+  webext-bridge: 6.0.1
+  zod: ^3.25.76
+  tdesign-vue-next: ^1.17.1
+  tdesign-icons-vue-next: ^0.4.1
+  vant: ^4.9.21
