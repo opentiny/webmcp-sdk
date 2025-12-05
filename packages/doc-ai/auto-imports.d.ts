@@ -7,6 +7,7 @@
 export {}
 declare global {
   const TinyModal: typeof import('@opentiny/vue-modal')['default']
+  const showConfirmDialog: typeof import('vant/es')['showConfirmDialog']
   const showLoadingToast: typeof import('vant/es')['showLoadingToast']
   const showToast: typeof import('vant/es')['showToast']
 }

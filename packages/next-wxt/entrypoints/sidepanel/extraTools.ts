@@ -1,10 +1,120 @@
 import { z, type WebMcpServer } from '@opentiny/next-sdk'
 import { extractTextFromTree } from './utils/accessibilityTree'
-import { SnapshotManager } from './utils/snapshotManager'
+import { SnapshotManager, type Snapshot } from './utils/snapshotManager'
+import { snapshotManagerPool } from './utils/snapshotManagerPool'
 import { formatSnapshot } from './utils/snapshotFormatter'
 import { clickNodeByUid, typeIntoNodeByUid, selectOptionByUid } from './utils/snapshotOperations'
 import { getCurrentTabId, waitForTabLoad } from './utils/utils'
 import { withToolAnimation } from './utils/toolAnimationWrapper'
+
+/**
+ * 检查快照是否存在，如果不存在则返回错误响应
+ */
+function checkSnapshotExists(manager: SnapshotManager): { content: Array<{ type: 'text'; text: string }> } | null {
+  const currentSnapshot = manager.getSnapshot()
+  if (!currentSnapshot) {
+    return {
+      content: [
+        {
+          type: 'text' as const,
+          text: '当前没有快照，请先使用 takeSnapshot 获取快照，然后使用快照中的 UID 进行操作。'
+        }
+      ]
+    }
+  }
+  return null
+}
+
+/**
+ * 格式化快照结果为文本
+ * @param snapshot 快照对象
+ * @param formattedSnapshot 格式化后的快照文本
+ * @param options 选项
+ * @returns 格式化的结果文本
+ */
+function formatSnapshotResult(
+  snapshot: Snapshot,
+  formattedSnapshot: string,
+  options?: {
+    prefixMessage?: string // 前缀消息（如成功消息）
+    verbose?: boolean // 是否详细模式
+    includeUidExample?: boolean // 是否包含 UID 示例
+  }
+): string {
+  // 计算可操作节点数量
+  const actionableNodes = Array.from(snapshot.idToNode.values()).filter(
+    (n) => n.backendNodeId || n.backendDOMNodeId
+  ).length
+
+  let resultText = ''
+
+  // 添加前缀消息（如果有）
+  if (options?.prefixMessage) {
+    resultText += `${options.prefixMessage}\n\n`
+  }
+
+  // 添加快照标题和统计信息
+  const snapshotTitle = options?.prefixMessage
+    ? `操作后的页面快照（快照 ID: ${snapshot.snapshotId}）`
+    : `已成功获取页面无障碍树快照（快照 ID: ${snapshot.snapshotId}）`
+  resultText += `${snapshotTitle}。\n\n`
+  resultText += `统计信息：\n`
+  resultText += `- 总节点数：${snapshot.idToNode.size}\n`
+  resultText += `- 可操作节点（有 backendNodeId）：${actionableNodes}\n`
+
+  // 如果提供了 verbose 选项，添加详细模式信息
+  if (options?.verbose !== undefined) {
+    resultText += `- 详细模式：${options.verbose ? '是' : '否'}\n`
+  }
+
+  resultText += `\n`
+  resultText += `快照内容：\n\`\`\`\n${formattedSnapshot}\n\`\`\`\n\n`
+
+  // 添加 UID 提示（如果需要）
+  if (options?.includeUidExample !== false) {
+    const uidExample = options?.prefixMessage ? `"${snapshot.snapshotId}_5"` : `"1_5"`
+    resultText += `提示：您可以使用快照中每个节点的 UID（如 ${uidExample}）进行后续操作`
+    if (options?.prefixMessage) {
+      resultText += '。'
+    } else {
+      resultText += '，例如点击、输入文本等。'
+    }
+  }
+
+  console.log(resultText, 'resultText')
+
+  return resultText
+}
+
+/**
+ * 获取操作后的最新快照并格式化为返回结果
+ * @param manager 快照管理器
+ * @param successMessage 操作成功的消息
+ * @returns 格式化的快照结果
+ */
+async function getLatestSnapshotAfterOperation(
+  manager: SnapshotManager,
+  successMessage: string
+): Promise<{ content: Array<{ type: 'text'; text: string }> }> {
+  // 操作后自动获取新快照
+  const newSnapshot = await manager.createTextSnapshot(false)
+  const formattedSnapshot = formatSnapshot(newSnapshot)
+
+  // 使用公共函数格式化结果
+  const resultText = formatSnapshotResult(newSnapshot, formattedSnapshot, {
+    prefixMessage: successMessage,
+    includeUidExample: true
+  })
+
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text: resultText
+      }
+    ]
+  }
+}
 
 export const useExtraTools = (server: WebMcpServer) => {
   // 打开新网址
@@ -37,14 +147,12 @@ export const useExtraTools = (server: WebMcpServer) => {
       }
     },
     withToolAnimation('getPageInfomation', async ({ tabId }) => {
-      const manager = new SnapshotManager()
+      // 获取当前标签页
+      const currentTabId = tabId || (await getCurrentTabId())
+
+      // 从连接池获取管理器（连接会被复用，不会频繁断开）
+      const manager = await snapshotManagerPool.getManager(currentTabId)
       try {
-        // 获取当前标签页
-        const currentTabId = tabId || (await getCurrentTabId())
-
-        // 连接到标签页
-        await manager.connect(currentTabId)
-
         // 创建快照（verbose=false 只获取重要节点）
         const snapshot = await manager.createTextSnapshot(false)
 
@@ -116,7 +224,8 @@ export const useExtraTools = (server: WebMcpServer) => {
           ]
         }
       } finally {
-        await manager.disconnect()
+        // 释放连接引用（连接池会管理连接生命周期，不会立即断开）
+        await snapshotManagerPool.releaseManager(currentTabId)
       }
     })
   )
@@ -134,64 +243,52 @@ export const useExtraTools = (server: WebMcpServer) => {
         verbose: z.boolean().optional().describe('是否包含所有节点（false 时只包含重要节点），默认为 false')
       }
     },
-    withToolAnimation(
-      'takeSnapshot',
-      async ({ tabId, verbose = false }) => {
-        const manager = new SnapshotManager()
-        try {
-          // 获取当前标签页
-          const currentTabId = tabId || (await getCurrentTabId())
+    withToolAnimation('takeSnapshot', async ({ tabId, verbose = false }) => {
+      // 获取当前标签页
+      const currentTabId = tabId || (await getCurrentTabId())
 
-          // 连接到标签页
-          await manager.connect(currentTabId)
+      // 从连接池获取管理器（连接会被复用，不会频繁断开）
+      const manager = await snapshotManagerPool.getManager(currentTabId)
+      try {
+        // 创建快照
+        const snapshot = await manager.createTextSnapshot(verbose)
 
-          // 创建快照
-          const snapshot = await manager.createTextSnapshot(verbose)
+        console.log(snapshot, 'snapshot')
 
-          console.log(snapshot, 'snapshot')
+        // 格式化快照为文本
+        const formattedSnapshot = formatSnapshot(snapshot)
 
-          // 格式化快照为文本
-          const formattedSnapshot = formatSnapshot(snapshot)
+        // 使用公共函数格式化结果
+        const resultText = formatSnapshotResult(snapshot, formattedSnapshot, {
+          verbose,
+          includeUidExample: true
+        })
 
-          // 统计信息
-          const actionableNodes = Array.from(snapshot.idToNode.values()).filter(
-            (n) => n.backendNodeId || n.backendDOMNodeId
-          ).length
-
-          let resultText = `已成功获取页面无障碍树快照（快照 ID: ${snapshot.snapshotId}）。\n\n`
-          resultText += `统计信息：\n`
-          resultText += `- 总节点数：${snapshot.idToNode.size}\n`
-          resultText += `- 可操作节点（有 backendNodeId）：${actionableNodes}\n`
-          resultText += `- 详细模式：${verbose ? '是' : '否'}\n\n`
-          resultText += `快照内容：\n\`\`\`\n${formattedSnapshot}\n\`\`\`\n\n`
-          resultText += `提示：您可以使用快照中每个节点的 UID（如 "1_5"）进行后续操作，例如点击、输入文本等。`
-
-          return {
-            content: [
-              {
-                type: 'text',
-                text: resultText
-              }
-            ]
-          }
-        } catch (error: any) {
-          const errorMessage = error.message || '未知错误'
-          const friendlyMessage = `获取快照失败：${errorMessage}`
-
-          return {
-            content: [
-              {
-                type: 'text',
-                text: friendlyMessage
-              }
-            ]
-          }
-        } finally {
-          await manager.disconnect()
+        return {
+          content: [
+            {
+              type: 'text',
+              text: resultText
+            }
+          ]
         }
+      } catch (error: any) {
+        const errorMessage = error.message || '未知错误'
+        const friendlyMessage = `获取快照失败：${errorMessage}`
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: friendlyMessage
+            }
+          ]
+        }
+      } finally {
+        // 释放连接引用（连接池会管理连接生命周期，不会立即断开）
+        await snapshotManagerPool.releaseManager(currentTabId)
       }
-      // 不提供 getTabId，装饰器会自动从参数中提取 tabId，如果没有则使用当前活动标签页
-    )
+    })
   )
 
   // 点击节点（通过 UID）
@@ -209,18 +306,15 @@ export const useExtraTools = (server: WebMcpServer) => {
       }
     },
     withToolAnimation('click', async ({ tabId, uid, button, dblClick }) => {
-      const manager = new SnapshotManager()
+      // 获取当前标签页
+      const currentTabId = tabId || (await getCurrentTabId())
+      // 从连接池获取管理器（连接会被复用，不会频繁断开）
+      const manager = await snapshotManagerPool.getManager(currentTabId)
       try {
-        // 获取当前标签页
-        const currentTabId = tabId || (await getCurrentTabId())
-
-        // 连接到标签页
-        await manager.connect(currentTabId)
-
-        // 创建快照（如果当前没有快照）
-        const snapshot = manager.getSnapshot()
-        if (!snapshot) {
-          await manager.createTextSnapshot(false)
+        // 检查是否有快照
+        const snapshotCheck = checkSnapshotExists(manager)
+        if (snapshotCheck) {
+          return snapshotCheck
         }
 
         // 执行点击操作
@@ -229,17 +323,8 @@ export const useExtraTools = (server: WebMcpServer) => {
           clickCount: dblClick ? 2 : 1
         })
 
-        // 操作后自动获取新快照（参考 chrome-devtools-mcp）
-        await manager.createTextSnapshot(false)
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `成功${dblClick ? '双击' : '点击'}节点 (UID: ${uid})。已自动获取新快照。`
-            }
-          ]
-        }
+        // 获取操作后的最新快照并返回
+        return await getLatestSnapshotAfterOperation(manager, `成功${dblClick ? '双击' : '点击'}节点 (UID: ${uid})。`)
       } catch (error: any) {
         const errorMessage = error.message || '未知错误'
         let friendlyMessage = `点击节点失败：${errorMessage}`
@@ -258,7 +343,8 @@ export const useExtraTools = (server: WebMcpServer) => {
           ]
         }
       } finally {
-        await manager.disconnect()
+        // 释放连接引用（连接池会管理连接生命周期，不会立即断开）
+        await snapshotManagerPool.releaseManager(currentTabId)
       }
     })
   )
@@ -279,34 +365,23 @@ export const useExtraTools = (server: WebMcpServer) => {
       }
     },
     withToolAnimation('fill', async ({ tabId, uid, text, clearFirst = true }) => {
-      const manager = new SnapshotManager()
+      // 获取当前标签页
+      const currentTabId = tabId || (await getCurrentTabId())
+
+      // 从连接池获取管理器（连接会被复用，不会频繁断开）
+      const manager = await snapshotManagerPool.getManager(currentTabId)
       try {
-        // 获取当前标签页
-        const currentTabId = tabId || (await getCurrentTabId())
-
-        // 连接到标签页
-        await manager.connect(currentTabId)
-
-        // 创建快照（如果当前没有快照）
-        const snapshot = manager.getSnapshot()
-        if (!snapshot) {
-          await manager.createTextSnapshot(false)
+        // 检查是否有快照
+        const snapshotCheck = checkSnapshotExists(manager)
+        if (snapshotCheck) {
+          return snapshotCheck
         }
 
         // 执行输入操作
         await typeIntoNodeByUid(manager, uid, text, { clearFirst })
 
-        // 操作后自动获取新快照
-        await manager.createTextSnapshot(false)
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `成功在节点 (UID: ${uid}) 中输入文本: "${text}"。已自动获取新快照。`
-            }
-          ]
-        }
+        // 获取操作后的最新快照并返回
+        return await getLatestSnapshotAfterOperation(manager, `成功在节点 (UID: ${uid}) 中输入文本: "${text}"。`)
       } catch (error: any) {
         const errorMessage = error.message || '未知错误'
         let friendlyMessage = `输入文本失败：${errorMessage}`
@@ -324,7 +399,8 @@ export const useExtraTools = (server: WebMcpServer) => {
           ]
         }
       } finally {
-        await manager.disconnect()
+        // 释放连接引用（连接池会管理连接生命周期，不会立即断开）
+        await snapshotManagerPool.releaseManager(currentTabId)
       }
     })
   )
@@ -343,34 +419,23 @@ export const useExtraTools = (server: WebMcpServer) => {
       }
     },
     withToolAnimation('selectOption', async ({ tabId, uid, optionValue }) => {
-      const manager = new SnapshotManager()
+      // 获取当前标签页
+      const currentTabId = tabId || (await getCurrentTabId())
+
+      // 从连接池获取管理器（连接会被复用，不会频繁断开）
+      const manager = await snapshotManagerPool.getManager(currentTabId)
       try {
-        // 获取当前标签页
-        const currentTabId = tabId || (await getCurrentTabId())
-
-        // 连接到标签页
-        await manager.connect(currentTabId)
-
-        // 创建快照（如果当前没有快照）
-        const snapshot = manager.getSnapshot()
-        if (!snapshot) {
-          await manager.createTextSnapshot(false)
+        // 检查是否有快照
+        const snapshotCheck = checkSnapshotExists(manager)
+        if (snapshotCheck) {
+          return snapshotCheck
         }
 
         // 执行选择操作
         await selectOptionByUid(manager, uid, optionValue)
 
-        // 操作后自动获取新快照
-        await manager.createTextSnapshot(false)
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `成功在下拉框 (UID: ${uid}) 中选择选项: ${optionValue}。已自动获取新快照。`
-            }
-          ]
-        }
+        // 获取操作后的最新快照并返回
+        return await getLatestSnapshotAfterOperation(manager, `成功在下拉框 (UID: ${uid}) 中选择选项: ${optionValue}。`)
       } catch (error: any) {
         const errorMessage = error.message || '未知错误'
         let friendlyMessage = `选择选项失败：${errorMessage}`
@@ -388,8 +453,33 @@ export const useExtraTools = (server: WebMcpServer) => {
           ]
         }
       } finally {
-        await manager.disconnect()
+        // 释放连接引用（连接池会管理连接生命周期，不会立即断开）
+        await snapshotManagerPool.releaseManager(currentTabId)
       }
     })
+  )
+
+  // 添加手动断开调试器连接的工具
+  server.registerTool(
+    'disconnectDebugger',
+    {
+      title: '手动断开调试器连接',
+      description: '手动断开指定标签页的调试器连接。如果不提供 tabId，则断开当前活动标签页的连接。',
+      inputSchema: {
+        tabId: z.number().optional().describe('目标标签页 ID，如果不提供则使用当前活动标签页')
+      }
+    },
+    async ({ tabId }) => {
+      const currentTabId = tabId || (await getCurrentTabId())
+      await snapshotManagerPool.disconnect(currentTabId)
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `已断开标签页 ${currentTabId} 的调试器连接`
+          }
+        ]
+      }
+    }
   )
 }

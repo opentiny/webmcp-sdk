@@ -64,6 +64,8 @@ export class SnapshotManager {
       }
 
       // 使用 ExtensionTransport 连接到标签页
+      // 注意：ExtensionTransport.connectTab 内部会附加调试器
+      // 如果调试器已经被附加，可能会失败，但 Puppeteer 会处理这种情况
       const transport = await ExtensionTransport.connectTab(tabId)
       this.browser = await connect({ transport })
 
