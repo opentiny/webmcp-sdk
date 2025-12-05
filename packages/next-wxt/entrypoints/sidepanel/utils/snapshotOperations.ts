@@ -34,7 +34,8 @@ export async function clickNodeByUid(
       if (hasAsLocator) {
         // 使用 Locator API（推荐）
         const locator = (handle as any).asLocator()
-        await locator.click({ count: clickCount })
+        // 根据 button 参数确定是左键、右键还是中键点击
+        await locator.click({ count: clickCount, button })
       }
     })
   } finally {

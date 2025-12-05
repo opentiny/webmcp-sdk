@@ -51,49 +51,18 @@ export class SnapshotManager {
    */
   async connect(tabId: number): Promise<void> {
     try {
-      // 在连接前，先获取当前标签页的窗口大小，以便保持原有大小
-      let originalViewport: { width?: number; height?: number } | null = null
-      try {
-        const tab = await browser.tabs.get(tabId)
-        if (tab.width && tab.height) {
-          originalViewport = { width: tab.width, height: tab.height }
-        }
-      } catch (e) {
-        // 如果获取失败，忽略错误
-        console.warn('无法获取标签页大小:', e)
-      }
-
       // 使用 ExtensionTransport 连接到标签页
       // 注意：ExtensionTransport.connectTab 内部会附加调试器
       // 如果调试器已经被附加，可能会失败，但 Puppeteer 会处理这种情况
       const transport = await ExtensionTransport.connectTab(tabId)
-      this.browser = await connect({ transport })
+      // 设置 defaultViewport 为 null，保持页面的原始尺寸，不改变页面大小
+      this.browser = await connect({ transport, defaultViewport: null })
 
       const pages = await this.browser.pages()
       this.page = pages && pages.length > 0 ? pages[0] : null
 
       if (!this.page) {
         throw new Error('无法获取页面对象')
-      }
-
-      // 如果获取到了原始视口大小，保持原有大小
-      // 注意：在浏览器扩展中使用 ExtensionTransport 时，可能无法直接设置视口
-      // 但我们可以尝试通过 CDP 命令来保持视口大小
-      if (originalViewport?.width && originalViewport?.height) {
-        try {
-          // 尝试设置视口大小（如果 Puppeteer 支持）
-          await this.page
-            .setViewport({
-              width: originalViewport.width,
-              height: originalViewport.height,
-              deviceScaleFactor: 1
-            })
-            .catch((e) => {
-              console.warn('设置视口大小失败:', e)
-            })
-        } catch (e) {
-          console.warn('保持视口大小失败:', e)
-        }
       }
     } catch (error: any) {
       const errorMessage = error.message || String(error)
