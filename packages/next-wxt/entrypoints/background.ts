@@ -38,5 +38,6 @@ export default defineBackground(() => {
   // 自动返回sender 给 content-script
   onRuntimeMessage('who-am-i', () => {}, 'content->bg')
 
-  browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
+  // 点击图标自动打开侧边栏
+  browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch((error) => console.log(error))
 })
