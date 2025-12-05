@@ -31,6 +31,35 @@ export const useExtraTools = (server: WebMcpServer) => {
     }
   )
 
+  // 滚动页面
+  server.registerTool(
+    'scrollPage',
+    {
+      title: '向下滚动浏览器页面',
+      description: '向下滚动浏览器页面',
+      inputSchema: {
+        tabId: z.number().optional().describe('目标标签页 ID，如果不提供则使用当前活动标签页')
+      }
+    },
+    withToolAnimation('scrollPage', async ({ tabId }) => {
+      // 获取当前标签页
+      const currentTabId = tabId || (await getCurrentTabId())
+
+      // 从连接池获取管理器（连接会被复用，不会频繁断开）
+      const manager = await snapshotManagerPool.getManager(currentTabId)
+      try {
+        await manager.scrollPage()
+
+        return { content: [{ type: 'text', text: '滚动结束' }] }
+      } catch (error: any) {
+        return { content: [{ type: 'text', text: '滚动异常' }] }
+      } finally {
+        // 释放连接引用（连接池会管理连接生命周期，不会立即断开）
+        await snapshotManagerPool.releaseManager(currentTabId)
+      }
+    })
+  )
+
   // 获取页面文本信息
   server.registerTool(
     'getPageInfomation',
@@ -99,26 +128,12 @@ export const useExtraTools = (server: WebMcpServer) => {
 
         resultText += `页面文本内容：\n\`\`\`\n${displayTexts.join('\n')}\n\`\`\``
 
-        return {
-          content: [
-            {
-              type: 'text',
-              text: resultText
-            }
-          ]
-        }
+        return { content: [{ type: 'text', text: resultText }] }
       } catch (error: any) {
         const errorMessage = error.message || '未知错误'
         const friendlyMessage = `获取页面文本信息失败：${errorMessage}`
 
-        return {
-          content: [
-            {
-              type: 'text',
-              text: friendlyMessage
-            }
-          ]
-        }
+        return { content: [{ type: 'text', text: friendlyMessage }] }
       } finally {
         // 释放连接引用（连接池会管理连接生命周期，不会立即断开）
         await snapshotManagerPool.releaseManager(currentTabId)
@@ -160,25 +175,13 @@ export const useExtraTools = (server: WebMcpServer) => {
           includeUidExample: true
         })
 
-        return {
-          content: [
-            {
-              type: 'text',
-              text: resultText
-            }
-          ]
-        }
+        return { content: [{ type: 'text', text: resultText }] }
       } catch (error: any) {
         const errorMessage = error.message || '未知错误'
         const friendlyMessage = `获取快照失败：${errorMessage}`
 
         return {
-          content: [
-            {
-              type: 'text',
-              text: friendlyMessage
-            }
-          ]
+          content: [{ type: 'text', text: friendlyMessage }]
         }
       } finally {
         // 释放连接引用（连接池会管理连接生命周期，不会立即断开）
@@ -225,14 +228,7 @@ export const useExtraTools = (server: WebMcpServer) => {
         const errorMessage = error.message || '未知错误'
         const friendlyMessage = `点击节点失败：${errorMessage}`
 
-        return {
-          content: [
-            {
-              type: 'text',
-              text: friendlyMessage
-            }
-          ]
-        }
+        return { content: [{ type: 'text', text: friendlyMessage }] }
       } finally {
         // 释放连接引用（连接池会管理连接生命周期，不会立即断开）
         await snapshotManagerPool.releaseManager(currentTabId)
@@ -277,14 +273,7 @@ export const useExtraTools = (server: WebMcpServer) => {
         const errorMessage = error.message || '未知错误'
         const friendlyMessage = `输入文本失败：${errorMessage}`
 
-        return {
-          content: [
-            {
-              type: 'text',
-              text: friendlyMessage
-            }
-          ]
-        }
+        return { content: [{ type: 'text', text: friendlyMessage }] }
       } finally {
         // 释放连接引用（连接池会管理连接生命周期，不会立即断开）
         await snapshotManagerPool.releaseManager(currentTabId)
@@ -327,14 +316,7 @@ export const useExtraTools = (server: WebMcpServer) => {
         const errorMessage = error.message || '未知错误'
         const friendlyMessage = `选择选项失败：${errorMessage}`
 
-        return {
-          content: [
-            {
-              type: 'text',
-              text: friendlyMessage
-            }
-          ]
-        }
+        return { content: [{ type: 'text', text: friendlyMessage }] }
       } finally {
         // 释放连接引用（连接池会管理连接生命周期，不会立即断开）
         await snapshotManagerPool.releaseManager(currentTabId)

@@ -1,5 +1,6 @@
 import { connect, ExtensionTransport } from 'puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js'
 import type { Page, ElementHandle } from 'puppeteer-core'
+import { delay } from './utils'
 
 /**
  * 无障碍树节点类型（SerializedAXNode）
@@ -210,5 +211,20 @@ export class SnapshotManager {
    */
   getPage(): Page | null {
     return this.page
+  }
+  /**
+   * 滚动页面
+   */
+  async scrollPage() {
+    if (!this.page) {
+      throw new Error('页面未连接，请先调用 connect()')
+    }
+
+    for (let index = 0; index < 10; index++) {
+      await this.page.keyboard.press('PageDown')
+      await delay(20)
+    }
+
+    return true
   }
 }
