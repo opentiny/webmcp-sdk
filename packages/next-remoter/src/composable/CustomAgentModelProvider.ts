@@ -198,6 +198,125 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     return thinkId
   }
 
+  /**
+   * 清理消息数组中的旧快照消息，只保留最新的快照
+   * @param messages 消息数组
+   * @returns 清理后的消息数组
+   */
+  private cleanupOldSnapshotsInMessages(messages: any[]): any[] {
+    if (!messages || messages.length === 0) return messages
+
+    // 检查最后一项是否是 tool 角色且包含快照信息
+    const lastMessage = messages[messages.length - 1]
+    if (!lastMessage || lastMessage.role !== 'tool') {
+      return messages
+    }
+
+    // 判断最后一项是否包含快照信息
+    if (!this.isSnapshotContent(lastMessage.content)) {
+      return messages
+    }
+
+    // 创建消息数组的副本，避免直接修改原数组
+    const cleanedMessages = [...messages]
+
+    // 从倒数第二项开始往前查找，找到最后一次 tool 调用（除了最后一项）
+    // 因为最后一项是当前步骤的新快照，需要保留
+    for (let i = cleanedMessages.length - 2; i >= 0; i--) {
+      const msg = cleanedMessages[i] as any
+      if (msg.role === 'tool' && this.isSnapshotContent(msg.content)) {
+        // 找到旧的快照消息，替换为占位符
+        this.replaceSnapshotWithPlaceholder(msg)
+        break // 只清理最后一次快照，找到后退出
+      }
+    }
+
+    return cleanedMessages
+  }
+
+  /**
+   * 将快照消息替换为占位符
+   * @param msg 消息对象
+   */
+  private replaceSnapshotWithPlaceholder(msg: any): void {
+    if (Array.isArray(msg.content)) {
+      // 如果是数组格式，替换所有文本内容为占位符
+      // 检查是否是 MCP 工具返回格式（有 output.value.content）
+      const firstItem = msg.content[0]
+      if (firstItem?.output?.value?.content) {
+        // MCP 工具返回格式，替换 content
+        msg.content = [
+          {
+            ...firstItem,
+            output: {
+              ...firstItem.output,
+              value: {
+                ...firstItem.output.value,
+                content: [
+                  {
+                    type: 'text',
+                    text: '历史快照不予保留'
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      } else {
+        // 普通数组格式
+        msg.content = [
+          {
+            type: 'text',
+            text: '历史快照不予保留'
+          }
+        ]
+      }
+    } else if (typeof msg.content === 'string') {
+      // 如果是字符串格式，直接替换
+      msg.content = '历史快照不予保留'
+    }
+  }
+
+  /**
+   * 判断内容是否包含快照信息
+   * @param content 消息内容（可能是字符串或数组）
+   * @returns 是否包含快照信息
+   */
+  private isSnapshotContent(content: any): boolean {
+    if (!content) return false
+
+    // 快照相关的关键词
+    const snapshotKeywords = [
+      '无障碍树快照',
+      'takeSnapshot',
+      'snapshotId_counter',
+      'UID 格式',
+      '快照 ID',
+      '操作后的页面快照',
+      '已成功获取页面无障碍树快照',
+      '快照内容：'
+    ]
+
+    // 如果是字符串格式
+    if (typeof content === 'string') {
+      return snapshotKeywords.some((keyword) => content.includes(keyword))
+    }
+
+    // 如果是数组格式（MCP 工具返回格式）
+    if (Array.isArray(content)) {
+      for (const item of content) {
+        const text = item?.output?.value?.content?.[0]?.text
+        if (text) {
+          if (snapshotKeywords.some((keyword) => text.includes(keyword))) {
+            return true
+          }
+        }
+      }
+    }
+
+    return false
+  }
+
   async chatStream(request: ChatCompletionRequest, handler: StreamHandler): Promise<void> {
     // 读取用户最新的请求
     const lastUserMsg = request.messages[request.messages.length - 1]
@@ -212,6 +331,14 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       tools: { ['get-today']: getToday, ...(this.llmConfig.extraTools || {}) },
       maxSteps: this.llmConfig.maxSteps,
       providerOptions: this.llmConfig.providerOptions,
+      prepareStep: ({ messages }) => {
+        // 在步骤开始前清理旧的快照消息
+        // prepareStep 会在每次步骤开始前被调用，可以修改即将用于请求的 messages
+        const cleanedMessages = this.cleanupOldSnapshotsInMessages(messages)
+        return {
+          messages: cleanedMessages
+        }
+      },
       onFinish: async () => {
         await this.agent.closeAll()
         handler.onDone()
