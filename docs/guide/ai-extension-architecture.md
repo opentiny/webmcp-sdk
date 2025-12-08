@@ -13,7 +13,7 @@ AI-Extension 是一个基于 WXT 框架构建的智能浏览器扩展插件，�
 
 ### 快速架构概览
 
-![AI-Extension 浏览器插件架构图](../assets/images/ai-extension/architecture.png)
+![AI-Extension 浏览器插件架构图](../assets/images/extension/architecture.png)
 
 上图展示了 AI-Extension 浏览器插件的整体架构。插件通过 MCP 协议连接 AI Agent 与网页工具，支持在 Sidepanel、Content Script 和 Page World 三种环境中执行工具。工具配置通过 `mcp-servers/` 目录按域名组织，系统自动匹配并加载对应的工具。同时，插件内置了无障碍树操作能力，支持远程控制和云端工具集成，实现了从工具定义到 AI 操控的完整闭环。
 

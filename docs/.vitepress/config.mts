@@ -45,6 +45,7 @@ export default defineConfig({
           text: 'TinyRemoter for Vue',
           items: [
             { text: 'TinyRobot 版本', link: '/guide/tiny-robot-remoter' },
+            { text: 'custom llm 自定义大模型', link: '/guide/custom-llm' },
             { text: 'useNextAgent 函数', link: '/guide/use-next-agent' }
           ]
         },
