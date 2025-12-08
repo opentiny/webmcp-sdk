@@ -54,6 +54,7 @@ export default defineConfig({
           items: [
             { text: 'architecture 技术架构', link: '/guide/ai-extension-architecture' },
             { text: 'mcp-servers 工具开发指南', link: '/guide/ai-extension-next-wxt' },
+            { text: 'skills 技能开发指南', link: '/guide/ai-extension-skills' },
             { text: 'AI Extension 插件安装指南', link: '/guide/ai-extension-install' }
           ]
         }
