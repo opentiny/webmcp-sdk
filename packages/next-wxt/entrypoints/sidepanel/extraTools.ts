@@ -18,16 +18,83 @@ export const useExtraTools = (server: WebMcpServer) => {
     'openUrl',
     {
       title: '打开新网址',
-      description: '打开新网址',
+      description: '打开新网址，如果该网址已经在标签页中打开，则切换到该标签页；否则创建新标签页',
       inputSchema: {
         url: z.string().describe('要打开的网址')
       }
     },
     async ({ url }) => {
-      const createdTab = await browser.tabs.create({ url })
-      // 等待页面加载完成
-      await waitForTabLoad(createdTab.id!)
-      return { content: [{ type: 'text', text: `打开网址成功, tabId: ${createdTab.id}` }] }
+      // 判断 URL 是否匹配
+      const isUrlMatch = (tabUrl: string | undefined, targetUrl: string): boolean => {
+        if (!tabUrl) return false
+        try {
+          const current = new URL(tabUrl)
+          const expected = new URL(targetUrl)
+          // 完全匹配
+          if (current.href === expected.href) {
+            return true
+          }
+          // 匹配 origin 和 pathname（忽略 query 和 hash）
+          return current.origin === expected.origin && current.pathname === expected.pathname
+        } catch (error) {
+          // 如果 URL 解析失败，使用字符串匹配
+          return tabUrl.startsWith(targetUrl) || targetUrl.startsWith(tabUrl)
+        }
+      }
+
+      // 查询所有标签页，查找是否已有匹配的 URL
+      const allTabs = await browser.tabs.query({})
+      const matchedTab = allTabs.find((tab) => isUrlMatch(tab.url, url))
+
+      let tabId: number
+
+      if (matchedTab && matchedTab.id) {
+        // 如果找到匹配的标签页，切换到该标签页
+        tabId = matchedTab.id
+        try {
+          await browser.tabs.update(tabId, { active: true })
+          // 如果标签页还在加载中，等待加载完成
+          if (matchedTab.status !== 'complete') {
+            await waitForTabLoad(tabId)
+          }
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `网址已在标签页中打开，已切换到该标签页, tabId: ${tabId}`
+              }
+            ]
+          }
+        } catch (error: any) {
+          // 如果切换失败，尝试创建新标签页
+          console.warn(`切换到已存在的标签页失败: ${error.message}`)
+          const createdTab = await browser.tabs.create({ url, active: true })
+          tabId = createdTab.id!
+          await waitForTabLoad(tabId)
+          return {
+            content: [
+              {
+                type: 'text',
+                text: `已打开新网址, tabId: ${tabId}`
+              }
+            ]
+          }
+        }
+      } else {
+        // 如果没有找到匹配的标签页，创建新标签页
+        const createdTab = await browser.tabs.create({ url, active: true })
+        tabId = createdTab.id!
+        // 等待页面加载完成
+        await waitForTabLoad(tabId)
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `已打开新网址, tabId: ${tabId}`
+            }
+          ]
+        }
+      }
     }
   )
 
@@ -135,11 +202,10 @@ export const useExtraTools = (server: WebMcpServer) => {
       description:
         '获取页面的完整无障碍树结构，包含每个节点的唯一 UID。返回的快照可以用于后续的页面操作（如点击、输入等）。每个节点的 UID 格式为 "snapshotId_counter"，例如 "1_5"。',
       inputSchema: {
-        tabId: z.number().optional().describe('目标标签页 ID，如果不提供则使用当前活动标签页'),
-        verbose: z.boolean().optional().describe('是否包含所有节点（false 时只包含重要节点），默认为 false')
+        tabId: z.number().optional().describe('目标标签页 ID，如果不提供则使用当前活动标签页')
       }
     },
-    withToolAnimation('takeSnapshot', async ({ tabId, verbose = false }) => {
+    withToolAnimation('takeSnapshot', async ({ tabId }) => {
       // 获取当前标签页
       const currentTabId = tabId || (await getCurrentTabId())
 
@@ -147,16 +213,14 @@ export const useExtraTools = (server: WebMcpServer) => {
       const manager = await snapshotManagerPool.getManager(currentTabId)
       try {
         // 创建快照
-        const snapshot = await manager.createTextSnapshot(verbose)
-
-        console.log(snapshot, 'snapshot')
+        const snapshot = await manager.createTextSnapshot(false)
 
         // 格式化快照为文本
         const formattedSnapshot = formatSnapshot(snapshot)
 
         // 使用公共函数格式化结果
         const resultText = formatSnapshotResult(snapshot, formattedSnapshot, {
-          verbose,
+          verbose: false,
           includeUidExample: true
         })
 

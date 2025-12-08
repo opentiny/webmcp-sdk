@@ -75,7 +75,9 @@ export const waitForEventsAfterAction = async (page: any, action: () => Promise<
 /**
  * 检查快照是否存在，如果不存在则返回错误响应
  */
-export function checkSnapshotExists(manager: SnapshotManager): { content: Array<{ type: 'text'; text: string }> } | null {
+export function checkSnapshotExists(
+  manager: SnapshotManager
+): { content: Array<{ type: 'text'; text: string }> } | null {
   const currentSnapshot = manager.getSnapshot()
   if (!currentSnapshot) {
     return {
@@ -145,8 +147,6 @@ export function formatSnapshotResult(
       resultText += '，例如点击、输入文本等。'
     }
   }
-
-  console.log(resultText, 'resultText')
 
   return resultText
 }
