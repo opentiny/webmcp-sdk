@@ -73,6 +73,29 @@ class SnapshotManagerPool {
   }
 
   /**
+   * 分离指定标签页的调试器（如果存在）
+   * @param tabId 标签页 ID
+   */
+  private async detachDebuggerIfExists(tabId: number): Promise<void> {
+    try {
+      const debuggee = { tabId }
+      await new Promise<void>((resolve) => {
+        browser.debugger.detach(debuggee, () => {
+          // 忽略错误，因为调试器可能不存在或已被其他工具分离
+          if (browser.runtime.lastError) {
+            console.log(`[连接池] 标签页 ${tabId} 分离调试器: ${browser.runtime.lastError.message}`)
+          } else {
+            console.log(`[连接池] 标签页 ${tabId} 成功分离调试器`)
+          }
+          resolve()
+        })
+      })
+    } catch (error) {
+      console.warn(`[连接池] 标签页 ${tabId} 分离调试器时出错:`, error)
+    }
+  }
+
+  /**
    * 获取或创建指定标签页的 SnapshotManager 实例
    * @param tabId 标签页 ID
    * @returns SnapshotManager 实例
@@ -104,8 +127,8 @@ class SnapshotManagerPool {
 
     // 创建新的连接
     // 注意：ExtensionTransport.connectTab 内部会附加调试器，这会导致调试器保持开启状态
-    // 如果调试器已经被附加，ExtensionTransport.connectTab 可能会失败或导致调试器被分离
-    // 因此，我们只在连接池中没有连接时才创建新连接
+    // 如果调试器已经被附加（比如浏览器扩展刷新/热更新），ExtensionTransport.connectTab 会失败
+    // 扩展刷新后，连接池会重新初始化，但调试器不会自动分离，因此需要在连接失败时分离调试器后重试
     console.log(`[连接池] 为标签页 ${tabId} 创建新连接`)
     const manager = new SnapshotManager()
     try {
@@ -114,8 +137,40 @@ class SnapshotManagerPool {
       this.refCounts.set(tabId, 1)
       console.log(`[连接池] 标签页 ${tabId} 连接成功`)
     } catch (error: any) {
-      console.error(`[连接池] 标签页 ${tabId} 连接失败:`, error)
-      throw error
+      const errorMessage = error.message || String(error)
+
+      // 检查是否是"另一个调试器已附加"的错误（通常是浏览器扩展刷新/热更新导致的）
+      // 扩展刷新后，连接池会重新初始化，但调试器不会自动分离，导致连接失败
+      const isAnotherDebuggerError =
+        errorMessage.includes('Another debugger') ||
+        errorMessage.includes('already attached') ||
+        errorMessage.includes('调试器已附加')
+
+      if (isAnotherDebuggerError) {
+        console.warn(`[连接池] 标签页 ${tabId} 连接失败（调试器已附加，可能是扩展刷新导致），尝试分离后重试`)
+
+        // 分离调试器
+        await this.detachDebuggerIfExists(tabId)
+
+        // 等待一小段时间，确保调试器完全分离
+        await new Promise((resolve) => setTimeout(resolve, 100))
+
+        // 重试连接
+        try {
+          await manager.connect(tabId)
+          this.managers.set(tabId, manager)
+          this.refCounts.set(tabId, 1)
+          console.log(`[连接池] 标签页 ${tabId} 分离后重试连接成功`)
+          return manager
+        } catch (retryError: any) {
+          console.error(`[连接池] 标签页 ${tabId} 分离后重试连接仍然失败:`, retryError)
+          throw retryError
+        }
+      } else {
+        // 其他错误，直接抛出
+        console.error(`[连接池] 标签页 ${tabId} 连接失败:`, error)
+        throw error
+      }
     }
 
     return manager
