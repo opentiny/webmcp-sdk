@@ -1,7 +1,7 @@
 import { WebMcpClient } from '@opentiny/next-sdk'
 import { createMcpServer } from './mcpServer'
+import { AGENT_ROOT } from './const'
 
-const AGENT_ROOT = 'https://agent.opentiny.design/api/v1/webmcp-trial/'
 const MAX_RETRY_COUNT = 5
 const RETRY_DELAY = 3000
 
