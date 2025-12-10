@@ -200,6 +200,12 @@ async function handlePillItemClick(item: any) {
     showToast('复制到剪贴板失败')
   }
 }
+
+chrome.runtime.onMessage.addListener((message) => {
+  if (message.type === 'reload-sidepanel') {
+    location.reload()
+  }
+})
 </script>
 
 <template>

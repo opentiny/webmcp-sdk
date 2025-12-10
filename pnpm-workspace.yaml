@@ -1,53 +1,54 @@
 packages:
-  - "packages/**"
+  - 'packages/**'
   - docs
 
 catalog:
-  "@ai-sdk/deepseek": ^1.0.28
-  "@ai-sdk/mcp": ^0.0.11
-  "@ai-sdk/openai": ^2.0.76
-  "@ai-sdk/provider": ^2.0.0
-  "@ant-design/icons-vue": ^7.0.1
-  "@babel/standalone": ^7.28.5
-  "@devui-design/icons": ^1.4.0
-  "@element-plus/icons-vue": ^2.3.2
-  "@matechat/core": ^1.9.0
+  '@ai-sdk/deepseek': ^1.0.28
+  '@ai-sdk/mcp': ^0.0.11
+  '@ai-sdk/openai': ^2.0.76
+  '@ai-sdk/provider': ^2.0.0
+  '@ant-design/icons-vue': ^7.0.1
+  '@babel/standalone': ^7.28.5
+  '@devui-design/icons': ^1.4.0
+  '@element-plus/icons-vue': ^2.3.2
+  '@matechat/core': ^1.9.0
   # mcp
-  "@modelcontextprotocol/inspector": ^0.16.1
-  "@modelcontextprotocol/sdk": ^1.16.0
+  '@modelcontextprotocol/inspector': ^0.16.1
+  '@modelcontextprotocol/sdk': ^1.16.0
 
   # 生成ui
-  "@opentiny/genui-sdk": 0.0.1-alpha.0
-  "@opentiny/genui-sdk-vue": 0.0.1-alpha.7
+  '@opentiny/genui-sdk': 0.0.1-alpha.0
+  '@opentiny/genui-sdk-vue': 0.0.1-alpha.7
 
   # next
-  "@opentiny/next": ^0.3.1
+  '@opentiny/next': ^0.3.1
 
   # robot 版本
-  "@opentiny/tiny-robot": 0.3.1-alpha.2
-  "@opentiny/tiny-robot-kit": 0.3.1-alpha.2
-  "@opentiny/tiny-robot-svgs": 0.3.1-alpha.2
-  "@opentiny/tiny-vue-mcp": ^0.0.3 # tiny vue 组件库的mcp, 全局未引用了
-  "@opentiny/unplugin-tiny-vue": ^1.0.0
+  '@opentiny/tiny-robot': 0.3.1-alpha.2
+  '@opentiny/tiny-robot-kit': 0.3.1-alpha.2
+  '@opentiny/tiny-robot-svgs': 0.3.1-alpha.2
+  '@opentiny/tiny-vue-mcp': ^0.0.3 # tiny vue 组件库的mcp, 全局未引用了
+  '@opentiny/unplugin-tiny-vue': ^1.0.0
 
   # tinyVue
-  "@opentiny/vue": ^3.27.0
-  "@opentiny/vue-common": ^3.27.0
-  "@opentiny/vue-icon": ^3.27.0
-  "@opentiny/vue-locale": ^3.27.0
-  "@opentiny/vue-theme": ^3.27.0
-  "@opentiny/vue-vite-import": ^1.4.0
+  '@opentiny/vue': ^3.27.0
+  '@opentiny/vue-common': ^3.27.0
+  '@opentiny/vue-icon': ^3.27.0
+  '@opentiny/vue-locale': ^3.27.0
+  '@opentiny/vue-theme': ^3.27.0
+  '@opentiny/vue-vite-import': ^1.4.0
 
-  "@tdesign-vue-next/chat": ^0.4.6
-  "@types/markdown-it": ^14.1.2
-  "@types/node": ^24.6.0
-  "@types/qrcode": ^1.5.5
-  "@vant/auto-import-resolver": ^1.3.0
-  "@vitejs/plugin-vue": ^6.0.1
-  "@vitejs/plugin-vue-jsx": ^5.0.1
-  "@vue/tsconfig": ^0.8.1
-  "@wxt-dev/auto-icons": 1.1.0
-  "@wxt-dev/module-vue": ^1.0.2
+  '@tdesign-vue-next/chat': ^0.4.6
+  '@types/markdown-it': ^14.1.2
+  '@types/node': ^24.6.0
+  '@types/qrcode': ^1.5.5
+  '@vant/auto-import-resolver': ^1.3.0
+  '@vitejs/plugin-vue': ^6.0.1
+  '@vitejs/plugin-vue-jsx': ^5.0.1
+  '@vue/tsconfig': ^0.8.1
+  '@wxt-dev/auto-icons': 1.1.0
+  '@wxt-dev/module-vue': ^1.0.2
+  '@wxt-dev/storage': ^1.2.6
   ajv: ^8.17.1
   ai: 5.0.106
   ant-design-vue: ^4.2.6
