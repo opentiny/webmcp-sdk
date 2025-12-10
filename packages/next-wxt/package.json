@@ -21,7 +21,8 @@
     "vant": "catalog:",
     "@opentiny/vue": "catalog:",
     "@opentiny/vue-icon": "catalog:",
-    "puppeteer-core": "catalog:"
+    "puppeteer-core": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@wxt-dev/module-vue": "catalog:",
