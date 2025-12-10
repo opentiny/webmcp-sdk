@@ -38,6 +38,7 @@
     "@vant/auto-import-resolver": "catalog:",
     "vite-svg-loader": "catalog:",
     "@wxt-dev/auto-icons": "catalog:",
+    "@wxt-dev/storage": "catalog:",
     "chokidar": "catalog:",
     "glob": "catalog:"
   }

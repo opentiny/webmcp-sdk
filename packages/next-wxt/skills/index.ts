@@ -4,6 +4,7 @@
  */
 
 import type { Skill, SkillMeta } from './types'
+import { storage } from '@wxt-dev/storage'
 
 // 自动发现所有 skill 目录下的 index.ts
 const skillModules = import.meta.glob('./*/index.ts', { eager: true })
@@ -38,6 +39,18 @@ for (const [path, module] of Object.entries(skillModules)) {
     console.error(`[Skill System] ✗ Skill 加载失败: ${path}`, error)
   }
 }
+
+// 遍历所有用户自定义prompt
+const storageData = (await storage.getMeta('local:ai-extension-configs')) || { list: [] }
+const customConfig = storageData.list || []
+customConfig.forEach((skill) => {
+  const { name, label, description, prompts, requiredDomains, tools } = skill
+  skills.push({
+    meta: { name, label, description, requiredDomains },
+    prompt: prompts,
+    tools: tools
+  })
+})
 
 /**
  * 获取所有 skill
@@ -99,4 +112,3 @@ export function getAllSkillMetas(): SkillMeta[] {
 
 // 导出默认的 skill 列表
 export default skills
-

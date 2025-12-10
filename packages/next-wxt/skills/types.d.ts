@@ -19,6 +19,8 @@ export interface SkillMeta {
   icon?: string
   /** 分类（可选，用于分组） */
   category?: string
+  /** 关联域名 */
+  requiredDomains?: string
 }
 
 /**
@@ -43,4 +45,3 @@ export interface SkillExport {
   prompt: string
   tools?: string[]
 }
-
