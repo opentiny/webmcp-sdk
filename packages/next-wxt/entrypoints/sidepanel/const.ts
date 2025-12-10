@@ -1,2 +1,2 @@
-export const AGENT_ROOT = 'https://agent.opentiny.design/api/v1/webmcp-trial/'
-export const ROBOT_URL = 'https://agent.opentiny.design/tiny-robot'
+export const AGENT_ROOT = import.meta.env.VITE_AGENT_ROOT
+export const ROBOT_URL = import.meta.env.VITE_ROBOT_URL
