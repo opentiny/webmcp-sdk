@@ -517,25 +517,33 @@ export class AgentModelProvider {
               return
             }
 
-            // 发送工具调用开始事件
+            // 发送工具调用开始事件（符合 tiny-robot 格式）
             const toolCallId = `react-${Date.now()}`
             controller.enqueue({
-              type: 'tool-call',
-              toolCallId,
+              type: 'tool-input-start',
+              id: toolCallId,
               toolName: action.toolName
+            })
+
+            // 发送工具调用参数（显示调用中状态）
+            const argsString = JSON.stringify(action.arguments, null, 2)
+            controller.enqueue({
+              type: 'tool-input-delta',
+              id: toolCallId,
+              delta: argsString
             })
 
             // 执行工具调用
             const toolResult = await self._executeReActToolCall(action.toolName, action.arguments, tools)
 
-            // 发送工具结果
+            // 发送工具结果（符合 tiny-robot 格式）
             const observation = toolResult.success
               ? `Observation: ${JSON.stringify(toolResult.result)}`
               : `Observation: 工具执行失败 - ${toolResult.error}`
 
             controller.enqueue({
               type: 'tool-result',
-              toolCallId,
+              toolCallId: toolCallId,
               result: observation
             })
 
