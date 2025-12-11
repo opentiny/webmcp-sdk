@@ -13,6 +13,8 @@ type LlmFactoryConfig = {
   providerType: ProviderFactory
   /** 互斥：当使用 providerType 分支时不允许传入 llm */
   llm?: never
+  /** 是否使用 ReAct 模式（通过提示词而非 function calling 进行工具调用），默认为 false */
+  useReActMode?: boolean
 }
 
 type LlmInstanceConfig = {
@@ -22,6 +24,8 @@ type LlmInstanceConfig = {
   apiKey?: never
   baseURL?: never
   providerType?: never
+  /** 是否使用 ReAct 模式（通过提示词而非 function calling 进行工具调用），默认为 false */
+  useReActMode?: boolean
 }
 
 /** 代理模型提供器的大语言配置对象, 通过 XOR 表达二选一 */

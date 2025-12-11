@@ -15,6 +15,8 @@ import { ExtensionClientTransport } from '../transport/ExtensionClientTransport'
 import { MessageChannelTransport } from '@opentiny/next'
 import { WebMcpClient } from '../WebMcpClient'
 import { getAISDKTools } from './utils/getAISDKTools'
+import { generateReActToolsPrompt } from './utils/generateReActPrompt'
+import { parseReActAction } from './utils/parseReActAction'
 
 export const AIProviderFactories = {
   ['openai']: createOpenAI,
@@ -46,6 +48,8 @@ export class AgentModelProvider {
   onClientDisconnected?: (serverName: string, reason?: string) => void
   /** 缓存 ai-sdk response 中的 多轮会话的上下文 */
   messages: any[] = []
+  /** 是否使用 ReAct 模式（通过提示词而非 function calling 进行工具调用） */
+  private useReActMode: boolean = true
 
   constructor({ llmConfig, mcpServers }: IAgentModelProviderOption) {
     if (!llmConfig) {
@@ -73,6 +77,9 @@ export class AgentModelProvider {
     } else {
       throw new Error('Either llmConfig.llm or llmConfig.providerType must be provided')
     }
+
+    // 读取 ReAct 模式配置
+    this.useReActMode = (llmConfig as any).useReActMode ?? false
   }
 
   /** 创建一个 ai-sdk的 mcpClient, 创建失败则返回 null */
@@ -287,10 +294,272 @@ export class AgentModelProvider {
     return toolsResult
   }
 
+  /** 生成 ReAct 模式的系统提示词（包含工具描述） */
+  private _generateReActSystemPrompt(tools: ToolSet, baseSystemPrompt?: string): string {
+    const toolsPrompt = generateReActToolsPrompt(tools)
+    if (baseSystemPrompt) {
+      return `${baseSystemPrompt}${toolsPrompt}`
+    }
+    return `你是一个智能助手，可以通过调用工具来完成任务。${toolsPrompt}`
+  }
+
+  /** 执行 ReAct 模式下的工具调用 */
+  private async _executeReActToolCall(
+    toolName: string,
+    args: any,
+    tools: ToolSet
+  ): Promise<{ success: boolean; result?: any; error?: string }> {
+    const tool = tools[toolName]
+    if (!tool) {
+      return { success: false, error: `工具 ${toolName} 不存在` }
+    }
+
+    try {
+      const toolInfo = tool as any
+      const executeFn = toolInfo.execute || toolInfo.call
+      if (typeof executeFn !== 'function') {
+        return { success: false, error: `工具 ${toolName} 没有可执行的函数` }
+      }
+
+      const result = await executeFn(args, {})
+      return { success: true, result }
+    } catch (error: any) {
+      const errorMsg = error?.message || String(error) || '工具执行失败'
+      return { success: false, error: errorMsg }
+    }
+  }
+
+  /** ReAct 模式的对话实现 */
+  private async _chatReAct(
+    chatMethod: ChatMethodFn,
+    { model, maxSteps = 5, ...options }: Parameters<typeof generateText>[0] & { maxSteps?: number; message?: string }
+  ): Promise<any> {
+    if (!this.llm) {
+      throw new Error('LLM is not initialized')
+    }
+
+    await this.initClientsAndTools()
+
+    // 合并所有可用工具
+    const allTools = this._tempMergeTools(options.tools) as ToolSet
+    const toolNames = Object.keys(allTools)
+
+    // 如果没有工具，回退到普通模式
+    if (toolNames.length === 0) {
+      return this._chat(chatMethod, { model, maxSteps, ...options })
+    }
+
+    // 准备消息历史
+    let currentMessages: any[] = []
+    if (options.message && !options.messages) {
+      currentMessages.push({ role: 'user', content: options.message })
+    } else if (options.messages) {
+      currentMessages = [...options.messages]
+    } else {
+      currentMessages = [...this.messages]
+    }
+
+    // 生成包含工具描述的系统提示词
+    const systemPrompt = this._generateReActSystemPrompt(allTools, options.system as string)
+    const systemMessage = { role: 'system', content: systemPrompt }
+
+    // 确保第一条消息是系统提示词
+    const messagesWithSystem =
+      currentMessages[0]?.role === 'system' ? currentMessages : [systemMessage, ...currentMessages]
+
+    // 判断是否为流式输出
+    const isStream = chatMethod === streamText
+
+    if (isStream) {
+      // 流式输出模式：创建一个包装的流
+      return this._chatReActStream(messagesWithSystem, allTools, model, maxSteps, options)
+    } else {
+      // 非流式输出模式：循环对话直到完成
+      return this._chatReActNonStream(messagesWithSystem, allTools, model, maxSteps, options)
+    }
+  }
+
+  /** ReAct 模式非流式对话 */
+  private async _chatReActNonStream(
+    messages: any[],
+    tools: ToolSet,
+    model: string,
+    maxSteps: number,
+    options: any
+  ): Promise<any> {
+    let currentMessages = [...messages]
+    let stepCount = 0
+
+    while (stepCount < maxSteps) {
+      stepCount++
+
+      // 调用 LLM
+      const result = await generateText({
+        model: this.llm(model),
+        messages: currentMessages,
+        ...options
+      })
+
+      const assistantMessage = result.text
+      currentMessages.push({ role: 'assistant', content: assistantMessage })
+
+      // 解析工具调用
+      const action = parseReActAction(assistantMessage, tools)
+
+      if (!action) {
+        // 没有工具调用，返回最终结果
+        this.messages = currentMessages
+        return {
+          text: assistantMessage,
+          response: { messages: currentMessages }
+        }
+      }
+
+      // 执行工具调用
+      const toolResult = await this._executeReActToolCall(action.toolName, action.arguments, tools)
+
+      // 添加工具调用结果到消息历史
+      const observation = toolResult.success
+        ? `工具执行成功：${JSON.stringify(toolResult.result)}`
+        : `工具执行失败：${toolResult.error}`
+
+      currentMessages.push({
+        role: 'tool',
+        content: observation,
+        toolCallId: `react-${Date.now()}`,
+        toolName: action.toolName
+      })
+    }
+
+    // 达到最大步数，返回最后一条消息
+    this.messages = currentMessages
+    const lastMessage = currentMessages[currentMessages.length - 2]?.content || ''
+    return {
+      text: lastMessage,
+      response: { messages: currentMessages }
+    }
+  }
+
+  /** ReAct 模式流式对话 */
+  private _chatReActStream(messages: any[], tools: ToolSet, model: string, maxSteps: number, options: any): any {
+    // 保存 this 引用，以便在异步生成器中使用
+    const self = this
+    const llmModel = this.llm(model)
+
+    // 创建一个异步生成器来模拟流式输出
+    const stream = new ReadableStream({
+      async start(controller) {
+        let currentMessages = [...messages]
+        let stepCount = 0
+        let accumulatedText = ''
+
+        try {
+          while (stepCount < maxSteps) {
+            stepCount++
+
+            // 调用流式 LLM
+            const result = await streamText({
+              model: llmModel,
+              messages: currentMessages,
+              ...options
+            })
+
+            // 收集流式输出
+            let assistantText = ''
+            for await (const part of result.fullStream) {
+              if (part.type === 'text-delta') {
+                assistantText += part.text || ''
+                // 转发文本增量
+                controller.enqueue({
+                  type: 'text-delta',
+                  text: part.text
+                })
+              } else if (part.type === 'text-start') {
+                controller.enqueue({ type: 'text-start' })
+              } else if (part.type === 'text-end') {
+                // 暂时不关闭，等待检查是否有工具调用
+              } else {
+                // 转发其他类型的事件
+                controller.enqueue(part)
+              }
+            }
+
+            accumulatedText += assistantText
+            currentMessages.push({ role: 'assistant', content: accumulatedText })
+
+            // 解析工具调用
+            const action = parseReActAction(accumulatedText, tools)
+
+            if (!action) {
+              // 没有工具调用，结束流
+              controller.enqueue({ type: 'text-end' })
+              controller.close()
+              self.messages = currentMessages
+              return
+            }
+
+            // 发送工具调用开始事件
+            const toolCallId = `react-${Date.now()}`
+            controller.enqueue({
+              type: 'tool-call',
+              toolCallId,
+              toolName: action.toolName
+            })
+
+            // 执行工具调用
+            const toolResult = await self._executeReActToolCall(action.toolName, action.arguments, tools)
+
+            // 发送工具结果
+            const observation = toolResult.success
+              ? `工具执行成功：${JSON.stringify(toolResult.result)}`
+              : `工具执行失败：${toolResult.error}`
+
+            controller.enqueue({
+              type: 'tool-result',
+              toolCallId,
+              result: observation
+            })
+
+            // 添加工具结果到消息历史
+            currentMessages.push({
+              role: 'tool',
+              content: observation,
+              toolCallId,
+              toolName: action.toolName
+            })
+
+            // 重置累积文本，准备下一轮
+            accumulatedText = ''
+          }
+
+          // 达到最大步数
+          controller.enqueue({ type: 'text-end' })
+          controller.close()
+          self.messages = currentMessages
+        } catch (error: any) {
+          controller.error(error)
+        }
+      }
+    })
+
+    // 返回一个类似 streamText 的结果对象
+    return {
+      fullStream: stream,
+      response: Promise.resolve({ messages: [] })
+    }
+  }
+
   private async _chat(
     chatMethod: ChatMethodFn,
     { model, maxSteps = 5, ...options }: Parameters<typeof generateText>[0] & { maxSteps?: number; message?: string }
   ): Promise<any> {
+    debugger
+    // 如果启用 ReAct 模式，使用 ReAct 实现
+    if (this.useReActMode) {
+      return this._chatReAct(chatMethod, { model, maxSteps, ...options })
+    }
+
+    // 否则使用原有的 function calling 模式
     if (!this.llm) {
       throw new Error('LLM is not initialized')
     }

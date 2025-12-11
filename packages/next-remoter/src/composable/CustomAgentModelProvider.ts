@@ -53,13 +53,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
 
     this.llmConfig = mergedConfig
 
-    const llmConfigOption = mergedConfig.llm
-      ? { llm: mergedConfig.llm }
-      : {
-          apiKey: mergedConfig.apiKey!,
-          baseURL: mergedConfig.baseURL!,
-          providerType: mergedConfig.providerType!
-        }
+    const llmConfigOption = mergedConfig.llm ? { llm: mergedConfig.llm } : { ...mergedConfig }
 
     const options: IAgentModelProviderOption = {
       mcpServers: this.createMcpServers(sessionId.value, agentRoot.value),
