@@ -7,6 +7,7 @@ import { VantResolver } from '@vant/auto-import-resolver'
 import { mcpServersPlugin } from './plugins/vite-plugin-mcp-servers'
 import { vendorSdkPlugin } from './plugins/vite-plugin-vendor-sdk'
 import { codeRecorderPlugin } from './plugins/vite-plugin-code-recorder'
+import { manifestOptionsPlugin } from './plugins/vite-plugin-manifest-options'
 
 // See https://wxt.dev/api/config.html
 export default defineConfig({
@@ -29,6 +30,11 @@ export default defineConfig({
     ],
     host_permissions: ['*://*/*'], //  bg 发出 fecth, bg注入content脚本，访问 tab详情，cookie..
     action: {},
+    // 配置 options 页面在新标签页中打开，而不是弹窗
+    options_ui: {
+      page: 'options.html',
+      open_in_tab: true
+    },
     web_accessible_resources: [
       {
         resources: ['vendor/next-sdk.js', 'vendor/mcp-server.js'],
@@ -55,7 +61,8 @@ export default defineConfig({
       }) as any,
       vendorSdkPlugin(), // 自动构建和更新 vendor/next-sdk.js
       mcpServersPlugin(), // 添加 mcp-servers 编译插件
-      codeRecorderPlugin() // dev 环境录制生成工具写入支持
+      codeRecorderPlugin(), // dev 环境录制生成工具写入支持
+      manifestOptionsPlugin() // 确保 manifest.json 中 options_ui.open_in_tab 为 true（dev 和 build 模式）
     ]
   })
 })
