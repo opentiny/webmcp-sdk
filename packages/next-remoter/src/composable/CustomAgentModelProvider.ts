@@ -200,9 +200,15 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   private cleanupOldSnapshotsInMessages(messages: any[]): any[] {
     if (!messages || messages.length === 0) return messages
 
-    // 检查最后一项是否是 tool 角色且包含快照信息
+    // 检查是否启用 ReAct 模式
+    const isReActMode = (this.llmConfig as any).useReActMode === true
+
+    // 在 ReAct 模式下，工具结果作为 user 消息添加；否则作为 tool 消息添加
+    const expectedRole = isReActMode ? 'user' : 'tool'
+
+    // 检查最后一项是否是预期角色且包含快照信息
     const lastMessage = messages[messages.length - 1]
-    if (!lastMessage || lastMessage.role !== 'tool') {
+    if (!lastMessage || lastMessage.role !== expectedRole) {
       return messages
     }
 
@@ -214,11 +220,12 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     // 创建消息数组的副本，避免直接修改原数组
     const cleanedMessages = [...messages]
 
-    // 从倒数第二项开始往前查找，找到最后一次 tool 调用（除了最后一项）
+    // 从倒数第二项开始往前查找，找到最后一次快照消息（除了最后一项）
     // 因为最后一项是当前步骤的新快照，需要保留
     for (let i = cleanedMessages.length - 2; i >= 0; i--) {
       const msg = cleanedMessages[i] as any
-      if (msg.role === 'tool' && this.isSnapshotContent(msg.content)) {
+      // 在 ReAct 模式下检查 user 角色，否则检查 tool 角色
+      if (msg.role === expectedRole && this.isSnapshotContent(msg.content)) {
         // 找到旧的快照消息，替换为占位符
         this.replaceSnapshotWithPlaceholder(msg)
         break // 只清理最后一次快照，找到后退出
