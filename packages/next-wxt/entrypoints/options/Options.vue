@@ -31,20 +31,66 @@ const formData = ref({
   toolsInput: ''
 })
 
+// 将对象转换为数组（处理存储时数组被转换为对象的情况）
+function normalizeToArray(value: any): any[] {
+  if (Array.isArray(value)) {
+    return value
+  }
+  // 如果是对象，检查是否有数字键，如果有则转换为数组
+  if (value && typeof value === 'object') {
+    const keys = Object.keys(value)
+    // 检查是否所有键都是数字（类似数组索引）
+    const isArrayLike = keys.length > 0 && keys.every((key) => /^\d+$/.test(key))
+    if (isArrayLike) {
+      // 按数字键排序后转换为数组，确保顺序正确
+      const sortedKeys = keys.map(Number).sort((a, b) => a - b)
+      return sortedKeys.map((key) => value[String(key)])
+    }
+  }
+  return []
+}
+
 // 加载配置列表
 async function loadConfigs() {
   try {
     const data = (await storage.getMeta(STORAGE_KEY)) || { list: [] }
-    configs.value = data.list || []
+    const loadedList = data?.list || []
+
+    // 如果存储的数据是对象格式（键为数字），转换为数组并立即修复存储
+    if (!Array.isArray(loadedList) && loadedList && typeof loadedList === 'object') {
+      console.warn('检测到存储数据格式异常（对象而非数组），正在修复...')
+      // 转换为数组
+      const normalized = normalizeToArray(loadedList)
+      // 立即修复存储的数据格式，使用 JSON 序列化确保数组格式
+      const dataToSave = JSON.parse(JSON.stringify({ list: normalized }))
+      await storage.setMeta(STORAGE_KEY, dataToSave)
+      configs.value = normalized
+    } else {
+      // 正常情况：确保是数组
+      configs.value = Array.isArray(loadedList) ? loadedList : []
+    }
   } catch (e) {
+    console.error('加载配置失败:', e)
     configs.value = []
   }
 }
 
 // 保存配置列表
 async function saveConfigs() {
-  await storage.setMeta(STORAGE_KEY, { list: configs.value })
-  chrome.runtime.sendMessage({ type: 'reload-sidepanel' })
+  // 确保保存的数据是数组格式，并且是真正的数组（不是类数组对象）
+  let listToSave: ConfigItem[] = []
+  if (Array.isArray(configs.value)) {
+    listToSave = [...configs.value] // 创建新数组确保格式正确
+  } else {
+    // 如果不是数组，尝试转换
+    listToSave = normalizeToArray(configs.value)
+  }
+
+  // 使用 JSON 序列化/反序列化确保数组格式正确，避免存储时被转换为对象
+  // 这样可以确保数组在存储和读取时保持一致
+  const dataToSave = JSON.parse(JSON.stringify({ list: listToSave }))
+  await storage.setMeta(STORAGE_KEY, dataToSave)
+  browser.runtime.sendMessage({ type: 'reload-sidepanel' })
 }
 
 // 打开添加对话框
@@ -153,6 +199,11 @@ function handleSubmit() {
 
   const config: ConfigItem = { name, label, prompts, description, requireDomains, tools }
 
+  // 确保 configs.value 是数组
+  if (!Array.isArray(configs.value)) {
+    configs.value = []
+  }
+
   if (editingIndex.value === null) {
     configs.value.push(config)
   } else {
@@ -231,34 +282,17 @@ onMounted(async () => {
 
           <div class="form-group">
             <label for="label">专家名称</label>
-            <input
-              id="label"
-              v-model="formData.label"
-              type="text"
-              required
-              placeholder="例如: 绘图专家，办公助手"
-            />
+            <input id="label" v-model="formData.label" type="text" required placeholder="例如: 绘图专家，办公助手" />
           </div>
 
           <div class="form-group">
             <label for="description">描述</label>
-            <input
-              id="description"
-              v-model="formData.description"
-              type="text"
-              placeholder="简短描述"
-            />
+            <input id="description" v-model="formData.description" type="text" placeholder="简短描述" />
           </div>
 
           <div class="form-group">
             <label for="prompts">提示词</label>
-            <textarea
-              id="prompts"
-              v-model="formData.prompts"
-              required
-              rows="3"
-              placeholder="专家提示词..."
-            ></textarea>
+            <textarea id="prompts" v-model="formData.prompts" required rows="3" placeholder="专家提示词..."></textarea>
           </div>
 
           <div class="form-group">
@@ -273,12 +307,7 @@ onMounted(async () => {
 
           <div class="form-group">
             <label for="toolsInput">关联工具（可选，英文逗号分隔）</label>
-            <input
-              id="toolsInput"
-              v-model="formData.toolsInput"
-              type="text"
-              placeholder="请输入工程名称"
-            />
+            <input id="toolsInput" v-model="formData.toolsInput" type="text" placeholder="请输入工程名称" />
           </div>
 
           <div class="form-actions">
@@ -579,4 +608,3 @@ onMounted(async () => {
   }
 }
 </style>
-

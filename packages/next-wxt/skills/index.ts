@@ -40,11 +40,28 @@ for (const [path, module] of Object.entries(skillModules)) {
   }
 }
 
+// 将对象转换为数组（处理存储时数组被转换为对象的情况）
+function normalizeToArray(value: any): any[] {
+  if (Array.isArray(value)) {
+    return value
+  }
+  // 如果是对象，检查是否有数字键，如果有则转换为数组
+  if (value && typeof value === 'object') {
+    const keys = Object.keys(value)
+    // 检查是否所有键都是数字（类似数组索引）
+    const isArrayLike = keys.length > 0 && keys.every((key) => /^\d+$/.test(key))
+    if (isArrayLike) {
+      return Object.values(value)
+    }
+  }
+  return []
+}
+
 // 遍历所有用户自定义prompt
 try {
   const storageData = (await storage.getMeta('local:ai-extension-configs')) || { list: [] }
-  // 确保 customConfig 是数组类型
-  const customConfig = Array.isArray(storageData?.list) ? storageData.list : []
+  // 确保 customConfig 是数组类型，处理对象格式的数据
+  const customConfig = normalizeToArray(storageData?.list)
   customConfig.forEach((skill) => {
     const { name, label, description, prompts, requireDomains, tools } = skill
     skills.push({
