@@ -49,7 +49,7 @@ export class AgentModelProvider {
   /** 缓存 ai-sdk response 中的 多轮会话的上下文 */
   messages: any[] = []
   /** 是否使用 ReAct 模式（通过提示词而非 function calling 进行工具调用） */
-  private useReActMode: boolean = true
+  private useReActMode: boolean = false
 
   constructor({ llmConfig, mcpServers }: IAgentModelProviderOption) {
     if (!llmConfig) {
@@ -110,6 +110,7 @@ export class AgentModelProvider {
           { name: 'mcp-web-client', version: '1.0.0' },
           { capabilities: { roots: { listChanged: true }, sampling: {}, elicitation: {} } }
         )
+        // @ts-ignore transport 已经在前面的条件分支中转换为 Transport 实例，类型系统无法正确推断
         await client.connect(transport)
 
         //@ts-ignore
@@ -370,12 +371,15 @@ export class AgentModelProvider {
     // 判断是否为流式输出
     const isStream = chatMethod === streamText
 
+    // 确保 model 是字符串类型（ReAct 模式下 model 应该是模型名称字符串）
+    const modelName = typeof model === 'string' ? model : (model as any)?.modelId || 'default-model'
+
     if (isStream) {
       // 流式输出模式：创建一个包装的流
-      return this._chatReActStream(messagesWithSystem, allTools, model, maxSteps, options)
+      return this._chatReActStream(messagesWithSystem, allTools, modelName, maxSteps, options)
     } else {
       // 非流式输出模式：循环对话直到完成
-      return this._chatReActNonStream(messagesWithSystem, allTools, model, maxSteps, options)
+      return this._chatReActNonStream(messagesWithSystem, allTools, modelName, maxSteps, options)
     }
   }
 
@@ -396,6 +400,7 @@ export class AgentModelProvider {
       // 调用 LLM（ReAct 模式下不传递 tools，因为工具调用通过提示词实现）
       const { tools: _, ...restOptions } = options
       const result = await generateText({
+        // @ts-ignore ProviderV2 是所有llm的父类，在每一个具体的llm类都有一个选择model的函数用法
         model: this.llm(model),
         messages: currentMessages,
         ...restOptions
@@ -444,6 +449,7 @@ export class AgentModelProvider {
   private _chatReActStream(messages: any[], tools: ToolSet, model: string, maxSteps: number, options: any): any {
     // 保存 this 引用，以便在异步生成器中使用
     const self = this
+    // @ts-ignore ProviderV2 是所有llm的父类，在每一个具体的llm类都有一个选择model的函数用法
     const llmModel = this.llm(model)
 
     // 创建一个 Promise 来跟踪流完成状态，用于触发 onFinish
