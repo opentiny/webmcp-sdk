@@ -41,16 +41,21 @@ for (const [path, module] of Object.entries(skillModules)) {
 }
 
 // 遍历所有用户自定义prompt
-const storageData = (await storage.getMeta('local:ai-extension-configs')) || { list: [] }
-const customConfig = storageData.list || []
-customConfig.forEach((skill) => {
-  const { name, label, description, prompts, requiredDomains, tools } = skill
-  skills.push({
-    meta: { name, label, description, requiredDomains },
-    prompt: prompts,
-    tools: tools
+try {
+  const storageData = (await storage.getMeta('local:ai-extension-configs')) || { list: [] }
+  // 确保 customConfig 是数组类型
+  const customConfig = Array.isArray(storageData?.list) ? storageData.list : []
+  customConfig.forEach((skill) => {
+    const { name, label, description, prompts, requireDomains, tools } = skill
+    skills.push({
+      meta: { name, label, description, requiredDomains: requireDomains },
+      prompt: prompts,
+      tools: tools || []
+    })
   })
-})
+} catch (error) {
+  console.error('[Skill System] ✗ 加载自定义配置失败:', error)
+}
 
 /**
  * 获取所有 skill
