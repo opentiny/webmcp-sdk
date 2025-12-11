@@ -393,11 +393,12 @@ export class AgentModelProvider {
     while (stepCount < maxSteps) {
       stepCount++
 
-      // 调用 LLM
+      // 调用 LLM（ReAct 模式下不传递 tools，因为工具调用通过提示词实现）
+      const { tools: _, ...restOptions } = options
       const result = await generateText({
         model: this.llm(model),
         messages: currentMessages,
-        ...options
+        ...restOptions
       })
 
       const assistantMessage = result.text
@@ -418,16 +419,15 @@ export class AgentModelProvider {
       // 执行工具调用
       const toolResult = await this._executeReActToolCall(action.toolName, action.arguments, tools)
 
-      // 添加工具调用结果到消息历史
+      // 添加工具调用结果到消息历史（ReAct 模式下，工具结果作为 user 消息添加）
       const observation = toolResult.success
-        ? `工具执行成功：${JSON.stringify(toolResult.result)}`
-        : `工具执行失败：${toolResult.error}`
+        ? `Observation: ${JSON.stringify(toolResult.result)}`
+        : `Observation: 工具执行失败 - ${toolResult.error}`
 
+      // 在 ReAct 模式下，工具执行结果应该作为 user 消息添加，以便模型继续对话
       currentMessages.push({
-        role: 'tool',
-        content: observation,
-        toolCallId: `react-${Date.now()}`,
-        toolName: action.toolName
+        role: 'user',
+        content: observation
       })
     }
 
@@ -446,6 +446,14 @@ export class AgentModelProvider {
     const self = this
     const llmModel = this.llm(model)
 
+    // 创建一个 Promise 来跟踪流完成状态，用于触发 onFinish
+    let streamCompleteResolver: (value: any) => void
+    let streamCompleteRejecter: (error: any) => void
+    const streamCompletePromise = new Promise((resolve, reject) => {
+      streamCompleteResolver = resolve
+      streamCompleteRejecter = reject
+    })
+
     // 创建一个异步生成器来模拟流式输出
     const stream = new ReadableStream({
       async start(controller) {
@@ -457,11 +465,14 @@ export class AgentModelProvider {
           while (stepCount < maxSteps) {
             stepCount++
 
+            // 移除 tools 选项，ReAct 模式下不传递 tools
+            const { tools: _, ...restOptions } = options
+
             // 调用流式 LLM
             const result = await streamText({
               model: llmModel,
               messages: currentMessages,
-              ...options
+              ...restOptions
             })
 
             // 收集流式输出
@@ -495,6 +506,8 @@ export class AgentModelProvider {
               controller.enqueue({ type: 'text-end' })
               controller.close()
               self.messages = currentMessages
+              // 触发 onFinish 回调
+              streamCompleteResolver({ messages: currentMessages })
               return
             }
 
@@ -511,8 +524,8 @@ export class AgentModelProvider {
 
             // 发送工具结果
             const observation = toolResult.success
-              ? `工具执行成功：${JSON.stringify(toolResult.result)}`
-              : `工具执行失败：${toolResult.error}`
+              ? `Observation: ${JSON.stringify(toolResult.result)}`
+              : `Observation: 工具执行失败 - ${toolResult.error}`
 
             controller.enqueue({
               type: 'tool-result',
@@ -520,12 +533,10 @@ export class AgentModelProvider {
               result: observation
             })
 
-            // 添加工具结果到消息历史
+            // 添加工具结果到消息历史（ReAct 模式下，工具结果作为 user 消息添加）
             currentMessages.push({
-              role: 'tool',
-              content: observation,
-              toolCallId,
-              toolName: action.toolName
+              role: 'user',
+              content: observation
             })
 
             // 重置累积文本，准备下一轮
@@ -536,16 +547,20 @@ export class AgentModelProvider {
           controller.enqueue({ type: 'text-end' })
           controller.close()
           self.messages = currentMessages
+          // 触发 onFinish 回调
+          streamCompleteResolver({ messages: currentMessages })
         } catch (error: any) {
           controller.error(error)
+          streamCompleteRejecter(error)
         }
       }
     })
 
     // 返回一个类似 streamText 的结果对象
+    // response Promise 需要在流结束时 resolve，这样才能触发 onFinish 回调
     return {
       fullStream: stream,
-      response: Promise.resolve({ messages: [] })
+      response: streamCompletePromise
     }
   }
 
@@ -553,7 +568,6 @@ export class AgentModelProvider {
     chatMethod: ChatMethodFn,
     { model, maxSteps = 5, ...options }: Parameters<typeof generateText>[0] & { maxSteps?: number; message?: string }
   ): Promise<any> {
-    debugger
     // 如果启用 ReAct 模式，使用 ReAct 实现
     if (this.useReActMode) {
       return this._chatReAct(chatMethod, { model, maxSteps, ...options })
