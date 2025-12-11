@@ -335,50 +335,54 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       },
       onFinish: async () => {
         await this.agent.closeAll()
-        handler.onDone()
       }
     })
 
     // 标识每一个markdown块
     let textId = 1
     let thinkId = 1
-    for await (const part of result.fullStream) {
-      // 处理错误， 暂时模拟 AI 回复消息。 TODO: robot 设计出错效果
-      if (part.type === 'error') {
-        const message = part.error?.data?.error?.message || part.error?.message || '访问大模型出错'
-        handler.onData({
-          type: 'markdown',
-          content: '',
-          delta: '',
-          textId
-        } as any)
+    try {
+      for await (const part of result.fullStream) {
+        // 处理错误， 暂时模拟 AI 回复消息。 TODO: robot 设计出错效果
+        if (part.type === 'error') {
+          const message = part.error?.data?.error?.message || part.error?.message || '访问大模型出错'
+          handler.onData({
+            type: 'markdown',
+            content: '',
+            delta: '',
+            textId
+          } as any)
 
-        handler.onData({
-          type: 'markdown',
-          delta: message,
-          textId
-        } as any)
-        handler.onError(message)
-      }
+          handler.onData({
+            type: 'markdown',
+            delta: message,
+            textId
+          } as any)
+          handler.onError(message)
+        }
 
-      // 开始节点处理
-      if (part.type.includes('start-') || part.type.includes('-start')) {
-        handler.onData({ type: 'start' } as any)
-      }
-      // 处理文本流数据
-      if (part.type.startsWith('text-')) {
-        textId = this.handleTextStream(part, handler, textId)
-      }
+        // 开始节点处理
+        if (part.type.includes('start-') || part.type.includes('-start')) {
+          handler.onData({ type: 'start' } as any)
+        }
+        // 处理文本流数据
+        if (part.type.startsWith('text-')) {
+          textId = this.handleTextStream(part, handler, textId)
+        }
 
-      // 处理工具流数据
-      else if (part.type.startsWith('tool-')) {
-        this.handleToolStream(part, handler)
-      }
+        // 处理工具流数据
+        else if (part.type.startsWith('tool-')) {
+          this.handleToolStream(part, handler)
+        }
 
-      // 处理推理数据
-      else if (part.type.startsWith('reasoning-')) {
-        thinkId = this.handleReasonStream(part, handler, thinkId)
+        // 处理推理数据
+        else if (part.type.startsWith('reasoning-')) {
+          thinkId = this.handleReasonStream(part, handler, thinkId)
+        }
       }
+    } finally {
+      // 确保流完全消费完后才调用 onDone，这样才能正确更新 loading 状态
+      handler.onDone()
     }
   }
 
