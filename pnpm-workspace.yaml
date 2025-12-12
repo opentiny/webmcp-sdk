@@ -3,7 +3,7 @@ packages:
   - docs
 
 catalog:
-  '@ai-sdk/deepseek': ^1.0.28
+  '@ai-sdk/deepseek': 1.0.30
   '@ai-sdk/mcp': ^0.0.11
   '@ai-sdk/openai': ^2.0.76
   '@ai-sdk/provider': ^2.0.0

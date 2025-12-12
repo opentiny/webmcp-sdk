@@ -245,6 +245,7 @@ const props = defineProps({
 })
 
 if (props.inBrowserExt) {
+  debugger
   provide(RENDERER_SETTINGS_KEY, {
     Function: CustomFunction
   })
