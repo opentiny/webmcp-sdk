@@ -20,6 +20,7 @@
     "@opentiny/vue": "catalog:",
     "@opentiny/vue-icon": "catalog:",
     "puppeteer-core": "catalog:",
+    "zhipu-ai-provider": "0.2.0-beta.1",
     "vant": "catalog:",
     "vue": "catalog:",
     "zod": "catalog:"

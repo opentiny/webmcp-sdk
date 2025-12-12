@@ -323,9 +323,10 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     const lastUserMsg = request.messages[request.messages.length - 1]
     if (!lastUserMsg) return
 
-    // @ts-ignore
-    const result = await this.agent.chatStream({
-      message: lastUserMsg.content as string,
+    // 构建 chatStream 的选项
+    // 根据 AI SDK 文档，UserModelMessage 的 content 可以是 string 或 Array<TextPart | ImagePart>
+    // 参考: https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text#messages.user-model-message.content.text-part.type
+    const chatStreamOptions: any = {
       model: this.llmConfig.model,
       system: this.systemPrompt,
       abortSignal: request.options?.signal,
@@ -343,7 +344,27 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       onFinish: async () => {
         await this.agent.closeAll()
       }
-    })
+    }
+
+    // 检查消息内容是否为多模态格式（数组）
+    if (Array.isArray(lastUserMsg.content)) {
+      // 多模态消息：包含文本和图片
+      // 构建完整的消息数组，包含历史消息和当前用户消息
+      const userMessage = {
+        role: 'user' as const,
+        content: lastUserMsg.content // 已经是数组格式：Array<TextPart | ImagePart>
+      }
+
+      // 将历史消息和当前用户消息合并
+      const allMessages = [...this.agent.messages, userMessage]
+      chatStreamOptions.messages = allMessages
+    } else {
+      // 纯文本消息：使用 message 参数（保持向后兼容）
+      chatStreamOptions.message = lastUserMsg.content as string
+    }
+
+    // @ts-ignore
+    const result = await this.agent.chatStream(chatStreamOptions)
 
     // 标识每一个markdown块
     let textId = 1

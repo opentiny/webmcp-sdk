@@ -10,11 +10,12 @@ import { AGENT_ROOT, ROBOT_URL } from './const'
 import { useGenerateCode } from './useGenerateCode'
 import RecordModal from './components/RecordModal.vue'
 import { getAllSkills } from '@/skills'
+import { createZhipu } from 'zhipu-ai-provider'
 
 const llmConfig = {
   apiKey: import.meta.env.VITE_LLM_API_KEY,
   baseURL: import.meta.env.VITE_LLM_BASE_URL,
-  providerType: import.meta.env.VITE_LLM_PROVIDER_TYPE,
+  providerType: createZhipu,
   model: import.meta.env.VITE_LLM_MODEL,
   maxSteps: 30,
   providerOptions: {
