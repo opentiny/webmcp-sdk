@@ -11,13 +11,15 @@ import { useGenerateCode } from './useGenerateCode'
 import RecordModal from './components/RecordModal.vue'
 import { getAllSkills } from '@/skills'
 import { createZhipu } from 'zhipu-ai-provider'
+import { createOllama } from 'ollama-ai-provider-v2'
 
 const llmConfig = {
   apiKey: import.meta.env.VITE_LLM_API_KEY,
   baseURL: import.meta.env.VITE_LLM_BASE_URL,
-  providerType: createZhipu,
+  providerType: createOllama,
   model: import.meta.env.VITE_LLM_MODEL,
   maxSteps: 30,
+  useReAct: true,
   providerOptions: {
     deepseek: {
       'prompt': {

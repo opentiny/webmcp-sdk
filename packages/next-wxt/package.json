@@ -21,6 +21,7 @@
     "@opentiny/vue-icon": "catalog:",
     "puppeteer-core": "catalog:",
     "zhipu-ai-provider": "0.2.0-beta.1",
+    "ollama-ai-provider-v2": "^1.5.5",
     "vant": "catalog:",
     "vue": "catalog:",
     "zod": "catalog:"
