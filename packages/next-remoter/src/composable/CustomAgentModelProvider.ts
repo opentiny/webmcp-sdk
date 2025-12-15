@@ -320,8 +320,23 @@ export class CustomAgentModelProvider extends BaseModelProvider {
 
   async chatStream(request: ChatCompletionRequest, handler: StreamHandler): Promise<void> {
     // 读取用户最新的请求
-    const lastUserMsg = request.messages[request.messages.length - 1]
+    let lastUserMsg = request.messages[request.messages.length - 1]
     if (!lastUserMsg) return
+
+    // 执行 beforeChatStream 钩子（如果存在）
+    if (this.llmConfig.beforeChatStream) {
+      try {
+        const modifiedMsg = await this.llmConfig.beforeChatStream(lastUserMsg, this.systemPrompt)
+        if (modifiedMsg) {
+          lastUserMsg = modifiedMsg
+          // 更新 request.messages 中的最后一条消息
+          request.messages[request.messages.length - 1] = modifiedMsg
+        }
+      } catch (error) {
+        console.error('[beforeChatStream] 钩子执行失败:', error)
+        // 继续使用原始消息
+      }
+    }
 
     // 构建 chatStream 的选项
     // 根据 AI SDK 文档，UserModelMessage 的 content 可以是 string 或 Array<TextPart | ImagePart>

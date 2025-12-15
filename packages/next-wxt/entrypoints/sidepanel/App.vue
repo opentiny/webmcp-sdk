@@ -12,6 +12,10 @@ import RecordModal from './components/RecordModal.vue'
 import { getAllSkills } from '@/skills'
 import { createZhipu } from 'zhipu-ai-provider'
 import { createOllama } from 'ollama-ai-provider-v2'
+import { useAutoScreenshot } from './useAutoScreenshot'
+
+// 初始化自动截图功能
+const { captureCurrentTab } = useAutoScreenshot()
 
 const llmConfig = {
   apiKey: import.meta.env.VITE_LLM_API_KEY,
@@ -20,6 +24,72 @@ const llmConfig = {
   model: import.meta.env.VITE_LLM_MODEL,
   maxSteps: 30,
   useReActMode: false, // 启用 ReAct 模式，支持视觉模型的工具调用
+  /**
+   * beforeChatStream 钩子：在消息发送前自动添加截图
+   * 当 skill 是视觉操作专家时，自动捕获当前页面截图并添加到消息中
+   */
+  beforeChatStream: async (lastUserMsg: any, systemPrompt: string) => {
+    // 调试日志
+    console.log('[beforeChatStream] 触发')
+    console.log('[beforeChatStream] systemPrompt 前100字符:', systemPrompt.substring(0, 100))
+    console.log('[beforeChatStream] lastUserMsg:', lastUserMsg)
+    
+    // 检查是否是视觉操作专家 skill（通过 systemPrompt 判断）
+    // 检查多个可能的标识符
+    const isVisionExpert = 
+      systemPrompt.includes('视觉操作专家') || 
+      systemPrompt.includes('vision-expert') ||
+      systemPrompt.includes('avision-expert') ||
+      systemPrompt.includes('# 视觉操作专家')
+    
+    console.log('[beforeChatStream] isVisionExpert:', isVisionExpert)
+    
+    if (!isVisionExpert) {
+      // 不是视觉专家，返回原始消息
+      return lastUserMsg
+    }
+
+    try {
+      console.log('[beforeChatStream] 开始捕获截图...')
+      // 自动捕获当前页面截图
+      const screenshot = await captureCurrentTab()
+      console.log('[beforeChatStream] 截图捕获成功，长度:', screenshot.length)
+      
+      // 获取原始文本内容
+      const textContent = typeof lastUserMsg.content === 'string' 
+        ? lastUserMsg.content 
+        : lastUserMsg.content.find((part: any) => part.type === 'text')?.text || ''
+
+      console.log('[beforeChatStream] 文本内容:', textContent)
+
+      // 从 data URL 中提取 base64 字符串
+      // screenshot 格式: "data:image/png;base64,iVBORw0KG..."
+      // 需要提取: "iVBORw0KG..."
+      const base64Match = screenshot.match(/^data:image\/\w+;base64,(.+)$/)
+      const base64String = base64Match ? base64Match[1] : screenshot
+
+      // 构建多模态消息：文本 + 截图
+      // 根据 AI SDK 文档，ImagePart 的 image 字段可以是：
+      // - base64 字符串（不带前缀）
+      // - data URL（带 data:image/png;base64, 前缀）
+      // - URL
+      // Ollama 可能需要纯 base64 字符串
+      const multimodalMsg = {
+        role: 'user',
+        content: [
+          { type: 'text', text: textContent },
+          { type: 'image', image: base64String } // 使用纯 base64 字符串
+        ]
+      }
+      
+      console.log('[beforeChatStream] 多模态消息已构建，图片格式: base64 string')
+      return multimodalMsg
+    } catch (error) {
+      console.error('[Auto Screenshot] 截图捕获失败:', error)
+      // 降级：返回原始消息
+      return lastUserMsg
+    }
+  },
   providerOptions: {
     deepseek: {
       'prompt': {
@@ -87,9 +157,9 @@ const llmConfig = {
             }
           ]
         }
-      } as any
+      }
     }
-  }
+  } as any
 }
 
 const allSkills = getAllSkills().map((skill: any) => ({
