@@ -387,4 +387,129 @@ export const useExtraTools = (server: WebMcpServer) => {
       }
     })
   )
+
+  // 根据坐标点击页面元素
+  server.registerTool(
+    'clickByCoordinate',
+    {
+      title: '根据坐标点击页面，需要先获取页面截图',
+      description:
+        '根据 x, y 坐标点击页面上的元素。坐标系统：左上角为 (0, 0)，x 向右增加，y 向下增加。通常与 captureScreenshot 配合使用，先截图分析再点击。',
+      inputSchema: {
+        tabId: z.number().optional().describe('目标标签页 ID，如果不提供则使用当前活动标签页'),
+        x: z.number().describe('点击位置的 x 坐标（像素）'),
+        y: z.number().describe('点击位置的 y 坐标（像素）'),
+        button: z.enum(['left', 'right', 'middle']).optional().describe('鼠标按钮类型，默认为 left'),
+        clickCount: z.number().optional().describe('点击次数，默认为 1（单击），2 为双击')
+      }
+    },
+    withToolAnimation('clickByCoordinate', async ({ tabId, x, y, button = 'left', clickCount = 1 }) => {
+      // 获取当前标签页
+      const currentTabId = tabId || (await getCurrentTabId())
+
+      // 从连接池获取管理器
+      const manager = await snapshotManagerPool.getManager(currentTabId)
+      try {
+        const page = manager.getPage()
+        if (!page) {
+          throw new Error('页面未连接，请先确保标签页已加载')
+        }
+
+        // 使用 Puppeteer 的 mouse API 点击指定坐标
+        await page.mouse.click(x, y, {
+          button: button as 'left' | 'right' | 'middle',
+          clickCount
+        })
+
+        // 等待页面响应（给页面一些时间处理点击事件）
+        await new Promise((resolve) => setTimeout(resolve, 500))
+
+        const clickType = clickCount === 2 ? '双击' : '点击'
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `成功${clickType}坐标 (${x}, ${y})，使用 ${button} 按钮`
+            }
+          ]
+        }
+      } catch (error: any) {
+        const errorMessage = error.message || '未知错误'
+        const friendlyMessage = `坐标点击失败：${errorMessage}`
+
+        return { content: [{ type: 'text', text: friendlyMessage }] }
+      } finally {
+        // 释放连接引用
+        await snapshotManagerPool.releaseManager(currentTabId)
+      }
+    })
+  )
+
+  // 根据坐标在输入框中输入文本
+  server.registerTool(
+    'typeByCoordinate',
+    {
+      title: '根据坐标输入文本',
+      description:
+        '先点击指定坐标位置（通常是输入框），然后输入文本。适用于需要先聚焦输入框再输入的场景。通常与 captureScreenshot 配合使用。',
+      inputSchema: {
+        tabId: z.number().optional().describe('目标标签页 ID，如果不提供则使用当前活动标签页'),
+        x: z.number().describe('输入框的 x 坐标（像素）'),
+        y: z.number().describe('输入框的 y 坐标（像素）'),
+        text: z.string().describe('要输入的文本内容'),
+        clearFirst: z.boolean().optional().describe('是否先清空输入框，默认为 true')
+      }
+    },
+    withToolAnimation('typeByCoordinate', async ({ tabId, x, y, text, clearFirst = true }) => {
+      // 获取当前标签页
+      const currentTabId = tabId || (await getCurrentTabId())
+
+      // 从连接池获取管理器
+      const manager = await snapshotManagerPool.getManager(currentTabId)
+      try {
+        const page = manager.getPage()
+        if (!page) {
+          throw new Error('页面未连接，请先确保标签页已加载')
+        }
+
+        // 先点击坐标位置以聚焦输入框
+        await page.mouse.click(x, y)
+        await new Promise((resolve) => setTimeout(resolve, 200))
+
+        // 如果需要清空，先全选再删除
+        if (clearFirst) {
+          // 使用 Ctrl+A (Windows/Linux) 或 Cmd+A (Mac) 全选
+          const modifier = process.platform === 'darwin' ? 'Meta' : 'Control'
+          await page.keyboard.down(modifier)
+          await page.keyboard.press('KeyA')
+          await page.keyboard.up(modifier)
+          await page.keyboard.press('Backspace')
+          await new Promise((resolve) => setTimeout(resolve, 100))
+        }
+
+        // 输入文本
+        await page.keyboard.type(text, { delay: 50 }) // 每个字符间隔 50ms，更自然
+
+        // 等待输入完成
+        await new Promise((resolve) => setTimeout(resolve, 300))
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `成功在坐标 (${x}, ${y}) 处输入文本: "${text}"${clearFirst ? '（已清空原内容）' : ''}`
+            }
+          ]
+        }
+      } catch (error: any) {
+        const errorMessage = error.message || '未知错误'
+        const friendlyMessage = `坐标输入失败：${errorMessage}`
+
+        return { content: [{ type: 'text', text: friendlyMessage }] }
+      } finally {
+        // 释放连接引用
+        await snapshotManagerPool.releaseManager(currentTabId)
+      }
+    })
+  )
 }

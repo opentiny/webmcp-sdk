@@ -19,7 +19,7 @@ const llmConfig = {
   providerType: createOllama,
   model: import.meta.env.VITE_LLM_MODEL,
   maxSteps: 30,
-  useReAct: true,
+  useReActMode: false, // 启用 ReAct 模式，支持视觉模型的工具调用
   providerOptions: {
     deepseek: {
       'prompt': {
@@ -107,14 +107,14 @@ useBrowserExtensions(remoterRef)
 // 通过 Web Agent 服务获取实时 sessionId（中文注释：供短码/URL 使用）
 const sessionId = ref('')
 
-useWebAgentServer()
-  .then((id) => {
-    sessionId.value = id
-  })
-  .catch((error) => {
-    console.error('useWebAgentServer 初始化失败', error)
-    sessionId.value = ''
-  })
+// useWebAgentServer()
+//   .then((id) => {
+//     sessionId.value = id
+//   })
+//   .catch((error) => {
+//     console.error('useWebAgentServer 初始化失败', error)
+//     sessionId.value = ''
+//   })
 
 const genUiComponents = shallowReactive({ TinyUser })
 // 汇总自定义 MCP Server 配置（中文注释：用于传给 TinyRemoter 的插件市场）
