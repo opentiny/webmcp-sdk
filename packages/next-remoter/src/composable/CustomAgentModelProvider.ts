@@ -357,7 +357,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       tools: { ['get-today']: getToday, ...(this.llmConfig.extraTools || {}) },
       maxSteps: this.llmConfig.maxSteps,
       providerOptions: this.llmConfig.providerOptions,
-      prepareStep: ({ messages }) => {
+      prepareStep: ({ messages }: { messages: any[] }) => {
         // 在步骤开始前清理旧的快照消息
         // prepareStep 会在每次步骤开始前被调用，可以修改即将用于请求的 messages
         const cleanedMessages = this.cleanupOldSnapshotsInMessages(messages)
