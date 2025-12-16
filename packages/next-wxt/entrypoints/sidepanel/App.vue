@@ -11,7 +11,6 @@ import { useGenerateCode } from './useGenerateCode'
 import RecordModal from './components/RecordModal.vue'
 import { getAllSkills } from '@/skills'
 import { createZhipu } from 'zhipu-ai-provider'
-import { createOllama } from 'ollama-ai-provider-v2'
 import { useAutoScreenshot } from './useAutoScreenshot'
 
 // 初始化自动截图功能
@@ -20,7 +19,7 @@ const { captureCurrentTab } = useAutoScreenshot()
 const llmConfig = {
   apiKey: import.meta.env.VITE_LLM_API_KEY,
   baseURL: import.meta.env.VITE_LLM_BASE_URL,
-  providerType: createOllama,
+  providerType: createZhipu,
   model: import.meta.env.VITE_LLM_MODEL,
   maxSteps: 30,
   useReActMode: false, // 启用 ReAct 模式，支持视觉模型的工具调用
@@ -33,17 +32,17 @@ const llmConfig = {
     console.log('[beforeChatStream] 触发')
     console.log('[beforeChatStream] systemPrompt 前100字符:', systemPrompt.substring(0, 100))
     console.log('[beforeChatStream] lastUserMsg:', lastUserMsg)
-    
+
     // 检查是否是视觉操作专家 skill（通过 systemPrompt 判断）
     // 检查多个可能的标识符
-    const isVisionExpert = 
-      systemPrompt.includes('视觉操作专家') || 
+    const isVisionExpert =
+      systemPrompt.includes('视觉操作专家') ||
       systemPrompt.includes('vision-expert') ||
       systemPrompt.includes('avision-expert') ||
       systemPrompt.includes('# 视觉操作专家')
-    
+
     console.log('[beforeChatStream] isVisionExpert:', isVisionExpert)
-    
+
     if (!isVisionExpert) {
       // 不是视觉专家，返回原始消息
       return lastUserMsg
@@ -54,11 +53,12 @@ const llmConfig = {
       // 自动捕获当前页面截图
       const screenshot = await captureCurrentTab()
       console.log('[beforeChatStream] 截图捕获成功，长度:', screenshot.length)
-      
+
       // 获取原始文本内容
-      const textContent = typeof lastUserMsg.content === 'string' 
-        ? lastUserMsg.content 
-        : lastUserMsg.content.find((part: any) => part.type === 'text')?.text || ''
+      const textContent =
+        typeof lastUserMsg.content === 'string'
+          ? lastUserMsg.content
+          : lastUserMsg.content.find((part: any) => part.type === 'text')?.text || ''
 
       console.log('[beforeChatStream] 文本内容:', textContent)
 
@@ -81,7 +81,7 @@ const llmConfig = {
           { type: 'image', image: base64String } // 使用纯 base64 字符串
         ]
       }
-      
+
       console.log('[beforeChatStream] 多模态消息已构建，图片格式: base64 string')
       return multimodalMsg
     } catch (error) {
