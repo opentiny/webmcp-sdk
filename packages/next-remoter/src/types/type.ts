@@ -9,6 +9,9 @@ export interface StreamPart {
   id?: string
   toolName?: string
   toolCallId?: string
+  error?: {
+    message: string
+  }
 }
 
 export type ICustomAgentModelProviderLlmConfig = IAgentModelProviderLlmConfig & {

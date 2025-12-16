@@ -11,6 +11,7 @@ import {
   getLatestSnapshotAfterOperation
 } from './utils/utils'
 import { withToolAnimation } from './utils/toolAnimationWrapper'
+import { useAutoScreenshot } from './useAutoScreenshot'
 
 export const useExtraTools = (server: WebMcpServer) => {
   // 打开新网址
@@ -415,8 +416,19 @@ export const useExtraTools = (server: WebMcpServer) => {
           throw new Error('页面未连接，请先确保标签页已加载')
         }
 
-        // 使用 Puppeteer 的 mouse API 点击指定坐标
-        await page.mouse.click(x, y, {
+        // 获取截图工具实例，用于坐标转换
+        const { convertCompressedCoordinateToOriginal } = useAutoScreenshot()
+
+        // 将 AI 给出的压缩截图坐标转换为原始页面坐标
+        // AI 看到的是压缩后的截图（最大宽度512px），需要转换回原始页面坐标
+        const originalCoords = convertCompressedCoordinateToOriginal(x, y)
+        const finalX = originalCoords.x
+        const finalY = originalCoords.y
+
+        console.log(`[clickByCoordinate] 坐标转换: AI给出的坐标 (${x}, ${y}) -> 原始页面坐标 (${finalX}, ${finalY})`)
+
+        // 使用 Puppeteer 的 mouse API 点击转换后的坐标
+        await page.mouse.click(finalX, finalY, {
           button: button as 'left' | 'right' | 'middle',
           clickCount
         })
@@ -429,7 +441,7 @@ export const useExtraTools = (server: WebMcpServer) => {
           content: [
             {
               type: 'text',
-              text: `成功${clickType}坐标 (${x}, ${y})，使用 ${button} 按钮`
+              text: `成功${clickType}坐标 (${finalX}, ${finalY})（原始坐标：${x}, ${y}），使用 ${button} 按钮`
             }
           ]
         }
@@ -472,8 +484,18 @@ export const useExtraTools = (server: WebMcpServer) => {
           throw new Error('页面未连接，请先确保标签页已加载')
         }
 
-        // 先点击坐标位置以聚焦输入框
-        await page.mouse.click(x, y)
+        // 获取截图工具实例，用于坐标转换
+        const { convertCompressedCoordinateToOriginal } = useAutoScreenshot()
+
+        // 将 AI 给出的压缩截图坐标转换为原始页面坐标
+        const originalCoords = convertCompressedCoordinateToOriginal(x, y)
+        const finalX = originalCoords.x
+        const finalY = originalCoords.y
+
+        console.log(`[typeByCoordinate] 坐标转换: AI给出的坐标 (${x}, ${y}) -> 原始页面坐标 (${finalX}, ${finalY})`)
+
+        // 先点击转换后的坐标位置以聚焦输入框
+        await page.mouse.click(finalX, finalY)
         await new Promise((resolve) => setTimeout(resolve, 200))
 
         // 如果需要清空，先全选再删除
@@ -497,7 +519,7 @@ export const useExtraTools = (server: WebMcpServer) => {
           content: [
             {
               type: 'text',
-              text: `成功在坐标 (${x}, ${y}) 处输入文本: "${text}"${clearFirst ? '（已清空原内容）' : ''}`
+              text: `成功在坐标 (${finalX}, ${finalY})（原始坐标：${x}, ${y}）处输入文本: "${text}"${clearFirst ? '（已清空原内容）' : ''}`
             }
           ]
         }
