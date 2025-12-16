@@ -26,7 +26,8 @@ export default defineConfig({
       'contextMenus',
       'userScripts',
       'notifications',
-      'debugger'
+      'debugger',
+      'downloads'
     ],
     host_permissions: ['*://*/*'], //  bg 发出 fecth, bg注入content脚本，访问 tab详情，cookie..
     action: {},

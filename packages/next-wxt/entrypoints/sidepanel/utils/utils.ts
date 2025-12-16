@@ -180,3 +180,74 @@ export async function getLatestSnapshotAfterOperation(
     ]
   }
 }
+
+/**
+ * 保存截图到本地文件
+ * @param base64Data base64 编码的图片数据（不包含 data URL 前缀）
+ * @param mimeType 图片 MIME 类型（如 'image/jpeg' 或 'image/png'）
+ * @param filename 文件名（可选，如果不提供则自动生成）
+ * @returns Promise<string> 返回保存的文件路径或错误信息
+ */
+export async function saveScreenshotToLocal(base64Data: string, mimeType: string, filename?: string): Promise<string> {
+  try {
+    // 生成文件名（包含时间戳）
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5)
+    const extension = mimeType === 'image/png' ? 'png' : 'jpg'
+    const defaultFilename = `screenshot-${timestamp}.${extension}`
+    const finalFilename = filename || defaultFilename
+
+    // 将 base64 转换为 Blob
+    const byteCharacters = atob(base64Data)
+    const byteNumbers = new Array(byteCharacters.length)
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i)
+    }
+    const byteArray = new Uint8Array(byteNumbers)
+    const blob = new Blob([byteArray], { type: mimeType })
+
+    // 创建 Blob URL
+    const blobUrl = URL.createObjectURL(blob)
+
+    // 使用 browser.downloads API 保存文件（WXT 推荐的方式）
+    if (typeof browser !== 'undefined' && browser.downloads) {
+      try {
+        // 将 Blob URL 转换为 data URL（browser.downloads 需要）
+        const dataUrl = `data:${mimeType};base64,${base64Data}`
+
+        // 使用 browser.downloads.download API
+        await browser.downloads.download({
+          url: dataUrl,
+          filename: `screenshots/${finalFilename}`,
+          saveAs: false // 不弹出保存对话框，直接保存到默认下载目录
+        })
+
+        // 清理 Blob URL
+        URL.revokeObjectURL(blobUrl)
+
+        return `screenshots/${finalFilename}`
+      } catch (error: any) {
+        // 如果 browser.downloads 失败，尝试使用传统的下载方式
+        console.warn('使用 browser.downloads 保存失败，尝试备用方法:', error)
+        // 继续执行备用方法
+      }
+    }
+
+    // 备用方法：创建下载链接并触发下载
+    const link = document.createElement('a')
+    link.href = blobUrl
+    link.download = finalFilename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+
+    // 延迟清理 Blob URL，确保下载开始
+    setTimeout(() => {
+      URL.revokeObjectURL(blobUrl)
+    }, 100)
+
+    return finalFilename
+  } catch (error: any) {
+    const errorMessage = error.message || '未知错误'
+    throw new Error(`保存截图失败: ${errorMessage}`)
+  }
+}

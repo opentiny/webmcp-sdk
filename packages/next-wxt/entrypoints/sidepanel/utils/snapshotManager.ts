@@ -227,4 +227,35 @@ export class SnapshotManager {
 
     return true
   }
+
+  /**
+   * 截取页面截图（返回 base64 格式）
+   * 注意：保持原始尺寸不变，以确保 AI 返回的坐标位置准确
+   * @param options 截图选项
+   * @returns base64 编码的图片数据 URL
+   */
+  async takeScreenshot(options?: {
+    fullPage?: boolean // 是否截取整个页面（包括滚动区域）
+    type?: 'png' | 'jpeg' // 图片类型
+  }): Promise<string> {
+    if (!this.page) {
+      throw new Error('页面未连接，请先调用 connect()')
+    }
+
+    // 默认使用 PNG 格式
+    const imageType = options?.type ?? 'png'
+
+    const screenshotOptions: any = {
+      encoding: 'base64' as const,
+      fullPage: options?.fullPage ?? false,
+      type: imageType
+    }
+
+    // 使用 Puppeteer 的截图 API（保持原始尺寸）
+    const base64String = await this.page.screenshot(screenshotOptions)
+
+    // 返回 base64 data URL 格式
+    const mimeType = screenshotOptions.type === 'jpeg' ? 'image/jpeg' : 'image/png'
+    return `data:${mimeType};base64,${base64String}`
+  }
 }

@@ -2,6 +2,70 @@ import { SnapshotManager } from './snapshotManager'
 import { delay, waitForEventsAfterAction } from './utils'
 
 /**
+ * 通过坐标点击页面
+ * 参考 FARA-7B 的实现方式：直接通过像素坐标操作
+ * @param manager 快照管理器
+ * @param x X 坐标（像素），相对于页面左上角
+ * @param y Y 坐标（像素），相对于页面左上角
+ * @param options 点击选项
+ */
+export async function clickByCoordinate(
+  manager: SnapshotManager,
+  x: number,
+  y: number,
+  options: { button?: 'left' | 'right' | 'middle'; clickCount?: number } = {}
+): Promise<void> {
+  const { button = 'left', clickCount = 1 } = options
+  const page = manager.getPage()
+
+  if (!page) {
+    throw new Error('页面未连接')
+  }
+
+  // 获取页面的设备像素比和视口尺寸，用于坐标转换
+  // Puppeteer 截图会考虑 devicePixelRatio，实际截图像素尺寸 = CSS尺寸 × devicePixelRatio
+  // 如果 AI 返回的是截图像素坐标，需要转换为 CSS 像素坐标
+  const pageInfo = await page.evaluate(() => {
+    return {
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      scrollWidth: document.documentElement.scrollWidth,
+      scrollHeight: document.documentElement.scrollHeight,
+      devicePixelRatio: window.devicePixelRatio || 1,
+      scrollX: window.scrollX || window.pageXOffset || 0,
+      scrollY: window.scrollY || window.pageYOffset || 0
+    }
+  })
+
+  // 计算实际截图尺寸（考虑设备像素比）
+  const actualScreenshotWidth = pageInfo.viewportWidth * pageInfo.devicePixelRatio
+  const actualScreenshotHeight = pageInfo.viewportHeight * pageInfo.devicePixelRatio
+
+  // 如果坐标超过 CSS 视口尺寸，可能是截图像素坐标，需要转换为 CSS 坐标
+  // 判断标准：如果坐标超过 CSS 视口尺寸的 1.2 倍，认为是截图像素坐标
+  let cssX = x
+  let cssY = y
+
+  if (x > pageInfo.viewportWidth * 1.2 || y > pageInfo.viewportHeight * 1.2) {
+    // 坐标看起来是基于截图像素坐标，需要转换为 CSS 坐标
+    cssX = x / pageInfo.devicePixelRatio
+    cssY = y / pageInfo.devicePixelRatio
+    console.log(
+      `坐标转换：截图像素坐标 (${x}, ${y}) -> CSS坐标 (${cssX}, ${cssY})，设备像素比：${pageInfo.devicePixelRatio}`
+    )
+  }
+
+  // 使用 Puppeteer 的鼠标 API 点击坐标
+  // 注意：坐标是相对于页面视口的 CSS 像素坐标
+  await waitForEventsAfterAction(page, async () => {
+    await page.mouse.click(cssX, cssY, {
+      button,
+      clickCount
+    })
+  })
+}
+
+/**
  * 通过 UID 点击节点
  * @param manager 快照管理器
  * @param uid 节点 UID
