@@ -397,7 +397,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       for await (const part of result.fullStream) {
         // 处理错误， 暂时模拟 AI 回复消息。 TODO: robot 设计出错效果
         if (part.type === 'error') {
-          const message = part.error?.data?.error?.message || part.error?.message || '访问大模型出错'
+          const message = part.error?.data?.error?.message || part.error?.message || part.error || '访问大模型出错'
           handler.onData({
             type: 'markdown',
             content: '',

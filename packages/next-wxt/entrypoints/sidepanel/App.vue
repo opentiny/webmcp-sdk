@@ -19,7 +19,7 @@ const { captureCurrentTab } = useAutoScreenshot()
 const llmConfig = {
   apiKey: import.meta.env.VITE_LLM_API_KEY,
   baseURL: import.meta.env.VITE_LLM_BASE_URL,
-  providerType: createZhipu,
+  providerType: 'deepseek',
   model: import.meta.env.VITE_LLM_MODEL,
   maxSteps: 30,
   useReActMode: false, // 启用 ReAct 模式，支持视觉模型的工具调用

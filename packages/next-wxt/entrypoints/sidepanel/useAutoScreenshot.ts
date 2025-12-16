@@ -212,7 +212,7 @@ export const useAutoScreenshot = () => {
         }
 
         // 保存原始截图到本地
-        await saveScreenshotToLocal(originalDataUrl)
+        // await saveScreenshotToLocal(originalDataUrl)
 
         lastScreenshot.value = originalDataUrl
         return originalDataUrl
