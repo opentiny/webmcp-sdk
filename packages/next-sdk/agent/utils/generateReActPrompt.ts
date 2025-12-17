@@ -18,7 +18,10 @@ export function generateReActToolsPrompt(tools: ToolSet): string {
   prompt += '```\n'
   prompt += 'Action: <工具名称>\n'
   prompt += 'Action Input: <JSON格式的参数>\n'
-  prompt += '```\n\n'
+  prompt += '```\n'
+  prompt += '或者使用 Fara-7B 格式：\n'
+  prompt += '<tool_call> {"name": "toolName", "arguments": {...}} </tool_call>\n'
+  prompt += '\n'
   prompt += '工具调用后，你将收到工具的执行结果（Observation），然后可以继续思考或调用其他工具。\n\n'
   prompt += '### 工具详情\n\n'
 
@@ -53,6 +56,7 @@ export function generateReActToolsPrompt(tools: ToolSet): string {
   prompt += '**重要提示**：\n'
   prompt += '- 必须严格按照格式调用工具，Action 和 Action Input 必须在一行\n'
   prompt += '- Action Input 必须是有效的 JSON 格式\n'
+  prompt += '- 可以在任意位置使用 <tool_call> 定义工具调用\n'
   prompt += '- 如果不需要调用工具，直接给出最终答案即可\n'
 
   return prompt

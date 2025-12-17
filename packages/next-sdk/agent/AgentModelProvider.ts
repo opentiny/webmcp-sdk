@@ -501,6 +501,8 @@ export class AgentModelProvider {
               }
             }
 
+            debugger
+
             accumulatedText += assistantText
             currentMessages.push({ role: 'assistant', content: accumulatedText })
 
@@ -536,9 +538,18 @@ export class AgentModelProvider {
             // 执行工具调用
             const toolResult = await self._executeReActToolCall(action.toolName, action.arguments, tools)
 
-            // 发送工具结果（符合 tiny-robot 格式）
+            // 如果结果包含 screenshot，先提取出来，避免 JSON stringify 导致过大
+            let screenshot = undefined
+            let resultData = toolResult.result
+            if (toolResult.success && toolResult.result && typeof toolResult.result === 'object' && toolResult.result.screenshot) {
+                 screenshot = toolResult.result.screenshot
+                 const { screenshot: _, ...rest } = toolResult.result
+                 resultData = rest
+            }
+
+            // 发送工具结果（符合 tiny-robot 格式，给 UI 展示用的，不包含 base64 防止卡顿）
             const observation = toolResult.success
-              ? `Observation: ${JSON.stringify(toolResult.result)}`
+              ? `Observation: ${JSON.stringify(resultData)}`
               : `Observation: 工具执行失败 - ${toolResult.error}`
 
             controller.enqueue({
@@ -548,10 +559,24 @@ export class AgentModelProvider {
             })
 
             // 添加工具结果到消息历史（ReAct 模式下，工具结果作为 user 消息添加）
-            currentMessages.push({
-              role: 'user',
-              content: observation
-            })
+            if (screenshot) {
+              console.log('[AgentModelProvider] Adding multimodal observation with screenshot')
+              currentMessages.push({
+                role: 'user',
+                content: [
+                  { type: 'text', text: observation },
+                  { type: 'image', image: screenshot }
+                ]
+              })
+            } else {
+              console.log('[AgentModelProvider] Adding text observation:', observation.slice(0, 100))
+              currentMessages.push({
+                role: 'user',
+                content: observation
+              })
+            }
+            
+            console.log('[AgentModelProvider] Current messages count:', currentMessages.length)
 
             // 重置累积文本，准备下一轮
             accumulatedText = ''

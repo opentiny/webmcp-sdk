@@ -13,7 +13,49 @@ import {
 import { withToolAnimation } from './utils/toolAnimationWrapper'
 import { useAutoScreenshot } from './useAutoScreenshot'
 
+
+// 初始化自动截图功能
+const { captureCurrentTab } = useAutoScreenshot()
+
 export const useExtraTools = (server: WebMcpServer) => {
+  // LM Studio API Test
+  if (typeof window !== 'undefined') {
+    window.addEventListener('dblclick', async () => {
+      console.log('Double click detected, calling LM Studio...')
+      const screenshot = await captureCurrentTab()
+      console.log('[beforeChatStream] 截图捕获成功，长度:', screenshot.length)
+
+
+      try {
+        const response = await fetch('http://7.249.20.88:1234/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            messages: [{ role: 'user', content: [
+              {
+                type: 'image_url',
+                image_url: {
+                  url: screenshot
+                }
+              },
+              {
+                type: 'text', text: '帮我点击网页中的百度一下搜索按钮?' 
+              }
+            ] }],
+            model: 'local-model',
+            temperature: 0.7
+          })
+        })
+        const data = await response.json()
+        console.log('LM Studio response:', data)
+      } catch (error) {
+        console.error('LM Studio call failed:', error)
+      }
+    })
+  }
+
   // 打开新网址
   server.registerTool(
     'openUrl',
@@ -530,6 +572,94 @@ export const useExtraTools = (server: WebMcpServer) => {
         return { content: [{ type: 'text', text: friendlyMessage }] }
       } finally {
         // 释放连接引用
+        await snapshotManagerPool.releaseManager(currentTabId)
+      }
+    })
+  )
+
+  // Computer 工具 (Fara-7B 专用)
+  server.registerTool(
+    'computer',
+    {
+      title: 'Computer Use',
+      description: '执行计算机操作，如点击、输入等。支持 Fara-7B 的 computer 工具调用格式。',
+      inputSchema: {
+        action: z.enum(['left_click', 'right_click', 'middle_click', 'double_click', 'type', 'key', 'screenshot', 'cursor_position']).describe('操作类型'),
+        coordinate: z.array(z.number()).optional().describe('坐标 [x, y] (点击操作必填)'),
+        text: z.string().optional().describe('输入文本 (type 操作必填)')
+      }
+    },
+    withToolAnimation('computer', async ({ action, coordinate, text }) => {
+      // 获取当前标签页
+      const currentTabId = await getCurrentTabId()
+      // 从连接池获取管理器
+      const manager = await snapshotManagerPool.getManager(currentTabId)
+
+      try {
+        const page = manager.getPage()
+        if (!page) {
+          throw new Error('页面未连接，请先确保标签页已加载')
+        }
+
+
+        // 执行操作
+        let mwMessage = ''
+
+        // 获取截图工具实例
+        const { convertCompressedCoordinateToOriginal, captureCurrentTab: captureInstance } = useAutoScreenshot()
+        // 兼容 captureCurrentTab 可能在外部定义的情况，优先使用 userAutoScreenshot 返回的
+        const captureFn = captureInstance || captureCurrentTab
+
+        // 1. 处理点击类操作
+        if (['left_click', 'right_click', 'middle_click', 'double_click'].includes(action)) {
+          if (!coordinate || coordinate.length !== 2) {
+            throw new Error(`Action ${action} requires a valid coordinate [x, y]`)
+          }
+
+          const [x, y] = coordinate
+          const originalCoords = convertCompressedCoordinateToOriginal(x, y)
+          const finalX = originalCoords.x
+          const finalY = originalCoords.y
+          
+          console.log(`[computer] ${action} 坐标转换: AI(${x}, ${y}) -> 原始(${finalX}, ${finalY})`)
+
+          const clickOptions: any = {}
+          if (action === 'right_click') clickOptions.button = 'right'
+          if (action === 'middle_click') clickOptions.button = 'middle'
+          if (action === 'double_click') clickOptions.clickCount = 2
+
+          await page.mouse.click(finalX, finalY, clickOptions)
+          mwMessage = `Successfully executed ${action} at [${finalX}, ${finalY}]`
+        } else if (action === 'type') {
+          if (!text) throw new Error('Action type requires text')
+          await page.keyboard.type(text)
+          mwMessage = `Typed text: "${text}"`
+        } else if (action === 'key') {
+             if (!text) throw new Error('Action key requires text (key name)')
+             await page.keyboard.press(text as any)
+             mwMessage = `Pressed key: ${text}`
+        } else if (action === 'screenshot') {
+             mwMessage = 'Screenshot taken'
+        } else {
+             mwMessage = `Action ${action} executed`
+        }
+
+        // 捕获新截图作为反馈
+        const screenshotDataUrl = await captureFn()
+        // 提取 base64 (AgentModelProvider 可能期望纯 base64 或者 data url，这里保持 data url format 方便调试，或者 trim prefix)
+        // 之前我们在 App.vue 用 trim prefix. 这里我们在 AgentModelProvider 直接用 string.
+        // 为了安全起见，这里返回 raw base64 (without prefix)
+        const base64Match = screenshotDataUrl.match(/^data:image\/\w+;base64,(.+)$/)
+        const screenshotBase64 = base64Match ? base64Match[1] : screenshotDataUrl
+
+        return {
+           content: [{ type: 'text', text: mwMessage }],
+           screenshot: screenshotBase64
+        }
+
+      } catch (error: any) {
+        return { content: [{ type: 'text', text: `Computer tool error: ${error.message}` }] }
+      } finally {
         await snapshotManagerPool.releaseManager(currentTabId)
       }
     })

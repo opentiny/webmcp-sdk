@@ -312,14 +312,25 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       return snapshotKeywords.some((keyword) => content.includes(keyword))
     }
 
-    // 如果是数组格式（MCP 工具返回格式）
+    // 如果是数组格式（MCP 工具返回格式 或 多模态消息）
     if (Array.isArray(content)) {
       for (const item of content) {
-        const text = item?.output?.value?.content?.[0]?.text
-        if (text) {
-          if (snapshotKeywords.some((keyword) => text.includes(keyword))) {
+        // 1. 检查 MCP 工具返回格式
+        const textMcp = item?.output?.value?.content?.[0]?.text
+        if (textMcp && snapshotKeywords.some((keyword) => textMcp.includes(keyword))) {
+          return true
+        }
+
+        // 2. 检查多模态文本消息
+        if (item.type === 'text' && item.text) {
+          if (snapshotKeywords.some((keyword) => item.text.includes(keyword))) {
             return true
           }
+        }
+        
+        // 3. 检查是否有图片内容
+        if (item.type === 'image' || item.type === 'image_url') {
+           return true
         }
       }
     }

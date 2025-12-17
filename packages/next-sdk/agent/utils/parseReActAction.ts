@@ -66,7 +66,25 @@ export function parseReActAction(text: string, availableTools: ToolSet): { toolN
     // JSON 解析失败，继续尝试其他方法
   }
 
-  // 方法3: 查找代码块中的工具调用
+  // 方法3: 解析 Fara-7B 格式的工具调用
+  // 格式: ... <tool_call> {"name": "toolName", "arguments": {...}} </tool_call>
+  const toolCallMatch = text.match(/<tool_call>([\s\S]*?)<\/tool_call>/i)
+  if (toolCallMatch) {
+    try {
+      const jsonContent = toolCallMatch[1].trim()
+      const parsed = JSON.parse(jsonContent)
+      const toolName = parsed.name || parsed.tool_name || parsed.tool
+      const args = parsed.arguments || parsed.args || parsed.input || {}
+
+      if (toolName && availableTools[toolName]) {
+        return { toolName, arguments: args }
+      }
+    } catch {
+      // 解析失败，继续尝试其他方法
+    }
+  }
+
+  // 方法4: 查找代码块中的工具调用
   // 格式: ```json\n{"action": "tool_name", ...}\n```
   const codeBlockMatch = text.match(/```(?:json)?\s*\{[\s\S]*"action"[\s\S]*\}\s*```/i)
   if (codeBlockMatch) {

@@ -11,6 +11,8 @@ import { useGenerateCode } from './useGenerateCode'
 import RecordModal from './components/RecordModal.vue'
 import { getAllSkills } from '@/skills'
 import { createZhipu } from 'zhipu-ai-provider'
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible';
+
 import { useAutoScreenshot } from './useAutoScreenshot'
 
 // 初始化自动截图功能
@@ -19,10 +21,10 @@ const { captureCurrentTab } = useAutoScreenshot()
 const llmConfig = {
   apiKey: import.meta.env.VITE_LLM_API_KEY,
   baseURL: import.meta.env.VITE_LLM_BASE_URL,
-  providerType: 'deepseek',
+  providerType: createOpenAICompatible,
   model: import.meta.env.VITE_LLM_MODEL,
   maxSteps: 30,
-  useReActMode: false, // 启用 ReAct 模式，支持视觉模型的工具调用
+  useReActMode: true, // 启用 ReAct 模式，支持视觉模型的工具调用
   /**
    * beforeChatStream 钩子：在消息发送前自动添加截图
    * 当 skill 是视觉操作专家时，自动捕获当前页面截图并添加到消息中
