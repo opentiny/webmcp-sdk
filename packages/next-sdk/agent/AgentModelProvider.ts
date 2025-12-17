@@ -474,6 +474,7 @@ export class AgentModelProvider {
             // 移除 tools 选项，ReAct 模式下不传递 tools
             const { tools: _, ...restOptions } = options
             // 调用流式 LLM
+            delete restOptions.system
             const result = await streamText({
               ...restOptions,
               model: llmModel,
@@ -518,7 +519,6 @@ export class AgentModelProvider {
 
             // 特殊处理: computer 工具的 terminate 操作
             if (action.toolName === 'computer' && action.arguments?.action === 'terminate') {
-              console.log('[AgentModelProvider] Model requested termination via computer tool')
               // 视为对话结束
               controller.enqueue({ type: 'text-end' })
               controller.close()
@@ -593,7 +593,6 @@ export class AgentModelProvider {
 
             // 添加工具结果到消息历史（ReAct 模式下，工具结果作为 user 消息添加）
             if (screenshot) {
-              console.log('[AgentModelProvider] Adding multimodal observation with screenshot')
               currentMessages.push({
                 role: 'user',
                 content: [
@@ -602,14 +601,11 @@ export class AgentModelProvider {
                 ]
               })
             } else {
-              console.log('[AgentModelProvider] Adding text observation:', finalObservation.slice(0, 100))
               currentMessages.push({
                 role: 'user',
                 content: finalObservation
               })
             }
-
-            console.log('[AgentModelProvider] Current messages count:', currentMessages.length)
 
             // 重置累积文本，准备下一轮
             accumulatedText = ''
