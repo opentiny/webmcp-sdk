@@ -13,49 +13,10 @@ import {
 import { withToolAnimation } from './utils/toolAnimationWrapper'
 import { useAutoScreenshot } from './useAutoScreenshot'
 
-
 // 初始化自动截图功能
 const { captureCurrentTab } = useAutoScreenshot()
 
 export const useExtraTools = (server: WebMcpServer) => {
-  // LM Studio API Test
-  if (typeof window !== 'undefined') {
-    window.addEventListener('dblclick', async () => {
-      console.log('Double click detected, calling LM Studio...')
-      const screenshot = await captureCurrentTab()
-      console.log('[beforeChatStream] 截图捕获成功，长度:', screenshot.length)
-
-
-      try {
-        const response = await fetch('http://7.249.20.88:1234/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            messages: [{ role: 'user', content: [
-              {
-                type: 'image_url',
-                image_url: {
-                  url: screenshot
-                }
-              },
-              {
-                type: 'text', text: '帮我点击网页中的百度一下搜索按钮?' 
-              }
-            ] }],
-            model: 'local-model',
-            temperature: 0.7
-          })
-        })
-        const data = await response.json()
-        console.log('LM Studio response:', data)
-      } catch (error) {
-        console.error('LM Studio call failed:', error)
-      }
-    })
-  }
-
   // 打开新网址
   server.registerTool(
     'openUrl',
@@ -584,12 +545,25 @@ export const useExtraTools = (server: WebMcpServer) => {
       title: 'Computer Use',
       description: '执行计算机操作，如点击、输入等。支持 Fara-7B 的 computer 工具调用格式。',
       inputSchema: {
-        action: z.enum(['left_click', 'right_click', 'middle_click', 'double_click', 'type', 'key', 'screenshot', 'cursor_position']).describe('操作类型'),
+        action: z
+          .enum([
+            'left_click',
+            'right_click',
+            'middle_click',
+            'double_click',
+            'type',
+            'key',
+            'screenshot',
+            'cursor_position'
+          ])
+          .describe('操作类型'),
         coordinate: z.array(z.number()).optional().describe('坐标 [x, y] (点击操作必填)'),
-        text: z.string().optional().describe('输入文本 (type 操作必填)')
+        text: z.string().optional().describe('输入文本 (type 操作必填)'),
+        press_enter: z.boolean().optional().describe('输入后是否回车 (type 操作可选)'),
+        delete_existing_text: z.boolean().optional().describe('输入前是否清空 (type 操作可选)')
       }
     },
-    withToolAnimation('computer', async ({ action, coordinate, text }) => {
+    withToolAnimation('computer', async ({ action, coordinate, text, press_enter, delete_existing_text }) => {
       // 获取当前标签页
       const currentTabId = await getCurrentTabId()
       // 从连接池获取管理器
@@ -600,7 +574,6 @@ export const useExtraTools = (server: WebMcpServer) => {
         if (!page) {
           throw new Error('页面未连接，请先确保标签页已加载')
         }
-
 
         // 执行操作
         let mwMessage = ''
@@ -613,14 +586,14 @@ export const useExtraTools = (server: WebMcpServer) => {
         // 1. 处理点击类操作
         if (['left_click', 'right_click', 'middle_click', 'double_click'].includes(action)) {
           if (!coordinate || coordinate.length !== 2) {
-            throw new Error(`Action ${action} requires a valid coordinate [x, y]`)
+            throw new Error(`操作 ${action} 需要有效的坐标 [x, y]`)
           }
 
           const [x, y] = coordinate
           const originalCoords = convertCompressedCoordinateToOriginal(x, y)
           const finalX = originalCoords.x
           const finalY = originalCoords.y
-          
+
           console.log(`[computer] ${action} 坐标转换: AI(${x}, ${y}) -> 原始(${finalX}, ${finalY})`)
 
           const clickOptions: any = {}
@@ -629,19 +602,45 @@ export const useExtraTools = (server: WebMcpServer) => {
           if (action === 'double_click') clickOptions.clickCount = 2
 
           await page.mouse.click(finalX, finalY, clickOptions)
-          mwMessage = `Successfully executed ${action} at [${finalX}, ${finalY}]`
+          mwMessage = `成功执行 ${action} 于 [${finalX}, ${finalY}]`
         } else if (action === 'type') {
-          if (!text) throw new Error('Action type requires text')
+          if (!text) throw new Error('操作 type 需要文本')
+
+          if (coordinate && coordinate.length === 2) {
+            const [x, y] = coordinate
+            const originalCoords = convertCompressedCoordinateToOriginal(x, y)
+            console.log(
+              `[computer] type with click at: AI(${x}, ${y}) -> 原始(${originalCoords.x}, ${originalCoords.y})`
+            )
+            await page.mouse.click(originalCoords.x, originalCoords.y)
+            await new Promise((r) => setTimeout(r, 200))
+          }
+
+          if (delete_existing_text) {
+            const isMac = navigator.userAgent.includes('Mac')
+            const modifier = isMac ? 'Meta' : 'Control'
+            await page.keyboard.down(modifier)
+            await page.keyboard.press('KeyA')
+            await page.keyboard.up(modifier)
+            await page.keyboard.press('Backspace')
+            await new Promise((r) => setTimeout(r, 100))
+          }
+
           await page.keyboard.type(text)
-          mwMessage = `Typed text: "${text}"`
+
+          if (press_enter) {
+            await page.keyboard.press('Enter')
+          }
+
+          mwMessage = `已成功输入: "${text}"`
         } else if (action === 'key') {
-             if (!text) throw new Error('Action key requires text (key name)')
-             await page.keyboard.press(text as any)
-             mwMessage = `Pressed key: ${text}`
+          if (!text) throw new Error('Action key requires text (key name)')
+          await page.keyboard.press(text as any)
+          mwMessage = `已成功按下: ${text}`
         } else if (action === 'screenshot') {
-             mwMessage = 'Screenshot taken'
+          mwMessage = '已成功截图'
         } else {
-             mwMessage = `Action ${action} executed`
+          mwMessage = `操作 ${action} 执行成功`
         }
 
         // 捕获新截图作为反馈
@@ -653,12 +652,11 @@ export const useExtraTools = (server: WebMcpServer) => {
         const screenshotBase64 = base64Match ? base64Match[1] : screenshotDataUrl
 
         return {
-           content: [{ type: 'text', text: mwMessage }],
-           screenshot: screenshotBase64
+          content: [{ type: 'text', text: mwMessage }],
+          screenshot: screenshotBase64
         }
-
       } catch (error: any) {
-        return { content: [{ type: 'text', text: `Computer tool error: ${error.message}` }] }
+        return { content: [{ type: 'text', text: `Computer 工具错误: ${error.message}` }] }
       } finally {
         await snapshotManagerPool.releaseManager(currentTabId)
       }

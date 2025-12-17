@@ -73,8 +73,13 @@ export function parseReActAction(text: string, availableTools: ToolSet): { toolN
     try {
       const jsonContent = toolCallMatch[1].trim()
       const parsed = JSON.parse(jsonContent)
-      const toolName = parsed.name || parsed.tool_name || parsed.tool
+      let toolName = parsed.name || parsed.tool_name || parsed.tool
       const args = parsed.arguments || parsed.args || parsed.input || {}
+
+      // Normalize 'mani' to 'computer'
+      if (toolName === 'mani') {
+        toolName = 'computer'
+      }
 
       if (toolName && availableTools[toolName]) {
         return { toolName, arguments: args }

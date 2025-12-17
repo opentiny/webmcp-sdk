@@ -301,7 +301,7 @@ export class AgentModelProvider {
     if (baseSystemPrompt) {
       return `${baseSystemPrompt}${toolsPrompt}`
     }
-    return `你是一个智能助手，可以通过调用工具来完成任务。${toolsPrompt}`
+    return `你是一个智能助手，可以通过调用工具来完成任务。请始终使用中文进行思考和回复。\n${toolsPrompt}`
   }
 
   /** 执行 ReAct 模式下的工具调用 */
@@ -473,7 +473,6 @@ export class AgentModelProvider {
 
             // 移除 tools 选项，ReAct 模式下不传递 tools
             const { tools: _, ...restOptions } = options
-            debugger
             // 调用流式 LLM
             const result = await streamText({
               ...restOptions,
@@ -546,7 +545,7 @@ export class AgentModelProvider {
 
             // 执行工具调用
             const toolResult = await self._executeReActToolCall(action.toolName, action.arguments, tools)
-
+            debugger
             // 如果结果包含 screenshot，先提取出来，避免 JSON stringify 导致过大
             let screenshot = undefined
             let resultData = toolResult.result
@@ -561,31 +560,52 @@ export class AgentModelProvider {
               resultData = rest
             }
 
-            // 发送工具结果（符合 tiny-robot 格式，给 UI 展示用的，不包含 base64 防止卡顿）
-            const observation = toolResult.success
-              ? `Observation: ${JSON.stringify(resultData)}`
-              : `Observation: 工具执行失败 - ${toolResult.error}`
+            // 构造 Observation 文本
+            let observationText = ''
+            if (toolResult.success) {
+              // 尝试从 resultData 中提取纯文本信息 (兼容 extraTools 返回的 { content: [{text: ...}] } 结构)
+              if (
+                resultData &&
+                Array.isArray(resultData.content) &&
+                resultData.content.length > 0 &&
+                resultData.content[0].text
+              ) {
+                observationText = resultData.content[0].text
+              } else {
+                observationText = JSON.stringify(resultData)
+              }
+            } else {
+              observationText = `工具执行失败 - ${toolResult.error}`
+            }
 
+            // 如果有截图，添加验证提示
+            let finalObservation = `${observationText}`
+            if (screenshot) {
+              finalObservation += `\n请检查截图以确认操作是否成功。如果成功，请继续下一步；如果失败，请重试。`
+            }
+
+            // 发送工具结果（符合 tiny-robot 格式，给 UI 展示用的，不包含 base64 防止卡顿）
             controller.enqueue({
               type: 'tool-result',
               toolCallId: toolCallId,
-              result: observation
+              result: finalObservation
             })
+
             // 添加工具结果到消息历史（ReAct 模式下，工具结果作为 user 消息添加）
             if (screenshot) {
               console.log('[AgentModelProvider] Adding multimodal observation with screenshot')
               currentMessages.push({
                 role: 'user',
                 content: [
-                  { type: 'text', text: observation },
+                  { type: 'text', text: finalObservation },
                   { type: 'image', image: screenshot }
                 ]
               })
             } else {
-              console.log('[AgentModelProvider] Adding text observation:', observation.slice(0, 100))
+              console.log('[AgentModelProvider] Adding text observation:', finalObservation.slice(0, 100))
               currentMessages.push({
                 role: 'user',
-                content: observation
+                content: finalObservation
               })
             }
 
