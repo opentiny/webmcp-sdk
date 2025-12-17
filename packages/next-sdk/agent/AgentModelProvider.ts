@@ -473,12 +473,12 @@ export class AgentModelProvider {
 
             // 移除 tools 选项，ReAct 模式下不传递 tools
             const { tools: _, ...restOptions } = options
-
+            debugger
             // 调用流式 LLM
             const result = await streamText({
+              ...restOptions,
               model: llmModel,
-              messages: currentMessages,
-              ...restOptions
+              messages: currentMessages
             })
 
             // 收集流式输出
@@ -501,8 +501,6 @@ export class AgentModelProvider {
               }
             }
 
-            debugger
-
             accumulatedText += assistantText
             currentMessages.push({ role: 'assistant', content: accumulatedText })
 
@@ -515,6 +513,17 @@ export class AgentModelProvider {
               controller.close()
               self.messages = currentMessages
               // 触发 onFinish 回调
+              streamCompleteResolver({ messages: currentMessages })
+              return
+            }
+
+            // 特殊处理: computer 工具的 terminate 操作
+            if (action.toolName === 'computer' && action.arguments?.action === 'terminate') {
+              console.log('[AgentModelProvider] Model requested termination via computer tool')
+              // 视为对话结束
+              controller.enqueue({ type: 'text-end' })
+              controller.close()
+              self.messages = currentMessages
               streamCompleteResolver({ messages: currentMessages })
               return
             }
@@ -541,10 +550,15 @@ export class AgentModelProvider {
             // 如果结果包含 screenshot，先提取出来，避免 JSON stringify 导致过大
             let screenshot = undefined
             let resultData = toolResult.result
-            if (toolResult.success && toolResult.result && typeof toolResult.result === 'object' && toolResult.result.screenshot) {
-                 screenshot = toolResult.result.screenshot
-                 const { screenshot: _, ...rest } = toolResult.result
-                 resultData = rest
+            if (
+              toolResult.success &&
+              toolResult.result &&
+              typeof toolResult.result === 'object' &&
+              toolResult.result.screenshot
+            ) {
+              screenshot = toolResult.result.screenshot
+              const { screenshot: _, ...rest } = toolResult.result
+              resultData = rest
             }
 
             // 发送工具结果（符合 tiny-robot 格式，给 UI 展示用的，不包含 base64 防止卡顿）
@@ -557,7 +571,6 @@ export class AgentModelProvider {
               toolCallId: toolCallId,
               result: observation
             })
-
             // 添加工具结果到消息历史（ReAct 模式下，工具结果作为 user 消息添加）
             if (screenshot) {
               console.log('[AgentModelProvider] Adding multimodal observation with screenshot')
@@ -575,7 +588,7 @@ export class AgentModelProvider {
                 content: observation
               })
             }
-            
+
             console.log('[AgentModelProvider] Current messages count:', currentMessages.length)
 
             // 重置累积文本，准备下一轮

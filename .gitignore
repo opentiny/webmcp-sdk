@@ -12,6 +12,7 @@ cache
 # 编辑器
 .vscode/*
 !.vscode/extensions.json
+!.vscode/settings.json
 .idea
 *.suo
 *.ntvs*
