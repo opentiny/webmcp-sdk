@@ -304,7 +304,13 @@ export const useTinyRobotChat = ({
 
   // 发送消息。 第一次发送，修改会话title
   // 返回值：Promise<boolean> true 表示成功发送，false 表示被阻止（工具未准备好）
-  const handleSendMessage = async (_inputValue: string, templateDataParam?: any[]): Promise<boolean> => {
+  // images: 图片数组，支持 base64 data URL 或 http(s) URL
+  // 参考: https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text#messages.user-model-message.content.text-part.type
+  const handleSendMessage = async (
+    _inputValue: string,
+    templateDataParam?: any[],
+    images?: string[]
+  ): Promise<boolean> => {
     // 增加 @ 功能， 如果有指定角色，则在这里进行处理， 生成正确的： inputMessage.value 和 最终的系统提示词
     if (templateDataParam && templateDataParam.length > 0) {
       const skillItems = templateDataParam.filter((data) => data.type === 'skill')
@@ -328,7 +334,29 @@ export const useTinyRobotChat = ({
     if (conv && conv.title === '新会话') {
       updateTitle(conv.id, inputMessage.value.slice(0, 15))
     }
-    sendMessage(inputMessage.value)
+
+    // 构建消息内容，支持多模态（文本+图片）
+    // 根据 AI SDK 文档，UserModelMessage 的 content 可以是：
+    // - string: 纯文本消息
+    // - Array<TextPart | ImagePart>: 多模态消息
+    if (images && images.length > 0) {
+      // 多模态消息：包含文本和图片
+      const messageContent: Array<{ type: 'text'; text: string } | { type: 'image'; image: string }> = [
+        { type: 'text', text: inputMessage.value },
+        ...images.map((img) => ({ type: 'image' as const, image: img }))
+      ]
+
+      // 使用 addMessage 添加多模态消息，然后调用 send() 发送
+      addMessage({
+        role: 'user',
+        content: messageContent
+      })
+      send()
+    } else {
+      // 纯文本消息：使用原有的 sendMessage 方法
+      sendMessage(inputMessage.value)
+    }
+
     return true // 成功发送
   }
 

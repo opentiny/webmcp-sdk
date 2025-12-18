@@ -11,6 +11,10 @@ import {
   getLatestSnapshotAfterOperation
 } from './utils/utils'
 import { withToolAnimation } from './utils/toolAnimationWrapper'
+import { useAutoScreenshot } from './useAutoScreenshot'
+
+// 初始化自动截图功能
+const { captureCurrentTab } = useAutoScreenshot()
 
 export const useExtraTools = (server: WebMcpServer) => {
   // 打开新网址
@@ -383,6 +387,277 @@ export const useExtraTools = (server: WebMcpServer) => {
         return { content: [{ type: 'text', text: friendlyMessage }] }
       } finally {
         // 释放连接引用（连接池会管理连接生命周期，不会立即断开）
+        await snapshotManagerPool.releaseManager(currentTabId)
+      }
+    })
+  )
+
+  // 根据坐标点击页面元素
+  server.registerTool(
+    'clickByCoordinate',
+    {
+      title: '根据坐标点击页面，需要先获取页面截图',
+      description:
+        '根据 x, y 坐标点击页面上的元素。坐标系统：左上角为 (0, 0)，x 向右增加，y 向下增加。通常与 captureScreenshot 配合使用，先截图分析再点击。',
+      inputSchema: {
+        tabId: z.number().optional().describe('目标标签页 ID，如果不提供则使用当前活动标签页'),
+        x: z.number().describe('点击位置的 x 坐标（像素）'),
+        y: z.number().describe('点击位置的 y 坐标（像素）'),
+        button: z.enum(['left', 'right', 'middle']).optional().describe('鼠标按钮类型，默认为 left'),
+        clickCount: z.number().optional().describe('点击次数，默认为 1（单击），2 为双击')
+      }
+    },
+    withToolAnimation('clickByCoordinate', async ({ tabId, x, y, button = 'left', clickCount = 1 }) => {
+      // 获取当前标签页
+      const currentTabId = tabId || (await getCurrentTabId())
+
+      // 从连接池获取管理器
+      const manager = await snapshotManagerPool.getManager(currentTabId)
+      try {
+        const page = manager.getPage()
+        if (!page) {
+          throw new Error('页面未连接，请先确保标签页已加载')
+        }
+
+        // 获取截图工具实例，用于坐标转换
+        const { convertCompressedCoordinateToOriginal } = useAutoScreenshot()
+
+        // 将 AI 给出的压缩截图坐标转换为原始页面坐标
+        // AI 看到的是压缩后的截图（最大宽度512px），需要转换回原始页面坐标
+        const originalCoords = convertCompressedCoordinateToOriginal(x, y)
+        const finalX = originalCoords.x
+        const finalY = originalCoords.y
+
+        console.log(`[clickByCoordinate] 坐标转换: AI给出的坐标 (${x}, ${y}) -> 原始页面坐标 (${finalX}, ${finalY})`)
+
+        // 使用 Puppeteer 的 mouse API 点击转换后的坐标
+        await page.mouse.click(finalX, finalY, {
+          button: button as 'left' | 'right' | 'middle',
+          clickCount
+        })
+
+        // 等待页面响应（给页面一些时间处理点击事件）
+        await new Promise((resolve) => setTimeout(resolve, 500))
+
+        const clickType = clickCount === 2 ? '双击' : '点击'
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `成功${clickType}坐标 (${finalX}, ${finalY})（原始坐标：${x}, ${y}），使用 ${button} 按钮`
+            }
+          ]
+        }
+      } catch (error: any) {
+        const errorMessage = error.message || '未知错误'
+        const friendlyMessage = `坐标点击失败：${errorMessage}`
+
+        return { content: [{ type: 'text', text: friendlyMessage }] }
+      } finally {
+        // 释放连接引用
+        await snapshotManagerPool.releaseManager(currentTabId)
+      }
+    })
+  )
+
+  // 根据坐标在输入框中输入文本
+  server.registerTool(
+    'typeByCoordinate',
+    {
+      title: '根据坐标输入文本',
+      description:
+        '先点击指定坐标位置（通常是输入框），然后输入文本。适用于需要先聚焦输入框再输入的场景。通常与 captureScreenshot 配合使用。',
+      inputSchema: {
+        tabId: z.number().optional().describe('目标标签页 ID，如果不提供则使用当前活动标签页'),
+        x: z.number().describe('输入框的 x 坐标（像素）'),
+        y: z.number().describe('输入框的 y 坐标（像素）'),
+        text: z.string().describe('要输入的文本内容'),
+        clearFirst: z.boolean().optional().describe('是否先清空输入框，默认为 true')
+      }
+    },
+    withToolAnimation('typeByCoordinate', async ({ tabId, x, y, text, clearFirst = true }) => {
+      // 获取当前标签页
+      const currentTabId = tabId || (await getCurrentTabId())
+
+      // 从连接池获取管理器
+      const manager = await snapshotManagerPool.getManager(currentTabId)
+      try {
+        const page = manager.getPage()
+        if (!page) {
+          throw new Error('页面未连接，请先确保标签页已加载')
+        }
+
+        // 获取截图工具实例，用于坐标转换
+        const { convertCompressedCoordinateToOriginal } = useAutoScreenshot()
+
+        // 将 AI 给出的压缩截图坐标转换为原始页面坐标
+        const originalCoords = convertCompressedCoordinateToOriginal(x, y)
+        const finalX = originalCoords.x
+        const finalY = originalCoords.y
+
+        console.log(`[typeByCoordinate] 坐标转换: AI给出的坐标 (${x}, ${y}) -> 原始页面坐标 (${finalX}, ${finalY})`)
+
+        // 先点击转换后的坐标位置以聚焦输入框
+        await page.mouse.click(finalX, finalY)
+        await new Promise((resolve) => setTimeout(resolve, 200))
+
+        // 如果需要清空，先全选再删除
+        if (clearFirst) {
+          // 使用 Ctrl+A (Windows/Linux) 或 Cmd+A (Mac) 全选
+          const modifier = process.platform === 'darwin' ? 'Meta' : 'Control'
+          await page.keyboard.down(modifier)
+          await page.keyboard.press('KeyA')
+          await page.keyboard.up(modifier)
+          await page.keyboard.press('Backspace')
+          await new Promise((resolve) => setTimeout(resolve, 100))
+        }
+
+        // 输入文本
+        await page.keyboard.type(text, { delay: 50 }) // 每个字符间隔 50ms，更自然
+
+        // 等待输入完成
+        await new Promise((resolve) => setTimeout(resolve, 300))
+
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `成功在坐标 (${finalX}, ${finalY})（原始坐标：${x}, ${y}）处输入文本: "${text}"${clearFirst ? '（已清空原内容）' : ''}`
+            }
+          ]
+        }
+      } catch (error: any) {
+        const errorMessage = error.message || '未知错误'
+        const friendlyMessage = `坐标输入失败：${errorMessage}`
+
+        return { content: [{ type: 'text', text: friendlyMessage }] }
+      } finally {
+        // 释放连接引用
+        await snapshotManagerPool.releaseManager(currentTabId)
+      }
+    })
+  )
+
+  // Computer 工具 (Fara-7B 专用)
+  server.registerTool(
+    'computer',
+    {
+      title: 'Computer Use',
+      description: '执行计算机操作，如点击、输入等。支持 Fara-7B 的 computer 工具调用格式。',
+      inputSchema: {
+        action: z
+          .enum([
+            'left_click',
+            'right_click',
+            'middle_click',
+            'double_click',
+            'type',
+            'key',
+            'screenshot',
+            'cursor_position'
+          ])
+          .describe('操作类型'),
+        coordinate: z.array(z.number()).optional().describe('坐标 [x, y] (点击操作必填)'),
+        text: z.string().optional().describe('输入文本 (type 操作必填)'),
+        press_enter: z.boolean().optional().describe('输入后是否回车 (type 操作可选)'),
+        delete_existing_text: z.boolean().optional().describe('输入前是否清空 (type 操作可选)')
+      }
+    },
+    withToolAnimation('computer', async ({ action, coordinate, text, press_enter, delete_existing_text }) => {
+      // 获取当前标签页
+      const currentTabId = await getCurrentTabId()
+      // 从连接池获取管理器
+      const manager = await snapshotManagerPool.getManager(currentTabId)
+
+      try {
+        const page = manager.getPage()
+        if (!page) {
+          throw new Error('页面未连接，请先确保标签页已加载')
+        }
+
+        // 执行操作
+        let mwMessage = ''
+
+        // 获取截图工具实例
+        const { convertCompressedCoordinateToOriginal, captureCurrentTab: captureInstance } = useAutoScreenshot()
+        // 兼容 captureCurrentTab 可能在外部定义的情况，优先使用 userAutoScreenshot 返回的
+        const captureFn = captureInstance || captureCurrentTab
+
+        // 1. 处理点击类操作
+        if (['left_click', 'right_click', 'middle_click', 'double_click'].includes(action)) {
+          if (!coordinate || coordinate.length !== 2) {
+            throw new Error(`操作 ${action} 需要有效的坐标 [x, y]`)
+          }
+
+          const [x, y] = coordinate
+          const originalCoords = convertCompressedCoordinateToOriginal(x, y)
+          const finalX = originalCoords.x
+          const finalY = originalCoords.y
+
+          console.log(`[computer] ${action} 坐标转换: AI(${x}, ${y}) -> 原始(${finalX}, ${finalY})`)
+
+          const clickOptions: any = {}
+          if (action === 'right_click') clickOptions.button = 'right'
+          if (action === 'middle_click') clickOptions.button = 'middle'
+          if (action === 'double_click') clickOptions.clickCount = 2
+
+          await page.mouse.click(finalX, finalY, clickOptions)
+          mwMessage = `成功执行 ${action} 于 [${finalX}, ${finalY}]`
+        } else if (action === 'type') {
+          if (!text) throw new Error('操作 type 需要文本')
+
+          if (coordinate && coordinate.length === 2) {
+            const [x, y] = coordinate
+            const originalCoords = convertCompressedCoordinateToOriginal(x, y)
+            console.log(
+              `[computer] type with click at: AI(${x}, ${y}) -> 原始(${originalCoords.x}, ${originalCoords.y})`
+            )
+            await page.mouse.click(originalCoords.x, originalCoords.y)
+            await new Promise((r) => setTimeout(r, 200))
+          }
+
+          if (delete_existing_text) {
+            const isMac = navigator.userAgent.includes('Mac')
+            const modifier = isMac ? 'Meta' : 'Control'
+            await page.keyboard.down(modifier)
+            await page.keyboard.press('KeyA')
+            await page.keyboard.up(modifier)
+            await page.keyboard.press('Backspace')
+            await new Promise((r) => setTimeout(r, 100))
+          }
+
+          await page.keyboard.type(text)
+
+          if (press_enter) {
+            await page.keyboard.press('Enter')
+          }
+
+          mwMessage = `已成功输入: "${text}"`
+        } else if (action === 'key') {
+          if (!text) throw new Error('Action key requires text (key name)')
+          await page.keyboard.press(text as any)
+          mwMessage = `已成功按下: ${text}`
+        } else if (action === 'screenshot') {
+          mwMessage = '已成功截图'
+        } else {
+          mwMessage = `操作 ${action} 执行成功`
+        }
+
+        // 捕获新截图作为反馈
+        const screenshotDataUrl = await captureFn()
+        // 提取 base64 (AgentModelProvider 可能期望纯 base64 或者 data url，这里保持 data url format 方便调试，或者 trim prefix)
+        // 之前我们在 App.vue 用 trim prefix. 这里我们在 AgentModelProvider 直接用 string.
+        // 为了安全起见，这里返回 raw base64 (without prefix)
+        const base64Match = screenshotDataUrl.match(/^data:image\/\w+;base64,(.+)$/)
+        const screenshotBase64 = base64Match ? base64Match[1] : screenshotDataUrl
+
+        return {
+          content: [{ type: 'text', text: mwMessage }],
+          screenshot: screenshotBase64
+        }
+      } catch (error: any) {
+        return { content: [{ type: 'text', text: `Computer 工具错误: ${error.message}` }] }
+      } finally {
         await snapshotManagerPool.releaseManager(currentTabId)
       }
     })

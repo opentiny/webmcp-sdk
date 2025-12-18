@@ -150,6 +150,14 @@ export class CustomAgentModelProvider extends BaseModelProvider {
           id: part.toolCallId,
           status: 'success',
           delta: ''
+        } as any),
+
+      'tool-error': () =>
+        handler.onData({
+          type: 'tool',
+          id: part.toolCallId,
+          status: 'error',
+          delta: part?.error?.message || '工具执行失败'
         } as any)
     }
 
@@ -303,14 +311,25 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       return snapshotKeywords.some((keyword) => content.includes(keyword))
     }
 
-    // 如果是数组格式（MCP 工具返回格式）
+    // 如果是数组格式（MCP 工具返回格式 或 多模态消息）
     if (Array.isArray(content)) {
       for (const item of content) {
-        const text = item?.output?.value?.content?.[0]?.text
-        if (text) {
-          if (snapshotKeywords.some((keyword) => text.includes(keyword))) {
+        // 1. 检查 MCP 工具返回格式
+        const textMcp = item?.output?.value?.content?.[0]?.text
+        if (textMcp && snapshotKeywords.some((keyword) => textMcp.includes(keyword))) {
+          return true
+        }
+
+        // 2. 检查多模态文本消息
+        if (item.type === 'text' && item.text) {
+          if (snapshotKeywords.some((keyword) => item.text.includes(keyword))) {
             return true
           }
+        }
+
+        // 3. 检查是否有图片内容
+        if (item.type === 'image' || item.type === 'image_url') {
+          return true
         }
       }
     }
@@ -320,19 +339,35 @@ export class CustomAgentModelProvider extends BaseModelProvider {
 
   async chatStream(request: ChatCompletionRequest, handler: StreamHandler): Promise<void> {
     // 读取用户最新的请求
-    const lastUserMsg = request.messages[request.messages.length - 1]
+    let lastUserMsg = request.messages[request.messages.length - 1]
     if (!lastUserMsg) return
 
-    // @ts-ignore
-    const result = await this.agent.chatStream({
-      message: lastUserMsg.content as string,
+    // 执行 beforeChatStream 钩子（如果存在）
+    if (this.llmConfig.beforeChatStream) {
+      try {
+        const modifiedMsg = await this.llmConfig.beforeChatStream(lastUserMsg, this.systemPrompt)
+        if (modifiedMsg) {
+          lastUserMsg = modifiedMsg
+          // 更新 request.messages 中的最后一条消息
+          request.messages[request.messages.length - 1] = modifiedMsg
+        }
+      } catch (error) {
+        console.error('[beforeChatStream] 钩子执行失败:', error)
+        // 继续使用原始消息
+      }
+    }
+
+    // 构建 chatStream 的选项
+    // 根据 AI SDK 文档，UserModelMessage 的 content 可以是 string 或 Array<TextPart | ImagePart>
+    // 参考: https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text#messages.user-model-message.content.text-part.type
+    const chatStreamOptions: any = {
       model: this.llmConfig.model,
       system: this.systemPrompt,
       abortSignal: request.options?.signal,
       tools: { ['get-today']: getToday, ...(this.llmConfig.extraTools || {}) },
       maxSteps: this.llmConfig.maxSteps,
       providerOptions: this.llmConfig.providerOptions,
-      prepareStep: ({ messages }) => {
+      prepareStep: ({ messages }: { messages: any[] }) => {
         // 在步骤开始前清理旧的快照消息
         // prepareStep 会在每次步骤开始前被调用，可以修改即将用于请求的 messages
         const cleanedMessages = this.cleanupOldSnapshotsInMessages(messages)
@@ -343,7 +378,27 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       onFinish: async () => {
         await this.agent.closeAll()
       }
-    })
+    }
+
+    // 检查消息内容是否为多模态格式（数组）
+    if (Array.isArray(lastUserMsg.content)) {
+      // 多模态消息：包含文本和图片
+      // 构建完整的消息数组，包含历史消息和当前用户消息
+      const userMessage = {
+        role: 'user' as const,
+        content: lastUserMsg.content // 已经是数组格式：Array<TextPart | ImagePart>
+      }
+
+      // 将历史消息和当前用户消息合并
+      const allMessages = [...this.agent.messages, userMessage]
+      chatStreamOptions.messages = allMessages
+    } else {
+      // 纯文本消息：使用 message 参数（保持向后兼容）
+      chatStreamOptions.message = lastUserMsg.content as string
+    }
+
+    // @ts-ignore
+    const result = await this.agent.chatStream(chatStreamOptions)
 
     // 标识每一个markdown块
     let textId = 1
@@ -352,7 +407,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       for await (const part of result.fullStream) {
         // 处理错误， 暂时模拟 AI 回复消息。 TODO: robot 设计出错效果
         if (part.type === 'error') {
-          const message = part.error?.data?.error?.message || part.error?.message || '访问大模型出错'
+          const message = part.error?.data?.error?.message || part.error?.message || part.error || '访问大模型出错'
           handler.onData({
             type: 'markdown',
             content: '',

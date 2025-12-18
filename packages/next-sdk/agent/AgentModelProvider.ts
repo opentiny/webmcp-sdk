@@ -301,7 +301,7 @@ export class AgentModelProvider {
     if (baseSystemPrompt) {
       return `${baseSystemPrompt}${toolsPrompt}`
     }
-    return `你是一个智能助手，可以通过调用工具来完成任务。${toolsPrompt}`
+    return `你是一个智能助手，可以通过调用工具来完成任务。\n${toolsPrompt}`
   }
 
   /** 执行 ReAct 模式下的工具调用 */
@@ -473,12 +473,12 @@ export class AgentModelProvider {
 
             // 移除 tools 选项，ReAct 模式下不传递 tools
             const { tools: _, ...restOptions } = options
-
             // 调用流式 LLM
+            delete restOptions.system
             const result = await streamText({
+              ...restOptions,
               model: llmModel,
-              messages: currentMessages,
-              ...restOptions
+              messages: currentMessages
             })
 
             // 收集流式输出
@@ -517,6 +517,16 @@ export class AgentModelProvider {
               return
             }
 
+            // 特殊处理: computer 工具的 terminate 操作
+            if (action.toolName === 'computer' && action.arguments?.action === 'terminate') {
+              // 视为对话结束
+              controller.enqueue({ type: 'text-end' })
+              controller.close()
+              self.messages = currentMessages
+              streamCompleteResolver({ messages: currentMessages })
+              return
+            }
+
             // 发送工具调用开始事件（符合 tiny-robot 格式）
             const toolCallId = `react-${Date.now()}`
             controller.enqueue({
@@ -536,22 +546,66 @@ export class AgentModelProvider {
             // 执行工具调用
             const toolResult = await self._executeReActToolCall(action.toolName, action.arguments, tools)
 
-            // 发送工具结果（符合 tiny-robot 格式）
-            const observation = toolResult.success
-              ? `Observation: ${JSON.stringify(toolResult.result)}`
-              : `Observation: 工具执行失败 - ${toolResult.error}`
+            // 如果结果包含 screenshot，先提取出来，避免 JSON stringify 导致过大
+            let screenshot = undefined
+            let resultData = toolResult.result
+            if (
+              toolResult.success &&
+              toolResult.result &&
+              typeof toolResult.result === 'object' &&
+              toolResult.result.screenshot
+            ) {
+              screenshot = toolResult.result.screenshot
+              const { screenshot: _, ...rest } = toolResult.result
+              resultData = rest
+            }
 
+            // 构造 Observation 文本
+            let observationText = ''
+            if (toolResult.success) {
+              // 尝试从 resultData 中提取纯文本信息 (兼容 extraTools 返回的 { content: [{text: ...}] } 结构)
+              if (
+                resultData &&
+                Array.isArray(resultData.content) &&
+                resultData.content.length > 0 &&
+                resultData.content[0].text
+              ) {
+                observationText = resultData.content[0].text
+              } else {
+                observationText = JSON.stringify(resultData)
+              }
+            } else {
+              observationText = `工具执行失败 - ${toolResult.error}`
+            }
+
+            // 如果有截图，添加验证提示
+            let finalObservation = `${observationText}`
+            if (screenshot) {
+              finalObservation += `\n请检查截图以确认操作是否成功。如果成功，请继续下一步；如果失败，请重试。`
+            }
+
+            // 发送工具结果（符合 tiny-robot 格式，给 UI 展示用的，不包含 base64 防止卡顿）
             controller.enqueue({
               type: 'tool-result',
               toolCallId: toolCallId,
-              result: observation
+              result: finalObservation
             })
 
             // 添加工具结果到消息历史（ReAct 模式下，工具结果作为 user 消息添加）
-            currentMessages.push({
-              role: 'user',
-              content: observation
-            })
+            if (screenshot) {
+              currentMessages.push({
+                role: 'user',
+                content: [
+                  { type: 'text', text: finalObservation },
+                  { type: 'image', image: screenshot }
+                ]
+              })
+            } else {
+              currentMessages.push({
+                role: 'user',
+                content: finalObservation
+              })
+            }
 
             // 重置累积文本，准备下一轮
             accumulatedText = ''
