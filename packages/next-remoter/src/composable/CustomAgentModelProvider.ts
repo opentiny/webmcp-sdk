@@ -234,9 +234,9 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       const msg = cleanedMessages[i] as any
       // 在 ReAct 模式下检查 user 角色，否则检查 tool 角色
       if (msg.role === expectedRole && this.isSnapshotContent(msg.content)) {
-        // 找到旧的快照消息，替换为占位符
+        // 找到旧的快照消息，仅保留其文本并移除图片
         this.replaceSnapshotWithPlaceholder(msg)
-        break // 只清理最后一次快照，找到后退出
+        // 不再 break，确保清理所有历史记录中的图片以最大限度节省 token
       }
     }
 
@@ -244,45 +244,31 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   }
 
   /**
-   * 将快照消息替换为占位符
+   * 清理消息中的快照信息，旨在保留文本但移除图片以节省 token
    * @param msg 消息对象
    */
   private replaceSnapshotWithPlaceholder(msg: any): void {
     if (Array.isArray(msg.content)) {
-      // 如果是数组格式，替换所有文本内容为占位符
-      // 检查是否是 MCP 工具返回格式（有 output.value.content）
+      // 检查是否是 MCP 工具返回格式 (Tiny Robot Kit 包装后的格式)
       const firstItem = msg.content[0]
       if (firstItem?.output?.value?.content) {
-        // MCP 工具返回格式，替换 content
-        msg.content = [
-          {
-            ...firstItem,
-            output: {
-              ...firstItem.output,
-              value: {
-                ...firstItem.output.value,
-                content: [
-                  {
-                    type: 'text',
-                    text: '历史快照不予保留'
-                  }
-                ]
-              }
-            }
-          }
-        ]
+        const innerContent = firstItem.output.value.content
+        if (Array.isArray(innerContent)) {
+          // 过滤掉图片内容，保留文本
+          firstItem.output.value.content = innerContent.filter((item: any) => item.type !== 'image')
+        }
+        // 如果 MCP 返回结果中包含单独的 screenshot 字段，也予以移除
+        if (firstItem.output.value.screenshot) {
+          delete firstItem.output.value.screenshot
+        }
       } else {
-        // 普通数组格式
-        msg.content = [
-          {
-            type: 'text',
-            text: '历史快照不予保留'
-          }
-        ]
+        // 普通多模态数组格式 (AI SDK 风格)
+        // 过滤掉所有图片部分，只保留文本部分
+        msg.content = msg.content.filter((item: any) => item.type !== 'image' && item.type !== 'image_url')
       }
     } else if (typeof msg.content === 'string') {
-      // 如果是字符串格式，直接替换
-      msg.content = '历史快照不予保留'
+      // 字符串格式通常只包含文本，保持不变以响应用户“保留文字信息”的要求
+      // 不再将其替换为“历史快照不予保留”
     }
   }
 

@@ -543,7 +543,20 @@ export const useExtraTools = (server: WebMcpServer) => {
     'computer',
     {
       title: 'Computer Use',
-      description: '执行计算机操作，如点击、输入等。支持 Fara-7B 的 computer 工具调用格式。',
+      description: `执行计算机操作，如点击、输入、截图等。支持 Fara-7B 的 computer 工具调用格式。
+坐标系统：以压缩后的截图为基准，最大宽度通常为 512px。左上角为 [0, 0]，x 向右增加，y 向下增加。
+可用操作：
+- left_click: 在指定坐标点击左键。需提供 coordinate [x, y]。
+- right_click: 在指定坐标点击右键。需提供 coordinate [x, y]。
+- middle_click: 在指定坐标点击中键。需提供 coordinate [x, y]。
+- double_click: 在指定坐标双击。需提供 coordinate [x, y]。
+- type: 在指定坐标（可选）输入文本。需提供 text。可选 coordinate, press_enter, delete_existing_text。
+- key: 按下特定按键。需提供 text (按键名称，如 "Enter", "Escape")。
+- screenshot: 捕获当前页面截图。
+- scroll: 滚动页面。需提供 pixels (正数向下，负数向上)。
+- wait: 等待一段时间，确保页面加载。需提供 time (秒)。
+- cursor_position: 获取当前鼠标位置。
+- history: 浏览器历史记录操作。需提供 arg ("back" 或 "forward")。`,
       inputSchema: {
         action: z
           .enum([
@@ -555,117 +568,153 @@ export const useExtraTools = (server: WebMcpServer) => {
             'key',
             'screenshot',
             'cursor_position',
-            'scroll'
+            'scroll',
+            'wait',
+            'history'
           ])
           .describe('操作类型'),
         coordinate: z.array(z.number()).optional().describe('坐标 [x, y] (点击操作必填)'),
-        text: z.string().optional().describe('输入文本 (type 操作必填)'),
+        text: z.string().optional().describe('输入文本 (type 或 key 操作必填)'),
+        arg: z.string().optional().describe('操作参数 (history 或 key 操作必填)'),
         pixels: z.number().optional().describe('滚动像素 (正值向下，负值向上)'),
         press_enter: z.boolean().optional().describe('输入后是否回车 (type 操作可选)'),
-        delete_existing_text: z.boolean().optional().describe('输入前是否清空 (type 操作可选)')
+        delete_existing_text: z.boolean().optional().describe('输入前是否清空 (type 操作可选)'),
+        time: z.number().optional().describe('等待时间（秒，仅用于 wait 操作）')
       }
     },
-    withToolAnimation('computer', async ({ action, coordinate, text, pixels, press_enter, delete_existing_text }) => {
-      // 获取当前标签页
-      const currentTabId = await getCurrentTabId()
-      // 从连接池获取管理器
-      const manager = await snapshotManagerPool.getManager(currentTabId)
+    withToolAnimation(
+      'computer',
+      async ({ action, coordinate, text, arg, pixels, press_enter, delete_existing_text, time }) => {
+        // 获取当前标签页
+        const currentTabId = await getCurrentTabId()
+        // 从连接池获取管理器
+        const manager = await snapshotManagerPool.getManager(currentTabId)
 
-      try {
-        const page = manager.getPage()
-        if (!page) {
-          throw new Error('页面未连接，请先确保标签页已加载')
-        }
-
-        // 执行操作
-        let mwMessage = ''
-
-        // 获取截图工具实例
-        const { convertCompressedCoordinateToOriginal, captureCurrentTab: captureInstance } = useAutoScreenshot()
-        // 兼容 captureCurrentTab 可能在外部定义的情况，优先使用 userAutoScreenshot 返回的
-        const captureFn = captureInstance || captureCurrentTab
-
-        // 1. 处理点击类操作
-        if (['left_click', 'right_click', 'middle_click', 'double_click'].includes(action)) {
-          if (!coordinate || coordinate.length !== 2) {
-            throw new Error(`操作 ${action} 需要有效的坐标 [x, y]`)
+        try {
+          const page = manager.getPage()
+          if (!page) {
+            throw new Error('页面未连接，请先确保标签页已加载')
           }
 
-          const [x, y] = coordinate
-          const originalCoords = convertCompressedCoordinateToOriginal(x, y)
-          const finalX = originalCoords.x
-          const finalY = originalCoords.y
+          // 执行操作
+          let mwMessage = ''
 
-          console.log(`[computer] ${action} 坐标转换: AI(${x}, ${y}) -> 原始(${finalX}, ${finalY})`)
+          // 获取截图工具实例
+          const { convertCompressedCoordinateToOriginal, captureCurrentTab: captureInstance } = useAutoScreenshot()
+          // 兼容 captureCurrentTab 可能在外部定义的情况，优先使用 userAutoScreenshot 返回的
+          const captureFn = captureInstance || captureCurrentTab
 
-          const clickOptions: any = {}
-          if (action === 'right_click') clickOptions.button = 'right'
-          if (action === 'middle_click') clickOptions.button = 'middle'
-          if (action === 'double_click') clickOptions.clickCount = 2
+          // 1. 处理点击类操作
+          if (['left_click', 'right_click', 'middle_click', 'double_click'].includes(action)) {
+            if (!coordinate || coordinate.length !== 2) {
+              throw new Error(`操作 ${action} 需要有效的坐标 [x, y]`)
+            }
 
-          await page.mouse.click(finalX, finalY, clickOptions)
-          mwMessage = `成功执行 ${action} 于 [${finalX}, ${finalY}]`
-        } else if (action === 'type') {
-          if (!text) throw new Error('操作 type 需要文本')
-
-          if (coordinate && coordinate.length === 2) {
             const [x, y] = coordinate
             const originalCoords = convertCompressedCoordinateToOriginal(x, y)
-            console.log(
-              `[computer] type with click at: AI(${x}, ${y}) -> 原始(${originalCoords.x}, ${originalCoords.y})`
-            )
-            await page.mouse.click(originalCoords.x, originalCoords.y)
-            await new Promise((r) => setTimeout(r, 200))
+            const finalX = originalCoords.x
+            const finalY = originalCoords.y
+
+            console.log(`[computer] ${action} 坐标转换: AI(${x}, ${y}) -> 原始(${finalX}, ${finalY})`)
+
+            const clickOptions: any = {}
+            if (action === 'right_click') clickOptions.button = 'right'
+            if (action === 'middle_click') clickOptions.button = 'middle'
+            if (action === 'double_click') clickOptions.clickCount = 2
+
+            await page.mouse.click(finalX, finalY, clickOptions)
+            mwMessage = `成功执行 ${action} 于 [${finalX}, ${finalY}]`
+          } else if (action === 'type') {
+            if (!text) throw new Error('操作 type 需要文本')
+
+            if (coordinate && coordinate.length === 2) {
+              const [x, y] = coordinate
+              const originalCoords = convertCompressedCoordinateToOriginal(x, y)
+              console.log(
+                `[computer] type with click at: AI(${x}, ${y}) -> 原始(${originalCoords.x}, ${originalCoords.y})`
+              )
+              await page.mouse.click(originalCoords.x, originalCoords.y)
+              await new Promise((r) => setTimeout(r, 200))
+            }
+
+            if (delete_existing_text) {
+              const isMac = navigator.userAgent.includes('Mac')
+              const modifier = isMac ? 'Meta' : 'Control'
+              await page.keyboard.down(modifier)
+              await page.keyboard.press('KeyA')
+              await page.keyboard.up(modifier)
+              await page.keyboard.press('Backspace')
+              await new Promise((r) => setTimeout(r, 100))
+            }
+
+            await page.keyboard.type(text)
+
+            if (press_enter) {
+              await page.keyboard.press('Enter')
+            }
+
+            mwMessage = `已成功输入: "${text}"`
+          } else if (action === 'key') {
+            const keyName = (arg || text) as any
+            if (!keyName) throw new Error('Action key requires key name (in arg or text)')
+            await page.keyboard.press(keyName)
+            mwMessage = `已成功按下: ${keyName}`
+          } else if (action === 'screenshot') {
+            mwMessage = '已成功截图'
+          } else if (action === 'scroll') {
+            const scrollPixels = pixels || 500
+            await page.evaluate((y) => window.scrollBy(0, y), scrollPixels)
+            mwMessage = `已成功滚动 ${scrollPixels > 0 ? '向下' : '向上'} ${Math.abs(scrollPixels)} 像素`
+          } else if (action === 'wait') {
+            const waitTime = time || 3
+            await new Promise((resolve) => setTimeout(resolve, waitTime * 1000))
+            mwMessage = `已成功等待 ${waitTime} 秒`
+          } else if (action === 'cursor_position') {
+            // 获取当前鼠标位置（如果不支持记录，则返回一个提示信息）
+            // 注意：Puppeteer 本身不存储当前鼠标位置，除非我们自己记录
+            // 这里返回一个提示信息
+            mwMessage = '当前坐标系统基于截图，请在截图中观察鼠标位置（如果可见）。'
+          } else if (action === 'history') {
+            const historyArg = arg || text
+            try {
+              if (historyArg === 'back') {
+                await page.goBack()
+                mwMessage = '已成功后退到上一页'
+              } else if (historyArg === 'forward') {
+                await page.goForward()
+                mwMessage = '已成功前进到下一页'
+              } else {
+                throw new Error('history 操作需要有效的参数 "back" 或 "forward"')
+              }
+            } catch (err: any) {
+              if (err.message?.includes('History entry to navigate to not found')) {
+                mwMessage = `无法${historyArg === 'back' ? '后退' : '前进'}：没有更多的历史记录。`
+              } else {
+                throw err
+              }
+            }
+          } else {
+            mwMessage = `操作 ${action} 执行成功`
           }
 
-          if (delete_existing_text) {
-            const isMac = navigator.userAgent.includes('Mac')
-            const modifier = isMac ? 'Meta' : 'Control'
-            await page.keyboard.down(modifier)
-            await page.keyboard.press('KeyA')
-            await page.keyboard.up(modifier)
-            await page.keyboard.press('Backspace')
-            await new Promise((r) => setTimeout(r, 100))
+          // 捕获新截图作为反馈
+          const screenshotDataUrl = await captureFn()
+          // 提取 base64 (AgentModelProvider 可能期望纯 base64 或者 data url，这里保持 data url format 方便调试，或者 trim prefix)
+          // 之前我们在 App.vue 用 trim prefix. 这里我们在 AgentModelProvider 直接用 string.
+          // 为了安全起见，这里返回 raw base64 (without prefix)
+          const base64Match = screenshotDataUrl.match(/^data:image\/\w+;base64,(.+)$/)
+          const screenshotBase64 = base64Match ? base64Match[1] : screenshotDataUrl
+
+          return {
+            content: [{ type: 'text', text: mwMessage }],
+            screenshot: screenshotBase64
           }
-
-          await page.keyboard.type(text)
-
-          if (press_enter) {
-            await page.keyboard.press('Enter')
-          }
-
-          mwMessage = `已成功输入: "${text}"`
-        } else if (action === 'key') {
-          if (!text) throw new Error('Action key requires text (key name)')
-          await page.keyboard.press(text as any)
-          mwMessage = `已成功按下: ${text}`
-        } else if (action === 'screenshot') {
-          mwMessage = '已成功截图'
-        } else if (action === 'scroll') {
-          const scrollPixels = pixels || 500
-          await page.evaluate((y) => window.scrollBy(0, y), scrollPixels)
-          mwMessage = `已成功滚动 ${scrollPixels > 0 ? '向下' : '向上'} ${Math.abs(scrollPixels)} 像素`
-        } else {
-          mwMessage = `操作 ${action} 执行成功`
+        } catch (error: any) {
+          return { content: [{ type: 'text', text: `Computer 工具错误: ${error.message}` }] }
+        } finally {
+          await snapshotManagerPool.releaseManager(currentTabId)
         }
-
-        // 捕获新截图作为反馈
-        const screenshotDataUrl = await captureFn()
-        // 提取 base64 (AgentModelProvider 可能期望纯 base64 或者 data url，这里保持 data url format 方便调试，或者 trim prefix)
-        // 之前我们在 App.vue 用 trim prefix. 这里我们在 AgentModelProvider 直接用 string.
-        // 为了安全起见，这里返回 raw base64 (without prefix)
-        const base64Match = screenshotDataUrl.match(/^data:image\/\w+;base64,(.+)$/)
-        const screenshotBase64 = base64Match ? base64Match[1] : screenshotDataUrl
-
-        return {
-          content: [{ type: 'text', text: mwMessage }],
-          screenshot: screenshotBase64
-        }
-      } catch (error: any) {
-        return { content: [{ type: 'text', text: `Computer 工具错误: ${error.message}` }] }
-      } finally {
-        await snapshotManagerPool.releaseManager(currentTabId)
       }
-    })
+    )
   )
 }
