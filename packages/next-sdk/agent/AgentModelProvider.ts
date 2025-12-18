@@ -15,7 +15,7 @@ import { ExtensionClientTransport } from '../transport/ExtensionClientTransport'
 import { MessageChannelTransport } from '@opentiny/next'
 import { WebMcpClient } from '../WebMcpClient'
 import { getAISDKTools } from './utils/getAISDKTools'
-import { generateReActToolsPrompt } from './utils/generateReActPrompt'
+import { generateReActToolsPrompt, generateFaraReActToolsPrompt } from './utils/generateReActPrompt'
 import { parseReActAction } from './utils/parseReActAction'
 
 export const AIProviderFactories = {
@@ -295,9 +295,17 @@ export class AgentModelProvider {
     return toolsResult
   }
 
+  /** 判断是否为 Fara 或 Qwen 系列模型 */
+  private _isFaraModel(modelName: string): boolean {
+    const lowerName = modelName.toLowerCase()
+    return lowerName.includes('fara') || lowerName.includes('qwen')
+  }
+
   /** 生成 ReAct 模式的系统提示词（包含工具描述） */
-  private _generateReActSystemPrompt(tools: ToolSet, baseSystemPrompt?: string): string {
-    const toolsPrompt = generateReActToolsPrompt(tools)
+  private _generateReActSystemPrompt(tools: ToolSet, modelName: string, baseSystemPrompt?: string): string {
+    const isFara = this._isFaraModel(modelName)
+    const toolsPrompt = isFara ? generateFaraReActToolsPrompt(tools) : generateReActToolsPrompt(tools)
+
     if (baseSystemPrompt) {
       return `${baseSystemPrompt}${toolsPrompt}`
     }
@@ -360,8 +368,11 @@ export class AgentModelProvider {
       currentMessages = [...this.messages]
     }
 
+    // 确保 model 是字符串类型（ReAct 模式下 model 应该是模型名称字符串）
+    const modelName = typeof model === 'string' ? model : (model as any)?.modelId || 'default-model'
+
     // 生成包含工具描述的系统提示词
-    const systemPrompt = this._generateReActSystemPrompt(allTools, options.system as string)
+    const systemPrompt = this._generateReActSystemPrompt(allTools, modelName, options.system as string)
     const systemMessage = { role: 'system', content: systemPrompt }
 
     // 确保第一条消息是系统提示词
@@ -370,9 +381,6 @@ export class AgentModelProvider {
 
     // 判断是否为流式输出
     const isStream = chatMethod === streamText
-
-    // 确保 model 是字符串类型（ReAct 模式下 model 应该是模型名称字符串）
-    const modelName = typeof model === 'string' ? model : (model as any)?.modelId || 'default-model'
 
     if (isStream) {
       // 流式输出模式：创建一个包装的流
@@ -536,10 +544,20 @@ export class AgentModelProvider {
       // 执行工具调用
       const toolResult = await this._executeReActToolCall(action.toolName, action.arguments, tools)
 
-      // 添加工具调用结果到消息历史（ReAct 模式下，工具结果作为 user 消息添加）
-      const observation = toolResult.success
-        ? `Observation: ${JSON.stringify(toolResult.result)}`
-        : `Observation: 工具执行失败 - ${toolResult.error}`
+      // 判断是否为 Fara 模型，使用不同的 Observation 格式
+      const isFara = this._isFaraModel(model)
+      let observation = ''
+
+      if (isFara) {
+        const resultString = toolResult.success
+          ? JSON.stringify(toolResult.result)
+          : `工具执行失败 - ${toolResult.error}`
+        observation = `<tool_response>\n${resultString}\n</tool_response>`
+      } else {
+        observation = toolResult.success
+          ? `Observation: ${JSON.stringify(toolResult.result)}`
+          : `Observation: 工具执行失败 - ${toolResult.error}`
+      }
 
       // 添加到所有消息和完整历史
       const observationMessage = {
@@ -691,8 +709,10 @@ export class AgentModelProvider {
 
             // 构造 Observation 文本
             let observationText = ''
+            const isFara = self._isFaraModel(model)
+
             if (toolResult.success) {
-              // 尝试从 resultData 中提取纯文本信息 (兼容 extraTools 返回的 { content: [{text: ...}] } 结构)
+              // 尝试从 resultData 中提取纯文本信息
               if (
                 resultData &&
                 Array.isArray(resultData.content) &&
@@ -708,8 +728,11 @@ export class AgentModelProvider {
             }
 
             // 如果有截图，添加验证提示
-            let finalObservation = `${observationText}`
-            if (screenshot) {
+            let finalObservation = isFara
+              ? `<tool_response>\n${observationText}\n</tool_response>`
+              : `Observation: ${observationText}`
+
+            if (screenshot && !isFara) {
               finalObservation += `\n请检查截图以确认操作是否成功。如果成功，请继续下一步；如果失败，请重试。`
             }
 
