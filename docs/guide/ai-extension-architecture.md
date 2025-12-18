@@ -529,17 +529,7 @@ export default {
 
 ### 3.8 生成式 UI 集成
 
-插件集成了生成式 UI，可快速将工具执行结果反馈给 AI：
-
-```typescript
-// 工具返回格式支持多种内容类型
-return {
-  content: [
-    { type: 'text', text: '操作完成' },
-    { type: 'schema-card', schema: { /* UI Schema */ } }
-  ]
-}
-```
+插件集成了生成式 UI，支持从大模型返回的文本流中解析 UI
 
 **UI Schema 渲染**：
 
