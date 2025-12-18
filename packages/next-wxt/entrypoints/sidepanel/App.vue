@@ -10,8 +10,6 @@ import { AGENT_ROOT, ROBOT_URL } from './const'
 import { useGenerateCode } from './useGenerateCode'
 import RecordModal from './components/RecordModal.vue'
 import { getAllSkills } from '@/skills'
-import { createZhipu } from 'zhipu-ai-provider'
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 
 import { useAutoScreenshot } from './useAutoScreenshot'
 
@@ -21,7 +19,7 @@ const { captureCurrentTab } = useAutoScreenshot()
 const llmConfig = {
   apiKey: import.meta.env.VITE_LLM_API_KEY,
   baseURL: import.meta.env.VITE_LLM_BASE_URL,
-  providerType: createOpenAICompatible,
+  providerType: import.meta.env.VITE_LLM_PROVIDER_TYPE,
   model: import.meta.env.VITE_LLM_MODEL,
   maxSteps: 30,
   useReActMode: true, // 启用 ReAct 模式，支持视觉模型的工具调用

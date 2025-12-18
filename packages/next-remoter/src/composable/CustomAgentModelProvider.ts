@@ -126,7 +126,6 @@ export class CustomAgentModelProvider extends BaseModelProvider {
    * @param handler 流处理器
    */
   private handleToolStream(part: StreamPart, handler: StreamHandler): void {
-    console.log('handleToolStream', part)
     const toolHandlers = {
       'tool-input-start': () =>
         handler.onData({
