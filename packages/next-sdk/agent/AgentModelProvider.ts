@@ -511,7 +511,10 @@ export class AgentModelProvider {
       stepCount++
 
       // 构建用于模型调用的消息列表（magentic-ui 风格：保留所有文本，限制图片）
-      const messagesForModel = this._buildMessagesForModel(systemMessage, allUserMessages, maxImages)
+      // 判断是否为 Fara 模型，如果是，则强制限制 maxImages 为 1
+      const isFaraModel = this._isFaraModel(model)
+      const effectiveMaxImages = isFaraModel ? 1 : maxImages
+      const messagesForModel = this._buildMessagesForModel(systemMessage, allUserMessages, effectiveMaxImages)
 
       // 调用 LLM（ReAct 模式下不传递 tools，因为工具调用通过提示词实现）
       // 参考 magentic-ui：保留所有文本历史（上下文完整），仅限制图片数量（优化 token）
@@ -612,7 +615,10 @@ export class AgentModelProvider {
             stepCount++
 
             // 构建用于模型调用的消息列表（magentic-ui 风格：保留所有文本，限制图片）
-            const messagesForModel = self._buildMessagesForModel(systemMessage, allUserMessages, maxImages)
+            // 判断是否为 Fara 模型，如果是，则强制限制 maxImages 为 1
+            const isFaraModel = self._isFaraModel(model)
+            const effectiveMaxImages = isFaraModel ? 1 : maxImages
+            const messagesForModel = self._buildMessagesForModel(systemMessage, allUserMessages, effectiveMaxImages)
 
             // 移除 tools 选项，ReAct 模式下不传递 tools
             const { tools: _, ...restOptions } = options
