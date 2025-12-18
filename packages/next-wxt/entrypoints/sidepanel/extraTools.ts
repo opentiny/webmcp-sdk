@@ -554,16 +554,18 @@ export const useExtraTools = (server: WebMcpServer) => {
             'type',
             'key',
             'screenshot',
-            'cursor_position'
+            'cursor_position',
+            'scroll'
           ])
           .describe('操作类型'),
         coordinate: z.array(z.number()).optional().describe('坐标 [x, y] (点击操作必填)'),
         text: z.string().optional().describe('输入文本 (type 操作必填)'),
+        pixels: z.number().optional().describe('滚动像素 (正值向下，负值向上)'),
         press_enter: z.boolean().optional().describe('输入后是否回车 (type 操作可选)'),
         delete_existing_text: z.boolean().optional().describe('输入前是否清空 (type 操作可选)')
       }
     },
-    withToolAnimation('computer', async ({ action, coordinate, text, press_enter, delete_existing_text }) => {
+    withToolAnimation('computer', async ({ action, coordinate, text, pixels, press_enter, delete_existing_text }) => {
       // 获取当前标签页
       const currentTabId = await getCurrentTabId()
       // 从连接池获取管理器
@@ -639,6 +641,10 @@ export const useExtraTools = (server: WebMcpServer) => {
           mwMessage = `已成功按下: ${text}`
         } else if (action === 'screenshot') {
           mwMessage = '已成功截图'
+        } else if (action === 'scroll') {
+          const scrollPixels = pixels || 500
+          await page.evaluate((y) => window.scrollBy(0, y), scrollPixels)
+          mwMessage = `已成功滚动 ${scrollPixels > 0 ? '向下' : '向上'} ${Math.abs(scrollPixels)} 像素`
         } else {
           mwMessage = `操作 ${action} 执行成功`
         }
