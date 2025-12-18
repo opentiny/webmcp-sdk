@@ -301,7 +301,7 @@ export class AgentModelProvider {
     if (baseSystemPrompt) {
       return `${baseSystemPrompt}${toolsPrompt}`
     }
-    return `你是一个智能助手，可以通过调用工具来完成任务。请始终使用中文进行思考和回复。\n${toolsPrompt}`
+    return `你是一个智能助手，可以通过调用工具来完成任务。\n${toolsPrompt}`
   }
 
   /** 执行 ReAct 模式下的工具调用 */

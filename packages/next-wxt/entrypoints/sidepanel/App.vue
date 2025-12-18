@@ -38,7 +38,6 @@ const llmConfig = {
     const isVisionExpert =
       systemPrompt.includes('视觉操作专家') ||
       systemPrompt.includes('vision-expert') ||
-      systemPrompt.includes('avision-expert') ||
       systemPrompt.includes('# 视觉操作专家')
 
     console.log('[beforeChatStream] isVisionExpert:', isVisionExpert)
