@@ -22,7 +22,7 @@ const llmConfig = {
   providerType: import.meta.env.VITE_LLM_PROVIDER_TYPE,
   model: import.meta.env.VITE_LLM_MODEL,
   maxSteps: 30,
-  useReActMode: true, // 启用 ReAct 模式，支持视觉模型的工具调用
+  useReActMode: false, // 启用 ReAct 模式，支持视觉模型的工具调用
   /**
    * beforeChatStream 钩子：在消息发送前自动添加截图
    * 当 skill 是视觉操作专家时，自动捕获当前页面截图并添加到消息中
