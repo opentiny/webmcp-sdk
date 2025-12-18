@@ -556,7 +556,9 @@ export const useExtraTools = (server: WebMcpServer) => {
 - scroll: 滚动页面。需提供 pixels (正数向下，负数向上)。
 - wait: 等待一段时间，确保页面加载。需提供 time (秒)。
 - cursor_position: 获取当前鼠标位置。
-- history: 浏览器历史记录操作。需提供 arg ("back" 或 "forward")。`,
+- history: 浏览器历史记录操作。需提供 arg ("back" 或 "forward")。
+- history_back: 后退到上一页。
+- history_forward: 前进到下一页。`,
       inputSchema: {
         action: z
           .enum([
@@ -570,7 +572,9 @@ export const useExtraTools = (server: WebMcpServer) => {
             'cursor_position',
             'scroll',
             'wait',
-            'history'
+            'history',
+            'history_back',
+            'history_forward'
           ])
           .describe('操作类型'),
         coordinate: z.array(z.number()).optional().describe('坐标 [x, y] (点击操作必填)'),
@@ -637,15 +641,13 @@ export const useExtraTools = (server: WebMcpServer) => {
               await new Promise((r) => setTimeout(r, 200))
             }
 
-            if (delete_existing_text) {
-              const isMac = navigator.userAgent.includes('Mac')
-              const modifier = isMac ? 'Meta' : 'Control'
-              await page.keyboard.down(modifier)
-              await page.keyboard.press('KeyA')
-              await page.keyboard.up(modifier)
-              await page.keyboard.press('Backspace')
-              await new Promise((r) => setTimeout(r, 100))
-            }
+            const isMac = navigator.userAgent.includes('Mac')
+            const modifier = isMac ? 'Meta' : 'Control'
+            await page.keyboard.down(modifier)
+            await page.keyboard.press('KeyA')
+            await page.keyboard.up(modifier)
+            await page.keyboard.press('Backspace')
+            await new Promise((r) => setTimeout(r, 100))
 
             await page.keyboard.type(text)
 
@@ -674,8 +676,9 @@ export const useExtraTools = (server: WebMcpServer) => {
             // 注意：Puppeteer 本身不存储当前鼠标位置，除非我们自己记录
             // 这里返回一个提示信息
             mwMessage = '当前坐标系统基于截图，请在截图中观察鼠标位置（如果可见）。'
-          } else if (action === 'history') {
-            const historyArg = arg || text
+          } else if (action === 'history' || action === 'history_back' || action === 'history_forward') {
+            const historyArg =
+              action === 'history_back' ? 'back' : action === 'history_forward' ? 'forward' : arg || text
             try {
               if (historyArg === 'back') {
                 await page.goBack()
@@ -698,6 +701,8 @@ export const useExtraTools = (server: WebMcpServer) => {
           }
 
           // 捕获新截图作为反馈
+          // 等待一段时间，保证输入或者切换面板可以完全展示出来再进行截屏
+          await new Promise((resolve) => setTimeout(resolve, 2000))
           const screenshotDataUrl = await captureFn()
           // 提取 base64 (AgentModelProvider 可能期望纯 base64 或者 data url，这里保持 data url format 方便调试，或者 trim prefix)
           // 之前我们在 App.vue 用 trim prefix. 这里我们在 AgentModelProvider 直接用 string.
