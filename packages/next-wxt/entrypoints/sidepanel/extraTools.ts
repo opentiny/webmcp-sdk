@@ -600,6 +600,47 @@ export const useExtraTools = (server: WebMcpServer) => {
             throw new Error('页面未连接，请先确保标签页已加载')
           }
 
+          // 辅助函数：在页面上显示点击指示器
+          const showClickIndicator = async (x: number, y: number) => {
+            try {
+              await page.evaluate(
+                (cx, cy) => {
+                  const div = document.createElement('div')
+                  div.style.position = 'fixed'
+                  div.style.left = cx + 'px'
+                  div.style.top = cy + 'px'
+                  div.style.width = '30px'
+                  div.style.height = '30px'
+                  div.style.marginLeft = '-15px'
+                  div.style.marginTop = '-15px'
+                  div.style.borderRadius = '50%'
+                  div.style.backgroundColor = 'rgba(255, 0, 0, 0.5)'
+                  div.style.border = '2px solid red'
+                  div.style.zIndex = '999999'
+                  div.style.pointerEvents = 'none'
+                  div.style.transition = 'all 0.5s ease-out'
+                  div.style.transform = 'scale(0.5)'
+                  document.body.appendChild(div)
+
+                  // 触发动画
+                  setTimeout(() => {
+                    div.style.transform = 'scale(2)'
+                    div.style.opacity = '0.2'
+                  }, 10)
+
+                  // 1秒后移除
+                  setTimeout(() => {
+                    div.remove()
+                  }, 1000)
+                },
+                x,
+                y
+              )
+            } catch (e) {
+              console.warn('[computer] Failed to show click indicator:', e)
+            }
+          }
+
           // 执行操作
           let mwMessage = ''
 
@@ -626,6 +667,8 @@ export const useExtraTools = (server: WebMcpServer) => {
             if (action === 'middle_click') clickOptions.button = 'middle'
             if (action === 'double_click') clickOptions.clickCount = 2
 
+            // 显示点击效果
+            await showClickIndicator(finalX, finalY)
             await page.mouse.click(finalX, finalY, clickOptions)
             mwMessage = `成功执行 ${action} 于 [${finalX}, ${finalY}]`
           } else if (action === 'type') {
@@ -637,6 +680,8 @@ export const useExtraTools = (server: WebMcpServer) => {
               console.log(
                 `[computer] type with click at: AI(${x}, ${y}) -> 原始(${originalCoords.x}, ${originalCoords.y})`
               )
+              // 显示点击效果
+              await showClickIndicator(originalCoords.x, originalCoords.y)
               await page.mouse.click(originalCoords.x, originalCoords.y)
               await new Promise((r) => setTimeout(r, 200))
             }
