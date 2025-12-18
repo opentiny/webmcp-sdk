@@ -371,10 +371,10 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       prepareStep: ({ messages }: { messages: any[] }) => {
         // 在步骤开始前清理旧的快照消息
         // prepareStep 会在每次步骤开始前被调用，可以修改即将用于请求的 messages
-        // const cleanedMessages = this.cleanupOldSnapshotsInMessages(messages)
-        // return {
-        //   messages: cleanedMessages
-        // }
+        const cleanedMessages = this.cleanupOldSnapshotsInMessages(messages)
+        return {
+          messages: cleanedMessages
+        }
       },
       onFinish: async () => {
         await this.agent.closeAll()

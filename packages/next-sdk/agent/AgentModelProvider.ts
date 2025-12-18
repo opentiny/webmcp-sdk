@@ -545,7 +545,7 @@ export class AgentModelProvider {
 
             // 执行工具调用
             const toolResult = await self._executeReActToolCall(action.toolName, action.arguments, tools)
-            debugger
+
             // 如果结果包含 screenshot，先提取出来，避免 JSON stringify 导致过大
             let screenshot = undefined
             let resultData = toolResult.result
