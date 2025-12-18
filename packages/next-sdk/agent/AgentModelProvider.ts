@@ -383,6 +383,103 @@ export class AgentModelProvider {
     }
   }
 
+  /**
+   * 检查消息内容是否包含图片
+   * @param content 消息内容
+   * @returns 是否包含图片
+   */
+  private _messageHasImage(content: any): boolean {
+    if (!content) return false
+
+    // 如果 content 是数组，检查是否有 image 类型的项
+    if (Array.isArray(content)) {
+      return content.some((item) => item && item.type === 'image')
+    }
+
+    return false
+  }
+
+  /**
+   * 从消息中移除图片，但保留文本内容
+   * @param message 原始消息
+   * @returns 移除图片后的消息（如果只有图片没有文本，返回 null）
+   */
+  private _removeImageFromMessage(message: any): any | null {
+    if (!message || !message.content) {
+      return null
+    }
+
+    // 如果 content 不是数组，直接返回（没有图片）
+    if (!Array.isArray(message.content)) {
+      return message
+    }
+
+    // 过滤掉图片类型的内容，保留文本
+    const textContent = message.content.filter((item: any) => item && item.type !== 'image')
+
+    // 如果过滤后没有内容，返回 null
+    if (textContent.length === 0) {
+      return null
+    }
+
+    // 返回只包含文本的消息副本
+    return {
+      ...message,
+      content: textContent
+    }
+  }
+
+  /**
+   * 构建用于模型调用的消息列表（magentic-ui 风格）
+   * 策略：保留所有文本消息，仅限制图片数量（类似 magentic-ui 的 maybe_remove_old_screenshots）
+   *
+   * @param systemMessage 系统提示词
+   * @param allMessages 所有消息历史（包括初始消息和后续对话）
+   * @param maxImages 最多保留的图片数量（默认3张）
+   * @returns 构建好的消息列表
+   */
+  private _buildMessagesForModel(systemMessage: any | null, allMessages: any[], maxImages: number = 3): any[] {
+    const messages: any[] = []
+
+    // 1. 添加系统提示词
+    if (systemMessage) {
+      messages.push(systemMessage)
+    }
+
+    // 2. 保留所有文本消息，但限制图片数量
+    // 从后往前遍历，优先保留最新的图片
+    let imageCount = 0
+    const processedMessages: any[] = []
+
+    for (let i = allMessages.length - 1; i >= 0; i--) {
+      const msg = allMessages[i]
+
+      // 检查消息是否包含图片
+      const hasImage = this._messageHasImage(msg.content)
+
+      if (hasImage) {
+        if (imageCount < maxImages) {
+          // 图片数量未超限，保留完整消息
+          processedMessages.unshift(msg)
+          imageCount++
+        } else {
+          // 图片数量超限，移除图片但保留文本（如果有）
+          const textOnly = this._removeImageFromMessage(msg)
+          if (textOnly) {
+            processedMessages.unshift(textOnly)
+          }
+        }
+      } else {
+        // 非图片消息：全部保留
+        processedMessages.unshift(msg)
+      }
+    }
+
+    messages.push(...processedMessages)
+
+    return messages
+  }
+
   /** ReAct 模式非流式对话 */
   private async _chatReActNonStream(
     messages: any[],
@@ -391,33 +488,48 @@ export class AgentModelProvider {
     maxSteps: number,
     options: any
   ): Promise<any> {
-    let currentMessages = [...messages]
+    // 保存完整的消息历史（用于最终返回和传递给模型）
+    let fullMessageHistory = [...messages]
+    // 提取系统提示词（第一条消息）
+    const systemMessage = messages[0]?.role === 'system' ? messages[0] : null
+    // 提取所有非系统消息
+    const allUserMessages = systemMessage ? messages.slice(1) : messages
+
     let stepCount = 0
+    // 配置：最多保留的图片数量（默认3张，类似 magentic-ui）
+    const maxImages = (options as any).maxImages ?? 3
 
     while (stepCount < maxSteps) {
       stepCount++
 
+      // 构建用于模型调用的消息列表（magentic-ui 风格：保留所有文本，限制图片）
+      const messagesForModel = this._buildMessagesForModel(systemMessage, allUserMessages, maxImages)
+
       // 调用 LLM（ReAct 模式下不传递 tools，因为工具调用通过提示词实现）
+      // 参考 magentic-ui：保留所有文本历史（上下文完整），仅限制图片数量（优化 token）
       const { tools: _, ...restOptions } = options
       const result = await generateText({
         // @ts-ignore ProviderV2 是所有llm的父类，在每一个具体的llm类都有一个选择model的函数用法
         model: this.llm(model),
-        messages: currentMessages,
+        messages: messagesForModel,
         ...restOptions
       })
 
       const assistantMessage = result.text
-      currentMessages.push({ role: 'assistant', content: assistantMessage })
+      // 添加到所有消息和完整历史
+      const assistantMsg = { role: 'assistant', content: assistantMessage }
+      allUserMessages.push(assistantMsg)
+      fullMessageHistory.push(assistantMsg)
 
       // 解析工具调用
       const action = parseReActAction(assistantMessage, tools)
 
       if (!action) {
         // 没有工具调用，返回最终结果
-        this.messages = currentMessages
+        this.messages = fullMessageHistory
         return {
           text: assistantMessage,
-          response: { messages: currentMessages }
+          response: { messages: fullMessageHistory }
         }
       }
 
@@ -429,19 +541,21 @@ export class AgentModelProvider {
         ? `Observation: ${JSON.stringify(toolResult.result)}`
         : `Observation: 工具执行失败 - ${toolResult.error}`
 
-      // 在 ReAct 模式下，工具执行结果应该作为 user 消息添加，以便模型继续对话
-      currentMessages.push({
+      // 添加到所有消息和完整历史
+      const observationMessage = {
         role: 'user',
         content: observation
-      })
+      }
+      allUserMessages.push(observationMessage)
+      fullMessageHistory.push(observationMessage)
     }
 
     // 达到最大步数，返回最后一条消息
-    this.messages = currentMessages
-    const lastMessage = currentMessages[currentMessages.length - 2]?.content || ''
+    this.messages = fullMessageHistory
+    const lastMessage = fullMessageHistory[fullMessageHistory.length - 2]?.content || ''
     return {
       text: lastMessage,
-      response: { messages: currentMessages }
+      response: { messages: fullMessageHistory }
     }
   }
 
@@ -463,22 +577,34 @@ export class AgentModelProvider {
     // 创建一个异步生成器来模拟流式输出
     const stream = new ReadableStream({
       async start(controller) {
-        let currentMessages = [...messages]
+        // 保存完整的消息历史（用于最终返回和传递给模型）
+        let fullMessageHistory = [...messages]
+        // 提取系统提示词（第一条消息）
+        const systemMessage = messages[0]?.role === 'system' ? messages[0] : null
+        // 提取所有非系统消息
+        const allUserMessages = systemMessage ? messages.slice(1) : [...messages]
+
         let stepCount = 0
         let accumulatedText = ''
+        // 配置：最多保留的图片数量（默认3张，类似 magentic-ui）
+        const maxImages = (options as any).maxImages ?? 3
 
         try {
           while (stepCount < maxSteps) {
             stepCount++
 
+            // 构建用于模型调用的消息列表（magentic-ui 风格：保留所有文本，限制图片）
+            const messagesForModel = self._buildMessagesForModel(systemMessage, allUserMessages, maxImages)
+
             // 移除 tools 选项，ReAct 模式下不传递 tools
             const { tools: _, ...restOptions } = options
             // 调用流式 LLM
+            // 参考 magentic-ui：保留所有文本历史（上下文完整），仅限制图片数量（优化 token）
             delete restOptions.system
             const result = await streamText({
               ...restOptions,
               model: llmModel,
-              messages: currentMessages
+              messages: messagesForModel
             })
 
             // 收集流式输出
@@ -502,7 +628,10 @@ export class AgentModelProvider {
             }
 
             accumulatedText += assistantText
-            currentMessages.push({ role: 'assistant', content: accumulatedText })
+            // 添加到所有消息和完整历史
+            const assistantMsg = { role: 'assistant', content: accumulatedText }
+            allUserMessages.push(assistantMsg)
+            fullMessageHistory.push(assistantMsg)
 
             // 解析工具调用
             const action = parseReActAction(accumulatedText, tools)
@@ -511,9 +640,9 @@ export class AgentModelProvider {
               // 没有工具调用，结束流
               controller.enqueue({ type: 'text-end' })
               controller.close()
-              self.messages = currentMessages
+              self.messages = fullMessageHistory
               // 触发 onFinish 回调
-              streamCompleteResolver({ messages: currentMessages })
+              streamCompleteResolver({ messages: fullMessageHistory })
               return
             }
 
@@ -522,8 +651,8 @@ export class AgentModelProvider {
               // 视为对话结束
               controller.enqueue({ type: 'text-end' })
               controller.close()
-              self.messages = currentMessages
-              streamCompleteResolver({ messages: currentMessages })
+              self.messages = fullMessageHistory
+              streamCompleteResolver({ messages: fullMessageHistory })
               return
             }
 
@@ -592,20 +721,22 @@ export class AgentModelProvider {
             })
 
             // 添加工具结果到消息历史（ReAct 模式下，工具结果作为 user 消息添加）
-            if (screenshot) {
-              currentMessages.push({
-                role: 'user',
-                content: [
-                  { type: 'text', text: finalObservation },
-                  { type: 'image', image: screenshot }
-                ]
-              })
-            } else {
-              currentMessages.push({
-                role: 'user',
-                content: finalObservation
-              })
-            }
+            const observationMessage = screenshot
+              ? {
+                  role: 'user',
+                  content: [
+                    { type: 'text', text: finalObservation },
+                    { type: 'image', image: screenshot }
+                  ]
+                }
+              : {
+                  role: 'user',
+                  content: finalObservation
+                }
+
+            // 添加到所有消息和完整历史
+            allUserMessages.push(observationMessage)
+            fullMessageHistory.push(observationMessage)
 
             // 重置累积文本，准备下一轮
             accumulatedText = ''
@@ -614,9 +745,9 @@ export class AgentModelProvider {
           // 达到最大步数
           controller.enqueue({ type: 'text-end' })
           controller.close()
-          self.messages = currentMessages
+          self.messages = fullMessageHistory
           // 触发 onFinish 回调
-          streamCompleteResolver({ messages: currentMessages })
+          streamCompleteResolver({ messages: fullMessageHistory })
         } catch (error: any) {
           controller.error(error)
           streamCompleteRejecter(error)
