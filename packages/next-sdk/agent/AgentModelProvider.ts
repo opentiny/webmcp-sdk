@@ -373,6 +373,7 @@ export class AgentModelProvider {
 
     // 生成包含工具描述的系统提示词
     const systemPrompt = this._generateReActSystemPrompt(allTools, modelName, options.system as string)
+
     const systemMessage = { role: 'system', content: systemPrompt }
 
     // 确保第一条消息是系统提示词
@@ -738,7 +739,7 @@ export class AgentModelProvider {
               ? `<tool_response>\n${observationText}\n</tool_response>`
               : `Observation: ${observationText}`
 
-            if (screenshot && !isFara) {
+            if (screenshot) {
               finalObservation += `\n请检查截图以确认操作是否成功。如果成功，请继续下一步；如果失败，请重试。`
             }
 
