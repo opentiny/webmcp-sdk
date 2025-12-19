@@ -68,21 +68,30 @@ const llmConfig = {
       const base64Match = screenshot.match(/^data:image\/\w+;base64,(.+)$/)
       const base64String = base64Match ? base64Match[1] : screenshot
 
+      // 在原始消息的文本内容中添加截图标记，让用户在 UI 上看到截图提示
+      // 保持原始消息的字符串格式，方便 bubble 组件渲染
+      const textWithScreenshotTag = `${textContent}\n📸 *已自动附加当前页面截图*`
+
+      // 更新原始消息对象，让 UI 显示带有截图标记的文本
+      lastUserMsg.content = textWithScreenshotTag
+
       // 构建多模态消息：文本 + 截图
+      // 这个消息会传递给 AI SDK（使用原始文本，不带标记）
       // 根据 AI SDK 文档，ImagePart 的 image 字段可以是：
       // - base64 字符串（不带前缀）
       // - data URL（带 data:image/png;base64, 前缀）
       // - URL
-      // Ollama 可能需要纯 base64 字符串
       const multimodalMsg = {
         role: 'user',
         content: [
-          { type: 'text', text: textContent },
+          { type: 'text', text: textContent }, // AI 看到的是原始文本（不带标记）
           { type: 'image', image: base64String } // 使用纯 base64 字符串
         ]
       }
 
-      console.log('[beforeChatStream] 多模态消息已构建，图片格式: base64 string')
+      console.log('[beforeChatStream] 多模态消息已构建')
+      console.log('[beforeChatStream] UI 显示:', textWithScreenshotTag)
+      console.log('[beforeChatStream] AI 接收: 文本 + 截图')
       return multimodalMsg
     } catch (error) {
       console.error('[Auto Screenshot] 截图捕获失败:', error)
@@ -274,7 +283,7 @@ async function handlePillItemClick(item: any) {
   }
 }
 
-chrome.runtime.onMessage.addListener((message) => {
+browser.runtime.onMessage.addListener((message) => {
   if (message.type === 'reload-sidepanel') {
     location.reload()
   }

@@ -329,13 +329,14 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     if (!lastUserMsg) return
 
     // 执行 beforeChatStream 钩子（如果存在）
+    // 注意：钩子返回的修改后的消息用于传递给 AI SDK，不影响 UI 显示
     if (this.llmConfig.beforeChatStream) {
       try {
         const modifiedMsg = await this.llmConfig.beforeChatStream(lastUserMsg, this.systemPrompt)
         if (modifiedMsg) {
           lastUserMsg = modifiedMsg
-          // 更新 request.messages 中的最后一条消息
-          request.messages[request.messages.length - 1] = modifiedMsg
+          // 不要修改 request.messages，它用于 UI 显示
+          // 只在传递给 AI SDK 时使用修改后的消息
         }
       } catch (error) {
         console.error('[beforeChatStream] 钩子执行失败:', error)
