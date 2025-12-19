@@ -2,7 +2,7 @@ export default {
   name: 'www.baidu.com',
   type: 'contentScriptMcpServer',
   url: 'https://www.baidu.com',
-  isAlwaysEnabled: true,
+  isAlwaysEnabled: false,
   toolsJumpLinks: {
     'get-page-title': 'https://www.baidu.com/s?wd=get-page-title'
   },
