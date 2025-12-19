@@ -3,6 +3,7 @@ name: Auto Deploy Docs
 on:
   push:
     branches: [dev]
+    paths: ['docs/**']
 
 jobs:
   notify:
