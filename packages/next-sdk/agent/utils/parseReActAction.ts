@@ -66,7 +66,7 @@ export function parseReActAction(text: string, availableTools: ToolSet): { toolN
     // JSON 解析失败，继续尝试其他方法
   }
 
-  // 方法3: 解析 Fara-7B / Qwen 格式的工具调用
+  // 方法3: 解析 XML 格式的工具调用
   // 格式 A: ... <tool_call> {"name": "toolName", "arguments": {...}} </tool_call>
   // 格式 B: ... <call> {"name": "toolName", "arguments": {...}} </call>
   const toolCallMatch = text.match(/<(tool_call|call)>([\s\S]*?)<\/\1>/i)

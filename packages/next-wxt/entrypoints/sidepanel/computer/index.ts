@@ -28,7 +28,7 @@ export const executeComputerAction = async (params: ComputerActionParams) => {
 
   // 捕获新截图作为反馈
   // 等待一段时间，保证输入或者切换面板可以完全展示出来再进行截屏
-  await new Promise((resolve) => setTimeout(resolve, 2000))
+  await new Promise((resolve) => setTimeout(resolve, 1000))
   const captureFn = getScreenshotCapturer()
   const screenshotDataUrl = await captureFn()
 
