@@ -236,11 +236,61 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       if (msg.role === expectedRole && this.isSnapshotContent(msg.content)) {
         // 找到旧的快照消息，仅保留其文本并移除图片
         this.replaceSnapshotWithPlaceholder(msg)
-        // 不再 break，确保清理所有历史记录中的图片以最大限度节省 token
       }
     }
 
     return cleanedMessages
+  }
+
+  /**
+   * 从文本中移除快照数据，保留操作信息
+   * @param text 原始文本
+   * @returns 清理后的文本
+   */
+  private removeSnapshotData(text: string): string {
+    if (!text) return text
+
+    // 快照开始的标记词
+    const snapshotMarkers = [
+      '无障碍树快照:',
+      '无障碍树快照：',
+      '快照内容:',
+      '快照内容：',
+      '页面无障碍树快照:',
+      '页面无障碍树快照：',
+      '操作后的页面快照:',
+      '操作后的页面快照：'
+    ]
+
+    // 查找快照标记的位置
+    let snapshotStartIndex = -1
+    for (const marker of snapshotMarkers) {
+      const index = text.indexOf(marker)
+      if (index !== -1) {
+        snapshotStartIndex = index
+        break
+      }
+    }
+
+    // 如果找到快照标记，删除从标记开始到结尾的内容
+    if (snapshotStartIndex !== -1) {
+      // 保留标记之前的内容，并添加占位符
+      const beforeSnapshot = text.substring(0, snapshotStartIndex).trim()
+      return beforeSnapshot ? `${beforeSnapshot} 📸 [历史快照已清理]` : '📸 历史快照已清理'
+    }
+
+    // 如果没有明确的标记，但包含快照关键词，可能整个文本都是快照
+    // 检查是否是纯快照内容（以快照关键词开头）
+    const pureSnapshotStarts = ['已成功获取页面无障碍树快照', 'takeSnapshot', 'snapshotId_counter']
+
+    for (const start of pureSnapshotStarts) {
+      if (text.startsWith(start)) {
+        return '📸 历史快照已清理'
+      }
+    }
+
+    // 没有找到快照标记，返回原文本
+    return text
   }
 
   /**
@@ -254,8 +304,23 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       if (firstItem?.output?.value?.content) {
         const innerContent = firstItem.output.value.content
         if (Array.isArray(innerContent)) {
-          // 过滤掉图片内容，保留文本
-          firstItem.output.value.content = innerContent.filter((item: any) => item.type !== 'image')
+          // 处理内容：移除图片，检查文本是否包含快照并替换
+          firstItem.output.value.content = innerContent
+            .map((item: any) => {
+              // 移除图片类型
+              if (item.type === 'image' || item.type === 'image_url') {
+                return null
+              }
+              // 检查文本类型是否包含快照信息
+              if (item.type === 'text' && item.text && this.isSnapshotContent(item.text)) {
+                // 移除快照数据，保留操作信息
+                const cleanedText = this.removeSnapshotData(item.text)
+                return { type: 'text', text: cleanedText }
+              }
+              // 保留其他内容
+              return item
+            })
+            .filter((item: any) => item !== null) // 移除被标记为 null 的项
         }
         // 如果 MCP 返回结果中包含单独的 screenshot 字段，也予以移除
         if (firstItem.output.value.screenshot) {
@@ -267,8 +332,12 @@ export class CustomAgentModelProvider extends BaseModelProvider {
         msg.content = msg.content.filter((item: any) => item.type !== 'image' && item.type !== 'image_url')
       }
     } else if (typeof msg.content === 'string') {
-      // 字符串格式通常只包含文本，保持不变以响应用户“保留文字信息”的要求
-      // 不再将其替换为“历史快照不予保留”
+      // 字符串格式：检查是否包含无障碍树快照
+      // 如果包含快照信息，移除快照数据但保留操作信息
+      if (this.isSnapshotContent(msg.content)) {
+        msg.content = this.removeSnapshotData(msg.content)
+      }
+      // 如果是纯文本（不含快照），保持不变
     }
   }
 
