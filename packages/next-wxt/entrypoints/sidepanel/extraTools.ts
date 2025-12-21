@@ -405,7 +405,6 @@ export const useExtraTools = (server: WebMcpServer) => {
 - key: 按下特定按键。需提供 text (按键名称，如 "Enter", "Escape")。
 - screenshot: 捕获当前页面截图。
 - scroll: 滚动页面。需提供 pixels (正数向下，负数向上)。
-- wait: 等待一段时间，确保页面加载。需提供 time (秒)。
 - cursor_position: 获取当前鼠标位置。
 - history: 浏览器历史记录操作。需提供 arg ("back" 或 "forward")。
 - history_back: 后退到上一页。
@@ -422,7 +421,6 @@ export const useExtraTools = (server: WebMcpServer) => {
             'screenshot',
             'cursor_position',
             'scroll',
-            'wait',
             'history',
             'history_back',
             'history_forward'
