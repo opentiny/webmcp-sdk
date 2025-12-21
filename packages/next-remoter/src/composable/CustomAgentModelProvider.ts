@@ -76,12 +76,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
    * @param apiKey API密钥
    * @param providerType 提供商类型
    */
-  updateLLMConfig(
-    modelId: string,
-    apiUrl: string,
-    apiKey: string,
-    providerType: 'deepseek' | 'openai' | 'openai-compatible'
-  ) {
+  updateLLMConfig(modelId: string, apiUrl: string, apiKey: string, providerType: 'deepseek' | 'openai') {
     // 更新本地配置
     this.llmConfig.model = modelId
     this.llmConfig.apiKey = apiKey
@@ -94,7 +89,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
 
     if (providerType === 'deepseek') {
       providerFn = createDeepSeek
-    } else if (providerType === 'openai' || providerType === 'openai-compatible') {
+    } else if (providerType === 'openai') {
       providerFn = createOpenAI
     } else {
       console.error('[CustomAgentModelProvider] Unsupported providerType:', providerType)

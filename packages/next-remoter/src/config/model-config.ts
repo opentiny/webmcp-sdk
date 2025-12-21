@@ -37,39 +37,7 @@ export const UNIFIED_MODEL_CONFIGS: UnifiedModelConfig[] = [
     label: 'qwen-vl-max',
     apiKey: 'sk-trial',
     apiUrl: 'https://agent.opentiny.design/api/v1/ai',
-    providerType: 'openai-compatible',
-    icon: IconModelAliyunBailian as unknown as Component
-  },
-  {
-    id: 'qwen-vl-plus',
-    label: 'qwen-vl-plus',
-    apiKey: 'sk-trial',
-    apiUrl: 'https://agent.opentiny.design/api/v1/ai',
-    providerType: 'openai-compatible',
-    icon: IconModelAliyunBailian as unknown as Component
-  },
-  {
-    id: 'qwen-plus',
-    label: 'qwen-plus',
-    apiKey: 'sk-trial',
-    apiUrl: 'https://agent.opentiny.design/api/v1/ai',
-    providerType: 'openai-compatible',
-    icon: IconModelAliyunBailian as unknown as Component
-  },
-  {
-    id: 'qwen-max',
-    label: 'qwen-max',
-    apiKey: 'sk-trial',
-    apiUrl: 'https://agent.opentiny.design/api/v1/ai',
-    providerType: 'openai-compatible',
-    icon: IconModelAliyunBailian as unknown as Component
-  },
-  {
-    id: 'qwen-long',
-    label: 'qwen-long',
-    apiKey: 'sk-trial',
-    apiUrl: 'https://agent.opentiny.design/api/v1/ai',
-    providerType: 'openai-compatible',
+    providerType: 'deepseek',
     icon: IconModelAliyunBailian as unknown as Component
   }
 ]
