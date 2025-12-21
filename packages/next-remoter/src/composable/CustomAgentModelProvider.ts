@@ -93,10 +93,22 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     providerType: 'deepseek' | 'openai' | ((options: any) => ProviderV2)
     useReActMode?: boolean
   }) {
+    // 如果启用了生成式UI，在 baseURL 后面加上 '/prompt'
+    let finalApiUrl = apiUrl
+    if (this.isGenuiEnabled?.value) {
+      // 如果 baseURL 还没有包含 '/prompt'，则添加
+      if (!finalApiUrl.includes('/prompt')) {
+        finalApiUrl = finalApiUrl + '/prompt'
+      }
+    } else {
+      // 如果关闭了生成式UI，移除 '/prompt' 后缀
+      finalApiUrl = finalApiUrl.replace('/prompt', '')
+    }
+
     // 更新本地配置
     this.llmConfig.model = modelId
     this.llmConfig.apiKey = apiKey
-    this.llmConfig.baseURL = apiUrl
+    this.llmConfig.baseURL = finalApiUrl
     this.llmConfig.providerType = providerType
     this.llmConfig.useReActMode = useReActMode || false
     this.agent.useReActMode = useReActMode || false
@@ -118,7 +130,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     // Create new llm instance and update to agent
     const newLlm = providerFn({
       apiKey,
-      baseURL: apiUrl
+      baseURL: finalApiUrl
     })
 
     this.agent.llm = newLlm
@@ -492,18 +504,6 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       },
       onFinish: async () => {
         await this.agent.closeAll()
-      }
-    }
-
-    // 如果启用了生成式UI，添加 prompt 配置并修改 baseURL
-    if (this.isGenuiEnabled?.value) {
-      // 修改 baseURL，在路径后面加上 '/prompt'
-      if (this.llmConfig.baseURL) {
-        const originalBaseURL = this.llmConfig.baseURL
-        // 如果 baseURL 还没有包含 '/prompt'，则添加
-        if (!originalBaseURL.includes('/prompt')) {
-          chatStreamOptions.baseURL = originalBaseURL + '/prompt'
-        }
       }
     }
 

@@ -178,6 +178,7 @@ import { type SkillOption } from './SkillSelector.vue'
 import SkillSelector from './SkillSelector.vue'
 import { useSkill } from '../composable/useSkill'
 import Button from './Button.vue'
+import useModel from '../composable/useModel'
 
 defineOptions({
   name: 'TinyRemoter'
@@ -283,6 +284,7 @@ watch(
 const {
   showHistory,
   agent, // ai-sdk的自定义代理，client通过它和llm 对话。 agent.ignoreToolnames=[] 是记录需要过滤掉的tools
+  customAgentProvider, // CustomAgentModelProvider 实例，用于调用 updateLLMConfig
   welcomeIcon,
   conversationState,
   messages,
@@ -306,6 +308,23 @@ const {
   llmConfig: props.llmConfig,
   skills: props.skills || [], // 传递 skills 列表给 useTinyRobotChat
   isGenuiEnabled // 传递生成式UI状态
+})
+
+// 获取当前选中的模型配置
+const { selectedModel } = useModel()
+
+// 监听生成式UI状态变化，动态更新 baseURL
+watch(isGenuiEnabled, () => {
+  // 当生成式UI状态变化时，重新调用 updateLLMConfig 来更新 baseURL
+  if (selectedModel.value) {
+    customAgentProvider.updateLLMConfig({
+      modelId: selectedModel.value.id,
+      apiUrl: selectedModel.value.apiUrl,
+      apiKey: selectedModel.value.apiKey,
+      providerType: selectedModel.value.providerType,
+      useReActMode: selectedModel.value.useReActMode
+    })
+  }
 })
 
 // 自定义消息渲染器 ---- 默认支持markdown 和 生成式UI（生成式UI有很多流处理，不容易解耦出来，所以统一处理）

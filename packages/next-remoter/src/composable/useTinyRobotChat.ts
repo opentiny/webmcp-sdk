@@ -444,6 +444,8 @@ export const useTinyRobotChat = ({
   return {
     /**  一个 ai-sdk agent 封装,详见： next-sdk/AgentModelProvider 类 */
     agent: customAgentProvider.agent,
+    /** CustomAgentModelProvider 实例，用于调用 updateLLMConfig */
+    customAgentProvider,
     client,
     showHistory,
     aiAvatar,
