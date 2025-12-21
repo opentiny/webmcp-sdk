@@ -80,6 +80,17 @@
         >
           <template #footer-left>
             <div class="action-buttons">
+              <!-- 生成式UI开关 GenUI toggle button -->
+              <Button
+                v-if="genUiAble"
+                class="action-button"
+                :active="isGenuiEnabled"
+                rounded
+                size="small"
+                @click="isGenuiEnabled = !isGenuiEnabled"
+              >
+                <span class="button-text">生成式UI</span>
+              </Button>
               <!-- 插件开关 Plugin toggle button -->
               <PluginToggleButton :installed-plugins="installedPlugins" @click="pluginVisible = !pluginVisible" />
               <!-- 模型切换组件 Model switch component -->
@@ -166,6 +177,7 @@ import type { MenuItemConfig } from '@opentiny/next-sdk'
 import { type SkillOption } from './SkillSelector.vue'
 import SkillSelector from './SkillSelector.vue'
 import { useSkill } from '../composable/useSkill'
+import Button from './Button.vue'
 
 defineOptions({
   name: 'TinyRemoter'
@@ -257,6 +269,45 @@ if (props.inBrowserExt) {
 const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })
 const show = defineModel('show', { type: Boolean, default: false })
 
+// 生成式UI的启用状态（响应式，支持动态切换）
+const isGenuiEnabled = ref(props.genUiAble)
+
+// 监听 props.genUiAble 的变化，同步到内部状态
+watch(
+  () => props.genUiAble,
+  (newValue) => {
+    isGenuiEnabled.value = newValue
+  }
+)
+
+const {
+  showHistory,
+  agent, // ai-sdk的自定义代理，client通过它和llm 对话。 agent.ignoreToolnames=[] 是记录需要过滤掉的tools
+  welcomeIcon,
+  conversationState,
+  messages,
+  messageState,
+  inputMessage,
+  abortRequest,
+  roles,
+  senderRef,
+  sendMessage,
+  handleSendMessage,
+  handleHistoryUpdateTitle,
+  handleHistoryDelete,
+  handleHistorySelect,
+  handleCreateConversation,
+  addMessage,
+  send
+} = useTinyRobotChat({
+  sessionId: toRef(props, 'sessionId'),
+  agentRoot: toRef(props, 'agentRoot'),
+  systemPrompt: props.systemPrompt || '',
+  llmConfig: props.llmConfig,
+  skills: props.skills || [], // 传递 skills 列表给 useTinyRobotChat
+  isGenuiEnabled // 传递生成式UI状态
+})
+
 // 自定义消息渲染器 ---- 默认支持markdown 和 生成式UI（生成式UI有很多流处理，不容易解耦出来，所以统一处理）
 const contentRenderer = {
   markdown: new BubbleMarkdownContentRenderer({ mdConfig: { html: true } }),
@@ -296,33 +347,6 @@ const marketCategoryOptions = ref<MarketCategoryOption[]>([
 ])
 
 const { lang, pillItems, promptItems } = getLang(props)
-
-const {
-  showHistory,
-  agent, // ai-sdk的自定义代理，client通过它和llm 对话。 agent.ignoreToolnames=[] 是记录需要过滤掉的tools
-  welcomeIcon,
-  conversationState,
-  messages,
-  messageState,
-  inputMessage,
-  abortRequest,
-  roles,
-  senderRef,
-  sendMessage,
-  handleSendMessage,
-  handleHistoryUpdateTitle,
-  handleHistoryDelete,
-  handleHistorySelect,
-  handleCreateConversation,
-  addMessage,
-  send
-} = useTinyRobotChat({
-  sessionId: toRef(props, 'sessionId'),
-  agentRoot: toRef(props, 'agentRoot'),
-  systemPrompt: props.systemPrompt || '',
-  llmConfig: props.llmConfig,
-  skills: props.skills || [] // 传递 skills 列表给 useTinyRobotChat
-})
 
 /**
  * 处理 MCP Client 断开事件
