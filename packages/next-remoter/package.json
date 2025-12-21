@@ -37,7 +37,8 @@
     "html5-qrcode": "catalog:",
     "vant": "catalog:",
     "vue": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "@vueuse/core": "^14.1.0"
   },
   "devDependencies": {
     "@opentiny/unplugin-tiny-vue": "catalog:",

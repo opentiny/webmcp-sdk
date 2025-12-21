@@ -7,6 +7,10 @@ import { type Ref } from 'vue'
 import { AgentModelProvider, McpServerConfig, IAgentModelProviderOption } from '@opentiny/next-sdk'
 import { getToday } from './tools'
 import type { ICustomAgentModelProviderLlmConfig, StreamPart } from '../types/type'
+import { createDeepSeek } from '@ai-sdk/deepseek'
+import { createOpenAI } from '@ai-sdk/openai'
+import type { ProviderV2 } from '@ai-sdk/provider'
+import type { OpenAIProvider } from '@ai-sdk/openai'
 
 const DEFAULT_SHARED_CONFIG = {
   model: 'deepseek-ai/DeepSeek-V3',
@@ -62,6 +66,55 @@ export class CustomAgentModelProvider extends BaseModelProvider {
 
     this.agent = new AgentModelProvider(options)
     this.systemPrompt = systemPrompt
+  }
+
+  /**
+   * 更新大语言模型配置
+   * Update LLM configuration
+   * @param modelId 模型ID
+   * @param apiUrl API地址
+   * @param apiKey API密钥
+   * @param providerType 提供商类型
+   */
+  updateLLMConfig(
+    modelId: string,
+    apiUrl: string,
+    apiKey: string,
+    providerType: 'deepseek' | 'openai' | 'openai-compatible'
+  ) {
+    // 更新本地配置
+    this.llmConfig.model = modelId
+    this.llmConfig.apiKey = apiKey
+    this.llmConfig.baseURL = apiUrl
+    this.llmConfig.providerType = providerType
+
+    // 根据 providerType 创建新的 llm 实例
+    // Create new llm instance based on providerType
+    let providerFn: (options: { apiKey: string; baseURL: string }) => ProviderV2 | OpenAIProvider
+
+    if (providerType === 'deepseek') {
+      providerFn = createDeepSeek
+    } else if (providerType === 'openai' || providerType === 'openai-compatible') {
+      providerFn = createOpenAI
+    } else {
+      console.error('[CustomAgentModelProvider] Unsupported providerType:', providerType)
+      return
+    }
+
+    // 创建新的 llm 实例并更新到 agent
+    // Create new llm instance and update to agent
+    const newLlm = providerFn({
+      apiKey,
+      baseURL: apiUrl
+    })
+
+    this.agent.llm = newLlm
+
+    console.log('[CustomAgentModelProvider] LLM config updated:', {
+      model: modelId,
+      baseURL: apiUrl,
+      providerType
+    })
   }
 
   /**
@@ -436,22 +489,22 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       }
     }
 
-    // 检查消息内容是否为多模态格式（数组）
-    if (Array.isArray(lastUserMsg.content)) {
-      // 多模态消息：包含文本和图片
-      // 构建完整的消息数组，包含历史消息和当前用户消息
-      const userMessage = {
-        role: 'user' as const,
-        content: lastUserMsg.content // 已经是数组格式：Array<TextPart | ImagePart>
-      }
+    // 构建完整的消息数组，包含历史消息和当前用户消息
+    // Build complete message array including history and current user message
+    const userMessage = Array.isArray(lastUserMsg.content)
+      ? {
+          role: 'user' as const,
+          content: lastUserMsg.content // 多模态消息：Array<TextPart | ImagePart>
+        }
+      : {
+          role: 'user' as const,
+          content: lastUserMsg.content as string // 纯文本消息
+        }
 
-      // 将历史消息和当前用户消息合并
-      const allMessages = [...this.agent.messages, userMessage]
-      chatStreamOptions.messages = allMessages
-    } else {
-      // 纯文本消息：使用 message 参数（保持向后兼容）
-      chatStreamOptions.message = lastUserMsg.content as string
-    }
+    // 始终使用 messages 参数，确保包含所有历史消息上下文
+    // Always use messages parameter to ensure all history context is included
+    const allMessages = [...this.agent.messages, userMessage]
+    chatStreamOptions.messages = allMessages
 
     // @ts-ignore
     const result = await this.agent.chatStream(chatStreamOptions)

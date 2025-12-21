@@ -6,6 +6,7 @@ import { TrSender } from '@opentiny/tiny-robot'
 import logo from '../../public/svgs/logo-next-no-bg-right.svg'
 import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import { extractTextAndJson } from './handleSchema'
+import useModel from './useModel'
 
 interface useTinyRobotOption {
   sessionId: Ref<string>
@@ -416,6 +417,20 @@ export const useTinyRobotChat = ({
   onUnmounted(() => {
     customAgentProvider.agent.closeAll()
   })
+
+  // 监听模型切换 - Watch for model changes
+  const { selectedModel } = useModel()
+  watch(
+    selectedModel,
+    (newModel) => {
+      if (newModel) {
+        console.log('[useTinyRobotChat] Model switched to:', newModel.label)
+        // 更新 CustomAgentModelProvider 的配置
+        customAgentProvider.updateLLMConfig(newModel.id, newModel.apiUrl, newModel.apiKey, newModel.providerType)
+      }
+    },
+    { immediate: true } // 立即执行一次，确保初始模型配置正确
+  )
 
   return {
     /**  一个 ai-sdk agent 封装,详见： next-sdk/AgentModelProvider 类 */
