@@ -80,8 +80,8 @@
         >
           <template #footer-left>
             <div class="action-buttons">
-              <!-- 插件开关 -->
-              <IconPlugin @click="pluginVisible = !pluginVisible"></IconPlugin>
+              <!-- 插件开关 Plugin toggle button -->
+              <PluginToggleButton :installed-plugins="installedPlugins" @click="pluginVisible = !pluginVisible" />
               <!-- 模型切换组件 Model switch component -->
               <ModelSwitch />
             </div>
@@ -150,12 +150,13 @@ import { CustomFunction } from './customFunction'
 import { SchemaRenderer, RENDERER_SETTINGS_KEY } from '@opentiny/genui-sdk-vue'
 
 import { GeneratingStatus, STATUS } from '@opentiny/tiny-robot-kit'
-import { IconNewSession, IconPlugin, IconHistory } from '@opentiny/tiny-robot-svgs'
+import { IconNewSession, IconHistory } from '@opentiny/tiny-robot-svgs'
 import { useTinyRobotChat } from '../composable/useTinyRobotChat'
 import { toRef, computed, ref, onMounted, markRaw, h, watch, provide, nextTick } from 'vue'
 import { createRemoter, McpServerConfig } from '@opentiny/next-sdk'
 import QrCodeScan from './qr-code-scan.vue'
 import ModelSwitch from './ModelSwitch.vue'
+import PluginToggleButton from './PluginToggleButton.vue'
 import { DEFAULT_SERVERS } from './default-mcps'
 import { defaultPluginSrc } from './default-plugin-svg'
 import { getLang, mapMake } from './lang'
