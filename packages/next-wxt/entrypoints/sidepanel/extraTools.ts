@@ -395,7 +395,7 @@ export const useExtraTools = (server: WebMcpServer) => {
     {
       title: 'Computer Use',
       description: `执行计算机操作，如点击、输入、截图等。支持 Fara-7B 的 computer 工具调用格式。
-坐标系统：以压缩后的截图为基准，最大宽度通常为 512px。左上角为 [0, 0]，x 向右增加，y 向下增加。
+坐标系统：以压缩后的截图为基准，最大宽度通常为 512px。左上角为 [0, 0]，x 向右增加，y 向下增加；需要先获取屏幕截图，然后根据截图的宽高比例计算实际坐标。
 可用操作：
 - left_click: 在指定坐标点击左键。需提供 coordinate [x, y]。
 - right_click: 在指定坐标点击右键。需提供 coordinate [x, y]。
@@ -403,7 +403,7 @@ export const useExtraTools = (server: WebMcpServer) => {
 - double_click: 在指定坐标双击。需提供 coordinate [x, y]。
 - type: 在指定坐标（可选）输入文本。需提供 text。可选 coordinate, press_enter, delete_existing_text。
 - key: 按下特定按键。需提供 text (按键名称，如 "Enter", "Escape")。
-- screenshot: 捕获当前页面截图。
+- screenshot: 捕获当前页面截图，如未获取过截图，则先获取截图。
 - scroll: 滚动页面。需提供 pixels (正数向下，负数向上)。
 - cursor_position: 获取当前鼠标位置。
 - history: 浏览器历史记录操作。需提供 arg ("back" 或 "forward")。
