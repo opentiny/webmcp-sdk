@@ -49,7 +49,7 @@ export class AgentModelProvider {
   /** 缓存 ai-sdk response 中的 多轮会话的上下文 */
   messages: any[] = []
   /** 是否使用 ReAct 模式（通过提示词而非 function calling 进行工具调用） */
-  private useReActMode: boolean = false
+  useReActMode: boolean = false
 
   constructor({ llmConfig, mcpServers }: IAgentModelProviderOption) {
     if (!llmConfig) {

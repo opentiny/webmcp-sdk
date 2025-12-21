@@ -104,12 +104,6 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     })
 
     this.agent.llm = newLlm
-
-    console.log('[CustomAgentModelProvider] LLM config updated:', {
-      model: modelId,
-      baseURL: apiUrl,
-      providerType
-    })
   }
 
   /**

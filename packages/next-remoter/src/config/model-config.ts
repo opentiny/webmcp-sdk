@@ -21,6 +21,7 @@ export const UNIFIED_MODEL_CONFIGS: UnifiedModelConfig[] = [
     apiKey: 'sk-trial',
     apiUrl: 'https://agent.opentiny.design/api/v1/ai',
     providerType: 'deepseek',
+    useReActMode: false,
     icon: IconModelDeepseek as unknown as Component,
     isDefault: true
   },
@@ -30,6 +31,7 @@ export const UNIFIED_MODEL_CONFIGS: UnifiedModelConfig[] = [
     apiKey: 'sk-trial',
     apiUrl: 'https://agent.opentiny.design/api/v1/ai',
     providerType: 'deepseek',
+    useReActMode: false,
     icon: IconModelDeepseek as unknown as Component
   },
   {
@@ -38,6 +40,7 @@ export const UNIFIED_MODEL_CONFIGS: UnifiedModelConfig[] = [
     apiKey: 'sk-trial',
     apiUrl: 'https://agent.opentiny.design/api/v1/ai',
     providerType: 'deepseek',
+    useReActMode: false,
     icon: IconModelAliyunBailian as unknown as Component
   }
 ]

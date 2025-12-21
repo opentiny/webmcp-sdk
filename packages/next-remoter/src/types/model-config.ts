@@ -33,4 +33,7 @@ export interface UnifiedModelConfig {
 
   /** 模型描述（可选）Description (optional) */
   description?: string
+
+  /** 是否使用 ReAct 模式 Is using ReAct mode */
+  useReActMode?: boolean
 }

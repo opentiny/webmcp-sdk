@@ -23,17 +23,11 @@ const llmConfig = {
   providerType: createOpenAICompatible,
   model: import.meta.env.VITE_LLM_MODEL,
   maxSteps: 30,
-  useReActMode: true, // 启用 ReAct 模式，支持视觉模型的工具调用
   /**
    * beforeChatStream 钩子：在消息发送前自动添加截图
    * 当 skill 是视觉操作专家时，自动捕获当前页面截图并添加到消息中
    */
   beforeChatStream: async (lastUserMsg: any, systemPrompt: string) => {
-    // 调试日志
-    console.log('[beforeChatStream] 触发')
-    console.log('[beforeChatStream] systemPrompt 前100字符:', systemPrompt.substring(0, 100))
-    console.log('[beforeChatStream] lastUserMsg:', lastUserMsg)
-
     // 检查是否是视觉操作专家 skill（通过 systemPrompt 判断）
     // 检查多个可能的标识符
     const isVisionExpert =
@@ -49,18 +43,14 @@ const llmConfig = {
     }
 
     try {
-      console.log('[beforeChatStream] 开始捕获截图...')
       // 自动捕获当前页面截图
       const screenshot = await captureCurrentTab()
-      console.log('[beforeChatStream] 截图捕获成功，长度:', screenshot.length)
 
       // 获取原始文本内容
       const textContent =
         typeof lastUserMsg.content === 'string'
           ? lastUserMsg.content
           : lastUserMsg.content.find((part: any) => part.type === 'text')?.text || ''
-
-      console.log('[beforeChatStream] 文本内容:', textContent)
 
       // 从 data URL 中提取 base64 字符串
       // screenshot 格式: "data:image/png;base64,iVBORw0KG..."
@@ -89,9 +79,6 @@ const llmConfig = {
         ]
       }
 
-      console.log('[beforeChatStream] 多模态消息已构建')
-      console.log('[beforeChatStream] UI 显示:', textWithScreenshotTag)
-      console.log('[beforeChatStream] AI 接收: 文本 + 截图')
       return multimodalMsg
     } catch (error) {
       console.error('[Auto Screenshot] 截图捕获失败:', error)
@@ -177,6 +164,7 @@ const allSkills = getAllSkills().map((skill: any) => ({
   prompt: skill.prompt, // 完整的提示词内容，用于组合
   tools: skill.tools || [] // 该 skill 需要的 MCP 工具名称列表
 }))
+
 // 从 skill 系统加载 skill 列表，传递完整的 skill 信息给 remoter
 const skills = ref<Array<{ label: string; value: string; prompt?: string; tools?: string[] }>>(allSkills)
 
@@ -186,14 +174,14 @@ useBrowserExtensions(remoterRef)
 // 通过 Web Agent 服务获取实时 sessionId（中文注释：供短码/URL 使用）
 const sessionId = ref('')
 
-// useWebAgentServer()
-//   .then((id) => {
-//     sessionId.value = id
-//   })
-//   .catch((error) => {
-//     console.error('useWebAgentServer 初始化失败', error)
-//     sessionId.value = ''
-//   })
+useWebAgentServer()
+  .then((id) => {
+    sessionId.value = id
+  })
+  .catch((error) => {
+    console.error('useWebAgentServer 初始化失败', error)
+    sessionId.value = ''
+  })
 
 const genUiComponents = shallowReactive({ TinyUser })
 // 汇总自定义 MCP Server 配置（中文注释：用于传给 TinyRemoter 的插件市场）
