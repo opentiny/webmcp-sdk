@@ -36,7 +36,7 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 - `systemPrompt` 对话llm 时，传入的 system message: system-prompt=你是一个智能助手，工作地点是深圳
 - `llmConfig` 大语言模型配置对象，支持配置 `apiKey`、`baseURL` 、 `model` 、`maxSteps` 、 `providerType` 、 `providerOptions`、`extraTools`，其中 `apiKey/baseURL/providerType` 与 `llmConfig.llm` 二选一
 - `inBrowserExt` 设置组件运行在普通页面还是浏览器的扩展中，默认值为：false
-- `genUiAble` 设置是否支持生成式UI的渲染
+- `genUiAble` 设置是否支持生成式UI的渲染，默认值为：false
 - `genUiComponents` 生成式UI内置了一批组件，如果需要引入新组件，需要通过这里导入。 参考示例： shallowReactive({TinyUser, TinyAlert })
 - `customMarketMcpServers` 追加自定义 MCP 市场服务列表（`PluginInfo[]`），传入后会与组件内置的 `DEFAULT_SERVERS` 合并，用于扩展市场内容
 

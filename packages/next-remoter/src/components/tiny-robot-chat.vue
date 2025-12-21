@@ -80,21 +80,21 @@
         >
           <template #footer-left>
             <div class="action-buttons">
+              <!-- 插件开关 Plugin toggle button -->
+              <PluginToggleButton :installed-plugins="installedPlugins" @click="pluginVisible = !pluginVisible" />
+              <!-- 模型切换组件 Model switch component -->
+              <ModelSwitch />
               <!-- 生成式UI开关 GenUI toggle button -->
               <Button
-                v-if="genUiAble"
                 class="action-button"
                 :active="isGenuiEnabled"
                 rounded
                 size="small"
                 @click="isGenuiEnabled = !isGenuiEnabled"
               >
+                <IconVisual :width="16" :height="16" />
                 <span class="button-text">生成式UI</span>
               </Button>
-              <!-- 插件开关 Plugin toggle button -->
-              <PluginToggleButton :installed-plugins="installedPlugins" @click="pluginVisible = !pluginVisible" />
-              <!-- 模型切换组件 Model switch component -->
-              <ModelSwitch />
             </div>
           </template>
         </tr-sender>
@@ -179,6 +179,7 @@ import SkillSelector from './SkillSelector.vue'
 import { useSkill } from '../composable/useSkill'
 import Button from './Button.vue'
 import useModel from '../composable/useModel'
+import IconVisual from './icons/icon-visual.svg'
 
 defineOptions({
   name: 'TinyRemoter'
@@ -241,7 +242,7 @@ const props = defineProps({
   /** 是否启用生成式UI */
   genUiAble: {
     type: Boolean,
-    default: true
+    default: false
   },
   /** 生成式UI 需要引入的组件。生成式UI内置了一批组件，如果需要引入新组件，需要通过这里导入。
    * 参考示例： shallowReactive({TinyUser, TinyAlert }) */
@@ -270,16 +271,45 @@ if (props.inBrowserExt) {
 const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })
 const show = defineModel('show', { type: Boolean, default: false })
 
-// 生成式UI的启用状态（响应式，支持动态切换）
-const isGenuiEnabled = ref(props.genUiAble)
+// 本地存储的 key
+const GENUI_STORAGE_KEY = 'next-remoter-genui-enabled'
 
-// 监听 props.genUiAble 的变化，同步到内部状态
-watch(
-  () => props.genUiAble,
-  (newValue) => {
-    isGenuiEnabled.value = newValue
+/**
+ * 获取初始生成式UI状态
+ * 优先从 localStorage 读取，失败则使用 props.genUiAble 的默认值
+ */
+const getInitialGenuiEnabled = (): boolean => {
+  try {
+    const stored = localStorage.getItem(GENUI_STORAGE_KEY)
+    if (stored !== null) {
+      // 如果 localStorage 中有值，优先使用用户之前的选择
+      return JSON.parse(stored)
+    }
+  } catch (error) {
+    console.warn('[tiny-robot-chat] Failed to parse stored genui enabled:', error)
   }
-)
+
+  // 如果 localStorage 中没有值，使用 props.genUiAble 的默认值
+  const defaultValue = props.genUiAble
+  try {
+    localStorage.setItem(GENUI_STORAGE_KEY, JSON.stringify(defaultValue))
+  } catch (error) {
+    console.error('[tiny-robot-chat] Failed to save genui enabled to localStorage:', error)
+  }
+  return defaultValue
+}
+
+// 生成式UI的启用状态（响应式，支持动态切换）
+const isGenuiEnabled = ref(getInitialGenuiEnabled())
+
+// 监听生成式UI状态变化，自动同步到 localStorage
+watch(isGenuiEnabled, (newValue) => {
+  try {
+    localStorage.setItem(GENUI_STORAGE_KEY, JSON.stringify(newValue))
+  } catch (error) {
+    console.error('[tiny-robot-chat] Failed to save genui enabled to localStorage:', error)
+  }
+})
 
 const {
   showHistory,

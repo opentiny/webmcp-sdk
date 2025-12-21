@@ -118,7 +118,6 @@ const customMarketMcpServers = useCustomMarketMcpServers()
 const isDev = import.meta.env.DEV
 const { isRecording, startRecording, stopRecording, toggleRecording } = useGenerateCode()
 const isRecordModalVisible = ref(false)
-
 const openRecordModal = () => {
   isRecordModalVisible.value = true
 }
@@ -218,7 +217,6 @@ browser.runtime.onMessage.addListener((message) => {
       title=""
       :llmConfig="llmConfig"
       inBrowserExt
-      gen-ui-able
       :custom-market-mcp-servers="customMarketMcpServers"
       :gen-ui-components="genUiComponents"
       :skills="skills"
