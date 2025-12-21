@@ -12,6 +12,7 @@ import RecordModal from './components/RecordModal.vue'
 import { getAllSkills } from '@/skills'
 
 import { useAutoScreenshot } from './useAutoScreenshot'
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 
 // 初始化自动截图功能
 const { captureCurrentTab } = useAutoScreenshot()
@@ -19,20 +20,14 @@ const { captureCurrentTab } = useAutoScreenshot()
 const llmConfig = {
   apiKey: import.meta.env.VITE_LLM_API_KEY,
   baseURL: import.meta.env.VITE_LLM_BASE_URL,
-  providerType: import.meta.env.VITE_LLM_PROVIDER_TYPE,
+  providerType: createOpenAICompatible,
   model: import.meta.env.VITE_LLM_MODEL,
   maxSteps: 30,
-  useReActMode: false, // 启用 ReAct 模式，支持视觉模型的工具调用
   /**
    * beforeChatStream 钩子：在消息发送前自动添加截图
    * 当 skill 是视觉操作专家时，自动捕获当前页面截图并添加到消息中
    */
   beforeChatStream: async (lastUserMsg: any, systemPrompt: string) => {
-    // 调试日志
-    console.log('[beforeChatStream] 触发')
-    console.log('[beforeChatStream] systemPrompt 前100字符:', systemPrompt.substring(0, 100))
-    console.log('[beforeChatStream] lastUserMsg:', lastUserMsg)
-
     // 检查是否是视觉操作专家 skill（通过 systemPrompt 判断）
     // 检查多个可能的标识符
     const isVisionExpert =
@@ -48,10 +43,8 @@ const llmConfig = {
     }
 
     try {
-      console.log('[beforeChatStream] 开始捕获截图...')
       // 自动捕获当前页面截图
       const screenshot = await captureCurrentTab()
-      console.log('[beforeChatStream] 截图捕获成功，长度:', screenshot.length)
 
       // 获取原始文本内容
       const textContent =
@@ -59,29 +52,33 @@ const llmConfig = {
           ? lastUserMsg.content
           : lastUserMsg.content.find((part: any) => part.type === 'text')?.text || ''
 
-      console.log('[beforeChatStream] 文本内容:', textContent)
-
       // 从 data URL 中提取 base64 字符串
       // screenshot 格式: "data:image/png;base64,iVBORw0KG..."
       // 需要提取: "iVBORw0KG..."
       const base64Match = screenshot.match(/^data:image\/\w+;base64,(.+)$/)
       const base64String = base64Match ? base64Match[1] : screenshot
 
+      // 在原始消息的文本内容中添加截图标记，让用户在 UI 上看到截图提示
+      // 保持原始消息的字符串格式，方便 bubble 组件渲染
+      const textWithScreenshotTag = `${textContent}\n📸 *已自动附加当前页面截图*`
+
+      // 更新原始消息对象，让 UI 显示带有截图标记的文本
+      lastUserMsg.content = textWithScreenshotTag
+
       // 构建多模态消息：文本 + 截图
+      // 这个消息会传递给 AI SDK（使用原始文本，不带标记）
       // 根据 AI SDK 文档，ImagePart 的 image 字段可以是：
       // - base64 字符串（不带前缀）
       // - data URL（带 data:image/png;base64, 前缀）
       // - URL
-      // Ollama 可能需要纯 base64 字符串
       const multimodalMsg = {
         role: 'user',
         content: [
-          { type: 'text', text: textContent },
+          { type: 'text', text: textContent }, // AI 看到的是原始文本（不带标记）
           { type: 'image', image: base64String } // 使用纯 base64 字符串
         ]
       }
 
-      console.log('[beforeChatStream] 多模态消息已构建，图片格式: base64 string')
       return multimodalMsg
     } catch (error) {
       console.error('[Auto Screenshot] 截图捕获失败:', error)
@@ -167,6 +164,7 @@ const allSkills = getAllSkills().map((skill: any) => ({
   prompt: skill.prompt, // 完整的提示词内容，用于组合
   tools: skill.tools || [] // 该 skill 需要的 MCP 工具名称列表
 }))
+
 // 从 skill 系统加载 skill 列表，传递完整的 skill 信息给 remoter
 const skills = ref<Array<{ label: string; value: string; prompt?: string; tools?: string[] }>>(allSkills)
 
@@ -273,7 +271,7 @@ async function handlePillItemClick(item: any) {
   }
 }
 
-chrome.runtime.onMessage.addListener((message) => {
+browser.runtime.onMessage.addListener((message) => {
   if (message.type === 'reload-sidepanel') {
     location.reload()
   }

@@ -7,6 +7,10 @@ import { type Ref } from 'vue'
 import { AgentModelProvider, McpServerConfig, IAgentModelProviderOption } from '@opentiny/next-sdk'
 import { getToday } from './tools'
 import type { ICustomAgentModelProviderLlmConfig, StreamPart } from '../types/type'
+import { createDeepSeek } from '@ai-sdk/deepseek'
+import { createOpenAI } from '@ai-sdk/openai'
+import type { ProviderV2 } from '@ai-sdk/provider'
+import type { OpenAIProvider } from '@ai-sdk/openai'
 
 const DEFAULT_SHARED_CONFIG = {
   model: 'deepseek-ai/DeepSeek-V3',
@@ -62,6 +66,53 @@ export class CustomAgentModelProvider extends BaseModelProvider {
 
     this.agent = new AgentModelProvider(options)
     this.systemPrompt = systemPrompt
+  }
+
+  /**
+   * 更新大语言模型配置
+   * Update LLM configuration
+   * @param modelId 模型ID
+   * @param apiUrl API地址
+   * @param apiKey API密钥
+   * @param providerType 提供商类型
+   * @param useReActMode 是否使用 ReAct 模式
+   */
+  updateLLMConfig(
+    modelId: string,
+    apiUrl: string,
+    apiKey: string,
+    providerType: 'deepseek' | 'openai',
+    useReActMode?: boolean
+  ) {
+    // 更新本地配置
+    this.llmConfig.model = modelId
+    this.llmConfig.apiKey = apiKey
+    this.llmConfig.baseURL = apiUrl
+    this.llmConfig.providerType = providerType
+    this.llmConfig.useReActMode = useReActMode
+    this.agent.useReActMode = useReActMode ?? false
+
+    // 根据 providerType 创建新的 llm 实例
+    // Create new llm instance based on providerType
+    let providerFn: (options: { apiKey: string; baseURL: string }) => ProviderV2 | OpenAIProvider
+
+    if (providerType === 'deepseek') {
+      providerFn = createDeepSeek
+    } else if (providerType === 'openai') {
+      providerFn = createOpenAI
+    } else {
+      console.error('[CustomAgentModelProvider] Unsupported providerType:', providerType)
+      return
+    }
+
+    // 创建新的 llm 实例并更新到 agent
+    // Create new llm instance and update to agent
+    const newLlm = providerFn({
+      apiKey,
+      baseURL: apiUrl
+    })
+
+    this.agent.llm = newLlm
   }
 
   /**
@@ -208,8 +259,9 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   private cleanupOldSnapshotsInMessages(messages: any[]): any[] {
     if (!messages || messages.length === 0) return messages
 
-    // 检查是否启用 ReAct 模式
-    const isReActMode = (this.llmConfig as any).useReActMode === true
+    // 检查是否启用 ReAct 模式（统一使用 agent.useReActMode 来判断）
+    // Check if ReAct mode is enabled (use agent.useReActMode for unified judgment)
+    const isReActMode = this.agent.useReActMode === true
 
     // 在 ReAct 模式下，工具结果作为 user 消息添加；否则作为 tool 消息添加
     const expectedRole = isReActMode ? 'user' : 'tool'
@@ -234,9 +286,8 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       const msg = cleanedMessages[i] as any
       // 在 ReAct 模式下检查 user 角色，否则检查 tool 角色
       if (msg.role === expectedRole && this.isSnapshotContent(msg.content)) {
-        // 找到旧的快照消息，替换为占位符
+        // 找到旧的快照消息，仅保留其文本并移除图片
         this.replaceSnapshotWithPlaceholder(msg)
-        break // 只清理最后一次快照，找到后退出
       }
     }
 
@@ -244,45 +295,101 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   }
 
   /**
-   * 将快照消息替换为占位符
+   * 从文本中移除快照数据，保留操作信息
+   * @param text 原始文本
+   * @returns 清理后的文本
+   */
+  private removeSnapshotData(text: string): string {
+    if (!text) return text
+
+    // 快照开始的标记词
+    const snapshotMarkers = [
+      '无障碍树快照:',
+      '无障碍树快照：',
+      '快照内容:',
+      '快照内容：',
+      '页面无障碍树快照:',
+      '页面无障碍树快照：',
+      '操作后的页面快照:',
+      '操作后的页面快照：'
+    ]
+
+    // 查找快照标记的位置
+    let snapshotStartIndex = -1
+    for (const marker of snapshotMarkers) {
+      const index = text.indexOf(marker)
+      if (index !== -1) {
+        snapshotStartIndex = index
+        break
+      }
+    }
+
+    // 如果找到快照标记，删除从标记开始到结尾的内容
+    if (snapshotStartIndex !== -1) {
+      // 保留标记之前的内容，并添加占位符
+      const beforeSnapshot = text.substring(0, snapshotStartIndex).trim()
+      return beforeSnapshot ? `${beforeSnapshot} 📸 [历史快照已清理]` : '📸 历史快照已清理'
+    }
+
+    // 如果没有明确的标记，但包含快照关键词，可能整个文本都是快照
+    // 检查是否是纯快照内容（以快照关键词开头）
+    const pureSnapshotStarts = ['已成功获取页面无障碍树快照', 'takeSnapshot', 'snapshotId_counter']
+
+    for (const start of pureSnapshotStarts) {
+      if (text.startsWith(start)) {
+        return '📸 历史快照已清理'
+      }
+    }
+
+    // 没有找到快照标记，返回原文本
+    return text
+  }
+
+  /**
+   * 清理消息中的快照信息，旨在保留文本但移除图片以节省 token
    * @param msg 消息对象
    */
   private replaceSnapshotWithPlaceholder(msg: any): void {
     if (Array.isArray(msg.content)) {
-      // 如果是数组格式，替换所有文本内容为占位符
-      // 检查是否是 MCP 工具返回格式（有 output.value.content）
+      // 检查是否是 MCP 工具返回格式 (Tiny Robot Kit 包装后的格式)
       const firstItem = msg.content[0]
       if (firstItem?.output?.value?.content) {
-        // MCP 工具返回格式，替换 content
-        msg.content = [
-          {
-            ...firstItem,
-            output: {
-              ...firstItem.output,
-              value: {
-                ...firstItem.output.value,
-                content: [
-                  {
-                    type: 'text',
-                    text: '历史快照不予保留'
-                  }
-                ]
+        const innerContent = firstItem.output.value.content
+        if (Array.isArray(innerContent)) {
+          // 处理内容：移除图片，检查文本是否包含快照并替换
+          firstItem.output.value.content = innerContent
+            .map((item: any) => {
+              // 移除图片类型
+              if (item.type === 'image' || item.type === 'image_url') {
+                return null
               }
-            }
-          }
-        ]
+              // 检查文本类型是否包含快照信息
+              if (item.type === 'text' && item.text && this.isSnapshotContent(item.text)) {
+                // 移除快照数据，保留操作信息
+                const cleanedText = this.removeSnapshotData(item.text)
+                return { type: 'text', text: cleanedText }
+              }
+              // 保留其他内容
+              return item
+            })
+            .filter((item: any) => item !== null) // 移除被标记为 null 的项
+        }
+        // 如果 MCP 返回结果中包含单独的 screenshot 字段，也予以移除
+        if (firstItem.output.value.screenshot) {
+          delete firstItem.output.value.screenshot
+        }
       } else {
-        // 普通数组格式
-        msg.content = [
-          {
-            type: 'text',
-            text: '历史快照不予保留'
-          }
-        ]
+        // 普通多模态数组格式 (AI SDK 风格)
+        // 过滤掉所有图片部分，只保留文本部分
+        msg.content = msg.content.filter((item: any) => item.type !== 'image' && item.type !== 'image_url')
       }
     } else if (typeof msg.content === 'string') {
-      // 如果是字符串格式，直接替换
-      msg.content = '历史快照不予保留'
+      // 字符串格式：检查是否包含无障碍树快照
+      // 如果包含快照信息，移除快照数据但保留操作信息
+      if (this.isSnapshotContent(msg.content)) {
+        msg.content = this.removeSnapshotData(msg.content)
+      }
+      // 如果是纯文本（不含快照），保持不变
     }
   }
 
@@ -343,13 +450,14 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     if (!lastUserMsg) return
 
     // 执行 beforeChatStream 钩子（如果存在）
+    // 注意：钩子返回的修改后的消息用于传递给 AI SDK，不影响 UI 显示
     if (this.llmConfig.beforeChatStream) {
       try {
         const modifiedMsg = await this.llmConfig.beforeChatStream(lastUserMsg, this.systemPrompt)
         if (modifiedMsg) {
           lastUserMsg = modifiedMsg
-          // 更新 request.messages 中的最后一条消息
-          request.messages[request.messages.length - 1] = modifiedMsg
+          // 不要修改 request.messages，它用于 UI 显示
+          // 只在传递给 AI SDK 时使用修改后的消息
         }
       } catch (error) {
         console.error('[beforeChatStream] 钩子执行失败:', error)
@@ -380,22 +488,22 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       }
     }
 
-    // 检查消息内容是否为多模态格式（数组）
-    if (Array.isArray(lastUserMsg.content)) {
-      // 多模态消息：包含文本和图片
-      // 构建完整的消息数组，包含历史消息和当前用户消息
-      const userMessage = {
-        role: 'user' as const,
-        content: lastUserMsg.content // 已经是数组格式：Array<TextPart | ImagePart>
-      }
+    // 构建完整的消息数组，包含历史消息和当前用户消息
+    // Build complete message array including history and current user message
+    const userMessage = Array.isArray(lastUserMsg.content)
+      ? {
+          role: 'user' as const,
+          content: lastUserMsg.content // 多模态消息：Array<TextPart | ImagePart>
+        }
+      : {
+          role: 'user' as const,
+          content: lastUserMsg.content as string // 纯文本消息
+        }
 
-      // 将历史消息和当前用户消息合并
-      const allMessages = [...this.agent.messages, userMessage]
-      chatStreamOptions.messages = allMessages
-    } else {
-      // 纯文本消息：使用 message 参数（保持向后兼容）
-      chatStreamOptions.message = lastUserMsg.content as string
-    }
+    // 始终使用 messages 参数，确保包含所有历史消息上下文
+    // Always use messages parameter to ensure all history context is included
+    const allMessages = [...this.agent.messages, userMessage]
+    chatStreamOptions.messages = allMessages
 
     // @ts-ignore
     const result = await this.agent.chatStream(chatStreamOptions)
