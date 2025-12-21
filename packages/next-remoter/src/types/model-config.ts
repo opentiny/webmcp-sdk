@@ -4,6 +4,7 @@
  */
 
 import type { Component } from 'vue'
+import type { ProviderV2 } from '@ai-sdk/provider'
 
 /**
  * 统一模型配置接口
@@ -23,7 +24,7 @@ export interface UnifiedModelConfig {
   apiUrl: string
 
   /** 模型提供商类型 Provider type */
-  providerType: 'deepseek' | 'openai' | 'openai-compatible'
+  providerType: 'deepseek' | 'openai' | ((options: any) => ProviderV2)
 
   /** 模型图标组件 Icon component */
   icon?: Component

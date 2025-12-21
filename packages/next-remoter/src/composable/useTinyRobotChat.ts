@@ -14,6 +14,7 @@ interface useTinyRobotOption {
   systemPrompt: string
   llmConfig?: ICustomAgentModelProviderLlmConfig
   skills?: Array<{ label: string; value: string; prompt?: string; tools?: string[] }> // 添加 skills 参数，tools 字段用于指定该 skill 需要的工具列表
+  isGenuiEnabled?: Ref<boolean> // 生成式UI启用状态
 }
 
 let accmulateText = ''
@@ -25,7 +26,8 @@ export const useTinyRobotChat = ({
   agentRoot,
   systemPrompt,
   llmConfig,
-  skills = []
+  skills = [],
+  isGenuiEnabled = ref(false)
 }: useTinyRobotOption) => {
   const customAgentProvider = new CustomAgentModelProvider(
     { provider: 'custom' },
@@ -34,6 +36,9 @@ export const useTinyRobotChat = ({
     systemPrompt,
     llmConfig
   )
+
+  // 将生成式UI状态传递给 CustomAgentModelProvider
+  customAgentProvider.isGenuiEnabled = isGenuiEnabled
   const client = new AIClient({
     providerImplementation: customAgentProvider,
     provider: 'custom'
@@ -424,16 +429,13 @@ export const useTinyRobotChat = ({
     selectedModel,
     (newModel) => {
       if (newModel) {
-        console.log('[useTinyRobotChat] Model switched to:', newModel.label)
-        // 更新 CustomAgentModelProvider 的配置，包括 useReActMode
-        // Update CustomAgentModelProvider configuration, including useReActMode
-        customAgentProvider.updateLLMConfig(
-          newModel.id,
-          newModel.apiUrl,
-          newModel.apiKey,
-          newModel.providerType,
-          newModel.useReActMode
-        )
+        customAgentProvider.updateLLMConfig({
+          modelId: newModel.id,
+          apiUrl: newModel.apiUrl,
+          apiKey: newModel.apiKey,
+          providerType: newModel.providerType,
+          useReActMode: newModel.useReActMode
+        })
       }
     },
     { immediate: true } // 立即执行一次，确保初始模型配置正确
@@ -442,6 +444,8 @@ export const useTinyRobotChat = ({
   return {
     /**  一个 ai-sdk agent 封装,详见： next-sdk/AgentModelProvider 类 */
     agent: customAgentProvider.agent,
+    /** CustomAgentModelProvider 实例，用于调用 updateLLMConfig */
+    customAgentProvider,
     client,
     showHistory,
     aiAvatar,

@@ -11,6 +11,7 @@ import { createDeepSeek } from '@ai-sdk/deepseek'
 import { createOpenAI } from '@ai-sdk/openai'
 import type { ProviderV2 } from '@ai-sdk/provider'
 import type { OpenAIProvider } from '@ai-sdk/openai'
+import { GENUI_CONFIG } from '../config/genui-config'
 
 const DEFAULT_SHARED_CONFIG = {
   model: 'deepseek-ai/DeepSeek-V3',
@@ -31,6 +32,8 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   agent: AgentModelProvider
   systemPrompt: string
   llmConfig: ICustomAgentModelProviderLlmConfig = { ...DEFAULT_SHARED_CONFIG, ...DEFAULT_FACTORY_CONFIG }
+  /** 生成式UI启用状态 */
+  isGenuiEnabled?: Ref<boolean>
 
   constructor(
     config: AIModelConfig,
@@ -77,20 +80,38 @@ export class CustomAgentModelProvider extends BaseModelProvider {
    * @param providerType 提供商类型
    * @param useReActMode 是否使用 ReAct 模式
    */
-  updateLLMConfig(
-    modelId: string,
-    apiUrl: string,
-    apiKey: string,
-    providerType: 'deepseek' | 'openai',
+  updateLLMConfig({
+    modelId,
+    apiUrl,
+    apiKey,
+    providerType,
+    useReActMode
+  }: {
+    modelId: string
+    apiUrl: string
+    apiKey: string
+    providerType: 'deepseek' | 'openai' | ((options: any) => ProviderV2)
     useReActMode?: boolean
-  ) {
+  }) {
+    // 如果启用了生成式UI，在 baseURL 后面加上 '/prompt'
+    let finalApiUrl = apiUrl
+    if (this.isGenuiEnabled?.value) {
+      // 如果 baseURL 还没有包含 '/prompt'，则添加
+      if (!finalApiUrl.includes('/prompt')) {
+        finalApiUrl = finalApiUrl + '/prompt'
+      }
+    } else {
+      // 如果关闭了生成式UI，移除 '/prompt' 后缀
+      finalApiUrl = finalApiUrl.replace('/prompt', '')
+    }
+
     // 更新本地配置
     this.llmConfig.model = modelId
     this.llmConfig.apiKey = apiKey
-    this.llmConfig.baseURL = apiUrl
+    this.llmConfig.baseURL = finalApiUrl
     this.llmConfig.providerType = providerType
-    this.llmConfig.useReActMode = useReActMode
-    this.agent.useReActMode = useReActMode ?? false
+    this.llmConfig.useReActMode = useReActMode || false
+    this.agent.useReActMode = useReActMode || false
 
     // 根据 providerType 创建新的 llm 实例
     // Create new llm instance based on providerType
@@ -109,7 +130,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     // Create new llm instance and update to agent
     const newLlm = providerFn({
       apiKey,
-      baseURL: apiUrl
+      baseURL: finalApiUrl
     })
 
     this.agent.llm = newLlm
@@ -456,8 +477,6 @@ export class CustomAgentModelProvider extends BaseModelProvider {
         const modifiedMsg = await this.llmConfig.beforeChatStream(lastUserMsg, this.systemPrompt)
         if (modifiedMsg) {
           lastUserMsg = modifiedMsg
-          // 不要修改 request.messages，它用于 UI 显示
-          // 只在传递给 AI SDK 时使用修改后的消息
         }
       } catch (error) {
         console.error('[beforeChatStream] 钩子执行失败:', error)
@@ -474,7 +493,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       abortSignal: request.options?.signal,
       tools: { ['get-today']: getToday, ...(this.llmConfig.extraTools || {}) },
       maxSteps: this.llmConfig.maxSteps,
-      providerOptions: this.llmConfig.providerOptions,
+      providerOptions: this.llmConfig.providerOptions || GENUI_CONFIG,
       prepareStep: ({ messages }: { messages: any[] }) => {
         // 在步骤开始前清理旧的快照消息
         // prepareStep 会在每次步骤开始前被调用，可以修改即将用于请求的 messages
@@ -489,19 +508,12 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     }
 
     // 构建完整的消息数组，包含历史消息和当前用户消息
-    // Build complete message array including history and current user message
-    const userMessage = Array.isArray(lastUserMsg.content)
-      ? {
-          role: 'user' as const,
-          content: lastUserMsg.content // 多模态消息：Array<TextPart | ImagePart>
-        }
-      : {
-          role: 'user' as const,
-          content: lastUserMsg.content as string // 纯文本消息
-        }
+    const userMessage = {
+      role: 'user' as const,
+      content: lastUserMsg.content // 多模态消息：Array<TextPart | ImagePart>
+    }
 
     // 始终使用 messages 参数，确保包含所有历史消息上下文
-    // Always use messages parameter to ensure all history context is included
     const allMessages = [...this.agent.messages, userMessage]
     chatStreamOptions.messages = allMessages
 

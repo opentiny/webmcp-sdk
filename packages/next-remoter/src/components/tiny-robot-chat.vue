@@ -84,6 +84,17 @@
               <PluginToggleButton :installed-plugins="installedPlugins" @click="pluginVisible = !pluginVisible" />
               <!-- 模型切换组件 Model switch component -->
               <ModelSwitch />
+              <!-- 生成式UI开关 GenUI toggle button -->
+              <Button
+                class="action-button"
+                :active="isGenuiEnabled"
+                rounded
+                size="small"
+                @click="isGenuiEnabled = !isGenuiEnabled"
+              >
+                <IconVisual :width="16" :height="16" />
+                <span class="button-text">生成式UI</span>
+              </Button>
             </div>
           </template>
         </tr-sender>
@@ -166,6 +177,9 @@ import type { MenuItemConfig } from '@opentiny/next-sdk'
 import { type SkillOption } from './SkillSelector.vue'
 import SkillSelector from './SkillSelector.vue'
 import { useSkill } from '../composable/useSkill'
+import Button from './Button.vue'
+import useModel from '../composable/useModel'
+import IconVisual from './icons/icon-visual.svg'
 
 defineOptions({
   name: 'TinyRemoter'
@@ -228,7 +242,7 @@ const props = defineProps({
   /** 是否启用生成式UI */
   genUiAble: {
     type: Boolean,
-    default: true
+    default: false
   },
   /** 生成式UI 需要引入的组件。生成式UI内置了一批组件，如果需要引入新组件，需要通过这里导入。
    * 参考示例： shallowReactive({TinyUser, TinyAlert }) */
@@ -256,6 +270,92 @@ if (props.inBrowserExt) {
 
 const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })
 const show = defineModel('show', { type: Boolean, default: false })
+
+// 本地存储的 key
+const GENUI_STORAGE_KEY = 'next-remoter-genui-enabled'
+
+/**
+ * 获取初始生成式UI状态
+ * 优先从 localStorage 读取，失败则使用 props.genUiAble 的默认值
+ */
+const getInitialGenuiEnabled = (): boolean => {
+  try {
+    const stored = localStorage.getItem(GENUI_STORAGE_KEY)
+    if (stored !== null) {
+      // 如果 localStorage 中有值，优先使用用户之前的选择
+      return JSON.parse(stored)
+    }
+  } catch (error) {
+    console.warn('[tiny-robot-chat] Failed to parse stored genui enabled:', error)
+  }
+
+  // 如果 localStorage 中没有值，使用 props.genUiAble 的默认值
+  const defaultValue = props.genUiAble
+  try {
+    localStorage.setItem(GENUI_STORAGE_KEY, JSON.stringify(defaultValue))
+  } catch (error) {
+    console.error('[tiny-robot-chat] Failed to save genui enabled to localStorage:', error)
+  }
+  return defaultValue
+}
+
+// 生成式UI的启用状态（响应式，支持动态切换）
+const isGenuiEnabled = ref(getInitialGenuiEnabled())
+
+// 监听生成式UI状态变化，自动同步到 localStorage
+watch(isGenuiEnabled, (newValue) => {
+  try {
+    localStorage.setItem(GENUI_STORAGE_KEY, JSON.stringify(newValue))
+  } catch (error) {
+    console.error('[tiny-robot-chat] Failed to save genui enabled to localStorage:', error)
+  }
+})
+
+const {
+  showHistory,
+  agent, // ai-sdk的自定义代理，client通过它和llm 对话。 agent.ignoreToolnames=[] 是记录需要过滤掉的tools
+  customAgentProvider, // CustomAgentModelProvider 实例，用于调用 updateLLMConfig
+  welcomeIcon,
+  conversationState,
+  messages,
+  messageState,
+  inputMessage,
+  abortRequest,
+  roles,
+  senderRef,
+  sendMessage,
+  handleSendMessage,
+  handleHistoryUpdateTitle,
+  handleHistoryDelete,
+  handleHistorySelect,
+  handleCreateConversation,
+  addMessage,
+  send
+} = useTinyRobotChat({
+  sessionId: toRef(props, 'sessionId'),
+  agentRoot: toRef(props, 'agentRoot'),
+  systemPrompt: props.systemPrompt || '',
+  llmConfig: props.llmConfig,
+  skills: props.skills || [], // 传递 skills 列表给 useTinyRobotChat
+  isGenuiEnabled // 传递生成式UI状态
+})
+
+// 获取当前选中的模型配置
+const { selectedModel } = useModel()
+
+// 监听生成式UI状态变化，动态更新 baseURL
+watch(isGenuiEnabled, () => {
+  // 当生成式UI状态变化时，重新调用 updateLLMConfig 来更新 baseURL
+  if (selectedModel.value) {
+    customAgentProvider.updateLLMConfig({
+      modelId: selectedModel.value.id,
+      apiUrl: selectedModel.value.apiUrl,
+      apiKey: selectedModel.value.apiKey,
+      providerType: selectedModel.value.providerType,
+      useReActMode: selectedModel.value.useReActMode
+    })
+  }
+})
 
 // 自定义消息渲染器 ---- 默认支持markdown 和 生成式UI（生成式UI有很多流处理，不容易解耦出来，所以统一处理）
 const contentRenderer = {
@@ -296,33 +396,6 @@ const marketCategoryOptions = ref<MarketCategoryOption[]>([
 ])
 
 const { lang, pillItems, promptItems } = getLang(props)
-
-const {
-  showHistory,
-  agent, // ai-sdk的自定义代理，client通过它和llm 对话。 agent.ignoreToolnames=[] 是记录需要过滤掉的tools
-  welcomeIcon,
-  conversationState,
-  messages,
-  messageState,
-  inputMessage,
-  abortRequest,
-  roles,
-  senderRef,
-  sendMessage,
-  handleSendMessage,
-  handleHistoryUpdateTitle,
-  handleHistoryDelete,
-  handleHistorySelect,
-  handleCreateConversation,
-  addMessage,
-  send
-} = useTinyRobotChat({
-  sessionId: toRef(props, 'sessionId'),
-  agentRoot: toRef(props, 'agentRoot'),
-  systemPrompt: props.systemPrompt || '',
-  llmConfig: props.llmConfig,
-  skills: props.skills || [] // 传递 skills 列表给 useTinyRobotChat
-})
 
 /**
  * 处理 MCP Client 断开事件
