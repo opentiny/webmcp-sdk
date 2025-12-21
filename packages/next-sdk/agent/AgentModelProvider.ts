@@ -15,7 +15,7 @@ import { ExtensionClientTransport } from '../transport/ExtensionClientTransport'
 import { MessageChannelTransport } from '@opentiny/next'
 import { WebMcpClient } from '../WebMcpClient'
 import { getAISDKTools } from './utils/getAISDKTools'
-import { generateReActToolsPrompt, generateFaraReActToolsPrompt } from './utils/generateReActPrompt'
+import { generateReActToolsPrompt } from './utils/generateReActPrompt'
 import { parseReActAction } from './utils/parseReActAction'
 
 export const AIProviderFactories = {
@@ -295,16 +295,10 @@ export class AgentModelProvider {
     return toolsResult
   }
 
-  /** 判断是否为 Fara 或 Qwen 系列模型 */
-  private _isFaraModel(modelName: string): boolean {
-    const lowerName = modelName.toLowerCase()
-    return lowerName.includes('fara') || lowerName.includes('qwen')
-  }
-
   /** 生成 ReAct 模式的系统提示词（包含工具描述） */
   private _generateReActSystemPrompt(tools: ToolSet, modelName: string, baseSystemPrompt?: string): string {
-    const isFara = this._isFaraModel(modelName)
-    const toolsPrompt = isFara ? generateFaraReActToolsPrompt(tools) : generateReActToolsPrompt(tools)
+    // 统一使用 XML 格式的 ReAct 提示词（所有 ReAct 模式都使用相同格式）
+    const toolsPrompt = generateReActToolsPrompt(tools)
 
     if (baseSystemPrompt) {
       return `${baseSystemPrompt}${toolsPrompt}`
@@ -512,10 +506,7 @@ export class AgentModelProvider {
       stepCount++
 
       // 构建用于模型调用的消息列表（magentic-ui 风格：保留所有文本，限制图片）
-      // 判断是否为 Fara 模型，如果是，则强制限制 maxImages 为 1
-      const isFaraModel = this._isFaraModel(model)
-      const effectiveMaxImages = isFaraModel ? 1 : maxImages
-      const messagesForModel = this._buildMessagesForModel(systemMessage, allUserMessages, effectiveMaxImages)
+      const messagesForModel = this._buildMessagesForModel(systemMessage, allUserMessages, maxImages)
 
       // 调用 LLM（ReAct 模式下不传递 tools，因为工具调用通过提示词实现）
       // 参考 magentic-ui：保留所有文本历史（上下文完整），仅限制图片数量（优化 token）
@@ -548,20 +539,9 @@ export class AgentModelProvider {
       // 执行工具调用
       const toolResult = await this._executeReActToolCall(action.toolName, action.arguments, tools)
 
-      // 判断是否为 Fara 模型，使用不同的 Observation 格式
-      const isFara = this._isFaraModel(model)
-      let observation = ''
-
-      if (isFara) {
-        const resultString = toolResult.success
-          ? JSON.stringify(toolResult.result)
-          : `工具执行失败 - ${toolResult.error}`
-        observation = `<tool_response>\n${resultString}\n</tool_response>`
-      } else {
-        observation = toolResult.success
-          ? `Observation: ${JSON.stringify(toolResult.result)}`
-          : `Observation: 工具执行失败 - ${toolResult.error}`
-      }
+      // 统一使用 XML 格式的 Observation
+      const resultString = toolResult.success ? JSON.stringify(toolResult.result) : `工具执行失败 - ${toolResult.error}`
+      const observation = `<tool_response>\n${resultString}\n</tool_response>`
 
       // 添加到所有消息和完整历史
       const observationMessage = {
@@ -616,10 +596,7 @@ export class AgentModelProvider {
             stepCount++
 
             // 构建用于模型调用的消息列表（magentic-ui 风格：保留所有文本，限制图片）
-            // 判断是否为 Fara 模型，如果是，则强制限制 maxImages 为 1
-            const isFaraModel = self._isFaraModel(model)
-            const effectiveMaxImages = isFaraModel ? 1 : maxImages
-            const messagesForModel = self._buildMessagesForModel(systemMessage, allUserMessages, effectiveMaxImages)
+            const messagesForModel = self._buildMessagesForModel(systemMessage, allUserMessages, maxImages)
 
             // 移除 tools 选项，ReAct 模式下不传递 tools
             const { tools: _, ...restOptions } = options
@@ -714,9 +691,8 @@ export class AgentModelProvider {
               resultData = rest
             }
 
-            // 构造 Observation 文本
+            // 构造 Observation 文本（统一使用 XML 格式）
             let observationText = ''
-            const isFara = self._isFaraModel(model)
 
             if (toolResult.success) {
               // 尝试从 resultData 中提取纯文本信息
@@ -734,10 +710,8 @@ export class AgentModelProvider {
               observationText = `工具执行失败 - ${toolResult.error}`
             }
 
-            // 如果有截图，添加验证提示
-            let finalObservation = isFara
-              ? `<tool_response>\n${observationText}\n</tool_response>`
-              : `Observation: ${observationText}`
+            // 统一使用 XML 格式的 Observation，如果有截图，添加验证提示
+            let finalObservation = `<tool_response>\n${observationText}\n</tool_response>`
 
             if (screenshot) {
               finalObservation += `\n请检查截图以确认操作是否成功。如果成功，请继续下一步；如果失败，请重试。`
