@@ -75,13 +75,22 @@ export class CustomAgentModelProvider extends BaseModelProvider {
    * @param apiUrl API地址
    * @param apiKey API密钥
    * @param providerType 提供商类型
+   * @param useReActMode 是否使用 ReAct 模式
    */
-  updateLLMConfig(modelId: string, apiUrl: string, apiKey: string, providerType: 'deepseek' | 'openai') {
+  updateLLMConfig(
+    modelId: string,
+    apiUrl: string,
+    apiKey: string,
+    providerType: 'deepseek' | 'openai',
+    useReActMode?: boolean
+  ) {
     // 更新本地配置
     this.llmConfig.model = modelId
     this.llmConfig.apiKey = apiKey
     this.llmConfig.baseURL = apiUrl
     this.llmConfig.providerType = providerType
+    this.llmConfig.useReActMode = useReActMode
+    this.agent.useReActMode = useReActMode ?? false
 
     // 根据 providerType 创建新的 llm 实例
     // Create new llm instance based on providerType
@@ -250,8 +259,9 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   private cleanupOldSnapshotsInMessages(messages: any[]): any[] {
     if (!messages || messages.length === 0) return messages
 
-    // 检查是否启用 ReAct 模式
-    const isReActMode = (this.llmConfig as any).useReActMode === true
+    // 检查是否启用 ReAct 模式（统一使用 agent.useReActMode 来判断）
+    // Check if ReAct mode is enabled (use agent.useReActMode for unified judgment)
+    const isReActMode = this.agent.useReActMode === true
 
     // 在 ReAct 模式下，工具结果作为 user 消息添加；否则作为 tool 消息添加
     const expectedRole = isReActMode ? 'user' : 'tool'

@@ -40,7 +40,7 @@ export const UNIFIED_MODEL_CONFIGS: UnifiedModelConfig[] = [
     apiKey: 'sk-trial',
     apiUrl: 'https://agent.opentiny.design/api/v1/ai',
     providerType: 'deepseek',
-    useReActMode: false,
+    useReActMode: true,
     icon: IconModelAliyunBailian as unknown as Component
   }
 ]

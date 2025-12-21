@@ -425,8 +425,15 @@ export const useTinyRobotChat = ({
     (newModel) => {
       if (newModel) {
         console.log('[useTinyRobotChat] Model switched to:', newModel.label)
-        // 更新 CustomAgentModelProvider 的配置
-        customAgentProvider.updateLLMConfig(newModel.id, newModel.apiUrl, newModel.apiKey, newModel.providerType)
+        // 更新 CustomAgentModelProvider 的配置，包括 useReActMode
+        // Update CustomAgentModelProvider configuration, including useReActMode
+        customAgentProvider.updateLLMConfig(
+          newModel.id,
+          newModel.apiUrl,
+          newModel.apiKey,
+          newModel.providerType,
+          newModel.useReActMode
+        )
       }
     },
     { immediate: true } // 立即执行一次，确保初始模型配置正确
