@@ -66,7 +66,7 @@ catalog:
   less: ^4.2.3
   markdown-it: ^14.1.0
   prettier: ^3.0.3
-  puppeteer-core: ^24.31.0 # 测试puppeteer-core 工具调用
+  puppeteer-core: 24.31.0 # 测试puppeteer-core 工具调用
   qrcode: ^1.5.4
   rollup-plugin-visualizer: ^6.0.3
   typescript: ~5.9.3
