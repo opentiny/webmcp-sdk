@@ -17,36 +17,10 @@ function getCookieData() {
   }, {})
 }
 
-// 成功返回tabId, 失败返回-1
-function getTabId() {
-  return new Promise((resolve, reject) => {
-    // 先监听，后发送信息。 超时1秒算失败
-    function handler(event) {
-      if (event.source === window && event.data.type === 'answer-tabid') {
-        window.removeEventListener('message', handler)
-        resolve(event.data.data.tabId)
-      }
-    }
-    window.addEventListener('message', handler)
-
-    window.postMessage({ type: 'ask-tabid', direction: 'page->content', data: {} }, '*')
-    setTimeout(() => {
-      reject(-1)
-    }, 10000)
-  })
-}
-
 async function connect() {
   console.log('MAIN world 脚本已加载，等待 content proxy 就绪...')
 
   await waitForContentProxy()
-  const tabId = await getTabId()
-  if (tabId === -1) {
-    console.log('Main 页面无法查询自己的tabId')
-    return
-  } else {
-    console.log('Main 页面自己的tabId=', tabId)
-  }
 
   const serverInfo = {
     name: 'demo-server',
@@ -60,7 +34,7 @@ async function connect() {
     const sessionId = localStorage.getItem('mcp-sessionId')
 
     // Create pair MCP transports
-    const serverTransport = new ExtensionPageServerTransport(sessionId, tabId)
+    const serverTransport = new ExtensionPageServerTransport(sessionId)
     localStorage.setItem('mcp-sessionId', serverTransport.sessionId)
 
     console.log(serverTransport.sessionId)
