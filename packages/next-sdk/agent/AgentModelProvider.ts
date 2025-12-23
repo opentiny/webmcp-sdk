@@ -141,7 +141,6 @@ export class AgentModelProvider {
       }
 
       // 因为它们是基于 Chrome 扩展的消息传递机制，关闭会影响服务端的连接
-      // 而且这些 transport 的生命周期应该由外部管理，不应该在 client 关闭时被关闭
       if (transport && transport instanceof ExtensionClientTransport) {
         return
       }
