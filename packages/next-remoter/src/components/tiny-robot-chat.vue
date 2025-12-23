@@ -83,10 +83,11 @@
               <!-- 插件开关 Plugin toggle button -->
               <PluginToggleButton :installed-plugins="installedPlugins" @click="pluginVisible = !pluginVisible" />
               <!-- 模型切换组件 Model switch component -->
-              <ModelSwitch />
+              <ModelSwitch v-if="inBrowserExt" />
               <!-- 生成式UI开关 GenUI toggle button -->
               <Button
                 class="action-button"
+                v-if="inBrowserExt"
                 :active="isGenuiEnabled"
                 rounded
                 size="small"
@@ -298,18 +299,19 @@ const getInitialGenuiEnabled = (): boolean => {
   }
   return defaultValue
 }
-
 // 生成式UI的启用状态（响应式，支持动态切换）
 const isGenuiEnabled = ref(getInitialGenuiEnabled())
 
-// 监听生成式UI状态变化，自动同步到 localStorage
-watch(isGenuiEnabled, (newValue) => {
-  try {
-    localStorage.setItem(GENUI_STORAGE_KEY, JSON.stringify(newValue))
-  } catch (error) {
-    console.error('[tiny-robot-chat] Failed to save genui enabled to localStorage:', error)
-  }
-})
+if (props.inBrowserExt) {
+  // 监听生成式UI状态变化，自动同步到 localStorage
+  watch(isGenuiEnabled, (newValue) => {
+    try {
+      localStorage.setItem(GENUI_STORAGE_KEY, JSON.stringify(newValue))
+    } catch (error) {
+      console.error('[tiny-robot-chat] Failed to save genui enabled to localStorage:', error)
+    }
+  })
+}
 
 const {
   showHistory,
@@ -343,19 +345,21 @@ const {
 // 获取当前选中的模型配置
 const { selectedModel } = useModel()
 
-// 监听生成式UI状态变化，动态更新 baseURL
-watch(isGenuiEnabled, () => {
-  // 当生成式UI状态变化时，重新调用 updateLLMConfig 来更新 baseURL
-  if (selectedModel.value) {
-    customAgentProvider.updateLLMConfig({
-      modelId: selectedModel.value.id,
-      apiUrl: selectedModel.value.apiUrl,
-      apiKey: selectedModel.value.apiKey,
-      providerType: selectedModel.value.providerType,
-      useReActMode: selectedModel.value.useReActMode
-    })
-  }
-})
+if (props.inBrowserExt) {
+  // 监听生成式UI状态变化，动态更新 baseURL
+  watch(isGenuiEnabled, () => {
+    // 当生成式UI状态变化时，重新调用 updateLLMConfig 来更新 baseURL
+    if (selectedModel.value) {
+      customAgentProvider.updateLLMConfig({
+        modelId: selectedModel.value.id,
+        apiUrl: selectedModel.value.apiUrl,
+        apiKey: selectedModel.value.apiKey,
+        providerType: selectedModel.value.providerType,
+        useReActMode: selectedModel.value.useReActMode
+      })
+    }
+  })
+}
 
 // 自定义消息渲染器 ---- 默认支持markdown 和 生成式UI（生成式UI有很多流处理，不容易解耦出来，所以统一处理）
 const contentRenderer = {
