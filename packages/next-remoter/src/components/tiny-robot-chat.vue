@@ -338,6 +338,7 @@ const {
   agentRoot: toRef(props, 'agentRoot'),
   systemPrompt: props.systemPrompt || '',
   llmConfig: props.llmConfig,
+  inBrowserExt: toRef(props, 'inBrowserExt'),
   skills: props.skills || [], // 传递 skills 列表给 useTinyRobotChat
   isGenuiEnabled // 传递生成式UI状态
 })
