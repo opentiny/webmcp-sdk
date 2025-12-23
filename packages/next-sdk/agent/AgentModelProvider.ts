@@ -140,11 +140,6 @@ export class AgentModelProvider {
         return
       }
 
-      // 因为它们是基于 Chrome 扩展的消息传递机制，关闭会影响服务端的连接
-      if (transport && transport instanceof ExtensionClientTransport) {
-        return
-      }
-
       // 其他类型的传输正常关闭
       await transport?.terminateSession?.()
       await transport?.close?.()
@@ -606,9 +601,10 @@ export class AgentModelProvider {
 
             // 移除 tools 选项，ReAct 模式下不传递 tools
             const { tools: _, ...restOptions } = options
-            // 调用流式 LLM
-            // 参考 magentic-ui：保留所有文本历史（上下文完整），仅限制图片数量（优化 token）
+
+            // 删除影响多轮对话的配置
             delete restOptions.system
+            delete restOptions.onFinish
             const result = await streamText({
               ...restOptions,
               model: llmModel,

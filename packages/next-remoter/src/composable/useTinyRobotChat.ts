@@ -15,6 +15,7 @@ interface useTinyRobotOption {
   llmConfig?: ICustomAgentModelProviderLlmConfig
   skills?: Array<{ label: string; value: string; prompt?: string; tools?: string[] }> // 添加 skills 参数，tools 字段用于指定该 skill 需要的工具列表
   isGenuiEnabled?: Ref<boolean> // 生成式UI启用状态
+  inBrowserExt?: Ref<boolean> // 是否在浏览器扩展中运行
 }
 
 let accmulateText = ''
@@ -27,7 +28,8 @@ export const useTinyRobotChat = ({
   systemPrompt,
   llmConfig,
   skills = [],
-  isGenuiEnabled = ref(false)
+  isGenuiEnabled = ref(false),
+  inBrowserExt = ref(false)
 }: useTinyRobotOption) => {
   const customAgentProvider = new CustomAgentModelProvider(
     { provider: 'custom' },
@@ -425,21 +427,24 @@ export const useTinyRobotChat = ({
 
   // 监听模型切换 - Watch for model changes
   const { selectedModel } = useModel()
-  watch(
-    selectedModel,
-    (newModel) => {
-      if (newModel) {
-        customAgentProvider.updateLLMConfig({
-          modelId: newModel.id,
-          apiUrl: newModel.apiUrl,
-          apiKey: newModel.apiKey,
-          providerType: newModel.providerType,
-          useReActMode: newModel.useReActMode
-        })
-      }
-    },
-    { immediate: true } // 立即执行一次，确保初始模型配置正确
-  )
+
+  if (inBrowserExt.value) {
+    watch(
+      selectedModel,
+      (newModel) => {
+        if (newModel) {
+          customAgentProvider.updateLLMConfig({
+            modelId: newModel.id,
+            apiUrl: newModel.apiUrl,
+            apiKey: newModel.apiKey,
+            providerType: newModel.providerType,
+            useReActMode: newModel.useReActMode
+          })
+        }
+      },
+      { immediate: true } // 立即执行一次，确保初始模型配置正确
+    )
+  }
 
   return {
     /**  一个 ai-sdk agent 封装,详见： next-sdk/AgentModelProvider 类 */

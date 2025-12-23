@@ -51,10 +51,24 @@ export default defineConfig(({ mode }) => {
         entry: resolve(__dirname, 'src/index.ts'),
         name: 'NextRemoter',
         formats: ['es', 'cjs'],
+        // JS 文件保持原本的文件名称
         fileName: (format) => `next-remoter.${format}.js`
       },
       rollupOptions: {
-        external: ['vue', /@opentiny\//]
+        external: ['vue', /@opentiny\//],
+        output: {
+          // CSS 文件使用 style.css 作为文件名，其他资源保持默认命名
+          assetFileNames: (assetInfo) => {
+            // 通过检查文件扩展名判断是否为 CSS 文件
+            // 使用字符串匹配来避免使用已弃用的 name 属性
+            const fileName = assetInfo.names?.[0] || ''
+            if (fileName.endsWith('.css')) {
+              return 'style.css'
+            }
+            // 对于非 CSS 资源，返回默认命名模式
+            return 'assets/[name]-[hash][extname]'
+          }
+        }
       }
     }
   }
