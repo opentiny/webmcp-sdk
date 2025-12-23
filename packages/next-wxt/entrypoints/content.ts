@@ -77,6 +77,9 @@ export default defineContentScript({
             console.warn('【Content Script】未知的 MCP 服务器类型:', mcpMeta.type)
           }
         }
+      } else {
+        // 当用户在自己的应用中集成需要创建代理
+        createContentProxy(tabId)
       }
       mountPageApp()
     }

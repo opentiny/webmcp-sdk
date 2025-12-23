@@ -14,7 +14,7 @@ catalog:
   '@matechat/core': ^1.9.0
   # mcp
   '@modelcontextprotocol/inspector': ^0.16.1
-  '@modelcontextprotocol/sdk': ^1.16.0
+  '@modelcontextprotocol/sdk': ~1.24.3
 
   # 生成ui
   '@opentiny/genui-sdk': 0.0.1-alpha.0

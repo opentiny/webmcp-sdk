@@ -1,6 +1,8 @@
-export type { experimental_MCPClient as MCPClient } from 'ai'
 import type { ProviderV2 } from '@ai-sdk/provider'
-import type { MCPTransport } from 'ai'
+import type { experimental_MCPClientConfig as MCPClientConfig } from '@ai-sdk/mcp'
+
+// 从 MCPClientConfig 中提取 transport 类型
+export type MCPTransport = MCPClientConfig['transport']
 
 type ProviderFactory = 'openai' | 'deepseek' | ((options: any) => ProviderV2)
 
