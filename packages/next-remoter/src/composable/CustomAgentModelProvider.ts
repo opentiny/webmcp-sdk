@@ -21,7 +21,7 @@ const DEFAULT_SHARED_CONFIG = {
 
 const DEFAULT_FACTORY_CONFIG = {
   apiKey: 'sk-trial',
-  baseURL: 'https://agent.opentiny.design/api/v1/ai',
+  baseURL: 'https://agent.opentiny.design/api/v1/ai/prompt',
   providerType: 'deepseek' as const
 }
 
@@ -121,19 +121,13 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       providerFn = createDeepSeek
     } else if (providerType === 'openai') {
       providerFn = createOpenAI
+    } else if (typeof providerType === 'function') {
+      providerFn = providerType
     } else {
-      console.error('[CustomAgentModelProvider] Unsupported providerType:', providerType)
-      return
+      throw new Error(`Unsupported providerType: ${providerType}`)
     }
 
-    // 创建新的 llm 实例并更新到 agent
-    // Create new llm instance and update to agent
-    const newLlm = providerFn({
-      apiKey,
-      baseURL: finalApiUrl
-    })
-
-    this.agent.llm = newLlm
+    this.agent.llm = providerFn({ apiKey, baseURL: finalApiUrl })
   }
 
   /**
