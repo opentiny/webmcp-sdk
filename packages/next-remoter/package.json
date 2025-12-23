@@ -1,6 +1,6 @@
 {
   "name": "@opentiny/next-remoter",
-  "version": "0.0.10",
+  "version": "0.0.10-beta.1",
   "type": "module",
   "files": [
     "dist"
