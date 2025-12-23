@@ -131,11 +131,17 @@ export class AgentModelProvider {
     try {
       const transport = client['__transport__']
 
-      // 如果是 InMemoryTransport，不关闭传输层 因为它是配对的，关闭一端会影响另一端（服务端）
+      // 如果是 InMemoryTransport 或 MessageChannelTransport，不关闭传输层
+      // 因为它们是配对的，关闭一端会影响另一端（服务端）
       if (
         (transport && transport instanceof InMemoryTransport) ||
         (transport && transport instanceof MessageChannelTransport)
       ) {
+        return
+      }
+
+      // 因为它们是基于 Chrome 扩展的消息传递机制，关闭会影响服务端的连接
+      if (transport && transport instanceof ExtensionClientTransport) {
         return
       }
 
