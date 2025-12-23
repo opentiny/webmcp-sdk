@@ -7,6 +7,9 @@ export {}
 
 declare module 'vue' {
   export interface GlobalComponents {
+    Button: typeof import('./src/components/Button.vue')['default']
+    ModelSwitch: typeof import('./src/components/ModelSwitch.vue')['default']
+    PluginToggleButton: typeof import('./src/components/PluginToggleButton.vue')['default']
     QrCodeScan: typeof import('./src/components/qr-code-scan.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
