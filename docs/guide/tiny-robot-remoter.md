@@ -15,9 +15,8 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 - 支持扫码添加应用
 - 支持MCP市场
 
-> 1、扫码应用的 `sessionId` 后，它会自动创建一个 `streamableHTTP` 类型的 `MCPServer`，之后自动创建 `MCPClient`连接并查询所有的 TOOLS, 并展示在”已安装插件“列表中。
-
-> 2、市场应用的插件，通常都是 `streamableHTTP` 或 `SSE` 类型的 `MCPServer`。 选择添加后，也是自动创建 `MCPClient`连接并查询所有的 TOOLS, 并展示在”已安装插件“列表中。
+> 1、扫码应用的 `sessionId` 后，它会自动创建一个 `streamableHTTP` 类型的 `MCPServer`，之后自动创建 `MCPClient`连接并查询所有的 TOOLS, 并展示在"已安装插件"列表中。
+> 2、市场应用的插件，通常都是 `streamableHTTP` 或 `SSE` 类型的 `MCPServer`。 选择添加后，也是自动创建 `MCPClient`连接并查询所有的 TOOLS, 并展示在"已安装插件"列表中。
 
 总之，已安装插件中的所有Tool都可以在与 `LLM` 对话时被调用。
 
@@ -97,6 +96,147 @@ const claudeConfig = {
 
 - `#welcome`: 没有对话消息时，展示在组件中间的 `Welcome & Promts` 等内容。设计成插槽可以让用户有完全的定制能力。
 - `#suggestions`: 展示在输入框上面的提示性组件。可以使用 `@opentiny/tiny-robot` 中的 `SuggestionPills` 等强大功能的组件。
+- `#operations`: 容器头部右侧的操作区域，默认包含新建会话按钮、历史会话按钮和扫码组件。可以通过此插槽自定义头部操作按钮。
+- `#header-actions`: MCP 服务器选择器（插件市场）头部的操作区域，可以在此处添加自定义操作按钮，如自定义添加插件的按钮等。
+
+### 插槽使用示例
+
+#### 自定义头部操作区域（operations 插槽）
+
+```vue
+<template>
+  <TinyRemoter
+    v-model:show="show"
+    sessionId="your-session-id"
+    title="我的AI助手"
+    systemPrompt="你是一个智能助手"
+  >
+    <template #operations>
+      <!-- 自定义头部操作按钮 -->
+      <button @click="handleCustomAction">自定义操作</button>
+      <!-- 或者保留默认功能，添加额外按钮 -->
+      <button @click="handleExport">导出对话</button>
+    </template>
+  </TinyRemoter>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
+
+const show = ref(false)
+
+function handleCustomAction() {
+  console.log('执行自定义操作')
+}
+
+function handleExport() {
+  console.log('导出对话')
+}
+</script>
+```
+
+#### 自定义插件市场头部操作（header-actions 插槽）
+
+```vue
+<template>
+  <TinyRemoter
+    v-model:show="show"
+    sessionId="your-session-id"
+    title="我的AI助手"
+    systemPrompt="你是一个智能助手"
+  >
+    <template #header-actions>
+      <!-- 在插件市场头部添加自定义按钮 -->
+      <button class="custom-add-button" type="button" @click="openCustomModal">
+        <span>+</span>
+        自定义添加
+      </button>
+    </template>
+  </TinyRemoter>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
+
+const show = ref(false)
+
+function openCustomModal() {
+  // 打开自定义添加插件的弹窗
+  console.log('打开自定义添加弹窗')
+}
+</script>
+```
+
+#### 自定义欢迎界面和提示建议（welcome 和 suggestions 插槽）
+
+```vue
+<template>
+  <TinyRemoter
+    ref="robotRef"
+    v-model:show="show"
+    sessionId="your-session-id"
+    title="我的AI助手"
+    systemPrompt="你是一个智能助手"
+  >
+    <!-- 自定义欢迎界面 -->
+    <template #welcome>
+      <div class="custom-welcome">
+        <h2>欢迎使用 AI 助手</h2>
+        <p>我可以帮助你完成各种任务</p>
+        <div class="prompts">
+          <button
+            v-for="prompt in prompts"
+            :key="prompt.id"
+            @click="handlePromptClick(prompt)"
+          >
+            {{ prompt.label }}
+          </button>
+        </div>
+      </div>
+    </template>
+
+    <!-- 自定义输入框上方的提示建议 -->
+    <template #suggestions>
+      <div class="suggestion-pills">
+        <button
+          v-for="suggestion in suggestions"
+          :key="suggestion"
+          class="suggestion-pill"
+          @click="handleSuggestionClick(suggestion)"
+        >
+          {{ suggestion }}
+        </button>
+      </div>
+    </template>
+  </TinyRemoter>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
+
+const show = ref(false)
+const robotRef = ref()
+
+const prompts = [
+  { id: 1, label: '帮我写一个快速排序', text: '帮我写一个快速排序算法' },
+  { id: 2, label: '解释一下 Vue3 的响应式原理', text: '请详细解释 Vue3 的响应式原理' }
+]
+
+const suggestions = ['天气查询', '日程安排', '代码生成', '文本翻译']
+
+function handlePromptClick(prompt) {
+  // 使用组件暴露的方法发送消息
+  robotRef.value?.sendMessage(prompt.text)
+}
+
+function handleSuggestionClick(suggestion) {
+  robotRef.value?.sendMessage(suggestion)
+}
+</script>
+```
 
 ## 导出变量
 
