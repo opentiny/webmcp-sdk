@@ -4,28 +4,30 @@
       <h3 class="tr-container__title">{{ title }}</h3>
     </template>
     <template #operations>
-      <tr-icon-button :icon="IconNewSession" size="28" svgSize="20" @click="handleCreateConversation()" />
-      <tr-icon-button :icon="IconHistory" size="28" svgSize="20" @click="showHistory = !showHistory" />
-      <QrCodeScan @scanSuccess="handleScanSuccess" />
+      <slot name="operations">
+        <tr-icon-button :icon="IconNewSession" size="28" svgSize="20" @click="handleCreateConversation()" />
+        <tr-icon-button :icon="IconHistory" size="28" svgSize="20" @click="showHistory = !showHistory" />
+        <QrCodeScan @scanSuccess="handleScanSuccess" />
 
-      <!-- 历史会话抽屉 -->
-      <Transition name="drawer-slide" appear>
-        <div v-if="showHistory" class="drawer-overlay" @click="showHistory = false">
-          <div class="drawer-container" @click.stop style="--tr-history-item-selected-bg: #ebeeff">
-            <h4>历史会话</h4>
-            <TrHistory
-              class="tr-history-demo"
-              :selected="conversationState.currentId"
-              :data="conversationState.conversations"
-              :showRenameControls="true"
-              @close="showHistory = false"
-              @item-click="handleHistorySelect"
-              @item-title-change="handleHistoryUpdateTitle"
-              @item-action="handleHistoryDelete"
-            ></TrHistory>
+        <!-- 历史会话抽屉 -->
+        <Transition name="drawer-slide" appear>
+          <div v-if="showHistory" class="drawer-overlay" @click="showHistory = false">
+            <div class="drawer-container" @click.stop style="--tr-history-item-selected-bg: #ebeeff">
+              <h4>历史会话</h4>
+              <TrHistory
+                class="tr-history-demo"
+                :selected="conversationState.currentId"
+                :data="conversationState.conversations"
+                :showRenameControls="true"
+                @close="showHistory = false"
+                @item-click="handleHistorySelect"
+                @item-title-change="handleHistoryUpdateTitle"
+                @item-action="handleHistoryDelete"
+              ></TrHistory>
+            </div>
           </div>
-        </div>
-      </Transition>
+        </Transition>
+      </slot>
     </template>
     <tr-bubble-provider :content-renderers="contentRenderer">
       <slot name="welcome" v-if="messages.length === 0">
@@ -130,7 +132,6 @@
           @tool-toggle="handleToolToggle"
         >
           <template #header-actions>
-            <!-- @vue-ignore -->
             <slot name="header-actions" />
           </template>
         </TrMcpServerPicker>
@@ -736,6 +737,8 @@ const handleMcpServerPickerSearchFn = (query: string, item: PluginInfo) => {
 defineSlots<{
   welcome(): any
   suggestions(): any
+  operations(): any
+  'header-actions'(): any
 }>()
 
 // 定义输出：  暴露一些重要方法，方便用户写插槽时，可以使用。
