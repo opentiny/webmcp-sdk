@@ -97,7 +97,7 @@ pm2 start index.js --name webagent --env production
 npm i @opentiny/next-sdk @opentiny/next-remoter
 ```
 
-#### 1.2.2 定义 MCP Server 并连接 WebAgent
+#### 1.2.2 定义 MCP Client 并连接 WebAgent
 
 在应用的主入口文件（比如：`src/App.vue`）中添加如下代码：
 
@@ -108,37 +108,18 @@ npm i @opentiny/next-sdk @opentiny/next-remoter
 import HelloWorld from './components/HelloWorld.vue'
 
 // START: 新增内容
-import { onMounted, ref } from 'vue'
-import { WebMcpServer, createMessageChannelPairTransport, z, WebMcpClient } from '@opentiny/next-sdk'
+import { onMounted, ref, provide } from 'vue'
+import { createMessageChannelPairTransport, WebMcpClient } from '@opentiny/next-sdk'
 import { TinyRemoter } from '@opentiny/next-remoter'
 import '@opentiny/next-remoter/dist/style.css'
 
 const sessionId = ref('')
 const numberValue = ref(0)
 onMounted(async () => {
-  // 创建 WebMcpServer ，并与 ServerTransport 连接
-  const [serverTransport, clientTransport] = createMessageChannelPairTransport()
-
-  const server = new WebMcpServer()
-
-  server.registerTool(
-    'counter',
-    {
-      title: '自增一个数字',
-      description: '在现有数字基础上自增一个数值',
-      inputSchema: { number: z.number() }
-    },
-    async ({ number }) => {
-      console.log('number:', number)
-      numberValue.value += number
-      return { content: [{ type: 'text', text: `收到: ${numberValue.value}` }] }
-    }
-  )
-
-  await server.connect(serverTransport)
-
   // 创建 WebMcpClient ，并与 WebAgent 连接
   const client = new WebMcpClient()
+  const [serverTransport, clientTransport] = createMessageChannelPairTransport()
+  provide('serverTransport', serverTransport)
   await client.connect(clientTransport)
   const { sessionId: sessionID } = await client.connect({
     agent: true,
@@ -165,7 +146,6 @@ onMounted(async () => {
   </div>
   <HelloWorld msg="Vite + Vue" />
   <!-- START: 新增内容 -->
-  <p>当前数字：{{ numberValue }}</p>
   <tiny-remoter
     agent-root="http://localhost:3000/api/v1/webmcp/"
     :session-id="sessionId"
@@ -186,6 +166,83 @@ onMounted(async () => {
   />
   <!-- END: 新增内容 -->
 </template>
+```
+
+#### 1.2.3 定义 MCP Server
+
+在应用的子页面（比如：`src/components/HelloWorld.vue`）中添加如下代码：
+
+> 注意：START 和 END 标识中间的内容是需要增加的。
+
+```html
+<script setup lang="ts">
+import { ref } from 'vue'
+
+defineProps<{ msg: string }>()
+
+const count = ref(0)
+
+// START: 新增内容
+import { onMounted, inject } from 'vue'
+import { WebMcpServer, z } from '@opentiny/next-sdk'
+
+onMounted(async () => {
+  // 创建 WebMcpServer ，并与 ServerTransport 连接
+  const server = new WebMcpServer({
+    name: 'mcp-server-hello-world',
+    version: '1.0.0'
+  })
+
+  server.registerTool(
+    'counter',
+    {
+      title: '自增一个数字',
+      description: '在现有数字基础上自增一个数值，起始数字是：0，不要问我起始数字是什么，直接调用工具完成自增即可',
+      inputSchema: { number: z.number() }
+    },
+    async ({ number }) => {
+      console.log('number:', number)
+      count.value += number
+      return { content: [{ type: 'text', text: `收到: ${count.value}` }] }
+    }
+  )
+
+  const serverTransport = inject('serverTransport')
+  await server.connect(serverTransport)
+})
+// END: 新增内容
+</script>
+
+<template>
+  <h1>{{ msg }}</h1>
+
+  <div class="card">
+    <button type="button" @click="count++">count is {{ count }}</button>
+    <p>
+      Edit
+      <code>components/HelloWorld.vue</code> to test HMR
+    </p>
+  </div>
+
+  <p>
+    Check out
+    <a href="https://vuejs.org/guide/quick-start.html#local" target="_blank"
+      >create-vue</a
+    >, the official Vue + Vite starter
+  </p>
+  <p>
+    Install
+    <a href="https://github.com/vuejs/language-tools" target="_blank">Volar</a>
+    in your IDE for a better DX
+  </p>
+  <p class="read-the-docs">Click on the Vite and Vue logos to learn more</p>
+</template>
+
+<style scoped>
+.read-the-docs {
+  color: #888;
+}
+</style>
 ```
 
 若页面右下角出现 AI 智能助手图标，表示连接成功。
