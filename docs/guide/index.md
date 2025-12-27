@@ -18,40 +18,57 @@
 npm i @opentiny/next-sdk
 ```
 
-**第二步：创建 WebMcpServer ，并与 ServerTransport 连接**
+**第二步：创建 WebMcpClient ，并与 WebAgent 连接**
+
+在 Web 应用的主入口（比如：Vue 项目的 `App.vue` 文件）定义 WebMcpClient。
 
 ```typescript
-import { WebMcpServer, createMessageChannelPairTransport, z } from '@opentiny/next-sdk'
+import { onMounted, provide } from 'vue'
+import { WebMcpClient, createMessageChannelPairTransport } from '@opentiny/next-sdk'
 
-const [serverTransport, clientTransport] = createMessageChannelPairTransport()
-const server = new WebMcpServer()
+onMounted(async () => {
+  const [serverTransport, clientTransport] = createMessageChannelPairTransport()
+  provide('serverTransport', serverTransport)
 
-server.registerTool(
-  'demo-tool',
-  {
-    title: '演示工具',
-    description: '一个简单工具',
-    inputSchema: { foo: z.string() }
-  },
-  async (params) => {
-    console.log('params:', params)
-    return { content: [{ type: 'text', text: `收到: ${params.foo}` }] }
-  }
-)
-
-await server.connect(serverTransport)
+  const client = new WebMcpClient()
+  await client.connect(clientTransport)
+  // 这个 sessionId 是 Web 应用与 WebAgent 服务建立连接后，由 WebAgent 服务生成的，用来唯一标识被操控的 Web 应用（被控端）
+  const { sessionId } = await client.connect({
+    agent: true,
+    url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp'
+  })
+})
 ```
 
-**第三步：创建 WebMcpClient ，并与 WebAgent 连接**
+**第三步：创建 WebMcpServer ，并与 ServerTransport 连接**
+
+在 Web 应用的子页面（比如：`views/page1.vue`）中定义 WebMcpServer，每个页面可以定义自己的 WebMcpServer，页面切换时，MCP Client 会与当前页面的 MCP Server 建立连接，并丢弃与之前页面的连接。
 
 ```typescript
-import { WebMcpClient } from '@opentiny/next-sdk'
+import { onMounted, inject } from 'vue'
+import { WebMcpServer, z } from '@opentiny/next-sdk'
 
-const client = new WebMcpClient()
-await client.connect(clientTransport)
-const { sessionId } = await client.connect({
-  agent: true,
-  url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp'
+onMounted(async () => {
+  const serverTransport = inject('serverTransport')
+  const server = new WebMcpServer({
+    name: 'mcp-server-page1',
+    version: '1.0.0'
+  })
+
+  server.registerTool(
+    'demo-tool',
+    {
+      title: '演示工具',
+      description: '一个简单工具',
+      inputSchema: { foo: z.string() }
+    },
+    async (params) => {
+      console.log('params:', params)
+      return { content: [{ type: 'text', text: `收到: ${params.foo}` }] }
+    }
+  )
+
+  await server.connect(serverTransport)
 })
 ```
 
@@ -86,6 +103,7 @@ onMounted(async () => {
 </script>
 
 <template>
+  <!-- 注意：传递给 tiny-remoter 组件的 session-id 需要是 client.connect() 与 WebAgent 服务建立连接后，由 WebAgent 服务返回的 sessionId -->
   <tiny-remoter session-id="your-session-id" show :fullscreen="fullscreen" />
 </template>
 ```
