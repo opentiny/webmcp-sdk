@@ -30,8 +30,8 @@ jobs:
       - name: Checkout main repository
         run: |
           # 克隆主仓库
-          git clone https://github.com/opentiny/docs.git docs
-          cd docs
+          git clone https://github.com/opentiny/docs.git docs-main
+          cd docs-main
 
           # 更新子模块到PR分支的版本
           git submodule sync --recursive
@@ -54,7 +54,7 @@ jobs:
 
       - name: Run main repo build
         id: build
-        working-directory: ./docs
+        working-directory: ./docs-main
         run: |
           pnpm i
           # 如果使用VitePress
