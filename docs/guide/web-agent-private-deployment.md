@@ -107,7 +107,6 @@ npm i @opentiny/next-sdk @opentiny/next-remoter
 
 ```html
 <script setup lang="ts">
-
 import HelloWorld from './components/HelloWorld.vue'
 
 // START: 新增内容
