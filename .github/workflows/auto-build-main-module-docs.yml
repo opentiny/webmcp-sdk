@@ -30,6 +30,7 @@ jobs:
       - name: Checkout main repository
         run: |
           # 克隆主仓库
+          pwd
           git clone https://github.com/opentiny/docs.git docs-main
           cd docs-main
 
@@ -54,7 +55,7 @@ jobs:
 
       - name: Run main repo build
         id: build
-        working-directory: ./docs-main
+        working-directory: ./docs
         run: |
           pnpm i
           # 如果使用VitePress
