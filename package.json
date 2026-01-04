@@ -17,6 +17,8 @@
     "build:site": "pnpm -F @opentiny/next-remoter build:site",
     "dev:remoter": "pnpm -F @opentiny/next-remoter dev",
     "dev:vue-playground": "pnpm -F vue-playground dev",
+    "dev:playground": "pnpm -F next-sdk-playground dev",
+    "build:playground": "pnpm -F next-sdk-playground build",
     "pub:next-sdk": "pnpm -F @opentiny/next-sdk publish --no-git-checks",
     "pub:remoter": "pnpm -F @opentiny/next-remoter publish --no-git-checks"
   },
