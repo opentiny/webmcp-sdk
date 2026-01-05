@@ -117,7 +117,7 @@
         <TrMcpServerPicker
           v-model:visible="pluginVisible"
           :popup-config="{ type: 'drawer' }"
-          :show-custom-add-button="false"
+          :show-custom-add-button="true"
           marketTabTitle="MCP市场"
           installedTabTitle="已添加MCP服务"
           title="扩展"
@@ -130,6 +130,7 @@
           @plugin-add="handlePluginAdd"
           @plugin-delete="handlePluginDelete"
           @tool-toggle="handleToolToggle"
+          @plugin-create="handleCustomAdd"
         >
           <template #header-actions>
             <slot name="header-actions" />
@@ -165,6 +166,7 @@ import { SchemaRenderer, RENDERER_SETTINGS_KEY } from '@opentiny/genui-sdk-vue'
 import { GeneratingStatus, STATUS } from '@opentiny/tiny-robot-kit'
 import { IconNewSession, IconHistory } from '@opentiny/tiny-robot-svgs'
 import { useTinyRobotChat } from '../composable/useTinyRobotChat'
+import { useCustomMcpServer } from '../composable/useCustomMcpServer'
 import { toRef, computed, ref, onMounted, markRaw, h, watch, provide, nextTick } from 'vue'
 import { createRemoter, McpServerConfig } from '@opentiny/next-sdk'
 import QrCodeScan from './qr-code-scan.vue'
@@ -733,6 +735,9 @@ const handleMcpServerPickerSearchFn = (query: string, item: PluginInfo) => {
   return query.trim() === '' || item.name.toLowerCase().includes(query.toLowerCase())
 }
 
+// 使用自定义 MCP 服务器添加 composable
+const { handleCustomAdd } = useCustomMcpServer(agent, installedPlugins, defaultPluginSrc)
+
 // 定义插槽
 defineSlots<{
   welcome(): any
@@ -764,7 +769,9 @@ defineExpose({
   /** 向插件市场添加一个server */
   loadMcpServerToPlugin,
   /** mcp client断开时，自动清理已断开的插件和资源  */
-  handleClientDisconnected
+  handleClientDisconnected,
+  /** 添加消息 */
+  addMessage
 })
 
 // TODO 未来版本移除

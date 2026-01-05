@@ -221,12 +221,13 @@ browser.runtime.onMessage.addListener((message) => {
       :gen-ui-components="genUiComponents"
       :skills="skills"
     >
-      <template #header-actions>
+      <!-- todo: 后期等屏幕录制开发完成再放开 -->
+      <!-- <template #header-actions>
         <button v-if="isDev" class="record-button" type="button" @click="openRecordModal">
           <span class="record-button__icon">+</span>
           自定义添加
         </button>
-      </template>
+      </template> -->
       <template #suggestions>
         <div class="chat-input-pills">
           <tr-dropdown-menu
