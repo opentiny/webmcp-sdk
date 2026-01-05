@@ -485,6 +485,10 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       model: this.llmConfig.model,
       system: this.systemPrompt,
       abortSignal: request.options?.signal,
+      // toolChoice: 'auto' 表示让模型决定是否调用工具（默认值）
+      // 如果要禁用工具调用，可以使用 toolChoice: 'none'
+      // 如果要强制调用工具，可以使用 toolChoice: 'required'
+      toolChoice: 'auto',
       tools: { ['get-today']: getToday, ...(this.llmConfig.extraTools || {}) },
       maxSteps: this.llmConfig.maxSteps,
       providerOptions: this.llmConfig.providerOptions || GENUI_CONFIG,
