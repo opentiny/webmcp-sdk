@@ -169,6 +169,7 @@ import { useTinyRobotChat } from '../composable/useTinyRobotChat'
 import { useCustomMcpServer } from '../composable/useCustomMcpServer'
 import { toRef, computed, ref, onMounted, markRaw, h, watch, provide, nextTick } from 'vue'
 import { createRemoter, McpServerConfig } from '@opentiny/next-sdk'
+import { storage, StorageKeys } from '../utils/storage-manager'
 import QrCodeScan from './qr-code-scan.vue'
 import ModelSwitch from './ModelSwitch.vue'
 import PluginToggleButton from './PluginToggleButton.vue'
@@ -275,30 +276,27 @@ if (props.inBrowserExt) {
 const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })
 const show = defineModel('show', { type: Boolean, default: false })
 
-// 本地存储的 key
-const GENUI_STORAGE_KEY = 'next-remoter-genui-enabled'
-
 /**
  * 获取初始生成式UI状态
- * 优先从 localStorage 读取，失败则使用 props.genUiAble 的默认值
+ * 优先从存储读取，失败则使用 props.genUiAble 的默认值
  */
 const getInitialGenuiEnabled = (): boolean => {
   try {
-    const stored = localStorage.getItem(GENUI_STORAGE_KEY)
+    const stored = storage.getItem<boolean>(StorageKeys.GENUI_ENABLED)
     if (stored !== null) {
-      // 如果 localStorage 中有值，优先使用用户之前的选择
-      return JSON.parse(stored)
+      // 如果存储中有值，优先使用用户之前的选择
+      return stored
     }
   } catch (error) {
     console.warn('[tiny-robot-chat] Failed to parse stored genui enabled:', error)
   }
 
-  // 如果 localStorage 中没有值，使用 props.genUiAble 的默认值
+  // 如果存储中没有值，使用 props.genUiAble 的默认值
   const defaultValue = props.genUiAble
   try {
-    localStorage.setItem(GENUI_STORAGE_KEY, JSON.stringify(defaultValue))
+    storage.setItem(StorageKeys.GENUI_ENABLED, defaultValue)
   } catch (error) {
-    console.error('[tiny-robot-chat] Failed to save genui enabled to localStorage:', error)
+    console.error('[tiny-robot-chat] Failed to save genui enabled to storage:', error)
   }
   return defaultValue
 }
@@ -306,12 +304,12 @@ const getInitialGenuiEnabled = (): boolean => {
 const isGenuiEnabled = ref(getInitialGenuiEnabled())
 
 if (props.inBrowserExt) {
-  // 监听生成式UI状态变化，自动同步到 localStorage
+  // 监听生成式UI状态变化，自动同步到存储
   watch(isGenuiEnabled, (newValue) => {
     try {
-      localStorage.setItem(GENUI_STORAGE_KEY, JSON.stringify(newValue))
+      storage.setItem(StorageKeys.GENUI_ENABLED, newValue)
     } catch (error) {
-      console.error('[tiny-robot-chat] Failed to save genui enabled to localStorage:', error)
+      console.error('[tiny-robot-chat] Failed to save genui enabled to storage:', error)
     }
   })
 }
@@ -493,7 +491,7 @@ const handleSendMessageCustom = async (inputValue: string, templateDataParam?: a
   }
 }
 
-const LOCAL_TOOL_STORAGE_KEY = 'local-tool-storage'
+// 使用统一的存储键常量
 
 // 自动计算的变量
 const senderPlaceholder = computed(() =>
@@ -507,7 +505,7 @@ const handlePillItemClick = (item: ReturnType<typeof mapMake>) => {
 }
 
 const loadMcpServerToPlugin = async (serverName: string, mcpServer: McpServerConfig) => {
-  const LOCAL_TOOL_STORAGE = JSON.parse(localStorage.getItem(LOCAL_TOOL_STORAGE_KEY) || '{}')
+  const LOCAL_TOOL_STORAGE = storage.getItem<Record<string, boolean>>(StorageKeys.LOCAL_TOOL_STORAGE) || {}
   const isLocalTool = serverName === 'mcp-server-localhost'
   const url = isLocalTool ? { origin: '本地工具' } : new URL('url' in mcpServer ? mcpServer.url : '')
   const sessionId = isLocalTool
@@ -638,7 +636,7 @@ watch(
 // 整个插件的打开或关闭
 const handlePluginToggle = (_plugin: PluginInfo, enabled: boolean) => {
   const isLocalTool = _plugin.id === 'plugin-本地工具列表'
-  const LOCAL_TOOL_STORAGE = JSON.parse(localStorage.getItem(LOCAL_TOOL_STORAGE_KEY) || '{}')
+  const LOCAL_TOOL_STORAGE = storage.getItem<Record<string, boolean>>(StorageKeys.LOCAL_TOOL_STORAGE) || {}
   _plugin.tools.forEach((tool) => {
     tool.enabled = enabled
     if (enabled) {
@@ -652,13 +650,13 @@ const handlePluginToggle = (_plugin: PluginInfo, enabled: boolean) => {
     Object.keys(LOCAL_TOOL_STORAGE).forEach((key) => {
       LOCAL_TOOL_STORAGE[key] = enabled
     })
-    localStorage.setItem(LOCAL_TOOL_STORAGE_KEY, JSON.stringify(LOCAL_TOOL_STORAGE))
+    storage.setItem(StorageKeys.LOCAL_TOOL_STORAGE, LOCAL_TOOL_STORAGE)
   }
 }
 
 // 某个tool的打开或关闭。  全部tool状态一致时，会同时触发handlePluginToggle 一下。
 const handleToolToggle = (_plugin: PluginInfo, toolId: string, enabled: boolean) => {
-  const LOCAL_TOOL_STORAGE = JSON.parse(localStorage.getItem(LOCAL_TOOL_STORAGE_KEY) || '{}')
+  const LOCAL_TOOL_STORAGE = storage.getItem<Record<string, boolean>>(StorageKeys.LOCAL_TOOL_STORAGE) || {}
   const isLocalTool = _plugin.id === 'plugin-本地工具列表'
 
   _plugin.tools.forEach((tool) => {
@@ -673,7 +671,7 @@ const handleToolToggle = (_plugin: PluginInfo, toolId: string, enabled: boolean)
   }
   if (isLocalTool) {
     LOCAL_TOOL_STORAGE[toolId] = enabled
-    localStorage.setItem(LOCAL_TOOL_STORAGE_KEY, JSON.stringify(LOCAL_TOOL_STORAGE))
+    storage.setItem(StorageKeys.LOCAL_TOOL_STORAGE, LOCAL_TOOL_STORAGE)
   }
 }
 // 点垃圾桶图标的插件删除

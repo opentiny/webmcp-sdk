@@ -6,6 +6,11 @@ export * from './types/model-config'
 export * from './config/model-config'
 export { default as useModel } from './composable/useModel'
 
+// 导出统一存储管理模块
+export { StorageManager, getStorageManager, createStorageManager, storage } from './utils/storage-manager'
+export { StorageKeys, type StorageKey } from './utils/storage-keys'
+export type { IStorageAdapter, StorageManagerConfig } from './utils/storage-manager'
+
 TinyRemoter.install = function (Vue: any) {
   Vue.component('tiny-remoter', TinyRemoter)
 }
