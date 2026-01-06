@@ -50,7 +50,7 @@
     </tr-bubble-provider>
 
     <template #footer>
-      <div class="chat-input" @keydown="handleKeyDown">
+      <div class="chat-input">
         <slot name="suggestions">
           <div class="chat-input-pills">
             <tr-dropdown-menu
@@ -75,12 +75,11 @@
           :loading="senderLoading"
           :showWordLimit="true"
           :maxLength="20000"
+          :extensions="senderExtensions"
           @submit="handleSendMessageCustom"
           @cancel="abortRequest"
-          v-model:template-data="templateData"
-          @trigger-char="handleTriggerChar"
         >
-          <template #footer-left>
+          <template #footer>
             <div class="action-buttons">
               <!-- 插件开关 Plugin toggle button -->
               <PluginToggleButton :installed-plugins="installedPlugins" @click="pluginVisible = !pluginVisible" />
@@ -101,17 +100,6 @@
             </div>
           </template>
         </tr-sender>
-
-        <!-- @角色功能 未来移除 -->
-        <SkillSelector
-          ref="skillSelectorRef"
-          :visible="showSkillSelector"
-          :skills="skills"
-          :position="skillSelectorPosition"
-          :filter-text="filterText"
-          @select="selectSkill"
-          @close="closeSkillSelector"
-        />
 
         <!-- 插件面板 -->
         <TrMcpServerPicker
@@ -156,7 +144,8 @@ import {
   TrHistory,
   type PluginInfo,
   type MarketCategoryOption,
-  type PluginTool
+  type PluginTool,
+  type MentionItem
 } from '@opentiny/tiny-robot'
 
 import { CustomFunction } from './customFunction'
@@ -176,9 +165,6 @@ import { getLang, mapMake } from './lang'
 import { handleError } from './error-handle'
 import { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import type { MenuItemConfig } from '@opentiny/next-sdk'
-import { type SkillOption } from './SkillSelector.vue'
-import SkillSelector from './SkillSelector.vue'
-import { useSkill } from '../composable/useSkill'
 import Button from './Button.vue'
 import useModel from '../composable/useModel'
 import IconVisual from './icons/icon-visual.svg'
@@ -259,8 +245,8 @@ const props = defineProps({
   },
 
   skills: {
-    type: Object as () => SkillOption[],
-    default: () => ({})
+    type: Object as () => MentionItem[],
+    default: () => []
   }
 })
 
@@ -472,22 +458,7 @@ const handleSendMessageCustom = async (inputValue: string, templateDataParam?: a
 
     inputMessage.value = ''
   } else {
-    // 保存当前的 templateData，以便在工具检查失败时恢复
-    // 优先使用 templateDataParam（tr-sender 传递的），如果没有则使用 templateData.value
-    const savedTemplateData = templateDataParam
-      ? [...templateDataParam]
-      : templateData.value.length > 0
-        ? [...templateData.value]
-        : undefined
-    const success = await handleSendMessage(inputValue, templateDataParam)
-
-    // 如果工具检查失败，恢复 templateData，避免输入框被清空
-    if (!success && savedTemplateData) {
-      // 使用 nextTick 确保在 tr-sender 组件清空后再恢复
-      nextTick(() => {
-        templateData.value = savedTemplateData
-      })
-    }
+    await handleSendMessage(inputValue, templateDataParam)
   }
 }
 
@@ -767,19 +738,8 @@ defineExpose({
   handleClientDisconnected
 })
 
-// TODO 未来版本移除
-const {
-  templateData,
-  showSkillSelector,
-  skillSelectorPosition,
-  filterText,
-  skillSelectorRef,
-
-  handleTriggerChar,
-  selectSkill,
-  closeSkillSelector,
-  handleKeyDown
-} = useSkill(inputMessage, senderRef, props)
+//  加载skills， 暂时先不watch 变化
+const senderExtensions = [TrSender.mention(props.skills)]
 </script>
 
 <style scoped lang="less">

@@ -89,13 +89,12 @@ const llmConfig = {
 
 const allSkills = getAllSkills().map((skill: any) => ({
   label: skill.meta.label,
-  value: skill.meta.name, // skill 的唯一标识
-  prompt: skill.prompt, // 完整的提示词内容，用于组合
+  value: skill.prompt, // 完整的提示词内容，用于组合
   tools: skill.tools || [] // 该 skill 需要的 MCP 工具名称列表
 }))
 
 // 从 skill 系统加载 skill 列表，传递完整的 skill 信息给 remoter
-const skills = ref<Array<{ label: string; value: string; prompt?: string; tools?: string[] }>>(allSkills)
+const skills = ref<Array<{ label: string; value: string }>>(allSkills)
 
 const remoterRef = ref() as Ref<InstanceType<typeof TinyRemoter>>
 useBrowserExtensions(remoterRef)
