@@ -13,7 +13,7 @@
     "build": "pnpm -F @opentiny/next-sdk build:all",
     "build:wxt": "pnpm -F @opentiny/next-wxt build",
     "build:wxt:inner": "pnpm -F @opentiny/next-wxt build:inner",
-    "build:remoter": "pnpm -F @opentiny/next-remoter build",
+    "build:remoter": "pnpm -F @opentiny/next-remoter build && pnpm -F @opentiny/next-remoter build:runtime",
     "build:site": "pnpm -F @opentiny/next-remoter build:site",
     "dev:remoter": "pnpm -F @opentiny/next-remoter dev",
     "dev:vue-playground": "pnpm -F vue-playground dev",

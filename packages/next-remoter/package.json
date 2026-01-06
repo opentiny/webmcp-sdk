@@ -1,6 +1,6 @@
 {
   "name": "@opentiny/next-remoter",
-  "version": "0.0.10-beta.6",
+  "version": "0.0.10-beta.7",
   "type": "module",
   "files": [
     "dist"
@@ -16,6 +16,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:runtime": "vite build --config vite.runtime.config.ts",
     "build:site": "vite build --config vite.remoter.config.ts",
     "build:visualizer": "vite build --config vite.remoter.config.ts --mode visualizer",
     "preview": "vite preview"
