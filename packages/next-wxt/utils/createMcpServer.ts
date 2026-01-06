@@ -1,5 +1,4 @@
 import { WebMcpServer, ContentScriptServerTransport, z } from '@opentiny/next-sdk'
-import { storage, StorageKeys } from '@opentiny/next-remoter'
 import getMcpToolByHostname from '../mcp-servers'
 
 const getCookieData = () => {
@@ -36,10 +35,10 @@ export const createMcpServer = async (tabId: number) => {
     console.log('当前域名没有配置 MCP 工具')
   }
 
-  const _sessionId = storage.getItem<string>(StorageKeys.MCP_SESSION_ID)
-  const serverTransport = new ContentScriptServerTransport(_sessionId || null, tabId)
+  const _sessionId = localStorage.getItem('mcp-sessionId')
+  const serverTransport = new ContentScriptServerTransport(_sessionId, tabId)
   const sessionId = serverTransport.sessionId
-  storage.setItem(StorageKeys.MCP_SESSION_ID, sessionId)
+  localStorage.setItem('mcp-sessionId', sessionId)
 
   await server.connect(serverTransport)
 
