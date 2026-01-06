@@ -9,6 +9,7 @@
       :sessionId="sessionId"
       :agentRoot="agentRoot"
       :systemPrompt="systemPrompt"
+      :skills="skills"
       mode="chat-dialog"
     >
       <template #welcome v-if="welcomeTitle">
@@ -66,8 +67,19 @@ const promptItems = promts.map((str) => ({ label: str }))
 
 const suggestions = query.getAll('suggestion') || [] // suggestion=你好&suggestion=世界
 function handleSuggestionClick(str: string) {
-  robotRef.value.inputMessage = str
+  robotRef.value!.inputMessage = str
 }
+
+const skills = ref([
+  {
+    label: '画图专家',
+    value: '你是一个画图专家，你具有....'
+  },
+  {
+    label: '办公助手',
+    value: '你是一个办公助手，你具有....'
+  }
+])
 </script>
 
 <style scoped lang="less">
