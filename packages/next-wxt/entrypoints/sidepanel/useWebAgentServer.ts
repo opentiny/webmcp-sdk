@@ -1,4 +1,5 @@
 import { WebMcpClient } from '@opentiny/next-sdk'
+import { storage, StorageKeys } from '@opentiny/next-remoter'
 import { createMcpServer } from './mcpServer'
 import { AGENT_ROOT } from './const'
 
@@ -17,7 +18,7 @@ export const useWebAgentServer = async (): Promise<string> => {
   const connectType = import.meta.env.VITE_WEB_AGENT_CONNECT_TYPE
   let retryCount = 0
   let isReconnecting = false
-  let latestSessionId: string | null = localStorage.getItem('mcp-sessionId')
+  let latestSessionId: string | null = storage.getItem<string>(StorageKeys.MCP_SESSION_ID)
 
   // 获取连接类型
   const getConnectType = (): 'sse' | 'socket' | 'stream' => {
@@ -29,7 +30,7 @@ export const useWebAgentServer = async (): Promise<string> => {
   // 创建连接配置
   const createConnectOptions = (onError: (error: Error) => void) => ({
     url: AGENT_ROOT + connectType,
-    sessionId: localStorage.getItem('mcp-sessionId') || undefined,
+    sessionId: storage.getItem<string>(StorageKeys.MCP_SESSION_ID) || undefined,
     agent: true,
     type: getConnectType(),
     onError
@@ -38,7 +39,7 @@ export const useWebAgentServer = async (): Promise<string> => {
   // 处理连接成功
   const handleConnectSuccess = (sessionId: string, isRetry: boolean = false) => {
     console.log(`【useWebAgentServer】${isRetry ? '重连' : '连接'}成功，sessionId:`, sessionId)
-    localStorage.setItem('mcp-sessionId', sessionId)
+    storage.setItem(StorageKeys.MCP_SESSION_ID, sessionId)
     latestSessionId = sessionId
     retryCount = 0
     isReconnecting = false

@@ -6,21 +6,18 @@
 import { computed, ref, watch } from 'vue'
 import { UNIFIED_MODEL_CONFIGS, getDefaultModelConfig } from '../config/model-config'
 import type { UnifiedModelConfig } from '../types/model-config'
-
-// 本地存储的 key
-const STORAGE_KEY = 'next-remoter-selected-model'
+import { storage, StorageKeys } from '../utils/storage-manager'
 
 /**
  * 获取初始模型 ID
- * 优先从 localStorage 读取，失败则使用默认模型
+ * 优先从存储读取，失败则使用默认模型
  * Get initial model ID
- * Read from localStorage first, fallback to default model
+ * Read from storage first, fallback to default model
  */
 const getInitialModelId = (): string => {
   try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    if (stored) {
-      const modelId = JSON.parse(stored)
+    const modelId = storage.getItem<string>(StorageKeys.SELECTED_MODEL)
+    if (modelId) {
       // 验证模型 ID 是否存在于配置列表中
       if (UNIFIED_MODEL_CONFIGS.some((config) => config.id === modelId)) {
         return modelId
@@ -33,20 +30,20 @@ const getInitialModelId = (): string => {
   // 如果读取失败或模型不存在，使用默认模型
   const defaultConfig = getDefaultModelConfig()
   const defaultId = defaultConfig.id
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(defaultId))
+  storage.setItem(StorageKeys.SELECTED_MODEL, defaultId)
   return defaultId
 }
 
 // 全局响应式状态：当前选中的模型 ID
 const selectedModelId = ref<string>(getInitialModelId())
 
-// 监听模型 ID 变化，自动同步到 localStorage
+// 监听模型 ID 变化，自动同步到存储
 watch(selectedModelId, (newId) => {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(newId))
+    storage.setItem(StorageKeys.SELECTED_MODEL, newId)
     console.log('[useModel] Model changed to:', newId)
   } catch (error) {
-    console.error('[useModel] Failed to save model to localStorage:', error)
+    console.error('[useModel] Failed to save model to storage:', error)
   }
 })
 
