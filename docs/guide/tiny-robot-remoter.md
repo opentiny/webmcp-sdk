@@ -38,6 +38,7 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 - `genUiAble` 设置是否支持生成式UI的渲染，默认值为：false
 - `genUiComponents` 生成式UI内置了一批组件，如果需要引入新组件，需要通过这里导入。 参考示例： shallowReactive({TinyUser, TinyAlert })
 - `customMarketMcpServers` 追加自定义 MCP 市场服务列表（`PluginInfo[]`），传入后会与组件内置的 `DEFAULT_SERVERS` 合并，用于扩展市场内容
+- `skills` 设置技能的配置数组。 在聊天输入框中输入 `@` 符号能唤起技能列表，选择相应的技能后，可能快速附带上技能对应的提示词内容,参考底部示例。
 
 ### llmConfig 配置详情
 
@@ -105,12 +106,7 @@ const claudeConfig = {
 
 ```vue
 <template>
-  <TinyRemoter
-    v-model:show="show"
-    sessionId="your-session-id"
-    title="我的AI助手"
-    systemPrompt="你是一个智能助手"
-  >
+  <TinyRemoter v-model:show="show" sessionId="your-session-id" title="我的AI助手" systemPrompt="你是一个智能助手">
     <template #operations>
       <!-- 自定义头部操作按钮 -->
       <button @click="handleCustomAction">自定义操作</button>
@@ -140,12 +136,7 @@ function handleExport() {
 
 ```vue
 <template>
-  <TinyRemoter
-    v-model:show="show"
-    sessionId="your-session-id"
-    title="我的AI助手"
-    systemPrompt="你是一个智能助手"
-  >
+  <TinyRemoter v-model:show="show" sessionId="your-session-id" title="我的AI助手" systemPrompt="你是一个智能助手">
     <template #header-actions>
       <!-- 在插件市场头部添加自定义按钮 -->
       <button class="custom-add-button" type="button" @click="openCustomModal">
@@ -186,11 +177,7 @@ function openCustomModal() {
         <h2>欢迎使用 AI 助手</h2>
         <p>我可以帮助你完成各种任务</p>
         <div class="prompts">
-          <button
-            v-for="prompt in prompts"
-            :key="prompt.id"
-            @click="handlePromptClick(prompt)"
-          >
+          <button v-for="prompt in prompts" :key="prompt.id" @click="handlePromptClick(prompt)">
             {{ prompt.label }}
           </button>
         </div>
@@ -494,5 +481,51 @@ const envConfig = {
   model: 'gpt-4o',
   maxSteps: 10
 }
+</script>
+```
+
+### 配置技能列表
+
+在输入框中输入 `@` 可以唤起技能列表，选择相应技能后，可以将技能提示词拼接到 `LLM 对话大模型` 的 `systemPrompt`属性中，支持同时`@`多个技能。
+
+```vue
+<template>
+  <TinyRemoter
+    v-model:show="show"
+    sessionId="your-session-id"
+    title="我的AI助手"
+    systemPrompt="你是一个智能助手"
+    :llmConfig="llmConfig"
+    :skills="skills"
+  />
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
+import { createAnthropic } from '@ai-sdk/anthropic'
+
+const show = ref(false)
+
+const llmConfig = {
+  apiKey: 'your-api-key',
+  baseURL: 'https://api.openai.com/v1',
+  providerType: 'openai',
+  model: 'gpt-4o',
+  maxSteps: 10
+}
+interface SkillItem{
+  /** 技能名称 */
+  label:string;
+  /** 技能的提示词 */
+  value:string;
+  /** 【可选】技能依赖的 MCP 工具名称列表 */
+  tools? :string[];
+}
+
+const skills= ref([
+  {label:'办公助手', value:'你是一个办公助手，可以.......'},
+  {label:'画图专家', value:'你是一个画图专家，可以.......', tools: ['openUrl','computer']},
+])
 </script>
 ```
