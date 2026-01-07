@@ -45,8 +45,6 @@ export default defineConfig(({ mode }) => {
       }
     },
     build: {
-      sourcemap: true,
-      minify: false,
       lib: {
         entry: resolve(__dirname, 'src/index.ts'),
         name: 'NextRemoter',
