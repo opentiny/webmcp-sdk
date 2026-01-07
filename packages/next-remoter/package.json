@@ -22,7 +22,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@babel/standalone": "catalog:",
     "@modelcontextprotocol/sdk": "catalog:",
     "@opentiny/genui-sdk": "catalog:",
     "@opentiny/genui-sdk-vue": "catalog:",
@@ -34,7 +33,6 @@
     "@opentiny/vue-icon": "catalog:",
     "ai": "catalog:",
     "dayjs": "catalog:",
-    "eval5": "catalog:",
     "html5-qrcode": "catalog:",
     "vant": "catalog:",
     "vue": "catalog:",
