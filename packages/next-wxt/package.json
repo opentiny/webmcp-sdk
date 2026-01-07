@@ -25,6 +25,8 @@
     "zod": "catalog:"
   },
   "devDependencies": {
+    "@babel/standalone": "catalog:",
+    "eval5": "catalog:",
     "@opentiny/next-remoter": "workspace:*",
     "@opentiny/next-sdk": "workspace:*",
     "@opentiny/unplugin-tiny-vue": "catalog:",

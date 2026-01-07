@@ -10,8 +10,9 @@ import { AGENT_ROOT, ROBOT_URL } from './const'
 import { useGenerateCode } from './useGenerateCode'
 import RecordModal from './components/RecordModal.vue'
 import { getAllSkills } from '@/skills'
-
+import { RENDERER_SETTINGS_KEY } from '@opentiny/genui-sdk-vue'
 import { useAutoScreenshot } from './useAutoScreenshot'
+import { CustomFunction } from '@/utils/customFunction'
 
 // 初始化自动截图功能
 const { captureCurrentTab } = useAutoScreenshot()
@@ -98,6 +99,11 @@ const skills = ref<Array<{ label: string; value: string }>>(allSkills)
 
 const remoterRef = ref() as Ref<InstanceType<typeof TinyRemoter>>
 useBrowserExtensions(remoterRef)
+
+// 注重生成式UI所要求的，自定义Function
+provide(RENDERER_SETTINGS_KEY, {
+  Function: CustomFunction
+})
 
 // 通过 Web Agent 服务获取实时 sessionId（中文注释：供短码/URL 使用）
 const sessionId = ref('')

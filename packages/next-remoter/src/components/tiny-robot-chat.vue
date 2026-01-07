@@ -149,14 +149,13 @@ import {
   type MentionItem
 } from '@opentiny/tiny-robot'
 
-import { CustomFunction } from './customFunction'
-import { SchemaRenderer, RENDERER_SETTINGS_KEY } from '@opentiny/genui-sdk-vue'
+import { SchemaRenderer } from '@opentiny/genui-sdk-vue'
 
 import { GeneratingStatus, STATUS } from '@opentiny/tiny-robot-kit'
 import { IconNewSession, IconHistory } from '@opentiny/tiny-robot-svgs'
 import { useTinyRobotChat } from '../composable/useTinyRobotChat'
 import { useCustomMcpServer } from '../composable/useCustomMcpServer'
-import { toRef, computed, ref, onMounted, markRaw, h, watch, provide, nextTick } from 'vue'
+import { toRef, computed, ref, onMounted, markRaw, h, watch } from 'vue'
 import { createRemoter, McpServerConfig } from '@opentiny/next-sdk'
 import { storage, StorageKeys } from '../utils/storage-manager'
 import QrCodeScan from './qr-code-scan.vue'
@@ -252,12 +251,6 @@ const props = defineProps({
     default: () => []
   }
 })
-
-if (props.inBrowserExt) {
-  provide(RENDERER_SETTINGS_KEY, {
-    Function: CustomFunction
-  })
-}
 
 const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })
 const show = defineModel('show', { type: Boolean, default: false })
