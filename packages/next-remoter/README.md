@@ -2,7 +2,7 @@
 
 目前是提供给`Vue的开发用户`的一个开箱即用的组件。
 
-核心代码在 `components, composable` 中， `tiny-robot-chat.vue` 是真正的组件
+核心代码在 `components, composable` 中， `TinyRobotChat.vue` 是真正的组件
 
 1. `index.ts` 是用于导出 Vue 组件的包，供用户使用
 2. `App.vue` 是部署在服务器上，扫码访问的页面
