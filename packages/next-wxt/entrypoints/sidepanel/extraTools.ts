@@ -2,7 +2,7 @@ import { z, type WebMcpServer } from '@opentiny/next-sdk'
 import { extractTextFromTree } from './utils/accessibilityTree'
 import { snapshotManagerPool } from './utils/snapshotManagerPool'
 import { formatSnapshot } from './utils/snapshotFormatter'
-import { clickNodeByUid, typeIntoNodeByUid, selectOptionByUid } from './utils/snapshotOperations'
+import { clickNodeByUid, typeIntoNodeByUid } from './utils/snapshotOperations'
 import {
   getCurrentTabId,
   waitForTabLoad,
@@ -210,7 +210,6 @@ export const useExtraTools = (server: WebMcpServer) => {
   )
 
   // 获取无障碍树快照（包含 UID）
-  // 参考 chrome-devtools-mcp 的 take_snapshot 工具
   server.registerTool(
     'takeSnapshot',
     {
@@ -256,7 +255,6 @@ export const useExtraTools = (server: WebMcpServer) => {
   )
 
   // 点击节点（通过 UID）
-  // 参考 chrome-devtools-mcp 的 click 工具
   server.registerTool(
     'click',
     {
@@ -302,7 +300,6 @@ export const useExtraTools = (server: WebMcpServer) => {
   )
 
   // 输入文本（通过 UID）
-  // 参考 chrome-devtools-mcp 的 fill 工具
   server.registerTool(
     'fill',
     {
@@ -346,50 +343,7 @@ export const useExtraTools = (server: WebMcpServer) => {
     })
   )
 
-  // 选择下拉选项（通过 UID）
-  server.registerTool(
-    'selectOption',
-    {
-      title: '在下拉框中选择选项',
-      description:
-        '通过快照中的 UID 在下拉框中选择选项。请先使用 takeSnapshot 获取快照，然后使用快照中的 UID 进行操作。',
-      inputSchema: {
-        tabId: z.number().optional().describe('目标标签页 ID，如果不提供则使用当前活动标签页'),
-        uid: z.string().describe('快照中下拉框节点的 UID（格式：snapshotId_counter，如 "1_5"）'),
-        optionValue: z.union([z.string(), z.number()]).describe('选项值（字符串）或索引（数字）')
-      }
-    },
-    withToolAnimation('selectOption', async ({ tabId, uid, optionValue }) => {
-      // 获取当前标签页
-      const currentTabId = tabId || (await getCurrentTabId())
-
-      // 从连接池获取管理器（连接会被复用，不会频繁断开）
-      const manager = await snapshotManagerPool.getManager(currentTabId)
-      try {
-        // 检查是否有快照
-        const snapshotCheck = checkSnapshotExists(manager)
-        if (snapshotCheck) {
-          return snapshotCheck
-        }
-
-        // 执行选择操作
-        await selectOptionByUid(manager, uid, optionValue)
-
-        // 获取操作后的最新快照并返回
-        return await getLatestSnapshotAfterOperation(manager, `成功在下拉框 (UID: ${uid}) 中选择选项: ${optionValue}。`)
-      } catch (error: any) {
-        const errorMessage = error.message || '未知错误'
-        const friendlyMessage = `选择选项失败：${errorMessage}`
-
-        return { content: [{ type: 'text', text: friendlyMessage }] }
-      } finally {
-        // 释放连接引用（连接池会管理连接生命周期，不会立即断开）
-        await snapshotManagerPool.releaseManager(currentTabId)
-      }
-    })
-  )
-
-  // Computer 工具 (Fara-7B 专用)
+  // Computer 工具提供给视觉模型使用
   server.registerTool(
     'computer',
     {

@@ -43,7 +43,7 @@ const { selectedModelId, selectedModel, availableModels, setSelectedModel } = us
 const isOpen = ref(false)
 
 const handleChangeModel = (modelId: string) => {
-  // 直接更新 selectedModelId，watch 会自动同步到 localStorage
+  // 直接更新 selectedModelId，watch 会自动同步到存储（通过统一的存储管理模块）
   setSelectedModel(modelId)
   closeDropdown()
 }

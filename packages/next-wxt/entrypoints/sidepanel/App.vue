@@ -10,8 +10,9 @@ import { AGENT_ROOT, ROBOT_URL } from './const'
 import { useGenerateCode } from './useGenerateCode'
 import RecordModal from './components/RecordModal.vue'
 import { getAllSkills } from '@/skills'
-
+import { RENDERER_SETTINGS_KEY } from '@opentiny/genui-sdk-vue'
 import { useAutoScreenshot } from './useAutoScreenshot'
+import { CustomFunction } from '@/utils/customFunction'
 
 // 初始化自动截图功能
 const { captureCurrentTab } = useAutoScreenshot()
@@ -89,16 +90,20 @@ const llmConfig = {
 
 const allSkills = getAllSkills().map((skill: any) => ({
   label: skill.meta.label,
-  value: skill.meta.name, // skill 的唯一标识
-  prompt: skill.prompt, // 完整的提示词内容，用于组合
+  value: skill.prompt, // 完整的提示词内容，用于组合
   tools: skill.tools || [] // 该 skill 需要的 MCP 工具名称列表
 }))
 
 // 从 skill 系统加载 skill 列表，传递完整的 skill 信息给 remoter
-const skills = ref<Array<{ label: string; value: string; prompt?: string; tools?: string[] }>>(allSkills)
+const skills = ref<Array<{ label: string; value: string }>>(allSkills)
 
 const remoterRef = ref() as Ref<InstanceType<typeof TinyRemoter>>
 useBrowserExtensions(remoterRef)
+
+// 注重生成式UI所要求的，自定义Function
+provide(RENDERER_SETTINGS_KEY, {
+  Function: CustomFunction
+})
 
 // 通过 Web Agent 服务获取实时 sessionId（中文注释：供短码/URL 使用）
 const sessionId = ref('')
@@ -221,12 +226,13 @@ browser.runtime.onMessage.addListener((message) => {
       :gen-ui-components="genUiComponents"
       :skills="skills"
     >
-      <template #header-actions>
+      <!-- todo: 后期等屏幕录制开发完成再放开 -->
+      <!-- <template #header-actions>
         <button v-if="isDev" class="record-button" type="button" @click="openRecordModal">
           <span class="record-button__icon">+</span>
           自定义添加
         </button>
-      </template>
+      </template> -->
       <template #suggestions>
         <div class="chat-input-pills">
           <tr-dropdown-menu

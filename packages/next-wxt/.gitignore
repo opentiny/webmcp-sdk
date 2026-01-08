@@ -14,8 +14,6 @@ stats.html
 stats-*.json
 web-ext.config.ts
 
-public/vendor/next-sdk.js
-
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

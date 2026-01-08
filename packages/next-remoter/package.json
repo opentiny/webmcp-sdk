@@ -1,6 +1,6 @@
 {
   "name": "@opentiny/next-remoter",
-  "version": "0.0.10-beta.4",
+  "version": "0.0.10-beta.8",
   "type": "module",
   "files": [
     "dist"
@@ -16,12 +16,12 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:runtime": "vite build --config vite.runtime.config.ts",
     "build:site": "vite build --config vite.remoter.config.ts",
     "build:visualizer": "vite build --config vite.remoter.config.ts --mode visualizer",
     "preview": "vite preview"
   },
   "dependencies": {
-    "@babel/standalone": "catalog:",
     "@modelcontextprotocol/sdk": "catalog:",
     "@opentiny/genui-sdk": "catalog:",
     "@opentiny/genui-sdk-vue": "catalog:",
@@ -33,7 +33,6 @@
     "@opentiny/vue-icon": "catalog:",
     "ai": "catalog:",
     "dayjs": "catalog:",
-    "eval5": "catalog:",
     "html5-qrcode": "catalog:",
     "vant": "catalog:",
     "vue": "catalog:",

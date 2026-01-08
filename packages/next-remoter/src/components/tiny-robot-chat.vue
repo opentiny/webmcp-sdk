@@ -50,7 +50,7 @@
     </tr-bubble-provider>
 
     <template #footer>
-      <div class="chat-input" @keydown="handleKeyDown">
+      <div class="chat-input">
         <slot name="suggestions">
           <div class="chat-input-pills">
             <tr-dropdown-menu
@@ -75,12 +75,11 @@
           :loading="senderLoading"
           :showWordLimit="true"
           :maxLength="20000"
+          :extensions="senderExtensions"
           @submit="handleSendMessageCustom"
           @cancel="abortRequest"
-          v-model:template-data="templateData"
-          @trigger-char="handleTriggerChar"
         >
-          <template #footer-left>
+          <template #footer>
             <div class="action-buttons">
               <!-- 插件开关 Plugin toggle button -->
               <PluginToggleButton :installed-plugins="installedPlugins" @click="pluginVisible = !pluginVisible" />
@@ -102,22 +101,11 @@
           </template>
         </tr-sender>
 
-        <!-- @角色功能 未来移除 -->
-        <SkillSelector
-          ref="skillSelectorRef"
-          :visible="showSkillSelector"
-          :skills="skills"
-          :position="skillSelectorPosition"
-          :filter-text="filterText"
-          @select="selectSkill"
-          @close="closeSkillSelector"
-        />
-
         <!-- 插件面板 -->
         <TrMcpServerPicker
           v-model:visible="pluginVisible"
           :popup-config="{ type: 'drawer' }"
-          :show-custom-add-button="false"
+          :show-custom-add-button="true"
           marketTabTitle="MCP市场"
           installedTabTitle="已添加MCP服务"
           title="扩展"
@@ -130,6 +118,7 @@
           @plugin-add="handlePluginAdd"
           @plugin-delete="handlePluginDelete"
           @tool-toggle="handleToolToggle"
+          @plugin-create="handleCustomAdd"
         >
           <template #header-actions>
             <slot name="header-actions" />
@@ -156,17 +145,19 @@ import {
   TrHistory,
   type PluginInfo,
   type MarketCategoryOption,
-  type PluginTool
+  type PluginTool,
+  type MentionItem
 } from '@opentiny/tiny-robot'
 
-import { CustomFunction } from './customFunction'
-import { SchemaRenderer, RENDERER_SETTINGS_KEY } from '@opentiny/genui-sdk-vue'
+import { SchemaRenderer } from '@opentiny/genui-sdk-vue'
 
 import { GeneratingStatus, STATUS } from '@opentiny/tiny-robot-kit'
 import { IconNewSession, IconHistory } from '@opentiny/tiny-robot-svgs'
 import { useTinyRobotChat } from '../composable/useTinyRobotChat'
-import { toRef, computed, ref, onMounted, markRaw, h, watch, provide, nextTick } from 'vue'
+import { useCustomMcpServer } from '../composable/useCustomMcpServer'
+import { toRef, computed, ref, onMounted, markRaw, h, watch } from 'vue'
 import { createRemoter, McpServerConfig } from '@opentiny/next-sdk'
+import { storage, StorageKeys } from '../utils/storage-manager'
 import QrCodeScan from './qr-code-scan.vue'
 import ModelSwitch from './ModelSwitch.vue'
 import PluginToggleButton from './PluginToggleButton.vue'
@@ -176,9 +167,6 @@ import { getLang, mapMake } from './lang'
 import { handleError } from './error-handle'
 import { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import type { MenuItemConfig } from '@opentiny/next-sdk'
-import { type SkillOption } from './SkillSelector.vue'
-import SkillSelector from './SkillSelector.vue'
-import { useSkill } from '../composable/useSkill'
 import Button from './Button.vue'
 import useModel from '../composable/useModel'
 import IconVisual from './icons/icon-visual.svg'
@@ -259,44 +247,35 @@ const props = defineProps({
   },
 
   skills: {
-    type: Object as () => SkillOption[],
-    default: () => ({})
+    type: Object as () => MentionItem[],
+    default: () => []
   }
 })
-
-if (props.inBrowserExt) {
-  provide(RENDERER_SETTINGS_KEY, {
-    Function: CustomFunction
-  })
-}
 
 const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })
 const show = defineModel('show', { type: Boolean, default: false })
 
-// 本地存储的 key
-const GENUI_STORAGE_KEY = 'next-remoter-genui-enabled'
-
 /**
  * 获取初始生成式UI状态
- * 优先从 localStorage 读取，失败则使用 props.genUiAble 的默认值
+ * 优先从存储读取，失败则使用 props.genUiAble 的默认值
  */
 const getInitialGenuiEnabled = (): boolean => {
   try {
-    const stored = localStorage.getItem(GENUI_STORAGE_KEY)
+    const stored = storage.getItem<boolean>(StorageKeys.GENUI_ENABLED)
     if (stored !== null) {
-      // 如果 localStorage 中有值，优先使用用户之前的选择
-      return JSON.parse(stored)
+      // 如果存储中有值，优先使用用户之前的选择
+      return stored
     }
   } catch (error) {
     console.warn('[tiny-robot-chat] Failed to parse stored genui enabled:', error)
   }
 
-  // 如果 localStorage 中没有值，使用 props.genUiAble 的默认值
+  // 如果存储中没有值，使用 props.genUiAble 的默认值
   const defaultValue = props.genUiAble
   try {
-    localStorage.setItem(GENUI_STORAGE_KEY, JSON.stringify(defaultValue))
+    storage.setItem(StorageKeys.GENUI_ENABLED, defaultValue)
   } catch (error) {
-    console.error('[tiny-robot-chat] Failed to save genui enabled to localStorage:', error)
+    console.error('[tiny-robot-chat] Failed to save genui enabled to storage:', error)
   }
   return defaultValue
 }
@@ -304,12 +283,12 @@ const getInitialGenuiEnabled = (): boolean => {
 const isGenuiEnabled = ref(getInitialGenuiEnabled())
 
 if (props.inBrowserExt) {
-  // 监听生成式UI状态变化，自动同步到 localStorage
+  // 监听生成式UI状态变化，自动同步到存储
   watch(isGenuiEnabled, (newValue) => {
     try {
-      localStorage.setItem(GENUI_STORAGE_KEY, JSON.stringify(newValue))
+      storage.setItem(StorageKeys.GENUI_ENABLED, newValue)
     } catch (error) {
-      console.error('[tiny-robot-chat] Failed to save genui enabled to localStorage:', error)
+      console.error('[tiny-robot-chat] Failed to save genui enabled to storage:', error)
     }
   })
 }
@@ -472,26 +451,11 @@ const handleSendMessageCustom = async (inputValue: string, templateDataParam?: a
 
     inputMessage.value = ''
   } else {
-    // 保存当前的 templateData，以便在工具检查失败时恢复
-    // 优先使用 templateDataParam（tr-sender 传递的），如果没有则使用 templateData.value
-    const savedTemplateData = templateDataParam
-      ? [...templateDataParam]
-      : templateData.value.length > 0
-        ? [...templateData.value]
-        : undefined
-    const success = await handleSendMessage(inputValue, templateDataParam)
-
-    // 如果工具检查失败，恢复 templateData，避免输入框被清空
-    if (!success && savedTemplateData) {
-      // 使用 nextTick 确保在 tr-sender 组件清空后再恢复
-      nextTick(() => {
-        templateData.value = savedTemplateData
-      })
-    }
+    await handleSendMessage(inputValue, templateDataParam)
   }
 }
 
-const LOCAL_TOOL_STORAGE_KEY = 'local-tool-storage'
+// 使用统一的存储键常量
 
 // 自动计算的变量
 const senderPlaceholder = computed(() =>
@@ -505,7 +469,7 @@ const handlePillItemClick = (item: ReturnType<typeof mapMake>) => {
 }
 
 const loadMcpServerToPlugin = async (serverName: string, mcpServer: McpServerConfig) => {
-  const LOCAL_TOOL_STORAGE = JSON.parse(localStorage.getItem(LOCAL_TOOL_STORAGE_KEY) || '{}')
+  const LOCAL_TOOL_STORAGE = storage.getItem<Record<string, boolean>>(StorageKeys.LOCAL_TOOL_STORAGE) || {}
   const isLocalTool = serverName === 'mcp-server-localhost'
   const url = isLocalTool ? { origin: '本地工具' } : new URL('url' in mcpServer ? mcpServer.url : '')
   const sessionId = isLocalTool
@@ -636,7 +600,7 @@ watch(
 // 整个插件的打开或关闭
 const handlePluginToggle = (_plugin: PluginInfo, enabled: boolean) => {
   const isLocalTool = _plugin.id === 'plugin-本地工具列表'
-  const LOCAL_TOOL_STORAGE = JSON.parse(localStorage.getItem(LOCAL_TOOL_STORAGE_KEY) || '{}')
+  const LOCAL_TOOL_STORAGE = storage.getItem<Record<string, boolean>>(StorageKeys.LOCAL_TOOL_STORAGE) || {}
   _plugin.tools.forEach((tool) => {
     tool.enabled = enabled
     if (enabled) {
@@ -650,13 +614,13 @@ const handlePluginToggle = (_plugin: PluginInfo, enabled: boolean) => {
     Object.keys(LOCAL_TOOL_STORAGE).forEach((key) => {
       LOCAL_TOOL_STORAGE[key] = enabled
     })
-    localStorage.setItem(LOCAL_TOOL_STORAGE_KEY, JSON.stringify(LOCAL_TOOL_STORAGE))
+    storage.setItem(StorageKeys.LOCAL_TOOL_STORAGE, LOCAL_TOOL_STORAGE)
   }
 }
 
 // 某个tool的打开或关闭。  全部tool状态一致时，会同时触发handlePluginToggle 一下。
 const handleToolToggle = (_plugin: PluginInfo, toolId: string, enabled: boolean) => {
-  const LOCAL_TOOL_STORAGE = JSON.parse(localStorage.getItem(LOCAL_TOOL_STORAGE_KEY) || '{}')
+  const LOCAL_TOOL_STORAGE = storage.getItem<Record<string, boolean>>(StorageKeys.LOCAL_TOOL_STORAGE) || {}
   const isLocalTool = _plugin.id === 'plugin-本地工具列表'
 
   _plugin.tools.forEach((tool) => {
@@ -671,7 +635,7 @@ const handleToolToggle = (_plugin: PluginInfo, toolId: string, enabled: boolean)
   }
   if (isLocalTool) {
     LOCAL_TOOL_STORAGE[toolId] = enabled
-    localStorage.setItem(LOCAL_TOOL_STORAGE_KEY, JSON.stringify(LOCAL_TOOL_STORAGE))
+    storage.setItem(StorageKeys.LOCAL_TOOL_STORAGE, LOCAL_TOOL_STORAGE)
   }
 }
 // 点垃圾桶图标的插件删除
@@ -733,6 +697,9 @@ const handleMcpServerPickerSearchFn = (query: string, item: PluginInfo) => {
   return query.trim() === '' || item.name.toLowerCase().includes(query.toLowerCase())
 }
 
+// 使用自定义 MCP 服务器添加 composable
+const { handleCustomAdd } = useCustomMcpServer(agent, installedPlugins, defaultPluginSrc)
+
 // 定义插槽
 defineSlots<{
   welcome(): any
@@ -764,22 +731,13 @@ defineExpose({
   /** 向插件市场添加一个server */
   loadMcpServerToPlugin,
   /** mcp client断开时，自动清理已断开的插件和资源  */
-  handleClientDisconnected
+  handleClientDisconnected,
+  /** 添加消息 */
+  addMessage
 })
 
-// TODO 未来版本移除
-const {
-  templateData,
-  showSkillSelector,
-  skillSelectorPosition,
-  filterText,
-  skillSelectorRef,
-
-  handleTriggerChar,
-  selectSkill,
-  closeSkillSelector,
-  handleKeyDown
-} = useSkill(inputMessage, senderRef, props)
+//  加载skills， 暂时先不watch 变化
+const senderExtensions = [TrSender.mention(props.skills)]
 </script>
 
 <style scoped lang="less">

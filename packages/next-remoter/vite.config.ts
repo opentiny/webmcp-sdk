@@ -45,8 +45,6 @@ export default defineConfig(({ mode }) => {
       }
     },
     build: {
-      sourcemap: true,
-      minify: false,
       lib: {
         entry: resolve(__dirname, 'src/index.ts'),
         name: 'NextRemoter',
@@ -55,7 +53,22 @@ export default defineConfig(({ mode }) => {
         fileName: (format) => `next-remoter.${format}.js`
       },
       rollupOptions: {
-        external: ['vue', /@opentiny\//],
+        // external 函数：排除 JS 模块，但不排除 CSS 文件
+        external: (id) => {
+          // CSS 文件不应该被排除，需要打包到 style.css
+          if (id.endsWith('.css')) {
+            return false
+          }
+          // 排除 vue
+          if (id === 'vue') {
+            return true
+          }
+          // 排除 @opentiny/ 开头的 JS 模块，但不排除 CSS 文件
+          if (id.startsWith('@opentiny/')) {
+            return true
+          }
+          return false
+        },
         output: {
           // CSS 文件使用 style.css 作为文件名，其他资源保持默认命名
           assetFileNames: (assetInfo) => {

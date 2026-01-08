@@ -13,7 +13,6 @@ declare module 'vue' {
     QrCodeScan: typeof import('./src/components/qr-code-scan.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
-    SkillSelector: typeof import('./src/components/SkillSelector.vue')['default']
     TinyRobotChat: typeof import('./src/components/tiny-robot-chat.vue')['default']
     VanIcon: typeof import('vant/es')['Icon']
   }
