@@ -55,7 +55,7 @@ jobs:
       - name: Build next-sdk-playground
         run: pnpm build:playground
         env:
-          VITE_BASE: /next-sdk-playground/
+          PLAYGROUND_BASE: /next-sdk-playground/
       - name: Copy files
         run: |
           cp packages/next-sdk-playground/dist/index.html packages/next-sdk-playground/dist/404.html
