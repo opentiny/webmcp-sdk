@@ -16,7 +16,7 @@ import type { Component } from 'vue'
  */
 export const UNIFIED_MODEL_CONFIGS: UnifiedModelConfig[] = [
   {
-    id: 'deepseek-ai/DeepSeek-V3',
+    id: 'deepseek-ai/DeepSeek-V3sdfsd',
     label: 'DeepSeek-V3',
     apiKey: 'sk-trial',
     apiUrl: 'https://agent.opentiny.design/api/v1/ai',
