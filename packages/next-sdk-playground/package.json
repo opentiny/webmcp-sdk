@@ -1,0 +1,34 @@
+{
+  "name": "next-sdk-playground",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./utils": {
+      "import": "./src/utils/index.ts"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc && vite build && vite build --mode lib",
+    "preview": "vite preview",
+    "type-check": "vue-tsc --noEmit"
+  },
+  "dependencies": {
+    "@vue/repl": "^4.7.1",
+    "vue": "^3.3.11"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.17",
+    "@vitejs/plugin-vue": "^4.5.2",
+    "concurrently": "^8.2.0",
+    "less": "^4.2.0",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.8",
+    "vite-plugin-dts": "^4.5.3",
+    "vue-tsc": "^2.2.8"
+  }
+}
