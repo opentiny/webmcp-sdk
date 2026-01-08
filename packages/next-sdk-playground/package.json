@@ -18,9 +18,7 @@
     "type-check": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "@opentiny/next-sdk": "workspace:*",
-    "@opentiny/next-remoter": "^0.0.10",
-    "@vue/repl": "^4.7.0",
+    "@vue/repl": "^4.7.1",
     "vue": "^3.3.11"
   },
   "devDependencies": {
