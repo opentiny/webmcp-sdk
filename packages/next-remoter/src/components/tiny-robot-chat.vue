@@ -86,17 +86,7 @@
               <!-- 模型切换组件 Model switch component -->
               <ModelSwitch v-if="inBrowserExt" />
               <!-- 生成式UI开关 GenUI toggle button -->
-              <Button
-                class="action-button"
-                v-if="inBrowserExt"
-                :active="isGenuiEnabled"
-                rounded
-                size="small"
-                @click="isGenuiEnabled = !isGenuiEnabled"
-              >
-                <IconVisual :width="16" :height="16" />
-                <span class="button-text">生成式UI</span>
-              </Button>
+              <GenUISwitch v-if="inBrowserExt" />
             </div>
           </template>
         </tr-sender>
@@ -155,7 +145,7 @@ import { GeneratingStatus, STATUS } from '@opentiny/tiny-robot-kit'
 import { IconNewSession, IconHistory } from '@opentiny/tiny-robot-svgs'
 import { useTinyRobotChat } from '../composable/useTinyRobotChat'
 import { useCustomMcpServer } from '../composable/useCustomMcpServer'
-import { toRef, computed, ref, onMounted, markRaw, h, watch } from 'vue'
+import { toRef, computed, ref, onMounted, markRaw, h, watch, type Ref } from 'vue'
 import { createRemoter, McpServerConfig } from '@opentiny/next-sdk'
 import { storage, StorageKeys } from '../utils/storage-manager'
 import QrCodeScan from './qr-code-scan.vue'
@@ -167,9 +157,9 @@ import { getLang, mapMake } from './lang'
 import { handleError } from './error-handle'
 import { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import type { MenuItemConfig } from '@opentiny/next-sdk'
-import Button from './Button.vue'
 import useModel from '../composable/useModel'
-import IconVisual from './icons/icon-visual.svg'
+import useGenUI from '../composable/useGenUI'
+import GenUISwitch from './GenUISwitch.vue'
 
 defineOptions({
   name: 'TinyRemoter'
@@ -255,43 +245,8 @@ const props = defineProps({
 const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })
 const show = defineModel('show', { type: Boolean, default: false })
 
-/**
- * 获取初始生成式UI状态
- * 优先从存储读取，失败则使用 props.genUiAble 的默认值
- */
-const getInitialGenuiEnabled = (): boolean => {
-  try {
-    const stored = storage.getItem<boolean>(StorageKeys.GENUI_ENABLED)
-    if (stored !== null) {
-      // 如果存储中有值，优先使用用户之前的选择
-      return stored
-    }
-  } catch (error) {
-    console.warn('[tiny-robot-chat] Failed to parse stored genui enabled:', error)
-  }
-
-  // 如果存储中没有值，使用 props.genUiAble 的默认值
-  const defaultValue = props.genUiAble
-  try {
-    storage.setItem(StorageKeys.GENUI_ENABLED, defaultValue)
-  } catch (error) {
-    console.error('[tiny-robot-chat] Failed to save genui enabled to storage:', error)
-  }
-  return defaultValue
-}
-// 生成式UI的启用状态（响应式，支持动态切换）
-const isGenuiEnabled = ref(getInitialGenuiEnabled())
-
-if (props.inBrowserExt) {
-  // 监听生成式UI状态变化，自动同步到存储
-  watch(isGenuiEnabled, (newValue) => {
-    try {
-      storage.setItem(StorageKeys.GENUI_ENABLED, newValue)
-    } catch (error) {
-      console.error('[tiny-robot-chat] Failed to save genui enabled to storage:', error)
-    }
-  })
-}
+// 使用生成式UI状态管理 composable
+const { isGenuiEnabled } = useGenUI(props.genUiAble)
 
 const {
   showHistory,
@@ -320,7 +275,7 @@ const {
   llmConfig: props.llmConfig,
   inBrowserExt: toRef(props, 'inBrowserExt'),
   skills: props.skills || [], // 传递 skills 列表给 useTinyRobotChat
-  isGenuiEnabled // 传递生成式UI状态
+  isGenuiEnabled: isGenuiEnabled as Ref<boolean> // 传递生成式UI状态
 })
 
 // 获取当前选中的模型配置
