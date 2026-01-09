@@ -34,7 +34,7 @@
 <script setup lang="ts">
 import useModel from '../composable/useModel'
 import { onClickOutside } from '@vueuse/core'
-import { ref, toRef, type Ref } from 'vue'
+import { ref, shallowRef, type Ref } from 'vue'
 import Button from './Button.vue'
 import IconModel from './icons/icon-model.svg'
 import type { UnifiedModelConfig } from '../types/model-config'
@@ -51,8 +51,18 @@ const emit = defineEmits<{
   'update:selectedModelId': [modelId: string]
 }>()
 
-const modelConfigsRef = props.modelConfigs ? (Array.isArray(props.modelConfigs) ? ref(props.modelConfigs) : props.modelConfigs) : undefined
-const selectedModelIdRef = props.selectedModelId ? (typeof props.selectedModelId === 'string' ? ref(props.selectedModelId) : props.selectedModelId) : undefined
+// 处理 modelConfigs：如果是数组，使用 shallowRef 避免组件被深度响应式化
+// 注意：icon 组件应该在创建配置时就使用 markRaw 标记（在 next-wxt 的 model-config.ts 中）
+const modelConfigsRef = props.modelConfigs
+  ? Array.isArray(props.modelConfigs)
+    ? shallowRef(props.modelConfigs) // 使用 shallowRef 避免深度响应式化
+    : props.modelConfigs
+  : undefined
+const selectedModelIdRef = props.selectedModelId
+  ? typeof props.selectedModelId === 'string'
+    ? ref(props.selectedModelId)
+    : props.selectedModelId
+  : undefined
 
 const { selectedModelId, selectedModel, availableModels, setSelectedModel } = useModel(
   modelConfigsRef,

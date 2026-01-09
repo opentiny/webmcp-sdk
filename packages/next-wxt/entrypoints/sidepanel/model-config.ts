@@ -7,6 +7,7 @@
 
 import type { UnifiedModelConfig } from '@opentiny/next-remoter'
 import type { Component } from 'vue'
+import { markRaw } from 'vue'
 
 // 从本地导入图标
 // Import icons from local directory
@@ -26,7 +27,7 @@ export const DEFAULT_MODEL_CONFIGS: UnifiedModelConfig[] = [
     baseURL: 'https://agent.opentiny.design/api/v1/ai',
     providerType: 'deepseek',
     useReActMode: false,
-    icon: IconModelDeepseek as unknown as Component,
+    icon: markRaw(IconModelDeepseek as unknown as Component),
     isDefault: true
   },
   {
@@ -47,6 +48,6 @@ export const DEFAULT_MODEL_CONFIGS: UnifiedModelConfig[] = [
     baseURL: 'https://agent.opentiny.design/api/v1/ai',
     providerType: 'deepseek',
     useReActMode: true,
-    icon: IconModelAliyunBailian as unknown as Component
+    icon: markRaw(IconModelAliyunBailian as unknown as Component)
   }
 ]
