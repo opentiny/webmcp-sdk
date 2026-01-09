@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, type Ref, shallowReactive, computed, onBeforeMount, watch } from 'vue'
+import { ref, type Ref, shallowReactive, computed, watch } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
 import { useBrowserExtensions } from './useBrowserExtensions'
 import { useWebAgentServer } from './useWebAgentServer'
@@ -14,7 +14,7 @@ import { RENDERER_SETTINGS_KEY } from '@opentiny/genui-sdk-vue'
 import { useAutoScreenshot } from './useAutoScreenshot'
 import { CustomFunction } from '@/utils/customFunction'
 import { DEFAULT_MODEL_CONFIGS } from './model-config'
-import { storage } from '@wxt-dev/storage'
+import { getStorageItem, setStorageItem } from './utils/local-storage'
 import { StorageKeys } from './utils/storage-keys'
 
 // 初始化自动截图功能
@@ -123,95 +123,40 @@ useWebAgentServer()
 const genUiComponents = shallowReactive({ TinyUser })
 // 汇总自定义 MCP Server 配置（中文注释：用于传给 TinyRemoter 的插件市场）
 const customMarketMcpServers = useCustomMarketMcpServers()
-const isDev = import.meta.env.DEV
 
 // 管理选中的模型 ID（从存储读取，变化时保存）
+// 使用 localStorage 同步读取，可以在初始化时直接获取值
 const defaultModel = DEFAULT_MODEL_CONFIGS.find((config) => config.isDefault) || DEFAULT_MODEL_CONFIGS[0]
-// 先使用默认值创建 ref，然后在 onBeforeMount 中加载存储值
-// 注意：使用 shallowRef 避免深度响应式，因为值会在 onBeforeMount 中更新
-const selectedModelId = ref<string>(defaultModel.id)
+const storedModel = getStorageItem<string>(StorageKeys.SELECTED_MODEL)
+const selectedModelId = ref<string>(
+  storedModel && DEFAULT_MODEL_CONFIGS.some((config) => config.id === storedModel) ? storedModel : defaultModel.id
+)
 
 // 管理生成式UI启用状态（从存储读取，变化时保存）
-const genuiEnabled = ref<boolean>(false)
+// 使用 localStorage 同步读取，可以在初始化时直接获取值
+const storedGenui = getStorageItem<boolean>(StorageKeys.GENUI_ENABLED)
+const genuiEnabled = ref<boolean>(storedGenui ?? false)
 
 // 管理本地工具存储状态（从存储读取，变化时保存）
-const localToolStorage = ref<Record<string, boolean>>({})
+// 使用 localStorage 同步读取，可以在初始化时直接获取值
+const storedLocalTool = getStorageItem<Record<string, boolean>>(StorageKeys.LOCAL_TOOL_STORAGE)
+const localToolStorage = ref<Record<string, boolean>>(storedLocalTool || {})
 
-// 标志：是否已从存储加载初始值（用于避免在加载时触发 watch）
-let isInitialized = false
-
-// 在组件挂载前加载存储值，确保在 TinyRobotChat 初始化时就有正确的值
-// 使用 onBeforeMount 确保在子组件初始化之前加载
-onBeforeMount(async () => {
-  try {
-    // 加载选中的模型 ID（使用 @wxt-dev/storage 统一存储接口）
-    const storedModel = (await storage.getMeta(StorageKeys.SELECTED_MODEL)) as unknown as string | undefined
-    if (storedModel && DEFAULT_MODEL_CONFIGS.some((config) => config.id === storedModel)) {
-      selectedModelId.value = storedModel
-    }
-
-    // 加载生成式UI启用状态（使用 @wxt-dev/storage 后需要确保类型正确）
-    const storedGenui = (await storage.getMeta(StorageKeys.GENUI_ENABLED)) as unknown
-    debugger
-    // 确保存储的值是布尔类型，避免类型错误（@wxt-dev/storage 可能返回对象）
-    if (typeof storedGenui === 'boolean') {
-      genuiEnabled.value = storedGenui
-    }
-
-    // 加载本地工具存储状态
-    const storedLocalTool = (await storage.getMeta(StorageKeys.LOCAL_TOOL_STORAGE)) as unknown as
-      | Record<string, boolean>
-      | undefined
-    if (storedLocalTool) {
-      localToolStorage.value = storedLocalTool
-    }
-  } catch (error) {
-    console.warn('[App] Failed to load stored data:', error)
-  } finally {
-    // 标记初始化完成，之后的变化才会保存到存储
-    isInitialized = true
-  }
+// 监听 selectedModelId 变化，自动保存到存储（使用 localStorage 同步存储）
+watch(selectedModelId, (newId) => {
+  setStorageItem(StorageKeys.SELECTED_MODEL, newId)
 })
 
-// 监听 selectedModelId 变化，自动保存到存储（使用 @wxt-dev/storage 统一存储接口）
-watch(selectedModelId, async (newId) => {
-  // 只有在初始化完成后才保存，避免在加载存储值时触发
-  if (!isInitialized) {
-    return
-  }
-  try {
-    await storage.setMeta(StorageKeys.SELECTED_MODEL, newId as unknown as Record<string, unknown>)
-  } catch (error) {
-    console.error('[App] Failed to save model to storage:', error)
-  }
+// 监听 genuiEnabled 变化，自动保存到存储（使用 localStorage 同步存储）
+watch(genuiEnabled, (newValue) => {
+  setStorageItem(StorageKeys.GENUI_ENABLED, newValue)
 })
 
-// 监听 genuiEnabled 变化，自动保存到存储（使用 @wxt-dev/storage 统一存储接口）
-watch(genuiEnabled, async (newValue) => {
-  // 只有在初始化完成后才保存，避免在加载存储值时触发
-  if (!isInitialized) {
-    return
-  }
-  try {
-    await storage.setMeta(StorageKeys.GENUI_ENABLED, newValue as unknown as Record<string, unknown>)
-  } catch (error) {
-    console.error('[App] Failed to save genui enabled to storage:', error)
-  }
-})
-
-// 监听 localToolStorage 变化，自动保存到存储（使用 @wxt-dev/storage 统一存储接口）
+// 监听 localToolStorage 变化，自动保存到存储（使用 localStorage 同步存储）
 watch(
   localToolStorage,
-  async (newValue) => {
-    // 只有在初始化完成后才保存，避免在加载存储值时触发
-    if (!isInitialized) {
-      return
-    }
-    try {
-      await storage.setMeta(StorageKeys.LOCAL_TOOL_STORAGE, newValue as unknown as Record<string, unknown>)
-    } catch (error) {
-      console.error('[App] Failed to save local tool storage:', error)
-    }
+  (newValue) => {
+    setStorageItem(StorageKeys.LOCAL_TOOL_STORAGE, newValue)
   },
   { deep: true }
 )
