@@ -290,6 +290,15 @@ if (props.llmConfigs && props.llmConfigs.length > 0) {
   console.warn('[TinyRemoter] llmConfigs prop is required. Please provide model configurations.')
 }
 
+// 获取当前选中的模型配置（如果传入了 llmConfigs，则使用传入的配置）
+const llmConfigsRef = props.llmConfigs ? (toRef(props, 'llmConfigs') as Ref<UnifiedModelConfig[]>) : undefined
+// selectedModelId 已通过 defineModel 定义，可以直接使用
+// defineModel 返回的 ref 可以直接传递给 useModel
+const { selectedModel } = useModel(llmConfigsRef, selectedModelId, (modelId: string) => {
+  // 当模型变化时，更新 selectedModelId（defineModel 会自动处理双向绑定）
+  selectedModelId.value = modelId
+})
+
 const {
   showHistory,
   agent, // ai-sdk的自定义代理，client通过它和llm 对话。 agent.ignoreToolnames=[] 是记录需要过滤掉的tools
@@ -317,20 +326,13 @@ const {
   llmConfig: props.llmConfig,
   inBrowserExt: toRef(props, 'inBrowserExt'),
   skills: props.skills || [], // 传递 skills 列表给 useTinyRobotChat
-  isGenuiEnabled: isGenuiEnabled as Ref<boolean> // 传递生成式UI状态
+  isGenuiEnabled: isGenuiEnabled as Ref<boolean>, // 传递生成式UI状态
+  selectedModel // 传递当前选中的模型配置
 })
 
-// 获取当前选中的模型配置（如果传入了 llmConfigs，则使用传入的配置）
-const llmConfigsRef = props.llmConfigs ? (toRef(props, 'llmConfigs') as Ref<UnifiedModelConfig[]>) : undefined
-// selectedModelId 已通过 defineModel 定义，可以直接使用
-// defineModel 返回的 ref 可以直接传递给 useModel
-const { selectedModel } = useModel(llmConfigsRef, selectedModelId, (modelId: string) => {
-  // 当模型变化时，更新 selectedModelId（defineModel 会自动处理双向绑定）
-  selectedModelId.value = modelId
-})
-
+// 监听生成式UI状态变化，动态更新 baseURL
+// 当生成式UI状态变化时，重新调用 updateLLMConfig 来更新 baseURL
 if (props.llmConfigs) {
-  // 监听生成式UI状态变化，动态更新 baseURL
   watch(isGenuiEnabled, () => {
     // 当生成式UI状态变化时，重新调用 updateLLMConfig 来更新 baseURL
     if (
@@ -341,9 +343,11 @@ if (props.llmConfigs) {
     ) {
       const model = selectedModel.value
       if (model.baseURL && model.apiKey && model.providerType) {
+        // 获取原始 baseURL（不包含 /prompt 后缀）
+        const originalBaseURL = model.baseURL.replace('/prompt', '')
         customAgentProvider.updateLLMConfig({
           modelId: model.id,
-          baseURL: model.baseURL,
+          baseURL: originalBaseURL, // 使用原始 baseURL，updateLLMConfig 会根据 isGenuiEnabled 自动添加 /prompt
           apiKey: model.apiKey,
           providerType: model.providerType,
           useReActMode: model.useReActMode

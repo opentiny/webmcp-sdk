@@ -6,7 +6,7 @@ import { TrSender } from '@opentiny/tiny-robot'
 import logo from '../../public/svgs/logo-next-no-bg-right.svg'
 import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import { extractTextAndJson } from './handleSchema'
-import useModel from './useModel'
+import type { UnifiedModelConfig } from '../types/model-config'
 
 interface useTinyRobotOption {
   sessionId: Ref<string>
@@ -16,6 +16,7 @@ interface useTinyRobotOption {
   skills?: PropsSkill[] // 添加 skills 参数，tools 字段用于指定该 skill 需要的工具列表
   isGenuiEnabled?: Ref<boolean> // 生成式UI启用状态
   inBrowserExt?: Ref<boolean> // 是否在浏览器扩展中运行
+  selectedModel?: Ref<UnifiedModelConfig | undefined> // 当前选中的模型配置（可选，从外部传入）Current selected model configuration (optional, provided externally)
 }
 
 /** 事件中返回的Skill 结构体 */
@@ -47,7 +48,8 @@ export const useTinyRobotChat = ({
   llmConfig,
   skills = [],
   isGenuiEnabled = ref(false),
-  inBrowserExt = ref(false)
+  inBrowserExt = ref(false),
+  selectedModel
 }: useTinyRobotOption) => {
   const customAgentProvider = new CustomAgentModelProvider(
     { provider: 'custom' },
@@ -418,19 +420,30 @@ export const useTinyRobotChat = ({
   })
 
   // 监听模型切换 - Watch for model changes
-  const { selectedModel } = useModel()
-
-  if (inBrowserExt.value) {
+  // 如果外部传入了 selectedModel，使用外部的；否则不监听（因为模型切换逻辑在外部处理）
+  if (inBrowserExt.value && selectedModel) {
     watch(
       selectedModel,
       (newModel) => {
-        if (newModel && 'baseURL' in newModel && 'apiKey' in newModel && 'providerType' in newModel) {
+        if (
+          newModel &&
+          'baseURL' in newModel &&
+          'apiKey' in newModel &&
+          'providerType' in newModel &&
+          newModel.baseURL &&
+          typeof newModel.baseURL === 'string' &&
+          newModel.apiKey &&
+          typeof newModel.apiKey === 'string' &&
+          newModel.providerType
+        ) {
           const model = newModel
+          // 确保 baseURL 是原始的（不包含 /prompt 后缀），updateLLMConfig 会根据 isGenuiEnabled 自动添加
+          const originalBaseURL = model.baseURL.replace('/prompt', '')
           customAgentProvider.updateLLMConfig({
             modelId: model.id,
-            baseURL: model.baseURL, // 注意：updateLLMConfig 参数名为 apiUrl，但实际使用的是 baseURL
-            apiKey: model.apiKey!,
-            providerType: model.providerType!,
+            baseURL: originalBaseURL,
+            apiKey: model.apiKey,
+            providerType: model.providerType,
             useReActMode: model.useReActMode
           })
         }
