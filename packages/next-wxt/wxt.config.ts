@@ -49,6 +49,9 @@ export default defineConfig({
   },
   vite: () => ({
     envDir: './env',
+    build: {
+      target: 'chrome89' // 支持 top-level await
+    },
     plugins: [
       Components({
         resolvers: [TinyVueSingleResolver, VantResolver()]
