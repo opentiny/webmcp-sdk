@@ -18,8 +18,6 @@ export async function getVersions(pkg: string, options: GetVersionsOptions = {})
 
   try {
     // 使用 npmmirror 的 API 获取版本信息
-    console.log(111, pkg)
-
     const response = await fetch(`https://registry.npmmirror.com/${pkg}`)
     const data = await response.json()
 
