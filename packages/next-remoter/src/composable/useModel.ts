@@ -56,7 +56,17 @@ export default function useModel(
   }
 
   // 内部状态：当前选中的模型 ID
-  const selectedModelId = ref<string>(getInitialModelId())
+  // 如果外部传入了 initialModelId 且是 Ref，先尝试使用其当前值
+  let initialId: string | undefined
+  if (initialModelId) {
+    if (typeof initialModelId === 'string') {
+      initialId = initialModelId
+    } else {
+      initialId = initialModelId.value
+    }
+  }
+  
+  const selectedModelId = ref<string>(initialId ? (currentModelConfigs.value.some((config) => config.id === initialId) ? initialId : getInitialModelId()) : getInitialModelId())
 
   // 如果外部传入了 initialModelId 且是 Ref，监听其变化
   if (initialModelId && typeof initialModelId !== 'string') {
@@ -64,7 +74,11 @@ export default function useModel(
       initialModelId,
       (newId) => {
         if (newId && currentModelConfigs.value.some((config) => config.id === newId)) {
-          selectedModelId.value = newId
+          if (selectedModelId.value !== newId) {
+            selectedModelId.value = newId
+          }
+        } else if (newId) {
+          console.warn('[useModel] External modelId not found in configs:', newId)
         }
       },
       { immediate: true }

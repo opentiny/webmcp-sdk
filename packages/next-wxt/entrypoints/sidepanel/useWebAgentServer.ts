@@ -1,5 +1,5 @@
 import { WebMcpClient } from '@opentiny/next-sdk'
-import { storage, StorageKeys } from '@opentiny/next-remoter'
+import { storage, StorageKeys } from './utils/storage-manager'
 import { createMcpServer } from './mcpServer'
 import { AGENT_ROOT } from './const'
 
@@ -18,7 +18,16 @@ export const useWebAgentServer = async (): Promise<string> => {
   const connectType = import.meta.env.VITE_WEB_AGENT_CONNECT_TYPE
   let retryCount = 0
   let isReconnecting = false
-  let latestSessionId: string | null = storage.getItem<string>(StorageKeys.MCP_SESSION_ID)
+  // 注意：由于存储是异步的，这里先设为 null，后续从存储加载
+  // Note: Since storage is async, set to null initially, load from storage later
+  let latestSessionId: string | null = null
+  
+  // 从存储加载 sessionId
+  try {
+    latestSessionId = await storage.getItemAsync<string>(StorageKeys.MCP_SESSION_ID)
+  } catch (error) {
+    console.warn('[useWebAgentServer] Failed to load stored sessionId:', error)
+  }
 
   // 获取连接类型
   const getConnectType = (): 'sse' | 'socket' | 'stream' => {
@@ -30,16 +39,20 @@ export const useWebAgentServer = async (): Promise<string> => {
   // 创建连接配置
   const createConnectOptions = (onError: (error: Error) => void) => ({
     url: AGENT_ROOT + connectType,
-    sessionId: storage.getItem<string>(StorageKeys.MCP_SESSION_ID) || undefined,
+    sessionId: latestSessionId || undefined,
     agent: true,
     type: getConnectType(),
     onError
   })
 
   // 处理连接成功
-  const handleConnectSuccess = (sessionId: string, isRetry: boolean = false) => {
+  const handleConnectSuccess = async (sessionId: string, isRetry: boolean = false) => {
     console.log(`【useWebAgentServer】${isRetry ? '重连' : '连接'}成功，sessionId:`, sessionId)
-    storage.setItem(StorageKeys.MCP_SESSION_ID, sessionId)
+    try {
+      await storage.setItemAsync(StorageKeys.MCP_SESSION_ID, sessionId)
+    } catch (error) {
+      console.error('[useWebAgentServer] Failed to save sessionId:', error)
+    }
     latestSessionId = sessionId
     retryCount = 0
     isReconnecting = false
