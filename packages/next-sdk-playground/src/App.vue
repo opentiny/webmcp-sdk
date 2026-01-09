@@ -6,10 +6,12 @@ import Header from './Header.vue'
 import { generateImportMap, generateStore, getDefaultFiles, getVersions } from './utils'
 
 declare global {
-  const __TINY_ROBOT_VERSION__: string
+  const __TINY_NEXT_SDK_VERSION__: string
 }
 
-const nextSdkVersion = ref(__TINY_ROBOT_VERSION__ || 'latest')
+// todo: __TINY_NEXT_SDK_VERSION__其他版本有问题  先默认0.1.15
+// const nextSdkVersion = ref(__TINY_NEXT_SDK_VERSION__ || 'latest')
+const nextSdkVersion = ref('0.1.15')
 const nextSdkVersions = ref<string[]>([nextSdkVersion.value])
 
 const { store, builtinImportMap } = generateStore({
@@ -58,8 +60,6 @@ onMounted(async () => {
     console.error('Failed to load Vue versions:', error)
   }
 })
-
-console.log(111, store)
 </script>
 
 <template>

@@ -1,4 +1,4 @@
-import pkg from '@opentiny/tiny-robot/package.json' with { type: 'json' }
+import pkg from '@opentiny/next-sdk/package.json' with { type: 'json' }
 import vue from '@vitejs/plugin-vue'
 import { dirname, resolve } from 'path'
 import { fileURLToPath } from 'url'
@@ -19,22 +19,13 @@ export default defineConfig(({ mode }) => {
         exclude: ['@vue/repl']
       },
       define: {
-        __TINY_ROBOT_VERSION__: JSON.stringify(pkg.version)
+        __TINY_NEXT_SDK_VERSION__: JSON.stringify(pkg.version)
       }
     }
   }
 
   // Library mode configuration for building utils
   return {
-    plugins: [
-      vue(),
-      dts({
-        entryRoot: 'src/utils',
-        outDir: 'dist/utils',
-        include: ['src/utils/**/*'],
-        exclude: ['src/utils/**/*.test.*', 'src/utils/**/*.spec.*']
-      })
-    ],
     build: {
       lib: {
         entry: {
@@ -43,18 +34,6 @@ export default defineConfig(({ mode }) => {
         name: 'nextSdkPlaygroundUtils',
         fileName: (format) => `utils/index.${format === 'es' ? 'js' : format}`,
         formats: ['es']
-      },
-      rollupOptions: {
-        external: (id) => {
-          // Externalize all dependencies and CSS files
-          return id.includes('node_modules') || id.endsWith('.css') || id === 'vue' || id === '@vue/repl'
-        },
-        output: {
-          globals: {
-            vue: 'Vue',
-            '@vue/repl': 'VueRepl'
-          }
-        }
       },
       outDir: 'dist',
       emptyOutDir: false
