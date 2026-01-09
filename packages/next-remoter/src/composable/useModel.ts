@@ -4,9 +4,9 @@ import type { UnifiedModelConfig } from '../types/model-config'
 /**
  * 统一的模型管理 composable
  * 提供模型选择和配置管理功能
- * @param modelConfigs 外部传入的模型配置列表（必需）External model configuration list (required)
- * @param initialModelId 初始模型 ID（可选，从外部传入，支持 Ref<string | undefined>）Initial model ID (optional, provided externally, supports Ref<string | undefined>)
- * @param onModelChange 模型变化回调函数（可选，用于通知外部）Model change callback (optional, for notifying external)
+ * @param modelConfigs 外部传入的模型配置列表（必需）
+ * @param initialModelId 初始模型 ID（可选，从外部传入，支持 Ref<string | undefined>）
+ * @param onModelChange 模型变化回调函数（可选，用于通知外部）
  */
 export default function useModel(
   modelConfigs?: Ref<UnifiedModelConfig[]> | UnifiedModelConfig[],

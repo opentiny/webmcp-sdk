@@ -290,36 +290,32 @@ const {
   systemPrompt: props.systemPrompt || '',
   llmConfig: props.llmConfig,
   inBrowserExt: toRef(props, 'inBrowserExt'),
-  skills: props.skills || [], // 传递 skills 列表给 useTinyRobotChat
-  selectedModel // 传递当前选中的模型配置
+  skills: props.skills || [] // 传递 skills 列表给 useTinyRobotChat
 })
 
 customAgentProvider.isGenuiEnabled = genUiAble
 
-// 监听生成式UI状态变化，动态更新 baseURL
-// 当生成式UI状态变化时，重新调用 updateLLMConfig 来更新 baseURL
-if (props.llmConfigs) {
-  watch(genUiAble, () => {
-    debugger
-    // 当生成式UI状态变化时，重新调用 updateLLMConfig 来更新 baseURL
-    if (
-      selectedModel.value &&
-      'baseURL' in selectedModel.value &&
-      'apiKey' in selectedModel.value &&
-      'providerType' in selectedModel.value
-    ) {
-      const model = selectedModel.value
-      if (model.baseURL && model.apiKey && model.providerType) {
-        customAgentProvider.updateLLMConfig({
-          modelId: model.id,
-          baseURL: model.baseURL,
-          apiKey: model.apiKey,
-          providerType: model.providerType,
-          useReActMode: model.useReActMode
-        })
-      }
-    }
-  })
+// 统一的 LLM 配置更新函数（合并模型切换和生成式UI状态变化的逻辑）
+const updateLLMConfigFromModel = () => {
+  if (selectedModel.value) {
+    const model = selectedModel.value
+    customAgentProvider.updateLLMConfig({
+      modelId: model.id,
+      baseURL: model.baseURL,
+      apiKey: model.apiKey,
+      providerType: model.providerType,
+      useReActMode: model.useReActMode
+    })
+  }
+}
+
+// 监听模型切换和生成式UI状态变化，统一更新 LLM 配置
+if (props.llmConfigs && props.inBrowserExt) {
+  // 监听模型切换
+  watch(selectedModel, updateLLMConfigFromModel, { immediate: true })
+
+  // 监听生成式UI状态变化
+  watch(genUiAble, updateLLMConfigFromModel)
 }
 
 // 自定义消息渲染器 ---- 默认支持markdown 和 生成式UI（生成式UI有很多流处理，不容易解耦出来，所以统一处理）

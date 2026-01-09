@@ -6,7 +6,6 @@ import { TrSender } from '@opentiny/tiny-robot'
 import logo from '../../public/svgs/logo-next-no-bg-right.svg'
 import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import { extractTextAndJson } from './handleSchema'
-import type { UnifiedModelConfig } from '../types/model-config'
 
 interface useTinyRobotOption {
   sessionId: Ref<string>
@@ -14,8 +13,6 @@ interface useTinyRobotOption {
   systemPrompt: string
   llmConfig?: ICustomAgentModelProviderLlmConfig
   skills?: PropsSkill[] // 添加 skills 参数，tools 字段用于指定该 skill 需要的工具列表
-  inBrowserExt?: Ref<boolean> // 是否在浏览器扩展中运行
-  selectedModel?: Ref<UnifiedModelConfig | undefined> // 当前选中的模型配置（可选，从外部传入）Current selected model configuration (optional, provided externally)
 }
 
 /** 事件中返回的Skill 结构体 */
@@ -45,9 +42,7 @@ export const useTinyRobotChat = ({
   agentRoot,
   systemPrompt,
   llmConfig,
-  skills = [],
-  inBrowserExt = ref(false),
-  selectedModel
+  skills = []
 }: useTinyRobotOption) => {
   const customAgentProvider = new CustomAgentModelProvider(
     { provider: 'custom' },
@@ -415,38 +410,8 @@ export const useTinyRobotChat = ({
     customAgentProvider.agent.closeAll()
   })
 
-  // 监听模型切换 - Watch for model changes
-  // 如果外部传入了 selectedModel，使用外部的；否则不监听（因为模型切换逻辑在外部处理）
-  if (inBrowserExt.value && selectedModel) {
-    watch(
-      selectedModel,
-      (newModel) => {
-        if (
-          newModel &&
-          'baseURL' in newModel &&
-          'apiKey' in newModel &&
-          'providerType' in newModel &&
-          newModel.baseURL &&
-          typeof newModel.baseURL === 'string' &&
-          newModel.apiKey &&
-          typeof newModel.apiKey === 'string' &&
-          newModel.providerType
-        ) {
-          const model = newModel
-          // 确保 baseURL 是原始的（不包含 /prompt 后缀），updateLLMConfig 会根据 isGenuiEnabled 自动添加
-          const originalBaseURL = model.baseURL.replace('/prompt', '')
-          customAgentProvider.updateLLMConfig({
-            modelId: model.id,
-            baseURL: originalBaseURL,
-            apiKey: model.apiKey,
-            providerType: model.providerType,
-            useReActMode: model.useReActMode
-          })
-        }
-      },
-      { immediate: true } // 立即执行一次，确保初始模型配置正确
-    )
-  }
+  // 注意：模型切换和生成式UI状态变化的监听逻辑已移至 TinyRobotChat.vue 中统一处理
+  // Note: Model switching and GenUI state change monitoring logic has been moved to TinyRobotChat.vue for unified handling
 
   return {
     /**  一个 ai-sdk agent 封装,详见： next-sdk/AgentModelProvider 类 */

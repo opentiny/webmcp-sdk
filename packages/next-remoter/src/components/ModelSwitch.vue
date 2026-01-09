@@ -42,33 +42,25 @@ import type { UnifiedModelConfig } from '../types/model-config'
 const props = defineProps<{
   /** 模型配置列表 Model configuration list */
   modelConfigs?: Ref<UnifiedModelConfig[]> | UnifiedModelConfig[]
-  /** 当前选中的模型 ID Current selected model ID */
-  selectedModelId?: Ref<string> | string
 }>()
 
-const emit = defineEmits<{
-  /** 模型 ID 变化时触发 Emitted when model ID changes */
-  'update:selectedModelId': [modelId: string]
-}>()
+// 使用 defineModel 定义 selectedModelId，实现双向绑定（简化逻辑）
+const selectedModelId = defineModel<string>('selectedModelId', { type: String, default: undefined, required: false })
 
 // 处理 modelConfigs：如果是数组，使用 shallowRef 避免组件被深度响应式化
-// 注意：icon 组件应该在创建配置时就使用 markRaw 标记（在 next-wxt 的 model-config.ts 中）
 const modelConfigsRef = props.modelConfigs
   ? Array.isArray(props.modelConfigs)
     ? shallowRef(props.modelConfigs) // 使用 shallowRef 避免深度响应式化
     : props.modelConfigs
   : undefined
-const selectedModelIdRef = props.selectedModelId
-  ? typeof props.selectedModelId === 'string'
-    ? ref(props.selectedModelId)
-    : props.selectedModelId
-  : undefined
 
-const { selectedModelId, selectedModel, availableModels, setSelectedModel } = useModel(
+// 使用 defineModel 返回的 ref 直接传递给 useModel，defineModel 会自动处理双向绑定
+const { selectedModel, availableModels, setSelectedModel } = useModel(
   modelConfigsRef,
-  selectedModelIdRef,
+  selectedModelId,
   (modelId: string) => {
-    emit('update:selectedModelId', modelId)
+    // 当模型变化时，更新 selectedModelId（defineModel 会自动处理双向绑定）
+    selectedModelId.value = modelId
   }
 )
 
