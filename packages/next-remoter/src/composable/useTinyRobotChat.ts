@@ -14,7 +14,6 @@ interface useTinyRobotOption {
   systemPrompt: string
   llmConfig?: ICustomAgentModelProviderLlmConfig
   skills?: PropsSkill[] // 添加 skills 参数，tools 字段用于指定该 skill 需要的工具列表
-  isGenuiEnabled?: Ref<boolean> // 生成式UI启用状态
   inBrowserExt?: Ref<boolean> // 是否在浏览器扩展中运行
   selectedModel?: Ref<UnifiedModelConfig | undefined> // 当前选中的模型配置（可选，从外部传入）Current selected model configuration (optional, provided externally)
 }
@@ -47,7 +46,6 @@ export const useTinyRobotChat = ({
   systemPrompt,
   llmConfig,
   skills = [],
-  isGenuiEnabled = ref(false),
   inBrowserExt = ref(false),
   selectedModel
 }: useTinyRobotOption) => {
@@ -59,8 +57,6 @@ export const useTinyRobotChat = ({
     llmConfig
   )
 
-  // 将生成式UI状态传递给 CustomAgentModelProvider
-  customAgentProvider.isGenuiEnabled = isGenuiEnabled
   const client = new AIClient({
     providerImplementation: customAgentProvider,
     provider: 'custom'

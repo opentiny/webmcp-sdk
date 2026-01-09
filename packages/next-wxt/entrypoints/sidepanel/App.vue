@@ -152,6 +152,7 @@ onBeforeMount(async () => {
 
     // 加载生成式UI启用状态（使用 @wxt-dev/storage 后需要确保类型正确）
     const storedGenui = (await storage.getMeta(StorageKeys.GENUI_ENABLED)) as unknown
+    debugger
     // 确保存储的值是布尔类型，避免类型错误（@wxt-dev/storage 可能返回对象）
     if (typeof storedGenui === 'boolean') {
       genuiEnabled.value = storedGenui
@@ -318,7 +319,7 @@ browser.runtime.onMessage.addListener((message) => {
       :llmConfig="llmConfig"
       :llmConfigs="DEFAULT_MODEL_CONFIGS"
       v-model:selected-model-id="selectedModelId"
-      v-model:genui-enabled="genuiEnabled"
+      v-model:genUiAble="genuiEnabled"
       v-model:local-tool-storage="localToolStorage"
       inBrowserExt
       :custom-market-mcp-servers="customMarketMcpServers"

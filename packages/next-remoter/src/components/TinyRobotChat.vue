@@ -86,7 +86,7 @@
               <!-- 模型切换组件 Model switch component -->
               <ModelSwitch :model-configs="llmConfigsRef" v-model:selected-model-id="selectedModelId" />
               <!-- 生成式UI开关 GenUI toggle button -->
-              <GenUISwitch v-model:genui-enabled="genuiEnabled" />
+              <GenUISwitch v-model:genui-enabled="genUiAble" />
             </div>
           </template>
         </tr-sender>
@@ -147,7 +147,6 @@ import { useTinyRobotChat } from '../composable/useTinyRobotChat'
 import { useCustomMcpServer } from '../composable/useCustomMcpServer'
 import { toRef, computed, ref, onMounted, markRaw, h, watch, type Ref } from 'vue'
 import { createRemoter, McpServerConfig } from '@opentiny/next-sdk'
-// 存储逻辑已移到外部，不再直接使用 storage-manager
 import QrCodeScan from './QrCodeScan.vue'
 import ModelSwitch from './ModelSwitch.vue'
 import PluginToggleButton from './PluginToggleButton.vue'
@@ -220,11 +219,6 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
-  /** 是否启用生成式UI */
-  genUiAble: {
-    type: Boolean,
-    default: false
-  },
   /** 生成式UI 需要引入的组件。生成式UI内置了一批组件，如果需要引入新组件，需要通过这里导入。
    * 参考示例： shallowReactive({TinyUser, TinyAlert }) */
   genUiComponents: {
@@ -259,24 +253,8 @@ const emit = defineEmits<{
 const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })
 const show = defineModel('show', { type: Boolean, default: false })
 const selectedModelId = defineModel('selectedModelId', { type: String, default: undefined, required: false })
-// 使用 defineModel 定义 genuiEnabled，默认值设为 undefined
-// 如果外部没有传入 genuiEnabled prop，则使用 genUiAble prop 的值
-const genuiEnabled = defineModel('genuiEnabled', { type: Boolean, default: undefined, required: false })
-
-// 如果外部没有传入 genuiEnabled（值为 undefined）且传入了 genUiAble prop，则使用 genUiAble 的值
-if (genuiEnabled.value === undefined && props.genUiAble !== undefined) {
-  genuiEnabled.value = props.genUiAble
-} else if (genuiEnabled.value === undefined) {
-  // 如果都没有传入，默认为 false
-  genuiEnabled.value = false
-}
-
-// 使用生成式UI状态管理 composable（用于传递给 useTinyRobotChat）
-const genuiEnabledRef = genuiEnabled as Ref<boolean>
-const { isGenuiEnabled } = useGenUI(genuiEnabledRef, (enabled: boolean) => {
-  // 当状态变化时，更新 genuiEnabled（defineModel 会自动处理双向绑定）
-  genuiEnabled.value = enabled
-})
+// 使用 defineModel 定义 genUiAble，实现双向绑定（简化逻辑，统一使用 v-model:genUiAble）
+const genUiAble = defineModel('genUiAble', { type: Boolean, default: false, required: false })
 
 // 获取当前选中的模型配置（如果传入了 llmConfigs，则使用传入的配置）
 const llmConfigsRef = props.llmConfigs ? (toRef(props, 'llmConfigs') as Ref<UnifiedModelConfig[]>) : undefined
@@ -314,14 +292,16 @@ const {
   llmConfig: props.llmConfig,
   inBrowserExt: toRef(props, 'inBrowserExt'),
   skills: props.skills || [], // 传递 skills 列表给 useTinyRobotChat
-  isGenuiEnabled: isGenuiEnabled as Ref<boolean>, // 传递生成式UI状态
   selectedModel // 传递当前选中的模型配置
 })
+
+customAgentProvider.isGenuiEnabled = genUiAble
 
 // 监听生成式UI状态变化，动态更新 baseURL
 // 当生成式UI状态变化时，重新调用 updateLLMConfig 来更新 baseURL
 if (props.llmConfigs) {
-  watch(isGenuiEnabled, () => {
+  watch(genUiAble, () => {
+    debugger
     // 当生成式UI状态变化时，重新调用 updateLLMConfig 来更新 baseURL
     if (
       selectedModel.value &&
@@ -456,8 +436,6 @@ const handleSendMessageCustom = async (inputValue: string, templateDataParam?: a
   }
 }
 
-// 使用统一的存储键常量
-
 // 自动计算的变量
 const senderPlaceholder = computed(() =>
   GeneratingStatus.includes(messageState.status) ? lang[props.locale].thinking : lang[props.locale].placeholder
@@ -588,6 +566,7 @@ watch(
   },
   { immediate: true }
 )
+
 // 后续的每次sessionId变化，都认为是扫码添加了
 watch(
   () => props.sessionId,
