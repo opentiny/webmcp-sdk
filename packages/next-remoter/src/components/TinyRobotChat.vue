@@ -157,7 +157,6 @@ import { handleError } from './error-handle'
 import { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import type { MenuItemConfig } from '@opentiny/next-sdk'
 import useModel from '../composable/useModel'
-import useGenUI from '../composable/useGenUI'
 import GenUISwitch from './GenUISwitch.vue'
 import type { UnifiedModelConfig } from '../types/model-config'
 

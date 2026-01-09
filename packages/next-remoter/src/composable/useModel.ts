@@ -4,8 +4,6 @@ import type { UnifiedModelConfig } from '../types/model-config'
 /**
  * 统一的模型管理 composable
  * 提供模型选择和配置管理功能
- * Unified model management composable
- * Provides model selection and configuration management
  * @param modelConfigs 外部传入的模型配置列表（必需）External model configuration list (required)
  * @param initialModelId 初始模型 ID（可选，从外部传入，支持 Ref<string | undefined>）Initial model ID (optional, provided externally, supports Ref<string | undefined>)
  * @param onModelChange 模型变化回调函数（可选，用于通知外部）Model change callback (optional, for notifying external)
@@ -65,8 +63,14 @@ export default function useModel(
       initialId = initialModelId.value
     }
   }
-  
-  const selectedModelId = ref<string>(initialId ? (currentModelConfigs.value.some((config) => config.id === initialId) ? initialId : getInitialModelId()) : getInitialModelId())
+
+  const selectedModelId = ref<string>(
+    initialId
+      ? currentModelConfigs.value.some((config) => config.id === initialId)
+        ? initialId
+        : getInitialModelId()
+      : getInitialModelId()
+  )
 
   // 如果外部传入了 initialModelId 且是 Ref，监听其变化
   if (initialModelId && typeof initialModelId !== 'string') {

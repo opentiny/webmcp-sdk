@@ -5,7 +5,7 @@
  * Used to simplify storage logic, can get values directly during initialization
  */
 
-import { StorageKeys, type StorageKey } from './storage-keys'
+import { type StorageKey } from './storage-keys'
 
 /**
  * 获取存储值（同步）
