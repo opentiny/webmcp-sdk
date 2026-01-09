@@ -4,27 +4,20 @@
  */
 
 import type { Component } from 'vue'
-import type { ProviderV2 } from '@ai-sdk/provider'
+import type { ICustomAgentModelProviderLlmConfig } from './type'
 
 /**
  * 统一模型配置接口
+ * 基于 ICustomAgentModelProviderLlmConfig，额外添加了 UI 展示相关的字段
  * Unified model configuration interface
+ * Based on ICustomAgentModelProviderLlmConfig, with additional UI display fields
  */
-export interface UnifiedModelConfig {
+export type UnifiedModelConfig = ICustomAgentModelProviderLlmConfig & {
   /** 模型唯一标识 Model unique identifier */
   id: string
 
   /** 显示名称 Display name */
   label: string
-
-  /** API 配置 - API Key */
-  apiKey: string
-
-  /** API 配置 - Base URL */
-  apiUrl: string
-
-  /** 模型提供商类型 Provider type */
-  providerType: 'deepseek' | 'openai' | ((options: any) => ProviderV2)
 
   /** 模型图标组件 Icon component */
   icon?: Component
@@ -34,7 +27,4 @@ export interface UnifiedModelConfig {
 
   /** 模型描述（可选）Description (optional) */
   description?: string
-
-  /** 是否使用 ReAct 模式 Is using ReAct mode */
-  useReActMode?: boolean
 }

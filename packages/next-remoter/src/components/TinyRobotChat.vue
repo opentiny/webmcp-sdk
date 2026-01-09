@@ -84,7 +84,11 @@
               <!-- 插件开关 Plugin toggle button -->
               <PluginToggleButton :installed-plugins="installedPlugins" @click="pluginVisible = !pluginVisible" />
               <!-- 模型切换组件 Model switch component -->
-              <ModelSwitch v-if="inBrowserExt" />
+              <ModelSwitch
+                v-if="inBrowserExt"
+                :model-configs="llmConfigsRef"
+                v-model:selected-model-id="selectedModelId"
+              />
               <!-- 生成式UI开关 GenUI toggle button -->
               <GenUISwitch v-if="inBrowserExt" />
             </div>
@@ -147,7 +151,7 @@ import { useTinyRobotChat } from '../composable/useTinyRobotChat'
 import { useCustomMcpServer } from '../composable/useCustomMcpServer'
 import { toRef, computed, ref, onMounted, markRaw, h, watch, type Ref } from 'vue'
 import { createRemoter, McpServerConfig } from '@opentiny/next-sdk'
-import { storage, StorageKeys } from '../utils/storage-manager'
+// 存储逻辑已移到外部，不再直接使用 storage-manager
 import QrCodeScan from './QrCodeScan.vue'
 import ModelSwitch from './ModelSwitch.vue'
 import PluginToggleButton from './PluginToggleButton.vue'
@@ -160,6 +164,8 @@ import type { MenuItemConfig } from '@opentiny/next-sdk'
 import useModel from '../composable/useModel'
 import useGenUI from '../composable/useGenUI'
 import GenUISwitch from './GenUISwitch.vue'
+import type { UnifiedModelConfig } from '../types/model-config'
+import { setModelConfigs } from '../config/model-config'
 
 defineOptions({
   name: 'TinyRemoter'
@@ -235,18 +241,54 @@ const props = defineProps({
     type: Array as () => PluginInfo[],
     default: () => []
   },
-
+  /** LLM 配置数组，每一项基于 llmConfig 格式，额外包含 id、label、icon、isDefault、useReActMode 字段 */
+  llmConfigs: {
+    type: Array as () => UnifiedModelConfig[],
+    default: undefined
+  },
+  // selectedModelId 已通过 defineModel 定义，不再需要在这里定义
+  /** 生成式UI启用状态（可选，用于外部控制）GenUI enabled state (optional, for external control) */
+  genuiEnabled: {
+    type: Boolean,
+    default: undefined
+  },
+  /** 本地工具存储状态（可选，用于外部控制）Local tool storage state (optional, for external control) */
+  localToolStorage: {
+    type: Object as () => Record<string, boolean> | undefined,
+    default: undefined
+  },
   skills: {
     type: Object as () => MentionItem[],
     default: () => []
   }
 })
 
+const emit = defineEmits<{
+  // update:selectedModelId 已通过 defineModel 自动处理，不再需要在这里定义
+  /** GenUI 状态变化时触发 Emitted when GenUI state changes */
+  'update:genuiEnabled': [enabled: boolean]
+  /** 本地工具存储状态变化时触发 Emitted when local tool storage changes */
+  'update:localToolStorage': [storage: Record<string, boolean>]
+}>()
+
 const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })
 const show = defineModel('show', { type: Boolean, default: false })
+const selectedModelId = defineModel('selectedModelId', { type: String, default: undefined, required: false })
 
 // 使用生成式UI状态管理 composable
-const { isGenuiEnabled } = useGenUI(props.genUiAble)
+const genuiEnabledRef =
+  props.genuiEnabled !== undefined ? (toRef(props, 'genuiEnabled') as Ref<boolean>) : ref(props.genUiAble || false)
+const { isGenuiEnabled } = useGenUI(genuiEnabledRef, (enabled: boolean) => {
+  emit('update:genuiEnabled', enabled)
+})
+
+// 如果传入了 LLM 配置，设置到全局配置中
+// 如果没有传入配置，抛出错误提示用户必须传入 llmConfigs
+if (props.llmConfigs && props.llmConfigs.length > 0) {
+  setModelConfigs(props.llmConfigs)
+} else {
+  console.warn('[TinyRemoter] llmConfigs prop is required. Please provide model configurations.')
+}
 
 const {
   showHistory,
@@ -278,21 +320,35 @@ const {
   isGenuiEnabled: isGenuiEnabled as Ref<boolean> // 传递生成式UI状态
 })
 
-// 获取当前选中的模型配置
-const { selectedModel } = useModel()
+// 获取当前选中的模型配置（如果传入了 llmConfigs，则使用传入的配置）
+const llmConfigsRef = props.llmConfigs ? (toRef(props, 'llmConfigs') as Ref<UnifiedModelConfig[]>) : undefined
+// selectedModelId 已通过 defineModel 定义，可以直接使用
+// defineModel 返回的 ref 可以直接传递给 useModel
+const { selectedModel } = useModel(llmConfigsRef, selectedModelId, (modelId: string) => {
+  // 当模型变化时，更新 selectedModelId（defineModel 会自动处理双向绑定）
+  selectedModelId.value = modelId
+})
 
-if (props.inBrowserExt) {
+if (props.llmConfigs) {
   // 监听生成式UI状态变化，动态更新 baseURL
   watch(isGenuiEnabled, () => {
     // 当生成式UI状态变化时，重新调用 updateLLMConfig 来更新 baseURL
-    if (selectedModel.value) {
-      customAgentProvider.updateLLMConfig({
-        modelId: selectedModel.value.id,
-        apiUrl: selectedModel.value.apiUrl,
-        apiKey: selectedModel.value.apiKey,
-        providerType: selectedModel.value.providerType,
-        useReActMode: selectedModel.value.useReActMode
-      })
+    if (
+      selectedModel.value &&
+      'baseURL' in selectedModel.value &&
+      'apiKey' in selectedModel.value &&
+      'providerType' in selectedModel.value
+    ) {
+      const model = selectedModel.value
+      if (model.baseURL && model.apiKey && model.providerType) {
+        customAgentProvider.updateLLMConfig({
+          modelId: model.id,
+          baseURL: model.baseURL,
+          apiKey: model.apiKey,
+          providerType: model.providerType,
+          useReActMode: model.useReActMode
+        })
+      }
     }
   })
 }
@@ -424,7 +480,7 @@ const handlePillItemClick = (item: ReturnType<typeof mapMake>) => {
 }
 
 const loadMcpServerToPlugin = async (serverName: string, mcpServer: McpServerConfig) => {
-  const LOCAL_TOOL_STORAGE = storage.getItem<Record<string, boolean>>(StorageKeys.LOCAL_TOOL_STORAGE) || {}
+  const LOCAL_TOOL_STORAGE = props.localToolStorage || {}
   const isLocalTool = serverName === 'mcp-server-localhost'
   const url = isLocalTool ? { origin: '本地工具' } : new URL('url' in mcpServer ? mcpServer.url : '')
   const sessionId = isLocalTool
@@ -555,7 +611,7 @@ watch(
 // 整个插件的打开或关闭
 const handlePluginToggle = (_plugin: PluginInfo, enabled: boolean) => {
   const isLocalTool = _plugin.id === 'plugin-本地工具列表'
-  const LOCAL_TOOL_STORAGE = storage.getItem<Record<string, boolean>>(StorageKeys.LOCAL_TOOL_STORAGE) || {}
+  const LOCAL_TOOL_STORAGE = props.localToolStorage ? { ...props.localToolStorage } : {}
   _plugin.tools.forEach((tool) => {
     tool.enabled = enabled
     if (enabled) {
@@ -569,13 +625,13 @@ const handlePluginToggle = (_plugin: PluginInfo, enabled: boolean) => {
     Object.keys(LOCAL_TOOL_STORAGE).forEach((key) => {
       LOCAL_TOOL_STORAGE[key] = enabled
     })
-    storage.setItem(StorageKeys.LOCAL_TOOL_STORAGE, LOCAL_TOOL_STORAGE)
+    emit('update:localToolStorage', LOCAL_TOOL_STORAGE)
   }
 }
 
 // 某个tool的打开或关闭。  全部tool状态一致时，会同时触发handlePluginToggle 一下。
 const handleToolToggle = (_plugin: PluginInfo, toolId: string, enabled: boolean) => {
-  const LOCAL_TOOL_STORAGE = storage.getItem<Record<string, boolean>>(StorageKeys.LOCAL_TOOL_STORAGE) || {}
+  const LOCAL_TOOL_STORAGE = props.localToolStorage ? { ...props.localToolStorage } : {}
   const isLocalTool = _plugin.id === 'plugin-本地工具列表'
 
   _plugin.tools.forEach((tool) => {
@@ -590,7 +646,7 @@ const handleToolToggle = (_plugin: PluginInfo, toolId: string, enabled: boolean)
   }
   if (isLocalTool) {
     LOCAL_TOOL_STORAGE[toolId] = enabled
-    storage.setItem(StorageKeys.LOCAL_TOOL_STORAGE, LOCAL_TOOL_STORAGE)
+    emit('update:localToolStorage', LOCAL_TOOL_STORAGE)
   }
 }
 // 点垃圾桶图标的插件删除

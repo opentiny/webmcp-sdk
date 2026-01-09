@@ -5,51 +5,42 @@
  * All model configurations are defined here to ensure consistency
  */
 
-import IconModelAliyunBailian from '../components/icons/icon-model-aliyun-bailian.svg'
-import IconModelDeepseek from '../components/icons/icon-model-deepseek.svg'
 import type { UnifiedModelConfig } from '../types/model-config'
-import type { Component } from 'vue'
+
+// 全局模型配置列表（由外部通过 setModelConfigs 设置）
+// Global model configuration list (set by external through setModelConfigs)
+let UNIFIED_MODEL_CONFIGS: UnifiedModelConfig[] = []
 
 /**
- * 统一的模型配置列表
- * Unified model configuration list
+ * 设置模型配置列表（由外部传入）
+ * Set model configuration list (provided externally)
+ * @param configs 模型配置数组 Model configuration array
  */
-export const UNIFIED_MODEL_CONFIGS: UnifiedModelConfig[] = [
-  {
-    id: 'deepseek-ai/DeepSeek-V3',
-    label: 'DeepSeek-V3',
-    apiKey: 'sk-trial',
-    apiUrl: 'https://agent.opentiny.design/api/v1/ai',
-    providerType: 'deepseek',
-    useReActMode: false,
-    icon: IconModelDeepseek as unknown as Component,
-    isDefault: true
-  },
-  {
-    id: 'deepseek-ai/DeepSeek-R1',
-    label: 'DeepSeek-R1',
-    apiKey: 'sk-trial',
-    apiUrl: 'https://agent.opentiny.design/api/v1/ai',
-    providerType: 'deepseek',
-    useReActMode: false,
-    icon: IconModelDeepseek as unknown as Component
-  },
-  {
-    id: 'qwen-vl-max',
-    label: 'qwen-vl-max',
-    apiKey: 'sk-trial',
-    apiUrl: 'https://agent.opentiny.design/api/v1/ai',
-    providerType: 'deepseek',
-    useReActMode: true,
-    icon: IconModelAliyunBailian as unknown as Component
+export function setModelConfigs(configs: UnifiedModelConfig[]) {
+  if (configs && configs.length > 0) {
+    UNIFIED_MODEL_CONFIGS = configs
   }
-]
+}
+
+/**
+ * 获取当前的模型配置列表
+ * Get current model configuration list
+ */
+export function getModelConfigs(): UnifiedModelConfig[] {
+  return UNIFIED_MODEL_CONFIGS
+}
 
 /**
  * 获取默认模型配置
  * Get default model configuration
+ * @throws {Error} 如果配置列表为空，抛出错误 If configuration list is empty, throw error
  */
 export function getDefaultModelConfig(): UnifiedModelConfig {
+  if (UNIFIED_MODEL_CONFIGS.length === 0) {
+    throw new Error(
+      '[getDefaultModelConfig] No model configurations available. Please provide llmConfigs prop to TinyRemoter component.'
+    )
+  }
   const defaultModel = UNIFIED_MODEL_CONFIGS.find((config) => config.isDefault)
   return defaultModel || UNIFIED_MODEL_CONFIGS[0]
 }

@@ -82,33 +82,32 @@ export class CustomAgentModelProvider extends BaseModelProvider {
    */
   updateLLMConfig({
     modelId,
-    apiUrl,
+    baseURL,
     apiKey,
     providerType,
     useReActMode
   }: {
     modelId: string
-    apiUrl: string
+    baseURL: string
     apiKey: string
     providerType: 'deepseek' | 'openai' | ((options: any) => ProviderV2)
     useReActMode?: boolean
   }) {
     // 如果启用了生成式UI，在 baseURL 后面加上 '/prompt'
-    let finalApiUrl = apiUrl
     if (this.isGenuiEnabled?.value) {
       // 如果 baseURL 还没有包含 '/prompt'，则添加
-      if (!finalApiUrl.includes('/prompt')) {
-        finalApiUrl = finalApiUrl + '/prompt'
+      if (!baseURL.includes('/prompt')) {
+        baseURL = baseURL + '/prompt'
       }
     } else {
       // 如果关闭了生成式UI，移除 '/prompt' 后缀
-      finalApiUrl = finalApiUrl.replace('/prompt', '')
+      baseURL = baseURL.replace('/prompt', '')
     }
 
     // 更新本地配置
     this.llmConfig.model = modelId
     this.llmConfig.apiKey = apiKey
-    this.llmConfig.baseURL = finalApiUrl
+    this.llmConfig.baseURL = baseURL
     this.llmConfig.providerType = providerType
     this.llmConfig.useReActMode = useReActMode || false
     this.agent.useReActMode = useReActMode || false
@@ -127,7 +126,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       throw new Error(`Unsupported providerType: ${providerType}`)
     }
 
-    this.agent.llm = providerFn({ apiKey, baseURL: finalApiUrl })
+    this.agent.llm = providerFn({ apiKey, baseURL })
   }
 
   /**

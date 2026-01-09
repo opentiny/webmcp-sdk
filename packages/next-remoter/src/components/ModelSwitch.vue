@@ -34,16 +34,37 @@
 <script setup lang="ts">
 import useModel from '../composable/useModel'
 import { onClickOutside } from '@vueuse/core'
-import { ref } from 'vue'
+import { ref, toRef, type Ref } from 'vue'
 import Button from './Button.vue'
 import IconModel from './icons/icon-model.svg'
+import type { UnifiedModelConfig } from '../types/model-config'
 
-const { selectedModelId, selectedModel, availableModels, setSelectedModel } = useModel()
+const props = defineProps<{
+  /** 模型配置列表 Model configuration list */
+  modelConfigs?: Ref<UnifiedModelConfig[]> | UnifiedModelConfig[]
+  /** 当前选中的模型 ID Current selected model ID */
+  selectedModelId?: Ref<string> | string
+}>()
+
+const emit = defineEmits<{
+  /** 模型 ID 变化时触发 Emitted when model ID changes */
+  'update:selectedModelId': [modelId: string]
+}>()
+
+const modelConfigsRef = props.modelConfigs ? (Array.isArray(props.modelConfigs) ? ref(props.modelConfigs) : props.modelConfigs) : undefined
+const selectedModelIdRef = props.selectedModelId ? (typeof props.selectedModelId === 'string' ? ref(props.selectedModelId) : props.selectedModelId) : undefined
+
+const { selectedModelId, selectedModel, availableModels, setSelectedModel } = useModel(
+  modelConfigsRef,
+  selectedModelIdRef,
+  (modelId: string) => {
+    emit('update:selectedModelId', modelId)
+  }
+)
 
 const isOpen = ref(false)
 
 const handleChangeModel = (modelId: string) => {
-  // 直接更新 selectedModelId，watch 会自动同步到存储（通过统一的存储管理模块）
   setSelectedModel(modelId)
   closeDropdown()
 }

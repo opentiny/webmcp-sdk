@@ -86,7 +86,6 @@ export const useTinyRobotChat = ({
       },
       onReceiveData(data, messages, preventDefault) {
         preventDefault()
-        // console.log('onReceiveData=', data)
 
         let lastMessage = messages.value[messages.value.length - 1]
 
@@ -137,18 +136,6 @@ export const useTinyRobotChat = ({
             lastMessage.uiContent[lastMessage.uiContent.length - 1] = accmulateMessages[arrLength - 1]
           }
           accmulateMessagesLength = arrLength
-          // console.log('accmulateMessages', accmulateMessages)
-          // const markdownContent = lastMessage.uiContent.find(
-          //   (item) => item.type === data.type && item.textId === data.textId
-          // )
-          // if (!markdownContent) {
-          //   lastMessage.uiContent.push(data)
-          // } else {
-          //   markdownContent.content += data.delta
-          //   lastMessage.content += data.delta
-          // }
-          // const extractedBlocks = extractTextAndJson(lastMessage.content || data.delta)
-          // console.log('extractedBlocks', extractedBlocks)
         } else if (data.type === 'collapsible-text') {
           const thinkContent = lastMessage.uiContent.find(
             (item) => item.type === data.type && item.thinkId === data.thinkId
@@ -437,13 +424,14 @@ export const useTinyRobotChat = ({
     watch(
       selectedModel,
       (newModel) => {
-        if (newModel) {
+        if (newModel && 'baseURL' in newModel && 'apiKey' in newModel && 'providerType' in newModel) {
+          const model = newModel
           customAgentProvider.updateLLMConfig({
-            modelId: newModel.id,
-            apiUrl: newModel.apiUrl,
-            apiKey: newModel.apiKey,
-            providerType: newModel.providerType,
-            useReActMode: newModel.useReActMode
+            modelId: model.id,
+            baseURL: model.baseURL, // 注意：updateLLMConfig 参数名为 apiUrl，但实际使用的是 baseURL
+            apiKey: model.apiKey!,
+            providerType: model.providerType!,
+            useReActMode: model.useReActMode
           })
         }
       },

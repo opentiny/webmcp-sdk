@@ -13,6 +13,8 @@ import { getAllSkills } from '@/skills'
 import { RENDERER_SETTINGS_KEY } from '@opentiny/genui-sdk-vue'
 import { useAutoScreenshot } from './useAutoScreenshot'
 import { CustomFunction } from '@/utils/customFunction'
+import { DEFAULT_MODEL_CONFIGS } from './model-config'
+import { storage, StorageKeys } from '@opentiny/next-remoter'
 
 // 初始化自动截图功能
 const { captureCurrentTab } = useAutoScreenshot()
@@ -121,6 +123,89 @@ const genUiComponents = shallowReactive({ TinyUser })
 // 汇总自定义 MCP Server 配置（中文注释：用于传给 TinyRemoter 的插件市场）
 const customMarketMcpServers = useCustomMarketMcpServers()
 const isDev = import.meta.env.DEV
+
+// 管理选中的模型 ID（从存储读取，变化时保存）
+const getInitialModelId = (): string => {
+  try {
+    const stored = storage.getItem<string>(StorageKeys.SELECTED_MODEL)
+    if (stored) {
+      // 验证存储的模型 ID 是否存在于配置列表中
+      if (DEFAULT_MODEL_CONFIGS.some((config) => config.id === stored)) {
+        return stored
+      }
+    }
+  } catch (error) {
+    console.warn('[App] Failed to parse stored model:', error)
+  }
+  // 如果没有存储或无效，使用默认模型
+  const defaultModel = DEFAULT_MODEL_CONFIGS.find((config) => config.isDefault) || DEFAULT_MODEL_CONFIGS[0]
+  return defaultModel.id
+}
+const selectedModelId = ref<string>(getInitialModelId())
+
+// 监听 selectedModelId 变化，自动保存到存储
+watch(selectedModelId, (newId) => {
+  try {
+    storage.setItem(StorageKeys.SELECTED_MODEL, newId)
+    console.log('[App] Model changed to:', newId)
+  } catch (error) {
+    console.error('[App] Failed to save model to storage:', error)
+  }
+})
+
+// 管理生成式UI启用状态（从存储读取，变化时保存）
+const getInitialGenuiEnabled = (): boolean => {
+  try {
+    const stored = storage.getItem<boolean>(StorageKeys.GENUI_ENABLED)
+    if (stored !== null) {
+      return stored
+    }
+  } catch (error) {
+    console.warn('[App] Failed to parse stored genui enabled:', error)
+  }
+  // 默认值
+  return false
+}
+const genuiEnabled = ref<boolean>(getInitialGenuiEnabled())
+
+// 监听 genuiEnabled 变化，自动保存到存储
+watch(genuiEnabled, (newValue) => {
+  try {
+    storage.setItem(StorageKeys.GENUI_ENABLED, newValue)
+    console.log('[App] GenUI enabled changed to:', newValue)
+  } catch (error) {
+    console.error('[App] Failed to save genui enabled to storage:', error)
+  }
+})
+
+// 管理本地工具存储状态（从存储读取，变化时保存）
+const getInitialLocalToolStorage = (): Record<string, boolean> => {
+  try {
+    const stored = storage.getItem<Record<string, boolean>>(StorageKeys.LOCAL_TOOL_STORAGE)
+    if (stored) {
+      return stored
+    }
+  } catch (error) {
+    console.warn('[App] Failed to parse stored local tool storage:', error)
+  }
+  // 默认值
+  return {}
+}
+const localToolStorage = ref<Record<string, boolean>>(getInitialLocalToolStorage())
+
+// 监听 localToolStorage 变化，自动保存到存储
+watch(
+  localToolStorage,
+  (newValue) => {
+    try {
+      storage.setItem(StorageKeys.LOCAL_TOOL_STORAGE, newValue)
+      console.log('[App] Local tool storage changed')
+    } catch (error) {
+      console.error('[App] Failed to save local tool storage:', error)
+    }
+  },
+  { deep: true }
+)
 const { isRecording, startRecording, stopRecording, toggleRecording } = useGenerateCode()
 const isRecordModalVisible = ref(false)
 const openRecordModal = () => {
@@ -221,6 +306,10 @@ browser.runtime.onMessage.addListener((message) => {
       fullscreen
       title=""
       :llmConfig="llmConfig"
+      :llmConfigs="DEFAULT_MODEL_CONFIGS"
+      v-model:selected-model-id="selectedModelId"
+      v-model:genui-enabled="genuiEnabled"
+      v-model:local-tool-storage="localToolStorage"
       inBrowserExt
       :custom-market-mcp-servers="customMarketMcpServers"
       :gen-ui-components="genUiComponents"
