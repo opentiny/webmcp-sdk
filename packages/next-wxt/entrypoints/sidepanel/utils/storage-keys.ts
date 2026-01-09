@@ -8,16 +8,18 @@
 /**
  * 存储键枚举
  * Storage key enumeration
+ * 注意：@wxt-dev/storage 要求键名必须以特定前缀开头（local:, session:, sync:, managed:）
+ * Note: @wxt-dev/storage requires keys to start with specific prefixes (local:, session:, sync:, managed:)
  */
 export const StorageKeys = {
   /** 选中的模型ID Selected model ID */
-  SELECTED_MODEL: 'next-remoter-selected-model',
+  SELECTED_MODEL: 'local:next-remoter-selected-model',
   /** 生成式UI启用状态 GenUI enabled state */
-  GENUI_ENABLED: 'next-remoter-genui-enabled',
+  GENUI_ENABLED: 'local:next-remoter-genui-enabled',
   /** 本地工具存储 Local tool storage */
-  LOCAL_TOOL_STORAGE: 'local-tool-storage',
+  LOCAL_TOOL_STORAGE: 'local:local-tool-storage',
   /** MCP Session ID */
-  MCP_SESSION_ID: 'mcp-sessionId'
+  MCP_SESSION_ID: 'local:mcp-sessionId'
 } as const
 
 /**

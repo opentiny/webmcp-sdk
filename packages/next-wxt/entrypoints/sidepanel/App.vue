@@ -14,7 +14,8 @@ import { RENDERER_SETTINGS_KEY } from '@opentiny/genui-sdk-vue'
 import { useAutoScreenshot } from './useAutoScreenshot'
 import { CustomFunction } from '@/utils/customFunction'
 import { DEFAULT_MODEL_CONFIGS } from './model-config'
-import { storage, StorageKeys } from './utils/storage-manager'
+import { storage } from '@wxt-dev/storage'
+import { StorageKeys } from './utils/storage-keys'
 
 // 初始化自动截图功能
 const { captureCurrentTab } = useAutoScreenshot()
@@ -143,20 +144,23 @@ let isInitialized = false
 // 使用 onBeforeMount 确保在子组件初始化之前加载
 onBeforeMount(async () => {
   try {
-    // 加载选中的模型 ID
-    const storedModel = await storage.getItemAsync<string>(StorageKeys.SELECTED_MODEL)
+    // 加载选中的模型 ID（使用 @wxt-dev/storage 统一存储接口）
+    const storedModel = (await storage.getMeta(StorageKeys.SELECTED_MODEL)) as unknown as string | undefined
     if (storedModel && DEFAULT_MODEL_CONFIGS.some((config) => config.id === storedModel)) {
       selectedModelId.value = storedModel
     }
 
-    // 加载生成式UI启用状态
-    const storedGenui = await storage.getItemAsync<boolean>(StorageKeys.GENUI_ENABLED)
-    if (storedGenui !== null) {
+    // 加载生成式UI启用状态（使用 @wxt-dev/storage 后需要确保类型正确）
+    const storedGenui = (await storage.getMeta(StorageKeys.GENUI_ENABLED)) as unknown
+    // 确保存储的值是布尔类型，避免类型错误（@wxt-dev/storage 可能返回对象）
+    if (typeof storedGenui === 'boolean') {
       genuiEnabled.value = storedGenui
     }
 
     // 加载本地工具存储状态
-    const storedLocalTool = await storage.getItemAsync<Record<string, boolean>>(StorageKeys.LOCAL_TOOL_STORAGE)
+    const storedLocalTool = (await storage.getMeta(StorageKeys.LOCAL_TOOL_STORAGE)) as unknown as
+      | Record<string, boolean>
+      | undefined
     if (storedLocalTool) {
       localToolStorage.value = storedLocalTool
     }
@@ -168,33 +172,33 @@ onBeforeMount(async () => {
   }
 })
 
-// 监听 selectedModelId 变化，自动保存到存储
+// 监听 selectedModelId 变化，自动保存到存储（使用 @wxt-dev/storage 统一存储接口）
 watch(selectedModelId, async (newId) => {
   // 只有在初始化完成后才保存，避免在加载存储值时触发
   if (!isInitialized) {
     return
   }
   try {
-    await storage.setItemAsync(StorageKeys.SELECTED_MODEL, newId)
+    await storage.setMeta(StorageKeys.SELECTED_MODEL, newId as unknown as Record<string, unknown>)
   } catch (error) {
     console.error('[App] Failed to save model to storage:', error)
   }
 })
 
-// 监听 genuiEnabled 变化，自动保存到存储
+// 监听 genuiEnabled 变化，自动保存到存储（使用 @wxt-dev/storage 统一存储接口）
 watch(genuiEnabled, async (newValue) => {
   // 只有在初始化完成后才保存，避免在加载存储值时触发
   if (!isInitialized) {
     return
   }
   try {
-    await storage.setItemAsync(StorageKeys.GENUI_ENABLED, newValue)
+    await storage.setMeta(StorageKeys.GENUI_ENABLED, newValue as unknown as Record<string, unknown>)
   } catch (error) {
     console.error('[App] Failed to save genui enabled to storage:', error)
   }
 })
 
-// 监听 localToolStorage 变化，自动保存到存储
+// 监听 localToolStorage 变化，自动保存到存储（使用 @wxt-dev/storage 统一存储接口）
 watch(
   localToolStorage,
   async (newValue) => {
@@ -203,7 +207,7 @@ watch(
       return
     }
     try {
-      await storage.setItemAsync(StorageKeys.LOCAL_TOOL_STORAGE, newValue)
+      await storage.setMeta(StorageKeys.LOCAL_TOOL_STORAGE, newValue as unknown as Record<string, unknown>)
     } catch (error) {
       console.error('[App] Failed to save local tool storage:', error)
     }
@@ -243,8 +247,10 @@ const handleStopRecording = async () => {
 // pillItems 依赖 sessionId 动态生成识别码与分享链接
 const pillItems = computed(() => {
   const fallbackText = '会话尚未建立'
-  const shortCode = sessionId.value ? sessionId.value.slice(-6) : fallbackText
-  const shareUrl = sessionId.value ? `${ROBOT_URL}?sessionId=${sessionId.value}` : fallbackText
+  // 确保 sessionId.value 是字符串类型，避免类型错误（使用 @wxt-dev/storage 后可能返回其他类型）
+  const sessionIdStr = typeof sessionId.value === 'string' ? sessionId.value : ''
+  const shortCode = sessionIdStr ? sessionIdStr.slice(-6) : fallbackText
+  const shareUrl = sessionIdStr ? `${ROBOT_URL}?sessionId=${sessionIdStr}` : fallbackText
   const connectType = import.meta.env.VITE_WEB_AGENT_CONNECT_TYPE
   const agentRoot = connectType === 'sse' ? AGENT_ROOT + 'sse' : AGENT_ROOT + 'mcp'
 
@@ -259,7 +265,7 @@ const pillItems = computed(() => {
         },
         {
           id: 'copy-session-id-mcp-url',
-          text: `Agent连接地址：${agentRoot}/?sessionId=${sessionId.value}`
+          text: `Agent连接地址：${agentRoot}/?sessionId=${sessionIdStr}`
         },
         {
           id: 'copy-session-id-url',
