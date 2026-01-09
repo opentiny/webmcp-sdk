@@ -84,13 +84,9 @@
               <!-- 插件开关 Plugin toggle button -->
               <PluginToggleButton :installed-plugins="installedPlugins" @click="pluginVisible = !pluginVisible" />
               <!-- 模型切换组件 Model switch component -->
-              <ModelSwitch
-                v-if="inBrowserExt"
-                :model-configs="llmConfigsRef"
-                v-model:selected-model-id="selectedModelId"
-              />
+              <ModelSwitch :model-configs="llmConfigsRef" v-model:selected-model-id="selectedModelId" />
               <!-- 生成式UI开关 GenUI toggle button -->
-              <GenUISwitch v-if="inBrowserExt" />
+              <GenUISwitch v-model:genui-enabled="genuiEnabled" />
             </div>
           </template>
         </tr-sender>
@@ -165,7 +161,6 @@ import useModel from '../composable/useModel'
 import useGenUI from '../composable/useGenUI'
 import GenUISwitch from './GenUISwitch.vue'
 import type { UnifiedModelConfig } from '../types/model-config'
-import { setModelConfigs } from '../config/model-config'
 
 defineOptions({
   name: 'TinyRemoter'
@@ -246,12 +241,6 @@ const props = defineProps({
     type: Array as () => UnifiedModelConfig[],
     default: undefined
   },
-  // selectedModelId 已通过 defineModel 定义，不再需要在这里定义
-  /** 生成式UI启用状态（可选，用于外部控制）GenUI enabled state (optional, for external control) */
-  genuiEnabled: {
-    type: Boolean,
-    default: undefined
-  },
   /** 本地工具存储状态（可选，用于外部控制）Local tool storage state (optional, for external control) */
   localToolStorage: {
     type: Object as () => Record<string, boolean> | undefined,
@@ -264,31 +253,30 @@ const props = defineProps({
 })
 
 const emit = defineEmits<{
-  // update:selectedModelId 已通过 defineModel 自动处理，不再需要在这里定义
-  /** GenUI 状态变化时触发 Emitted when GenUI state changes */
-  'update:genuiEnabled': [enabled: boolean]
-  /** 本地工具存储状态变化时触发 Emitted when local tool storage changes */
   'update:localToolStorage': [storage: Record<string, boolean>]
 }>()
 
 const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })
 const show = defineModel('show', { type: Boolean, default: false })
 const selectedModelId = defineModel('selectedModelId', { type: String, default: undefined, required: false })
+// 使用 defineModel 定义 genuiEnabled，默认值设为 undefined
+// 如果外部没有传入 genuiEnabled prop，则使用 genUiAble prop 的值
+const genuiEnabled = defineModel('genuiEnabled', { type: Boolean, default: undefined, required: false })
 
-// 使用生成式UI状态管理 composable
-const genuiEnabledRef =
-  props.genuiEnabled !== undefined ? (toRef(props, 'genuiEnabled') as Ref<boolean>) : ref(props.genUiAble || false)
-const { isGenuiEnabled } = useGenUI(genuiEnabledRef, (enabled: boolean) => {
-  emit('update:genuiEnabled', enabled)
-})
-
-// 如果传入了 LLM 配置，设置到全局配置中
-// 如果没有传入配置，抛出错误提示用户必须传入 llmConfigs
-if (props.llmConfigs && props.llmConfigs.length > 0) {
-  setModelConfigs(props.llmConfigs)
-} else {
-  console.warn('[TinyRemoter] llmConfigs prop is required. Please provide model configurations.')
+// 如果外部没有传入 genuiEnabled（值为 undefined）且传入了 genUiAble prop，则使用 genUiAble 的值
+if (genuiEnabled.value === undefined && props.genUiAble !== undefined) {
+  genuiEnabled.value = props.genUiAble
+} else if (genuiEnabled.value === undefined) {
+  // 如果都没有传入，默认为 false
+  genuiEnabled.value = false
 }
+
+// 使用生成式UI状态管理 composable（用于传递给 useTinyRobotChat）
+const genuiEnabledRef = genuiEnabled as Ref<boolean>
+const { isGenuiEnabled } = useGenUI(genuiEnabledRef, (enabled: boolean) => {
+  // 当状态变化时，更新 genuiEnabled（defineModel 会自动处理双向绑定）
+  genuiEnabled.value = enabled
+})
 
 // 获取当前选中的模型配置（如果传入了 llmConfigs，则使用传入的配置）
 const llmConfigsRef = props.llmConfigs ? (toRef(props, 'llmConfigs') as Ref<UnifiedModelConfig[]>) : undefined
@@ -343,11 +331,9 @@ if (props.llmConfigs) {
     ) {
       const model = selectedModel.value
       if (model.baseURL && model.apiKey && model.providerType) {
-        // 获取原始 baseURL（不包含 /prompt 后缀）
-        const originalBaseURL = model.baseURL.replace('/prompt', '')
         customAgentProvider.updateLLMConfig({
           modelId: model.id,
-          baseURL: originalBaseURL, // 使用原始 baseURL，updateLLMConfig 会根据 isGenuiEnabled 自动添加 /prompt
+          baseURL: model.baseURL,
           apiKey: model.apiKey,
           providerType: model.providerType,
           useReActMode: model.useReActMode

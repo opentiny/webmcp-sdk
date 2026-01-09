@@ -10,8 +10,12 @@ import useGenUI from '../composable/useGenUI'
 import Button from './Button.vue'
 import IconVisual from './icons/icon-visual.svg'
 
-// 使用生成式UI状态管理
-const { isGenuiEnabled, toggleGenUI } = useGenUI()
+// 使用 defineModel 定义双向绑定的 genuiEnabled prop
+const genuiEnabled = defineModel<boolean>('genuiEnabled', { type: Boolean, default: false, required: false })
+
+// 使用生成式UI状态管理，传入 genuiEnabled ref
+// useGenUI 会直接更新 genuiEnabled.value，defineModel 会自动处理双向绑定
+const { isGenuiEnabled, toggleGenUI } = useGenUI(genuiEnabled)
 </script>
 
 <style lang="less" scoped>

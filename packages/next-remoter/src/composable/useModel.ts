@@ -1,12 +1,4 @@
-/**
- * 模型状态管理 Composable
- * Model state management composable
- * 注意：此 composable 不负责存储，只负责管理组件内部的模型选择状态
- * Note: This composable does not handle storage, only manages component internal model selection state
- */
-
 import { computed, ref, watch, type Ref } from 'vue'
-import { getModelConfigs, getDefaultModelConfig } from '../config/model-config'
 import type { UnifiedModelConfig } from '../types/model-config'
 
 /**
@@ -14,7 +6,7 @@ import type { UnifiedModelConfig } from '../types/model-config'
  * 提供模型选择和配置管理功能
  * Unified model management composable
  * Provides model selection and configuration management
- * @param modelConfigs 外部传入的模型配置列表（可选）External model configuration list (optional)
+ * @param modelConfigs 外部传入的模型配置列表（必需）External model configuration list (required)
  * @param initialModelId 初始模型 ID（可选，从外部传入，支持 Ref<string | undefined>）Initial model ID (optional, provided externally, supports Ref<string | undefined>)
  * @param onModelChange 模型变化回调函数（可选，用于通知外部）Model change callback (optional, for notifying external)
  */
@@ -29,30 +21,38 @@ export default function useModel(
       // 如果传入的是 Ref，则使用其 value；否则直接使用数组
       return Array.isArray(modelConfigs) ? modelConfigs : modelConfigs.value
     }
-    // 如果没有传入，使用默认配置
-    return getModelConfigs()
+    // 如果没有传入配置，返回空数组
+    console.warn('[useModel] No model configurations provided. Please pass modelConfigs prop.')
+    return []
   })
 
   // 获取初始模型 ID
   const getInitialModelId = (): string => {
+    const configs = currentModelConfigs.value
+
+    // 如果配置列表为空，抛出错误
+    if (configs.length === 0) {
+      throw new Error(
+        '[useModel] No model configurations available. Please provide llmConfigs prop to TinyRemoter component.'
+      )
+    }
+
     // 如果外部传入了初始 ID，优先使用
     if (initialModelId) {
       const id = typeof initialModelId === 'string' ? initialModelId : initialModelId.value
-      if (id && currentModelConfigs.value.some((config) => config.id === id)) {
+      if (id && configs.some((config) => config.id === id)) {
         return id
       }
     }
-    // 否则使用默认模型
-    try {
-      const defaultConfig = getDefaultModelConfig()
-      return defaultConfig.id
-    } catch (error) {
-      // 如果没有配置，返回第一个配置的 ID
-      if (currentModelConfigs.value.length > 0) {
-        return currentModelConfigs.value[0].id
-      }
-      throw new Error('[useModel] No model configurations available')
+
+    // 否则查找默认模型（isDefault 为 true 的模型）
+    const defaultModel = configs.find((config) => config.isDefault)
+    if (defaultModel) {
+      return defaultModel.id
     }
+
+    // 如果没有默认模型，返回第一个配置的 ID
+    return configs[0].id
   }
 
   // 内部状态：当前选中的模型 ID
