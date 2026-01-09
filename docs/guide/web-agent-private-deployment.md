@@ -114,12 +114,12 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 import '@opentiny/next-remoter/dist/style.css'
 
 const sessionId = ref('')
-const numberValue = ref(0)
+const [serverTransport, clientTransport] = createMessageChannelPairTransport()
+provide('serverTransport', serverTransport)
+
 onMounted(async () => {
   // 创建 WebMcpClient ，并与 WebAgent 连接
   const client = new WebMcpClient()
-  const [serverTransport, clientTransport] = createMessageChannelPairTransport()
-  provide('serverTransport', serverTransport)
   await client.connect(clientTransport)
   const { sessionId: sessionID } = await client.connect({
     agent: true,
