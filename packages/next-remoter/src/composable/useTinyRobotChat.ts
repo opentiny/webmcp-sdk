@@ -410,9 +410,6 @@ export const useTinyRobotChat = ({
     customAgentProvider.agent.closeAll()
   })
 
-  // 注意：模型切换和生成式UI状态变化的监听逻辑已移至 TinyRobotChat.vue 中统一处理
-  // Note: Model switching and GenUI state change monitoring logic has been moved to TinyRobotChat.vue for unified handling
-
   return {
     /**  一个 ai-sdk agent 封装,详见： next-sdk/AgentModelProvider 类 */
     agent: customAgentProvider.agent,
