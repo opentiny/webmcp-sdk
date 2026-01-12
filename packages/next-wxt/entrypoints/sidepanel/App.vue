@@ -137,10 +137,10 @@ const selectedModelId = ref<string>(
 const storedGenui = getStorageItem<boolean>(StorageKeys.GENUI_ENABLED)
 const genuiEnabled = ref<boolean>(storedGenui ?? false)
 
-// 管理本地工具存储状态（从存储读取，变化时保存）
+// 管理默认启用的工具状态（从存储读取，变化时保存）
 // 使用 localStorage 同步读取，可以在初始化时直接获取值
-const storedLocalTool = getStorageItem<Record<string, boolean>>(StorageKeys.LOCAL_TOOL_STORAGE)
-const localToolStorage = ref<Record<string, boolean>>(storedLocalTool || {})
+const storedEnabledTools = getStorageItem<Record<string, boolean>>(StorageKeys.LOCAL_TOOL_STORAGE)
+const enabledTools = ref<Record<string, boolean>>(storedEnabledTools || {})
 
 // 监听 selectedModelId 变化，自动保存到存储（使用 localStorage 同步存储）
 watch(selectedModelId, (newId) => {
@@ -152,9 +152,9 @@ watch(genuiEnabled, (newValue) => {
   setStorageItem(StorageKeys.GENUI_ENABLED, newValue)
 })
 
-// 监听 localToolStorage 变化，自动保存到存储（使用 localStorage 同步存储）
+// 监听 enabledTools 变化，自动保存到存储（使用 localStorage 同步存储）
 watch(
-  localToolStorage,
+  enabledTools,
   (newValue) => {
     setStorageItem(StorageKeys.LOCAL_TOOL_STORAGE, newValue)
   },
@@ -265,7 +265,7 @@ browser.runtime.onMessage.addListener((message) => {
       :llmConfigs="DEFAULT_MODEL_CONFIGS"
       v-model:selected-model-id="selectedModelId"
       v-model:genUiAble="genuiEnabled"
-      v-model:local-tool-storage="localToolStorage"
+      v-model:enabled-tools="enabledTools"
       inBrowserExt
       :custom-market-mcp-servers="customMarketMcpServers"
       :gen-ui-components="genUiComponents"

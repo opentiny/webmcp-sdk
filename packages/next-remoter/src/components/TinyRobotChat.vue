@@ -84,9 +84,13 @@
               <!-- 插件开关 Plugin toggle button -->
               <PluginToggleButton :installed-plugins="installedPlugins" @click="pluginVisible = !pluginVisible" />
               <!-- 模型切换组件 Model switch component -->
-              <ModelSwitch :model-configs="llmConfigsRef" v-model:selected-model-id="selectedModelId" />
+              <ModelSwitch
+                v-if="llmConfigsRef && llmConfigsRef.length > 0"
+                :model-configs="llmConfigsRef"
+                v-model:selected-model-id="selectedModelId"
+              />
               <!-- 生成式UI开关 GenUI toggle button -->
-              <GenUISwitch v-model:genui-enabled="genUiAble" />
+              <GenUISwitch v-if="inBrowserExt" v-model:genui-enabled="genUiAble" />
             </div>
           </template>
         </tr-sender>
@@ -140,7 +144,6 @@ import {
 } from '@opentiny/tiny-robot'
 
 import { SchemaRenderer } from '@opentiny/genui-sdk-vue'
-
 import { GeneratingStatus, STATUS } from '@opentiny/tiny-robot-kit'
 import { IconNewSession, IconHistory } from '@opentiny/tiny-robot-svgs'
 import { useTinyRobotChat } from '../composable/useTinyRobotChat'
@@ -234,26 +237,23 @@ const props = defineProps({
     type: Array as () => UnifiedModelConfig[],
     default: undefined
   },
-  /** 本地工具存储状态（可选，用于外部控制）Local tool storage state (optional, for external control) */
-  localToolStorage: {
-    type: Object as () => Record<string, boolean> | undefined,
-    default: undefined
-  },
   skills: {
     type: Object as () => MentionItem[],
     default: () => []
   }
 })
 
-const emit = defineEmits<{
-  'update:localToolStorage': [storage: Record<string, boolean>]
-}>()
-
 const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })
 const show = defineModel('show', { type: Boolean, default: false })
 const selectedModelId = defineModel('selectedModelId', { type: String, default: undefined, required: false })
 // 使用 defineModel 定义 genUiAble，实现双向绑定（简化逻辑，统一使用 v-model:genUiAble）
 const genUiAble = defineModel('genUiAble', { type: Boolean, default: false, required: false })
+// 使用 defineModel 定义 enabledTools，实现双向绑定（默认启用的工具状态）
+const enabledTools = defineModel('enabledTools', {
+  type: Object as () => Record<string, boolean> | undefined,
+  default: undefined,
+  required: false
+})
 
 // 获取当前选中的模型配置（如果传入了 llmConfigs，则使用传入的配置）
 const llmConfigsRef = props.llmConfigs ? (toRef(props, 'llmConfigs') as Ref<UnifiedModelConfig[]>) : undefined
@@ -289,7 +289,6 @@ const {
   agentRoot: toRef(props, 'agentRoot'),
   systemPrompt: props.systemPrompt || '',
   llmConfig: props.llmConfig,
-  inBrowserExt: toRef(props, 'inBrowserExt'),
   skills: props.skills || [] // 传递 skills 列表给 useTinyRobotChat
 })
 
@@ -301,8 +300,8 @@ const updateLLMConfigFromModel = () => {
     const model = selectedModel.value
     customAgentProvider.updateLLMConfig({
       modelId: model.id,
-      baseURL: model.baseURL,
-      apiKey: model.apiKey,
+      baseURL: model.baseURL || '',
+      apiKey: model.apiKey || '',
       providerType: model.providerType,
       useReActMode: model.useReActMode
     })
@@ -310,10 +309,12 @@ const updateLLMConfigFromModel = () => {
 }
 
 // 监听模型切换和生成式UI状态变化，统一更新 LLM 配置
-if (props.llmConfigs && props.inBrowserExt) {
+if (props.llmConfigs) {
   // 监听模型切换
   watch(selectedModel, updateLLMConfigFromModel, { immediate: true })
+}
 
+if (props.inBrowserExt) {
   // 监听生成式UI状态变化
   watch(genUiAble, updateLLMConfigFromModel)
 }
@@ -443,7 +444,7 @@ const handlePillItemClick = (item: ReturnType<typeof mapMake>) => {
 }
 
 const loadMcpServerToPlugin = async (serverName: string, mcpServer: McpServerConfig) => {
-  const LOCAL_TOOL_STORAGE = props.localToolStorage || {}
+  const enabledToolsState = enabledTools.value || {}
   const isLocalTool = serverName === 'mcp-server-localhost'
   const url = isLocalTool ? { origin: '本地工具' } : new URL('url' in mcpServer ? mcpServer.url : '')
   const sessionId = isLocalTool
@@ -455,7 +456,7 @@ const loadMcpServerToPlugin = async (serverName: string, mcpServer: McpServerCon
   if (currTool) {
     let pluginTools: PluginTool[] = []
     pluginTools = Object.keys(currTool).map((key) => {
-      const enabled = isLocalTool ? Boolean(LOCAL_TOOL_STORAGE[key]) : true
+      const enabled = isLocalTool ? Boolean(enabledToolsState[key]) : true
       agent.ignoreToolnames = agent.ignoreToolnames.filter((name) => name !== key)
       if (!enabled) {
         agent.ignoreToolnames.push(key)
@@ -575,7 +576,7 @@ watch(
 // 整个插件的打开或关闭
 const handlePluginToggle = (_plugin: PluginInfo, enabled: boolean) => {
   const isLocalTool = _plugin.id === 'plugin-本地工具列表'
-  const LOCAL_TOOL_STORAGE = props.localToolStorage ? { ...props.localToolStorage } : {}
+  const enabledToolsState = enabledTools.value ? { ...enabledTools.value } : {}
   _plugin.tools.forEach((tool) => {
     tool.enabled = enabled
     if (enabled) {
@@ -586,16 +587,16 @@ const handlePluginToggle = (_plugin: PluginInfo, enabled: boolean) => {
   })
 
   if (isLocalTool) {
-    Object.keys(LOCAL_TOOL_STORAGE).forEach((key) => {
-      LOCAL_TOOL_STORAGE[key] = enabled
+    Object.keys(enabledToolsState).forEach((key) => {
+      enabledToolsState[key] = enabled
     })
-    emit('update:localToolStorage', LOCAL_TOOL_STORAGE)
+    enabledTools.value = enabledToolsState
   }
 }
 
 // 某个tool的打开或关闭。  全部tool状态一致时，会同时触发handlePluginToggle 一下。
 const handleToolToggle = (_plugin: PluginInfo, toolId: string, enabled: boolean) => {
-  const LOCAL_TOOL_STORAGE = props.localToolStorage ? { ...props.localToolStorage } : {}
+  const enabledToolsState = enabledTools.value ? { ...enabledTools.value } : {}
   const isLocalTool = _plugin.id === 'plugin-本地工具列表'
 
   _plugin.tools.forEach((tool) => {
@@ -609,8 +610,8 @@ const handleToolToggle = (_plugin: PluginInfo, toolId: string, enabled: boolean)
     agent.ignoreToolnames.push(toolId)
   }
   if (isLocalTool) {
-    LOCAL_TOOL_STORAGE[toolId] = enabled
-    emit('update:localToolStorage', LOCAL_TOOL_STORAGE)
+    enabledToolsState[toolId] = enabled
+    enabledTools.value = enabledToolsState
   }
 }
 // 点垃圾桶图标的插件删除

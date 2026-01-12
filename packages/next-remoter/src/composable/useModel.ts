@@ -19,8 +19,6 @@ export default function useModel(
       // 如果传入的是 Ref，则使用其 value；否则直接使用数组
       return Array.isArray(modelConfigs) ? modelConfigs : modelConfigs.value
     }
-    // 如果没有传入配置，返回空数组
-    console.warn('[useModel] No model configurations provided. Please pass modelConfigs prop.')
     return []
   })
 
@@ -30,9 +28,7 @@ export default function useModel(
 
     // 如果配置列表为空，抛出错误
     if (configs.length === 0) {
-      throw new Error(
-        '[useModel] No model configurations available. Please provide llmConfigs prop to TinyRemoter component.'
-      )
+      return ''
     }
 
     // 如果外部传入了初始 ID，优先使用
