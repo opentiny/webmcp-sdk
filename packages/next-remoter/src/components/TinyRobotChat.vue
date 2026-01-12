@@ -259,10 +259,9 @@ const enabledTools = defineModel('enabledTools', {
 const llmConfigsRef = props.llmConfigs ? (toRef(props, 'llmConfigs') as Ref<UnifiedModelConfig[]>) : undefined
 // selectedModelId 已通过 defineModel 定义，可以直接使用
 // defineModel 返回的 ref 可以直接传递给 useModel
-const { selectedModel } = useModel(llmConfigsRef, selectedModelId, (modelId: string) => {
-  // 当模型变化时，更新 selectedModelId（defineModel 会自动处理双向绑定）
-  selectedModelId.value = modelId
-})
+// 注意：当使用 defineModel 时，不需要在 onModelChange 回调中更新 selectedModelId，
+// 因为 useModel 内部已经通过 watch 同步了 initialModelId 和内部 selectedModelId 的状态
+const { selectedModel } = useModel(llmConfigsRef, selectedModelId)
 
 const {
   showHistory,

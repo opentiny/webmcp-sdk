@@ -55,14 +55,9 @@ const modelConfigsRef = props.modelConfigs
   : undefined
 
 // 使用 defineModel 返回的 ref 直接传递给 useModel，defineModel 会自动处理双向绑定
-const { selectedModel, availableModels, setSelectedModel } = useModel(
-  modelConfigsRef,
-  selectedModelId,
-  (modelId: string) => {
-    // 当模型变化时，更新 selectedModelId（defineModel 会自动处理双向绑定）
-    selectedModelId.value = modelId
-  }
-)
+// 注意：当使用 defineModel 时，不需要在 onModelChange 回调中更新 selectedModelId，
+// 因为 useModel 内部已经直接使用传入的 ref，避免了循环更新
+const { selectedModel, availableModels, setSelectedModel } = useModel(modelConfigsRef, selectedModelId)
 
 const isOpen = ref(false)
 

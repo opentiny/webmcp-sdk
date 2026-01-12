@@ -50,47 +50,47 @@ export default function useModel(
   }
 
   // 内部状态：当前选中的模型 ID
-  // 如果外部传入了 initialModelId 且是 Ref，先尝试使用其当前值
-  let initialId: string | undefined
-  if (initialModelId) {
-    if (typeof initialModelId === 'string') {
-      initialId = initialModelId
-    } else {
-      initialId = initialModelId.value
-    }
-  }
+  // 如果外部传入了 initialModelId 且是 Ref，直接使用该 Ref（避免创建内部状态导致循环更新）
+  // 否则创建内部 ref 来管理状态
+  let selectedModelId: Ref<string>
+  let isUsingExternalRef = false
 
-  const selectedModelId = ref<string>(
-    initialId
-      ? currentModelConfigs.value.some((config) => config.id === initialId)
-        ? initialId
-        : getInitialModelId()
-      : getInitialModelId()
-  )
-
-  // 如果外部传入了 initialModelId 且是 Ref，监听其变化
   if (initialModelId && typeof initialModelId !== 'string') {
-    watch(
-      initialModelId,
-      (newId) => {
-        if (newId && currentModelConfigs.value.some((config) => config.id === newId)) {
-          if (selectedModelId.value !== newId) {
-            selectedModelId.value = newId
-          }
-        } else if (newId) {
-          console.warn('[useModel] External modelId not found in configs:', newId)
-        }
-      },
-      { immediate: true }
+    // 如果传入的是 Ref，直接使用外部 Ref（例如 defineModel 返回的 ref）
+    selectedModelId = initialModelId as Ref<string>
+    isUsingExternalRef = true
+
+    // 初始化：如果外部 ref 没有值或值无效，设置默认值
+    if (!selectedModelId.value || !currentModelConfigs.value.some((config) => config.id === selectedModelId.value)) {
+      selectedModelId.value = getInitialModelId()
+    }
+  } else {
+    // 如果传入的是 string 或 undefined，创建内部 ref
+    let initialId: string | undefined
+    if (initialModelId && typeof initialModelId === 'string') {
+      initialId = initialModelId
+    }
+
+    selectedModelId = ref<string>(
+      initialId
+        ? currentModelConfigs.value.some((config) => config.id === initialId)
+          ? initialId
+          : getInitialModelId()
+        : getInitialModelId()
     )
+
+    // 如果外部传入了 initialModelId 且是 string，监听其变化（这种情况很少见，但保留兼容性）
+    // 注意：这里不需要监听，因为 string 是不可变的
   }
 
-  // 监听内部 selectedModelId 变化，通知外部
-  watch(selectedModelId, (newId) => {
-    if (onModelChange) {
-      onModelChange(newId)
-    }
-  })
+  // 监听内部 selectedModelId 变化，通知外部（仅在非外部 Ref 时或需要回调时）
+  if (!isUsingExternalRef || onModelChange) {
+    watch(selectedModelId, (newId) => {
+      if (onModelChange) {
+        onModelChange(newId)
+      }
+    })
+  }
 
   // 当前选中的完整模型配置
   const selectedModel = computed<UnifiedModelConfig | undefined>(() => {
