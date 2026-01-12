@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, type Ref, shallowReactive, computed } from 'vue'
+import { ref, type Ref, shallowReactive, computed, watch } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
 import { useBrowserExtensions } from './useBrowserExtensions'
 import { useWebAgentServer } from './useWebAgentServer'
@@ -13,6 +13,9 @@ import { getAllSkills } from '@/skills'
 import { RENDERER_SETTINGS_KEY } from '@opentiny/genui-sdk-vue'
 import { useAutoScreenshot } from './useAutoScreenshot'
 import { CustomFunction } from '@/utils/customFunction'
+import { DEFAULT_MODEL_CONFIGS } from './model-config'
+import { getStorageItem, setStorageItem } from './utils/local-storage'
+import { StorageKeys } from './utils/storage-keys'
 
 // 初始化自动截图功能
 const { captureCurrentTab } = useAutoScreenshot()
@@ -120,7 +123,43 @@ useWebAgentServer()
 const genUiComponents = shallowReactive({ TinyUser })
 // 汇总自定义 MCP Server 配置（中文注释：用于传给 TinyRemoter 的插件市场）
 const customMarketMcpServers = useCustomMarketMcpServers()
-const isDev = import.meta.env.DEV
+
+// 管理选中的模型 ID（从存储读取，变化时保存）
+// 使用 localStorage 同步读取，可以在初始化时直接获取值
+const defaultModel = DEFAULT_MODEL_CONFIGS.find((config) => config.isDefault) || DEFAULT_MODEL_CONFIGS[0]
+const storedModel = getStorageItem<string>(StorageKeys.SELECTED_MODEL)
+const selectedModelId = ref<string>(
+  storedModel && DEFAULT_MODEL_CONFIGS.some((config) => config.id === storedModel) ? storedModel : defaultModel.id
+)
+
+// 管理生成式UI启用状态（从存储读取，变化时保存）
+// 使用 localStorage 同步读取，可以在初始化时直接获取值
+const storedGenui = getStorageItem<boolean>(StorageKeys.GENUI_ENABLED)
+const genuiEnabled = ref<boolean>(storedGenui ?? false)
+
+// 管理默认启用的工具状态（从存储读取，变化时保存）
+// 使用 localStorage 同步读取，可以在初始化时直接获取值
+const storedEnabledTools = getStorageItem<Record<string, boolean>>(StorageKeys.LOCAL_TOOL_STORAGE)
+const enabledTools = ref<Record<string, boolean>>(storedEnabledTools || {})
+
+// 监听 selectedModelId 变化，自动保存到存储（使用 localStorage 同步存储）
+watch(selectedModelId, (newId) => {
+  setStorageItem(StorageKeys.SELECTED_MODEL, newId)
+})
+
+// 监听 genuiEnabled 变化，自动保存到存储（使用 localStorage 同步存储）
+watch(genuiEnabled, (newValue) => {
+  setStorageItem(StorageKeys.GENUI_ENABLED, newValue)
+})
+
+// 监听 enabledTools 变化，自动保存到存储（使用 localStorage 同步存储）
+watch(
+  enabledTools,
+  (newValue) => {
+    setStorageItem(StorageKeys.LOCAL_TOOL_STORAGE, newValue)
+  },
+  { deep: true }
+)
 const { isRecording, startRecording, stopRecording, toggleRecording } = useGenerateCode()
 const isRecordModalVisible = ref(false)
 const openRecordModal = () => {
@@ -154,8 +193,10 @@ const handleStopRecording = async () => {
 // pillItems 依赖 sessionId 动态生成识别码与分享链接
 const pillItems = computed(() => {
   const fallbackText = '会话尚未建立'
-  const shortCode = sessionId.value ? sessionId.value.slice(-6) : fallbackText
-  const shareUrl = sessionId.value ? `${ROBOT_URL}?sessionId=${sessionId.value}` : fallbackText
+  // 确保 sessionId.value 是字符串类型，避免类型错误（使用 @wxt-dev/storage 后可能返回其他类型）
+  const sessionIdStr = typeof sessionId.value === 'string' ? sessionId.value : ''
+  const shortCode = sessionIdStr ? sessionIdStr.slice(-6) : fallbackText
+  const shareUrl = sessionIdStr ? `${ROBOT_URL}?sessionId=${sessionIdStr}` : fallbackText
   const connectType = import.meta.env.VITE_WEB_AGENT_CONNECT_TYPE
   const agentRoot = connectType === 'sse' ? AGENT_ROOT + 'sse' : AGENT_ROOT + 'mcp'
 
@@ -170,7 +211,7 @@ const pillItems = computed(() => {
         },
         {
           id: 'copy-session-id-mcp-url',
-          text: `Agent连接地址：${agentRoot}/?sessionId=${sessionId.value}`
+          text: `Agent连接地址：${agentRoot}/?sessionId=${sessionIdStr}`
         },
         {
           id: 'copy-session-id-url',
@@ -221,6 +262,10 @@ browser.runtime.onMessage.addListener((message) => {
       fullscreen
       title=""
       :llmConfig="llmConfig"
+      :llmConfigs="DEFAULT_MODEL_CONFIGS"
+      v-model:selected-model-id="selectedModelId"
+      v-model:genUiAble="genuiEnabled"
+      v-model:enabled-tools="enabledTools"
       inBrowserExt
       :custom-market-mcp-servers="customMarketMcpServers"
       :gen-ui-components="genUiComponents"

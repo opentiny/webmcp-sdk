@@ -1,17 +1,20 @@
 <template>
-  <Button class="action-button" :active="isGenuiEnabled" rounded size="small" @click="toggleGenUI">
+  <Button class="action-button" :active="genuiEnabled" rounded size="small" @click="toggleGenUI">
     <IconVisual :width="16" :height="16" />
     <span class="button-text">生成式UI</span>
   </Button>
 </template>
 
 <script setup lang="ts">
-import useGenUI from '../composable/useGenUI'
 import Button from './Button.vue'
 import IconVisual from './icons/icon-visual.svg'
 
-// 使用生成式UI状态管理
-const { isGenuiEnabled, toggleGenUI } = useGenUI()
+// 使用 defineModel 定义双向绑定的 genuiEnabled prop
+const genuiEnabled = defineModel<boolean>('genuiEnabled', { type: Boolean, default: false, required: false })
+
+const toggleGenUI = () => {
+  genuiEnabled.value = !genuiEnabled.value
+}
 </script>
 
 <style lang="less" scoped>

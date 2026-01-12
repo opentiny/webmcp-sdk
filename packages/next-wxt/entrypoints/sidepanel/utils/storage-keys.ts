@@ -8,6 +8,8 @@
 /**
  * 存储键枚举
  * Storage key enumeration
+ * 使用 localStorage，不需要特殊前缀
+ * Using localStorage, no special prefix needed
  */
 export const StorageKeys = {
   /** 选中的模型ID Selected model ID */

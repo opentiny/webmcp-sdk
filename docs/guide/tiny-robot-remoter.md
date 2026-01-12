@@ -24,6 +24,8 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 
 - `v-model:show` 双向绑定是否显示，内部关闭是 emit('update:show',false)
 - `v-model:fullscreen` 双向绑定是否全屏
+- `v-model:selectedModelId` 双向绑定当前选中的模型 ID（字符串类型），当传入 `llmConfigs` 时，可通过此属性控制模型切换
+- `v-model:enabledTools` 双向绑定默认启用的工具状态（`Record<string, boolean>` 类型），键为工具名称，值为是否启用。主要用于控制本地工具的默认启用状态
 - `sessionId` 必须传
 - `title` 左上角的 container.title
 - `agentRoot` 后端代理的地址，有默认值 `https://agent.opentiny.design/api/v1/webmcp-trial/`
@@ -34,6 +36,7 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 - `menuItems` 菜单项配置数组，用于显示在遥控器模式下，点击遥控器图标后，显示的菜单项。具体配置项见 [api-createRemoter](./api-createRemoter.md)
 - `systemPrompt` 对话llm 时，传入的 system message: system-prompt=你是一个智能助手，工作地点是深圳
 - `llmConfig` 大语言模型配置对象，支持配置 `apiKey`、`baseURL` 、 `model` 、`maxSteps` 、 `providerType` 、 `providerOptions`、`extraTools`，其中 `apiKey/baseURL/providerType` 与 `llmConfig.llm` 二选一
+- `llmConfigs` LLM 配置数组（`UnifiedModelConfig[]` 类型），每一项基于 `llmConfig` 格式，额外包含 `id`、`label`、`icon`、`isDefault`、`useReActMode` 字段。传入此属性后，会在头部显示模型切换组件，支持通过 `v-model:selectedModelId` 控制选中的模型
 - `inBrowserExt` 设置组件运行在普通页面还是浏览器的扩展中，默认值为：false
 - `genUiAble` 设置是否支持生成式UI的渲染，默认值为：false
 - `genUiComponents` 生成式UI内置了一批组件，如果需要引入新组件，需要通过这里导入。 参考示例： shallowReactive({TinyUser, TinyAlert })
@@ -229,6 +232,8 @@ function handleSuggestionClick(suggestion) {
 
 ```typescript
 defineExpose({
+  /** 大模型代理（AgentModelProvider 实例） */
+  agent,
   /** 欢迎图标 */
   welcomeIcon,
   /** 对话消息 */
@@ -244,7 +249,13 @@ defineExpose({
   /** 取消发送 */
   abortRequest,
   /** 发送消息 */
-  sendMessage
+  sendMessage,
+  /** 向插件市场添加一个server */
+  loadMcpServerToPlugin,
+  /** mcp client断开时，自动清理已断开的插件和资源 */
+  handleClientDisconnected,
+  /** 添加消息 */
+  addMessage
 })
 ```
 
@@ -483,6 +494,75 @@ const envConfig = {
 }
 </script>
 ```
+
+### 使用模型切换功能（llmConfigs）
+
+当传入 `llmConfigs` 属性时，组件会在头部显示模型切换组件，支持在不同模型之间切换。通过 `v-model:selectedModelId` 可以双向绑定当前选中的模型 ID。
+
+```vue
+<template>
+  <TinyRemoter
+    v-model:show="show"
+    v-model:selected-model-id="selectedModelId"
+    sessionId="your-session-id"
+    title="我的AI助手"
+    systemPrompt="你是一个智能助手"
+    :llmConfigs="modelConfigs"
+  />
+</template>
+
+<script setup>
+import { ref, watch } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
+import IconOpenAI from './icons/openai.svg'
+import IconDeepSeek from './icons/deepseek.svg'
+
+const show = ref(false)
+const selectedModelId = ref('gpt-4o')
+
+// 定义模型配置数组
+const modelConfigs = [
+  {
+    id: 'gpt-4o',
+    label: 'GPT-4o',
+    icon: IconOpenAI,
+    isDefault: true,
+    apiKey: 'your-openai-api-key',
+    baseURL: 'https://api.openai.com/v1',
+    providerType: 'openai',
+    model: 'gpt-4o',
+    maxSteps: 10,
+    useReActMode: false
+  },
+  {
+    id: 'deepseek-v3',
+    label: 'DeepSeek V3',
+    icon: IconDeepSeek,
+    apiKey: 'your-deepseek-api-key',
+    baseURL: 'https://api.deepseek.com',
+    providerType: 'deepseek',
+    model: 'deepseek-chat',
+    maxSteps: 15,
+    useReActMode: false
+  }
+]
+
+// 监听模型切换
+watch(selectedModelId, (newModelId) => {
+  console.log('当前选中的模型:', newModelId)
+  // 组件内部会自动调用 customAgentProvider.updateLLMConfig() 更新模型配置
+  // 无需手动调用，模型切换时会自动更新 Agent Provider 的 LLM 配置
+})
+</script>
+```
+
+**模型切换机制说明：**
+
+当 `selectedModelId` 发生变化时，组件内部会自动执行以下操作：
+
+1. **自动更新模型配置**：组件会监听 `selectedModel` 的变化，自动调用 `customAgentProvider.updateLLMConfig()` 方法
+2. **更新 LLM 实例**：`updateLLMConfig()` 方法会根据新的模型配置创建新的 Provider 实例，并更新到 `agent.llm`
+3. **支持的条件**：只有当模型配置中包含 `providerType` 时才会自动更新（如果使用 `llm` 实例配置，则不会自动更新）
 
 ### 配置技能列表
 

@@ -6,7 +6,6 @@ import { TrSender } from '@opentiny/tiny-robot'
 import logo from '../../public/svgs/logo-next-no-bg-right.svg'
 import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import { extractTextAndJson } from './handleSchema'
-import useModel from './useModel'
 
 interface useTinyRobotOption {
   sessionId: Ref<string>
@@ -14,8 +13,6 @@ interface useTinyRobotOption {
   systemPrompt: string
   llmConfig?: ICustomAgentModelProviderLlmConfig
   skills?: PropsSkill[] // 添加 skills 参数，tools 字段用于指定该 skill 需要的工具列表
-  isGenuiEnabled?: Ref<boolean> // 生成式UI启用状态
-  inBrowserExt?: Ref<boolean> // 是否在浏览器扩展中运行
 }
 
 /** 事件中返回的Skill 结构体 */
@@ -45,9 +42,7 @@ export const useTinyRobotChat = ({
   agentRoot,
   systemPrompt,
   llmConfig,
-  skills = [],
-  isGenuiEnabled = ref(false),
-  inBrowserExt = ref(false)
+  skills = []
 }: useTinyRobotOption) => {
   const customAgentProvider = new CustomAgentModelProvider(
     { provider: 'custom' },
@@ -57,8 +52,6 @@ export const useTinyRobotChat = ({
     llmConfig
   )
 
-  // 将生成式UI状态传递给 CustomAgentModelProvider
-  customAgentProvider.isGenuiEnabled = isGenuiEnabled
   const client = new AIClient({
     providerImplementation: customAgentProvider,
     provider: 'custom'
@@ -86,7 +79,6 @@ export const useTinyRobotChat = ({
       },
       onReceiveData(data, messages, preventDefault) {
         preventDefault()
-        // console.log('onReceiveData=', data)
 
         let lastMessage = messages.value[messages.value.length - 1]
 
@@ -137,18 +129,6 @@ export const useTinyRobotChat = ({
             lastMessage.uiContent[lastMessage.uiContent.length - 1] = accmulateMessages[arrLength - 1]
           }
           accmulateMessagesLength = arrLength
-          // console.log('accmulateMessages', accmulateMessages)
-          // const markdownContent = lastMessage.uiContent.find(
-          //   (item) => item.type === data.type && item.textId === data.textId
-          // )
-          // if (!markdownContent) {
-          //   lastMessage.uiContent.push(data)
-          // } else {
-          //   markdownContent.content += data.delta
-          //   lastMessage.content += data.delta
-          // }
-          // const extractedBlocks = extractTextAndJson(lastMessage.content || data.delta)
-          // console.log('extractedBlocks', extractedBlocks)
         } else if (data.type === 'collapsible-text') {
           const thinkContent = lastMessage.uiContent.find(
             (item) => item.type === data.type && item.thinkId === data.thinkId
@@ -429,27 +409,6 @@ export const useTinyRobotChat = ({
   onUnmounted(() => {
     customAgentProvider.agent.closeAll()
   })
-
-  // 监听模型切换 - Watch for model changes
-  const { selectedModel } = useModel()
-
-  if (inBrowserExt.value) {
-    watch(
-      selectedModel,
-      (newModel) => {
-        if (newModel) {
-          customAgentProvider.updateLLMConfig({
-            modelId: newModel.id,
-            apiUrl: newModel.apiUrl,
-            apiKey: newModel.apiKey,
-            providerType: newModel.providerType,
-            useReActMode: newModel.useReActMode
-          })
-        }
-      },
-      { immediate: true } // 立即执行一次，确保初始模型配置正确
-    )
-  }
 
   return {
     /**  一个 ai-sdk agent 封装,详见： next-sdk/AgentModelProvider 类 */

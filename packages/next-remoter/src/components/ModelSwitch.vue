@@ -34,16 +34,34 @@
 <script setup lang="ts">
 import useModel from '../composable/useModel'
 import { onClickOutside } from '@vueuse/core'
-import { ref } from 'vue'
+import { ref, shallowRef, type Ref } from 'vue'
 import Button from './Button.vue'
 import IconModel from './icons/icon-model.svg'
+import type { UnifiedModelConfig } from '../types/model-config'
 
-const { selectedModelId, selectedModel, availableModels, setSelectedModel } = useModel()
+const props = defineProps<{
+  /** 模型配置列表 Model configuration list */
+  modelConfigs?: Ref<UnifiedModelConfig[]> | UnifiedModelConfig[]
+}>()
+
+// 使用 defineModel 定义 selectedModelId，实现双向绑定（简化逻辑）
+const selectedModelId = defineModel<string>('selectedModelId', { type: String, default: undefined, required: false })
+
+// 处理 modelConfigs：如果是数组，使用 shallowRef 避免组件被深度响应式化
+const modelConfigsRef = props.modelConfigs
+  ? Array.isArray(props.modelConfigs)
+    ? shallowRef(props.modelConfigs) // 使用 shallowRef 避免深度响应式化
+    : props.modelConfigs
+  : undefined
+
+// 使用 defineModel 返回的 ref 直接传递给 useModel，defineModel 会自动处理双向绑定
+// 注意：当使用 defineModel 时，不需要在 onModelChange 回调中更新 selectedModelId，
+// 因为 useModel 内部已经直接使用传入的 ref，避免了循环更新
+const { selectedModel, availableModels, setSelectedModel } = useModel(modelConfigsRef, selectedModelId)
 
 const isOpen = ref(false)
 
 const handleChangeModel = (modelId: string) => {
-  // 直接更新 selectedModelId，watch 会自动同步到存储（通过统一的存储管理模块）
   setSelectedModel(modelId)
   closeDropdown()
 }
