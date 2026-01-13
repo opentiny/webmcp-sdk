@@ -85,48 +85,56 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     baseURL,
     apiKey,
     providerType,
-    useReActMode
+    useReActMode,
+    llm
   }: {
     modelId: string
-    baseURL: string
-    apiKey: string
-    providerType: 'deepseek' | 'openai' | ((options: any) => ProviderV2)
+    baseURL?: string
+    apiKey?: string
+    providerType?: 'deepseek' | 'openai' | ((options: any) => ProviderV2)
     useReActMode?: boolean
+    llm?: ProviderV2
   }) {
-    // 如果启用了生成式UI，在 baseURL 后面加上 '/prompt'
-    if (this.isGenuiEnabled?.value) {
-      // 如果 baseURL 还没有包含 '/prompt'，则添加
-      if (!baseURL.includes('/prompt')) {
-        baseURL = baseURL + '/prompt'
+    if (llm) {
+      this.agent.llm = llm
+      this.llmConfig.model = modelId
+      this.llmConfig.useReActMode = useReActMode || false
+      this.agent.useReActMode = useReActMode || false
+    } else if (providerType && baseURL && apiKey) {
+      // 如果启用了生成式UI，在 baseURL 后面加上 '/prompt'
+      if (this.isGenuiEnabled?.value) {
+        // 如果 baseURL 还没有包含 '/prompt'，则添加
+        if (!baseURL.includes('/prompt')) {
+          baseURL = baseURL + '/prompt'
+        }
+      } else {
+        // 如果关闭了生成式UI，移除 '/prompt' 后缀
+        baseURL = baseURL.replace('/prompt', '')
       }
-    } else {
-      // 如果关闭了生成式UI，移除 '/prompt' 后缀
-      baseURL = baseURL.replace('/prompt', '')
+
+      // 更新本地配置
+      this.llmConfig.model = modelId
+      this.llmConfig.apiKey = apiKey
+      this.llmConfig.baseURL = baseURL
+      this.llmConfig.providerType = providerType
+      this.llmConfig.useReActMode = useReActMode || false
+      this.agent.useReActMode = useReActMode || false
+
+      // 根据 providerType 创建新的 llm 实例
+      let providerFn: (options: { apiKey: string; baseURL: string }) => ProviderV2 | OpenAIProvider
+
+      if (providerType === 'deepseek') {
+        providerFn = createDeepSeek
+      } else if (providerType === 'openai') {
+        providerFn = createOpenAI
+      } else if (typeof providerType === 'function') {
+        providerFn = providerType
+      } else {
+        throw new Error(`Unsupported providerType: ${providerType}`)
+      }
+
+      this.agent.llm = providerFn({ apiKey, baseURL })
     }
-
-    // 更新本地配置
-    this.llmConfig.model = modelId
-    this.llmConfig.apiKey = apiKey
-    this.llmConfig.baseURL = baseURL
-    this.llmConfig.providerType = providerType
-    this.llmConfig.useReActMode = useReActMode || false
-    this.agent.useReActMode = useReActMode || false
-
-    // 根据 providerType 创建新的 llm 实例
-    // Create new llm instance based on providerType
-    let providerFn: (options: { apiKey: string; baseURL: string }) => ProviderV2 | OpenAIProvider
-
-    if (providerType === 'deepseek') {
-      providerFn = createDeepSeek
-    } else if (providerType === 'openai') {
-      providerFn = createOpenAI
-    } else if (typeof providerType === 'function') {
-      providerFn = providerType
-    } else {
-      throw new Error(`Unsupported providerType: ${providerType}`)
-    }
-
-    this.agent.llm = providerFn({ apiKey, baseURL })
   }
 
   /**

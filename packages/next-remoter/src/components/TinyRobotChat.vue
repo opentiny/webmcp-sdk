@@ -297,16 +297,14 @@ customAgentProvider.isGenuiEnabled = genUiAble
 const updateLLMConfigFromModel = () => {
   if (selectedModel.value) {
     const model = selectedModel.value
-    // 只有当 providerType 存在时才更新配置（如果使用 llm 实例，则不需要更新）
-    if (model.providerType) {
-      customAgentProvider.updateLLMConfig({
-        modelId: model.id,
-        baseURL: model.baseURL || '',
-        apiKey: model.apiKey || '',
-        providerType: model.providerType,
-        useReActMode: model.useReActMode
-      })
-    }
+    customAgentProvider.updateLLMConfig({
+      modelId: model.id,
+      baseURL: model.baseURL || '',
+      apiKey: model.apiKey || '',
+      providerType: model.providerType,
+      useReActMode: model.useReActMode,
+      llm: model.llm
+    })
   }
 }
 

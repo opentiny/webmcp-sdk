@@ -1,0 +1,62 @@
+<svg
+  viewBox="0 0 48 48"
+  xmlns="http://www.w3.org/2000/svg"
+  xmlns:xlink="http://www.w3.org/1999/xlink"
+  fill="none"
+>
+  <rect id="built-in-ai" width="48.000000" height="48.000000" x="0.000000" y="0.000000" />
+  <!-- 浏览器窗口外框 -->
+  <rect
+    x="6"
+    y="8"
+    width="36"
+    height="32"
+    rx="2"
+    fill="rgb(77,107,254)"
+    fill-opacity="0.1"
+    stroke="rgb(77,107,254)"
+    stroke-width="1.5"
+  />
+  <!-- 浏览器顶部栏 -->
+  <rect
+    x="6"
+    y="8"
+    width="36"
+    height="6"
+    rx="2"
+    fill="rgb(77,107,254)"
+  />
+  <!-- 浏览器控制点 -->
+  <circle cx="10" cy="11" r="1.5" fill="rgb(255,255,255)" fill-opacity="0.8" />
+  <circle cx="14" cy="11" r="1.5" fill="rgb(255,255,255)" fill-opacity="0.8" />
+  <circle cx="18" cy="11" r="1.5" fill="rgb(255,255,255)" fill-opacity="0.8" />
+  <!-- AI 大脑/芯片图标 -->
+  <g transform="translate(24, 20)">
+    <!-- 芯片主体 -->
+    <rect
+      x="-8"
+      y="-6"
+      width="16"
+      height="12"
+      rx="1.5"
+      fill="rgb(77,107,254)"
+      fill-opacity="0.2"
+      stroke="rgb(77,107,254)"
+      stroke-width="1.5"
+    />
+    <!-- 芯片连接点 -->
+    <rect x="-8" y="-3" width="2" height="6" fill="rgb(77,107,254)" />
+    <rect x="6" y="-3" width="2" height="6" fill="rgb(77,107,254)" />
+    <rect x="-3" y="-6" width="6" height="2" fill="rgb(77,107,254)" />
+    <rect x="-3" y="4" width="6" height="2" fill="rgb(77,107,254)" />
+    <!-- AI 核心 -->
+    <circle cx="0" cy="0" r="3" fill="rgb(77,107,254)" />
+    <circle cx="0" cy="0" r="1.5" fill="rgb(255,255,255)" />
+  </g>
+  <!-- 内置标识（小星星） -->
+  <path
+    d="M38 12 L39.5 15.5 L43 16 L40.5 18.5 L41 22 L38 20 L35 22 L35.5 18.5 L33 16 L36.5 15.5 Z"
+    fill="rgb(255,193,7)"
+    fill-opacity="0.9"
+  />
+</svg>

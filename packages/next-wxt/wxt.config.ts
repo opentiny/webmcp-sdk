@@ -49,6 +49,12 @@ export default defineConfig({
   },
   vite: () => ({
     envDir: './env',
+    build: {
+      target: 'esnext'
+    },
+    esbuild: {
+      target: 'esnext'
+    },
     plugins: [
       Components({
         resolvers: [TinyVueSingleResolver, VantResolver()]

@@ -8,11 +8,12 @@
 import type { UnifiedModelConfig } from '@opentiny/next-remoter'
 import type { Component } from 'vue'
 import { markRaw } from 'vue'
-
+import { builtInAI } from '@built-in-ai/core'
 // 从本地导入图标
 // Import icons from local directory
 import IconModelDeepseek from './icons/icon-model-deepseek.svg'
 import IconModelAliyunBailian from './icons/icon-model-aliyun-bailian.svg'
+import IconModelBuiltInAI from './icons/icon-model-built-in-ai.svg'
 
 /**
  * 默认的模型配置列表
@@ -49,5 +50,13 @@ export const DEFAULT_MODEL_CONFIGS: UnifiedModelConfig[] = [
     providerType: 'deepseek',
     useReActMode: true,
     icon: markRaw(IconModelAliyunBailian as unknown as Component)
+  },
+  {
+    id: 'built-in-ai',
+    label: 'built-in-ai',
+    model: 'built-in-ai',
+    llm: builtInAI as unknown as any,
+    useReActMode: true,
+    icon: markRaw(IconModelBuiltInAI as unknown as Component)
   }
 ]
