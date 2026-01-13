@@ -1,4 +1,4 @@
-<script lang="ts" setup>
+<script lang="ts" setup async>
 import { ref, type Ref, shallowReactive, computed, watch } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
 import { useBrowserExtensions } from './composable/useBrowserExtensions'

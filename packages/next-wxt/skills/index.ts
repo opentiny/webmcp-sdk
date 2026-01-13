@@ -57,26 +57,22 @@ function normalizeToArray(value: any): any[] {
   return []
 }
 
-const generateSkills = async () => {
-  // 遍历所有用户自定义prompt
-  try {
-    const storageData = (await storage.getMeta('local:ai-extension-configs')) || { list: [] }
-    // 确保 customConfig 是数组类型，处理对象格式的数据
-    const customConfig = normalizeToArray(storageData?.list)
-    customConfig.forEach((skill) => {
-      const { name, label, description, prompts, requireDomains, tools } = skill
-      skills.push({
-        meta: { name, label, description, requiredDomains: requireDomains },
-        prompt: prompts,
-        tools: tools || []
-      })
+// 遍历所有用户自定义prompt
+try {
+  const storageData = (await storage.getMeta('local:ai-extension-configs')) || { list: [] }
+  // 确保 customConfig 是数组类型，处理对象格式的数据
+  const customConfig = normalizeToArray(storageData?.list)
+  customConfig.forEach((skill) => {
+    const { name, label, description, prompts, requireDomains, tools } = skill
+    skills.push({
+      meta: { name, label, description, requiredDomains: requireDomains },
+      prompt: prompts,
+      tools: tools || []
     })
-  } catch (error) {
-    console.error('[Skill System] ✗ 加载自定义配置失败:', error)
-  }
+  })
+} catch (error) {
+  console.error('[Skill System] ✗ 加载自定义配置失败:', error)
 }
-
-generateSkills()
 
 /**
  * 获取所有 skill
