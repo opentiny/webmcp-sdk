@@ -1,8 +1,8 @@
 import { WebMcpClient } from '@opentiny/next-sdk'
-import { getStorageItem, setStorageItem } from './utils/local-storage'
-import { StorageKeys } from './utils/storage-keys'
-import { createMcpServer } from './mcpServer'
-import { AGENT_ROOT } from './const'
+import { getStorageItem, setStorageItem } from '../utils/local-storage'
+import { StorageKeys } from '../utils/storage-keys'
+import { createMcpServer } from '../mcpServer'
+import { AGENT_ROOT } from '../const'
 
 const MAX_RETRY_COUNT = 5
 const RETRY_DELAY = 3000

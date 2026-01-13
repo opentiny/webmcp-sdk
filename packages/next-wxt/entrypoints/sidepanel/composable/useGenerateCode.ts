@@ -1,6 +1,6 @@
 import { ref } from 'vue'
-import { getCurrentTabId } from './utils/utils'
-import { type RecordedPostRequest, startDebuggerRecorder, stopDebuggerRecorder } from './utils/debuggerRecorder'
+import { getCurrentTabId } from '../utils/utils'
+import { type RecordedPostRequest, startDebuggerRecorder, stopDebuggerRecorder } from '../utils/debuggerRecorder'
 
 const resolveRecorderEndpoint = () => {
   if (!import.meta.env.DEV) {
