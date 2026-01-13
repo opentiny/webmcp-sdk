@@ -98,7 +98,6 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     if (llm) {
       this.agent.llm = llm
       this.llmConfig.model = modelId
-      this.llmConfig.providerType = providerType
       this.llmConfig.useReActMode = useReActMode || false
       this.agent.useReActMode = useReActMode || false
     } else if (providerType && baseURL && apiKey) {
@@ -122,7 +121,6 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       this.agent.useReActMode = useReActMode || false
 
       // 根据 providerType 创建新的 llm 实例
-      // Create new llm instance based on providerType
       let providerFn: (options: { apiKey: string; baseURL: string }) => ProviderV2 | OpenAIProvider
 
       if (providerType === 'deepseek') {
