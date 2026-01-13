@@ -1,0 +1,22 @@
+[vite:esbuild-transpile] Transform failed with 1 error:
+chunks/sidepanel-!~{002}~.js:603270:22: ERROR: Top-level await is not available in the configured target environment ("chrome87", "edge88", "es2020", "firefox78", "safari14" + 2 overrides)
+
+Top-level await is not available in the configured target environment ("chrome87", "edge88", "es2020", "firefox78", "safari14" + 2 overrides)
+603268|  }
+603269|  try {
+603270|    const storageData = await storage$1.getMeta("local:ai-extension-configs") || { list: [] };
+   |                        ^
+603271|    const customConfig = normalizeToArray(storageData?.list);
+603272|    customConfig.forEach((skill) => {
+
+
+      at failureErrorWithLog (/Users/zhengzhichao/Desktop/opentiny/next-sdk/node_modules/.pnpm/esbuild@0.27.2/node_modules/esbuild/lib/main.js:1467:15)
+      at /Users/zhengzhichao/Desktop/opentiny/next-sdk/node_modules/.pnpm/esbuild@0.27.2/node_modules/esbuild/lib/main.js:736:50
+      at responseCallbacks.<computed> (/Users/zhengzhichao/Desktop/opentiny/next-sdk/node_modules/.pnpm/esbuild@0.27.2/node_modules/esbuild/lib/main.js:603:9)
+      at handleIncomingPacket (/Users/zhengzhichao/Desktop/opentiny/next-sdk/node_modules/.pnpm/esbuild@0.27.2/node_modules/esbuild/lib/main.js:658:12)
+      at Socket.readFromStdout (/Users/zhengzhichao/Desktop/opentiny/next-sdk/node_modules/.pnpm/esbuild@0.27.2/node_modules/esbuild/lib/main.js:581:7)
+      at Socket.emit (node:events:508:28)
+      at addChunk (node:internal/streams/readable:559:12)
+      at readableAddChunkPushByteMode (node:internal/streams/readable:510:3)
+      at Socket.Readable.push (node:internal/streams/readable:390:5)
+      at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
