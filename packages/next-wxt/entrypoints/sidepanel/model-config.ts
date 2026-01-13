@@ -13,6 +13,7 @@ import { builtInAI } from '@built-in-ai/core'
 // Import icons from local directory
 import IconModelDeepseek from './icons/icon-model-deepseek.svg'
 import IconModelAliyunBailian from './icons/icon-model-aliyun-bailian.svg'
+import IconModelBuiltInAI from './icons/icon-model-built-in-ai.svg'
 
 /**
  * 默认的模型配置列表
@@ -56,6 +57,6 @@ export const DEFAULT_MODEL_CONFIGS: UnifiedModelConfig[] = [
     model: 'built-in-ai',
     llm: builtInAI as unknown as any,
     useReActMode: true,
-    icon: markRaw(IconModelDeepseek as unknown as Component)
+    icon: markRaw(IconModelBuiltInAI as unknown as Component)
   }
 ]
