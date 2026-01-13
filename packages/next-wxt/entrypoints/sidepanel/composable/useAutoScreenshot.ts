@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { snapshotManagerPool } from './utils/snapshotManagerPool'
+import { snapshotManagerPool } from '../utils/snapshotManagerPool'
 
 // 模块级变量：存储最后一次截图的尺寸信息，用于坐标转换（所有实例共享）
 let lastScreenshotSize: {

@@ -1,6 +1,6 @@
 import { type McpServerConfig } from '@opentiny/next-sdk'
 import { onMounted } from 'vue'
-import { createMcpServer } from './mcpServer'
+import { createMcpServer } from '../mcpServer'
 import { TinyRemoter } from '@opentiny/next-remoter'
 
 // Session 注册表：sessionId → {tabIds, serverInfo, timestamp}

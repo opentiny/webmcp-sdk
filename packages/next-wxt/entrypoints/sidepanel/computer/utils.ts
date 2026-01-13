@@ -1,5 +1,5 @@
 import type { Page } from 'puppeteer-core'
-import { useAutoScreenshot } from '../useAutoScreenshot'
+import { useAutoScreenshot } from '../composable/useAutoScreenshot'
 
 export interface ComputerActionParams {
   page: Page
