@@ -29,6 +29,23 @@ export default defineBackground(() => {
     }
   })
 
+  // 监听动态 MCP 工具重新加载消息
+  browser.runtime.onMessage.addListener((message) => {
+    if (message.type === 'reload-dynamic-mcp-tools') {
+      console.log('[background] 收到动态工具重载请求')
+      // 通知所有 content script 重新加载动态工具
+      browser.tabs.query({}).then((tabs) => {
+        tabs.forEach((tab) => {
+          if (tab.id) {
+            browser.tabs.sendMessage(tab.id, { type: 'reload-dynamic-mcp-tools' }).catch(() => {
+              // 忽略未加载 content script 的标签页
+            })
+          }
+        })
+      })
+    }
+  })
+
   onRuntimeMessage(
     'focus-current-tab',
     async (_, sender) => await browser.tabs.update(sender.tab?.id, { active: true }),
