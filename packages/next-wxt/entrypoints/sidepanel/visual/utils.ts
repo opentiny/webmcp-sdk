@@ -1,7 +1,7 @@
 import type { Page } from 'puppeteer-core'
 import { useAutoScreenshot } from '../composable/useAutoScreenshot'
 
-export interface ComputerActionParams {
+export interface VisualActionParams {
   page: Page
   action: string
   coordinate?: number[]
@@ -50,7 +50,7 @@ export const showClickIndicator = async (page: Page, x: number, y: number) => {
       y
     )
   } catch (e) {
-    console.warn('[computer] Failed to show click indicator:', e)
+    console.warn('[visual] Failed to show click indicator:', e)
   }
 }
 

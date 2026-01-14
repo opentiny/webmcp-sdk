@@ -1,4 +1,4 @@
-import { type ComputerActionParams, showClickIndicator, getCoordinateConverter } from './utils'
+import { type VisualActionParams, showClickIndicator, getCoordinateConverter } from './utils'
 
 export const handleKeyboardAction = async ({
   page,
@@ -7,7 +7,7 @@ export const handleKeyboardAction = async ({
   text,
   press_enter,
   delete_existing_text
-}: ComputerActionParams) => {
+}: VisualActionParams) => {
   if (action === 'type') {
     if (!text) throw new Error('操作 type 需要文本')
 
@@ -16,7 +16,7 @@ export const handleKeyboardAction = async ({
       const convert = getCoordinateConverter()
       const originalCoords = convert(x, y)
 
-      console.log(`[computer] type with click at: AI(${x}, ${y}) -> 原始(${originalCoords.x}, ${originalCoords.y})`)
+      console.log(`[visual] type with click at: AI(${x}, ${y}) -> 原始(${originalCoords.x}, ${originalCoords.y})`)
 
       // 显示点击效果
       await showClickIndicator(page, originalCoords.x, originalCoords.y)

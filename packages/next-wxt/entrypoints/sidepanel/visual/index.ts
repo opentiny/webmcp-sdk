@@ -1,4 +1,4 @@
-import { type ComputerActionParams, getScreenshotCapturer } from './utils'
+import { type VisualActionParams, getScreenshotCapturer } from './utils'
 import { handleMouseAction } from './mouse'
 import { handleKeyboardAction } from './keyboard'
 import { handleScreenAction } from './screen'
@@ -6,7 +6,7 @@ import { handleNavigationAction } from './navigation'
 import { handleScrollAction } from './scroll'
 import { handleWaitAction } from './wait'
 
-export const executeComputerAction = async (params: ComputerActionParams) => {
+export const executeVisualAction = async (params: VisualActionParams) => {
   const { action } = params
   let mwMessage = ''
 

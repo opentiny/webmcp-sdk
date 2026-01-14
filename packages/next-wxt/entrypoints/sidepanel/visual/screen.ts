@@ -1,6 +1,6 @@
-import { type ComputerActionParams } from './utils'
+import { type VisualActionParams } from './utils'
 
-export const handleScreenAction = async ({ action }: ComputerActionParams) => {
+export const handleScreenAction = async ({ action }: VisualActionParams) => {
   if (action === 'screenshot') {
     return '已成功截图'
   } else if (action === 'cursor_position') {
