@@ -1,17 +1,10 @@
 import { z, type WebMcpServer } from '@opentiny/next-sdk'
 import { extractTextFromTree } from './utils/accessibilityTree'
 import { snapshotManagerPool } from './utils/snapshotManagerPool'
-import { formatSnapshot } from './utils/snapshotFormatter'
-import { clickNodeByUid, typeIntoNodeByUid } from './utils/snapshotOperations'
-import {
-  getCurrentTabId,
-  waitForTabLoad,
-  checkSnapshotExists,
-  formatSnapshotResult,
-  getLatestSnapshotAfterOperation
-} from './utils/utils'
+import { getCurrentTabId, waitForTabLoad } from './utils/utils'
 import { withToolAnimation } from './utils/toolAnimationWrapper'
-import { executeComputerAction } from './computer'
+import { executeVisualAction } from './visual'
+import { executeSnapshotAction } from './accessibility'
 
 export const useExtraTools = (server: WebMcpServer) => {
   // 打开新网址
@@ -209,146 +202,46 @@ export const useExtraTools = (server: WebMcpServer) => {
     })
   )
 
-  // 获取无障碍树快照（包含 UID）
+  // Accessibility 工具：基于无障碍树和 UID 的页面操作工具集合（包含快照获取、点击、输入）
   server.registerTool(
-    'takeSnapshot',
+    'accessibility',
     {
-      title: '获取浏览器页面无障碍树快照（包含 UID）',
-      description:
-        '获取页面的完整无障碍树结构，包含每个节点的唯一 UID。返回的快照可以用于后续的页面操作（如点击、输入等）。每个节点的 UID 格式为 "snapshotId_counter"，例如 "1_5"。',
-      inputSchema: {
-        tabId: z.number().optional().describe('目标标签页 ID，如果不提供则使用当前活动标签页')
-      }
-    },
-    withToolAnimation('takeSnapshot', async ({ tabId }) => {
-      // 获取当前标签页
-      const currentTabId = tabId || (await getCurrentTabId())
-
-      // 从连接池获取管理器（连接会被复用，不会频繁断开）
-      const manager = await snapshotManagerPool.getManager(currentTabId)
-      try {
-        // 创建快照
-        const snapshot = await manager.createTextSnapshot(false)
-
-        // 格式化快照为文本
-        const formattedSnapshot = formatSnapshot(snapshot)
-
-        // 使用公共函数格式化结果
-        const resultText = formatSnapshotResult(snapshot, formattedSnapshot, {
-          verbose: false,
-          includeUidExample: true
-        })
-
-        return { content: [{ type: 'text', text: resultText }] }
-      } catch (error: any) {
-        const errorMessage = error.message || '未知错误'
-        const friendlyMessage = `获取快照失败：${errorMessage}`
-
-        return {
-          content: [{ type: 'text', text: friendlyMessage }]
-        }
-      } finally {
-        // 释放连接引用（连接池会管理连接生命周期，不会立即断开）
-        await snapshotManagerPool.releaseManager(currentTabId)
-      }
-    })
-  )
-
-  // 点击节点（通过 UID）
-  server.registerTool(
-    'click',
-    {
-      title: '点击页面元素',
-      description: '通过快照中的 UID 点击页面元素。请先使用 takeSnapshot 获取快照，然后使用快照中的 UID 进行操作。',
+      title: 'Accessibility 工具',
+      description: `基于无障碍树和 UID 的页面操作工具集合，支持获取页面快照和通过 UID 进行操作。
+每个节点的 UID 格式为 "snapshotId_counter"，例如 "1_5"。
+可用操作：
+- snapshot: 获取页面的完整无障碍树结构快照，包含每个节点的唯一 UID。返回的快照可以用于后续的页面操作。
+- click: 通过快照中的 UID 点击页面元素。需提供 uid。可选 button（left/right/middle）和 dblClick（是否双击）。
+- fill: 通过快照中的 UID 在输入框中输入文本。需提供 uid 和 text。可选 clearFirst（是否先清空输入框）。`,
       inputSchema: {
         tabId: z.number().optional().describe('目标标签页 ID，如果不提供则使用当前活动标签页'),
-        uid: z.string().describe('快照中节点的 UID（格式：snapshotId_counter，如 "1_5"）'),
-        button: z.enum(['left', 'right', 'middle']).optional().describe('鼠标按钮类型，默认为 left'),
-        dblClick: z.boolean().optional().describe('是否双击，默认为 false')
+        action: z
+          .enum(['snapshot', 'click', 'fill'])
+          .describe('操作类型：snapshot（获取快照）、click（点击）、fill（输入文本）'),
+        uid: z
+          .string()
+          .optional()
+          .describe('快照中节点的 UID（格式：snapshotId_counter，如 "1_5"），click 和 fill 操作必填'),
+        button: z
+          .enum(['left', 'right', 'middle'])
+          .optional()
+          .describe('鼠标按钮类型（仅用于 click 操作），默认为 left'),
+        dblClick: z.boolean().optional().describe('是否双击（仅用于 click 操作），默认为 false'),
+        text: z.string().optional().describe('要输入的文本（仅用于 fill 操作）'),
+        clearFirst: z.boolean().optional().describe('是否先清空输入框（仅用于 fill 操作），默认为 true')
       }
     },
-    withToolAnimation('click', async ({ tabId, uid, button, dblClick }) => {
-      // 获取当前标签页
-      const currentTabId = tabId || (await getCurrentTabId())
-      // 从连接池获取管理器（连接会被复用，不会频繁断开）
-      const manager = await snapshotManagerPool.getManager(currentTabId)
-      try {
-        // 检查是否有快照
-        const snapshotCheck = checkSnapshotExists(manager)
-        if (snapshotCheck) {
-          return snapshotCheck
-        }
-
-        // 执行点击操作
-        await clickNodeByUid(manager, uid, {
-          button: button || 'left',
-          clickCount: dblClick ? 2 : 1
-        })
-
-        // 获取操作后的最新快照并返回
-        return await getLatestSnapshotAfterOperation(manager, `成功${dblClick ? '双击' : '点击'}节点 (UID: ${uid})。`)
-      } catch (error: any) {
-        const errorMessage = error.message || '未知错误'
-        const friendlyMessage = `点击节点失败：${errorMessage}`
-
-        return { content: [{ type: 'text', text: friendlyMessage }] }
-      } finally {
-        // 释放连接引用（连接池会管理连接生命周期，不会立即断开）
-        await snapshotManagerPool.releaseManager(currentTabId)
-      }
+    withToolAnimation('accessibility', async (params: any) => {
+      return await executeSnapshotAction(params)
     })
   )
 
-  // 输入文本（通过 UID）
+  // Visual 工具：基于视觉截图和坐标的页面操作工具，提供给视觉模型使用
   server.registerTool(
-    'fill',
+    'visual',
     {
-      title: '在输入框中输入文本',
-      description:
-        '通过快照中的 UID 在输入框中输入文本。请先使用 takeSnapshot 获取快照，然后使用快照中的 UID 进行操作。',
-      inputSchema: {
-        tabId: z.number().optional().describe('目标标签页 ID，如果不提供则使用当前活动标签页'),
-        uid: z.string().describe('快照中节点的 UID（格式：snapshotId_counter，如 "1_5"）'),
-        text: z.string().describe('要输入的文本'),
-        clearFirst: z.boolean().optional().describe('是否先清空输入框，默认为 true')
-      }
-    },
-    withToolAnimation('fill', async ({ tabId, uid, text, clearFirst = true }) => {
-      // 获取当前标签页
-      const currentTabId = tabId || (await getCurrentTabId())
-
-      // 从连接池获取管理器（连接会被复用，不会频繁断开）
-      const manager = await snapshotManagerPool.getManager(currentTabId)
-      try {
-        // 检查是否有快照
-        const snapshotCheck = checkSnapshotExists(manager)
-        if (snapshotCheck) {
-          return snapshotCheck
-        }
-
-        // 执行输入操作
-        await typeIntoNodeByUid(manager, uid, text, { clearFirst })
-
-        // 获取操作后的最新快照并返回
-        return await getLatestSnapshotAfterOperation(manager, `成功在节点 (UID: ${uid}) 中输入文本: "${text}"。`)
-      } catch (error: any) {
-        const errorMessage = error.message || '未知错误'
-        const friendlyMessage = `输入文本失败：${errorMessage}`
-
-        return { content: [{ type: 'text', text: friendlyMessage }] }
-      } finally {
-        // 释放连接引用（连接池会管理连接生命周期，不会立即断开）
-        await snapshotManagerPool.releaseManager(currentTabId)
-      }
-    })
-  )
-
-  // Computer 工具提供给视觉模型使用
-  server.registerTool(
-    'computer',
-    {
-      title: 'Computer Use',
-      description: `执行计算机操作，如点击、输入、截图等。支持 Fara-7B 的 computer 工具调用格式。
+      title: 'Visual Control',
+      description: `基于视觉截图和坐标的页面操作工具，支持通过截图坐标进行点击、输入等操作。适用于视觉模型。
 坐标系统：以压缩后的截图为基准，最大宽度通常为 512px。左上角为 [0, 0]，x 向右增加，y 向下增加；需要先获取屏幕截图，然后根据截图的宽高比例计算实际坐标。
 可用操作：
 - left_click: 在指定坐标点击左键。需提供 coordinate [x, y]。
@@ -389,7 +282,7 @@ export const useExtraTools = (server: WebMcpServer) => {
         time: z.number().optional().describe('等待时间（秒，仅用于 wait 操作）')
       }
     },
-    withToolAnimation('computer', async (params: any) => {
+    withToolAnimation('visual', async (params: any) => {
       // 获取当前标签页
       const currentTabId = await getCurrentTabId()
       // 从连接池获取管理器
@@ -401,12 +294,12 @@ export const useExtraTools = (server: WebMcpServer) => {
           throw new Error('页面未连接，请先确保标签页已加载')
         }
 
-        return await executeComputerAction({
+        return await executeVisualAction({
           page,
           ...params
         })
       } catch (error: any) {
-        return { content: [{ type: 'text' as const, text: `Computer 工具错误: ${error.message}` }] }
+        return { content: [{ type: 'text' as const, text: `Visual 工具错误: ${error.message}` }] }
       } finally {
         await snapshotManagerPool.releaseManager(currentTabId)
       }

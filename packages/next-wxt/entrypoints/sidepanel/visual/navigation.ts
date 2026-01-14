@@ -1,6 +1,6 @@
-import { type ComputerActionParams } from './utils'
+import { type VisualActionParams } from './utils'
 
-export const handleNavigationAction = async ({ page, action, arg, text }: ComputerActionParams) => {
+export const handleNavigationAction = async ({ page, action, arg, text }: VisualActionParams) => {
   const historyArg = action === 'history_back' ? 'back' : action === 'history_forward' ? 'forward' : arg || text
 
   try {

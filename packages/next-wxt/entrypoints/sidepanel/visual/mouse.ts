@@ -1,6 +1,6 @@
-import { type ComputerActionParams, showClickIndicator, getCoordinateConverter } from './utils'
+import { type VisualActionParams, showClickIndicator, getCoordinateConverter } from './utils'
 
-export const handleMouseAction = async ({ page, action, coordinate }: ComputerActionParams) => {
+export const handleMouseAction = async ({ page, action, coordinate }: VisualActionParams) => {
   if (!coordinate || coordinate.length !== 2) {
     throw new Error(`操作 ${action} 需要有效的坐标 [x, y]`)
   }
@@ -11,7 +11,7 @@ export const handleMouseAction = async ({ page, action, coordinate }: ComputerAc
   const finalX = originalCoords.x
   const finalY = originalCoords.y
 
-  console.log(`[computer] ${action} 坐标转换: AI(${x}, ${y}) -> 原始(${finalX}, ${finalY})`)
+  console.log(`[visual] ${action} 坐标转换: AI(${x}, ${y}) -> 原始(${finalX}, ${finalY})`)
 
   const clickOptions: any = {}
   if (action === 'right_click') clickOptions.button = 'right'
