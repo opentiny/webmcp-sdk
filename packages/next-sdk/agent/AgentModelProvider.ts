@@ -44,8 +44,6 @@ export class AgentModelProvider {
   onUpdatedTools: (() => void) | undefined
   /** Agent 内部报错时，抛出的错误事件 */
   onError: ((msg: string, err?: any) => void) | undefined
-  /** MCP Client 断开连接时的回调 */
-  onClientDisconnected?: (serverName: string, reason?: string) => void
   /** 缓存 ai-sdk response 中的 多轮会话的上下文 */
   messages: any[] = []
   /** 是否使用 ReAct 模式（通过提示词而非 function calling 进行工具调用） */

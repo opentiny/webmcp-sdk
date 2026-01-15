@@ -50,7 +50,7 @@ const query = new URLSearchParams(window.location.search)
 const locale = query.get('lang') || 'zh-CN'
 
 // 2、会话ID， 必传
-const sessionId = query.get('sessionId') || ''
+const sessionId = ref(query.get('sessionId'))
 
 // 3、组件内部的已经有默认值。 这里允许通过url 更换agent地址。
 const agentRoot = query.get('agentRoot') || 'https://agent.opentiny.design/api/v1/webmcp-trial/'
