@@ -314,7 +314,7 @@ export function usePlugin(
    */
   const handleClientDisconnected = async (serverName: string) => {
     // 从 serverName 提取 pluginId
-    const pluginId = `plugin-${serverName.replace('mcp-server-', '')}`
+    const pluginId = serverName
 
     // 查找对应的插件
     const plugin = installedPlugins.value.find((p) => p.id === pluginId)

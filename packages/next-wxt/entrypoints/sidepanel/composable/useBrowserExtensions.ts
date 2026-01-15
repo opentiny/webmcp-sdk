@@ -143,7 +143,14 @@ export const useBrowserExtensions = async (remoterRef: Ref<InstanceType<typeof T
         if (info.tabIds.length === 0) {
           sessionRegistry.delete(sessionId)
           const serverName = `mcp-server-${sessionId}`
-          await remoterRef.value.handleClientDisconnected(serverName) // ---> 转到 remoter内部方法去关闭client
+          // 获取域名用于提示（与添加时保持一致）
+          const displayUrl = info.serverInfo?.url || serverName
+          try {
+            await remoterRef.value.handleClientDisconnected(serverName)
+            showToast(`插件已删除: ${displayUrl}`)
+          } catch (error) {
+            console.error(`【useBrowserExt】agent 删除插件失败: ${serverName}`, error as any)
+          }
         }
         break // ---> tabId 只能在一个sessionId下面，所以立即退出for
       }
