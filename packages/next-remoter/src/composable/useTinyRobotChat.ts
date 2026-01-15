@@ -8,7 +8,6 @@ import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import { extractTextAndJson } from './handleSchema'
 
 interface useTinyRobotOption {
-  sessionId: Ref<string>
   agentRoot: Ref<string>
   systemPrompt: string
   llmConfig?: ICustomAgentModelProviderLlmConfig
@@ -37,16 +36,10 @@ let accmulateText = ''
 let summaryText = ''
 let accmulateMessagesLength: number = 0
 
-export const useTinyRobotChat = ({
-  sessionId,
-  agentRoot,
-  systemPrompt,
-  llmConfig,
-  skills = []
-}: useTinyRobotOption) => {
+export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = [] }: useTinyRobotOption) => {
   const customAgentProvider = new CustomAgentModelProvider(
     { provider: 'custom' },
-    sessionId,
+    ref(''),
     agentRoot,
     systemPrompt,
     llmConfig
@@ -399,6 +392,7 @@ export const useTinyRobotChat = ({
       }
     })
   }
+
   watch(() => messages.value[messages.value.length - 1]?.content, scrollToBottom)
 
   // 页面加载完成后自动聚焦输入框

@@ -63,7 +63,6 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     const llmConfigOption = mergedConfig.llm ? { llm: mergedConfig.llm } : { ...mergedConfig }
 
     const options: IAgentModelProviderOption = {
-      mcpServers: this.createMcpServers(sessionId.value, agentRoot.value),
       llmConfig: llmConfigOption
     }
 
@@ -135,27 +134,6 @@ export class CustomAgentModelProvider extends BaseModelProvider {
 
       this.agent.llm = providerFn({ apiKey, baseURL })
     }
-  }
-
-  /**
-   * 创建MCP服务器配置
-   * @param sessionId 会话ID，支持逗号分隔的多个ID
-   * @param agentRoot 代理根路径
-   * @returns MCP服务器配置对象，键为服务器名称，值为配置对象
-   */
-  private createMcpServers(sessionId: string, agentRoot: string): Record<string, McpServerConfig> {
-    if (!sessionId) return {}
-
-    const sessionIds = sessionId.includes(',') ? sessionId.split(',').map((id) => id.trim()) : [sessionId]
-
-    const servers: Record<string, McpServerConfig> = {}
-    sessionIds.forEach((id) => {
-      servers[`mcp-server-${id}`] = {
-        type: 'streamableHttp' as const,
-        url: `${agentRoot}mcp?sessionId=${id}`
-      }
-    })
-    return servers
   }
 
   /**

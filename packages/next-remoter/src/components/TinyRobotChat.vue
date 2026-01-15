@@ -281,11 +281,10 @@ const {
   addMessage,
   send
 } = useTinyRobotChat({
-  sessionId: toRef(props, 'sessionId'),
   agentRoot: toRef(props, 'agentRoot'),
   systemPrompt: props.systemPrompt || '',
   llmConfig: props.llmConfig,
-  skills: props.skills || [] // 传递 skills 列表给 useTinyRobotChat
+  skills: props.skills || []
 })
 
 customAgentProvider.isGenuiEnabled = genUiAble
@@ -347,9 +346,7 @@ const {
   deletePlugin,
   addPluginFromMarket,
   addPluginFromScan, // 从扫码添加插件（统一接口）
-  handleClientDisconnected,
-  searchPlugin,
-  initPluginSystem
+  searchPlugin
 } = usePlugin(agent, enabledTools, defaultPluginSrc)
 
 // 初始化市场插件数据
@@ -413,36 +410,6 @@ const handlePillItemClick = (item: ReturnType<typeof mapMake>) => {
   inputMessage.value = item.inputMessage
 }
 
-onMounted(async () => {
-  // 统一报错
-  agent.onError = (msg: string) => {
-    msg && showToast(handleError(msg))
-  }
-
-  // 初始化插件系统（设置 agent 事件监听器）
-  initPluginSystem((pluginName: string) => {
-    showToast(`工具 "${pluginName}" 已断开连接`)
-  })
-
-  // 自动连接已标记为 'added' 的自定义市场 MCP 服务器
-  // 这样用户可以通过设置 enabled: true 和 addState: 'added' 让服务器默认连接
-  const preInstalledPlugins = marketPlugins.value.filter((plugin) => plugin.addState === 'added' && plugin.enabled)
-
-  // 批量添加预安装的插件（使用统一的市场添加接口）
-  for (const plugin of preInstalledPlugins) {
-    await addPluginFromMarket(plugin)
-  }
-
-  // 初始加载时，url上的sessionId 可能是1个或多个，此时要立即连接后，更新一下插件状态
-  await agent.initClientsAndTools()
-  await agent.closeAll()
-
-  // 加载所有已连接的 MCP 服务器到插件列表（使用统一的加载接口）
-  for (const [serverName, mcpServer] of Object.entries(agent.mcpServers)) {
-    await loadMcpServerToPlugin(serverName, mcpServer)
-  }
-})
-
 // 如果是遥控器模式，则初始化右下角的AI 图标
 let isCreateRemoter = false
 watch(
@@ -472,6 +439,26 @@ watch(
     }
   }
 )
+
+if (props.sessionId) {
+  handleScanSuccess(props.sessionId)
+}
+
+onMounted(async () => {
+  // 统一报错
+  agent.onError = (msg: string) => {
+    msg && showToast(handleError(msg))
+  }
+
+  // 自动连接已标记为 'added' 的自定义市场 MCP 服务器
+  // 这样用户可以通过设置 enabled: true 和 addState: 'added' 让服务器默认连接
+  const preInstalledPlugins = marketPlugins.value.filter((plugin) => plugin.addState === 'added' && plugin.enabled)
+
+  // 批量添加预安装的插件（使用统一的市场添加接口）
+  for (const plugin of preInstalledPlugins) {
+    await addPluginFromMarket(plugin)
+  }
+})
 
 // 插件操作事件处理器（直接使用 usePlugin 返回的方法）
 const handlePluginToggle = togglePlugin
@@ -513,8 +500,6 @@ defineExpose({
   sendMessage,
   /** 向插件市场添加一个server */
   loadMcpServerToPlugin,
-  /** mcp client断开时，自动清理已断开的插件和资源  */
-  handleClientDisconnected,
   /** 添加消息 */
   addMessage
 })

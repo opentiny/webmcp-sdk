@@ -339,61 +339,11 @@ export function usePlugin(
   }
 
   /**
-   * 同步已安装插件的工具状态
-   * 当 agent.mcpTools 更新时调用，同步插件工具列表
-   */
-  const syncInstalledPluginsTools = () => {
-    installedPlugins.value.forEach((plugin) => {
-      const serverName = plugin.id
-
-      // 检查客户端连接状态
-      const currClient = agent.mcpClients[serverName]
-      const currTool = agent.mcpTools[serverName]
-
-      // 客户端断开，标记插件名称
-      if (currClient === null) {
-        plugin.name = '❌' + plugin.name.replace('❌', '')
-      }
-
-      // 工具列表为空，禁用所有工具
-      if (currTool === null) {
-        plugin.tools.forEach((tool) => (tool.enabled = false))
-      } else if (currTool) {
-        // 更新工具列表
-        plugin.tools = Object.keys(currTool).map((key) => ({
-          id: key,
-          name: key,
-          description: currTool[key].description as string,
-          enabled: !agent.ignoreToolnames.includes(key)
-        }))
-      }
-    })
-  }
-
-  /**
    * 搜索插件（已安装或市场）
    * 统一的搜索函数
    */
   const searchPlugin = (query: string, item: PluginInfo): boolean => {
     return query.trim() === '' || item.name.toLowerCase().includes(query.toLowerCase())
-  }
-
-  /**
-   * 初始化插件系统
-   * 设置 agent 事件监听器
-   */
-  const initPluginSystem = (onToolDisconnected?: (pluginName: string) => void): void => {
-    // 监听工具更新事件
-    agent.onUpdatedTools = syncInstalledPluginsTools
-
-    // 设置客户端断开事件处理器
-    agent.onClientDisconnected = async (serverName: string) => {
-      const plugin = await handleClientDisconnected(serverName)
-      // 如果提供了回调函数且插件存在，则调用回调
-      if (plugin && onToolDisconnected) {
-        onToolDisconnected(plugin.name)
-      }
-    }
   }
 
   return {
@@ -410,8 +360,6 @@ export function usePlugin(
     addPluginFromMarket, // 从市场添加插件（明确的方法名）
     addPluginFromScan, // 从扫码添加插件（新增）
     handleClientDisconnected,
-    syncInstalledPluginsTools,
-    searchPlugin,
-    initPluginSystem
+    searchPlugin
   }
 }
