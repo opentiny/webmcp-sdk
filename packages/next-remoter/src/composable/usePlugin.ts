@@ -21,10 +21,10 @@ export function usePlugin(
   const pluginVisible = ref(false)
 
   /**
-   * 工具函数：判断是否为本地工具
+   * 工具函数：判断是否为本地工具（通过 serverName 判断）
    */
-  const isLocalPlugin = (pluginId: string): boolean => {
-    return pluginId === 'plugin-本地工具列表'
+  const isLocalTool = (serverName: string): boolean => {
+    return serverName === 'mcp-server-localhost'
   }
 
   /**
@@ -42,6 +42,32 @@ export function usePlugin(
         agent.ignoreToolnames.push(toolId)
       }
     }
+  }
+
+  /**
+   * 工具函数：更新本地工具的启用状态到 enabledTools
+   * 只有本地工具的状态才需要持久化
+   */
+  const updateLocalToolsState = (toolId: string | null, enabled: boolean) => {
+    if (!enabledTools.value) {
+      enabledTools.value = {}
+    }
+
+    const state = { ...enabledTools.value }
+
+    if (toolId === null) {
+      // 更新所有本地工具状态（批量操作）
+      // 注意：这里需要获取本地工具的所有 toolId
+      // 由于这个函数是通用的，实际的 toolId 列表在调用处提供
+      Object.keys(state).forEach((key) => {
+        state[key] = enabled
+      })
+    } else {
+      // 更新单个工具状态
+      state[toolId] = enabled
+    }
+
+    enabledTools.value = state
   }
 
   /**
@@ -63,10 +89,13 @@ export function usePlugin(
     const currTool = agent.mcpTools[serverName]
     if (!currTool) return []
 
+    const isLocal = isLocalTool(serverName)
     const enabledToolsState = enabledTools.value || {}
 
     return Object.keys(currTool).map((key) => {
-      const enabled = Boolean(enabledToolsState[key])
+      // 本地工具：从 enabledTools 读取配置，默认关闭（false）
+      // 域名工具：默认打开（true），不受 enabledTools 影响
+      const enabled = isLocal ? Boolean(enabledToolsState[key]) : true
 
       // 同步更新 ignoreToolnames
       updateIgnoreToolnames(key, enabled)
@@ -127,7 +156,7 @@ export function usePlugin(
       icon: config.icon || defaultPluginSrc,
       description: config.description,
       enabled: true,
-      expanded: true,
+      expanded: false,
       tools,
       // @ts-ignore
       originMcpConfig: markRaw(config.mcpServer)
@@ -172,10 +201,17 @@ export function usePlugin(
    * 批量更新插件下所有工具的启用状态
    */
   const togglePlugin = (plugin: PluginInfo, enabled: boolean) => {
+    const isLocal = isLocalTool(plugin.id)
+
     // 批量更新所有工具的启用状态
     plugin.tools.forEach((tool) => {
       tool.enabled = enabled
       updateIgnoreToolnames(tool.id, enabled)
+
+      // 如果是本地工具，同步更新 enabledTools 状态
+      if (isLocal) {
+        updateLocalToolsState(tool.id, enabled)
+      }
     })
   }
 
@@ -184,6 +220,8 @@ export function usePlugin(
    * 更新指定工具的启用状态
    */
   const toggleTool = (plugin: PluginInfo, toolId: string, enabled: boolean) => {
+    const isLocal = isLocalTool(plugin.id)
+
     // 更新指定工具的启用状态
     plugin.tools.forEach((tool) => {
       if (tool.id === toolId) {
@@ -193,6 +231,11 @@ export function usePlugin(
 
     // 更新 agent 的忽略列表
     updateIgnoreToolnames(toolId, enabled)
+
+    // 如果是本地工具，同步更新 enabledTools 状态
+    if (isLocal) {
+      updateLocalToolsState(toolId, enabled)
+    }
   }
 
   /**
@@ -368,8 +411,6 @@ export function usePlugin(
     handleClientDisconnected,
     syncInstalledPluginsTools,
     searchPlugin,
-    initPluginSystem,
-
-    isLocalPlugin
+    initPluginSystem
   }
 }
