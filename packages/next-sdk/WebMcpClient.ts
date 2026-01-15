@@ -39,7 +39,15 @@ import type {
   ListPromptsRequest,
   ReadResourceRequest,
   ListResourcesRequest,
-  ListResourceTemplatesRequest
+  ListResourceTemplatesRequest,
+  ElicitRequest,
+  CreateMessageRequest,
+  ListRootsRequest,
+  ToolListChangedNotification,
+  PromptListChangedNotification,
+  ResourceListChangedNotification,
+  ResourceUpdatedNotification,
+  LoggingMessageNotification
 } from '@modelcontextprotocol/sdk/types.js'
 import type { ProxyOptions } from '@opentiny/next'
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
@@ -372,7 +380,7 @@ export class WebMcpClient {
    */
   onElicit(
     handler: (
-      request: z.infer<typeof ElicitRequestSchema>,
+      request: ElicitRequest,
       extra: RequestHandlerExtra<SendRequestT, SendNotificationT>
     ) => SendResultT | Promise<SendResultT>
   ): void {
@@ -384,7 +392,7 @@ export class WebMcpClient {
    */
   onCreateMessage(
     handler: (
-      request: z.infer<typeof CreateMessageRequestSchema>,
+      request: CreateMessageRequest,
       extra: RequestHandlerExtra<SendRequestT, SendNotificationT>
     ) => SendResultT | Promise<SendResultT>
   ): void {
@@ -396,7 +404,7 @@ export class WebMcpClient {
    */
   onListRoots(
     handler: (
-      request: z.infer<typeof ListRootsRequestSchema>,
+      request: ListRootsRequest,
       extra: RequestHandlerExtra<SendRequestT, SendNotificationT>
     ) => SendResultT | Promise<SendResultT>
   ): void {
@@ -406,45 +414,35 @@ export class WebMcpClient {
   /**
    * Registers a handler for the tool list changed notification.
    */
-  onToolListChanged(
-    handler: (notification: z.infer<typeof ToolListChangedNotificationSchema>) => void | Promise<void>
-  ): void {
+  onToolListChanged(handler: (notification: ToolListChangedNotification) => void | Promise<void>): void {
     this.client.setNotificationHandler(ToolListChangedNotificationSchema, handler)
   }
 
   /**
    * Registers a handler for the prompt list changed notification.
    */
-  onPromptListChanged(
-    handler: (notification: z.infer<typeof PromptListChangedNotificationSchema>) => void | Promise<void>
-  ): void {
+  onPromptListChanged(handler: (notification: PromptListChangedNotification) => void | Promise<void>): void {
     this.client.setNotificationHandler(PromptListChangedNotificationSchema, handler)
   }
 
   /**
    * Registers a handler for the resource list changed notification.
    */
-  onResourceListChanged(
-    handler: (notification: z.infer<typeof ResourceListChangedNotificationSchema>) => void | Promise<void>
-  ): void {
+  onResourceListChanged(handler: (notification: ResourceListChangedNotification) => void | Promise<void>): void {
     this.client.setNotificationHandler(ResourceListChangedNotificationSchema, handler)
   }
 
   /**
    * Registers a handler for the resource updated notification.
    */
-  onResourceUpdated(
-    handler: (notification: z.infer<typeof ResourceUpdatedNotificationSchema>) => void | Promise<void>
-  ): void {
+  onResourceUpdated(handler: (notification: ResourceUpdatedNotification) => void | Promise<void>): void {
     this.client.setNotificationHandler(ResourceUpdatedNotificationSchema, handler)
   }
 
   /**
    * Registers a handler for the logging message notification.
    */
-  onLoggingMessage(
-    handler: (notification: z.infer<typeof LoggingMessageNotificationSchema>) => void | Promise<void>
-  ): void {
+  onLoggingMessage(handler: (notification: LoggingMessageNotification) => void | Promise<void>): void {
     this.client.setNotificationHandler(LoggingMessageNotificationSchema, handler)
   }
 
