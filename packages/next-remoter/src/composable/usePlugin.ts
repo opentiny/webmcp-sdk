@@ -138,7 +138,11 @@ export function usePlugin(
 
     // 构建工具列表
     const tools = buildPluginTools(serverName)
-    if (tools.length === 0) return false
+    // 如果没有工具，清理已注册的MCP服务器并返回
+    if (tools.length === 0) {
+      await agent.removeMcpServer(serverName)
+      return false
+    }
 
     // 检查是否已存在，如果存在则更新
     const existingPlugin = installedPlugins.value.find((p) => p.id === config.pluginId)
@@ -162,9 +166,8 @@ export function usePlugin(
       originMcpConfig: markRaw(config.mcpServer)
     }
 
+    // 添加插件到已安装列表
     installedPlugins.value.push(plugin)
-
-    await agent.closeAll()
 
     return true
   }
@@ -379,18 +382,16 @@ export function usePlugin(
    * 初始化插件系统
    * 设置 agent 事件监听器
    */
-  const initPluginSystem = (onToolDisconnected?: (pluginName: string) => void) => {
+  const initPluginSystem = (onToolDisconnected?: (pluginName: string) => void): void => {
     // 监听工具更新事件
     agent.onUpdatedTools = syncInstalledPluginsTools
 
-    // 可选：监听客户端断开事件
-    if (onToolDisconnected) {
-      const originalDisconnected = handleClientDisconnected
-      return async (serverName: string) => {
-        const plugin = await originalDisconnected(serverName)
-        if (plugin) {
-          onToolDisconnected(plugin.name)
-        }
+    // 设置客户端断开事件处理器
+    agent.onClientDisconnected = async (serverName: string) => {
+      const plugin = await handleClientDisconnected(serverName)
+      // 如果提供了回调函数且插件存在，则调用回调
+      if (plugin && onToolDisconnected) {
+        onToolDisconnected(plugin.name)
       }
     }
   }
