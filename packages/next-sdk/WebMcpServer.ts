@@ -33,7 +33,12 @@ import type {
   ListRootsRequest,
   CreateMessageRequest,
   LoggingMessageNotification,
-  ResourceUpdatedNotification
+  ResourceUpdatedNotification,
+  SubscribeRequest,
+  UnsubscribeRequest,
+  SetLevelRequest,
+  ListResourcesRequest,
+  RootsListChangedNotification
 } from '@modelcontextprotocol/sdk/types.js'
 import type { ZodRawShape, ZodTypeDef } from 'zod'
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
@@ -355,7 +360,7 @@ export class WebMcpServer {
    */
   onSubscribe(
     handler: (
-      request: z.infer<typeof SubscribeRequestSchema>,
+      request: SubscribeRequest,
       extra: RequestHandlerExtra<SendRequestT, SendNotificationT>
     ) => SendResultT | Promise<SendResultT>
   ): void {
@@ -367,7 +372,7 @@ export class WebMcpServer {
    */
   onUnsubscribe(
     handler: (
-      request: z.infer<typeof UnsubscribeRequestSchema>,
+      request: UnsubscribeRequest,
       extra: RequestHandlerExtra<SendRequestT, SendNotificationT>
     ) => SendResultT | Promise<SendResultT>
   ): void {
@@ -379,7 +384,7 @@ export class WebMcpServer {
    */
   onSetLogLevel(
     handler: (
-      request: z.infer<typeof SetLevelRequestSchema>,
+      request: SetLevelRequest,
       extra: RequestHandlerExtra<SendRequestT, SendNotificationT>
     ) => SendResultT | Promise<SendResultT>
   ): void {
@@ -391,7 +396,7 @@ export class WebMcpServer {
    */
   onListResources(
     handler: (
-      request: z.infer<typeof ListResourcesRequestSchema>,
+      request: ListResourcesRequest,
       extra: RequestHandlerExtra<SendRequestT, SendNotificationT>
     ) => SendResultT | Promise<SendResultT>
   ): void {
@@ -401,9 +406,7 @@ export class WebMcpServer {
   /**
    * Registers a handler for the roots list changed notification.
    */
-  onRootsListChanged(
-    handler: (notification: z.infer<typeof RootsListChangedNotificationSchema>) => void | Promise<void>
-  ): void {
+  onRootsListChanged(handler: (notification: RootsListChangedNotification) => void | Promise<void>): void {
     this.server.server.setNotificationHandler(RootsListChangedNotificationSchema, handler)
   }
 
