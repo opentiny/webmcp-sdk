@@ -91,6 +91,8 @@ export class AgentModelProvider {
         transport = new StreamableHTTPClientTransport(new URL((serverConfig as { url: string }).url))
       } else if ('type' in serverConfig && serverConfig.type === 'extension') {
         transport = new ExtensionClientTransport(serverConfig.sessionId)
+      } else if ('transport' in serverConfig) {
+        transport = serverConfig.transport
       } else {
         transport = serverConfig as MCPClientConfig['transport']
       }

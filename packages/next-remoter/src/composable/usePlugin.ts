@@ -13,20 +13,12 @@ export function usePlugin(
 ) {
   // 已安装插件列表
   const installedPlugins = ref<PluginInfo[]>([])
-  
+
   // 市场插件列表
   const marketPlugins = ref<PluginInfo[]>([])
 
   // 插件面板显示状态
   const pluginVisible = ref(false)
-
-  /**
-   * 工具函数：构建服务器名称
-   */
-  const buildServerName = (pluginIdOrSessionId: string): string => {
-    const sessionId = pluginIdOrSessionId.replace('plugin-', '')
-    return `mcp-server-${sessionId}`
-  }
 
   /**
    * 工具函数：判断是否为本地工具
@@ -59,7 +51,7 @@ export function usePlugin(
     if (!enabledTools.value) return
 
     const state = { ...enabledTools.value }
-    
+
     if (toolId === null) {
       // 更新所有本地工具状态
       Object.keys(state).forEach((key) => {
@@ -69,7 +61,7 @@ export function usePlugin(
       // 更新单个工具状态
       state[toolId] = enabled
     }
-    
+
     enabledTools.value = state
   }
 
@@ -97,7 +89,7 @@ export function usePlugin(
 
     return Object.keys(currTool).map((key) => {
       const enabled = isLocal ? Boolean(enabledToolsState[key]) : true
-      
+
       // 同步更新 ignoreToolnames
       updateIgnoreToolnames(key, enabled)
 
@@ -111,48 +103,93 @@ export function usePlugin(
   }
 
   /**
-   * 加载 MCP 服务器到插件列表
-   * 将已连接的 MCP 服务器转换为插件对象并添加到已安装列表
+   * 统一的插件添加核心函数
+   * 处理所有来源的插件添加：市场、扫码、已存在的MCP服务器
+   * @param config 插件配置
+   * @returns 是否添加成功
    */
-  const loadMcpServerToPlugin = async (serverName: string, mcpServer: McpServerConfig) => {
-    const isLocal = serverName === 'mcp-server-localhost'
-    
-    // 解析 URL 和 sessionId
-    const url = isLocal ? { origin: '本地工具' } : new URL('url' in mcpServer ? mcpServer.url : '')
-    const sessionId = isLocal
-      ? '本地工具列表'
-      : url.searchParams.get('sessionId') || ('sessionId' in mcpServer ? mcpServer.sessionId : '') || ''
+  const addPluginCore = async (config: {
+    pluginId: string
+    name: string
+    description: string
+    icon?: string
+    mcpServer: McpServerConfig
+  }): Promise<boolean> => {
+    const serverName = config.pluginId
+    const isLocal = config.mcpServer.type === 'local'
 
-    // 构建插件工具列表
-    const pluginTools = buildPluginTools(serverName, isLocal)
-    if (pluginTools.length === 0) return
+    const inserted = await agent.insertMcpServer(serverName, config.mcpServer)
+    if (!inserted) {
+      return false
+    }
 
-    const pluginId = `plugin-${sessionId}`
+    // 获取工具列表
+    const currTool = agent.mcpTools[serverName]
+    if (!currTool) {
+      await agent.removeMcpServer(serverName)
+      return false
+    }
 
-    // 检查是否已存在，避免重复添加
-    const existingPlugin = installedPlugins.value.find((plugin) => plugin.id === pluginId)
+    // 构建工具列表
+    const tools = buildPluginTools(serverName, isLocal)
+    if (tools.length === 0) return false
+
+    // 检查是否已存在，如果存在则更新
+    const existingPlugin = installedPlugins.value.find((p) => p.id === config.pluginId)
     if (existingPlugin) {
-      // 更新已存在插件的工具列表和配置
-      existingPlugin.tools = pluginTools
+      existingPlugin.tools = tools
       // @ts-ignore
-      existingPlugin.originMcpConfig = markRaw(mcpServer) as McpServerConfig
-      return
+      existingPlugin.originMcpConfig = markRaw(config.mcpServer)
+      return true
     }
 
     // 创建新插件对象
     const plugin: PluginInfo = {
-      id: pluginId,
-      name: url.origin,
-      icon: defaultPluginSrc,
-      description: sessionId,
+      id: config.pluginId,
+      name: config.name,
+      icon: config.icon || defaultPluginSrc,
+      description: config.description,
       enabled: true,
       expanded: true,
-      tools: pluginTools,
+      tools,
       // @ts-ignore
-      originMcpConfig: markRaw(mcpServer)
+      originMcpConfig: markRaw(config.mcpServer)
     }
 
     installedPlugins.value.push(plugin)
+
+    await agent.closeAll()
+
+    return true
+  }
+
+  /**
+   * 从已存在的 MCP 服务器加载插件
+   * 用于初始化时加载已连接的MCP服务器
+   */
+  const loadMcpServerToPlugin = async (serverName: string, mcpServer: McpServerConfig) => {
+    const isLocalPlugin = mcpServer.type === 'local'
+
+    // 解析 URL 和 sessionId
+    let pluginName: string
+    let description: string
+
+    if (isLocalPlugin) {
+      pluginName = '本地工具'
+      description = '本地工具列表'
+    } else {
+      const url = new URL('url' in mcpServer ? mcpServer.url : '')
+      pluginName = url.origin
+      description = url.searchParams.get('sessionId') || ('sessionId' in mcpServer ? mcpServer.sessionId : '') || ''
+    }
+
+    // 使用统一的添加核心函数
+    await addPluginCore({
+      pluginId: serverName,
+      name: pluginName,
+      description: description,
+      mcpServer
+    })
   }
 
   /**
@@ -212,15 +249,15 @@ export function usePlugin(
     resetMarketPluginState(delPlugin.id)
 
     // 从 agent 中移除 MCP 服务器（包括 mcpServers、mcpTools、mcpClients、ignoreToolnames）
-    const serverName = buildServerName(plugin.id)
+    const serverName = plugin.id
     await agent.removeMcpServer(serverName)
   }
 
   /**
-   * 添加插件
    * 从市场添加插件到已安装列表
+   * @param plugin 市场插件信息
    */
-  const addPlugin = async (plugin: PluginInfo) => {
+  const addPluginFromMarket = async (plugin: PluginInfo) => {
     plugin.addState = 'loading'
 
     // 准备 MCP 服务器配置
@@ -230,39 +267,41 @@ export function usePlugin(
       useAISdkClient: true
     } as McpServerConfig
 
-    const serverName = buildServerName(plugin.id)
+    // 使用统一的添加核心函数
+    const success = await addPluginCore({
+      pluginId: plugin.id,
+      name: plugin.name,
+      description: plugin.description || '',
+      icon: plugin.icon,
+      mcpServer
+    })
 
-    // 插入 MCP 服务器（自动去重并初始化客户端和工具）
-    const inserted = await agent.insertMcpServer(serverName, mcpServer)
+    plugin.addState = success ? 'added' : 'idle'
+  }
 
-    if (inserted) {
-      // 获取工具列表
-      const currTool = agent.mcpTools[serverName]
-      if (currTool) {
-        // 创建新插件对象
-        const newPlugin: PluginInfo = {
-          ...plugin,
-          id: plugin.id,
-          enabled: true,
-          tools: Object.keys(currTool).map((key) => ({
-            id: key,
-            name: key,
-            description: currTool[key].description as string,
-            enabled: true
-          }))
-        }
+  /**
+   * 从扫码添加插件
+   * @param sessionId 会话ID
+   * @param agentRoot 代理服务器地址
+   * @returns 是否添加成功
+   */
+  const addPluginFromScan = async (sessionId: string, agentRoot: string): Promise<boolean> => {
+    // 构建 MCP 服务器配置
+    const mcpServer = {
+      type: 'streamableHttp',
+      url: `${agentRoot}mcp?sessionId=${sessionId}`
+    } as const
 
-        // 添加到已安装列表
-        installedPlugins.value.push(newPlugin)
-        plugin.addState = 'added'
-        await agent.closeAll()
-        return
-      }
-    }
+    // 解析URL获取origin作为插件名称
+    const url = new URL(`${agentRoot}mcp?sessionId=${sessionId}`)
 
-    // 添加失败，清理资源并还原状态
-    await agent.removeMcpServer(serverName)
-    plugin.addState = 'idle'
+    // 使用统一的添加核心函数
+    return await addPluginCore({
+      pluginId: `plugin-${sessionId}`,
+      name: url.origin,
+      description: sessionId,
+      mcpServer
+    })
   }
 
   /**
@@ -298,7 +337,7 @@ export function usePlugin(
    */
   const syncInstalledPluginsTools = () => {
     installedPlugins.value.forEach((plugin) => {
-      const serverName = buildServerName(plugin.id)
+      const serverName = plugin.id
 
       // 检查客户端连接状态
       const currClient = agent.mcpClients[serverName]
@@ -363,14 +402,13 @@ export function usePlugin(
     togglePlugin,
     toggleTool,
     deletePlugin,
-    addPlugin,
+    addPluginFromMarket, // 从市场添加插件（明确的方法名）
+    addPluginFromScan, // 从扫码添加插件（新增）
     handleClientDisconnected,
     syncInstalledPluginsTools,
     searchPlugin,
     initPluginSystem,
 
-    // 工具函数（如果外部需要使用）
-    buildServerName,
     isLocalPlugin
   }
 }

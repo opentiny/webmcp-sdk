@@ -77,17 +77,12 @@ export const useBrowserExtensions = async (remoterRef: Ref<InstanceType<typeof T
   registerQueue = registerQueue.then(async () => {
     try {
       const mcpServer = {
-        url: '本地工具'
+        type: 'local',
+        transport: clientTransport
       }
       const serverName = `mcp-server-localhost`
 
-      // 1、 插入McpServers, 此时内部会判断重复。  不重复则插入，并连接和查询tools到agent上。
-      const inserted = await remoterRef.value.agent.insertMcpServer(serverName, clientTransport as any)
-      if (inserted) {
-        await remoterRef.value.loadMcpServerToPlugin(serverName, mcpServer as McpServerConfig)
-      } else {
-        console.error(`【useBrowserExt】 mcpServer插件添加失败: localhost:3000`)
-      }
+      await remoterRef.value.loadMcpServerToPlugin(serverName, mcpServer as McpServerConfig)
     } catch (error) {
       console.error(`【useBrowserExt】agent 注册插件失败: localhost:3000`, error as any)
     }
@@ -127,16 +122,8 @@ export const useBrowserExtensions = async (remoterRef: Ref<InstanceType<typeof T
           }
           const serverName = `mcp-server-${sessionId}`
 
-          // 1、 插入McpServers, 此时内部会判断重复。  不重复则插入，并连接和查询tools到agent上。
-          const inserted = await remoterRef.value.agent.insertMcpServer(serverName, mcpServer as McpServerConfig)
-          if (inserted) {
-            await remoterRef.value.loadMcpServerToPlugin(serverName, mcpServer as McpServerConfig)
-            await remoterRef.value.agent.closeAll()
-            showToast(`插件已添加: ${serverInfo.url}`)
-            console.log(`【useBrowserExt】 mcpServer插件已添加: ${serverInfo.url}`)
-          } else {
-            console.error(`【useBrowserExt】 mcpServer插件添加失败: ${serverInfo.url}`)
-          }
+          await remoterRef.value.loadMcpServerToPlugin(serverName, mcpServer as McpServerConfig)
+          showToast(`插件已添加: ${serverInfo.url}`)
         } catch (error) {
           console.error(`【useBrowserExt】agent 注册插件失败: ${sessionId}`, error as any)
         }

@@ -257,16 +257,13 @@ const enabledTools = defineModel('enabledTools', {
 
 // 获取当前选中的模型配置（如果传入了 llmConfigs，则使用传入的配置）
 const llmConfigsRef = props.llmConfigs ? (toRef(props, 'llmConfigs') as Ref<UnifiedModelConfig[]>) : undefined
-// selectedModelId 已通过 defineModel 定义，可以直接使用
-// defineModel 返回的 ref 可以直接传递给 useModel
-// 注意：当使用 defineModel 时，不需要在 onModelChange 回调中更新 selectedModelId，
-// 因为 useModel 内部已经通过 watch 同步了 initialModelId 和内部 selectedModelId 的状态
+
 const { selectedModel } = useModel(llmConfigsRef, selectedModelId)
 
 const {
   showHistory,
-  agent, // ai-sdk的自定义代理，client通过它和llm 对话。 agent.ignoreToolnames=[] 是记录需要过滤掉的tools
-  customAgentProvider, // CustomAgentModelProvider 实例，用于调用 updateLLMConfig
+  agent,
+  customAgentProvider,
   welcomeIcon,
   conversationState,
   messages,
@@ -348,7 +345,8 @@ const {
   togglePlugin,
   toggleTool,
   deletePlugin,
-  addPlugin,
+  addPluginFromMarket,
+  addPluginFromScan, // 从扫码添加插件（统一接口）
   handleClientDisconnected,
   searchPlugin,
   initPluginSystem
@@ -368,25 +366,18 @@ const marketCategoryOptions = ref<MarketCategoryOption[]>([
 
 const { lang, pillItems, promptItems } = getLang(props)
 
-// 处理扫码结果。 把结果添加到 agent.mcpServers， 以及 插入McpServerPicker的一个Plugin
+// 处理扫码结果（使用统一的插件添加接口）
 const handleScanSuccess = async (sessionId: string) => {
   showLoadingToast('添加工具中...')
 
   if (sessionId) {
-    const mcpServer = {
-      type: 'streamableHttp',
-      url: `${props.agentRoot}mcp?sessionId=${sessionId}`
-    } as const
-    const serverName = `mcp-server-${sessionId}`
-    // 1、 插入McpServers, 此时内部会判断重复。  不重复则插入，并连接和查询tools到agent上。
-    const inserted = await agent.insertMcpServer(serverName, mcpServer)
+    // 使用统一的扫码添加接口
+    const success = await addPluginFromScan(sessionId, props.agentRoot)
 
-    if (inserted) {
-      await loadMcpServerToPlugin(serverName, mcpServer)
-      await agent.closeAll()
+    if (success) {
       showToast('添加工具完成')
     } else {
-      showToast('重复添加工具')
+      showToast('重复添加工具或添加失败')
     }
   } else {
     showToast('添加工具失败')
@@ -436,17 +427,17 @@ onMounted(async () => {
   // 自动连接已标记为 'added' 的自定义市场 MCP 服务器
   // 这样用户可以通过设置 enabled: true 和 addState: 'added' 让服务器默认连接
   const preInstalledPlugins = marketPlugins.value.filter((plugin) => plugin.addState === 'added' && plugin.enabled)
-  debugger
-  // 批量添加预安装的插件
+
+  // 批量添加预安装的插件（使用统一的市场添加接口）
   for (const plugin of preInstalledPlugins) {
-    await addPlugin(plugin)
+    await addPluginFromMarket(plugin)
   }
 
   // 初始加载时，url上的sessionId 可能是1个或多个，此时要立即连接后，更新一下插件状态
   await agent.initClientsAndTools()
   await agent.closeAll()
 
-  // 加载所有已连接的 MCP 服务器到插件列表
+  // 加载所有已连接的 MCP 服务器到插件列表（使用统一的加载接口）
   for (const [serverName, mcpServer] of Object.entries(agent.mcpServers)) {
     await loadMcpServerToPlugin(serverName, mcpServer)
   }
@@ -486,7 +477,7 @@ watch(
 const handlePluginToggle = togglePlugin
 const handleToolToggle = toggleTool
 const handlePluginDelete = deletePlugin
-const handlePluginAdd = addPlugin
+const handlePluginAdd = addPluginFromMarket
 const handleMcpServerPickerSearchFn = searchPlugin
 
 // 使用自定义 MCP 服务器添加 composable
