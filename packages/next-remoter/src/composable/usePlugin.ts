@@ -45,27 +45,6 @@ export function usePlugin(
   }
 
   /**
-   * 工具函数：更新本地工具的启用状态
-   */
-  const updateLocalToolsState = (toolId: string | null, enabled: boolean) => {
-    if (!enabledTools.value) return
-
-    const state = { ...enabledTools.value }
-
-    if (toolId === null) {
-      // 更新所有本地工具状态
-      Object.keys(state).forEach((key) => {
-        state[key] = enabled
-      })
-    } else {
-      // 更新单个工具状态
-      state[toolId] = enabled
-    }
-
-    enabledTools.value = state
-  }
-
-  /**
    * 工具函数：还原市场插件状态
    */
   const resetMarketPluginState = (pluginId: string) => {
@@ -78,17 +57,16 @@ export function usePlugin(
   /**
    * 工具函数：从 MCP Tools 构建 PluginTool 列表
    * @param serverName 服务器名称
-   * @param isLocal 是否为本地工具
    * @returns PluginTool 数组
    */
-  const buildPluginTools = (serverName: string, isLocal: boolean = false): PluginTool[] => {
+  const buildPluginTools = (serverName: string): PluginTool[] => {
     const currTool = agent.mcpTools[serverName]
     if (!currTool) return []
 
     const enabledToolsState = enabledTools.value || {}
 
     return Object.keys(currTool).map((key) => {
-      const enabled = isLocal ? Boolean(enabledToolsState[key]) : true
+      const enabled = Boolean(enabledToolsState[key])
 
       // 同步更新 ignoreToolnames
       updateIgnoreToolnames(key, enabled)
@@ -116,7 +94,6 @@ export function usePlugin(
     mcpServer: McpServerConfig
   }): Promise<boolean> => {
     const serverName = config.pluginId
-    const isLocal = config.mcpServer.type === 'local'
 
     const inserted = await agent.insertMcpServer(serverName, config.mcpServer)
     if (!inserted) {
@@ -131,7 +108,7 @@ export function usePlugin(
     }
 
     // 构建工具列表
-    const tools = buildPluginTools(serverName, isLocal)
+    const tools = buildPluginTools(serverName)
     if (tools.length === 0) return false
 
     // 检查是否已存在，如果存在则更新
@@ -168,17 +145,15 @@ export function usePlugin(
    * 用于初始化时加载已连接的MCP服务器
    */
   const loadMcpServerToPlugin = async (serverName: string, mcpServer: McpServerConfig) => {
-    const isLocalPlugin = mcpServer.type === 'local'
-
     // 解析 URL 和 sessionId
     let pluginName: string
     let description: string
 
-    if (isLocalPlugin) {
+    if ('type' in mcpServer && mcpServer.type === 'local') {
       pluginName = '本地工具'
       description = '本地工具列表'
     } else {
-      const url = new URL('url' in mcpServer ? mcpServer.url : '')
+      const url = new URL(mcpServer.url)
       pluginName = url.origin
       description = url.searchParams.get('sessionId') || ('sessionId' in mcpServer ? mcpServer.sessionId : '') || ''
     }
@@ -197,18 +172,11 @@ export function usePlugin(
    * 批量更新插件下所有工具的启用状态
    */
   const togglePlugin = (plugin: PluginInfo, enabled: boolean) => {
-    const isLocal = isLocalPlugin(plugin.id)
-
     // 批量更新所有工具的启用状态
     plugin.tools.forEach((tool) => {
       tool.enabled = enabled
       updateIgnoreToolnames(tool.id, enabled)
     })
-
-    // 如果是本地工具，同步更新 enabledTools 状态
-    if (isLocal) {
-      updateLocalToolsState(null, enabled)
-    }
   }
 
   /**
@@ -216,8 +184,6 @@ export function usePlugin(
    * 更新指定工具的启用状态
    */
   const toggleTool = (plugin: PluginInfo, toolId: string, enabled: boolean) => {
-    const isLocal = isLocalPlugin(plugin.id)
-
     // 更新指定工具的启用状态
     plugin.tools.forEach((tool) => {
       if (tool.id === toolId) {
@@ -227,11 +193,6 @@ export function usePlugin(
 
     // 更新 agent 的忽略列表
     updateIgnoreToolnames(toolId, enabled)
-
-    // 如果是本地工具，同步更新 enabledTools 状态
-    if (isLocal) {
-      updateLocalToolsState(toolId, enabled)
-    }
   }
 
   /**
