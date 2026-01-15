@@ -108,6 +108,8 @@ export default defineContentScript({
         anchor: 'body',
         onMount: async (container) => {
           const app = createApp(PageUI, { tabId })
+          // 使用wxt提供的属性注入
+          container.dataset.wxtIntegrated = ''
           app.mount(container)
         }
       })

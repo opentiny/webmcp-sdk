@@ -139,7 +139,6 @@ import {
   TrHistory,
   type PluginInfo,
   type MarketCategoryOption,
-  type PluginTool,
   type MentionItem
 } from '@opentiny/tiny-robot'
 
@@ -148,8 +147,9 @@ import { GeneratingStatus, STATUS } from '@opentiny/tiny-robot-kit'
 import { IconNewSession, IconHistory } from '@opentiny/tiny-robot-svgs'
 import { useTinyRobotChat } from '../composable/useTinyRobotChat'
 import { useCustomMcpServer } from '../composable/useCustomMcpServer'
-import { toRef, computed, ref, onMounted, markRaw, h, watch, type Ref } from 'vue'
-import { createRemoter, McpServerConfig } from '@opentiny/next-sdk'
+import { usePlugin } from '../composable/usePlugin'
+import { toRef, computed, ref, onMounted, h, watch, type Ref } from 'vue'
+import { createRemoter } from '@opentiny/next-sdk'
 import QrCodeScan from './QrCodeScan.vue'
 import ModelSwitch from './ModelSwitch.vue'
 import PluginToggleButton from './PluginToggleButton.vue'
@@ -257,16 +257,13 @@ const enabledTools = defineModel('enabledTools', {
 
 // 获取当前选中的模型配置（如果传入了 llmConfigs，则使用传入的配置）
 const llmConfigsRef = props.llmConfigs ? (toRef(props, 'llmConfigs') as Ref<UnifiedModelConfig[]>) : undefined
-// selectedModelId 已通过 defineModel 定义，可以直接使用
-// defineModel 返回的 ref 可以直接传递给 useModel
-// 注意：当使用 defineModel 时，不需要在 onModelChange 回调中更新 selectedModelId，
-// 因为 useModel 内部已经通过 watch 同步了 initialModelId 和内部 selectedModelId 的状态
+
 const { selectedModel } = useModel(llmConfigsRef, selectedModelId)
 
 const {
   showHistory,
-  agent, // ai-sdk的自定义代理，client通过它和llm 对话。 agent.ignoreToolnames=[] 是记录需要过滤掉的tools
-  customAgentProvider, // CustomAgentModelProvider 实例，用于调用 updateLLMConfig
+  agent,
+  customAgentProvider,
   welcomeIcon,
   conversationState,
   messages,
@@ -339,14 +336,24 @@ const contentRenderer = {
     })
 }
 
-// 对接 mcp server picker 组件
-const pluginVisible = ref(false)
+// 使用插件管理 composable（统一管理插件的增删改查）
+const {
+  installedPlugins,
+  marketPlugins,
+  pluginVisible,
+  loadMcpServerToPlugin,
+  togglePlugin,
+  toggleTool,
+  deletePlugin,
+  addPluginFromMarket,
+  addPluginFromScan, // 从扫码添加插件（统一接口）
+  handleClientDisconnected,
+  searchPlugin,
+  initPluginSystem
+} = usePlugin(agent, enabledTools, defaultPluginSrc)
 
-// 已安装插件数据
-const installedPlugins = ref<PluginInfo[]>([])
-
-// 市场插件数据
-const marketPlugins = ref<PluginInfo[]>([...DEFAULT_SERVERS, ...props.customMarketMcpServers])
+// 初始化市场插件数据
+marketPlugins.value = [...DEFAULT_SERVERS, ...props.customMarketMcpServers]
 
 // 市场分类选项
 const marketCategoryOptions = ref<MarketCategoryOption[]>([
@@ -359,55 +366,18 @@ const marketCategoryOptions = ref<MarketCategoryOption[]>([
 
 const { lang, pillItems, promptItems } = getLang(props)
 
-/**
- * 处理 MCP Client 断开事件
- * 自动清理已断开的插件和资源
- */
-const handleClientDisconnected = async (serverName: string) => {
-  // 从 serverName 提取 pluginId (格式: mcp-server-xxx)
-  const pluginId = serverName.replace('mcp-server-', '')
-  const fullPluginId = `plugin-${pluginId}`
-
-  // 查找对应的插件
-  const plugin = installedPlugins.value.find((p) => p.id === fullPluginId)
-
-  // 从 Agent 中移除 MCP Server
-  await agent.removeMcpServer(serverName)
-
-  if (plugin) {
-    // 从已安装插件列表中移除
-    installedPlugins.value = installedPlugins.value.filter((p) => p.id !== fullPluginId)
-
-    // 还原市场插件状态（如果存在）
-    const marketPlugin = marketPlugins.value.find((p) => p.id === fullPluginId)
-    if (marketPlugin) {
-      marketPlugin.addState = 'idle'
-    }
-
-    // 显示提示
-    showToast(`工具 "${plugin.name}" 已断开连接`)
-  }
-}
-
-// 处理扫码结果。 把结果添加到 agent.mcpServers， 以及 插入McpServerPicker的一个Plugin
+// 处理扫码结果（使用统一的插件添加接口）
 const handleScanSuccess = async (sessionId: string) => {
   showLoadingToast('添加工具中...')
 
   if (sessionId) {
-    const mcpServer = {
-      type: 'streamableHttp',
-      url: `${props.agentRoot}mcp?sessionId=${sessionId}`
-    } as const
-    const serverName = `mcp-server-${sessionId}`
-    // 1、 插入McpServers, 此时内部会判断重复。  不重复则插入，并连接和查询tools到agent上。
-    const inserted = await agent.insertMcpServer(serverName, mcpServer)
+    // 使用统一的扫码添加接口
+    const success = await addPluginFromScan(sessionId, props.agentRoot)
 
-    if (inserted) {
-      await loadMcpServerToPlugin(serverName, mcpServer)
-      await agent.closeAll()
+    if (success) {
       showToast('添加工具完成')
     } else {
-      showToast('重复添加工具')
+      showToast('重复添加工具或添加失败')
     }
   } else {
     showToast('添加工具失败')
@@ -443,101 +413,31 @@ const handlePillItemClick = (item: ReturnType<typeof mapMake>) => {
   inputMessage.value = item.inputMessage
 }
 
-const loadMcpServerToPlugin = async (serverName: string, mcpServer: McpServerConfig) => {
-  const enabledToolsState = enabledTools.value || {}
-  const isLocalTool = serverName === 'mcp-server-localhost'
-  const url = isLocalTool ? { origin: '本地工具' } : new URL('url' in mcpServer ? mcpServer.url : '')
-  const sessionId = isLocalTool
-    ? '本地工具列表'
-    : url.searchParams.get('sessionId') || ('sessionId' in mcpServer ? mcpServer.sessionId : '') || ''
-
-  // 直接使用 serverName 获取 tools，无需索引查找
-  const currTool = agent.mcpTools[serverName]
-  if (currTool) {
-    let pluginTools: PluginTool[] = []
-    pluginTools = Object.keys(currTool).map((key) => {
-      const enabled = isLocalTool ? Boolean(enabledToolsState[key]) : true
-      agent.ignoreToolnames = agent.ignoreToolnames.filter((name) => name !== key)
-      if (!enabled) {
-        agent.ignoreToolnames.push(key)
-      }
-      return {
-        id: key,
-        name: key,
-        description: currTool[key].description as string,
-        enabled
-      }
-    })
-
-    const pluginId = `plugin-${sessionId}`
-
-    // 检查是否已存在相同的插件，避免重复添加
-    const existingPlugin = installedPlugins.value.find((plugin) => plugin.id === pluginId)
-    if (existingPlugin) {
-      // 如果插件已存在，更新其工具列表和配置
-      existingPlugin.tools = pluginTools
-      // @ts-ignore
-      existingPlugin.originMcpConfig = markRaw(mcpServer) as McpServerConfig
-      return
-    }
-
-    const plugin: PluginInfo = {
-      id: pluginId,
-      name: url.origin,
-      icon: defaultPluginSrc,
-      description: sessionId,
-      enabled: true,
-      expanded: true,
-      tools: pluginTools,
-      // @ts-ignore
-      originMcpConfig: markRaw(mcpServer) // 缓存对应的mcpServers中的一个引用
-    }
-
-    installedPlugins.value.push(plugin)
-  }
-}
-
 onMounted(async () => {
   // 统一报错
-  agent.onError = (msg) => {
+  agent.onError = (msg: string) => {
     msg && showToast(handleError(msg))
   }
 
-  // 每次chat的过程中会自动更新 tools ，所以已安装的插件需要同步一次
-  agent.onUpdatedTools = () => {
-    installedPlugins.value.forEach((plugin) => {
-      // 通过插件ID找到对应的服务器名称
-      const serverName = `mcp-server-${plugin.id.replace('plugin-', '')}`
+  // 初始化插件系统（设置 agent 事件监听器）
+  initPluginSystem((pluginName: string) => {
+    showToast(`工具 "${pluginName}" 已断开连接`)
+  })
 
-      // 直接使用 serverName 获取 client 和 tool，无需索引查找
-      const currClient = agent.mcpClients[serverName]
-      const currTool = agent.mcpTools[serverName]
+  // 自动连接已标记为 'added' 的自定义市场 MCP 服务器
+  // 这样用户可以通过设置 enabled: true 和 addState: 'added' 让服务器默认连接
+  const preInstalledPlugins = marketPlugins.value.filter((plugin) => plugin.addState === 'added' && plugin.enabled)
 
-      // 先判断client 在不在， 不存在后，标记一个 (断)
-      if (currClient === null) {
-        plugin.name = '❌' + plugin.name.replace('❌', '')
-      }
-
-      // 判断 tool是不是 null, 是null则全部禁用
-      if (currTool === null) {
-        plugin.tools.forEach((tool) => (tool.enabled = false))
-      } else if (currTool) {
-        plugin.tools = Object.keys(currTool).map((key) => {
-          return {
-            id: key,
-            name: key,
-            description: currTool[key].description as string,
-            enabled: !agent.ignoreToolnames.includes(key)
-          }
-        })
-      }
-    })
+  // 批量添加预安装的插件（使用统一的市场添加接口）
+  for (const plugin of preInstalledPlugins) {
+    await addPluginFromMarket(plugin)
   }
 
   // 初始加载时，url上的sessionId 可能是1个或多个，此时要立即连接后，更新一下插件状态
   await agent.initClientsAndTools()
   await agent.closeAll()
 
+  // 加载所有已连接的 MCP 服务器到插件列表（使用统一的加载接口）
   for (const [serverName, mcpServer] of Object.entries(agent.mcpServers)) {
     await loadMcpServerToPlugin(serverName, mcpServer)
   }
@@ -573,105 +473,12 @@ watch(
   }
 )
 
-// 整个插件的打开或关闭
-const handlePluginToggle = (_plugin: PluginInfo, enabled: boolean) => {
-  const isLocalTool = _plugin.id === 'plugin-本地工具列表'
-  const enabledToolsState = enabledTools.value ? { ...enabledTools.value } : {}
-  _plugin.tools.forEach((tool) => {
-    tool.enabled = enabled
-    if (enabled) {
-      agent.ignoreToolnames = agent.ignoreToolnames.filter((name) => name !== tool.id)
-    } else {
-      agent.ignoreToolnames.push(tool.id)
-    }
-  })
-
-  if (isLocalTool) {
-    Object.keys(enabledToolsState).forEach((key) => {
-      enabledToolsState[key] = enabled
-    })
-    enabledTools.value = enabledToolsState
-  }
-}
-
-// 某个tool的打开或关闭。  全部tool状态一致时，会同时触发handlePluginToggle 一下。
-const handleToolToggle = (_plugin: PluginInfo, toolId: string, enabled: boolean) => {
-  const enabledToolsState = enabledTools.value ? { ...enabledTools.value } : {}
-  const isLocalTool = _plugin.id === 'plugin-本地工具列表'
-
-  _plugin.tools.forEach((tool) => {
-    if (tool.id === toolId) {
-      tool.enabled = enabled
-    }
-  })
-  if (enabled) {
-    agent.ignoreToolnames = agent.ignoreToolnames.filter((name) => name !== toolId)
-  } else {
-    agent.ignoreToolnames.push(toolId)
-  }
-  if (isLocalTool) {
-    enabledToolsState[toolId] = enabled
-    enabledTools.value = enabledToolsState
-  }
-}
-// 点垃圾桶图标的插件删除
-const handlePluginDelete = async (plugin: PluginInfo) => {
-  // 从安装插件删除， 市场插件还原状态。
-  const delPlugin = installedPlugins.value.find((item) => item.id === plugin.id)
-  if (delPlugin) {
-    installedPlugins.value = installedPlugins.value.filter((item) => item.id !== delPlugin.id)
-    const findInMarket = marketPlugins.value.find((item) => item.id === delPlugin.id)
-    if (findInMarket) {
-      findInMarket.addState = 'idle'
-    }
-
-    // 移除mcpServers，mcpTools，mcpClients，ignoreToolnames
-    // 通过插件ID找到对应的服务器名称
-    const serverName = `mcp-server-${plugin.id.replace('plugin-', '')}`
-    await agent.removeMcpServer(serverName)
-  }
-}
-// 插件市场中，点击"添加"
-const handlePluginAdd = async (plugin: PluginInfo) => {
-  plugin.addState = 'loading'
-
-  const newPlugin = {
-    ...plugin,
-    id: plugin.id,
-    enabled: true
-  }
-
-  // 立即注册服务，查询工具
-  const mcpServer = { type: (plugin as any).type, url: (plugin as any).url, useAISdkClient: true } as McpServerConfig
-  const serverName = `mcp-server-${plugin.id}`
-  const inserted = await agent.insertMcpServer(serverName, mcpServer) // 插入时，会自动去重，且initClientAndTools
-  if (inserted) {
-    // 直接使用 serverName 获取 tools，无需索引查找
-    const currTool = agent.mcpTools[serverName]
-    if (currTool) {
-      newPlugin.tools = Object.keys(currTool).map((key) => {
-        return {
-          id: key,
-          name: key,
-          description: currTool[key].description as string,
-          enabled: true
-        }
-      })
-      installedPlugins.value.push(newPlugin) // 只有client.tools() 成功了，才显示到"已安装列表"
-      plugin.addState = 'added'
-      await agent.closeAll()
-      return
-    }
-  }
-  // 添加失败
-  await agent.removeMcpServer(serverName)
-  plugin.addState = 'idle'
-}
-
-// 搜索已安装或者搜索市场，两个函数一样的。
-const handleMcpServerPickerSearchFn = (query: string, item: PluginInfo) => {
-  return query.trim() === '' || item.name.toLowerCase().includes(query.toLowerCase())
-}
+// 插件操作事件处理器（直接使用 usePlugin 返回的方法）
+const handlePluginToggle = togglePlugin
+const handleToolToggle = toggleTool
+const handlePluginDelete = deletePlugin
+const handlePluginAdd = addPluginFromMarket
+const handleMcpServerPickerSearchFn = searchPlugin
 
 // 使用自定义 MCP 服务器添加 composable
 const { handleCustomAdd } = useCustomMcpServer(agent, installedPlugins, defaultPluginSrc)

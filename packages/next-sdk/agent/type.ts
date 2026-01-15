@@ -38,7 +38,7 @@ export type McpServerConfig =
   | { type: 'streamableHttp'; url: string; useAISdkClient?: boolean }
   | { type: 'sse'; url: string; useAISdkClient?: boolean }
   | { type: 'extension'; url: string; sessionId: string; useAISdkClient?: boolean }
-  | { transport: MCPTransport; useAISdkClient?: boolean }
+  | { type: 'local'; transport: MCPTransport; useAISdkClient?: boolean }
 
 /** */
 export interface IAgentModelProviderOption {
