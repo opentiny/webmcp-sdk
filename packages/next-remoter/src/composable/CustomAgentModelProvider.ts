@@ -35,13 +35,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   /** 生成式UI启用状态 */
   isGenuiEnabled?: Ref<boolean>
 
-  constructor(
-    config: AIModelConfig,
-    sessionId: Ref<string>,
-    agentRoot: Ref<string>,
-    systemPrompt: string,
-    llmConfig?: ICustomAgentModelProviderLlmConfig
-  ) {
+  constructor(config: AIModelConfig, systemPrompt: string, llmConfig?: ICustomAgentModelProviderLlmConfig) {
     super(config)
 
     let mergedConfig: ICustomAgentModelProviderLlmConfig
