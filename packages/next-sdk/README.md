@@ -30,7 +30,6 @@
 
 ## ✨ 主要特性
 
-- 🚀 **多语言支持**：核心 SDK 支持 TypeScript、Python、Java 等多种编程语言
 - 🎯 **简化集成**：提供简洁的 API 封装，简化与 WebAgent 服务的连接、认证等逻辑
 - 🔌 **MCP 协议**：完整实现 Model Context Protocol（MCP）的 Web 版本，支持浏览器端工具调用
 - 🤖 **AI 对话组件**：提供开箱即用的 AI 对话框组件（`@opentiny/next-remoter`）
