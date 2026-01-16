@@ -389,17 +389,23 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
     images?: string[]
   ): Promise<boolean> => {
     // 增加 @ 功能， 如果有指定角色，则在这里进行处理， 生成正确的： inputMessage.value 和 最终的系统提示词
-    if (templateDataParam && templateDataParam.length > 0) {
-      const skillItems = templateDataParam.filter((data) => data.type === 'mention')
-
+    // 重构识别 skills的办法： 不依赖于 templateDataParam， 而是让当前输入的问题，直接匹配 skills 下的名字
+    const matchedSkills = skills.filter((s) => _inputValue.includes('@' + s.label))
+    if (matchedSkills.length > 0) {
+      const skillItems = matchedSkills.map((s) => {
+        return {
+          type: 'mention',
+          content: s.label,
+          value: s.value
+        }
+      })
       // 检查 skill 对应的工具是否已加载和启用，如果有缺失则显示确认对话框
       const shouldBlock = await checkSkillToolsAvailability(skillItems)
       if (shouldBlock) {
         return false // 用户选择取消，阻止发送消息
       }
 
-      // 构建输入消息
-      inputMessage.value = buildInputMessage(templateDataParam)
+      inputMessage.value = _inputValue
 
       // 提取并组合 skill 提示词
       const skillPrompts = extractSkillPrompts(skillItems)
@@ -440,7 +446,7 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
   const handleCreateConversation = () => {
     abortRequest()
     const aiSdkMessages: any[] = []
-    customAgentProvider.agent.messages = aiSdkMessages
+    customAgentProvider.agent.responseMessages = aiSdkMessages
     createConversation()
     const conv = getCurrentConversation()!
     conv.aiSdkMessages = aiSdkMessages // 保存同一个引用到会话中
@@ -451,7 +457,7 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
     switchConversation(item.id)
 
     const conv = getCurrentConversation()!
-    customAgentProvider.agent.messages = conv.aiSdkMessages // 切换历史对话到当前代理上
+    customAgentProvider.agent.responseMessages = conv.aiSdkMessages // 切换历史对话到当前代理上
     showHistory.value = false
 
     scrollToBottom()

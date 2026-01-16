@@ -497,7 +497,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     }
 
     // 始终使用 messages 参数，确保包含所有历史消息上下文
-    const allMessages = [...this.agent.messages, userMessage]
+    const allMessages = [...this.agent.responseMessages, userMessage]
     chatStreamOptions.messages = allMessages
 
     // @ts-ignore

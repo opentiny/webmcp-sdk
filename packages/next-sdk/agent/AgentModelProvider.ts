@@ -45,7 +45,7 @@ export class AgentModelProvider {
   /** Agent 内部报错时，抛出的错误事件 */
   onError: ((msg: string, err?: any) => void) | undefined
   /** 缓存 ai-sdk response 中的 多轮会话的上下文 */
-  messages: any[] = []
+  responseMessages: any[] = []
   /** 是否使用 ReAct 模式（通过提示词而非 function calling 进行工具调用） */
   useReActMode: boolean = false
 
@@ -360,7 +360,7 @@ export class AgentModelProvider {
     } else if (options.messages) {
       currentMessages = [...options.messages]
     } else {
-      currentMessages = [...this.messages]
+      currentMessages = [...this.responseMessages]
     }
 
     // 确保 model 是字符串类型（ReAct 模式下 model 应该是模型名称字符串）
@@ -530,7 +530,7 @@ export class AgentModelProvider {
 
       if (!action) {
         // 没有工具调用，返回最终结果
-        this.messages = fullMessageHistory
+        this.responseMessages = fullMessageHistory
         return {
           text: assistantMessage,
           response: { messages: fullMessageHistory }
@@ -554,7 +554,7 @@ export class AgentModelProvider {
     }
 
     // 达到最大步数，返回最后一条消息
-    this.messages = fullMessageHistory
+    this.responseMessages = fullMessageHistory
     const lastMessage = fullMessageHistory[fullMessageHistory.length - 2]?.content || ''
     return {
       text: lastMessage,
@@ -644,7 +644,7 @@ export class AgentModelProvider {
               // 没有工具调用，结束流
               controller.enqueue({ type: 'text-end' })
               controller.close()
-              self.messages = fullMessageHistory
+              self.responseMessages = fullMessageHistory
               // 触发 onFinish 回调
               streamCompleteResolver({ messages: fullMessageHistory })
               return
@@ -655,7 +655,7 @@ export class AgentModelProvider {
               // 视为对话结束
               controller.enqueue({ type: 'text-end' })
               controller.close()
-              self.messages = fullMessageHistory
+              self.responseMessages = fullMessageHistory
               streamCompleteResolver({ messages: fullMessageHistory })
               return
             }
@@ -751,7 +751,7 @@ export class AgentModelProvider {
           // 达到最大步数
           controller.enqueue({ type: 'text-end' })
           controller.close()
-          self.messages = fullMessageHistory
+          self.responseMessages = fullMessageHistory
           // 触发 onFinish 回调
           streamCompleteResolver({ messages: fullMessageHistory })
         } catch (error: any) {
@@ -794,15 +794,15 @@ export class AgentModelProvider {
     }
 
     if (options.message && !options.messages) {
-      this.messages.push({ role: 'user', content: options.message })
-      chatOptions.messages = [...this.messages]
+      this.responseMessages.push({ role: 'user', content: options.message })
+      chatOptions.messages = [...this.responseMessages]
     }
 
     const result = chatMethod(chatOptions)
 
     // 缓存 ai-sdk的多轮对话的消息
     ;(result as StreamTextResult<ToolSet, unknown>)?.response?.then((res: any) => {
-      this.messages.push(...res.messages)
+      this.responseMessages.push(...res.messages)
     })
 
     return result
