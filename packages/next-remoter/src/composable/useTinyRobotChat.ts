@@ -191,7 +191,16 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
                 icon: IconRefresh,
                 size: 24,
                 onClick: async () => {
-                  await regenerateAssistantMessageByIndex(index)
+                  // 向上找最后一次 user 消息
+                  const lastUserIndex = messages.value.findLastIndex((m, idx) => m.role === 'user' && idx <= index)
+                  const lastUserMsg = messages.value[lastUserIndex]
+
+                  // 从上个user消息截断， 只保留上半断。  last user消息也截掉。
+                  messages.value = messages.value.slice(0, lastUserIndex)
+
+                  // 模拟用户重新提问
+                  inputMessage.value = lastUserMsg.content
+                  handleSendMessage(lastUserMsg.content)
                 }
               }),
               h(
