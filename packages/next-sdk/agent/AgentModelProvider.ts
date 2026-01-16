@@ -442,7 +442,7 @@ export class AgentModelProvider {
   }
 
   /**
-   * 构建用于模型调用的消息列表（magentic-ui 风格）
+   * 构建用于模型调用的消息列表
    * 策略：保留所有文本消息，仅限制图片数量（类似 magentic-ui 的 maybe_remove_old_screenshots）
    *
    * @param systemMessage 系统提示词
@@ -801,18 +801,37 @@ export class AgentModelProvider {
       tools: this._tempMergeTools(options.tools) as ToolSet
     }
 
+    // 保存最后一条 user 消息，用于后续缓存
+    let lastUserMessage: any = null
+
     if (options.message && !options.messages) {
-      this.responseMessages.push({ role: 'user', content: options.message })
+      // 使用 options.message 创建 user 消息
+      lastUserMessage = { role: 'user', content: options.message }
+      this.responseMessages.push(lastUserMessage)
       chatOptions.messages = [...this.responseMessages]
+    } else if (options.messages && options.messages.length > 0) {
+      // 从 options.messages 中获取最后一条 user 消息
+      const lastMessage = options.messages[options.messages.length - 1]
+      if (lastMessage.role === 'user') {
+        lastUserMessage = lastMessage
+      }
     }
 
     const result = chatMethod(chatOptions)
 
-    // 缓存 ai-sdk的多轮对话的消息
+    // 缓存 ai-sdk 的多轮对话的消息
     ;(result as StreamTextResult<ToolSet, unknown>)?.response?.then((res: any) => {
+      // 检查 res.messages 的第一条消息是否是 user 消息
+      // 如果不是，且有 lastUserMessage，则先添加 lastUserMessage
+      const firstMessage = res.messages?.[0]
+      if (lastUserMessage && firstMessage?.role !== 'user') {
+        this.responseMessages.push(lastUserMessage)
+      }
+      // 然后添加 AI 返回的消息
       this.responseMessages.push(...res.messages)
     })
 
+    // 读取使用量
     result?.usage?.then((usage: any) => {
       this.onUsage?.(usage)
     })

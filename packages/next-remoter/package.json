@@ -2,6 +2,23 @@
   "name": "@opentiny/next-remoter",
   "version": "0.2.2",
   "type": "module",
+  "homepage": "https://docs.opentiny.design/next-sdk/guide/tiny-robot-remoter.html",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:opentiny/next-sdk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/opentiny/next-sdk/issues"
+  },
+  "keywords": [
+    "next-remoter",
+    "opentiny",
+    "mcp",
+    "sdk",
+    "agent"
+  ],
+  "license": "MIT",
+  "description": "An AI chat component for rapidly building AI agents and integrating with web MCP",
   "files": [
     "dist"
   ],
