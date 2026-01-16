@@ -38,13 +38,7 @@ let summaryText = ''
 let accmulateMessagesLength: number = 0
 
 export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = [] }: useTinyRobotOption) => {
-  const customAgentProvider = new CustomAgentModelProvider(
-    { provider: 'custom' },
-    ref(''),
-    agentRoot,
-    systemPrompt,
-    llmConfig
-  )
+  const customAgentProvider = new CustomAgentModelProvider({ provider: 'custom' }, systemPrompt, llmConfig)
 
   const client = new AIClient({
     providerImplementation: customAgentProvider,
