@@ -6,6 +6,7 @@ import { IconButton, TrSender } from '@opentiny/tiny-robot'
 import logo from '../../public/svgs/logo-next-no-bg-right.svg'
 import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import { extractTextAndJson } from './handleSchema'
+import tokenUsageVue from '../components/tokenUsage.vue'
 
 interface useTinyRobotOption {
   agentRoot: Ref<string>
@@ -231,7 +232,8 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
                       }
                     }
                   })
-              )
+              ),
+              messages.value[index].usage ? h(tokenUsageVue, { usage: messages.value[index].usage }) : null
             ]
           )
         }
@@ -477,6 +479,11 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
     }
   }
 
+  // 获取token, 并保存到最后一条消息上
+  customAgentProvider.agent.onUsage = (usage) => {
+    let lastMessage = messages.value[messages.value.length - 1]
+    lastMessage.usage = usage
+  }
   // 最新消息滚动到底部
   const scrollToBottom = () => {
     nextTick(() => {

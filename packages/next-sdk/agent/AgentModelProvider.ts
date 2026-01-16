@@ -48,6 +48,14 @@ export class AgentModelProvider {
   responseMessages: any[] = []
   /** 是否使用 ReAct 模式（通过提示词而非 function calling 进行工具调用） */
   useReActMode: boolean = false
+  /** 流结束后，返回token细节的事件 */
+  onUsage?: (usage: {
+    cachedInputTokens: number
+    inputTokens: number
+    reasoningTokens: number
+    outputTokens: number
+    totalTokens: number
+  }) => void
 
   constructor({ llmConfig, mcpServers }: IAgentModelProviderOption) {
     if (!llmConfig) {
@@ -803,6 +811,10 @@ export class AgentModelProvider {
     // 缓存 ai-sdk的多轮对话的消息
     ;(result as StreamTextResult<ToolSet, unknown>)?.response?.then((res: any) => {
       this.responseMessages.push(...res.messages)
+    })
+
+    result?.usage?.then((usage: any) => {
+      this.onUsage?.(usage)
     })
 
     return result
