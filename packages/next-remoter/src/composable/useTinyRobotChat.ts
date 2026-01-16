@@ -1,8 +1,8 @@
-import { AIClient, useConversation } from '@opentiny/tiny-robot-kit'
-import { IconUser } from '@opentiny/tiny-robot-svgs'
-import { h, nextTick, onMounted, onUnmounted, Ref, ref, watch } from 'vue'
+import { AIClient, GeneratingStatus, useConversation } from '@opentiny/tiny-robot-kit'
+import { IconCopy, IconRefresh, IconUser } from '@opentiny/tiny-robot-svgs'
+import { computed, h, nextTick, onMounted, onUnmounted, Ref, ref, watch } from 'vue'
 import { CustomAgentModelProvider } from './CustomAgentModelProvider'
-import { TrSender } from '@opentiny/tiny-robot'
+import { IconButton, TrSender } from '@opentiny/tiny-robot'
 import logo from '../../public/svgs/logo-next-no-bg-right.svg'
 import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import { extractTextAndJson } from './handleSchema'
@@ -121,6 +121,8 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
           } else {
             lastMessage.uiContent[lastMessage.uiContent.length - 1] = accmulateMessages[arrLength - 1]
           }
+          lastMessage.content = accmulateText
+
           accmulateMessagesLength = arrLength
         } else if (data.type === 'collapsible-text') {
           const thinkContent = lastMessage.uiContent.find(
@@ -138,13 +140,93 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
   })
   const { messageState, inputMessage, sendMessage, abortRequest, messages, addMessage, send } = messageManager
 
+  const isProcessing = computed(() => GeneratingStatus.includes(messageState.status))
+  // 获取最新助手消息的索引，用于判断按钮显示状态
+  const latestAssistantMessageIndex = computed(() => {
+    return messages.value.findLastIndex((message) => message.role === 'assistant')
+  })
+
+  // 提示复制成功
+  const copyingStates = ref<Record<string, boolean>>({})
+  const copyTooltipContent = (messageIndex?: number) => {
+    if (messageIndex === undefined) {
+      return '复制'
+    }
+    return copyingStates.value[messageIndex] ? '复制成功' : '复制'
+  }
   const roles = {
     assistant: {
       type: 'markdown',
       placement: 'start',
       avatar: aiAvatar,
       maxWidth: '80%',
-      customContentField: 'uiContent'
+      customContentField: 'uiContent',
+      slots: {
+        footer: ({ index }) => {
+          const isLatestAssistant = latestAssistantMessageIndex.value === index
+          // 正在回复消息不显示；
+          if (isProcessing.value && isLatestAssistant) {
+            return ''
+          }
+
+          return h(
+            'div',
+            {
+              class: [
+                'assistant-actions',
+                {
+                  'latest-assistant': isLatestAssistant,
+                  'historical-assistant': !isLatestAssistant
+                }
+              ],
+              style: {
+                display: 'flex',
+                justifyContent: 'flex-start',
+                alignItems: 'center',
+                gap: '4px'
+              }
+            },
+            [
+              h(IconButton, {
+                icon: IconRefresh,
+                size: 24,
+                onClick: async () => {
+                  await regenerateAssistantMessageByIndex(index)
+                }
+              }),
+              h(
+                TinyTooltip,
+                {
+                  effect: 'light',
+                  content: copyTooltipContent(index),
+                  placement: 'right',
+                  visibleArrow: false
+                },
+                () =>
+                  h(IconButton, {
+                    icon: IconCopy,
+                    size: 24,
+                    onClick: async () => {
+                      const message = messages.value[index]
+                      const textContent =
+                        typeof message.content === 'string' ? message.content : JSON.stringify(message.content)
+                      await navigator.clipboard.writeText(textContent)
+
+                      // 提示复制成功
+                      if (index) {
+                        copyingStates.value[index] = true
+
+                        setTimeout(() => {
+                          copyingStates.value[index] = false
+                        }, 3000)
+                      }
+                    }
+                  })
+              )
+            ]
+          )
+        }
+      }
     },
     user: {
       placement: 'end',
