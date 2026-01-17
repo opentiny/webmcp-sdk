@@ -670,4 +670,42 @@ const senderExtensions = [TrSender.mention(props.skills)]
   height: 100%;
   width: 100%;
 }
+
+/* 助手消息操作按钮样式 */
+:deep(.tr-bubble__content-wrapper) {
+  p {
+    margin: 0;
+    line-height: 1.5;
+  }
+
+  /* 所有助手消息的按钮组基础样式 */
+  .assistant-actions {
+    transition:
+      opacity 0.2s ease,
+      visibility 0.2s ease;
+  }
+
+  /* 最新助手消息的按钮组常驻显示 */
+  .assistant-actions.latest-assistant {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  /* 历史助手消息的按钮组默认隐藏，悬浮时显示 */
+  .assistant-actions.historical-assistant {
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  /* 悬浮时显示历史助手消息的按钮组 */
+  &:hover .assistant-actions.historical-assistant {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  /* 确保按钮组在状态切换时不会影响布局 */
+  .assistant-actions {
+    min-height: 32px; /* 保持一致的高度 */
+  }
+}
 </style>

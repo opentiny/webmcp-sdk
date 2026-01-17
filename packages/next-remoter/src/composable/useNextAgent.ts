@@ -97,7 +97,7 @@ export function useNextAgent(option: INextAgetOption) {
 
   function newConversation() {
     messages.value = []
-    agent.messages = []
+    agent.responseMessages = []
   }
 
   async function addSessionId(sid: string) {

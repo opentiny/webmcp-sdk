@@ -1,11 +1,12 @@
-import { AIClient, useConversation } from '@opentiny/tiny-robot-kit'
-import { IconUser } from '@opentiny/tiny-robot-svgs'
-import { h, nextTick, onMounted, onUnmounted, Ref, ref, watch } from 'vue'
+import { AIClient, GeneratingStatus, useConversation } from '@opentiny/tiny-robot-kit'
+import { IconCopy, IconRefresh, IconUser } from '@opentiny/tiny-robot-svgs'
+import { computed, h, nextTick, onMounted, onUnmounted, Ref, ref, watch } from 'vue'
 import { CustomAgentModelProvider } from './CustomAgentModelProvider'
-import { TrSender } from '@opentiny/tiny-robot'
+import { IconButton, TrSender } from '@opentiny/tiny-robot'
 import logo from '../../public/svgs/logo-next-no-bg-right.svg'
 import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import { extractTextAndJson } from './handleSchema'
+import tokenUsageVue from '../components/tokenUsage.vue'
 
 interface useTinyRobotOption {
   agentRoot: Ref<string>
@@ -37,13 +38,7 @@ let summaryText = ''
 let accmulateMessagesLength: number = 0
 
 export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = [] }: useTinyRobotOption) => {
-  const customAgentProvider = new CustomAgentModelProvider(
-    { provider: 'custom' },
-    ref(''),
-    agentRoot,
-    systemPrompt,
-    llmConfig
-  )
+  const customAgentProvider = new CustomAgentModelProvider({ provider: 'custom' }, systemPrompt, llmConfig)
 
   const client = new AIClient({
     providerImplementation: customAgentProvider,
@@ -121,6 +116,8 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
           } else {
             lastMessage.uiContent[lastMessage.uiContent.length - 1] = accmulateMessages[arrLength - 1]
           }
+          lastMessage.content = accmulateText
+
           accmulateMessagesLength = arrLength
         } else if (data.type === 'collapsible-text') {
           const thinkContent = lastMessage.uiContent.find(
@@ -138,13 +135,103 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
   })
   const { messageState, inputMessage, sendMessage, abortRequest, messages, addMessage, send } = messageManager
 
+  const isProcessing = computed(() => GeneratingStatus.includes(messageState.status))
+  // 获取最新助手消息的索引，用于判断按钮显示状态
+  const latestAssistantMessageIndex = computed(() => {
+    return messages.value.findLastIndex((message) => message.role === 'assistant')
+  })
+
+  // 提示复制成功
+  const copyingStates = ref<Record<string, boolean>>({})
+  const copyTooltipContent = (messageIndex?: number) => {
+    if (messageIndex === undefined) {
+      return '复制'
+    }
+    return copyingStates.value[messageIndex] ? '复制成功' : '复制'
+  }
   const roles = {
     assistant: {
       type: 'markdown',
       placement: 'start',
       avatar: aiAvatar,
       maxWidth: '80%',
-      customContentField: 'uiContent'
+      customContentField: 'uiContent',
+      slots: {
+        footer: ({ index }) => {
+          const isLatestAssistant = latestAssistantMessageIndex.value === index
+          // 正在回复消息不显示；
+          if (isProcessing.value && isLatestAssistant) {
+            return ''
+          }
+
+          return h(
+            'div',
+            {
+              class: [
+                'assistant-actions',
+                {
+                  'latest-assistant': isLatestAssistant,
+                  'historical-assistant': !isLatestAssistant
+                }
+              ],
+              style: {
+                display: 'flex',
+                justifyContent: 'flex-start',
+                alignItems: 'center',
+                gap: '4px'
+              }
+            },
+            [
+              h(IconButton, {
+                icon: IconRefresh,
+                size: 24,
+                onClick: async () => {
+                  // 向上找最后一次 user 消息
+                  const lastUserIndex = messages.value.findLastIndex((m, idx) => m.role === 'user' && idx <= index)
+                  const lastUserMsg = messages.value[lastUserIndex]
+
+                  // 从上个user消息截断， 只保留上半断。  last user消息也截掉。
+                  messages.value = messages.value.slice(0, lastUserIndex)
+
+                  // 模拟用户重新提问
+                  inputMessage.value = lastUserMsg.content
+                  handleSendMessage(lastUserMsg.content)
+                }
+              }),
+              h(
+                TinyTooltip,
+                {
+                  effect: 'light',
+                  content: copyTooltipContent(index),
+                  placement: 'right',
+                  visibleArrow: false
+                },
+                () =>
+                  h(IconButton, {
+                    icon: IconCopy,
+                    size: 24,
+                    onClick: async () => {
+                      const message = messages.value[index]
+                      const textContent =
+                        typeof message.content === 'string' ? message.content : JSON.stringify(message.content)
+                      await navigator.clipboard.writeText(textContent)
+
+                      // 提示复制成功
+                      if (index) {
+                        copyingStates.value[index] = true
+
+                        setTimeout(() => {
+                          copyingStates.value[index] = false
+                        }, 3000)
+                      }
+                    }
+                  })
+              ),
+              messages.value[index].usage ? h(tokenUsageVue, { usage: messages.value[index].usage }) : null
+            ]
+          )
+        }
+      }
     },
     user: {
       placement: 'end',
@@ -298,17 +385,23 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
     images?: string[]
   ): Promise<boolean> => {
     // 增加 @ 功能， 如果有指定角色，则在这里进行处理， 生成正确的： inputMessage.value 和 最终的系统提示词
-    if (templateDataParam && templateDataParam.length > 0) {
-      const skillItems = templateDataParam.filter((data) => data.type === 'mention')
-
+    // 重构识别 skills的办法： 不依赖于 templateDataParam， 而是让当前输入的问题，直接匹配 skills 下的名字
+    const matchedSkills = skills.filter((s) => _inputValue.includes('@' + s.label))
+    if (matchedSkills.length > 0) {
+      const skillItems = matchedSkills.map((s) => {
+        return {
+          type: 'mention',
+          content: s.label,
+          value: s.value
+        }
+      })
       // 检查 skill 对应的工具是否已加载和启用，如果有缺失则显示确认对话框
       const shouldBlock = await checkSkillToolsAvailability(skillItems)
       if (shouldBlock) {
         return false // 用户选择取消，阻止发送消息
       }
 
-      // 构建输入消息
-      inputMessage.value = buildInputMessage(templateDataParam)
+      inputMessage.value = _inputValue
 
       // 提取并组合 skill 提示词
       const skillPrompts = extractSkillPrompts(skillItems)
@@ -349,7 +442,7 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
   const handleCreateConversation = () => {
     abortRequest()
     const aiSdkMessages: any[] = []
-    customAgentProvider.agent.messages = aiSdkMessages
+    customAgentProvider.agent.responseMessages = aiSdkMessages
     createConversation()
     const conv = getCurrentConversation()!
     conv.aiSdkMessages = aiSdkMessages // 保存同一个引用到会话中
@@ -360,7 +453,7 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
     switchConversation(item.id)
 
     const conv = getCurrentConversation()!
-    customAgentProvider.agent.messages = conv.aiSdkMessages // 切换历史对话到当前代理上
+    customAgentProvider.agent.responseMessages = conv.aiSdkMessages // 切换历史对话到当前代理上
     showHistory.value = false
 
     scrollToBottom()
@@ -380,6 +473,11 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
     }
   }
 
+  // 获取token, 并保存到最后一条消息上
+  customAgentProvider.agent.onUsage = (usage) => {
+    let lastMessage = messages.value[messages.value.length - 1]
+    lastMessage.usage = usage
+  }
   // 最新消息滚动到底部
   const scrollToBottom = () => {
     nextTick(() => {
