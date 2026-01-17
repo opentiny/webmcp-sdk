@@ -1,5 +1,13 @@
 <template>
-  <tr-container v-model:show="show" v-model:fullscreen="fullscreen">
+  <tr-container
+    v-model:show="show"
+    v-model:fullscreen="fullscreen"
+    :style="{
+      position: layoutMode,
+      width: layoutMode !== 'fixed' ? 'unset' : undefined,
+      height: layoutMode !== 'fixed' ? '100%' : undefined
+    }"
+  >
     <template #title>
       <h3 class="tr-container__title">{{ title }}</h3>
     </template>
@@ -240,6 +248,11 @@ const props = defineProps({
   skills: {
     type: Object as () => MentionItem[],
     default: () => []
+  },
+  /** 布局模式：支持所有 CSS position 属性值 'static' | 'relative' | 'absolute' | 'fixed' | 'sticky' */
+  layoutMode: {
+    type: String as () => 'static' | 'relative' | 'absolute' | 'fixed' | 'sticky',
+    default: 'fixed'
   }
 })
 

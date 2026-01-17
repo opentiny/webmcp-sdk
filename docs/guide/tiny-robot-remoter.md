@@ -42,6 +42,7 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 - `genUiComponents` 生成式UI内置了一批组件，如果需要引入新组件，需要通过这里导入。 参考示例： shallowReactive({TinyUser, TinyAlert })
 - `customMarketMcpServers` 追加自定义 MCP 市场服务列表（`PluginInfo[]`），传入后会与组件内置的 `DEFAULT_SERVERS` 合并，用于扩展市场内容
 - `skills` 设置技能的配置数组。 在聊天输入框中输入 `@` 符号能唤起技能列表，选择相应的技能后，可能快速附带上技能对应的提示词内容,参考底部示例。
+- `layout-mode` 布局模式，支持所有 CSS position 属性值：`'static' | 'relative' | 'absolute' | 'fixed' | 'sticky'`，默认值为 `'fixed'`。用于控制组件的定位方式
 
 ### llmConfig 配置详情
 
@@ -311,6 +312,106 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 const show = ref(false)
 </script>
 ```
+
+### 设置布局模式（layout-mode）
+
+`layout-mode` 属性用于控制组件的定位方式，支持所有 CSS position 属性值。这在不同的使用场景下非常有用：
+
+#### 静态定位模式
+
+使用 `static` 定位，组件会占据正常的文档流位置，适合将对话框嵌入到页面布局中。
+
+```vue
+<template>
+  <div class="chat-container">
+    <!-- 静态定位，组件会占据 100% 的宽高，适合嵌入页面 -->
+    <TinyRemoter 
+      v-model:show="show" 
+      layout-mode="static"
+      sessionId="your-session-id" 
+      title="我的AI助手" 
+      systemPrompt="你是一个智能助手" 
+    />
+  </div>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
+
+const show = ref(true)
+</script>
+
+<style scoped>
+.chat-container {
+  width: 800px;
+  height: 80vh;
+  margin: 20px auto 0;
+}
+</style>
+```
+
+#### 动态切换布局模式
+
+你也可以根据业务需求动态切换布局模式：
+
+```vue
+<template>
+  <div>
+    <!-- 切换按钮 -->
+    <div class="controls">
+      <button @click="layoutMode = 'fixed'">固定定位</button>
+      <button @click="layoutMode = 'static'">静态定位</button>
+      <button @click="layoutMode = 'absolute'">绝对定位</button>
+    </div>
+
+    <!-- 动态布局模式 -->
+    <TinyRemoter 
+      v-model:show="show" 
+      :layout-mode="layoutMode"
+      sessionId="your-session-id" 
+      title="我的AI助手" 
+      systemPrompt="你是一个智能助手" 
+    />
+  </div>
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
+
+const show = ref(true)
+const layoutMode = ref('fixed')
+</script>
+
+<style scoped>
+.controls {
+  padding: 20px;
+  display: flex;
+  gap: 10px;
+}
+
+button {
+  padding: 8px 16px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #f5f5f5;
+}
+</style>
+```
+
+**布局模式使用建议：**
+
+- **`fixed`（默认）**：适合悬浮式聊天窗口、客服对话框等需要始终可见的场景
+- **`static`**：适合将对话框完整嵌入到页面布局中，作为页面的一部分
+- **`absolute`**：适合在特定容器内定位对话框，需要精确控制位置
+- **`relative`**：适合需要在原位置基础上微调的场景
+- **`sticky`**：适合需要在滚动时保持可见，但不完全固定的场景
 
 ### 使用自定义LLM配置
 
