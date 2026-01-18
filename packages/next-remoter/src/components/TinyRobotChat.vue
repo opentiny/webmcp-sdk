@@ -211,6 +211,10 @@ const props = defineProps({
   qrCodeUrl: {
     type: String
   },
+  /** 悬浮AI图标的地址 */
+  AILogoUrl: {
+    type: String
+  },
   /** 展示模式： 'remoter' | 'chat-dialog'
    * 遥控器模式： 自动在右下角显示一个AI图标，点击展开多个菜单项。
    * 对话框模式： 直接显示一个对话框界面
@@ -434,6 +438,7 @@ watch(
         qrCodeUrl: props.qrCodeUrl,
         remoteUrl: props.remoteUrl,
         menuItems: props.menuItems,
+        logoUrl: props.AILogoUrl,
         onShowAIChat: () => (show.value = true)
       })
 

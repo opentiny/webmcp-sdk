@@ -8,6 +8,7 @@ import iconCopy from './svgs/icon-copy.svg?url'
 
 const DEFAULT_REMOTE_URL = 'https://agent.opentiny.design/tiny-robot'
 const DEFAULT_QR_CODE_URL = 'https://ai.opentiny.design/next-remoter'
+const DEFAULT_LOGO_URL = 'https://ai.opentiny.design/next-remoter/svgs/logo-next-no-bg-left.svg'
 
 /** 菜单项配置接口 */
 export interface MenuItemConfig {
@@ -44,6 +45,8 @@ export interface FloatingBlockOptions {
   menuItems?: MenuItemConfig[]
   /** 遥控端页面地址，默认为： https://agent.opentiny.design/tiny-robot */
   remoteUrl?: string
+  /** 悬浮Logo的url地址，默认为： https://ai.opentiny.design/next-remoter/svgs/logo-next-no-bg-left.svg */
+  logoUrl?: string
 }
 
 // 动作类型
@@ -109,7 +112,8 @@ class FloatingBlock {
     this.options = {
       ...options,
       qrCodeUrl: options.qrCodeUrl || DEFAULT_QR_CODE_URL,
-      remoteUrl: options.remoteUrl || DEFAULT_REMOTE_URL
+      remoteUrl: options.remoteUrl || DEFAULT_REMOTE_URL,
+      logoUrl: options.logoUrl || DEFAULT_LOGO_URL
     }
 
     // 合并默认菜单项配置和用户配置。  用户不传入任何menu时， 则不自动合并默认菜单了，即不渲染任何菜单。
@@ -178,7 +182,7 @@ class FloatingBlock {
     this.floatingBlock.className = 'tiny-remoter-floating-block'
     this.floatingBlock.innerHTML = `
       <div class="tiny-remoter-floating-block__icon">
-        <img style="display: block; width: 56px;" src="${DEFAULT_QR_CODE_URL}/svgs/logo-next-no-bg-left.svg" alt="icon" />
+        <img style="display: block; width: 56px;" src="${this.options.logoUrl}" alt="icon" />
       </div>
     `
 
