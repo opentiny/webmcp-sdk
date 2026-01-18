@@ -93,6 +93,8 @@ class FloatingBlock {
   private floatingBlock!: HTMLDivElement
   private dropdownMenu!: HTMLDivElement
   private menuItems: MenuItemConfig[]
+  /** 即将关闭dropdown的定时器 */
+  private closingTimer = 0
 
   // 计算 sessionPrefix 属性
   private get sessionPrefix(): string {
@@ -240,11 +242,30 @@ class FloatingBlock {
   private bindEvents(): void {
     // 绑定浮动块点击事件
     this.floatingBlock.addEventListener('click', () => {
-      if (this.menuItems.length > 0) {
-        this.toggleDropdown()
-      } else {
-        this.showAIChat()
+      this.showAIChat()
+    })
+
+    // 浮动块悬浮处理
+    this.floatingBlock.addEventListener('mouseenter', () => {
+      this.openDropdown()
+
+      if (this.closingTimer) {
+        window.clearTimeout(this.closingTimer)
+        this.closingTimer = 0
       }
+    })
+    this.floatingBlock.addEventListener('mouseleave', () => {
+      this.shouldCloseDropdown()
+    })
+    // 悬浮菜单进入，则阻止关闭
+    this.dropdownMenu.addEventListener('mouseenter', (e: Event) => {
+      if (this.closingTimer) {
+        window.clearTimeout(this.closingTimer)
+        this.closingTimer = 0
+      }
+    })
+    this.dropdownMenu.addEventListener('mouseleave', (e: Event) => {
+      this.shouldCloseDropdown()
     })
 
     // 绑定菜单项点击事件
@@ -286,20 +307,24 @@ class FloatingBlock {
     })
   }
 
-  private toggleDropdown(): void {
-    if (this.isExpanded) {
-      this.closeDropdown()
-    } else {
-      this.openDropdown()
-    }
-  }
-
   private openDropdown(): void {
+    // 没有menuItems，则返回
+    if (!this.menuItems || (this.menuItems && this.menuItems.length === 0)) {
+      return
+    }
+
     this.isExpanded = true
     this.floatingBlock.classList.add('expanded')
     this.dropdownMenu.classList.add('show')
   }
 
+  private shouldCloseDropdown() {
+    this.closingTimer = window.setTimeout(() => {
+      this.closeDropdown()
+    }, 300)
+  }
+
+  /** 真正的立即关闭 */
   private closeDropdown(): void {
     this.isExpanded = false
     this.floatingBlock.classList.remove('expanded')
