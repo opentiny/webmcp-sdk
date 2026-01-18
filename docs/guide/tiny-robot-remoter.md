@@ -33,6 +33,7 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 - `mode` 展示模式，可选值为：'remoter' | 'chat-dialog'。遥控器模式： 自动在右下角显示一个AI图标，点击展开多个菜单项； 对话框模式： 直接显示一个对话框界面
 - `remoteUrl` 远程URL，用于显示在遥控器模式下，点击遥控器图标后，显示的菜单项。
 - `qrCodeUrl` 二维码URL，用于显示在遥控器模式下，点击遥控器图标后，弹出二维码对应的链接 url。
+- `AILogoUrl` AI图标的 url 地址。
 - `menuItems` 菜单项配置数组，用于显示在遥控器模式下，点击遥控器图标后，显示的菜单项。具体配置项见 [api-createRemoter](./api-createRemoter.md)
 - `systemPrompt` 对话llm 时，传入的 system message: system-prompt=你是一个智能助手，工作地点是深圳
 - `llmConfig` 大语言模型配置对象，支持配置 `apiKey`、`baseURL` 、 `model` 、`maxSteps` 、 `providerType` 、 `providerOptions`、`extraTools`，其中 `apiKey/baseURL/providerType` 与 `llmConfig.llm` 二选一
@@ -325,12 +326,12 @@ const show = ref(false)
 <template>
   <div class="chat-container">
     <!-- 静态定位，组件会占据 100% 的宽高，适合嵌入页面 -->
-    <TinyRemoter 
-      v-model:show="show" 
+    <TinyRemoter
+      v-model:show="show"
       layout-mode="static"
-      sessionId="your-session-id" 
-      title="我的AI助手" 
-      systemPrompt="你是一个智能助手" 
+      sessionId="your-session-id"
+      title="我的AI助手"
+      systemPrompt="你是一个智能助手"
     />
   </div>
 </template>
@@ -366,12 +367,12 @@ const show = ref(true)
     </div>
 
     <!-- 动态布局模式 -->
-    <TinyRemoter 
-      v-model:show="show" 
+    <TinyRemoter
+      v-model:show="show"
       :layout-mode="layoutMode"
-      sessionId="your-session-id" 
-      title="我的AI助手" 
-      systemPrompt="你是一个智能助手" 
+      sessionId="your-session-id"
+      title="我的AI助手"
+      systemPrompt="你是一个智能助手"
     />
   </div>
 </template>
