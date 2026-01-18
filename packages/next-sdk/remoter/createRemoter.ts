@@ -1,10 +1,10 @@
 import { QrCode } from './QrCode'
-import { Tooltip } from './tooltips';
-import chat from './svgs/chat.svg?url'; 
-import scan from './svgs/scan.svg?url'; 
-import link from './svgs/link.svg?url'; 
-import qrCode from './svgs/qrcode.svg?url'; 
-import iconCopy from './svgs/icon-copy.svg?url'; 
+import { Tooltip } from './tooltips'
+import chat from './svgs/chat.svg?url'
+import scan from './svgs/scan.svg?url'
+import link from './svgs/link.svg?url'
+import qrCode from './svgs/qrcode.svg?url'
+import iconCopy from './svgs/icon-copy.svg?url'
 
 const DEFAULT_REMOTE_URL = 'https://agent.opentiny.design/tiny-robot'
 const DEFAULT_QR_CODE_URL = 'https://ai.opentiny.design/next-remoter'
@@ -20,7 +20,7 @@ export interface MenuItemConfig {
   /** 菜单文字颜色 */
   active?: boolean
   /** 识别码 */
-  know?: boolean  
+  know?: boolean
   /** 菜单项描述 */
   desc?: string
   /** 菜单项提示 */
@@ -83,7 +83,7 @@ const getDefaultMenuItems = (options: FloatingBlockOptions): MenuItemConfig[] =>
       know: true,
       showCopyIcon: true,
       icon: scan
-    },
+    }
   ]
 }
 
@@ -110,31 +110,33 @@ class FloatingBlock {
       remoteUrl: options.remoteUrl || DEFAULT_REMOTE_URL
     }
 
-    // 合并默认菜单项配置和用户配置
-    this.menuItems = this.mergeMenuItems(options.menuItems)
+    // 合并默认菜单项配置和用户配置。  用户不传入任何menu时， 则不自动合并默认菜单了，即不渲染任何菜单。
+    if (options.menuItems && options.menuItems.length === 0) {
+      this.menuItems = []
+    } else {
+      this.menuItems = this.mergeMenuItems(options.menuItems)
+    }
 
     this.init()
   }
 
   private getImageUrl = (asset: string | undefined): HTMLImageElement | undefined => {
-    if (!asset) return;
-    const img = new Image();
-    img.src = asset;
-    return img;
+    if (!asset) return
+    const img = new Image()
+    img.src = asset
+    return img
   }
 
   private renderItem = (): void => {
     this.menuItems
       .filter((item) => item.show !== false) // 过滤掉show为false的菜单项
-      .map(
-        (item) => {
-          const wrapper = document.getElementById(`tiny-remoter-icon-item-${item.action}`) as HTMLDivElement;
-          if (!wrapper) return;
-          wrapper.innerHTML = '';
-          const img = this.getImageUrl(item.icon);
-          if (img) wrapper.appendChild(img);
-      }
-    );
+      .map((item) => {
+        const wrapper = document.getElementById(`tiny-remoter-icon-item-${item.action}`) as HTMLDivElement
+        if (!wrapper) return
+        wrapper.innerHTML = ''
+        const img = this.getImageUrl(item.icon)
+        if (img) wrapper.appendChild(img)
+      })
   }
 
   /**
@@ -211,13 +213,14 @@ class FloatingBlock {
             <div class="tiny-remoter-dropdown-item__desc-wrapper">
               <div class="tiny-remoter-dropdown-item__desc ${item.active ? 'tiny-remoter-dropdown-item__desc--active' : ''} ${item.know ? 'tiny-remoter-dropdown-item__desc--know' : ''}">${item.desc}</div>
               <div>
-                ${item.showCopyIcon
-                     ? `
+                ${
+                  item.showCopyIcon
+                    ? `
                    <div class="tiny-remoter-copy-icon" id="${item.action}" data-action="${item.action}">
                       <img src="${iconCopy}"/>
                    </div>
                  `
-                     : ''
+                    : ''
                 }
               </div>
             </div>
@@ -234,11 +237,14 @@ class FloatingBlock {
     this.readyTips(`remote-url`)
   }
 
-
   private bindEvents(): void {
     // 绑定浮动块点击事件
     this.floatingBlock.addEventListener('click', () => {
-      this.toggleDropdown()
+      if (this.menuItems.length > 0) {
+        this.toggleDropdown()
+      } else {
+        this.showAIChat()
+      }
     })
 
     // 绑定菜单项点击事件
