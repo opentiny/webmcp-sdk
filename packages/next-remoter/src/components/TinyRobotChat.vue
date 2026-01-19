@@ -156,7 +156,7 @@ import { IconNewSession, IconHistory } from '@opentiny/tiny-robot-svgs'
 import { useTinyRobotChat } from '../composable/useTinyRobotChat'
 import { useCustomMcpServer } from '../composable/useCustomMcpServer'
 import { usePlugin } from '../composable/usePlugin'
-import { toRef, computed, ref, onMounted, h, watch, type Ref } from 'vue'
+import { toRef, computed, ref, onMounted, h, watch, type Ref, type ComponentInstance } from 'vue'
 import { createRemoter } from '@opentiny/next-sdk'
 import QrCodeScan from './QrCodeScan.vue'
 import ModelSwitch from './ModelSwitch.vue'
@@ -205,10 +205,13 @@ const props = defineProps({
     type: String
   },
   menuItems: {
-    type: Array as () => MenuItemConfig[],
-    default: () => []
+    type: Array as () => MenuItemConfig[]
   },
   qrCodeUrl: {
+    type: String
+  },
+  /** 悬浮AI图标的地址 */
+  AILogoUrl: {
     type: String
   },
   /** 展示模式： 'remoter' | 'chat-dialog'
@@ -434,6 +437,7 @@ watch(
         qrCodeUrl: props.qrCodeUrl,
         remoteUrl: props.remoteUrl,
         menuItems: props.menuItems,
+        logoUrl: props.AILogoUrl,
         onShowAIChat: () => (show.value = true)
       })
 
@@ -506,7 +510,7 @@ defineExpose({
   /** 输入框的文本 */
   inputMessage,
   /** 输入框组件的实例 */
-  senderRef,
+  senderRef: senderRef as Ref<ComponentInstance<typeof TrSender>>,
   /** 取消发送 */
   abortRequest,
   /** 发送消息 */

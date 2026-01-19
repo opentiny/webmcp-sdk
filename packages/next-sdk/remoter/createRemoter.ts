@@ -1,13 +1,14 @@
 import { QrCode } from './QrCode'
-import { Tooltip } from './tooltips';
-import chat from './svgs/chat.svg?url'; 
-import scan from './svgs/scan.svg?url'; 
-import link from './svgs/link.svg?url'; 
-import qrCode from './svgs/qrcode.svg?url'; 
-import iconCopy from './svgs/icon-copy.svg?url'; 
+import { Tooltip } from './tooltips'
+import chat from './svgs/chat.svg?url'
+import scan from './svgs/scan.svg?url'
+import link from './svgs/link.svg?url'
+import qrCode from './svgs/qrcode.svg?url'
+import iconCopy from './svgs/icon-copy.svg?url'
 
 const DEFAULT_REMOTE_URL = 'https://agent.opentiny.design/tiny-robot'
 const DEFAULT_QR_CODE_URL = 'https://ai.opentiny.design/next-remoter'
+const DEFAULT_LOGO_URL = 'https://ai.opentiny.design/next-remoter/svgs/logo-next-no-bg-left.svg'
 
 /** 菜单项配置接口 */
 export interface MenuItemConfig {
@@ -20,7 +21,7 @@ export interface MenuItemConfig {
   /** 菜单文字颜色 */
   active?: boolean
   /** 识别码 */
-  know?: boolean  
+  know?: boolean
   /** 菜单项描述 */
   desc?: string
   /** 菜单项提示 */
@@ -44,6 +45,8 @@ export interface FloatingBlockOptions {
   menuItems?: MenuItemConfig[]
   /** 遥控端页面地址，默认为： https://agent.opentiny.design/tiny-robot */
   remoteUrl?: string
+  /** 悬浮Logo的url地址，默认为： https://ai.opentiny.design/next-remoter/svgs/logo-next-no-bg-left.svg */
+  logoUrl?: string
 }
 
 // 动作类型
@@ -83,7 +86,7 @@ const getDefaultMenuItems = (options: FloatingBlockOptions): MenuItemConfig[] =>
       know: true,
       showCopyIcon: true,
       icon: scan
-    },
+    }
   ]
 }
 
@@ -93,6 +96,8 @@ class FloatingBlock {
   private floatingBlock!: HTMLDivElement
   private dropdownMenu!: HTMLDivElement
   private menuItems: MenuItemConfig[]
+  /** 即将关闭dropdown的定时器 */
+  private closingTimer = 0
 
   // 计算 sessionPrefix 属性
   private get sessionPrefix(): string {
@@ -107,34 +112,37 @@ class FloatingBlock {
     this.options = {
       ...options,
       qrCodeUrl: options.qrCodeUrl || DEFAULT_QR_CODE_URL,
-      remoteUrl: options.remoteUrl || DEFAULT_REMOTE_URL
+      remoteUrl: options.remoteUrl || DEFAULT_REMOTE_URL,
+      logoUrl: options.logoUrl || DEFAULT_LOGO_URL
     }
 
-    // 合并默认菜单项配置和用户配置
-    this.menuItems = this.mergeMenuItems(options.menuItems)
+    // 合并默认菜单项配置和用户配置。  用户不传入任何menu时， 则不自动合并默认菜单了，即不渲染任何菜单。
+    if (options.menuItems && options.menuItems.length === 0) {
+      this.menuItems = []
+    } else {
+      this.menuItems = this.mergeMenuItems(options.menuItems)
+    }
 
     this.init()
   }
 
   private getImageUrl = (asset: string | undefined): HTMLImageElement | undefined => {
-    if (!asset) return;
-    const img = new Image();
-    img.src = asset;
-    return img;
+    if (!asset) return
+    const img = new Image()
+    img.src = asset
+    return img
   }
 
   private renderItem = (): void => {
     this.menuItems
       .filter((item) => item.show !== false) // 过滤掉show为false的菜单项
-      .map(
-        (item) => {
-          const wrapper = document.getElementById(`tiny-remoter-icon-item-${item.action}`) as HTMLDivElement;
-          if (!wrapper) return;
-          wrapper.innerHTML = '';
-          const img = this.getImageUrl(item.icon);
-          if (img) wrapper.appendChild(img);
-      }
-    );
+      .map((item) => {
+        const wrapper = document.getElementById(`tiny-remoter-icon-item-${item.action}`) as HTMLDivElement
+        if (!wrapper) return
+        wrapper.innerHTML = ''
+        const img = this.getImageUrl(item.icon)
+        if (img) wrapper.appendChild(img)
+      })
   }
 
   /**
@@ -174,7 +182,7 @@ class FloatingBlock {
     this.floatingBlock.className = 'tiny-remoter-floating-block'
     this.floatingBlock.innerHTML = `
       <div class="tiny-remoter-floating-block__icon">
-        <img style="display: block; width: 56px;" src="${DEFAULT_QR_CODE_URL}/svgs/logo-next-no-bg-left.svg" alt="icon" />
+        <img style="display: block; width: 56px;" src="${this.options.logoUrl}" alt="icon" />
       </div>
     `
 
@@ -211,13 +219,14 @@ class FloatingBlock {
             <div class="tiny-remoter-dropdown-item__desc-wrapper">
               <div class="tiny-remoter-dropdown-item__desc ${item.active ? 'tiny-remoter-dropdown-item__desc--active' : ''} ${item.know ? 'tiny-remoter-dropdown-item__desc--know' : ''}">${item.desc}</div>
               <div>
-                ${item.showCopyIcon
-                     ? `
+                ${
+                  item.showCopyIcon
+                    ? `
                    <div class="tiny-remoter-copy-icon" id="${item.action}" data-action="${item.action}">
                       <img src="${iconCopy}"/>
                    </div>
                  `
-                     : ''
+                    : ''
                 }
               </div>
             </div>
@@ -234,11 +243,33 @@ class FloatingBlock {
     this.readyTips(`remote-url`)
   }
 
-
   private bindEvents(): void {
     // 绑定浮动块点击事件
     this.floatingBlock.addEventListener('click', () => {
-      this.toggleDropdown()
+      this.showAIChat()
+    })
+
+    // 浮动块悬浮处理
+    this.floatingBlock.addEventListener('mouseenter', () => {
+      this.openDropdown()
+
+      if (this.closingTimer) {
+        window.clearTimeout(this.closingTimer)
+        this.closingTimer = 0
+      }
+    })
+    this.floatingBlock.addEventListener('mouseleave', () => {
+      this.shouldCloseDropdown()
+    })
+    // 悬浮菜单进入，则阻止关闭
+    this.dropdownMenu.addEventListener('mouseenter', (e: Event) => {
+      if (this.closingTimer) {
+        window.clearTimeout(this.closingTimer)
+        this.closingTimer = 0
+      }
+    })
+    this.dropdownMenu.addEventListener('mouseleave', (e: Event) => {
+      this.shouldCloseDropdown()
     })
 
     // 绑定菜单项点击事件
@@ -280,20 +311,24 @@ class FloatingBlock {
     })
   }
 
-  private toggleDropdown(): void {
-    if (this.isExpanded) {
-      this.closeDropdown()
-    } else {
-      this.openDropdown()
-    }
-  }
-
   private openDropdown(): void {
+    // 没有menuItems，则返回
+    if (!this.menuItems || (this.menuItems && this.menuItems.length === 0)) {
+      return
+    }
+
     this.isExpanded = true
     this.floatingBlock.classList.add('expanded')
     this.dropdownMenu.classList.add('show')
   }
 
+  private shouldCloseDropdown() {
+    this.closingTimer = window.setTimeout(() => {
+      this.closeDropdown()
+    }, 300)
+  }
+
+  /** 真正的立即关闭 */
   private closeDropdown(): void {
     this.isExpanded = false
     this.floatingBlock.classList.remove('expanded')
