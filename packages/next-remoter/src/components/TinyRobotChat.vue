@@ -156,7 +156,7 @@ import { IconNewSession, IconHistory } from '@opentiny/tiny-robot-svgs'
 import { useTinyRobotChat } from '../composable/useTinyRobotChat'
 import { useCustomMcpServer } from '../composable/useCustomMcpServer'
 import { usePlugin } from '../composable/usePlugin'
-import { toRef, computed, ref, onMounted, h, watch, type Ref } from 'vue'
+import { toRef, computed, ref, onMounted, h, watch, type Ref, type ComponentInstance } from 'vue'
 import { createRemoter } from '@opentiny/next-sdk'
 import QrCodeScan from './QrCodeScan.vue'
 import ModelSwitch from './ModelSwitch.vue'
@@ -511,7 +511,7 @@ defineExpose({
   /** 输入框的文本 */
   inputMessage,
   /** 输入框组件的实例 */
-  senderRef,
+  senderRef: senderRef as Ref<ComponentInstance<typeof TrSender>>,
   /** 取消发送 */
   abortRequest,
   /** 发送消息 */
