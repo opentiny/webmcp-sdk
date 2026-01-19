@@ -205,8 +205,7 @@ const props = defineProps({
     type: String
   },
   menuItems: {
-    type: Array as () => MenuItemConfig[],
-    default: () => []
+    type: Array as () => MenuItemConfig[]
   },
   qrCodeUrl: {
     type: String

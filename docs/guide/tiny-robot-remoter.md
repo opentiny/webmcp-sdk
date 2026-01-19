@@ -34,7 +34,7 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 - `remoteUrl` 远程URL，用于显示在遥控器模式下，点击遥控器图标后，显示的菜单项。
 - `qrCodeUrl` 二维码URL，用于显示在遥控器模式下，点击遥控器图标后，弹出二维码对应的链接 url。
 - `AILogoUrl` AI图标的 url 地址。
-- `menuItems` 菜单项配置数组，用于显示在遥控器模式下，点击遥控器图标后，显示的菜单项。具体配置项见 [api-createRemoter](./api-createRemoter.md)
+- `menuItems` 菜单项配置数组，用于显示在遥控器模式下，点击遥控器图标后，显示的菜单项。具体配置项见 [api-createRemoter](./api-createRemoter.md)。 它默认情况下显示全部菜单，若传入空数组，则不显示菜单。
 - `systemPrompt` 对话llm 时，传入的 system message: system-prompt=你是一个智能助手，工作地点是深圳
 - `llmConfig` 大语言模型配置对象，支持配置 `apiKey`、`baseURL` 、 `model` 、`maxSteps` 、 `providerType` 、 `providerOptions`、`extraTools`，其中 `apiKey/baseURL/providerType` 与 `llmConfig.llm` 二选一
 - `llmConfigs` LLM 配置数组（`UnifiedModelConfig[]` 类型），每一项基于 `llmConfig` 格式，额外包含 `id`、`label`、`icon`、`isDefault`、`useReActMode` 字段。传入此属性后，会在头部显示模型切换组件，支持通过 `v-model:selectedModelId` 控制选中的模型
