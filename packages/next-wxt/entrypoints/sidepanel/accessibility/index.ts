@@ -1,8 +1,10 @@
-import type { SnapshotManager } from '../utils/snapshotManager'
 import { getSnapshotManager, releaseSnapshotManager, type SnapshotActionParams } from './utils'
 import { handleSnapshotAction } from './snapshot'
 import { handleClickAction } from './click'
 import { handleFillAction } from './fill'
+import { handleScrollAction } from './scroll'
+import { handleCopyAction } from './copy'
+import { handlePasteAction } from './paste'
 
 /**
  * 执行 Snapshot 工具操作
@@ -31,6 +33,19 @@ export async function executeSnapshotAction(params: SnapshotActionParams): Promi
         throw new Error('输入操作需要提供 uid 和 text 参数')
       }
       return await handleFillAction(manager, params.uid, params.text, params.clearFirst)
+    } else if (action === 'scroll') {
+      // scroll 操作的 uid 是可选的（不提供则滚动页面）
+      return await handleScrollAction(manager, params.uid, params.x, params.y, params.behavior)
+    } else if (action === 'copy') {
+      if (!params.uid) {
+        throw new Error('复制操作需要提供 uid 参数')
+      }
+      return await handleCopyAction(manager, params.uid)
+    } else if (action === 'paste') {
+      if (!params.uid || !params.text) {
+        throw new Error('粘贴操作需要提供 uid 和 text 参数')
+      }
+      return await handlePasteAction(manager, params.uid, params.text)
     } else {
       throw new Error(`未知的操作类型: ${action}`)
     }
@@ -39,7 +54,10 @@ export async function executeSnapshotAction(params: SnapshotActionParams): Promi
     const actionNames: Record<string, string> = {
       snapshot: '获取快照',
       click: '点击节点',
-      fill: '输入文本'
+      fill: '输入文本',
+      scroll: '滚动',
+      copy: '复制文本',
+      paste: '粘贴文本'
     }
     const friendlyMessage = `${actionNames[action] || '操作'}失败：${errorMessage}`
     return { content: [{ type: 'text', text: friendlyMessage }] }

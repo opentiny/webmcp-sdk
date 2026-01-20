@@ -178,3 +178,173 @@ export async function selectOptionByUid(
   // 点击选项
   await clickNodeByUid(manager, optionNode.id)
 }
+
+/**
+ * 通过 UID 滚动节点到视图中或在节点内滚动
+ * @param manager 快照管理器
+ * @param uid 节点 UID（可选，不提供则滚动页面）
+ * @param options 滚动选项
+ */
+export async function scrollNodeByUid(
+  manager: SnapshotManager,
+  uid?: string,
+  options: { x?: number; y?: number; behavior?: 'auto' | 'smooth' } = {}
+): Promise<void> {
+  const page = manager.getPage()
+  if (!page) {
+    throw new Error('页面未连接')
+  }
+
+  const { x, y, behavior = 'auto' } = options
+
+  try {
+    await waitForEventsAfterAction(page, async () => {
+      if (uid) {
+        // 滚动特定元素
+        const handle = await manager.getElementHandleByUid(uid)
+        if (!handle) {
+          throw new Error(`无法获取元素句柄，UID: ${uid}`)
+        }
+
+        try {
+          // 如果提供了 x 或 y，则在元素内滚动；否则将元素滚动到视图中
+          if (x !== undefined || y !== undefined) {
+            await page.evaluate(
+              (el: Element, scrollX: number, scrollY: number, scrollBehavior: ScrollBehavior) => {
+                el.scrollTo({ left: scrollX, top: scrollY, behavior: scrollBehavior })
+              },
+              handle as any,
+              x || 0,
+              y || 0,
+              behavior
+            )
+          } else {
+            await page.evaluate(
+              (el: Element, scrollBehavior: ScrollBehavior) => {
+                el.scrollIntoView({ behavior: scrollBehavior, block: 'center' })
+              },
+              handle as any,
+              behavior
+            )
+          }
+        } finally {
+          // 确保清理资源
+          if (handle && typeof (handle as any).dispose === 'function') {
+            await (handle as any).dispose()
+          }
+        }
+      } else {
+        // 滚动整个页面
+        await page.evaluate(
+          (scrollX: number, scrollY: number, scrollBehavior: ScrollBehavior) => {
+            window.scrollTo({ left: scrollX, top: scrollY, behavior: scrollBehavior })
+          },
+          x || 0,
+          y || 0,
+          behavior
+        )
+      }
+    })
+
+    // 等待滚动完成
+    await delay(behavior === 'smooth' ? 500 : 100)
+  } catch (error) {
+    throw new Error(`滚动操作失败: ${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
+/**
+ * 通过 UID 复制节点的文本内容
+ * @param manager 快照管理器
+ * @param uid 节点 UID
+ * @returns 复制的文本内容
+ */
+export async function copyFromNodeByUid(
+  manager: SnapshotManager,
+  uid: string
+): Promise<string> {
+  const page = manager.getPage()
+  if (!page) {
+    throw new Error('页面未连接')
+  }
+
+  // 获取 ElementHandle
+  const handle = await manager.getElementHandleByUid(uid)
+  if (!handle) {
+    throw new Error(`无法获取元素句柄，UID: ${uid}`)
+  }
+
+  try {
+    // 获取元素的文本内容
+    const text = await page.evaluate((el: Element) => {
+      // 如果是输入框，返回其值
+      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+        return el.value
+      }
+      // 否则返回文本内容
+      return el.textContent || ''
+    }, handle as any)
+
+    return text
+  } finally {
+    // 确保清理资源
+    if (handle && typeof (handle as any).dispose === 'function') {
+      await (handle as any).dispose()
+    }
+  }
+}
+
+/**
+ * 通过 UID 粘贴文本到节点中
+ * @param manager 快照管理器
+ * @param uid 节点 UID
+ * @param text 要粘贴的文本
+ */
+export async function pasteIntoNodeByUid(
+  manager: SnapshotManager,
+  uid: string,
+  text: string
+): Promise<void> {
+  const page = manager.getPage()
+  if (!page) {
+    throw new Error('页面未连接')
+  }
+
+  // 获取 ElementHandle
+  const handle = await manager.getElementHandleByUid(uid)
+  if (!handle) {
+    throw new Error(`无法获取元素句柄，UID: ${uid}`)
+  }
+
+  try {
+    await waitForEventsAfterAction(page, async () => {
+      const hasAsLocator = typeof (handle as any).asLocator === 'function'
+
+      if (!hasAsLocator) {
+        throw new Error('无法获取元素定位器')
+      }
+
+      // 使用 Locator API
+      const locator = (handle as any).asLocator()
+      
+      // 先点击以聚焦
+      await locator.click()
+      await delay(100)
+
+      // 使用键盘模拟粘贴操作（更贴近真实用户行为）
+      // 先全选
+      await page.keyboard.down('Control')
+      await page.keyboard.press('a')
+      await page.keyboard.up('Control')
+      await delay(50)
+
+      // 输入文本（模拟粘贴）
+      await locator.fill(text)
+    })
+  } finally {
+    // 确保清理资源
+    if (handle && typeof (handle as any).dispose === 'function') {
+      await (handle as any).dispose()
+    }
+  }
+}

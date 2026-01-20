@@ -91,36 +91,6 @@ export const useExtraTools = (server: WebMcpServer) => {
       }
     }
   )
-
-  // 滚动页面
-  server.registerTool(
-    'scrollPage',
-    {
-      title: '向下滚动浏览器页面',
-      description: '向下滚动浏览器页面',
-      inputSchema: {
-        tabId: z.number().optional().describe('目标标签页 ID，如果不提供则使用当前活动标签页')
-      }
-    },
-    withToolAnimation('scrollPage', async ({ tabId }) => {
-      // 获取当前标签页
-      const currentTabId = tabId || (await getCurrentTabId())
-
-      // 从连接池获取管理器（连接会被复用，不会频繁断开）
-      const manager = await snapshotManagerPool.getManager(currentTabId)
-      try {
-        await manager.scrollPage()
-
-        return { content: [{ type: 'text', text: '滚动结束' }] }
-      } catch (error: any) {
-        return { content: [{ type: 'text', text: '滚动异常' }] }
-      } finally {
-        // 释放连接引用（连接池会管理连接生命周期，不会立即断开）
-        await snapshotManagerPool.releaseManager(currentTabId)
-      }
-    })
-  )
-
   // 获取页面文本信息
   server.registerTool(
     'getPageInfomation',
@@ -212,23 +182,29 @@ export const useExtraTools = (server: WebMcpServer) => {
 可用操作：
 - snapshot: 获取页面的完整无障碍树结构快照，包含每个节点的唯一 UID。返回的快照可以用于后续的页面操作。
 - click: 通过快照中的 UID 点击页面元素。需提供 uid。可选 button（left/right/middle）和 dblClick（是否双击）。
-- fill: 通过快照中的 UID 在输入框中输入文本。需提供 uid 和 text。可选 clearFirst（是否先清空输入框）。`,
+- fill: 通过快照中的 UID 在输入框中输入文本。需提供 uid 和 text。可选 clearFirst（是否先清空输入框）。
+- scroll: 滚动页面或元素。如果不提供 uid 则滚动整个页面；提供 uid 但不提供 x/y 则将元素滚动到视图中；提供 uid 和 x/y 则在元素内滚动到指定位置。可选 behavior（滚动行为：auto/smooth）。
+- copy: 从指定节点复制文本内容。需提供 uid。返回复制的文本内容（输入框返回 value，其他元素返回 textContent）。
+- paste: 将文本粘贴到指定节点。需提供 uid 和 text。会自动聚焦并全选后输入文本。`,
       inputSchema: {
         tabId: z.number().optional().describe('目标标签页 ID，如果不提供则使用当前活动标签页'),
         action: z
-          .enum(['snapshot', 'click', 'fill'])
-          .describe('操作类型：snapshot（获取快照）、click（点击）、fill（输入文本）'),
+          .enum(['snapshot', 'click', 'fill', 'scroll', 'copy', 'paste'])
+          .describe('操作类型：snapshot（获取快照）、click（点击）、fill（输入文本）、scroll（滚动）、copy（复制文本）、paste（粘贴文本）'),
         uid: z
           .string()
           .optional()
-          .describe('快照中节点的 UID（格式：snapshotId_counter，如 "1_5"），click 和 fill 操作必填'),
+          .describe('快照中节点的 UID（格式：snapshotId_counter，如 "1_5"）。click、fill、copy、paste 操作必填；scroll 操作可选（不提供则滚动页面）'),
         button: z
           .enum(['left', 'right', 'middle'])
           .optional()
           .describe('鼠标按钮类型（仅用于 click 操作），默认为 left'),
         dblClick: z.boolean().optional().describe('是否双击（仅用于 click 操作），默认为 false'),
-        text: z.string().optional().describe('要输入的文本（仅用于 fill 操作）'),
-        clearFirst: z.boolean().optional().describe('是否先清空输入框（仅用于 fill 操作），默认为 true')
+        text: z.string().optional().describe('要输入的文本（用于 fill 和 paste 操作）'),
+        clearFirst: z.boolean().optional().describe('是否先清空输入框（仅用于 fill 操作），默认为 true'),
+        x: z.number().optional().describe('水平滚动位置（仅用于 scroll 操作）'),
+        y: z.number().optional().describe('垂直滚动位置（仅用于 scroll 操作）'),
+        behavior: z.enum(['auto', 'smooth']).optional().describe('滚动行为（仅用于 scroll 操作），默认为 auto')
       }
     },
     withToolAnimation('accessibility', async (params: any) => {
