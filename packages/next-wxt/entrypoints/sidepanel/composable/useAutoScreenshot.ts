@@ -7,6 +7,7 @@ let lastScreenshotSize: {
   originalHeight: number
   compressedWidth: number
   compressedHeight: number
+  devicePixelRatio: number // 页面的设备像素比，用于处理浏览器缩放
 } | null = null
 
 /**
@@ -175,6 +176,10 @@ export const useAutoScreenshot = () => {
           throw new Error('页面未连接，请先确保标签页已加载')
         }
 
+        // 获取页面的 devicePixelRatio（用于处理浏览器缩放导致的坐标偏移）
+        const devicePixelRatio = await page.evaluate(() => window.devicePixelRatio)
+        console.log(`[useAutoScreenshot] 页面 devicePixelRatio: ${devicePixelRatio}`)
+
         // 使用 Puppeteer 的 screenshot 方法 (先获取 PNG)
         const screenshotBuffer = await page.screenshot({
           type: 'png',
@@ -208,7 +213,8 @@ export const useAutoScreenshot = () => {
           originalWidth: imageSize.width,
           originalHeight: imageSize.height,
           compressedWidth: imageSize.width, // 未压缩，所以等于原始尺寸
-          compressedHeight: imageSize.height // 未压缩，所以等于原始尺寸
+          compressedHeight: imageSize.height, // 未压缩，所以等于原始尺寸
+          devicePixelRatio: devicePixelRatio // 保存设备像素比，用于坐标转换
         }
 
         // 保存原始截图到本地
@@ -239,25 +245,25 @@ export const useAutoScreenshot = () => {
       return { x, y }
     }
 
-    const { originalWidth, originalHeight, compressedWidth, compressedHeight } = lastScreenshotSize
+    const { originalWidth, originalHeight, compressedWidth, compressedHeight, devicePixelRatio } = lastScreenshotSize
 
-    // 计算缩放比例
+    // 计算图片压缩比例
     const scaleX = originalWidth / compressedWidth
     const scaleY = originalHeight / compressedHeight
 
-    // 转换坐标
-    const originalX = Math.round(x * scaleX)
-    const originalY = Math.round(y * scaleY)
-
-    // 如果缩放比例为1:1（未压缩），直接使用原坐标
-    if (scaleX === 1 && scaleY === 1) {
-      console.log(`[useAutoScreenshot] 截图未压缩，坐标无需转换: (${x}, ${y})`)
-      return { x, y }
-    }
+    // 转换坐标：
+    // 1. 先应用图片缩放比例（如果图片被压缩了）
+    // 2. 再除以 devicePixelRatio（处理浏览器缩放）
+    // 原理：截图尺寸 = CSS尺寸 × devicePixelRatio，所以需要除以 devicePixelRatio 转回 CSS 坐标
+    const originalX = Math.round((x * scaleX) / devicePixelRatio)
+    const originalY = Math.round((y * scaleY) / devicePixelRatio)
 
     console.log(
-      `[useAutoScreenshot] 坐标转换: (${x}, ${y}) -> (${originalX}, ${originalY}), ` +
-        `缩放比例: ${scaleX.toFixed(2)}x, ${scaleY.toFixed(2)}y`
+      `[useAutoScreenshot] 坐标转换详情:\n` +
+        `  输入坐标: (${x}, ${y})\n` +
+        `  图片缩放比例: ${scaleX.toFixed(3)}x / ${scaleY.toFixed(3)}y\n` +
+        `  设备像素比 (DPR): ${devicePixelRatio.toFixed(3)}\n` +
+        `  输出坐标: (${originalX}, ${originalY})`
     )
 
     return { x: originalX, y: originalY }
