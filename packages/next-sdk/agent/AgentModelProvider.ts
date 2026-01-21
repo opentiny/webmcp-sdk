@@ -508,17 +508,16 @@ export class AgentModelProvider {
     const allUserMessages = systemMessage ? messages.slice(1) : messages
 
     let stepCount = 0
-    // 配置：最多保留的图片数量（默认3张，类似 magentic-ui）
+    // 配置：最多保留的图片数量
     const maxImages = (options as any).maxImages ?? 3
 
     while (stepCount < maxSteps) {
       stepCount++
 
-      // 构建用于模型调用的消息列表（magentic-ui 风格：保留所有文本，限制图片）
+      // 构建用于模型调用的消息列表
       const messagesForModel = this._buildMessagesForModel(systemMessage, allUserMessages, maxImages)
 
       // 调用 LLM（ReAct 模式下不传递 tools，因为工具调用通过提示词实现）
-      // 参考 magentic-ui：保留所有文本历史（上下文完整），仅限制图片数量（优化 token）
       const { tools: _, ...restOptions } = options
       const result = await generateText({
         // @ts-ignore ProviderV2 是所有llm的父类，在每一个具体的llm类都有一个选择model的函数用法
@@ -597,14 +596,14 @@ export class AgentModelProvider {
 
         let stepCount = 0
         let accumulatedText = ''
-        // 配置：最多保留的图片数量（默认3张，类似 magentic-ui）
+        // 配置：最多保留的图片数量
         const maxImages = (options as any).maxImages ?? 3
 
         try {
           while (stepCount < maxSteps) {
             stepCount++
 
-            // 构建用于模型调用的消息列表（magentic-ui 风格：保留所有文本，限制图片）
+            // 构建用于模型调用的消息列表
             const messagesForModel = self._buildMessagesForModel(systemMessage, allUserMessages, maxImages)
 
             // 移除 tools 选项，ReAct 模式下不传递 tools
