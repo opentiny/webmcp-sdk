@@ -3,10 +3,12 @@ import { snapshotManagerPool } from '../utils/snapshotManagerPool'
 
 // 模块级变量：存储最后一次截图的尺寸信息，用于坐标转换（所有实例共享）
 let lastScreenshotSize: {
-  originalWidth: number
-  originalHeight: number
-  compressedWidth: number
-  compressedHeight: number
+  originalWidth: number      // 截图的实际宽度（物理像素）
+  originalHeight: number     // 截图的实际高度（物理像素）
+  compressedWidth: number    // 压缩后的宽度（当前未压缩，等于 originalWidth）
+  compressedHeight: number   // 压缩后的高度（当前未压缩，等于 originalHeight）
+  viewportWidth: number      // 页面视口的 CSS 宽度
+  viewportHeight: number     // 页面视口的 CSS 高度
 } | null = null
 
 /**
@@ -175,6 +177,13 @@ export const useAutoScreenshot = () => {
           throw new Error('页面未连接，请先确保标签页已加载')
         }
 
+        // 获取页面视口的实际 CSS 尺寸（用于坐标转换）
+        const viewportSize = await page.evaluate(() => ({
+          width: window.innerWidth,
+          height: window.innerHeight,
+          devicePixelRatio: window.devicePixelRatio
+        }))
+
         // 使用 Puppeteer 的 screenshot 方法 (先获取 PNG)
         const screenshotBuffer = await page.screenshot({
           type: 'png',
@@ -184,38 +193,22 @@ export const useAutoScreenshot = () => {
         // 转换为 data URL 格式
         const originalDataUrl = `data:image/png;base64,${screenshotBuffer}`
 
-        // 暂时禁用压缩，直接使用原始截图（用于测试坐标准确性）
-        // 获取原始图片尺寸信息
-        const getImageSize = (dataUrl: string): Promise<{ width: number; height: number }> => {
-          return new Promise((resolve, reject) => {
-            const img = new Image()
-            img.onload = () => {
-              resolve({ width: img.width, height: img.height })
-            }
-            img.onerror = reject
-            img.src = dataUrl
-          })
-        }
+        // 压缩图片用于 AI 分析（减小数据传输量）
+        const compressedResult = await compressImage(originalDataUrl, 0.8, 1024)
 
-        const imageSize = await getImageSize(originalDataUrl)
-        console.log(
-          `[useAutoScreenshot] 使用原始截图（未压缩），尺寸: ${imageSize.width}x${imageSize.height}, ` +
-            `数据大小: ${originalDataUrl.length} bytes`
-        )
-
-        // 保存尺寸信息到模块级变量（原始尺寸 = 压缩后尺寸，坐标不需要转换）
+        // 保存尺寸信息到模块级变量
         lastScreenshotSize = {
-          originalWidth: imageSize.width,
-          originalHeight: imageSize.height,
-          compressedWidth: imageSize.width, // 未压缩，所以等于原始尺寸
-          compressedHeight: imageSize.height // 未压缩，所以等于原始尺寸
+          originalWidth: compressedResult.originalWidth,     // 原始截图尺寸
+          originalHeight: compressedResult.originalHeight,
+          compressedWidth: compressedResult.compressedWidth,   // 压缩后尺寸（AI看到的）
+          compressedHeight: compressedResult.compressedHeight, // 压缩后尺寸（AI看到的）
+          viewportWidth: viewportSize.width,                 // 视口CSS尺寸
+          viewportHeight: viewportSize.height
         }
 
-        // 保存原始截图到本地
-        // await saveScreenshotToLocal(originalDataUrl)
-
-        lastScreenshot.value = originalDataUrl
-        return originalDataUrl
+        // 返回压缩后的图片给 AI
+        lastScreenshot.value = compressedResult.dataUrl
+        return compressedResult.dataUrl
       } finally {
         // 释放 manager
         if (tabId !== null) {
@@ -239,28 +232,21 @@ export const useAutoScreenshot = () => {
       return { x, y }
     }
 
-    const { originalWidth, originalHeight, compressedWidth, compressedHeight } = lastScreenshotSize
+    const { originalWidth, originalHeight, compressedWidth, compressedHeight, viewportWidth, viewportHeight } = lastScreenshotSize
 
-    // 计算缩放比例
-    const scaleX = originalWidth / compressedWidth
-    const scaleY = originalHeight / compressedHeight
+    // 第一步：从压缩图坐标转换到原始截图坐标
+    const imageScaleX = originalWidth / compressedWidth
+    const imageScaleY = originalHeight / compressedHeight
+    const scaledX = x * imageScaleX
+    const scaledY = y * imageScaleY
 
-    // 转换坐标
-    const originalX = Math.round(x * scaleX)
-    const originalY = Math.round(y * scaleY)
+    // 第二步：从原始截图坐标转换到视口CSS坐标
+    const viewportToScreenshotRatioX = viewportWidth / originalWidth
+    const viewportToScreenshotRatioY = viewportHeight / originalHeight
+    const cssX = Math.round(scaledX * viewportToScreenshotRatioX)
+    const cssY = Math.round(scaledY * viewportToScreenshotRatioY)
 
-    // 如果缩放比例为1:1（未压缩），直接使用原坐标
-    if (scaleX === 1 && scaleY === 1) {
-      console.log(`[useAutoScreenshot] 截图未压缩，坐标无需转换: (${x}, ${y})`)
-      return { x, y }
-    }
-
-    console.log(
-      `[useAutoScreenshot] 坐标转换: (${x}, ${y}) -> (${originalX}, ${originalY}), ` +
-        `缩放比例: ${scaleX.toFixed(2)}x, ${scaleY.toFixed(2)}y`
-    )
-
-    return { x: originalX, y: originalY }
+    return { x: cssX, y: cssY }
   }
 
   return {
