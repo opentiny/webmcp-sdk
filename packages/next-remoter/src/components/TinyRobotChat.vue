@@ -83,10 +83,16 @@
           :loading="senderLoading"
           :showWordLimit="true"
           :maxLength="20000"
-          :extensions="senderExtensions"
+          :allow-files="hasMultimodalSupport"
+          @files-selected="onFilesSelected"
           @submit="handleSendMessageCustom"
           @cancel="abortRequest"
         >
+          <template #header v-if="attachments.length > 0">
+            <div class="attachments-container">
+              <TrAttachments v-model:items="attachments" />
+            </div>
+          </template>
           <template #footer>
             <div class="action-buttons">
               <!-- 插件开关 Plugin toggle button -->
@@ -145,6 +151,7 @@ import {
   BubbleMarkdownContentRenderer,
   TrMcpServerPicker,
   TrHistory,
+  TrAttachments,
   type PluginInfo,
   type MarketCategoryOption,
   type MentionItem
@@ -156,6 +163,7 @@ import { IconNewSession, IconHistory } from '@opentiny/tiny-robot-svgs'
 import { useTinyRobotChat } from '../composable/useTinyRobotChat'
 import { useCustomMcpServer } from '../composable/useCustomMcpServer'
 import { usePlugin } from '../composable/usePlugin'
+import { useMultimodal, convertAttachmentsToContent } from '../multimodal'
 import { toRef, computed, ref, onMounted, h, watch, type Ref, type ComponentInstance } from 'vue'
 import { createRemoter } from '@opentiny/next-sdk'
 import QrCodeScan from './QrCodeScan.vue'
@@ -275,6 +283,22 @@ const enabledTools = defineModel('enabledTools', {
 const llmConfigsRef = props.llmConfigs ? (toRef(props, 'llmConfigs') as Ref<UnifiedModelConfig[]>) : undefined
 
 const { selectedModel } = useModel(llmConfigsRef, selectedModelId)
+
+// 检查模型是否支持多模态
+const hasMultimodalSupport = computed(() => {
+  return selectedModel.value?.multimodal?.supportImages ?? false
+})
+
+// 初始化多模态功能
+const { attachments, handleFilesSelected, clearAttachments } = useMultimodal({
+  maxFileSize: computed(() => selectedModel.value?.multimodal?.maxFileSize || 10).value,
+  supportedTypes: computed(() => selectedModel.value?.multimodal?.supportedMimeTypes || ['image/']).value
+})
+
+// 处理文件选择
+const onFilesSelected = (files: File[]) => {
+  handleFilesSelected(files)
+}
 
 const {
   showHistory,
@@ -411,7 +435,16 @@ const handleSendMessageCustom = async (inputValue: string, templateDataParam?: a
 
     inputMessage.value = ''
   } else {
-    await handleSendMessage(inputValue, templateDataParam)
+    // 处理附件（如果有）
+    let multimodalContent: any[] = []
+    if (attachments.value.length > 0) {
+      // 使用统一的转换函数
+      multimodalContent = await convertAttachmentsToContent(attachments.value)
+      clearAttachments()
+    }
+
+    // 发送消息（带附件或纯文本）
+    await handleSendMessage(inputValue, templateDataParam, multimodalContent)
   }
 }
 
@@ -468,10 +501,9 @@ onMounted(async () => {
   }
 
   // 自动连接已标记为 'added' 的自定义市场 MCP 服务器
-  // 这样用户可以通过设置 enabled: true 和 addState: 'added' 让服务器默认连接
   const preInstalledPlugins = marketPlugins.value.filter((plugin) => plugin.addState === 'added' && plugin.enabled)
 
-  // 批量添加预安装的插件（使用统一的市场添加接口）
+  // 批量添加预安装的插件
   for (const plugin of preInstalledPlugins) {
     await addPluginFromMarket(plugin)
   }
@@ -531,6 +563,12 @@ const senderExtensions = [TrSender.mention(props.skills)]
   margin-top: 8px;
   padding: 10px 15px;
   position: relative;
+}
+
+/* 附件容器样式 */
+.attachments-container {
+  padding: 8px 0;
+  margin-bottom: 8px;
 }
 
 .tr-container {

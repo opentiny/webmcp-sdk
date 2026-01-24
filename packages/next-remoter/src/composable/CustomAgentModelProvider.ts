@@ -487,11 +487,20 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     // 构建完整的消息数组，包含历史消息和当前用户消息
     const userMessage = {
       role: 'user' as const,
-      content: lastUserMsg.content // 多模态消息：Array<TextPart | ImagePart>
+      content: lastUserMsg.content // 多模态消息：Array<TextPart | ImagePart> 或 string
+    }
+
+    // 清理消息：只保留 AI SDK 需要的字段（role 和 content）
+    // 这样可以确保即使 responseMessages 中包含额外字段（如 uiContent），也不会传递给 AI SDK
+    const cleanMessages = (messages: any[]) => {
+      return messages.map(msg => ({
+        role: msg.role,
+        content: msg.content
+      }))
     }
 
     // 始终使用 messages 参数，确保包含所有历史消息上下文
-    const allMessages = [...this.agent.responseMessages, userMessage]
+    const allMessages = [...cleanMessages(this.agent.responseMessages), userMessage]
     chatStreamOptions.messages = allMessages
 
     // @ts-ignore

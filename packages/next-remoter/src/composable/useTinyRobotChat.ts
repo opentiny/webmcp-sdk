@@ -377,12 +377,12 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
 
   // 发送消息。 第一次发送，修改会话title
   // 返回值：Promise<boolean> true 表示成功发送，false 表示被阻止（工具未准备好）
-  // images: 图片数组，支持 base64 data URL 或 http(s) URL
+  // attachmentsContent: 附件内容数组，支持多模态消息（图片、文档等）
   // 参考: https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text#messages.user-model-message.content.text-part.type
   const handleSendMessage = async (
     _inputValue: string,
     templateDataParam?: any[],
-    images?: string[]
+    attachmentsContent?: any[]
   ): Promise<boolean> => {
     // 增加 @ 功能， 如果有指定角色，则在这里进行处理， 生成正确的： inputMessage.value 和 最终的系统提示词
     // 重构识别 skills的办法： 不依赖于 templateDataParam， 而是让当前输入的问题，直接匹配 skills 下的名字
@@ -418,18 +418,46 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
     // 根据 AI SDK 文档，UserModelMessage 的 content 可以是：
     // - string: 纯文本消息
     // - Array<TextPart | ImagePart>: 多模态消息
-    if (images && images.length > 0) {
-      // 多模态消息：包含文本和图片
-      const messageContent: Array<{ type: 'text'; text: string } | { type: 'image'; image: string }> = [
+    if (attachmentsContent && attachmentsContent.length > 0) {
+      // 多模态消息：包含文本和附件
+      
+      // 1. 构建 API 格式的消息内容（发送给 AI SDK）
+      // 使用 AI SDK 标准格式：{ type: 'text' } 和 { type: 'image', image: base64 }
+      const messageContent = [
         { type: 'text', text: inputMessage.value },
-        ...images.map((img) => ({ type: 'image' as const, image: img }))
+        ...attachmentsContent
       ]
+      
+      // 2. 构建 UI 显示格式的消息内容
+      const uiContent: any[] = []
+      
+      // 添加文本部分
+      if (inputMessage.value) {
+        uiContent.push({
+          type: 'text',
+          text: inputMessage.value
+        })
+      }
+      
+      // 添加图片部分（用于UI显示）
+      // 将 AI SDK 格式 { type: 'image', image: '...' } 转换为 UI 格式 { type: 'image', url: '...' }
+      for (const item of attachmentsContent) {
+        if (item.type === 'image' && item.image) {
+          uiContent.push({
+            type: 'image',
+            url: item.image  // 直接使用 base64 数据
+          })
+        }
+      }
 
-      // 使用 addMessage 添加多模态消息，然后调用 send() 发送
-      addMessage({
+      // 3. 添加消息到 messages（会被自动同步到 responseMessages）
+      messages.value.push({
         role: 'user',
-        content: messageContent
+        content: messageContent,  // API 格式：AI SDK 标准多模态数组
+        uiContent: uiContent      // UI 格式：用于界面显示
       })
+
+      // 4. 发送消息
       send()
     } else {
       // 纯文本消息：使用原有的 sendMessage 方法
