@@ -1,21 +1,32 @@
 /**
  * 多模态消息处理 Composable
- * 负责处理文件选择和转换为多模态消息内容
+ * 统一管理所有多模态相关逻辑：文件选择、验证、模型切换、消息转换
  */
 
-import { ref, type ComputedRef, unref } from 'vue'
+import { ref, computed, watch, type ComputedRef, type Ref, unref } from 'vue'
 import type { Attachment } from '@opentiny/tiny-robot'
 import { fileToBase64, isImageFile, validateFileSize } from './utils'
 import { showToast } from 'vant'
+import type { UnifiedModelConfig } from '../types/model-config'
 
 /**
- * 多模态配置
+ * 多模态配置（基础版本）
  */
 export interface MultimodalConfig {
   /** 最大文件大小（MB） - 支持响应式 */
   maxFileSize?: number | ComputedRef<number>
   /** 支持的文件类型（MIME类型前缀，如 'image/'） - 支持响应式 */
   supportedTypes?: string[] | ComputedRef<string[]>
+}
+
+/**
+ * 多模态配置（完整版本，支持模型感知）
+ */
+export interface MultimodalOptionsWithModel {
+  /** 当前选中的模型 */
+  selectedModel: Ref<UnifiedModelConfig | undefined>
+  /** 当前选中的模型 ID */
+  selectedModelId: Ref<string | undefined>
 }
 
 /**
@@ -55,7 +66,8 @@ export async function convertAttachmentsToContent(attachments: Attachment[]): Pr
 }
 
 /**
- * 多模态消息 Composable
+ * 多模态消息 Composable（基础版本）
+ * 适用于不需要模型感知的场景
  */
 export function useMultimodal(config: MultimodalConfig = {}) {
   // 附件列表（用于UI显示）
@@ -119,6 +131,118 @@ export function useMultimodal(config: MultimodalConfig = {}) {
   return {
     attachments,
     handleFilesSelected,
+    clearAttachments
+  }
+}
+
+/**
+ * 多模态消息 Composable（完整版本）
+ * 集成模型感知、自动验证、切换处理等高级功能
+ * 
+ * @param options 包含选中的模型和模型ID
+ * @returns 多模态功能的完整API
+ */
+export function useMultimodalWithModel(options: MultimodalOptionsWithModel) {
+  const { selectedModel, selectedModelId } = options
+
+  // 检查模型是否支持多模态
+  const hasMultimodalSupport = computed(() => {
+    return selectedModel.value?.multimodal?.supportImages ?? false
+  })
+
+  // 多模态配置（响应式，自动从模型配置中获取）
+  const maxFileSize = computed(() => selectedModel.value?.multimodal?.maxFileSize || 10)
+  const supportedTypes = computed(() => selectedModel.value?.multimodal?.supportedMimeTypes || ['image/'])
+
+  // 使用基础版本的 useMultimodal
+  const { attachments, handleFilesSelected, clearAttachments } = useMultimodal({
+    maxFileSize,
+    supportedTypes
+  })
+
+  // 监听模型切换，清空不符合新模型要求的附件
+  watch(selectedModelId, () => {
+    if (attachments.value.length > 0 && selectedModel.value) {
+      const newMaxSize = selectedModel.value.multimodal?.maxFileSize || 10
+      const newTypes = selectedModel.value.multimodal?.supportedMimeTypes || ['image/']
+      
+      // 检查现有附件是否符合新模型要求
+      const invalidAttachments = attachments.value.filter(att => {
+        if (!att.rawFile) return true
+        
+        // 检查类型
+        const isSupported = newTypes.some(type => att.rawFile!.type.startsWith(type))
+        if (!isSupported) return true
+        
+        // 检查大小
+        const maxBytes = newMaxSize * 1024 * 1024
+        if (att.rawFile.size > maxBytes) return true
+        
+        return false
+      })
+      
+      // 如果有不符合的附件，清空所有附件并提示
+      if (invalidAttachments.length > 0) {
+        clearAttachments()
+        showToast('切换模型后，之前选择的附件已清空')
+      }
+    }
+  })
+
+  /**
+   * 处理文件选择（封装）
+   */
+  const onFilesSelected = (files: File[]) => {
+    handleFilesSelected(files)
+  }
+
+  /**
+   * 检查是否可以发送附件
+   * @returns 如果不能发送，返回 false 并显示提示
+   */
+  const checkCanSendAttachments = (): boolean => {
+    if (attachments.value.length > 0 && !hasMultimodalSupport.value) {
+      showToast('当前模型不支持附件，请先移除附件或切换支持多模态的模型')
+      return false
+    }
+    return true
+  }
+
+  /**
+   * 处理附件：转换为多模态内容
+   * @returns 多模态内容数组
+   */
+  const processAttachments = async (): Promise<any[]> => {
+    if (attachments.value.length === 0) {
+      return []
+    }
+
+    // 使用统一的转换函数
+    const multimodalContent = await convertAttachmentsToContent(attachments.value)
+    return multimodalContent
+  }
+
+  /**
+   * 清理附件（发送成功后调用）
+   */
+  const cleanupAttachments = () => {
+    if (attachments.value.length > 0) {
+      clearAttachments()
+    }
+  }
+
+  return {
+    // 状态
+    hasMultimodalSupport,
+    attachments,
+    
+    // 方法
+    onFilesSelected,
+    checkCanSendAttachments,
+    processAttachments,
+    cleanupAttachments,
+    
+    // 底层方法（供高级使用）
     clearAttachments
   }
 }
