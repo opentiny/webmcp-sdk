@@ -50,7 +50,8 @@ export async function convertAttachmentsToContent(attachments: Attachment[]): Pr
       if (isImageFile(attachment.rawFile)) {
         content.push({
           type: 'image',
-          image: base64Data  // AI SDK 使用 image 字段，不是 image_url
+          image: base64Data,  // AI SDK 使用 image 字段，不是 image_url
+          mediaType: attachment.rawFile.type  // 添加 IANA 媒体类型，帮助 AI SDK 正确识别图片
         })
       }
     } catch (error) {

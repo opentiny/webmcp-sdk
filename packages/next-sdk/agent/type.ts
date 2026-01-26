@@ -1,5 +1,5 @@
 import type { ProviderV2 } from '@ai-sdk/provider'
-import type { experimental_MCPClientConfig as MCPClientConfig } from '@ai-sdk/mcp'
+import type { MCPClientConfig } from '@ai-sdk/mcp'
 
 // 从 MCPClientConfig 中提取 transport 类型
 export type MCPTransport = MCPClientConfig['transport']

@@ -1,8 +1,5 @@
 import { streamText, stepCountIs, generateText, StreamTextResult } from 'ai'
-import {
-  experimental_MCPClientConfig as MCPClientConfig,
-  experimental_createMCPClient as createMCPClient
-} from '@ai-sdk/mcp'
+import { MCPClientConfig, createMCPClient } from '@ai-sdk/mcp'
 import type { ToolSet } from 'ai'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
@@ -10,7 +7,7 @@ import type { IAgentModelProviderOption, McpServerConfig } from './type'
 import { ProviderV2 } from '@ai-sdk/provider'
 import { OpenAIProvider } from '@ai-sdk/openai'
 import { createOpenAI } from '@ai-sdk/openai'
-import { createDeepSeek } from '@ai-sdk/deepseek'
+import { createDeepSeek, DeepSeekProvider } from '@ai-sdk/deepseek'
 import { ExtensionClientTransport } from '../transport/ExtensionClientTransport'
 import { MessageChannelTransport } from '@opentiny/next'
 import { WebMcpClient } from '../WebMcpClient'
@@ -30,7 +27,7 @@ type ChatMethodFn = typeof streamText | typeof generateText
  * @returns 暴露了 chat, chatStream方法
  */
 export class AgentModelProvider {
-  llm: ProviderV2 | OpenAIProvider
+  llm: ProviderV2 | OpenAIProvider | DeepSeekProvider
   /**  当前mcpServers对象集合。键为服务器名称，值为 McpServerConfig 或任意的 MCPTransport
    * 参考: https://ai-sdk.dev/docs/ai-sdk-core/tools-and-tool-calling#initializing-an-mcp-client */
   mcpServers: Record<string, McpServerConfig> = {}
@@ -50,11 +47,15 @@ export class AgentModelProvider {
   useReActMode: boolean = false
   /** 流结束后，返回token细节的事件 */
   onUsage?: (usage: {
-    cachedInputTokens: number
     inputTokens: number
-    reasoningTokens: number
     outputTokens: number
     totalTokens: number
+    inputTokenDetails?: {
+      cacheReadTokens?: number
+    }
+    outputTokenDetails?: {
+      reasoningTokens?: number
+    }
   }) => void
 
   constructor({ llmConfig, mcpServers }: IAgentModelProviderOption) {
@@ -69,7 +70,7 @@ export class AgentModelProvider {
       this.llm = llmConfig.llm
     } else if (llmConfig.providerType) {
       const providerType = llmConfig.providerType
-      let providerFn: (options: any) => ProviderV2 | OpenAIProvider
+      let providerFn: (options: any) => ProviderV2 | OpenAIProvider | DeepSeekProvider
 
       if (typeof providerType === 'string') {
         providerFn = AIProviderFactories[providerType]
@@ -819,7 +820,7 @@ export class AgentModelProvider {
     const result = chatMethod(chatOptions)
 
     // 缓存 ai-sdk 的多轮对话的消息
-    ;(result as StreamTextResult<ToolSet, unknown>)?.response?.then((res: any) => {
+    ;(result as any)?.response?.then((res: any) => {
       // 检查 res.messages 的第一条消息是否是 user 消息
       // 如果不是，且有 lastUserMessage，则先添加 lastUserMessage
       const firstMessage = res.messages?.[0]
@@ -831,9 +832,11 @@ export class AgentModelProvider {
     })
 
     // 读取使用量
-    result?.usage?.then((usage: any) => {
-      this.onUsage?.(usage)
-    })
+    if ('usage' in result && result.usage) {
+      result.usage.then((usage: any) => {
+        this.onUsage?.(usage)
+      })
+    }
 
     return result
   }
