@@ -3,7 +3,7 @@
  * 负责处理文件选择和转换为多模态消息内容
  */
 
-import { ref } from 'vue'
+import { ref, type ComputedRef, unref } from 'vue'
 import type { Attachment } from '@opentiny/tiny-robot'
 import { fileToBase64, isImageFile, validateFileSize } from './utils'
 import { showToast } from 'vant'
@@ -12,10 +12,10 @@ import { showToast } from 'vant'
  * 多模态配置
  */
 export interface MultimodalConfig {
-  /** 最大文件大小（MB） */
-  maxFileSize?: number
-  /** 支持的文件类型（MIME类型前缀，如 'image/'） */
-  supportedTypes?: string[]
+  /** 最大文件大小（MB） - 支持响应式 */
+  maxFileSize?: number | ComputedRef<number>
+  /** 支持的文件类型（MIME类型前缀，如 'image/'） - 支持响应式 */
+  supportedTypes?: string[] | ComputedRef<string[]>
 }
 
 /**
@@ -58,11 +58,6 @@ export async function convertAttachmentsToContent(attachments: Attachment[]): Pr
  * 多模态消息 Composable
  */
 export function useMultimodal(config: MultimodalConfig = {}) {
-  const {
-    maxFileSize = 10, // 默认10MB
-    supportedTypes = ['image/'] // 默认只支持图片
-  } = config
-
   // 附件列表（用于UI显示）
   const attachments = ref<Attachment[]>([])
 
@@ -75,6 +70,10 @@ export function useMultimodal(config: MultimodalConfig = {}) {
 
     // 清空之前的附件
     clearAttachments()
+
+    // 获取当前配置值（支持响应式）
+    const maxFileSize = unref(config.maxFileSize) || 10
+    const supportedTypes = unref(config.supportedTypes) || ['image/']
 
     for (const file of files) {
       // 验证文件类型

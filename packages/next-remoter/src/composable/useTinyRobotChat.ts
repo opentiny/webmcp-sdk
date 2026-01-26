@@ -33,6 +33,20 @@ interface PropsSkill {
   tools?: string[]
 }
 
+/**
+ * 消息内容类型（AI SDK 标准格式）
+ */
+type MessageContent = string | Array<{ type: 'text'; text: string } | { type: 'image'; image: string }>
+
+/**
+ * UI 消息类型（包含 uiContent 字段用于界面显示）
+ */
+interface UIMessage {
+  role: 'user' | 'assistant'
+  content: MessageContent
+  uiContent?: Array<{ type: 'text'; text: string } | { type: 'image'; url: string }>
+}
+
 let accmulateText = ''
 let summaryText = ''
 let accmulateMessagesLength: number = 0
@@ -451,11 +465,12 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
       }
 
       // 3. 添加消息到 messages（会被自动同步到 responseMessages）
-      messages.value.push({
+      const message: UIMessage = {
         role: 'user',
         content: messageContent,  // API 格式：AI SDK 标准多模态数组
         uiContent: uiContent      // UI 格式：用于界面显示
-      })
+      }
+      messages.value.push(message)
 
       // 4. 发送消息
       send()

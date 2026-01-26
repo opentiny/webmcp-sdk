@@ -83,6 +83,7 @@
           :loading="senderLoading"
           :showWordLimit="true"
           :maxLength="20000"
+          :extensions="senderExtensions"
           :allow-files="hasMultimodalSupport"
           @files-selected="onFilesSelected"
           @submit="handleSendMessageCustom"
@@ -289,10 +290,46 @@ const hasMultimodalSupport = computed(() => {
   return selectedModel.value?.multimodal?.supportImages ?? false
 })
 
-// 初始化多模态功能
+// 多模态配置（响应式）
+const maxFileSize = computed(() => selectedModel.value?.multimodal?.maxFileSize || 10)
+const supportedTypes = computed(() => selectedModel.value?.multimodal?.supportedMimeTypes || ['image/'])
+
+// 初始化多模态功能（传入响应式的 computed）
 const { attachments, handleFilesSelected, clearAttachments } = useMultimodal({
-  maxFileSize: computed(() => selectedModel.value?.multimodal?.maxFileSize || 10).value,
-  supportedTypes: computed(() => selectedModel.value?.multimodal?.supportedMimeTypes || ['image/']).value
+  maxFileSize,
+  supportedTypes
+})
+
+// 监听模型切换，清空不符合新模型要求的附件
+watch(selectedModelId, () => {
+  if (attachments.value.length > 0 && selectedModel.value) {
+    const newMaxSize = selectedModel.value.multimodal?.maxFileSize || 10
+    const newTypes = selectedModel.value.multimodal?.supportedMimeTypes || ['image/']
+    
+    // 检查现有附件是否符合新模型要求
+    const invalidAttachments = attachments.value.filter(att => {
+      if (!att.rawFile) return true
+      
+      // 检查类型
+      const isSupported = newTypes.some(type => att.rawFile!.type.startsWith(type))
+      if (!isSupported) return true
+      
+      // 检查大小
+      const maxBytes = newMaxSize * 1024 * 1024
+      if (att.rawFile.size > maxBytes) return true
+      
+      return false
+    })
+    
+    // 如果有不符合的附件，清空所有附件并提示
+    if (invalidAttachments.length > 0) {
+      clearAttachments()
+      showToast({
+        type: 'warning',
+        message: '切换模型后，之前选择的附件已清空'
+      })
+    }
+  }
 })
 
 // 处理文件选择
@@ -435,16 +472,34 @@ const handleSendMessageCustom = async (inputValue: string, templateDataParam?: a
 
     inputMessage.value = ''
   } else {
+    // 检查是否有附件但模型不支持多模态
+    if (attachments.value.length > 0 && !hasMultimodalSupport.value) {
+      showToast({
+        type: 'warning',
+        message: '当前模型不支持附件，请先移除附件或切换支持多模态的模型'
+      })
+      return
+    }
+
     // 处理附件（如果有）
     let multimodalContent: any[] = []
     if (attachments.value.length > 0) {
       // 使用统一的转换函数
       multimodalContent = await convertAttachmentsToContent(attachments.value)
-      clearAttachments()
     }
 
     // 发送消息（带附件或纯文本）
-    await handleSendMessage(inputValue, templateDataParam, multimodalContent)
+    try {
+      await handleSendMessage(inputValue, templateDataParam, multimodalContent)
+      
+      // 只有发送成功才清空附件
+      if (attachments.value.length > 0) {
+        clearAttachments()
+      }
+    } catch (error) {
+      console.error('发送消息失败:', error)
+      // 发送失败，保留附件，让用户可以重试
+    }
   }
 }
 
