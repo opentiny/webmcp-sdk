@@ -148,7 +148,6 @@ export function getDefaultFiles(options?: DefaultFilesOptions) {
     {
       filename: 'src/index.css',
       code: `@import url('https://cdn.jsdelivr.net/npm/@opentiny/next-remoter@0.2/dist/style.css') layer(base);
-@import url('https://cdn.jsdelivr.net/npm/@opentiny/next-remoter@0.2/dist/style.css') layer(base);
 @import url('https://cdn.jsdelivr.net/npm/@opentiny/vue-theme@3.28.0/index.min.css') layer(base);
 @layer base {
   body {
