@@ -218,13 +218,25 @@ export const useExtraTools = (server: WebMcpServer) => {
     {
       title: 'Visual Control',
       description: `基于视觉截图和坐标的页面操作工具，支持通过截图坐标进行点击、输入等操作。适用于视觉模型。
-坐标系统：以压缩后的截图为基准，最大宽度通常为 512px。左上角为 [0, 0]，x 向右增加，y 向下增加；需要先获取屏幕截图，然后根据截图的宽高比例计算实际坐标。
+
+⚠️ 坐标系统规范（纯视觉定位）：
+1. 坐标基准：基于压缩后的截图（最大宽度 1024px），左上角为 [0, 0]，x 向右增加，y 向下增加
+2. 坐标格式：像素坐标（整数），相对于压缩后的截图尺寸
+3. 坐标精度：所有点击坐标必须是目标元素的**视觉中心点**
+   - 对于按钮、链接：计算元素边界框的中心位置
+   - 对于文本：点击文字的中心区域，不要点击起始位置
+   - 对于小元素：宁可偏向中心，避免靠近边缘
+4. 重要：先观察截图的实际尺寸，然后基于该尺寸计算坐标
+
+📐 坐标计算示例：
+- 如果截图是 1024×768，要点击中心：coordinate = [512, 384]
+- 如果按钮在截图中的位置是左上(100,200)到右下(300,250)，中心点：coordinate = [200, 225]
 可用操作：
-- left_click: 在指定坐标点击左键。需提供 coordinate [x, y]。
-- right_click: 在指定坐标点击右键。需提供 coordinate [x, y]。
-- middle_click: 在指定坐标点击中键。需提供 coordinate [x, y]。
-- double_click: 在指定坐标双击。需提供 coordinate [x, y]。
-- type: 在指定坐标（可选）输入文本。需提供 text。可选 coordinate, press_enter, delete_existing_text。
+- left_click: 在指定坐标点击左键。coordinate [x, y] 必须是目标元素的中心点。
+- right_click: 在指定坐标点击右键。coordinate [x, y] 必须是目标元素的中心点。
+- middle_click: 在指定坐标点击中键。coordinate [x, y] 必须是目标元素的中心点。
+- double_click: 在指定坐标双击。coordinate [x, y] 必须是目标元素的中心点。
+- type: 在输入框中输入文本。需提供 text。如果提供 coordinate，则先点击该坐标（必须是输入框的中心点）再输入。可选 press_enter, delete_existing_text。
 - key: 按下特定按键。需提供 text (按键名称，如 "Enter", "Escape")。
 - screenshot: 捕获当前页面截图，如未获取过截图，则先获取截图。
 - scroll: 滚动页面。需提供 pixels (正数向下，负数向上)。

@@ -11,84 +11,17 @@ import { useGenerateCode } from './composable/useGenerateCode'
 import RecordModal from './components/RecordModal.vue'
 import { getAllSkills } from '@/skills'
 import { RENDERER_SETTINGS_KEY } from '@opentiny/genui-sdk-vue'
-import { useAutoScreenshot } from './composable/useAutoScreenshot'
 import { CustomFunction } from '@/utils/customFunction'
 import { DEFAULT_MODEL_CONFIGS } from './model-config'
 import { getStorageItem, setStorageItem } from './utils/local-storage'
 import { StorageKeys } from './utils/storage-keys'
-
-// 初始化自动截图功能
-const { captureCurrentTab } = useAutoScreenshot()
 
 const llmConfig = {
   apiKey: import.meta.env.VITE_LLM_API_KEY,
   baseURL: import.meta.env.VITE_LLM_BASE_URL,
   providerType: 'deepseek',
   model: import.meta.env.VITE_LLM_MODEL,
-  maxSteps: 30,
-  /**
-   * beforeChatStream 钩子：在消息发送前自动添加截图
-   * 当 skill 是视觉操作专家时，自动捕获当前页面截图并添加到消息中
-   */
-  beforeChatStream: async (lastUserMsg: any, systemPrompt: string) => {
-    // 检查是否是视觉操作专家 skill（通过 systemPrompt 判断）
-    // 检查多个可能的标识符
-    const isVisionExpert =
-      systemPrompt.includes('视觉操作专家') ||
-      systemPrompt.includes('vision-expert') ||
-      systemPrompt.includes('# 视觉操作专家')
-
-    console.log('[beforeChatStream] isVisionExpert:', isVisionExpert)
-
-    if (!isVisionExpert) {
-      // 不是视觉专家，返回原始消息
-      return lastUserMsg
-    }
-
-    try {
-      // 自动捕获当前页面截图
-      const screenshot = await captureCurrentTab()
-
-      // 获取原始文本内容
-      const textContent =
-        typeof lastUserMsg.content === 'string'
-          ? lastUserMsg.content
-          : lastUserMsg.content.find((part: any) => part.type === 'text')?.text || ''
-
-      // 从 data URL 中提取 base64 字符串
-      // screenshot 格式: "data:image/png;base64,iVBORw0KG..."
-      // 需要提取: "iVBORw0KG..."
-      const base64Match = screenshot.match(/^data:image\/\w+;base64,(.+)$/)
-      const base64String = base64Match ? base64Match[1] : screenshot
-
-      // 在原始消息的文本内容中添加截图标记，让用户在 UI 上看到截图提示
-      // 保持原始消息的字符串格式，方便 bubble 组件渲染
-      const textWithScreenshotTag = `${textContent}\n📸 *已自动附加当前页面截图*`
-
-      // 更新原始消息对象，让 UI 显示带有截图标记的文本
-      lastUserMsg.content = textWithScreenshotTag
-
-      // 构建多模态消息：文本 + 截图
-      // 这个消息会传递给 AI SDK（使用原始文本，不带标记）
-      // 根据 AI SDK 文档，ImagePart 的 image 字段可以是：
-      // - base64 字符串（不带前缀）
-      // - data URL（带 data:image/png;base64, 前缀）
-      // - URL
-      const multimodalMsg = {
-        role: 'user',
-        content: [
-          { type: 'text', text: textContent }, // AI 看到的是原始文本（不带标记）
-          { type: 'image', image: base64String } // 使用纯 base64 字符串
-        ]
-      }
-
-      return multimodalMsg
-    } catch (error) {
-      console.error('[Auto Screenshot] 截图捕获失败:', error)
-      // 降级：返回原始消息
-      return lastUserMsg
-    }
-  }
+  maxSteps: 30
 }
 
 const allSkills = getAllSkills().map((skill: any) => ({

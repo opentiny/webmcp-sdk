@@ -84,9 +84,16 @@
           :showWordLimit="true"
           :maxLength="20000"
           :extensions="senderExtensions"
+          :allow-files="hasMultimodalSupport"
+          @files-selected="onFilesSelected"
           @submit="handleSendMessageCustom"
           @cancel="abortRequest"
         >
+          <template #header v-if="attachments.length > 0">
+            <div class="attachments-container">
+              <TrAttachments v-model:items="attachments" />
+            </div>
+          </template>
           <template #footer>
             <div class="action-buttons">
               <!-- 插件开关 Plugin toggle button -->
@@ -145,6 +152,7 @@ import {
   BubbleMarkdownContentRenderer,
   TrMcpServerPicker,
   TrHistory,
+  TrAttachments,
   type PluginInfo,
   type MarketCategoryOption,
   type MentionItem
@@ -156,6 +164,7 @@ import { IconNewSession, IconHistory } from '@opentiny/tiny-robot-svgs'
 import { useTinyRobotChat } from '../composable/useTinyRobotChat'
 import { useCustomMcpServer } from '../composable/useCustomMcpServer'
 import { usePlugin } from '../composable/usePlugin'
+import { useMultimodalWithModel } from '../multimodal'
 import { toRef, computed, ref, onMounted, h, watch, type Ref, type ComponentInstance } from 'vue'
 import { createRemoter } from '@opentiny/next-sdk'
 import QrCodeScan from './QrCodeScan.vue'
@@ -275,6 +284,19 @@ const enabledTools = defineModel('enabledTools', {
 const llmConfigsRef = props.llmConfigs ? (toRef(props, 'llmConfigs') as Ref<UnifiedModelConfig[]>) : undefined
 
 const { selectedModel } = useModel(llmConfigsRef, selectedModelId)
+
+// 初始化多模态功能（统一入口）
+const {
+  hasMultimodalSupport,
+  attachments,
+  onFilesSelected,
+  checkCanSendAttachments,
+  processAttachments,
+  cleanupAttachments
+} = useMultimodalWithModel({
+  selectedModel,
+  selectedModelId
+})
 
 const {
   showHistory,
@@ -411,7 +433,23 @@ const handleSendMessageCustom = async (inputValue: string, templateDataParam?: a
 
     inputMessage.value = ''
   } else {
-    await handleSendMessage(inputValue, templateDataParam)
+    // 检查是否可以发送附件
+    if (!checkCanSendAttachments()) {
+      return
+    }
+
+    // 处理附件
+    const multimodalContent = await processAttachments()
+
+    // 发送消息
+    try {
+      await handleSendMessage(inputValue, templateDataParam, multimodalContent)
+      // 发送成功后清理附件
+      cleanupAttachments()
+    } catch (error) {
+      console.error('发送消息失败:', error)
+      // 发送失败，保留附件，让用户可以重试
+    }
   }
 }
 
@@ -468,10 +506,9 @@ onMounted(async () => {
   }
 
   // 自动连接已标记为 'added' 的自定义市场 MCP 服务器
-  // 这样用户可以通过设置 enabled: true 和 addState: 'added' 让服务器默认连接
   const preInstalledPlugins = marketPlugins.value.filter((plugin) => plugin.addState === 'added' && plugin.enabled)
 
-  // 批量添加预安装的插件（使用统一的市场添加接口）
+  // 批量添加预安装的插件
   for (const plugin of preInstalledPlugins) {
     await addPluginFromMarket(plugin)
   }
@@ -531,6 +568,12 @@ const senderExtensions = [TrSender.mention(props.skills)]
   margin-top: 8px;
   padding: 10px 15px;
   position: relative;
+}
+
+/* 附件容器样式 */
+.attachments-container {
+  padding: 8px 0;
+  margin-bottom: 8px;
 }
 
 .tr-container {

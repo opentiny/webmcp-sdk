@@ -21,11 +21,13 @@ This is a pnpm workspace monorepo with packages in `packages/`:
 ## Common Development Commands
 
 ### Installation
+
 ```bash
 pnpm install  # Use pnpm (not npm or yarn)
 ```
 
 ### Development
+
 ```bash
 pnpm dev                  # Start doc-ai example
 pnpm dev:wxt              # Start browser extension
@@ -36,6 +38,7 @@ pnpm wiki                 # Start VitePress documentation
 ```
 
 ### Building
+
 ```bash
 pnpm build                # Build @opentiny/next-sdk (all variants)
 pnpm build:remoter        # Build next-remoter
@@ -43,12 +46,14 @@ pnpm build:wxt           # Build browser extension
 ```
 
 ### Publishing
+
 ```bash
 pnpm pub:next-sdk         # Publish @opentiny/next-sdk to npm
 pnpm pub:remoter          # Publish @opentiny/next-remoter to npm
 ```
 
 ### MCP Inspector
+
 ```bash
 npx @modelcontextprotocol/inspector  # Debug MCP connections
 ```
@@ -70,7 +75,7 @@ The project implements Model Context Protocol for browser environments with two 
 
 ### Communication Flow
 
-```
+```text
 Frontend App ↔ WebMcpServer ↔ WebMcpClient ↔ WebAgent Service ↔ AI LLM
                           ↓
                     TinyRemoter (UI)
@@ -122,6 +127,7 @@ Each has a `:dev` variant with source maps for debugging.
 ## Commit Convention
 
 Follow Conventional Commits:
+
 - `feat:` - New features
 - `fix:` - Bug fixes
 - `docs:` - Documentation changes
