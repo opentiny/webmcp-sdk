@@ -9,9 +9,7 @@ declare global {
   const __TINY_NEXT_SDK_VERSION__: string
 }
 
-// todo: __TINY_NEXT_SDK_VERSION__其他版本有问题  先默认0.1.15
-// const nextSdkVersion = ref(__TINY_NEXT_SDK_VERSION__ || 'latest')
-const nextSdkVersion = ref('0.1.15')
+const nextSdkVersion = ref(__TINY_NEXT_SDK_VERSION__ || 'latest')
 const nextSdkVersions = ref<string[]>([nextSdkVersion.value])
 
 const { store, builtinImportMap } = generateStore({

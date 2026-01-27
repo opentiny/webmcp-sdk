@@ -24,7 +24,7 @@ export function generateImportMap(options: ImportMapOptions) {
       ...builtinImportMap?.imports,
       // nextSdk 相关包 - 使用统一版本号
       '@opentiny/next-sdk': `https://cdn.jsdelivr.net/npm/@opentiny/next-sdk@${nextSdkVersion}/dist/webmcp-full.es.js`,
-      '@opentiny/next-remoter': `https://cdn.jsdelivr.net/npm/@opentiny/next-remoter@0.2.0/dist/next-remoter-runtime.es.js`,
+      '@opentiny/next-remoter': `https://cdn.jsdelivr.net/npm/@opentiny/next-remoter@0.2/dist/next-remoter-runtime.es.js`,
 
       // TinyVue 相关包
       '@opentiny/vue': 'https://cdn.jsdelivr.net/npm/@opentiny/vue-runtime@3/dist3/tiny-vue-pc.mjs',
