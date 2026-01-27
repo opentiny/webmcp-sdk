@@ -425,7 +425,7 @@ const handleScanSuccess = async (sessionId: string) => {
   }
 }
 
-const handleSendMessageCustom = async (inputValue: string, templateDataParam?: any[]) => {
+const handleSendMessageCustom = async (inputValue: string) => {
   const input = inputMessage.value
   if (/^\/[A-Za-z0-9-]{6,}$/.test(input)) {
     const res = await fetch(`${props.agentRoot}client?sessionId=${input.slice(1)}`).then((res) => res.json())
@@ -449,7 +449,7 @@ const handleSendMessageCustom = async (inputValue: string, templateDataParam?: a
 
     // 发送消息
     try {
-      await handleSendMessage(inputValue, templateDataParam, multimodalContent)
+      await handleSendMessage(inputValue, multimodalContent)
       // 发送成功后清理附件
       cleanupAttachments()
     } catch (error) {
@@ -771,7 +771,7 @@ const senderExtensions = [TrSender.mention(props.skills)]
 
   /* 确保按钮组在状态切换时不会影响布局 */
   .assistant-actions {
-    min-height: 32px; /* 保持一致的高度 */
+    min-height: 32px;
   }
 }
 </style>

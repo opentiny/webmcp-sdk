@@ -51,7 +51,7 @@ let accmulateText = ''
 let summaryText = ''
 let accmulateMessagesLength: number = 0
 
-export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = [] }: useTinyRobotOption) => {
+export const useTinyRobotChat = ({systemPrompt, llmConfig, skills = [] }: useTinyRobotOption) => {
   const customAgentProvider = new CustomAgentModelProvider({ provider: 'custom' }, systemPrompt, llmConfig)
 
   const client = new AIClient({
@@ -335,20 +335,6 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
   }
 
   /**
-   * 从 templateDataParam 构建输入消息
-   * @param templateDataParam 模板数据参数
-   * @returns 构建好的输入消息字符串
-   */
-  const buildInputMessage = (templateDataParam: any[]): string => {
-    return templateDataParam
-      .map((data) => {
-        if (data.type === 'mention') return `@${data.content}`
-        if (data.type === 'text') return data.content
-      })
-      .join(' ')
-  }
-
-  /**
    * 从 skillItems 中提取提示词数组
    * @param skillItems skill 项列表
    * @returns 提示词字符串数组
@@ -395,11 +381,9 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
   // 参考: https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text#messages.user-model-message.content.text-part.type
   const handleSendMessage = async (
     _inputValue: string,
-    templateDataParam?: any[],
     attachmentsContent?: any[]
   ): Promise<boolean> => {
     // 增加 @ 功能， 如果有指定角色，则在这里进行处理， 生成正确的： inputMessage.value 和 最终的系统提示词
-    // 重构识别 skills的办法： 不依赖于 templateDataParam， 而是让当前输入的问题，直接匹配 skills 下的名字
     const matchedSkills = skills.filter((s) => _inputValue.includes('@' + s.label))
     if (matchedSkills.length > 0) {
       const skillItems = matchedSkills.map((s) => {
@@ -428,14 +412,8 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
       updateTitle(conv.id, inputMessage.value.slice(0, 15))
     }
 
-    // 构建消息内容，支持多模态（文本+图片）
-    // 根据 AI SDK 文档，UserModelMessage 的 content 可以是：
-    // - string: 纯文本消息
-    // - Array<TextPart | ImagePart>: 多模态消息
     if (attachmentsContent && attachmentsContent.length > 0) {
-      // 多模态消息：包含文本和附件
-      
-      // 1. 构建 API 格式的消息内容（发送给 AI SDK）
+
       // 使用 AI SDK 标准格式：{ type: 'text' } 和 { type: 'image', image: base64 }
       const messageContent = [
         { type: 'text', text: inputMessage.value },

@@ -4,7 +4,7 @@ import type { StreamHandler } from '@opentiny/tiny-robot-kit'
 import { BaseModelProvider } from '@opentiny/tiny-robot-kit'
 import type { AIModelConfig } from '@opentiny/tiny-robot-kit'
 import { type Ref } from 'vue'
-import { AgentModelProvider, McpServerConfig, IAgentModelProviderOption } from '@opentiny/next-sdk'
+import { AgentModelProvider, IAgentModelProviderOption } from '@opentiny/next-sdk'
 import { getToday } from './tools'
 import type { ICustomAgentModelProviderLlmConfig, StreamPart } from '../types/type'
 import { createDeepSeek } from '@ai-sdk/deepseek'
@@ -453,20 +453,14 @@ export class CustomAgentModelProvider extends BaseModelProvider {
         }
       } catch (error) {
         console.error('[beforeChatStream] 钩子执行失败:', error)
-        // 继续使用原始消息
       }
     }
 
-    // 构建 chatStream 的选项
-    // 根据 AI SDK 文档，UserModelMessage 的 content 可以是 string 或 Array<TextPart | ImagePart>
-    // 参考: https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text#messages.user-model-message.content.text-part.type
     const chatStreamOptions: any = {
       model: this.llmConfig.model,
       system: this.systemPrompt,
       abortSignal: request.options?.signal,
-      // toolChoice: 'auto' 表示让模型决定是否调用工具（默认值）
-      // 如果要禁用工具调用，可以使用 toolChoice: 'none'
-      // 如果要强制调用工具，可以使用 toolChoice: 'required'
+      // toolChoice: 'auto' | 'none' | 'required'
       toolChoice: 'auto',
       tools: { ['get-today']: getToday, ...(this.llmConfig.extraTools || {}) },
       maxSteps: this.llmConfig.maxSteps,
@@ -503,7 +497,6 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     const allMessages = [...cleanMessages(this.agent.responseMessages), userMessage]
     chatStreamOptions.messages = allMessages
 
-    // @ts-ignore
     const result = await this.agent.chatStream(chatStreamOptions)
 
     // 标识每一个markdown块

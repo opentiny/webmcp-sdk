@@ -4,6 +4,7 @@
       ref="robotRef"
       v-model:show="show"
       v-model:fullscreen="fullscreen"
+      v-model:selectedModelId="selectedModelId"
       :title="title"
       :locale="locale"
       :sessionId="sessionId"
@@ -50,6 +51,8 @@ const props = defineProps({
 const show = ref(true)
 const fullscreen = ref(true)
 const robotRef = ref<InstanceType<typeof TinyRemoter>>()
+// 当前选中的模型ID（用于双向绑定，确保模型切换状态能正确同步）
+const selectedModelId = ref<string>()
 
 const query = new URLSearchParams(window.location.search)
 
@@ -57,7 +60,7 @@ const query = new URLSearchParams(window.location.search)
 const locale = query.get('lang') || 'zh-CN'
 
 // 2、会话ID， 必传
-const sessionId = ref(query.get('sessionId'))
+const sessionId = ref(query.get('sessionId') || '')
 
 // 3、组件内部的已经有默认值。 这里允许通过url 更换agent地址。
 const agentRoot = query.get('agentRoot') || 'https://agent.opentiny.design/api/v1/webmcp-trial/'
@@ -115,8 +118,7 @@ const llmConfigs = ref([
     baseURL: 'https://agent.opentiny.design/api/v1/ai',
     providerType: 'deepseek',
     useReActMode: false,
-    icon: markRaw(IconModelDeepseek as unknown as Component),
-    isDefault: true
+    icon: markRaw(IconModelDeepseek as unknown as Component)
   },
   {
     id: 'deepseek-ai/DeepSeek-R1',
@@ -136,6 +138,7 @@ const llmConfigs = ref([
     baseURL: 'https://agent.opentiny.design/api/v1/ai',
     providerType: 'deepseek',
     useReActMode: true,
+    isDefault: true,
     icon: markRaw(IconModelAliyunBailian as unknown as Component),
     // 多模态能力配置：启用文件上传功能
     multimodal: {
