@@ -84,8 +84,6 @@
           :showWordLimit="true"
           :maxLength="20000"
           :extensions="senderExtensions"
-          :allow-files="hasMultimodalSupport"
-          @files-selected="onFilesSelected"
           @submit="handleSendMessageCustom"
           @cancel="abortRequest"
         >
@@ -106,6 +104,13 @@
               />
               <!-- 生成式UI开关 GenUI toggle button -->
               <GenUISwitch v-if="inBrowserExt" v-model:genui-enabled="genUiAble" />
+                <!-- 文件上传按钮 File upload button (v0.4.x 新API) -->
+              <TrUploadButton
+                v-if="hasMultimodalSupport"
+                accept="image/*,application/pdf,.doc,.docx,.txt"
+                :multiple="true"
+                @select="onFilesSelected"
+              />
             </div>
           </template>
         </tr-sender>
@@ -153,6 +158,7 @@ import {
   TrMcpServerPicker,
   TrHistory,
   TrAttachments,
+  TrUploadButton,
   type PluginInfo,
   type MarketCategoryOption,
   type MentionItem

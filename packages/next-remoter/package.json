@@ -48,6 +48,7 @@
     "@opentiny/tiny-robot-svgs": "catalog:",
     "@opentiny/vue": "catalog:",
     "@opentiny/vue-icon": "catalog:",
+    "@built-in-ai/core": "catalog:",
     "ai": "catalog:",
     "dayjs": "catalog:",
     "html5-qrcode": "catalog:",

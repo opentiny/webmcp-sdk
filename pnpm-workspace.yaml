@@ -8,6 +8,7 @@ catalog:
   '@ai-sdk/mcp': ^1.0.0
   '@ai-sdk/openai': ^3.0.0
   '@ai-sdk/provider': ^3.0.0
+  '@built-in-ai/core': ^2.1.0
   ai: ^6.0.0
 
   # mcp
