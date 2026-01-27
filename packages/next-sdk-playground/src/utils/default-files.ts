@@ -71,7 +71,7 @@ export function getDefaultFiles(options?: DefaultFilesOptions) {
           >
         </tiny-statistic>
       </div>
-        <div class="button-container" style="display: flex; gap: 8px;">
+        <div class="button-container">
           <tiny-button round @click="changeCount('increment')"> 增加 </tiny-button>
           <tiny-button type="primary" round @click="changeCount('decrement')"> 减少 </tiny-button>
         </div>
