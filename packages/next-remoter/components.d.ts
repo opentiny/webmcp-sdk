@@ -7,6 +7,7 @@ export {}
 
 declare module 'vue' {
   export interface GlobalComponents {
+    BubbleImageRenderer: typeof import('./src/components/BubbleImageRenderer.vue')['default']
     Button: typeof import('./src/components/Button.vue')['default']
     GenUISwitch: typeof import('./src/components/GenUISwitch.vue')['default']
     ModelSwitch: typeof import('./src/components/ModelSwitch.vue')['default']

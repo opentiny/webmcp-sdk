@@ -250,7 +250,8 @@ export const useTinyRobotChat = ({systemPrompt, llmConfig, skills = [] }: useTin
     user: {
       placement: 'end',
       avatar: userAvatar,
-      maxWidth: '80%'
+      maxWidth: '80%',
+      customContentField: 'uiContent'  // 使用 uiContent 字段渲染消息内容
     }
   }
   const senderRef = ref<InstanceType<typeof TrSender>>()
@@ -423,21 +424,21 @@ export const useTinyRobotChat = ({systemPrompt, llmConfig, skills = [] }: useTin
       // 2. 构建 UI 显示格式的消息内容
       const uiContent: any[] = []
       
-      // 添加文本部分
+      // 添加文本部分（使用 content 字段以匹配 BubbleProvider 的 text 渲染器）
       if (inputMessage.value) {
         uiContent.push({
           type: 'text',
-          text: inputMessage.value
+          content: inputMessage.value  // ✅ 使用 content 字段
         })
       }
       
       // 添加图片部分（用于UI显示）
-      // 将 AI SDK 格式 { type: 'image', image: '...' } 转换为 UI 格式 { type: 'image', url: '...' }
+      // 将 AI SDK 格式 { type: 'image', image: '...' } 转换为 UI 格式 { type: 'image', content: '...' }
       for (const item of attachmentsContent) {
         if (item.type === 'image' && item.image) {
           uiContent.push({
             type: 'image',
-            url: item.image  // 直接使用 base64 数据
+            content: item.image  // ✅ 使用 content 字段（统一格式）
           })
         }
       }
@@ -450,11 +451,24 @@ export const useTinyRobotChat = ({systemPrompt, llmConfig, skills = [] }: useTin
       }
       messages.value.push(message)
 
-      // 4. 发送消息
+      // 4. 清空输入框并发送消息
+      inputMessage.value = ''
       send()
     } else {
-      // 纯文本消息：使用原有的 sendMessage 方法
-      sendMessage(inputMessage.value)
+      // 纯文本消息：也需要构建 uiContent 来保证渲染一致性
+      const message: UIMessage = {
+        role: 'user',
+        content: inputMessage.value,  // API 格式：纯字符串
+        uiContent: [{                 // UI 格式：用于界面显示
+          type: 'text',
+          content: inputMessage.value  // ✅ 使用 content 字段（与 BubbleProvider 渲染器一致）
+        }]
+      }
+      messages.value.push(message)
+      
+      // 清空输入框并发送消息
+      inputMessage.value = ''
+      send()
     }
 
     return true // 成功发送

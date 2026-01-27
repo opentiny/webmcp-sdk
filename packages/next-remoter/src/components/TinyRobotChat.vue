@@ -176,6 +176,8 @@ import { createRemoter } from '@opentiny/next-sdk'
 import QrCodeScan from './QrCodeScan.vue'
 import ModelSwitch from './ModelSwitch.vue'
 import PluginToggleButton from './PluginToggleButton.vue'
+import GenUISwitch from './GenUISwitch.vue'
+import BubbleImageRenderer from './BubbleImageRenderer.vue'
 import { DEFAULT_SERVERS } from './default-mcps'
 import { defaultPluginSrc } from './default-plugin-svg'
 import { getLang, mapMake } from './lang'
@@ -183,7 +185,6 @@ import { handleError } from './error-handle'
 import { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import type { MenuItemConfig } from '@opentiny/next-sdk'
 import useModel from '../composable/useModel'
-import GenUISwitch from './GenUISwitch.vue'
 import type { UnifiedModelConfig } from '../types/model-config'
 
 defineOptions({
@@ -376,7 +377,9 @@ const contentRenderer = {
       generating: GeneratingStatus.includes(messageState.status),
       customComponents: props.genUiComponents,
       requiredCompleteFieldSelectors: ['[componentName=TinyUser] > props > modelValue']
-    })
+    }),
+  // 图片渲染器：使用独立的 BubbleImageRenderer 组件
+  image: BubbleImageRenderer
 }
 
 // 使用插件管理 composable（统一管理插件的增删改查）
