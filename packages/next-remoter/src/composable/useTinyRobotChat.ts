@@ -207,9 +207,26 @@ export const useTinyRobotChat = ({systemPrompt, llmConfig, skills = [] }: useTin
                   // 从上个user消息截断， 只保留上半断。  last user消息也截掉。
                   messages.value = messages.value.slice(0, lastUserIndex)
 
-                  // 模拟用户重新提问
-                  inputMessage.value = lastUserMsg.content
-                  handleSendMessage(lastUserMsg.content)
+                  // 处理多模态消息（包含图片的消息）
+                  if (Array.isArray(lastUserMsg.content)) {
+                    // content 是数组，说明是多模态消息
+                    // 提取文本内容
+                    const textPart = lastUserMsg.content.find((item: any) => item.type === 'text')
+                    const textContent = textPart?.text || ''
+                    
+                    // 提取附件内容（图片等）
+                    const attachmentParts = lastUserMsg.content.filter((item: any) => item.type !== 'text')
+                    
+                    // 设置输入框内容
+                    inputMessage.value = textContent
+                    
+                    // 重新发送（包含附件内容）
+                    handleSendMessage(textContent, attachmentParts.length > 0 ? attachmentParts : undefined)
+                  } else {
+                    // 纯文本消息
+                    inputMessage.value = lastUserMsg.content
+                    handleSendMessage(lastUserMsg.content)
+                  }
                 }
               }),
               h(
