@@ -13,16 +13,17 @@ export function getDefaultFiles(options?: DefaultFilesOptions) {
   import { ref ,onMounted} from 'vue'
   import { WebMcpClient,WebMcpServer, z,createMessageChannelPairTransport } from '@opentiny/next-sdk'
   import { TinyRemoter } from '@opentiny/next-remoter'
+  import { TinyStatistic, TinyButton } from '@opentiny/vue'
 
-  const count = ref(0)
+  const count = ref(100)
   const sessionId = ref('')
   const [serverTransport, clientTransport] = createMessageChannelPairTransport()
 
-  const changeCount = (action: 'increment' | 'decrement' = 'increment') => {
+  const changeCount = (action: 'increment' | 'decrement' = 'increment' , step: number = 1) => {
     if (action === 'increment') {
-      count.value++
+      count.value += step
     } else {
-      count.value--
+      count.value -= step
     }
   }
 
@@ -38,10 +39,11 @@ export function getDefaultFiles(options?: DefaultFilesOptions) {
       {
         title: '按钮点击工具',
         description: '点击按钮进行增加或者减少',
-        inputSchema: { action: z.enum(['increment', 'decrement']) }
+        inputSchema: { action: z.enum(['increment', 'decrement']), 
+        step: z.number().optional() },
       },
       async (params) => {
-        changeCount(params.action)
+        changeCount(params.action, params.step)
         return { content: [{ type: 'text', text: '按钮已点击' }] }
       }
     )
@@ -60,10 +62,26 @@ export function getDefaultFiles(options?: DefaultFilesOptions) {
 
 <template>
   <div class="card">
+    <div class="card-container">
+      <div class="counter-label">
+        <tiny-statistic
+          :value="count"
+          :value-style="{ 'color': '#3ac295' }"
+          :title="{ value: '计数中', position: 'top' }"
+          >
+        </tiny-statistic>
+      </div>
+        <div class="button-container" style="display: flex; gap: 8px;">
+          <tiny-button round @click="changeCount('increment')"> 增加 </tiny-button>
+          <tiny-button type="primary" round @click="changeCount('decrement')"> 减少 </tiny-button>
+        </div>
+    </div>
     <tiny-remoter
+      class="card-tiny-remoter"
       v-if="sessionId"
       agent-root="https://agent.opentiny.design/api/v1/webmcp-trial/"
       :session-id="sessionId"
+      layout-mode="static"
       :menuItems="[
         {
           action: 'qr-code',
@@ -79,51 +97,59 @@ export function getDefaultFiles(options?: DefaultFilesOptions) {
         }
       ]"
     />
-    <div>
-      <div class="counter-label">计数器</div>
-      <div class="counter">{{ count }}</div>
-    </div>
-    <div style="display: flex; gap: 8px;">
-      <button type="button" @click="changeCount('increment')">增加</button>
-      <button type="button" @click="changeCount('decrement')">减少</button>
-    </div>
   </div>
 </template>
 
 <style scoped>
 .card {
   padding: 20px;
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+  align-items: flex-start;
 }
-
-.read-the-docs {
-  color: #888;
+.card-container {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 40px;
+}
+.card-tiny-remoter{
+  min-width: 478px;
+}
+.counter-label{
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.button-container{
+  display: flex; 
+  gap: 8px;
+  margin-top: 30px;
 }
 .tr-container {
   z-index: 999 !important;
 }
-.counter-label{
-  width: 100px;
+
+:deep(.tiny-statistic__description){
+  font-size: 28px;
   text-align: center;
-  font-size: 16px;
-  font-weight: 600;
-  margin: 10px 0;
+  width: 100px;
 }
-.counter{
-  border: 1px solid blue; 
-  padding: 10px; 
-  margin-bottom: 10px;
+:deep(.tiny-statistic__title){
+  font-size: 28px;
   text-align: center;
-  width: 100px;
-  font-size: 24px;
-  color: blue;
 }
 </style>
 `
     },
     {
       filename: 'src/index.css',
-      code: `@import url('https://cdn.jsdelivr.net/npm/@opentiny/next-remoter@0.0.10-beta.7/dist/style.css') layer(base);
-@import url('https://cdn.jsdelivr.net/npm/@opentiny/next-remoter@0.2.0/dist/style.css') layer(base);
+      code: `@import url('https://cdn.jsdelivr.net/npm/@opentiny/next-remoter@0.2/dist/style.css') layer(base);
+@import url('https://cdn.jsdelivr.net/npm/@opentiny/next-remoter@0.2/dist/style.css') layer(base);
+@import url('https://cdn.jsdelivr.net/npm/@opentiny/vue-theme@3.28.0/index.min.css') layer(base);
 @layer base {
   body {
     background-color: #fafafa;
