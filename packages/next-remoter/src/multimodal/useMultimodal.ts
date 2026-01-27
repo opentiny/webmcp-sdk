@@ -9,9 +9,7 @@ import { fileToBase64, isImageFile, validateFileSize } from './utils'
 import { showToast } from 'vant'
 import type { UnifiedModelConfig } from '../types/model-config'
 
-/**
- * 多模态配置（基础版本）
- */
+
 export interface MultimodalConfig {
   /** 最大文件大小（MB） - 支持响应式 */
   maxFileSize?: number | ComputedRef<number>
@@ -43,15 +41,14 @@ export async function convertAttachmentsToContent(attachments: Attachment[]): Pr
     if (!attachment.rawFile) continue
 
     try {
-      // 转换为base64
+      // 转换为base64 DataURL（包含 data:image/xxx;base64, 前缀）
       const base64Data = await fileToBase64(attachment.rawFile)
 
       // 添加到内容数组（使用 AI SDK 标准格式）
       if (isImageFile(attachment.rawFile)) {
         content.push({
           type: 'image',
-          image: base64Data,  // AI SDK 使用 image 字段，不是 image_url
-          mediaType: attachment.rawFile.type  // 添加 IANA 媒体类型，帮助 AI SDK 正确识别图片
+          image: base64Data  // AI SDK 标准格式：只需要 type 和 image 字段
         })
       }
     } catch (error) {

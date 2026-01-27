@@ -51,7 +51,7 @@ let accmulateText = ''
 let summaryText = ''
 let accmulateMessagesLength: number = 0
 
-export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = [] }: useTinyRobotOption) => {
+export const useTinyRobotChat = ({systemPrompt, llmConfig, skills = [] }: useTinyRobotOption) => {
   const customAgentProvider = new CustomAgentModelProvider({ provider: 'custom' }, systemPrompt, llmConfig)
 
   const client = new AIClient({
@@ -207,9 +207,26 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
                   // 从上个user消息截断， 只保留上半断。  last user消息也截掉。
                   messages.value = messages.value.slice(0, lastUserIndex)
 
-                  // 模拟用户重新提问
-                  inputMessage.value = lastUserMsg.content
-                  handleSendMessage(lastUserMsg.content)
+                  // 处理多模态消息（包含图片的消息）
+                  if (Array.isArray(lastUserMsg.content)) {
+                    // content 是数组，说明是多模态消息
+                    // 提取文本内容
+                    const textPart = lastUserMsg.content.find((item: any) => item.type === 'text')
+                    const textContent = textPart?.text || ''
+                    
+                    // 提取附件内容（图片等）
+                    const attachmentParts = lastUserMsg.content.filter((item: any) => item.type !== 'text')
+                    
+                    // 设置输入框内容
+                    inputMessage.value = textContent
+                    
+                    // 重新发送（包含附件内容）
+                    handleSendMessage(textContent, attachmentParts.length > 0 ? attachmentParts : undefined)
+                  } else {
+                    // 纯文本消息
+                    inputMessage.value = lastUserMsg.content
+                    handleSendMessage(lastUserMsg.content)
+                  }
                 }
               }),
               h(
@@ -250,7 +267,8 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
     user: {
       placement: 'end',
       avatar: userAvatar,
-      maxWidth: '80%'
+      maxWidth: '80%',
+      customContentField: 'uiContent'  // 使用 uiContent 字段渲染消息内容
     }
   }
   const senderRef = ref<InstanceType<typeof TrSender>>()
@@ -335,20 +353,6 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
   }
 
   /**
-   * 从 templateDataParam 构建输入消息
-   * @param templateDataParam 模板数据参数
-   * @returns 构建好的输入消息字符串
-   */
-  const buildInputMessage = (templateDataParam: any[]): string => {
-    return templateDataParam
-      .map((data) => {
-        if (data.type === 'mention') return `@${data.content}`
-        if (data.type === 'text') return data.content
-      })
-      .join(' ')
-  }
-
-  /**
    * 从 skillItems 中提取提示词数组
    * @param skillItems skill 项列表
    * @returns 提示词字符串数组
@@ -395,11 +399,9 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
   // 参考: https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text#messages.user-model-message.content.text-part.type
   const handleSendMessage = async (
     _inputValue: string,
-    templateDataParam?: any[],
     attachmentsContent?: any[]
   ): Promise<boolean> => {
     // 增加 @ 功能， 如果有指定角色，则在这里进行处理， 生成正确的： inputMessage.value 和 最终的系统提示词
-    // 重构识别 skills的办法： 不依赖于 templateDataParam， 而是让当前输入的问题，直接匹配 skills 下的名字
     const matchedSkills = skills.filter((s) => _inputValue.includes('@' + s.label))
     if (matchedSkills.length > 0) {
       const skillItems = matchedSkills.map((s) => {
@@ -428,14 +430,8 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
       updateTitle(conv.id, inputMessage.value.slice(0, 15))
     }
 
-    // 构建消息内容，支持多模态（文本+图片）
-    // 根据 AI SDK 文档，UserModelMessage 的 content 可以是：
-    // - string: 纯文本消息
-    // - Array<TextPart | ImagePart>: 多模态消息
     if (attachmentsContent && attachmentsContent.length > 0) {
-      // 多模态消息：包含文本和附件
-      
-      // 1. 构建 API 格式的消息内容（发送给 AI SDK）
+
       // 使用 AI SDK 标准格式：{ type: 'text' } 和 { type: 'image', image: base64 }
       const messageContent = [
         { type: 'text', text: inputMessage.value },
@@ -445,21 +441,21 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
       // 2. 构建 UI 显示格式的消息内容
       const uiContent: any[] = []
       
-      // 添加文本部分
+      // 添加文本部分（使用 content 字段以匹配 BubbleProvider 的 text 渲染器）
       if (inputMessage.value) {
         uiContent.push({
           type: 'text',
-          text: inputMessage.value
+          content: inputMessage.value  // ✅ 使用 content 字段
         })
       }
       
       // 添加图片部分（用于UI显示）
-      // 将 AI SDK 格式 { type: 'image', image: '...' } 转换为 UI 格式 { type: 'image', url: '...' }
+      // 将 AI SDK 格式 { type: 'image', image: '...' } 转换为 UI 格式 { type: 'image', content: '...' }
       for (const item of attachmentsContent) {
         if (item.type === 'image' && item.image) {
           uiContent.push({
             type: 'image',
-            url: item.image  // 直接使用 base64 数据
+            content: item.image  // ✅ 使用 content 字段（统一格式）
           })
         }
       }
@@ -472,11 +468,24 @@ export const useTinyRobotChat = ({ agentRoot, systemPrompt, llmConfig, skills = 
       }
       messages.value.push(message)
 
-      // 4. 发送消息
+      // 4. 清空输入框并发送消息
+      inputMessage.value = ''
       send()
     } else {
-      // 纯文本消息：使用原有的 sendMessage 方法
-      sendMessage(inputMessage.value)
+      // 纯文本消息：也需要构建 uiContent 来保证渲染一致性
+      const message: UIMessage = {
+        role: 'user',
+        content: inputMessage.value,  // API 格式：纯字符串
+        uiContent: [{                 // UI 格式：用于界面显示
+          type: 'text',
+          content: inputMessage.value  // ✅ 使用 content 字段（与 BubbleProvider 渲染器一致）
+        }]
+      }
+      messages.value.push(message)
+      
+      // 清空输入框并发送消息
+      inputMessage.value = ''
+      send()
     }
 
     return true // 成功发送

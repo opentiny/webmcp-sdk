@@ -20,7 +20,7 @@
     "@opentiny/vue": "catalog:",
     "@opentiny/vue-icon": "catalog:",
     "puppeteer-core": "catalog:",
-    "@built-in-ai/core": "^2.1.0",
+    "@built-in-ai/core": "catalog:",
     "vant": "catalog:",
     "vue": "catalog:",
     "zod": "catalog:"

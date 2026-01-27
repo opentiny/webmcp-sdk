@@ -4,6 +4,7 @@
       ref="robotRef"
       v-model:show="show"
       v-model:fullscreen="fullscreen"
+      v-model:selectedModelId="selectedModelId"
       :title="title"
       :locale="locale"
       :sessionId="sessionId"
@@ -11,6 +12,7 @@
       :systemPrompt="systemPrompt"
       :customMarketMcpServers="customMarketMcpServers"
       :skills="skills"
+      :llmConfigs="llmConfigs"
       mode="chat-dialog"
     >
       <template #welcome v-if="welcomeTitle">
@@ -35,6 +37,12 @@ import { ref } from 'vue'
 import { TinyRemoter } from './index'
 import { TrWelcome, TrPrompts, TrSuggestionPillButton } from '@opentiny/tiny-robot'
 import { OFFICE_PROMPT, SHOP_PROMPT } from './const'
+import IconModelDeepseek from './components/icons/icon-model-deepseek.svg'
+import IconModelAliyunBailian from './components/icons/icon-model-aliyun-bailian.svg'
+import IconModelBuiltInAI from './components/icons/icon-model.svg'
+import { markRaw } from 'vue'
+import { builtInAI } from '@built-in-ai/core'
+import type { Component } from 'vue'
 
 const props = defineProps({
   support: String // 支持什么应用：  office: 办公场景，  shop: 电商场景
@@ -43,6 +51,8 @@ const props = defineProps({
 const show = ref(true)
 const fullscreen = ref(true)
 const robotRef = ref<InstanceType<typeof TinyRemoter>>()
+// 当前选中的模型ID（用于双向绑定，确保模型切换状态能正确同步）
+const selectedModelId = ref<string>()
 
 const query = new URLSearchParams(window.location.search)
 
@@ -50,7 +60,7 @@ const query = new URLSearchParams(window.location.search)
 const locale = query.get('lang') || 'zh-CN'
 
 // 2、会话ID， 必传
-const sessionId = ref(query.get('sessionId'))
+const sessionId = ref(query.get('sessionId') || '')
 
 // 3、组件内部的已经有默认值。 这里允许通过url 更换agent地址。
 const agentRoot = query.get('agentRoot') || 'https://agent.opentiny.design/api/v1/webmcp-trial/'
@@ -96,6 +106,54 @@ const customMarketMcpServers = ref([
     tools: [],
     url: 'https://agent.opentiny.design/api/v1/mcp-server/12306/mcp',
     type: 'StreamableHTTP'
+  }
+])
+
+const llmConfigs = ref([
+  {
+    id: 'deepseek-ai/DeepSeek-V3',
+    label: 'DeepSeek-V3',
+    model: 'deepseek-ai/DeepSeek-V3',
+    apiKey: 'sk-trial',
+    baseURL: 'https://agent.opentiny.design/api/v1/ai',
+    providerType: 'deepseek',
+    useReActMode: false,
+    icon: markRaw(IconModelDeepseek as unknown as Component)
+  },
+  {
+    id: 'deepseek-ai/DeepSeek-R1',
+    label: 'DeepSeek-R1',
+    model: 'deepseek-ai/DeepSeek-R1',
+    apiKey: 'sk-trial',
+    baseURL: 'https://agent.opentiny.design/api/v1/ai',
+    providerType: 'deepseek',
+    useReActMode: false,
+    icon: IconModelDeepseek as unknown as Component
+  },
+  {
+    id: 'qwen-vl-max',
+    label: 'qwen-vl-max',
+    model: 'qwen-vl-max',
+    apiKey: 'sk-trial',
+    baseURL: 'https://agent.opentiny.design/api/v1/ai',
+    providerType: 'deepseek',
+    useReActMode: true,
+    isDefault: true,
+    icon: markRaw(IconModelAliyunBailian as unknown as Component),
+    // 多模态能力配置：启用文件上传功能
+    multimodal: {
+      supportImages: true, // 支持图片上传
+      maxFileSize: 10, // 最大文件大小 10MB
+      supportedMimeTypes: ['image/'] // 支持的文件类型：所有图片格式
+    }
+  },
+  {
+    id: 'built-in-ai',
+    label: 'built-in-ai',
+    model: 'built-in-ai',
+    llm: builtInAI as unknown as any,
+    useReActMode: true,
+    icon: markRaw(IconModelBuiltInAI as unknown as Component)
   }
 ])
 </script>

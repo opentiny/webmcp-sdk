@@ -84,8 +84,6 @@
           :showWordLimit="true"
           :maxLength="20000"
           :extensions="senderExtensions"
-          :allow-files="hasMultimodalSupport"
-          @files-selected="onFilesSelected"
           @submit="handleSendMessageCustom"
           @cancel="abortRequest"
         >
@@ -106,6 +104,13 @@
               />
               <!-- 生成式UI开关 GenUI toggle button -->
               <GenUISwitch v-if="inBrowserExt" v-model:genui-enabled="genUiAble" />
+                <!-- 文件上传按钮 File upload button (v0.4.x 新API) -->
+              <TrUploadButton
+                v-if="hasMultimodalSupport"
+                accept="image/*,application/pdf,.doc,.docx,.txt"
+                :multiple="true"
+                @select="onFilesSelected"
+              />
             </div>
           </template>
         </tr-sender>
@@ -153,6 +158,7 @@ import {
   TrMcpServerPicker,
   TrHistory,
   TrAttachments,
+  TrUploadButton,
   type PluginInfo,
   type MarketCategoryOption,
   type MentionItem
@@ -170,6 +176,8 @@ import { createRemoter } from '@opentiny/next-sdk'
 import QrCodeScan from './QrCodeScan.vue'
 import ModelSwitch from './ModelSwitch.vue'
 import PluginToggleButton from './PluginToggleButton.vue'
+import GenUISwitch from './GenUISwitch.vue'
+import BubbleImageRenderer from './BubbleImageRenderer.vue'
 import { DEFAULT_SERVERS } from './default-mcps'
 import { defaultPluginSrc } from './default-plugin-svg'
 import { getLang, mapMake } from './lang'
@@ -177,7 +185,6 @@ import { handleError } from './error-handle'
 import { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import type { MenuItemConfig } from '@opentiny/next-sdk'
 import useModel from '../composable/useModel'
-import GenUISwitch from './GenUISwitch.vue'
 import type { UnifiedModelConfig } from '../types/model-config'
 
 defineOptions({
@@ -370,7 +377,9 @@ const contentRenderer = {
       generating: GeneratingStatus.includes(messageState.status),
       customComponents: props.genUiComponents,
       requiredCompleteFieldSelectors: ['[componentName=TinyUser] > props > modelValue']
-    })
+    }),
+  // 图片渲染器：使用独立的 BubbleImageRenderer 组件
+  image: BubbleImageRenderer
 }
 
 // 使用插件管理 composable（统一管理插件的增删改查）
@@ -419,7 +428,7 @@ const handleScanSuccess = async (sessionId: string) => {
   }
 }
 
-const handleSendMessageCustom = async (inputValue: string, templateDataParam?: any[]) => {
+const handleSendMessageCustom = async (inputValue: string) => {
   const input = inputMessage.value
   if (/^\/[A-Za-z0-9-]{6,}$/.test(input)) {
     const res = await fetch(`${props.agentRoot}client?sessionId=${input.slice(1)}`).then((res) => res.json())
@@ -443,7 +452,7 @@ const handleSendMessageCustom = async (inputValue: string, templateDataParam?: a
 
     // 发送消息
     try {
-      await handleSendMessage(inputValue, templateDataParam, multimodalContent)
+      await handleSendMessage(inputValue, multimodalContent)
       // 发送成功后清理附件
       cleanupAttachments()
     } catch (error) {
@@ -765,7 +774,7 @@ const senderExtensions = [TrSender.mention(props.skills)]
 
   /* 确保按钮组在状态切换时不会影响布局 */
   .assistant-actions {
-    min-height: 32px; /* 保持一致的高度 */
+    min-height: 32px;
   }
 }
 </style>
