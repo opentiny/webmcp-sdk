@@ -5,10 +5,10 @@ packages:
 catalog:
   # ai-sdk
   '@ai-sdk/deepseek': 1.0.30
-  '@ai-sdk/mcp': ^0.0.11
-  '@ai-sdk/openai': ^2.0.76
-  '@ai-sdk/provider': ^2.0.0
-  ai: 5.0.106
+  '@ai-sdk/mcp': ^1.0.0
+  '@ai-sdk/openai': ^3.0.0
+  '@ai-sdk/provider': ^3.0.0
+  ai: ^6.0.0
 
   # mcp
   '@modelcontextprotocol/inspector': ^0.16.1

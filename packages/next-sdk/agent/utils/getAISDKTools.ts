@@ -1,4 +1,4 @@
-import { dynamicTool, jsonSchema, Tool, ToolCallOptions, ToolSet } from 'ai'
+import { dynamicTool, jsonSchema, Tool, ToolExecutionOptions, ToolSet } from 'ai'
 import { WebMcpClient } from '../../WebMcpClient'
 
 /**
@@ -13,7 +13,7 @@ export const getAISDKTools = async (client: WebMcpClient): Promise<ToolSet> => {
     const listToolsResult = await client.listTools()
 
     for (const { name, description, inputSchema } of listToolsResult.tools) {
-      const execute = async (args: any, options: ToolCallOptions): Promise<any> => {
+      const execute = async (args: any, options: ToolExecutionOptions): Promise<any> => {
         return client.callTool({ name, arguments: args }, { signal: options?.abortSignal })
       }
 

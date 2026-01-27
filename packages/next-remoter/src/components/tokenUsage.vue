@@ -10,30 +10,53 @@ import { computed, PropType } from 'vue'
 const props = defineProps({
   usage: {
     type: Object as PropType<{
-      cachedInputTokens: number
       inputTokens: number
-      reasoningTokens: number
       outputTokens: number
       totalTokens: number
+      inputTokenDetails?: {
+        cacheReadTokens?: number
+      }
+      outputTokenDetails?: {
+        reasoningTokens?: number
+      }
     }>,
     default: ''
   }
 })
 
 const values = computed(() => {
-  const { cachedInputTokens = 0, inputTokens = 0, reasoningTokens = 0, outputTokens = 0, totalTokens = 0 } = props.usage
+  const {
+    inputTokens = 0,
+    outputTokens = 0,
+    totalTokens = 0,
+    inputTokenDetails,
+    outputTokenDetails
+  } = props.usage
+  
+  // 从新的嵌套结构中提取 token 数据
+  const cachedInputTokens = inputTokenDetails?.cacheReadTokens || 0
+  const reasoningTokens = outputTokenDetails?.reasoningTokens || 0
+  
   return {
     cachedInputTokens: [(cachedInputTokens / totalTokens) * 100 + '%', cachedInputTokens],
     inputTokens: [((inputTokens - cachedInputTokens) / totalTokens) * 100 + '%', inputTokens],
     reasoningTokens: [(reasoningTokens / totalTokens) * 100 + '%', reasoningTokens],
-    outputTokens: [(outputTokens / totalTokens) * 100 + '%', outputTokens]
+    outputTokens: [((outputTokens - reasoningTokens) / totalTokens) * 100 + '%', outputTokens]
   }
 })
 
 const allTitle = computed(() => {
-  return Object.keys(props.usage)
-    .map((name) => `${name}: ${props.usage[name] || '-'}`)
-    .join('\n')
+  const { inputTokens = 0, outputTokens = 0, totalTokens = 0, inputTokenDetails, outputTokenDetails } = props.usage
+  const cachedInputTokens = inputTokenDetails?.cacheReadTokens || 0
+  const reasoningTokens = outputTokenDetails?.reasoningTokens || 0
+  
+  return [
+    `inputTokens: ${inputTokens}`,
+    `outputTokens: ${outputTokens}`,
+    `totalTokens: ${totalTokens}`,
+    `cachedInputTokens: ${cachedInputTokens}`,
+    `reasoningTokens: ${reasoningTokens}`
+  ].join('\n')
 })
 </script>
 
