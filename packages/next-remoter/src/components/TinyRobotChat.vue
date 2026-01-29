@@ -104,7 +104,7 @@
               />
               <!-- 生成式UI开关 GenUI toggle button -->
               <GenUISwitch v-if="inBrowserExt" v-model:genui-enabled="genUiAble" />
-                <!-- 文件上传按钮 File upload button (v0.4.x 新API) -->
+              <!-- 文件上传按钮 File upload button (v0.4.x 新API) -->
               <TrUploadButton
                 v-if="hasMultimodalSupport"
                 accept="image/*,application/pdf,.doc,.docx,.txt"
@@ -170,6 +170,9 @@ import { IconNewSession, IconHistory } from '@opentiny/tiny-robot-svgs'
 import { useTinyRobotChat } from '../composable/useTinyRobotChat'
 import { useCustomMcpServer } from '../composable/useCustomMcpServer'
 import { usePlugin } from '../composable/usePlugin'
+import { useSkillWithTools } from '../composable/useSkill'
+import { useMessageRoles } from '../composable/useMessageRoles'
+import { useConversationHistory } from '../composable/useConversationHistory'
 import { useMultimodalWithModel } from '../multimodal'
 import { toRef, computed, ref, onMounted, h, watch, type Ref, type ComponentInstance } from 'vue'
 import { createRemoter } from '@opentiny/next-sdk'
@@ -305,34 +308,63 @@ const {
   selectedModelId
 })
 
+// ===== 1. 使用 useTinyRobotChat composable（核心聊天逻辑）=====
 const {
-  showHistory,
   agent,
   customAgentProvider,
-  welcomeIcon,
   conversationState,
   messages,
   messageState,
   inputMessage,
   abortRequest,
-  roles,
   senderRef,
   sendMessage,
-  handleSendMessage,
-  handleHistoryUpdateTitle,
-  handleHistoryDelete,
-  handleHistorySelect,
-  handleCreateConversation,
+  handleSendMessage: handleSendMessageBase, // 重命名为 Base，稍后包装
   addMessage,
-  send
+  send,
+  // 基础会话方法（供其他 composable 使用）
+  createConversation,
+  switchConversation,
+  deleteConversation,
+  getCurrentConversation
 } = useTinyRobotChat({
   agentRoot: toRef(props, 'agentRoot'),
   systemPrompt: props.systemPrompt || '',
-  llmConfig: props.llmConfig,
-  skills: props.skills || []
+  llmConfig: props.llmConfig
 })
 
 customAgentProvider.isGenuiEnabled = genUiAble
+
+// ===== 2. 使用 useSkillWithTools composable（skills 相关逻辑）=====
+// 将 props.skills 转换为 ref 以便响应式追踪
+const skillsRef = computed(() => props.skills || [])
+const { processSkillMentions } = useSkillWithTools(skillsRef, props.systemPrompt || '', agent, customAgentProvider)
+
+// ===== 3. 组合聊天逻辑和 skills 逻辑：创建包装的 handleSendMessage 函数 =====
+const handleSendMessage = async (inputValue: string, attachmentsContent?: any[]): Promise<boolean> => {
+  // 将 processSkillMentions 作为 skillProcessor 传递给基础的 handleSendMessage
+  return handleSendMessageBase(inputValue, attachmentsContent, processSkillMentions)
+}
+
+// ===== 4. 使用 useMessageRoles composable（消息气泡 UI 配置）=====
+const { aiAvatar, userAvatar, welcomeIcon, roles } = useMessageRoles({
+  messages,
+  messageState,
+  inputMessage,
+  handleSendMessage
+})
+
+// ===== 5. 使用 useConversationHistory composable（会话历史管理）=====
+const { showHistory, handleCreateConversation, handleHistorySelect, handleHistoryUpdateTitle, handleHistoryDelete } =
+  useConversationHistory({
+    createConversation,
+    switchConversation,
+    deleteConversation,
+    getCurrentConversation,
+    abortRequest,
+    conversationState,
+    customAgentProvider
+  })
 
 // 统一的 LLM 配置更新函数（合并模型切换和生成式UI状态变化的逻辑）
 const updateLLMConfigFromModel = () => {
@@ -509,6 +541,9 @@ if (props.sessionId) {
 }
 
 onMounted(async () => {
+  // 初始化会话（每次刷新都是新会话）
+  handleCreateConversation()
+
   // 统一报错
   agent.onError = (msg: string) => {
     msg && showToast(handleError(msg))
