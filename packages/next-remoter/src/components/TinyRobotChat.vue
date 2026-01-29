@@ -126,12 +126,12 @@
           :installedPlugins="installedPlugins"
           :marketPlugins="marketPlugins"
           :market-category-options="marketCategoryOptions"
-          :installed-search-fn="handleMcpServerPickerSearchFn"
-          :market-search-fn="handleMcpServerPickerSearchFn"
-          @plugin-toggle="handlePluginToggle"
-          @plugin-add="handlePluginAdd"
-          @plugin-delete="handlePluginDelete"
-          @tool-toggle="handleToolToggle"
+          :installed-search-fn="searchPlugin"
+          :market-search-fn="searchPlugin"
+          @plugin-toggle="togglePlugin"
+          @plugin-add="addPluginFromMarket"
+          @plugin-delete="deletePlugin"
+          @tool-toggle="toggleTool"
           @plugin-create="handleCustomAdd"
         >
           <template #header-actions>
@@ -173,9 +173,9 @@ import { usePlugin } from '../composable/usePlugin'
 import { useSkillWithTools } from '../composable/useSkill'
 import { useMessageRoles } from '../composable/useMessageRoles'
 import { useConversationHistory } from '../composable/useConversationHistory'
+import { usePluginSession } from '../composable/usePluginSession'
 import { useMultimodalWithModel } from '../multimodal'
 import { toRef, computed, ref, onMounted, h, watch, type Ref, type ComponentInstance } from 'vue'
-import { createRemoter } from '@opentiny/next-sdk'
 import QrCodeScan from './QrCodeScan.vue'
 import ModelSwitch from './ModelSwitch.vue'
 import PluginToggleButton from './PluginToggleButton.vue'
@@ -347,7 +347,7 @@ const handleSendMessage = async (inputValue: string, attachmentsContent?: any[])
 }
 
 // ===== 4. 使用 useMessageRoles composable（消息气泡 UI 配置）=====
-const { aiAvatar, userAvatar, welcomeIcon, roles } = useMessageRoles({
+const { welcomeIcon, roles } = useMessageRoles({
   messages,
   messageState,
   inputMessage,
@@ -442,55 +442,50 @@ const marketCategoryOptions = ref<MarketCategoryOption[]>([
 
 const { lang, pillItems, promptItems } = getLang(props)
 
-// 处理扫码结果（使用统一的插件添加接口）
-const handleScanSuccess = async (sessionId: string) => {
-  showLoadingToast('添加工具中...')
-
-  if (sessionId) {
-    // 使用统一的扫码添加接口
-    const success = await addPluginFromScan(sessionId, props.agentRoot)
-
-    if (success) {
-      showToast('添加工具完成')
-    } else {
-      showToast('重复添加工具或添加失败')
-    }
-  } else {
-    showToast('添加工具失败')
-  }
-}
+// ===== 6. 使用 usePluginSession composable（sessionId 相关逻辑）=====
+const {
+  handleScanSuccess,
+  handleSessionIdInput,
+  initialize: initializePluginSession
+} = usePluginSession({
+  sessionId: toRef(props, 'sessionId'),
+  agentRoot: props.agentRoot,
+  mode: props.mode,
+  qrCodeUrl: props.qrCodeUrl,
+  remoteUrl: props.remoteUrl,
+  menuItems: props.menuItems,
+  AILogoUrl: props.AILogoUrl,
+  show,
+  addPluginFromScan,
+  inputMessage
+})
 
 const handleSendMessageCustom = async (inputValue: string) => {
-  const input = inputMessage.value
-  if (/^\/[A-Za-z0-9-]{6,}$/.test(input)) {
-    const res = await fetch(`${props.agentRoot}client?sessionId=${input.slice(1)}`).then((res) => res.json())
-    const sessionId = res?.data?.sessionId
+  // 尝试处理识别码输入（如 /abc123）
+  const isSessionIdInput = await handleSessionIdInput(inputMessage.value)
 
-    if (sessionId) {
-      await handleScanSuccess(sessionId)
-    } else {
-      showToast('添加工具失败,请检查识别码是否正确')
-    }
+  // 如果是识别码，已经处理完毕，直接返回
+  if (isSessionIdInput) {
+    return
+  }
 
-    inputMessage.value = ''
-  } else {
-    // 检查是否可以发送附件
-    if (!checkCanSendAttachments()) {
-      return
-    }
+  // 不是识别码，按正常消息处理
+  // 检查是否可以发送附件
+  if (!checkCanSendAttachments()) {
+    return
+  }
 
-    // 处理附件
-    const multimodalContent = await processAttachments()
+  // 处理附件
+  const multimodalContent = await processAttachments()
 
-    // 发送消息
-    try {
-      await handleSendMessage(inputValue, multimodalContent)
-      // 发送成功后清理附件
-      cleanupAttachments()
-    } catch (error) {
-      console.error('发送消息失败:', error)
-      // 发送失败，保留附件，让用户可以重试
-    }
+  // 发送消息
+  try {
+    await handleSendMessage(inputValue, multimodalContent)
+    // 发送成功后清理附件
+    cleanupAttachments()
+  } catch (error) {
+    console.error('发送消息失败:', error)
+    // 发送失败，保留附件，让用户可以重试
   }
 }
 
@@ -505,40 +500,8 @@ const handlePillItemClick = (item: ReturnType<typeof mapMake>) => {
   inputMessage.value = item.inputMessage
 }
 
-// 如果是遥控器模式，则初始化右下角的AI 图标
-let isCreateRemoter = false
-watch(
-  () => props.sessionId,
-  (value) => {
-    if (value && props.mode === 'remoter' && !isCreateRemoter) {
-      createRemoter({
-        sessionId: props.sessionId,
-        qrCodeUrl: props.qrCodeUrl,
-        remoteUrl: props.remoteUrl,
-        menuItems: props.menuItems,
-        logoUrl: props.AILogoUrl,
-        onShowAIChat: () => (show.value = true)
-      })
-
-      isCreateRemoter = true
-    }
-  },
-  { immediate: true }
-)
-
-// 后续的每次sessionId变化，都认为是扫码添加了
-watch(
-  () => props.sessionId,
-  (value) => {
-    if (value) {
-      handleScanSuccess(value)
-    }
-  }
-)
-
-if (props.sessionId) {
-  handleScanSuccess(props.sessionId)
-}
+// 初始化 sessionId 相关逻辑（遥控器模式、扫码添加等）
+initializePluginSession()
 
 onMounted(async () => {
   // 初始化会话（每次刷新都是新会话）
@@ -558,12 +521,7 @@ onMounted(async () => {
   }
 })
 
-// 插件操作事件处理器（直接使用 usePlugin 返回的方法）
-const handlePluginToggle = togglePlugin
-const handleToolToggle = toggleTool
-const handlePluginDelete = deletePlugin
-const handlePluginAdd = addPluginFromMarket
-const handleMcpServerPickerSearchFn = searchPlugin
+// 插件操作事件处理器由 usePlugin 提供，直接在模板中使用
 
 // 使用自定义 MCP 服务器添加 composable
 const { handleCustomAdd } = useCustomMcpServer(agent, installedPlugins, defaultPluginSrc)
