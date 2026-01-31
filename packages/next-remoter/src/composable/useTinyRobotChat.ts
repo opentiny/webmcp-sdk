@@ -47,11 +47,7 @@ interface UIMessage {
   uiContent?: Array<{ type: 'text'; text: string } | { type: 'image'; url: string }>
 }
 
-let accmulateText = ''
-let summaryText = ''
-let accmulateMessagesLength: number = 0
-
-export const useTinyRobotChat = ({systemPrompt, llmConfig, skills = [] }: useTinyRobotOption) => {
+export const useTinyRobotChat = ({ systemPrompt, llmConfig, skills = [] }: useTinyRobotOption) => {
   const customAgentProvider = new CustomAgentModelProvider({ provider: 'custom' }, systemPrompt, llmConfig)
 
   const client = new AIClient({
@@ -75,75 +71,14 @@ export const useTinyRobotChat = ({systemPrompt, llmConfig, skills = [] }: useTin
     state: conversationState // 记录着所有的会话和 currentId
   } = useConversation({
     client,
+    autoSave: false,
     events: {
       onLoaded() {
         handleCreateConversation() // 每次刷新，都是新会话
       },
       onReceiveData(data, messages, preventDefault) {
         preventDefault()
-
-        let lastMessage = messages.value[messages.value.length - 1]
-
-        if (data.type === 'start') {
-          accmulateText = ''
-          summaryText = ''
-          accmulateMessagesLength = 0
-        }
-
-        if (['text-start', 'tool'].includes(data.type)) {
-          accmulateText = ''
-          accmulateMessagesLength = 0
-        }
-
-        if (data.type === 'text-end') {
-          summaryText += accmulateText
-        }
-
-        if (lastMessage.role !== 'assistant') {
-          const message = {
-            role: 'assistant',
-            content: '',
-            uiContent: []
-          }
-
-          messages.value.push(message)
-          lastMessage = message
-        }
-
-        if (data.type === 'tool') {
-          const toolContent = lastMessage.uiContent.find((item) => item.id === data.id)
-          if (!toolContent) {
-            lastMessage.uiContent.push(data)
-          } else {
-            toolContent.content += data.delta
-            toolContent.status = data.status
-          }
-        } else if (data.type === 'markdown') {
-          accmulateText += data.delta
-          const accmulateMessages = extractTextAndJson(accmulateText)
-          const arrLength = accmulateMessages.length
-          if (arrLength === 0) {
-            return
-          }
-          if (arrLength > accmulateMessagesLength) {
-            lastMessage.uiContent.push(accmulateMessages[arrLength - 1])
-          } else {
-            lastMessage.uiContent[lastMessage.uiContent.length - 1] = accmulateMessages[arrLength - 1]
-          }
-          lastMessage.content = accmulateText
-
-          accmulateMessagesLength = arrLength
-        } else if (data.type === 'collapsible-text') {
-          const thinkContent = lastMessage.uiContent.find(
-            (item) => item.type === data.type && item.thinkId === data.thinkId
-          )
-          if (!thinkContent) {
-            lastMessage.uiContent.push(data)
-          } else {
-            thinkContent.content += data.delta
-            lastMessage.content += data.delta
-          }
-        }
+        messages.value.push(data)
       }
     }
   })
@@ -213,13 +148,13 @@ export const useTinyRobotChat = ({systemPrompt, llmConfig, skills = [] }: useTin
                     // 提取文本内容
                     const textPart = lastUserMsg.content.find((item: any) => item.type === 'text')
                     const textContent = textPart?.text || ''
-                    
+
                     // 提取附件内容（图片等）
                     const attachmentParts = lastUserMsg.content.filter((item: any) => item.type !== 'text')
-                    
+
                     // 设置输入框内容
                     inputMessage.value = textContent
-                    
+
                     // 重新发送（包含附件内容）
                     handleSendMessage(textContent, attachmentParts.length > 0 ? attachmentParts : undefined)
                   } else {
@@ -268,7 +203,7 @@ export const useTinyRobotChat = ({systemPrompt, llmConfig, skills = [] }: useTin
       placement: 'end',
       avatar: userAvatar,
       maxWidth: '80%',
-      customContentField: 'uiContent'  // 使用 uiContent 字段渲染消息内容
+      customContentField: 'uiContent' // 使用 uiContent 字段渲染消息内容
     }
   }
   const senderRef = ref<InstanceType<typeof TrSender>>()
@@ -397,10 +332,7 @@ export const useTinyRobotChat = ({systemPrompt, llmConfig, skills = [] }: useTin
   // 返回值：Promise<boolean> true 表示成功发送，false 表示被阻止（工具未准备好）
   // attachmentsContent: 附件内容数组，支持多模态消息（图片、文档等）
   // 参考: https://ai-sdk.dev/docs/reference/ai-sdk-core/stream-text#messages.user-model-message.content.text-part.type
-  const handleSendMessage = async (
-    _inputValue: string,
-    attachmentsContent?: any[]
-  ): Promise<boolean> => {
+  const handleSendMessage = async (_inputValue: string, attachmentsContent?: any[]): Promise<boolean> => {
     // 增加 @ 功能， 如果有指定角色，则在这里进行处理， 生成正确的： inputMessage.value 和 最终的系统提示词
     const matchedSkills = skills.filter((s) => _inputValue.includes('@' + s.label))
     if (matchedSkills.length > 0) {
@@ -431,31 +363,27 @@ export const useTinyRobotChat = ({systemPrompt, llmConfig, skills = [] }: useTin
     }
 
     if (attachmentsContent && attachmentsContent.length > 0) {
-
       // 使用 AI SDK 标准格式：{ type: 'text' } 和 { type: 'image', image: base64 }
-      const messageContent = [
-        { type: 'text', text: inputMessage.value },
-        ...attachmentsContent
-      ]
-      
+      const messageContent = [{ type: 'text', text: inputMessage.value }, ...attachmentsContent]
+
       // 2. 构建 UI 显示格式的消息内容
       const uiContent: any[] = []
-      
+
       // 添加文本部分（使用 content 字段以匹配 BubbleProvider 的 text 渲染器）
       if (inputMessage.value) {
         uiContent.push({
           type: 'text',
-          content: inputMessage.value  // ✅ 使用 content 字段
+          content: inputMessage.value // ✅ 使用 content 字段
         })
       }
-      
+
       // 添加图片部分（用于UI显示）
       // 将 AI SDK 格式 { type: 'image', image: '...' } 转换为 UI 格式 { type: 'image', content: '...' }
       for (const item of attachmentsContent) {
         if (item.type === 'image' && item.image) {
           uiContent.push({
             type: 'image',
-            content: item.image  // ✅ 使用 content 字段（统一格式）
+            content: item.image // ✅ 使用 content 字段（统一格式）
           })
         }
       }
@@ -463,8 +391,8 @@ export const useTinyRobotChat = ({systemPrompt, llmConfig, skills = [] }: useTin
       // 3. 添加消息到 messages（会被自动同步到 responseMessages）
       const message: UIMessage = {
         role: 'user',
-        content: messageContent,  // API 格式：AI SDK 标准多模态数组
-        uiContent: uiContent      // UI 格式：用于界面显示
+        content: messageContent, // API 格式：AI SDK 标准多模态数组
+        uiContent: uiContent // UI 格式：用于界面显示
       }
       messages.value.push(message)
 
@@ -475,14 +403,17 @@ export const useTinyRobotChat = ({systemPrompt, llmConfig, skills = [] }: useTin
       // 纯文本消息：也需要构建 uiContent 来保证渲染一致性
       const message: UIMessage = {
         role: 'user',
-        content: inputMessage.value,  // API 格式：纯字符串
-        uiContent: [{                 // UI 格式：用于界面显示
-          type: 'text',
-          content: inputMessage.value  // ✅ 使用 content 字段（与 BubbleProvider 渲染器一致）
-        }]
+        content: inputMessage.value, // API 格式：纯字符串
+        uiContent: [
+          {
+            // UI 格式：用于界面显示
+            type: 'text',
+            content: inputMessage.value // ✅ 使用 content 字段（与 BubbleProvider 渲染器一致）
+          }
+        ]
       }
       messages.value.push(message)
-      
+
       // 清空输入框并发送消息
       inputMessage.value = ''
       send()

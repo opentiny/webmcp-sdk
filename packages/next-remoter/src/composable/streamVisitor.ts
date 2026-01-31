@@ -83,6 +83,7 @@ export class StreamVisitor {
       let textContent: TextContent
       let toolContent: ToolContent
       for await (const event of stream.fullStream) {
+        console.log('type=', event.type, event)
         switch (event.type) {
           case 'start':
             startContent = reactive({
