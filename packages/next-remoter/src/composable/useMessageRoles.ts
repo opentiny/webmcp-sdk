@@ -2,6 +2,7 @@ import { computed, h, ref, Ref } from 'vue'
 import { IconButton } from '@opentiny/tiny-robot'
 import { IconCopy, IconRefresh, IconUser } from '@opentiny/tiny-robot-svgs'
 import { GeneratingStatus } from '@opentiny/tiny-robot-kit'
+import TinyTooltip from '@opentiny/vue-tooltip'
 import tokenUsageVue from '../components/tokenUsage.vue'
 import logo from '../../public/svgs/logo-next-no-bg-right.svg'
 
@@ -54,15 +55,22 @@ export function useMessageRoles(options: {
   const copyMessageToClipboard = async (index: number) => {
     const message = messages.value[index]
     const textContent = typeof message.content === 'string' ? message.content : JSON.stringify(message.content)
-    await navigator.clipboard.writeText(textContent)
+    
+    // 添加错误处理：剪贴板 API 可能因权限、安全上下文或浏览器支持而失败
+    try {
+      await navigator.clipboard.writeText(textContent)
+      
+      // 提示复制成功
+      if (index !== undefined) {
+        copyingStates.value[index] = true
 
-    // 提示复制成功
-    if (index !== undefined) {
-      copyingStates.value[index] = true
-
-      setTimeout(() => {
-        copyingStates.value[index] = false
-      }, 3000)
+        setTimeout(() => {
+          copyingStates.value[index] = false
+        }, 3000)
+      }
+    } catch (error) {
+      console.error('复制失败:', error)
+      showToast('复制失败，请重试')
     }
   }
 
@@ -73,6 +81,14 @@ export function useMessageRoles(options: {
   const regenerateMessage = async (index: number) => {
     // 向上找最后一次 user 消息
     const lastUserIndex = messages.value.findLastIndex((m, idx) => m.role === 'user' && idx <= index)
+    
+    // 添加守卫：如果没找到用户消息，则不执行重新生成操作
+    if (lastUserIndex === -1) {
+      console.warn('未找到可重新生成的用户消息')
+      showToast('无法重新生成消息')
+      return
+    }
+    
     const lastUserMsg = messages.value[lastUserIndex]
 
     // 从上个user消息截断， 只保留上半断。  last user消息也截掉。

@@ -1,12 +1,11 @@
 import { AIClient, useConversation } from '@opentiny/tiny-robot-kit'
-import { onMounted, onUnmounted, Ref, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { CustomAgentModelProvider } from './CustomAgentModelProvider'
 import { TrSender } from '@opentiny/tiny-robot'
 import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import { extractTextAndJson } from './handleSchema'
 
 interface useTinyRobotOption {
-  agentRoot: Ref<string>
   systemPrompt: string
   llmConfig?: ICustomAgentModelProviderLlmConfig
 }

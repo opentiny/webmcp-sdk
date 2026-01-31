@@ -328,7 +328,6 @@ const {
   deleteConversation,
   getCurrentConversation
 } = useTinyRobotChat({
-  agentRoot: toRef(props, 'agentRoot'),
   systemPrompt: props.systemPrompt || '',
   llmConfig: props.llmConfig
 })

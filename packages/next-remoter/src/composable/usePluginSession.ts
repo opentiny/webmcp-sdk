@@ -1,4 +1,4 @@
-import { ref, watch, Ref } from 'vue'
+import { watch, Ref } from 'vue'
 import { createRemoter } from '@opentiny/next-sdk'
 import type { MenuItemConfig } from '@opentiny/next-sdk'
 
@@ -64,7 +64,14 @@ export function usePluginSession(options: {
     // 检查是否是识别码格式（/开头 + 6位以上字母数字）
     if (/^\/[A-Za-z0-9-]{6,}$/.test(input)) {
       try {
-        const res = await fetch(`${agentRoot}client?sessionId=${input.slice(1)}`).then((res) => res.json())
+        // 添加 HTTP 响应状态检查
+        const response = await fetch(`${agentRoot}client?sessionId=${input.slice(1)}`)
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`)
+        }
+
+        const res = await response.json()
         const fetchedSessionId = res?.data?.sessionId
 
         if (fetchedSessionId) {
