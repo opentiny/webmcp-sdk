@@ -75,116 +75,121 @@ export class StreamVisitor {
 
   async traverse(stream: StreamTextResult<{}, never>) {
     const result = ref<StartContent>()
-    let startContent: StartContent
-    let stepContent: StepContent
-    let reasoningContent: ReasoningContent
-    let textContent: TextContent
-    let toolContent: ToolContent
-    for await (const event of stream.fullStream) {
-      switch (event.type) {
-        case 'start':
-          startContent = reactive({
-            running: true,
-            steps: []
-          })
-          result.value = startContent
-          this.option.onStart?.(startContent)
-          break
-        case 'start-step':
-          stepContent = reactive({
-            running: true,
-            contents: [],
-            request: event.request
-          })
-          startContent!.steps.push(stepContent)
-          this.option.onStep?.(stepContent)
-          break
-        case 'reasoning-start':
-          reasoningContent = reactive({
-            type: 'reasoning',
-            id: event.id,
-            running: true,
-            text: ''
-          })
-          stepContent!.contents.push(reasoningContent)
-          this.option.onReasoning?.(reasoningContent)
-          break
-        case 'reasoning-delta':
-          reasoningContent!.text += event.text
-          break
-        case 'reasoning-end':
-          reasoningContent!.running = false
-          break
-        case 'text-start':
-          textContent = reactive({
-            type: 'text',
-            id: event.id,
-            running: true,
-            text: ''
-          })
-          stepContent!.contents.push(textContent)
-          this.option.onText?.(textContent)
-          break
-        case 'text-delta':
-          textContent!.text += event.text
-          break
-        case 'text-end':
-          textContent!.running = false
-          break
-        case 'tool-input-start':
-          toolContent = reactive({
-            type: 'tool',
-            running: true,
-            id: event.id,
-            toolCallId: event.id,
-            title: '',
-            toolName: event.toolName,
-            dynamic: event.dynamic,
-            inputStr: '',
-            input: {},
-            output: {}
-          })
-          stepContent!.contents.push(toolContent)
-          this.option.onTool?.(toolContent)
-          break
-        case 'tool-input-delta':
-          toolContent!.inputStr += event.delta
-          break
-        case 'tool-input-end':
-          break
-        case 'tool-call':
-          toolContent!.input = event.input
-          break
-        case 'tool-result':
-          toolContent!.output = event.output
-          toolContent!.running = false
-          break
-        case 'tool-error':
-          toolContent!.error = event.error as any
-          toolContent!.running = false
-          break
-        case 'finish-step':
-          stepContent!.running = false
-          stepContent!.finishReason = event.finishReason
-          stepContent!.usage = event.usage
-          break
-        case 'finish':
-          startContent!.running = false
-          startContent!.finishReason = event.finishReason
-          startContent!.totalUsage = event.totalUsage
-          break
-        case 'source':
-        case 'file':
-          // todo: 待实现
-          break
-        case 'error':
-          startContent!.error = event.error as any
-          break
-        default:
-          // 忽略未知事件
-          break
+
+    const backgroundRun = async () => {
+      let startContent: StartContent
+      let stepContent: StepContent
+      let reasoningContent: ReasoningContent
+      let textContent: TextContent
+      let toolContent: ToolContent
+      for await (const event of stream.fullStream) {
+        switch (event.type) {
+          case 'start':
+            startContent = reactive({
+              running: true,
+              steps: []
+            })
+            result.value = startContent
+            this.option.onStart?.(startContent)
+            break
+          case 'start-step':
+            stepContent = reactive({
+              running: true,
+              contents: [],
+              request: event.request
+            })
+            startContent!.steps.push(stepContent)
+            this.option.onStep?.(stepContent)
+            break
+          case 'reasoning-start':
+            reasoningContent = reactive({
+              type: 'reasoning',
+              id: event.id,
+              running: true,
+              text: ''
+            })
+            stepContent!.contents.push(reasoningContent)
+            this.option.onReasoning?.(reasoningContent)
+            break
+          case 'reasoning-delta':
+            reasoningContent!.text += event.text
+            break
+          case 'reasoning-end':
+            reasoningContent!.running = false
+            break
+          case 'text-start':
+            textContent = reactive({
+              type: 'text',
+              id: event.id,
+              running: true,
+              text: ''
+            })
+            stepContent!.contents.push(textContent)
+            this.option.onText?.(textContent)
+            break
+          case 'text-delta':
+            textContent!.text += event.text
+            break
+          case 'text-end':
+            textContent!.running = false
+            break
+          case 'tool-input-start':
+            toolContent = reactive({
+              type: 'tool',
+              running: true,
+              id: event.id,
+              toolCallId: event.id,
+              title: '',
+              toolName: event.toolName,
+              dynamic: event.dynamic,
+              inputStr: '',
+              input: {},
+              output: {}
+            })
+            stepContent!.contents.push(toolContent)
+            this.option.onTool?.(toolContent)
+            break
+          case 'tool-input-delta':
+            toolContent!.inputStr += event.delta
+            break
+          case 'tool-input-end':
+            break
+          case 'tool-call':
+            toolContent!.input = event.input
+            break
+          case 'tool-result':
+            toolContent!.output = event.output
+            toolContent!.running = false
+            break
+          case 'tool-error':
+            toolContent!.error = event.error as any
+            toolContent!.running = false
+            break
+          case 'finish-step':
+            stepContent!.running = false
+            stepContent!.finishReason = event.finishReason
+            stepContent!.usage = event.usage
+            break
+          case 'finish':
+            startContent!.running = false
+            startContent!.finishReason = event.finishReason
+            startContent!.totalUsage = event.totalUsage
+            break
+          case 'source':
+          case 'file':
+            // todo: 待实现
+            break
+          case 'error':
+            startContent!.error = event.error as any
+            break
+          default:
+            // 忽略未知事件
+            break
+        }
       }
     }
+
+    backgroundRun()
 
     return result
   }
