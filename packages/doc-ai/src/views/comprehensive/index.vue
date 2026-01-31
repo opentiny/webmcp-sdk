@@ -2,16 +2,17 @@
   <div class="products-page">
     <div class="page-header">
       <h3>商品管理</h3>
+      <span v-if="productMcp" class="skill-badge">Web-Skill + Web-MCP 已启用</span>
     </div>
     <div class="page-content">
       <tiny-grid
         auto-resize
         ref="gridRef"
-        :data="products"
+        :data="gridData"
         :height="500"
         :edit-config="{ trigger: 'click', mode: 'cell', showStatus: true }"
         :tiny_mcp_config="{
-          server,
+          server: mcpServerForGrid,
           business: {
             id: 'product-list',
             description: '商品列表'
@@ -78,13 +79,39 @@
 </template>
 
 <script setup lang="ts">
-import { ref, inject, onMounted } from 'vue'
+import { ref, inject, computed, onMounted } from 'vue'
 import productsData from './products.json'
 import { WebMcpServer, z } from '@opentiny/next-sdk'
+import type { Product } from '../../skills/product-management'
 
-const products = ref(productsData)
-const mcpServer = inject('mcpServer') as { transport: any; capabilities: any }
-const server = new WebMcpServer({ name: 'base-config', version: '1.0.0' }, { capabilities: mcpServer.capabilities })
+// 优先使用 App 提供的 Web-Skill + Web-MCP 实例（含商品管理 Skill、read_memory_doc/read_cdn_doc 等）
+const webMcpServer = inject<InstanceType<typeof WebMcpServer>>('webMcpServer')
+const productMcp = inject<ReturnType<typeof import('../../composable/useProductMcp').useProductMcp>>('productMcp')
+
+// 表格数据源：有 productMcp 时用其 products（与 MCP 工具同源，工具修改后表格自动更新）
+const fallbackProducts = ref<Product[]>(
+  (productsData as Array<Record<string, unknown>>).map((p) => ({ ...p, id: String(p.id) })) as Product[]
+)
+const gridData = computed(() => (productMcp ? productMcp.products.value : fallbackProducts.value))
+
+// 表格使用的 MCP Server：优先使用已注册 Skill+工具的 server
+const mcpServerForGrid = computed(() => webMcpServer ?? fallbackServer)
+
+// 无 App 注入时使用的备用 server（仅保留原有 get-weather 示例）
+const mcpServer = inject('mcpServer') as { transport: any; capabilities: any } | undefined
+const fallbackServer = new WebMcpServer(
+  { name: 'base-config', version: '1.0.0' },
+  mcpServer ? { capabilities: mcpServer.capabilities } : undefined
+)
+if (mcpServer) {
+  fallbackServer.registerTool(
+    'get-weather',
+    { description: '获取天气', inputSchema: { city: z.string() } },
+    async ({ city }: { city: string }) => ({
+      content: [{ type: 'text', text: `天气信息：${city}晴天` }]
+    })
+  )
+}
 
 const categoryLabels: Record<string, string> = {
   phones: '手机',
@@ -92,23 +119,10 @@ const categoryLabels: Record<string, string> = {
   tablets: '平板'
 }
 
-server.registerTool(
-  'get-weather',
-  {
-    description: '获取天气',
-    inputSchema: {
-      city: z.string()
-    }
-  },
-  async ({ city }: { city: string }) => {
-    return {
-      content: [{ type: 'text', text: `天气信息：${city}晴天` }]
-    }
-  }
-)
-
 onMounted(async () => {
-  await server.connect(mcpServer.transport)
+  if (mcpServer && !webMcpServer) {
+    await fallbackServer.connect(mcpServer.transport)
+  }
 })
 </script>
 
