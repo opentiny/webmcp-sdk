@@ -49,7 +49,7 @@ export interface ToolContent {
   /** 不确定输入参数的工具调用 */
   dynamic: boolean | undefined
   /** 生成tool 调用参数的动态字符串, 在调用 tool 之前，会保存json结果到input属性中 */
-  inputStr: ''
+  inputStr: string
   /** 工具参数对象 */
   input: any
   /** 工具返回值对象 */
