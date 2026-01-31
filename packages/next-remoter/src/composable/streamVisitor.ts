@@ -1,5 +1,5 @@
-import { FinishReason, LanguageModelRequestMetadata, LanguageModelUsage, StreamTextResult } from 'ai'
-import { reactive } from 'vue'
+import type { FinishReason, LanguageModelRequestMetadata, LanguageModelUsage, StreamTextResult } from 'ai'
+import { reactive, ref } from 'vue'
 export interface StreamVisitorOption {
   onStart?: (content: StartContent) => void
   onStep?: (content: StepContent) => void
@@ -67,12 +67,14 @@ export interface ToolContent {
  *                    }
  *                 })
  *
- * visitor.traverse(stream)
+ * await visitor.traverse(stream)
+ * const result = await visitor.traverse(stream) // 或者保存此处的 result 的Ref响应数据
  */
 export class StreamVisitor {
-  constructor(public option: StreamVisitorOption) {}
+  constructor(public option: StreamVisitorOption = {}) {}
 
   async traverse(stream: StreamTextResult<{}, never>) {
+    const result = ref<StartContent>()
     let startContent: StartContent
     let stepContent: StepContent
     let reasoningContent: ReasoningContent
@@ -85,6 +87,7 @@ export class StreamVisitor {
             running: true,
             steps: []
           })
+          result.value = startContent
           this.option.onStart?.(startContent)
           break
         case 'start-step':
@@ -182,6 +185,8 @@ export class StreamVisitor {
           break
       }
     }
+
+    return result
   }
 }
 
