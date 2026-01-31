@@ -1,5 +1,5 @@
 import { FinishReason, LanguageModelRequestMetadata, LanguageModelUsage, StreamTextResult } from 'ai'
-
+import { reactive } from 'vue'
 export interface StreamVisitorOption {
   onStart?: (content: StartContent) => void
   onStep?: (content: StepContent) => void
@@ -81,28 +81,28 @@ export class StreamVisitor {
     for await (const event of stream.fullStream) {
       switch (event.type) {
         case 'start':
-          startContent = {
+          startContent = reactive({
             running: true,
             steps: []
-          }
+          })
           this.option.onStart?.(startContent)
           break
         case 'start-step':
-          stepContent = {
+          stepContent = reactive({
             running: true,
             contents: [],
             request: event.request
-          }
+          })
           startContent!.steps.push(stepContent)
           this.option.onStep?.(stepContent)
           break
         case 'reasoning-start':
-          reasoningContent = {
+          reasoningContent = reactive({
             type: 'reasoning',
             id: event.id,
             running: true,
             text: ''
-          }
+          })
           stepContent!.contents.push(reasoningContent)
           this.option.onReasoning?.(reasoningContent)
           break
@@ -113,12 +113,12 @@ export class StreamVisitor {
           reasoningContent!.running = false
           break
         case 'text-start':
-          textContent = {
+          textContent = reactive({
             type: 'text',
             id: event.id,
             running: true,
             text: ''
-          }
+          })
           stepContent!.contents.push(textContent)
           this.option.onText?.(textContent)
           break
@@ -129,7 +129,7 @@ export class StreamVisitor {
           textContent!.running = false
           break
         case 'tool-input-start':
-          toolContent = {
+          toolContent = reactive({
             type: 'tool',
             running: true,
             id: event.id,
@@ -140,7 +140,7 @@ export class StreamVisitor {
             inputStr: '',
             input: {},
             output: {}
-          }
+          })
           stepContent!.contents.push(toolContent)
           this.option.onTool?.(toolContent)
           break
@@ -172,6 +172,7 @@ export class StreamVisitor {
           break
         case 'source':
         case 'file':
+          // todo: 待实现
           break
         case 'error':
           startContent!.error = event.error as any
