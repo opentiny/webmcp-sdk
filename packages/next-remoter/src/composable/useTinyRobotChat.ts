@@ -5,7 +5,6 @@ import { CustomAgentModelProvider } from './CustomAgentModelProvider'
 import { IconButton, TrSender } from '@opentiny/tiny-robot'
 import logo from '../../public/svgs/logo-next-no-bg-right.svg'
 import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
-import { extractTextAndJson } from './handleSchema'
 import tokenUsageVue from '../components/tokenUsage.vue'
 
 interface useTinyRobotOption {
@@ -78,6 +77,10 @@ export const useTinyRobotChat = ({ systemPrompt, llmConfig, skills = [] }: useTi
       },
       onReceiveData(data, messages, preventDefault) {
         preventDefault()
+        // 此处是接收 agent 返回消息时，所以 assistant 一定是在底部的
+        if (messages.value[messages.value.length - 1].role === 'assistant') {
+          messages.value.pop()
+        }
         messages.value.push(data)
       }
     }

@@ -3,10 +3,10 @@ import type { ChatCompletionRequest } from '@opentiny/tiny-robot-kit'
 import type { StreamHandler } from '@opentiny/tiny-robot-kit'
 import { BaseModelProvider } from '@opentiny/tiny-robot-kit'
 import type { AIModelConfig } from '@opentiny/tiny-robot-kit'
-import { computed, type Ref } from 'vue'
+import { watch, type Ref } from 'vue'
 import { AgentModelProvider, IAgentModelProviderOption } from '@opentiny/next-sdk'
 import { getToday } from './tools'
-import type { ICustomAgentModelProviderLlmConfig, StreamPart } from '../types/type'
+import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import { createDeepSeek } from '@ai-sdk/deepseek'
 import { createOpenAI } from '@ai-sdk/openai'
 import type { ProviderV2 } from '@ai-sdk/provider'
@@ -385,7 +385,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
 
     const result = await this.agent.chatStream(chatStreamOptions)
 
-    const visitor = new StreamVisitor()
+    const visitor = new StreamVisitor({ onFinish: () => handler.onDone() })
     const streamContent = await visitor.traverse(result)
 
     const defaultMessage = {
@@ -393,40 +393,41 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       content: '',
       uiContent: []
     }
-    const robotMessage = computed(() => {
-      if (!streamContent.value) {
-        return defaultMessage
-      } else {
-        let contents = streamContent.value.steps.map((step) => step.contents).flat()
-        const uiContent = contents.map((content) => {
-          if (content.type === 'text') {
-            return {
-              type: 'markdown',
-              content: content.text
+    watch(
+      streamContent,
+      (value) => {
+        if (!value) {
+          handler.onData(defaultMessage)
+        } else {
+          let contents = value.steps.map((step) => step.contents).flat()
+          const uiContent = contents.map((content) => {
+            if (content.type === 'text') {
+              return {
+                type: 'markdown',
+                content: content.text
+              }
+            } else if (content.type === 'reasoning') {
+              return {
+                type: 'collapsible-text',
+                title: '思考过程',
+                content: content.text,
+                thinkId: content.id
+              }
+            } else if (content.type === 'tool') {
+              return {
+                type: 'tool',
+                id: content.id,
+                name: content.toolName,
+                status: content.running ? 'running' : 'success'
+              }
             }
-          } else if (content.type === 'reasoning') {
-            return {
-              type: 'collapsible-text',
-              title: '思考过程',
-              content: content.text,
-              thinkId: content.id
-            }
-          } else if (content.type === 'tool') {
-            return {
-              type: 'tool',
-              id: content.id,
-              name: content.toolName,
-              status: content.running ? 'running' : 'success'
-            }
-          }
-        })
+          })
 
-        return { ...defaultMessage, uiContent }
-      }
-    })
-    console.log('robotMessage---------', streamContent, robotMessage)
-    handler.onData(robotMessage)
-    handler.onDone()
+          handler.onData({ ...defaultMessage, uiContent })
+        }
+      },
+      { deep: true }
+    )
   }
 
   /** 同步请求不需要实现 */

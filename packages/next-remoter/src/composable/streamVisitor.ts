@@ -6,6 +6,7 @@ export interface StreamVisitorOption {
   onReasoning?: (content: ReasoningContent) => void
   onText?: (content: TextContent) => void
   onTool?: (content: ToolContent) => void
+  onFinish?: () => void
 }
 
 export interface StartContent {
@@ -175,6 +176,7 @@ export class StreamVisitor {
             startContent!.running = false
             startContent!.finishReason = event.finishReason
             startContent!.totalUsage = event.totalUsage
+            this.option.onFinish?.()
             break
           case 'source':
           case 'file':
