@@ -3,7 +3,7 @@ import type { ChatCompletionRequest } from '@opentiny/tiny-robot-kit'
 import type { StreamHandler } from '@opentiny/tiny-robot-kit'
 import { BaseModelProvider } from '@opentiny/tiny-robot-kit'
 import type { AIModelConfig } from '@opentiny/tiny-robot-kit'
-import { watch, type Ref } from 'vue'
+import { nextTick, watch, type Ref } from 'vue'
 import { AgentModelProvider, IAgentModelProviderOption } from '@opentiny/next-sdk'
 import { getToday } from './tools'
 import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
@@ -385,7 +385,13 @@ export class CustomAgentModelProvider extends BaseModelProvider {
 
     const result = await this.agent.chatStream(chatStreamOptions)
 
-    const visitor = new StreamVisitor({ onFinish: () => handler.onDone() })
+    const visitor = new StreamVisitor({
+      onFinish: () => {
+        nextTick(() => {
+          handler.onDone()
+        })
+      }
+    })
     const streamContent = await visitor.traverse(result)
 
     const defaultMessage = {
