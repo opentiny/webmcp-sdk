@@ -40,3 +40,9 @@ Thumbs.db
 packages/next-wiki/doc/.vitepress/cache
 
 /packages/next-sdk/dist
+
+# skills
+.agents
+.claude
+.cursor
+.agent
