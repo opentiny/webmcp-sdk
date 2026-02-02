@@ -125,7 +125,7 @@ pnpm wiki
 
 如果你给 OpenTiny 提交过 Issue 或 PR，可以通过在 Issue 或 Pull Request 下评论的方式，请求 @all-contributors 将你加入贡献者列表：
 
-```
+```text
 @all-contributors please add @<username> for <contributions>
 ```
 

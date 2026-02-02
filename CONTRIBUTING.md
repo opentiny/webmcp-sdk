@@ -118,14 +118,14 @@ Thank you for your contribution!
 
 ## Join OpenTiny Community
 
-If you are interested in our open source project, you are welcome to join the community in the following ways:
+If you are interested in our open-source project, you are welcome to join the community in the following ways:
 
 - Add official assistant WeChat: **opentiny-official** to join the technical exchange group.
 - Join the mailing list: <opentiny@googlegroups.com>
 
 If you have submitted an Issue or PR to OpenTiny, you can comment on the Issue or Pull Request and ask @all-contributors to add you as a contributor:
 
-```
+```text
 @all-contributors please add @<username> for <contributions>
 ```
 

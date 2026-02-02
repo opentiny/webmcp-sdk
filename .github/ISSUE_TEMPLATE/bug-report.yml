@@ -1,7 +1,7 @@
 name: '🐛 Bug report'
 description: Create a report to help us improve OpenTiny NEXT-SDKs
 title: '🐛 [Bug]: '
-labels: ['🐛  bug']
+labels: ['bug']
 body:
   - type: markdown
     attributes:
