@@ -1,5 +1,5 @@
 blank_issues_enabled: true
 contact_links:
-  - name: Questions or need help
+  - name: Questions or need help (OpenTiny NEXT-SDKs)
     url: https://github.com/opentiny/next-sdk/discussions
-    about: Add this WeChat(opentiny-official), we will invite you to the WeChat discussion group later.
+    about: Ask questions or discuss ideas in Discussions; add WeChat opentiny-official to join the community.

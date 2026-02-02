@@ -1,5 +1,5 @@
 name: '🐛 Bug report'
-description: Create a report to help us improve Tiny Vue
+description: Create a report to help us improve OpenTiny NEXT-SDKs
 title: '🐛 [Bug]: '
 labels: ['🐛  bug']
 body:
@@ -8,20 +8,21 @@ body:
       value: |
         Please fill out the following carefully in order to better fix the problem.
   - type: input
-    id: tiny-vue-version
+    id: next-sdk-version
     attributes:
-      label: Version
+      label: Version of @opentiny/next-sdk (and @opentiny/next-remoter if applicable)
       description: |
         ### **Check if the issue is reproducible with the latest stable version.**
-        You can use the command `npm ls @opentiny/vue` to view it
-      placeholder: latest
+        You can use `pnpm ls @opentiny/next-sdk` or `npm ls @opentiny/next-sdk` to view it.
+      placeholder: e.g. latest or 0.x.x
     validations:
       required: true
   - type: input
-    id: vue-version
+    id: node-version
     attributes:
-      label: Vue Version
-      placeholder: latest
+      label: Node.js Version
+      description: Run `node -v` to get your Node version.
+      placeholder: e.g. 18.x or 20.x
     validations:
       required: true
   - type: textarea

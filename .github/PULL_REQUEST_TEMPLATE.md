@@ -1,10 +1,10 @@
-# PR
+# Pull Request (OpenTiny NEXT-SDKs)
 
 ## PR Checklist
 
 Please check if your PR fulfills the following requirements:
 
-- [ ] The commit message follows our [Commit Message Guidelines](https://github.com/opentiny/next-sdk/blob/dev/CONTRIBUTING.md)
+- [ ] The commit message follows our [Commit Message Guidelines](https://github.com/opentiny/next-sdk/blob/dev/CONTRIBUTING.md#pull-request-specification)
 - [ ] Tests for the changes have been added (for bug fixes / features)
 - [ ] Docs have been added / updated (for bug fixes / features)
 
