@@ -84,7 +84,6 @@ export class StreamVisitor {
       let textContent: TextContent
       let toolContent: ToolContent
       for await (const event of stream.fullStream) {
-        console.log('type=', event.type, event)
         switch (event.type) {
           case 'start':
             startContent = reactive({
@@ -201,7 +200,8 @@ export class StreamVisitor {
 // ai-sdk@v6 的消息流模型, 根据 qwq-plus/ qwen-flash 统计整理
 // 1. 每一个step 就是一轮对话，需要发出一次/completions 请求，会产生一次usage数据
 // 2. 消息类类似于单线程的数据流，不会交叉，自动闭合。
-// 3. 流示例：
+// 3. tool-error/tool-result 只显示1个
+// 4. 流示例：
 // {type: 'start'}
 //    {type: 'start-step', request: {…}, warnings: Array(0)}
 //       {type: 'reasoning-start', id: 'reasoning-0'}
@@ -218,6 +218,7 @@ export class StreamVisitor {
 //
 //       {type: 'tool-call', toolCallId: 'call_c03d762c3b2143fdb10636', toolName: 'callChat', input: {…}, providerExecuted: undefined,title: 'chat'}
 //           tool start running.....
+//       {type: 'tool-error', toolCallId: 'call_0d5cd79bae974a72b6d043', toolName: 'callChat', input: {…}, error:.., dynamic:false}
 //       {type: 'tool-result', toolCallId: 'call_c03d762c3b2143fdb10636', toolName: 'callChat', input: {…}, output: {…}, …}
 //
 //    {type: 'finish-step', finishReason: 'tool-calls', rawFinishReason: 'tool_calls', usage: {…}, providerMetadata: {…}, …}

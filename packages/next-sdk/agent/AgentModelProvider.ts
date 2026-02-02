@@ -600,6 +600,10 @@ export class AgentModelProvider {
         // 配置：最多保留的图片数量
         const maxImages = (options as any).maxImages ?? 3
 
+        // 模拟开启流
+        controller.enqueue({ type: 'start' })
+        controller.enqueue({ type: 'start-step' })
+
         try {
           while (stepCount < maxSteps) {
             stepCount++
@@ -619,7 +623,7 @@ export class AgentModelProvider {
               messages: messagesForModel
             })
 
-            // 收集流式输出
+            // 1、直接问，收集流式输出
             let assistantText = ''
             for await (const part of result.fullStream) {
               if (part.type === 'text-delta') {
@@ -631,8 +635,10 @@ export class AgentModelProvider {
                 })
               } else if (part.type === 'text-start') {
                 controller.enqueue({ type: 'text-start' })
-              } else if (part.type === 'text-end') {
+              } else if (part.type === 'text-end' || part.type === 'finish-step' || part.type === 'finish') {
                 // 暂时不关闭，等待检查是否有工具调用
+              } else if (part.type === 'start' || part.type === 'start-step') {
+                // 后面每一轮的start 也要忽略
               } else {
                 // 转发其他类型的事件
                 controller.enqueue(part)
@@ -645,12 +651,14 @@ export class AgentModelProvider {
             allUserMessages.push(assistantMsg)
             fullMessageHistory.push(assistantMsg)
 
-            // 解析工具调用
+            // 2、解析工具调用
             const action = parseReActAction(accumulatedText, tools)
 
             if (!action) {
               // 没有工具调用，结束流
               controller.enqueue({ type: 'text-end' })
+              controller.enqueue({ type: 'finish-step' })
+              controller.enqueue({ type: 'finish' })
               controller.close()
               self.responseMessages = fullMessageHistory
               // 触发 onFinish 回调
@@ -662,13 +670,15 @@ export class AgentModelProvider {
             if (action.toolName === 'computer' && action.arguments?.action === 'terminate') {
               // 视为对话结束
               controller.enqueue({ type: 'text-end' })
+              controller.enqueue({ type: 'finish-step' })
+              controller.enqueue({ type: 'finish' })
               controller.close()
               self.responseMessages = fullMessageHistory
               streamCompleteResolver({ messages: fullMessageHistory })
               return
             }
 
-            // 发送工具调用开始事件（符合 tiny-robot 格式）
+            // 3、是工具调用，发送工具调用开始事件（符合 tiny-robot 格式）
             const toolCallId = `react-${Date.now()}`
             controller.enqueue({
               type: 'tool-input-start',
@@ -683,8 +693,19 @@ export class AgentModelProvider {
               id: toolCallId,
               delta: argsString
             })
+            controller.enqueue({
+              type: 'tool-input-end',
+              id: toolCallId
+            })
 
-            // 执行工具调用
+            // 4、执行工具调用
+            controller.enqueue({
+              type: 'tool-call',
+              toolCallId: toolCallId,
+              toolName: action.toolName,
+              input: action.arguments
+            })
+
             const toolResult = await self._executeReActToolCall(action.toolName, action.arguments, tools)
 
             // 如果结果包含 screenshot，先提取出来，避免 JSON stringify 导致过大
@@ -716,48 +737,56 @@ export class AgentModelProvider {
               } else {
                 observationText = JSON.stringify(resultData)
               }
+
+              // 统一使用 XML 格式的 Observation，如果有截图，添加验证提示
+              let finalObservation = `<tool_response>\n${observationText}\n</tool_response>`
+
+              if (screenshot) {
+                finalObservation += `\n请检查截图以确认操作是否成功。如果成功，请继续下一步；如果失败，请重试。`
+              }
+
+              // 发送工具结果（符合 tiny-robot 格式，给 UI 展示用的，不包含 base64 防止卡顿）
+              controller.enqueue({
+                type: 'tool-result',
+                toolCallId: toolCallId,
+                result: finalObservation
+              })
+
+              // 添加工具结果到消息历史（ReAct 模式下，工具结果作为 user 消息添加）
+              const observationMessage = screenshot
+                ? {
+                    role: 'user',
+                    content: [
+                      { type: 'text', text: finalObservation },
+                      { type: 'image', image: screenshot }
+                    ]
+                  }
+                : {
+                    role: 'user',
+                    content: finalObservation
+                  }
+
+              // 添加到所有消息和完整历史
+              allUserMessages.push(observationMessage)
+              fullMessageHistory.push(observationMessage)
+
+              // 重置累积文本，准备下一轮
+              accumulatedText = ''
             } else {
               observationText = `工具执行失败 - ${toolResult.error}`
+              controller.enqueue({
+                type: 'tool-error',
+                toolCallId: toolCallId,
+                input: action.arguments,
+                error: { message: observationText }
+              })
             }
-
-            // 统一使用 XML 格式的 Observation，如果有截图，添加验证提示
-            let finalObservation = `<tool_response>\n${observationText}\n</tool_response>`
-
-            if (screenshot) {
-              finalObservation += `\n请检查截图以确认操作是否成功。如果成功，请继续下一步；如果失败，请重试。`
-            }
-
-            // 发送工具结果（符合 tiny-robot 格式，给 UI 展示用的，不包含 base64 防止卡顿）
-            controller.enqueue({
-              type: 'tool-result',
-              toolCallId: toolCallId,
-              result: finalObservation
-            })
-
-            // 添加工具结果到消息历史（ReAct 模式下，工具结果作为 user 消息添加）
-            const observationMessage = screenshot
-              ? {
-                  role: 'user',
-                  content: [
-                    { type: 'text', text: finalObservation },
-                    { type: 'image', image: screenshot }
-                  ]
-                }
-              : {
-                  role: 'user',
-                  content: finalObservation
-                }
-
-            // 添加到所有消息和完整历史
-            allUserMessages.push(observationMessage)
-            fullMessageHistory.push(observationMessage)
-
-            // 重置累积文本，准备下一轮
-            accumulatedText = ''
           }
 
           // 达到最大步数
           controller.enqueue({ type: 'text-end' })
+          controller.enqueue({ type: 'finish-step' })
+          controller.enqueue({ type: 'finish' })
           controller.close()
           self.responseMessages = fullMessageHistory
           // 触发 onFinish 回调
