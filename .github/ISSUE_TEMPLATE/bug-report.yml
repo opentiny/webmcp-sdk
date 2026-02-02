@@ -1,0 +1,70 @@
+name: '🐛 Bug report'
+description: Create a report to help us improve OpenTiny NEXT-SDKs
+title: '🐛 [Bug]: '
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please fill out the following carefully in order to better fix the problem.
+  - type: input
+    id: next-sdk-version
+    attributes:
+      label: Version of @opentiny/next-sdk (and @opentiny/next-remoter if applicable)
+      description: |
+        ### **Check if the issue is reproducible with the latest stable version.**
+        You can use `pnpm ls @opentiny/next-sdk` or `npm ls @opentiny/next-sdk` to view it.
+      placeholder: e.g. latest or 0.x.x
+    validations:
+      required: true
+  - type: input
+    id: node-version
+    attributes:
+      label: Node.js Version
+      description: Run `node -v` to get your Node version.
+      placeholder: e.g. 18.x or 20.x
+    validations:
+      required: true
+  - type: textarea
+    id: minimal-repo
+    attributes:
+      label: Link to minimal reproduction
+      description: |
+        **Provide a streamlined CodePen / CodeSandbox or GitHub repository link as much as possible. Please don't fill in a link randomly, it will only close your issue directly.**
+      placeholder: Please Input
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Step to reproduce
+      description: |
+        **After the replay is turned on, what actions do we need to perform to make the bug appear? Simple and clear steps can help us locate the problem more quickly. Please clearly describe the steps of reproducing the issue. Issues without clear reproducing steps will not be repaired. If the issue marked with 'need reproduction' does not provide relevant steps within 7 days, it will be closed directly.**
+      placeholder: Please Input
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What is expected
+      placeholder: Please Input
+  - type: textarea
+    id: actually
+    attributes:
+      label: What is actually happening
+      placeholder: Please Input
+  - type: input
+    id: project-name
+    attributes:
+      label: What is your project name
+      description: We also welcome you to fill in more detailed project information.
+      placeholder: Please Input
+    validations:
+      required: true
+  - type: textarea
+    id: additional-comments
+    attributes:
+      label: Any additional comments (optional)
+      description: |
+        **Some background / context of how you ran into this bug.**
+      placeholder: Please Input
