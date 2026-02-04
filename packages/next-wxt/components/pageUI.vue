@@ -13,10 +13,19 @@ const status = defineModel('status', { type: String, default: 'ready' })
 /** 要显示的消息, 目前传入的就是toolName */
 const message = defineModel('message', { type: String, default: '' })
 
+const visible = ref(true)
+const isDragging = ref(false)
+const position = reactive({ x: window.innerWidth - 100, y: window.innerHeight - 100 })
+let startX = 0
+let startY = 0
+let initialX = 0
+let initialY = 0
+
 // 处理动画状态更新的通用函数
 const updateAnimationStatus = (data: { status: string; message: string }) => {
   if (data.status === 'run') {
     sendRuntimeMessage('focus-current-tab', data, 'content->bg')
+    visible.value = true // Ensure visible when running
   }
 
   status.value = data.status
@@ -48,26 +57,110 @@ onWindowMessage(
   },
   'page->content'
 )
+
+const handleMouseDown = (e: MouseEvent) => {
+  isDragging.value = true
+  startX = e.clientX
+  startY = e.clientY
+  initialX = position.x
+  initialY = position.y
+
+  document.addEventListener('mousemove', handleMouseMove)
+  document.addEventListener('mouseup', handleMouseUp)
+}
+
+const handleMouseMove = (e: MouseEvent) => {
+  if (!isDragging.value) return
+  const dx = e.clientX - startX
+  const dy = e.clientY - startY
+  position.x = initialX + dx
+  position.y = initialY + dy
+}
+
+const handleMouseUp = () => {
+  isDragging.value = false
+  document.removeEventListener('mousemove', handleMouseMove)
+  document.removeEventListener('mouseup', handleMouseUp)
+}
+
+const handleClose = () => {
+  visible.value = false
+}
 </script>
 
 <template>
-  <AiSvgReady class="wxt-ingt-svg" v-if="status === 'ready'"></AiSvgReady>
-  <AiSvgRun class="wxt-ingt-svg" v-else></AiSvgRun>
   <div class="wxt-ingt-breath"></div>
-  <div class="wxt-ingt-message">
-    <img src="@/assets/loading.webp" class="wxt-message__loading" />
-    <span class="wxt-message__text">正在调用</span>
-    <span class="wxt-message__toolname"> {{ message }} </span>
+
+  <div
+    v-show="visible"
+    class="wxt-ui-container"
+    :style="{ left: `${position.x}px`, top: `${position.y}px` }"
+    @mousedown="handleMouseDown"
+  >
+    <div class="wxt-icon-wrapper">
+      <AiSvgReady class="wxt-ingt-svg" v-if="status === 'ready'"></AiSvgReady>
+      <AiSvgRun class="wxt-ingt-svg" v-else></AiSvgRun>
+      <div class="wxt-close-btn" @click.stop="handleClose" title="关闭悬浮窗">✕</div>
+    </div>
+
+    <div class="wxt-ingt-message">
+      <img src="@/assets/loading.webp" class="wxt-message__loading" />
+      <span class="wxt-message__text">正在调用</span>
+      <span class="wxt-message__toolname"> {{ message }} </span>
+    </div>
   </div>
 </template>
 
 <style>
-[data-wxt-integrated] .wxt-ingt-svg {
+[data-wxt-integrated] .wxt-ui-container {
   position: fixed;
-  right: 140px;
-  bottom: 40px;
+  z-index: 99999;
+  user-select: none;
+  cursor: move;
+  /* Ensure drag keeps elements together */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+[data-wxt-integrated] .wxt-icon-wrapper {
+  position: relative;
   width: 48px;
   height: 48px;
+  /* So close button is relative to this */
+}
+
+[data-wxt-integrated] .wxt-ingt-svg {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: white; /* Ensure visibility */
+  pointer-events: none; /* Let clicks pass to container or handle explicitly */
+}
+
+/* Close button style */
+[data-wxt-integrated] .wxt-close-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 16px;
+  height: 16px;
+  background: #f5222d;
+  color: white;
+  border-radius: 50%;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: auto; /* Enable click */
+}
+
+[data-wxt-integrated] .wxt-ui-container:hover .wxt-close-btn {
+  opacity: 1;
 }
 
 [data-wxt-integrated] .wxt-ingt-breath {
@@ -76,53 +169,56 @@ onWindowMessage(
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 99999;
+  z-index: 99998;
   pointer-events: none;
   display: none;
 }
 
 [data-wxt-integrated].wxt-ingt-active .wxt-ingt-breath {
   display: block;
-  /* box-shadow: inset 0 0 40px 10px rgba(1, 70, 116, 0.3); */
   animation: breathing-inset 1.3s infinite;
 }
 
+/* Message Bubble */
 [data-wxt-integrated] .wxt-ingt-message {
-  display: flex;
+  display: none; /* Hidden by default */
   gap: 8px;
-  position: fixed;
-  right: 164px;
-  bottom: 90px;
-  transform: translate(50%, 0);
-  z-index: 99999;
-  pointer-events: none;
 
+  /* Position relative to the container/icon */
+  position: absolute;
+  right: 60px; /* To the left of the icon */
+  top: 50%;
+  transform: translateY(-50%);
+
+  white-space: nowrap;
   background: #f3f8ff;
   border: 1px solid #1476ff80;
   border-radius: 99px;
-  padding: 16px 28px;
+  padding: 10px 20px;
   font-size: 14px;
   line-height: 20px;
-  display: none;
+  pointer-events: none;
 }
 
 /** 设置小三角 */
 [data-wxt-integrated] .wxt-ingt-message::after {
   position: absolute;
-  transform: translate(-50%, -50%) rotate(45deg);
+  transform: translate(0, -50%) rotate(-90deg); /* Point right */
   display: block;
-  width: 12px;
-  height: 12px;
+  width: 10px;
+  height: 10px;
   z-index: 1;
   content: ' ';
 
   border: 1px solid #1476ff80;
   background-color: #f3f8ff;
   border-radius: 2px;
+  border-bottom: none;
+  border-left: none;
 
-  clip-path: polygon(0 100%, 100% 100%, 100% 0);
-  top: 100%;
-  left: 50%;
+  top: 50%;
+  right: -6px; /* Position at the right edge of bubble */
+  clip-path: polygon(0 0, 100% 0, 100% 100%);
 }
 
 [data-wxt-integrated] .wxt-message__loading {
@@ -138,11 +234,11 @@ onWindowMessage(
   font-weight: 500;
 }
 
+/* Show message when active */
 [data-wxt-integrated].wxt-ingt-active .wxt-ingt-message {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
 }
 
 /* 呼吸灯动画关键帧，控制内部阴影和透明度变化 */
