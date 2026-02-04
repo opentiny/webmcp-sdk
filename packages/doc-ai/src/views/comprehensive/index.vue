@@ -10,13 +10,6 @@
         :data="products"
         :height="500"
         :edit-config="{ trigger: 'click', mode: 'cell', showStatus: true }"
-        :tiny_mcp_config="{
-          server,
-          business: {
-            id: 'product-list',
-            description: '商品列表'
-          }
-        }"
       >
         <tiny-grid-column type="index" width="50" />
         <tiny-grid-column type="selection" width="50" />
@@ -78,38 +71,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, inject, onMounted } from 'vue'
+import { ref } from 'vue'
 import productsData from './products.json'
-import { WebMcpServer, z } from '@opentiny/next-sdk'
 
 const products = ref(productsData)
-const mcpServer = inject('mcpServer') as { transport: any; capabilities: any }
-const server = new WebMcpServer({ name: 'base-config', version: '1.0.0' }, { capabilities: mcpServer.capabilities })
 
 const categoryLabels: Record<string, string> = {
   phones: '手机',
   laptops: '笔记本',
   tablets: '平板'
 }
-
-server.registerTool(
-  'get-weather',
-  {
-    description: '获取天气',
-    inputSchema: {
-      city: z.string()
-    }
-  },
-  async ({ city }: { city: string }) => {
-    return {
-      content: [{ type: 'text', text: `天气信息：${city}晴天` }]
-    }
-  }
-)
-
-onMounted(async () => {
-  await server.connect(mcpServer.transport)
-})
 </script>
 
 <style scoped lang="less">
