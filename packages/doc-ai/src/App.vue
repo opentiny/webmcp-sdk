@@ -4,17 +4,12 @@
     <div class="main-content">
       <router-view />
     </div>
-    <tiny-remoter :sessionId="sessionId" :menuItems="menuItems">
-      <template #chat v-if="isAntDesignX">
-        <ant-design-x></ant-design-x>
-      </template>
-    </tiny-remoter>
+    <tiny-remoter :sessionId="sessionId" :menuItems="menuItems"> </tiny-remoter>
   </div>
 </template>
 
 <script setup lang="ts">
 import { TinyRemoter } from '@opentiny/next-remoter'
-import antDesignX from './components/ant-design-x.vue'
 import { WebMcpClient, createMessageChannelPairTransport } from '@opentiny/next-sdk'
 import type { Transport, MenuItemConfig } from '@opentiny/next-sdk'
 import { AGENT_ROOT } from './const'
@@ -22,10 +17,6 @@ import { provide, ref } from 'vue'
 
 const [serverTransport, clientTransport] = createMessageChannelPairTransport()
 const menuItems = ref<MenuItemConfig[]>([])
-const query = new URLSearchParams(window.location.search)
-const dialogId = query.get('dialog')
-
-const isAntDesignX = dialogId === 'ant'
 
 menuItems.value = [
   {
