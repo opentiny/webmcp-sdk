@@ -13,6 +13,9 @@ const status = defineModel('status', { type: String, default: 'ready' })
 /** 要显示的消息, 目前传入的就是toolName */
 const message = defineModel('message', { type: String, default: '' })
 
+// 国际化文本常量
+const CALLING_TEXT = '正在调用'
+
 const visible = ref(true)
 const isDragging = ref(false)
 const position = reactive({ x: window.innerWidth - 100, y: window.innerHeight - 100 })
@@ -20,6 +23,17 @@ let startX = 0
 let startY = 0
 let initialX = 0
 let initialY = 0
+
+// 确保浮窗位置在可视区域内
+const clampPosition = () => {
+  const maxX = window.innerWidth - 48
+  const maxY = window.innerHeight - 48
+  position.x = Math.max(0, Math.min(position.x, maxX))
+  position.y = Math.max(0, Math.min(position.y, maxY))
+}
+
+// 初始化位置时进行边界检查
+clampPosition()
 
 // 处理动画状态更新的通用函数
 const updateAnimationStatus = (data: { status: string; message: string }) => {
@@ -73,8 +87,11 @@ const handleMouseMove = (e: MouseEvent) => {
   if (!isDragging.value) return
   const dx = e.clientX - startX
   const dy = e.clientY - startY
-  position.x = initialX + dx
-  position.y = initialY + dy
+  const newX = initialX + dx
+  const newY = initialY + dy
+  // 限制浮窗在屏幕范围内,至少保留48px可见
+  position.x = Math.max(0, Math.min(newX, window.innerWidth - 48))
+  position.y = Math.max(0, Math.min(newY, window.innerHeight - 48))
 }
 
 const handleMouseUp = () => {
@@ -86,6 +103,18 @@ const handleMouseUp = () => {
 const handleClose = () => {
   visible.value = false
 }
+
+// 监听窗口大小变化,确保浮窗保持在可视区域内
+onMounted(() => {
+  window.addEventListener('resize', clampPosition)
+})
+
+// 组件卸载时清理事件监听器,防止内存泄漏
+onUnmounted(() => {
+  window.removeEventListener('resize', clampPosition)
+  document.removeEventListener('mousemove', handleMouseMove)
+  document.removeEventListener('mouseup', handleMouseUp)
+})
 </script>
 
 <template>
@@ -105,7 +134,7 @@ const handleClose = () => {
 
     <div class="wxt-ingt-message">
       <img src="@/assets/loading.webp" class="wxt-message__loading" />
-      <span class="wxt-message__text">正在调用</span>
+      <span class="wxt-message__text">{{ CALLING_TEXT }}</span>
       <span class="wxt-message__toolname"> {{ message }} </span>
     </div>
   </div>
