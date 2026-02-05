@@ -24,9 +24,19 @@ AI Extension 是一个基于 WXT 框架开发的浏览器扩展插件，它提�
 
 ### 获取扩展文件
 
+您可以选择以下两种方式之一获取扩展文件：
+
+#### 方式一：下载压缩包（推荐普通用户）
+
 访问扩展下载地址，下载扩展 ZIP 文件：
 
 **下载地址**：<https://docs.opentiny.design/download/extension-0.0.1.zip>
+
+#### 方式二：本地构建（推荐开发者）
+
+如果您是开发者，可以下载源码并在本地构建扩展。构建方法请参考 [mcp-servers 扩展插件工具开发指南](./ai-extension-next-wxt.md) 中的 **"打包与部署"** 章节。
+
+构建完成后，您将获得一个 `chrome-mv3-open-prod` 文件夹，这就是已解压的扩展程序。
 
 下载完成后，你会得到一个 ZIP 压缩文件，例如 `extension.zip`。
 
@@ -79,7 +89,7 @@ AI Extension 是一个基于 WXT 框架开发的浏览器扩展插件，它提�
 #### 步骤五：确认安装
 
 1. 扩展加载成功后，会在扩展管理页面显示
-![](../assets/images/extension/2.png)
+   ![](../assets/images/extension/2.png)
 2. 检查扩展是否已启用（开关处于开启状态）
 3. 检查 User Scripts 权限是否已开启（如果使用了 `pageMcpServer` 类型的工具）
 4. 如果扩展图标显示在浏览器工具栏，说明安装成功
@@ -109,7 +119,7 @@ AI Extension 是一个基于 WXT 框架开发的浏览器扩展插件，它提�
 
 1. 在扩展管理页面，找到已安装的扩展卡片
 2. 点击扩展卡片上的"详细信息"或展开按钮
-![](../assets/images/extension/4.png)
+   ![](../assets/images/extension/4.png)
 3. 找到"User Scripts"或"用户脚本"选项
 4. 将开关切换到"开启"状态
 

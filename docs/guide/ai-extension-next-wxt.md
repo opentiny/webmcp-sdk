@@ -112,14 +112,16 @@ mkdir -p packages/next-wxt/mcp-servers/example.com
 
 ```typescript
 export default {
-  name: 'example.com',                    // 必填：域名标识
-  type: 'contentScriptMcpServer',         // 必填：MCP 服务器类型
-  url: 'https://example.com',             // 必填：目标网站 URL
-  isAlwaysEnabled: true,                  // 必填：是否始终启用
-  toolsJumpLinks: {                       // 可选：工具跳转链接映射
+  name: 'example.com', // 必填：域名标识
+  type: 'contentScriptMcpServer', // 必填：MCP 服务器类型
+  url: 'https://example.com', // 必填：目标网站 URL
+  isAlwaysEnabled: true, // 必填：是否始终启用
+  toolsJumpLinks: {
+    // 可选：工具跳转链接映射
     'tool-name': 'https://example.com/path'
   },
-  customMarketMcpServers: [               // 可选：自定义 MCP 市场服务列表
+  customMarketMcpServers: [
+    // 可选：自定义 MCP 市场服务列表
     {
       id: 'ppt-mcp',
       name: 'PPT文档MCP服务器',
@@ -132,7 +134,7 @@ export default {
       tools: []
     }
   ],
-  version: '1.0.0'                        // 必填：版本号
+  version: '1.0.0' // 必填：版本号
 }
 ```
 
@@ -184,7 +186,7 @@ name: 'example.com'
 - 工具调用会失败，并显示错误信息
 
 ```typescript
-type: 'contentScriptMcpServer'  // 或 'pageMcpServer'
+type: 'contentScriptMcpServer' // 或 'pageMcpServer'
 ```
 
 #### url（必填）
@@ -208,7 +210,7 @@ url: 'https://example.com'
 - **推荐**：对于常用的工具，建议设置为 `true`，提高工具的可用性
 
 ```typescript
-isAlwaysEnabled: true  // 或 false
+isAlwaysEnabled: true // 或 false
 ```
 
 #### toolsJumpLinks（可选）
@@ -399,16 +401,16 @@ export default ({ server, z, cookie }) => {
       // 使用 cookie 参数
       const userId = cookie['user_id']
       const token = cookie['auth_token']
-      
+
       if (!userId || !token) {
         return {
           content: [{ type: 'text', text: '用户未登录' }]
         }
       }
-      
+
       // 执行需要认证的操作
       // ...
-      
+
       return {
         content: [{ type: 'text', text: `用户ID: ${userId}` }]
       }
@@ -419,61 +421,7 @@ export default ({ server, z, cookie }) => {
 
 ### 工具注册完整示例
 
-#### 示例一：简单工具（获取页面标题）
-
-```typescript
-// packages/next-wxt/mcp-servers/www.baidu.com/index.ts
-export default ({ server, z }) => {
-  server.registerTool(
-    'get-page-title',
-    {
-      title: '获取页面标题',
-      description: '获取当前页面的标题文本'
-    },
-    async () => {
-      const title = document.title
-      return {
-        content: [{ type: 'text', text: title }]
-      }
-    }
-  )
-}
-```
-
-#### 示例二：带参数的工具（填充搜索框）
-
-```typescript
-// packages/next-wxt/mcp-servers/www.baidu.com/index.ts
-export default ({ server, z }) => {
-  server.registerTool(
-    'fill-search-box',
-    {
-      title: '填充搜索框',
-      description: '在搜索框中填充指定的文本内容',
-      inputSchema: {
-        text: z.string().describe('要填充的文本内容')
-      }
-    },
-    async ({ text }) => {
-      const searchBox = document.querySelector('#kw') // 百度搜索框的选择器
-      if (searchBox) {
-        searchBox.value = text
-        // 触发输入事件，确保页面能识别输入
-        searchBox.dispatchEvent(new Event('input', { bubbles: true }))
-        return {
-          content: [{ type: 'text', text: `已填充文本: ${text}` }]
-        }
-      } else {
-        return {
-          content: [{ type: 'text', text: '未找到搜索框' }]
-        }
-      }
-    }
-  )
-}
-```
-
-#### 示例三：复杂工具（使用 Cookie）
+#### 示例一：复杂工具（使用 Cookie）
 
 ```typescript
 // packages/next-wxt/mcp-servers/example.com/index.ts
@@ -493,7 +441,7 @@ export default ({ server, z, cookie }) => {
           content: [{ type: 'text', text: '用户未登录，请先登录' }]
         }
       }
-      
+
       // 模拟获取用户信息
       try {
         // 这里可以调用 API 或从 DOM 中提取信息
@@ -502,19 +450,23 @@ export default ({ server, z, cookie }) => {
           email: 'user@example.com',
           role: 'admin'
         }
-        
+
         return {
-          content: [{ 
-            type: 'text', 
-            text: JSON.stringify(userInfo, null, 2) 
-          }]
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(userInfo, null, 2)
+            }
+          ]
         }
       } catch (error) {
         return {
-          content: [{ 
-            type: 'text', 
-            text: `获取用户信息失败: ${error.message}` 
-          }]
+          content: [
+            {
+              type: 'text',
+              text: `获取用户信息失败: ${error.message}`
+            }
+          ]
         }
       }
     }
@@ -522,7 +474,7 @@ export default ({ server, z, cookie }) => {
 }
 ```
 
-#### 示例四：多工具注册
+#### 示例二：多工具注册
 
 ```typescript
 // packages/next-wxt/mcp-servers/opentiny.design/index.ts
@@ -544,7 +496,7 @@ export default ({ server, z }) => {
       }
     }
   )
-  
+
   // 工具二：获取页面元素
   server.registerTool(
     'get-elements',
@@ -564,12 +516,14 @@ export default ({ server, z }) => {
         className: el.className,
         id: el.id
       }))
-      
+
       return {
-        content: [{ 
-          type: 'text', 
-          text: JSON.stringify(result, null, 2) 
-        }]
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(result, null, 2)
+          }
+        ]
       }
     }
   )
@@ -619,10 +573,12 @@ try {
   }
 } catch (error) {
   return {
-    content: [{ 
-      type: 'text', 
-      text: `执行失败: ${error.message}` 
-    }]
+    content: [
+      {
+        type: 'text',
+        text: `执行失败: ${error.message}`
+      }
+    ]
   }
 }
 ```
@@ -686,3 +642,23 @@ try {
 6. 返回正确格式的结果
 
 如果你在开发过程中遇到问题，可以参考项目中的示例代码，或查看浏览器控制台的错误信息。
+
+## 打包与部署
+
+### 打包命令
+
+在项目根目录运行以下命令进行打包：
+
+```bash
+pnpm build:wxt
+```
+
+构建产物将输出到 `packages/next-wxt/.output/chrome-mv3-open-prod` 目录。
+
+### 安装说明
+
+与下载压缩包不同，本地构建的产物是**已解压的扩展程序**，可以直接加载。
+
+请参考 [扩展插件安装指南](./ai-extension-install.md) 中的 **"加载已解压的扩展程序"** 相关步骤进行安装。
+
+**注意**：安装完成后，请务必检查并开启 **User Scripts** 权限，否则部分功能可能无法正常使用。
