@@ -1,0 +1,35 @@
+{
+  "skills": [
+    {
+      "name": "search_guide",
+      "description": "搜索商品管理指南中的相关内容",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "keyword": {
+            "type": "string",
+            "description": "要搜索的关键词，例如：库存、价格、商品创建"
+          }
+        },
+        "required": ["keyword"]
+      },
+      "handler": "searchGuideHandler"
+    },
+    {
+      "name": "get_section",
+      "description": "获取商品管理指南的特定章节内容",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "section": {
+            "type": "string",
+            "enum": ["商品创建", "库存管理", "价格管理"],
+            "description": "要获取的章节名称"
+          }
+        },
+        "required": ["section"]
+      },
+      "handler": "getSectionHandler"
+    }
+  ]
+}

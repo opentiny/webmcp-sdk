@@ -80,6 +80,33 @@ const createProxyTransport = async () => {
 }
 
 createProxyTransport()
+
+// --- Web Skill Integration Start ---
+import { loadAllSkills } from './skill-runtime/loader'
+
+// 使用自动加载器初始化技能系统
+const skillRegistry = await loadAllSkills()
+
+// 暴露给 window 以便控制台调试验证
+// @ts-ignore
+window.skillRegistry = skillRegistry
+
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+console.log('🎯 Web Skill System (Clean Architecture)')
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+console.log(
+  'Available skills:',
+  skillRegistry
+    .getAllSkills()
+    .map((s) => s.name)
+    .join(', ')
+)
+console.log('\n💡 Try these commands:')
+console.log('  await window.skillRegistry.executeSkill("calculator", { a: 10, b: 5, operation: "add" })')
+console.log('  await window.skillRegistry.executeSkill("search_guide", { keyword: "库存" })')
+console.log('  await window.skillRegistry.executeSkill("get_section", { section: "商品创建" })')
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+// --- Web Skill Integration End ---
 </script>
 
 <style scoped></style>

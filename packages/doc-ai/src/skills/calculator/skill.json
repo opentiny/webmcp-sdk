@@ -1,0 +1,24 @@
+{
+  "name": "calculator",
+  "description": "执行基本算术运算（加、减、乘、除）",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "a": {
+        "type": "number",
+        "description": "第一个数字"
+      },
+      "b": {
+        "type": "number",
+        "description": "第二个数字"
+      },
+      "operation": {
+        "type": "string",
+        "enum": ["add", "subtract", "multiply", "divide"],
+        "description": "要执行的运算"
+      }
+    },
+    "required": ["a", "b", "operation"]
+  },
+  "handler": "calculatorHandler"
+}

@@ -1,0 +1,15 @@
+{
+  "name": "read_doc",
+  "description": "从虚拟文件系统读取文档文件。可以读取 URL 或本地打包资源。",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "path": {
+        "type": "string",
+        "description": "文档文件的路径。可以是 URL (http/https) 或打包资源的相对路径。"
+      }
+    },
+    "required": ["path"]
+  },
+  "handler": "readDocHandler"
+}
