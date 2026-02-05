@@ -9,6 +9,7 @@ import { TrSuggestionPillButton, TrDropdownMenu } from '@opentiny/tiny-robot'
 import { AGENT_ROOT, ROBOT_URL } from './const'
 import { useGenerateCode } from './composable/useGenerateCode'
 import RecordModal from './components/RecordModal.vue'
+import QrCodeDialog from './components/QrCodeDialog.vue'
 import { getAllSkills } from '@/skills'
 import { RENDERER_SETTINGS_KEY } from '@opentiny/genui-sdk-vue'
 import { CustomFunction } from '@/utils/customFunction'
@@ -103,6 +104,21 @@ const closeRecordModal = () => {
   isRecordModalVisible.value = false
 }
 
+// 二维码对话框状态管理
+const isQrCodeDialogVisible = ref(false)
+const qrCodeUrl = ref('')
+const qrCodeTitle = ref('')
+
+const openQrCodeDialog = (url: string, title: string = '扫码访问') => {
+  qrCodeUrl.value = url
+  qrCodeTitle.value = title
+  isQrCodeDialogVisible.value = true
+}
+
+const closeQrCodeDialog = () => {
+  isQrCodeDialogVisible.value = false
+}
+
 const handleStartRecording = async () => {
   try {
     await startRecording()
@@ -149,16 +165,32 @@ const pillItems = computed(() => {
         {
           id: 'copy-session-id-url',
           text: `遥控器地址：${shareUrl}`
+        },
+        {
+          id: 'show-qrcode',
+          text: '展示遥控器二维码'
         }
       ]
     }
   ]
 })
 
-// 处理药丸按钮菜单项点击事件，复制文本到剪贴板（中文注释：点击识别码或URL时自动复制到剪贴板，只复制冒号后面的内容）
+// 处理药丸按钮菜单项点击事件，复制文本到剪贴板或展示二维码（中文注释：点击识别码或URL时自动复制到剪贴板，点击展示二维码时弹出对话框）
 async function handlePillItemClick(item: any) {
   if (!item?.text) {
     console.warn('handlePillItemClick: item.text 不存在')
+    return
+  }
+
+  // 如果是展示二维码菜单项，则打开二维码对话框
+  if (item.id === 'show-qrcode') {
+    const sessionIdStr = typeof sessionId.value === 'string' ? sessionId.value : ''
+    const shareUrl = sessionIdStr ? `${ROBOT_URL}?sessionId=${sessionIdStr}` : ''
+    if (shareUrl && shareUrl !== '会话尚未建立') {
+      openQrCodeDialog(shareUrl, '遥控器地址二维码')
+    } else {
+      showToast('会话尚未建立，无法生成二维码')
+    }
     return
   }
 
@@ -234,6 +266,7 @@ browser.runtime.onMessage.addListener((message) => {
       @start-recording="handleStartRecording"
       @stop-recording="handleStopRecording"
     />
+    <QrCodeDialog :visible="isQrCodeDialogVisible" :url="qrCodeUrl" :title="qrCodeTitle" @close="closeQrCodeDialog" />
   </div>
 </template>
 
