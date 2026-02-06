@@ -3,7 +3,6 @@ import { onMounted, onUnmounted, ref } from 'vue'
 import { CustomAgentModelProvider } from './CustomAgentModelProvider'
 import { TrSender } from '@opentiny/tiny-robot'
 import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
-import tokenUsageVue from '../components/tokenUsage.vue'
 
 interface useTinyRobotOption {
   systemPrompt: string
