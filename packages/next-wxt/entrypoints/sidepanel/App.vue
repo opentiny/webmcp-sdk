@@ -5,7 +5,7 @@ import { useBrowserExtensions } from './composable/useBrowserExtensions'
 import { useWebAgentServer } from './composable/useWebAgentServer'
 import TinyUser from '@opentiny/vue-user'
 import { useCustomMarketMcpServers } from './composable/useCustomMarketMcpServers'
-import { TrSuggestionPillButton, TrDropdownMenu } from '@opentiny/tiny-robot'
+import { TrSuggestionPillButton, TrDropdownMenu, Welcome } from '@opentiny/tiny-robot'
 import { AGENT_ROOT, ROBOT_URL } from './const'
 import { useGenerateCode } from './composable/useGenerateCode'
 import RecordModal from './components/RecordModal.vue'
@@ -211,6 +211,15 @@ browser.runtime.onMessage.addListener((message) => {
           自定义添加
         </button>
       </template> -->
+      <template #operations>
+        <!-- 自定义头部操作按钮 -->
+        <button>自定义操作</button>
+        <!-- 或者保留默认功能，添加额外按钮 -->
+        <button>导出对话</button>
+      </template>
+      <template #welcome>
+        <h1>欢迎使用</h1>
+      </template>
       <template #suggestions>
         <div class="chat-input-pills">
           <tr-dropdown-menu
