@@ -424,7 +424,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
                 type: 'tool',
                 id: content.id,
                 name: content.toolName,
-                status: content.running ? 'running' : 'success'
+                status: content.error ? 'failed' : content.running ? 'running' : 'success'
               }
             }
           })
