@@ -13,6 +13,7 @@ import type { ProviderV2 } from '@ai-sdk/provider'
 import type { OpenAIProvider } from '@ai-sdk/openai'
 import { GENUI_CONFIG } from '../config/genui-config'
 import { StreamVisitor } from './streamVisitor'
+import { extractTextAndJson } from './handleSchema'
 
 const DEFAULT_SHARED_CONFIG = {
   model: 'deepseek-ai/DeepSeek-V3',
@@ -394,6 +395,8 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     })
     const streamContent = await visitor.traverse(result)
 
+    console.log(streamContent)
+
     const defaultMessage = {
       role: 'assistant',
       content: '',
@@ -408,10 +411,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
           let contents = value.steps.map((step) => step.contents).flat()
           const uiContent = contents.map((content) => {
             if (content.type === 'text') {
-              return {
-                type: 'markdown',
-                content: content.text
-              }
+              return extractTextAndJson(content.text)
             } else if (content.type === 'reasoning') {
               return {
                 type: 'collapsible-text',
@@ -429,7 +429,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
             }
           })
 
-          handler.onData({ ...defaultMessage, uiContent })
+          handler.onData({ ...defaultMessage, uiContent: uiContent.flat() })
         }
       },
       { deep: true }
