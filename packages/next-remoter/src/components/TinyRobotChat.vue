@@ -400,7 +400,6 @@ const contentRenderer = {
       customActions: {
         continueChat: {
           execute: (params: any) => {
-            debugger
             const content = typeof params === 'string' ? params : params.message
             addMessage({
               role: 'user',
