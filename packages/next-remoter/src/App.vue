@@ -6,6 +6,7 @@
       v-model:fullscreen="fullscreen"
       v-model:selectedModelId="selectedModelId"
       :title="title"
+      :gen-ui-able="true"
       :locale="locale"
       :sessionId="sessionId"
       :agentRoot="agentRoot"
@@ -115,7 +116,7 @@ const llmConfigs = ref([
     label: 'DeepSeek-V3',
     model: 'deepseek-ai/DeepSeek-V3',
     apiKey: 'sk-trial',
-    baseURL: 'https://agent.opentiny.design/api/v1/ai',
+    baseURL: 'https://agent.opentiny.design/api/v1/ai/prompt',
     providerType: 'deepseek',
     useReActMode: false,
     icon: markRaw(IconModelDeepseek as unknown as Component)

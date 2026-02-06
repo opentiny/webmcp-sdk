@@ -164,7 +164,7 @@ import {
   type MentionItem
 } from '@opentiny/tiny-robot'
 
-import { SchemaRenderer } from '@opentiny/genui-sdk-vue'
+import { GenuiRenderer } from '@opentiny/genui-sdk-vue'
 import { GeneratingStatus, STATUS } from '@opentiny/tiny-robot-kit'
 import { IconNewSession, IconHistory } from '@opentiny/tiny-robot-svgs'
 import { useTinyRobotChat } from '../composable/useTinyRobotChat'
@@ -395,15 +395,21 @@ if (props.inBrowserExt) {
 const contentRenderer = {
   markdown: new BubbleMarkdownContentRenderer({ mdConfig: { html: true } }),
   'schema-card': (schemaCardProps: any) =>
-    h(SchemaRenderer, {
+    h(GenuiRenderer, {
       ...schemaCardProps,
-      onAction: ({ llmFriendlyMessage, humanFriendlyMessage }: any) => {
-        addMessage({
-          role: 'user',
-          content: llmFriendlyMessage,
-          uiContent: [{ type: 'text', content: humanFriendlyMessage }]
-        })
-        send()
+      customActions: {
+        continueChat: {
+          execute: (params: any) => {
+            debugger
+            const content = typeof params === 'string' ? params : params.message
+            addMessage({
+              role: 'user',
+              content,
+              uiContent: [{ type: 'text', content }]
+            })
+            send()
+          }
+        }
       },
       generating: GeneratingStatus.includes(messageState.status),
       customComponents: props.genUiComponents,
