@@ -399,12 +399,13 @@ const contentRenderer = {
       ...schemaCardProps,
       customActions: {
         continueChat: {
-          execute: (params: any) => {
-            const content = typeof params === 'string' ? params : params.message
+          execute: (params: any, context: any) => {
+            const humanFriendlyMessage = typeof params === 'string' ? params : params.message
+            const llmFriendlyMessage = `${humanFriendlyMessage},相关参数为：${JSON.stringify(context?.state || {})}`
             addMessage({
               role: 'user',
-              content,
-              uiContent: [{ type: 'text', content }]
+              content: llmFriendlyMessage,
+              uiContent: [{ type: 'markdown', content: humanFriendlyMessage }]
             })
             send()
           }

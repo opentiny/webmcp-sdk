@@ -63,6 +63,21 @@ export const GENUI_CONFIG: Record<string, any> = {
               ]
             }
           }
+        ],
+        customActions: [
+          {
+            name: 'continueChat',
+            description: '继续对话， 用于表单的提交按钮等',
+            parameters: {
+              type: 'object' as const,
+              properties: {
+                message: {
+                  type: 'string',
+                  description: '对话消息,可以是按钮文本等，也可以是其他内容',
+                },
+              },
+            },
+          }
         ]
       }
     }
