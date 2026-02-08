@@ -30,7 +30,21 @@ export const createMcpServer = async () => {
 
     const findMatchedTabId = async (targetUrl: string, toolName: string) => {
       const tabIds: number[] | undefined = (browser as any).hostNameMap.get(meta.name)
+
+      // 如果 hostNameMap 中没有记录,尝试查询所有页签
       if (!tabIds || tabIds.length === 0) {
+        try {
+          const allTabs = await browser.tabs.query({})
+          for (const tab of allTabs) {
+            if (tab.id && tab.url && isUrlMatch(tab.url, targetUrl)) {
+              console.log(`【Sidepanel MCP】从所有页签中找到匹配的 tab:`, { tabId: tab.id, url: tab.url })
+              return tab.id
+            }
+          }
+          console.log(`【Sidepanel MCP】未找到匹配的 tab, targetUrl: ${targetUrl}`)
+        } catch (error) {
+          console.warn(`【Sidepanel MCP】查询所有页签失败:`, error)
+        }
         return
       }
 
