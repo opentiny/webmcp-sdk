@@ -6,7 +6,7 @@ import link from './svgs/link.svg?url'
 import qrCode from './svgs/qrcode.svg?url'
 import iconCopy from './svgs/icon-copy.svg?url'
 
-const DEFAULT_REMOTE_URL = 'https://agent.opentiny.design/tiny-robot'
+const DEFAULT_REMOTE_URL = 'https://chat.opentiny.design'
 const DEFAULT_QR_CODE_URL = 'https://ai.opentiny.design/next-remoter'
 const DEFAULT_LOGO_URL = 'https://ai.opentiny.design/next-remoter/svgs/logo-next-no-bg-left.svg'
 
@@ -43,7 +43,7 @@ export interface FloatingBlockOptions {
   sessionId: string
   /** 菜单项配置 */
   menuItems?: MenuItemConfig[]
-  /** 遥控端页面地址，默认为： https://agent.opentiny.design/tiny-robot */
+  /** 遥控端页面地址，默认为： https://chat.opentiny.design */
   remoteUrl?: string
   /** 悬浮Logo的url地址，默认为： https://ai.opentiny.design/next-remoter/svgs/logo-next-no-bg-left.svg */
   logoUrl?: string
