@@ -48,7 +48,7 @@ const performScriptInjection = async ({ hostname, extraScripts = [], tabId }: Sc
     await browser.userScripts[injectType]([
       {
         id: url,
-        matches: [`https://${hostname}/*`],
+        matches: [`https://${hostname}/*`, `http://${hostname}/*`],
         js: [{ code: script }],
         world: 'MAIN'
       }

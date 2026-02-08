@@ -430,6 +430,7 @@ const {
   deletePlugin,
   addPluginFromMarket,
   addPluginFromScan, // 从扫码添加插件（统一接口）
+  handleClientDisconnected, // 处理客户端断开连接
   searchPlugin
 } = usePlugin(agent, enabledTools, defaultPluginSrc)
 
@@ -561,6 +562,8 @@ defineExpose({
   sendMessage,
   /** 向插件市场添加一个server */
   loadMcpServerToPlugin,
+  /** 处理客户端断开连接 */
+  handleClientDisconnected,
   /** 添加消息 */
   addMessage
 })
