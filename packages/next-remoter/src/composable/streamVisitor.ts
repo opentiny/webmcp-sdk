@@ -7,6 +7,7 @@ export interface StreamVisitorOption {
   onText?: (content: TextContent) => void
   onTool?: (content: ToolContent) => void
   onFinish?: () => void
+  onError?: (error: any) => void
 }
 
 export interface StartContent {
@@ -183,6 +184,7 @@ export class StreamVisitor {
             break
           case 'error':
             startContent!.error = event.error as any
+            this.option.onError?.(event.error as any)
             break
           default:
             // 忽略未知事件

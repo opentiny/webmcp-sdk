@@ -395,6 +395,9 @@ export class CustomAgentModelProvider extends BaseModelProvider {
           dp.resolve()
           handler.onDone()
         })
+      },
+      onError: (error) => {
+        dp.reject(error)
       }
     })
     const streamContent = await visitor.traverse(result)
