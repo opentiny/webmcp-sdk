@@ -390,7 +390,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     // 待返回的promise对象，用户阻塞住函数立即返回。
     const dp = new DelayedPromise<void>()
     const visitor = new StreamVisitor({
-      debug: true,
+      debug: false,
       onFinish: () => {
         nextTick(() => {
           dp.resolve()
@@ -433,6 +433,14 @@ export class CustomAgentModelProvider extends BaseModelProvider {
               }
             }
           })
+
+          if (value?.error) {
+            const errorMsg = {
+              type: 'markdown',
+              content: `**错误**：${value.error.message || '未知错误'}`
+            }
+            uiContent.push(errorMsg)
+          }
 
           handler.onData({ ...defaultMessage, uiContent: uiContent.flat() })
         }
