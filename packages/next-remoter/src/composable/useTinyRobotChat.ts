@@ -3,7 +3,6 @@ import { onMounted, onUnmounted, ref } from 'vue'
 import { CustomAgentModelProvider } from './CustomAgentModelProvider'
 import { TrSender } from '@opentiny/tiny-robot'
 import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
-import { extractTextAndJson } from './handleSchema'
 
 interface useTinyRobotOption {
   systemPrompt: string
@@ -24,10 +23,6 @@ interface UIMessage {
   uiContent?: Array<{ type: 'text'; text: string } | { type: 'image'; url: string }>
 }
 
-let accmulateText = ''
-let summaryText = ''
-let accmulateMessagesLength: number = 0
-
 export const useTinyRobotChat = ({ systemPrompt, llmConfig }: useTinyRobotOption) => {
   const customAgentProvider = new CustomAgentModelProvider({ provider: 'custom' }, systemPrompt, llmConfig)
 
@@ -46,75 +41,18 @@ export const useTinyRobotChat = ({ systemPrompt, llmConfig }: useTinyRobotOption
     state: conversationState // 记录着所有的会话和 currentId
   } = useConversation({
     client,
+    autoSave: false,
     events: {
       onLoaded() {
         // 会话加载完成（初始化将在组件的 onMounted 中调用）
       },
       onReceiveData(data, messages, preventDefault) {
         preventDefault()
-
-        let lastMessage = messages.value[messages.value.length - 1]
-
-        if (data.type === 'start') {
-          accmulateText = ''
-          summaryText = ''
-          accmulateMessagesLength = 0
+        // 此处是接收 agent 返回消息时，所以 assistant 一定是在底部的
+        if (messages.value[messages.value.length - 1].role === 'assistant') {
+          messages.value.pop()
         }
-
-        if (['text-start', 'tool'].includes(data.type)) {
-          accmulateText = ''
-          accmulateMessagesLength = 0
-        }
-
-        if (data.type === 'text-end') {
-          summaryText += accmulateText
-        }
-
-        if (lastMessage.role !== 'assistant') {
-          const message = {
-            role: 'assistant',
-            content: '',
-            uiContent: []
-          }
-
-          messages.value.push(message)
-          lastMessage = message
-        }
-
-        if (data.type === 'tool') {
-          const toolContent = lastMessage.uiContent.find((item) => item.id === data.id)
-          if (!toolContent) {
-            lastMessage.uiContent.push(data)
-          } else {
-            toolContent.content += data.delta
-            toolContent.status = data.status
-          }
-        } else if (data.type === 'markdown') {
-          accmulateText += data.delta
-          const accmulateMessages = extractTextAndJson(accmulateText)
-          const arrLength = accmulateMessages.length
-          if (arrLength === 0) {
-            return
-          }
-          if (arrLength > accmulateMessagesLength) {
-            lastMessage.uiContent.push(accmulateMessages[arrLength - 1])
-          } else {
-            lastMessage.uiContent[lastMessage.uiContent.length - 1] = accmulateMessages[arrLength - 1]
-          }
-          lastMessage.content = accmulateText
-
-          accmulateMessagesLength = arrLength
-        } else if (data.type === 'collapsible-text') {
-          const thinkContent = lastMessage.uiContent.find(
-            (item) => item.type === data.type && item.thinkId === data.thinkId
-          )
-          if (!thinkContent) {
-            lastMessage.uiContent.push(data)
-          } else {
-            thinkContent.content += data.delta
-            lastMessage.content += data.delta
-          }
-        }
+        messages.value.push(data)
       }
     }
   })

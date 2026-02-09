@@ -3,15 +3,17 @@ import type { ChatCompletionRequest } from '@opentiny/tiny-robot-kit'
 import type { StreamHandler } from '@opentiny/tiny-robot-kit'
 import { BaseModelProvider } from '@opentiny/tiny-robot-kit'
 import type { AIModelConfig } from '@opentiny/tiny-robot-kit'
-import { type Ref } from 'vue'
+import { nextTick, watch, type Ref } from 'vue'
 import { AgentModelProvider, IAgentModelProviderOption } from '@opentiny/next-sdk'
 import { getToday } from './tools'
-import type { ICustomAgentModelProviderLlmConfig, StreamPart } from '../types/type'
+import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import { createDeepSeek } from '@ai-sdk/deepseek'
 import { createOpenAI } from '@ai-sdk/openai'
 import type { ProviderV2 } from '@ai-sdk/provider'
 import type { OpenAIProvider } from '@ai-sdk/openai'
 import { GENUI_CONFIG } from '../config/genui-config'
+import { StreamVisitor } from './streamVisitor'
+import { extractTextAndJson } from './handleSchema'
 
 const DEFAULT_SHARED_CONFIG = {
   model: 'deepseek-ai/DeepSeek-V3',
@@ -128,121 +130,6 @@ export class CustomAgentModelProvider extends BaseModelProvider {
 
       this.agent.llm = providerFn({ apiKey, baseURL })
     }
-  }
-
-  /**
-   * 处理文本流数据
-   * @param part 流数据部分
-   * @param handler 流处理器
-   * @param textId 文本ID
-   * @returns 更新后的文本ID
-   */
-  private handleTextStream(part: StreamPart, handler: StreamHandler, textId: number): number {
-    if (part.type === 'text-start') {
-      handler.onData({ type: 'text-start' } as any)
-      textId++
-      handler.onData({
-        type: 'markdown',
-        content: '',
-        delta: '',
-        textId
-      } as any)
-    } else if (part.type === 'text-delta') {
-      handler.onData({
-        type: 'markdown',
-        delta: part.text,
-        textId
-      } as any)
-    } else if (part.type === 'text-end') {
-      handler.onData({
-        type: 'markdown',
-        delta: '\n\n ',
-        textId
-      } as any)
-
-      handler.onData({ type: 'text-end' } as any)
-    }
-    return textId
-  }
-
-  /**
-   * 处理工具流数据
-   * @param part 流数据部分
-   * @param handler 流处理器
-   */
-  private handleToolStream(part: StreamPart, handler: StreamHandler): void {
-    const toolHandlers = {
-      'tool-input-start': () =>
-        handler.onData({
-          type: 'tool',
-          id: part.id,
-          name: part.toolName,
-          status: 'running',
-          content: ''
-        } as any),
-
-      'tool-input-delta': () =>
-        handler.onData({
-          type: 'tool',
-          id: part.id,
-          status: 'running',
-          delta: part.delta
-        } as any),
-
-      'tool-result': () =>
-        handler.onData({
-          type: 'tool',
-          id: part.toolCallId,
-          status: 'success',
-          delta: ''
-        } as any),
-
-      'tool-error': () =>
-        handler.onData({
-          type: 'tool',
-          id: part.toolCallId,
-          status: 'error',
-          delta: part?.error?.message || '工具执行失败'
-        } as any)
-    }
-
-    const handlerFn = toolHandlers[part.type as keyof typeof toolHandlers]
-    if (handlerFn) {
-      handlerFn()
-    }
-  }
-
-  /**
-   * 处理文本流数据
-   * @param part 流数据部分
-   * @param handler 流处理器
-   * @param textId 文本ID
-   * @returns 更新后的文本ID
-   */
-  private handleReasonStream(part: StreamPart, handler: StreamHandler, thinkId: number): number {
-    if (part.type === 'reasoning-start') {
-      thinkId++
-      handler.onData({
-        type: 'collapsible-text',
-        title: '思考过程',
-        content: '',
-        delta: '',
-        thinkId
-      } as any)
-    } else if (part.type === 'reasoning-delta') {
-      handler.onData({
-        type: 'collapsible-text',
-        delta: part.text,
-        thinkId
-      } as any)
-    } else if (part.type === 'reasoning-end') {
-      handler.onData({
-        type: 'collapsible-text',
-        delta: ' ',
-        thinkId
-      } as any)
-    }
-    return thinkId
   }
 
   /**
@@ -487,7 +374,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     // 清理消息：只保留 AI SDK 需要的字段（role 和 content）
     // 这样可以确保即使 responseMessages 中包含额外字段（如 uiContent），也不会传递给 AI SDK
     const cleanMessages = (messages: any[]) => {
-      return messages.map(msg => ({
+      return messages.map((msg) => ({
         role: msg.role,
         content: msg.content
       }))
@@ -499,52 +386,54 @@ export class CustomAgentModelProvider extends BaseModelProvider {
 
     const result = await this.agent.chatStream(chatStreamOptions)
 
-    // 标识每一个markdown块
-    let textId = 1
-    let thinkId = 1
-    try {
-      for await (const part of result.fullStream) {
-        // 处理错误， 暂时模拟 AI 回复消息。 TODO: robot 设计出错效果
-        if (part.type === 'error') {
-          const message = part.error?.data?.error?.message || part.error?.message || part.error || '访问大模型出错'
-          handler.onData({
-            type: 'markdown',
-            content: '',
-            delta: '',
-            textId
-          } as any)
-
-          handler.onData({
-            type: 'markdown',
-            delta: message,
-            textId
-          } as any)
-          handler.onError(message)
-        }
-
-        // 开始节点处理
-        if (part.type.includes('start-') || part.type.includes('-start')) {
-          handler.onData({ type: 'start' } as any)
-        }
-        // 处理文本流数据
-        if (part.type.startsWith('text-')) {
-          textId = this.handleTextStream(part, handler, textId)
-        }
-
-        // 处理工具流数据
-        else if (part.type.startsWith('tool-')) {
-          this.handleToolStream(part, handler)
-        }
-
-        // 处理推理数据
-        else if (part.type.startsWith('reasoning-')) {
-          thinkId = this.handleReasonStream(part, handler, thinkId)
-        }
+    const visitor = new StreamVisitor({
+      onFinish: () => {
+        nextTick(() => {
+          handler.onDone()
+        })
       }
-    } finally {
-      // 确保流完全消费完后才调用 onDone，这样才能正确更新 loading 状态
-      handler.onDone()
+    })
+    const streamContent = await visitor.traverse(result)
+
+    console.log(streamContent)
+
+    const defaultMessage = {
+      role: 'assistant',
+      content: '',
+      uiContent: []
     }
+    watch(
+      streamContent,
+      (value) => {
+        if (!value) {
+          handler.onData(defaultMessage)
+        } else {
+          let contents = value.steps.map((step) => step.contents).flat()
+          const uiContent = contents.map((content) => {
+            if (content.type === 'text') {
+              return extractTextAndJson(content.text)
+            } else if (content.type === 'reasoning') {
+              return {
+                type: 'collapsible-text',
+                title: '思考过程',
+                content: content.text,
+                thinkId: content.id
+              }
+            } else if (content.type === 'tool') {
+              return {
+                type: 'tool',
+                id: content.id,
+                name: content.toolName,
+                status: content.error ? 'failed' : content.running ? 'running' : 'success'
+              }
+            }
+          })
+
+          handler.onData({ ...defaultMessage, uiContent: uiContent.flat() })
+        }
+      },
+      { deep: true }
+    )
   }
 
   /** 同步请求不需要实现 */
