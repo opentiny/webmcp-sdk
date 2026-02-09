@@ -58,7 +58,8 @@
     "@vueuse/core": "^14.1.0",
     "@ai-sdk/deepseek": "catalog:",
     "@ai-sdk/openai": "catalog:",
-    "@ai-sdk/provider": "catalog:"
+    "@ai-sdk/provider": "catalog:",
+    "@ai-sdk/provider-utils": "catalog:"
   },
   "devDependencies": {
     "@opentiny/unplugin-tiny-vue": "catalog:",

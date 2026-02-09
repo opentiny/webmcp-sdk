@@ -14,6 +14,7 @@ import type { OpenAIProvider } from '@ai-sdk/openai'
 import { GENUI_CONFIG } from '../config/genui-config'
 import { StreamVisitor } from './streamVisitor'
 import { extractTextAndJson } from './handleSchema'
+import { DelayedPromise } from '@ai-sdk/provider-utils'
 
 const DEFAULT_SHARED_CONFIG = {
   model: 'deepseek-ai/DeepSeek-V3',
@@ -386,16 +387,20 @@ export class CustomAgentModelProvider extends BaseModelProvider {
 
     const result = await this.agent.chatStream(chatStreamOptions)
 
+    // 待返回的promise对象，用户阻塞住函数立即返回。
+    const dp = new DelayedPromise<void>()
     const visitor = new StreamVisitor({
+      debug: true,
       onFinish: () => {
         nextTick(() => {
+          dp.resolve()
           handler.onDone()
         })
-      }
+      },
+      onError: (error) => dp.reject(error),
+      onAbort: () => dp.reject('')
     })
     const streamContent = await visitor.traverse(result)
-
-    console.log(streamContent)
 
     const defaultMessage = {
       role: 'assistant',
@@ -434,6 +439,8 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       },
       { deep: true }
     )
+
+    return dp.promise
   }
 
   /** 同步请求不需要实现 */

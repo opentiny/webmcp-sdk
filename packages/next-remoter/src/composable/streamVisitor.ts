@@ -1,12 +1,15 @@
 import type { FinishReason, LanguageModelRequestMetadata, LanguageModelUsage, StreamTextResult } from 'ai'
 import { reactive, ref } from 'vue'
 export interface StreamVisitorOption {
+  debug?: boolean
   onStart?: (content: StartContent) => void
   onStep?: (content: StepContent) => void
   onReasoning?: (content: ReasoningContent) => void
   onText?: (content: TextContent) => void
   onTool?: (content: ToolContent) => void
   onFinish?: () => void
+  onError?: (error: any) => void
+  onAbort?: () => void
 }
 
 export interface StartContent {
@@ -76,6 +79,9 @@ export class StreamVisitor {
 
   async traverse(stream: StreamTextResult<{}, never>) {
     const result = ref<StartContent>()
+    if (this.option.debug) {
+      console.log('【stream-debug】 响应对象体：', result)
+    }
 
     const backgroundRun = async () => {
       let startContent: StartContent
@@ -84,6 +90,10 @@ export class StreamVisitor {
       let textContent: TextContent
       let toolContent: ToolContent
       for await (const event of stream.fullStream) {
+        if (this.option.debug) {
+          console.log('【stream-debug】 ' + event.type, event)
+        }
+
         switch (event.type) {
           case 'start':
             startContent = reactive({
@@ -183,6 +193,13 @@ export class StreamVisitor {
             break
           case 'error':
             startContent!.error = event.error as any
+            this.option.onError?.(event.error as any)
+            break
+          case 'abort':
+            if (startContent) {
+              startContent.running = false
+            }
+            this.option.onAbort?.()
             break
           default:
             // 忽略未知事件

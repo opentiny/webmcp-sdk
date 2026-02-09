@@ -52,7 +52,9 @@ export const useTinyRobotChat = ({ systemPrompt, llmConfig }: useTinyRobotOption
         if (messages.value[messages.value.length - 1].role === 'assistant') {
           messages.value.pop()
         }
-        messages.value.push(data)
+        if (data.uiContent.length > 0) {
+          messages.value.push(data)
+        }
       }
     }
   })
