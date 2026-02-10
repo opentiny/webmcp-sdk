@@ -42,7 +42,7 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 - `genUiAble` 设置是否支持生成式UI的渲染，默认值为：false
 - `genUiComponents` 生成式UI内置了一批组件，如果需要引入新组件，需要通过这里导入。 参考示例： shallowReactive({TinyUser, TinyAlert })
 - `customMarketMcpServers` 追加自定义 MCP 市场服务列表（`PluginInfo[]`），传入后会与组件内置的 `DEFAULT_SERVERS` 合并，用于扩展市场内容
-- `skills` 设置技能的配置数组。 在聊天输入框中输入 `@` 符号能唤起技能列表，选择相应的技能后，可能快速附带上技能对应的提示词内容,参考底部示例。
+- `skills` 设置技能的配置对象（`Record<string, string>` 类型）。通常配合 Vite 的 `import.meta.glob` 导入标准 `SKILL.md` 文件。AI 助手会自动识别用户意图并调用相应的技能，无需手动触发。
 - `layout-mode` 布局模式，支持所有 CSS position 属性值：`'static' | 'relative' | 'absolute' | 'fixed' | 'sticky'`，默认值为 `'fixed'`。用于控制组件的定位方式
 
 ### llmConfig 配置详情
@@ -668,7 +668,7 @@ watch(selectedModelId, (newModelId) => {
 
 ### 配置技能列表
 
-在输入框中输入 `@` 可以唤起技能列表，选择相应技能后，可以将技能提示词拼接到 `LLM 对话大模型` 的 `systemPrompt`属性中，支持同时`@`多个技能。
+通过 `skills` 属性传入技能配置，通常配合 Vite 的 `import.meta.glob` 导入标准的 `SKILL.md` 文件。
 
 ```vue
 <template>
@@ -685,7 +685,6 @@ watch(selectedModelId, (newModelId) => {
 <script setup>
 import { ref } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
-import { createAnthropic } from '@ai-sdk/anthropic'
 
 const show = ref(false)
 
@@ -696,18 +695,13 @@ const llmConfig = {
   model: 'gpt-4o',
   maxSteps: 10
 }
-interface SkillItem{
-  /** 技能名称 */
-  label:string;
-  /** 技能的提示词 */
-  value:string;
-  /** 【可选】技能依赖的 MCP 工具名称列表 */
-  tools? :string[];
-}
 
-const skills= ref([
-  {label:'办公助手', value:'你是一个办公助手，可以.......'},
-  {label:'画图专家', value:'你是一个画图专家，可以.......', tools: ['openUrl','computer']},
-])
+// 使用 import.meta.glob 导入 skills 目录下所有的 SKILL.md 文件
+// 格式为 Record<path, content>
+const skills = import.meta.glob('./skills/**/SKILL.md', {
+  query: '?raw',
+  import: 'default',
+  eager: true
+})
 </script>
 ```
