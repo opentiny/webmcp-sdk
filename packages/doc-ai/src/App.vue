@@ -5,7 +5,7 @@
       <router-view />
     </div>
     <!-- 用户层传入 skillMdModules，由 remoter 内部调用 next-sdk 的 skill 能力处理 -->
-    <tiny-remoter :skillMdModules="skillMdModules" :show="show" :menuItems="menuItems"> </tiny-remoter>
+    <tiny-remoter :skills="skillMdModules" :show="show" :menuItems="menuItems"> </tiny-remoter>
   </div>
 </template>
 

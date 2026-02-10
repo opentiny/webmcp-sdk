@@ -3,7 +3,7 @@ import { getSkillOverviews, formatSkillsForSystemPrompt, createSkillTools, type 
 
 export interface UseSkillWithToolsOptions {
   /** 用户层传入的 skill .md 模块（key 路径，value 内容），由 next-sdk 处理；大模型通过 list_skills / get_skill_content 自动识别并加载技能 */
-  skillMdModulesRef?: Ref<Record<string, string> | undefined>
+  skillsRef?: Ref<Record<string, string> | undefined>
   /** 基础系统提示词 */
   systemPrompt: string
   /** CustomAgentModelProvider 的 agent 实例 */
@@ -14,13 +14,13 @@ export interface UseSkillWithToolsOptions {
 
 /**
  * Skills 与工具组合 Composable（仅最新方案）
- * 基于 skillMdModules + next-sdk：拼入 systemPrompt 技能说明、注入 list_skills / get_skill_content 工具，无 @ 提及
+ * 基于 skills + next-sdk：拼入 systemPrompt 技能说明、注入 list_skills / get_skill_content 工具，无 @ 提及
  */
 export function useSkillWithTools(options: UseSkillWithToolsOptions) {
-  const { skillMdModulesRef, systemPrompt, customAgentProvider } = options
+  const { skillsRef, systemPrompt, customAgentProvider } = options
 
   const skillOverviews = computed<SkillMeta[]>(() => {
-    const mod = skillMdModulesRef?.value
+    const mod = skillsRef?.value
     return mod ? getSkillOverviews(mod) : []
   })
 
@@ -32,7 +32,7 @@ export function useSkillWithTools(options: UseSkillWithToolsOptions) {
 
   /** 内置技能工具（list_skills、get_skill_content），供 remoter 合并进 extraTools */
   const skillTools = computed(() => {
-    const mod = skillMdModulesRef?.value
+    const mod = skillsRef?.value
     return mod ? createSkillTools(mod) : {}
   })
 

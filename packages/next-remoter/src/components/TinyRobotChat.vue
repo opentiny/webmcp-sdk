@@ -269,7 +269,7 @@ const props = defineProps({
    * 用户层传入的 skill .md 模块（Vite import.meta.glob 等得到的 Record<path, content>），
    * 由 remoter 调用 next-sdk 的 skill 能力处理：生成 systemPrompt 技能说明、内置 list_skills / get_skill_content 工具，大模型可自动识别并加载技能
    */
-  skillMdModules: {
+  skills: {
     type: Object as () => Record<string, string>,
     default: undefined
   },
@@ -335,10 +335,10 @@ const {
 
 customAgentProvider.isGenuiEnabled = genUiAble
 
-// ===== 2. 使用 useSkillWithTools composable（仅 skillMdModules + next-sdk，无 @ 提及）=====
-const skillMdModulesRef = toRef(props, 'skillMdModules')
+// ===== 2. 使用 useSkillWithTools composable（仅 skills + next-sdk，无 @ 提及）=====
+const skillsRef = toRef(props, 'skills')
 const { processSkillMentions } = useSkillWithTools({
-  skillMdModulesRef,
+  skillsRef,
   systemPrompt: props.systemPrompt || '',
   agent,
   customAgentProvider
