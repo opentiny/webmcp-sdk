@@ -91,7 +91,7 @@ export class StreamVisitor {
       let toolContent: ToolContent
       for await (const event of stream.fullStream) {
         if (this.option.debug) {
-          console.log('【stream-debug】 ' + event.type, event)
+          console.log('【stream-debug】 ' + (new Date().getTime() / 1000).toString().slice(-6) + event.type, event)
         }
 
         switch (event.type) {
