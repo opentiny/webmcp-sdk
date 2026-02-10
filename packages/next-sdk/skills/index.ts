@@ -105,17 +105,6 @@ export type SkillToolsSet = Record<string, any>
  * remoter 可将返回的 tools 合并进 extraTools 注入 agent
  */
 export function createSkillTools(modules: Record<string, string>): SkillToolsSet {
-  const listSkills = tool({
-    description: '列出当前可用的所有技能概况（技能名与描述），用于判断用户需求是否匹配某技能',
-    inputSchema: z.object({}),
-    execute: () => {
-      const overviews = getSkillOverviews(modules)
-      return {
-        skills: overviews.map((s) => ({ name: s.name, description: s.description }))
-      }
-    }
-  })
-
   const getSkillContent = tool({
     description:
       '根据技能名称或文档路径获取该技能的完整 Markdown 文档内容。传入 skillName（如 calculator）或 path（如 ./calculator/SKILL.md）',
@@ -124,6 +113,7 @@ export function createSkillTools(modules: Record<string, string>): SkillToolsSet
       path: z.string().optional().describe('文档相对路径，如 ./calculator/SKILL.md 或 ./product-guide/reference/xxx.md')
     }),
     execute: (args: { skillName?: string; path?: string }) => {
+      debugger
       const { skillName, path: pathArg } = args
       let content: string | undefined
       if (pathArg) {
@@ -140,7 +130,6 @@ export function createSkillTools(modules: Record<string, string>): SkillToolsSet
   })
 
   return {
-    list_skills: listSkills,
     get_skill_content: getSkillContent
   }
 }
