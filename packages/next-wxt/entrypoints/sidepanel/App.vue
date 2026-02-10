@@ -10,7 +10,7 @@ import { AGENT_ROOT, ROBOT_URL } from './const'
 import { useGenerateCode } from './composable/useGenerateCode'
 import RecordModal from './components/RecordModal.vue'
 import QrCodeDialog from './components/QrCodeDialog.vue'
-import { getAllSkills } from '@/skills'
+import { skillMdModules } from '@/skills'
 import { RENDERER_SETTINGS_KEY } from '@opentiny/genui-sdk-vue'
 import { CustomFunction } from '@/utils/customFunction'
 import { DEFAULT_MODEL_CONFIGS } from './model-config'
@@ -25,14 +25,8 @@ const llmConfig = {
   maxSteps: 30
 }
 
-const allSkills = getAllSkills().map((skill: any) => ({
-  label: skill.meta.label,
-  value: skill.prompt, // 完整的提示词内容，用于组合
-  tools: skill.tools || [] // 该 skill 需要的 MCP 工具名称列表
-}))
-
-// 从 skill 系统加载 skill 列表，传递完整的 skill 信息给 remoter
-const skills = ref<Array<{ label: string; value: string }>>(allSkills)
+// 直接透传 skillMdModules 给 remoter，内部会自动调用 next-sdk/skills 处理
+const skills = skillMdModules
 
 const remoterRef = ref() as Ref<InstanceType<typeof TinyRemoter>>
 useBrowserExtensions(remoterRef)
@@ -236,13 +230,12 @@ browser.runtime.onMessage.addListener((message) => {
       :gen-ui-components="genUiComponents"
       :skills="skills"
     >
-      <!-- todo: 后期等屏幕录制开发完成再放开 -->
-      <!-- <template #header-actions>
-        <button v-if="isDev" class="record-button" type="button" @click="openRecordModal">
+      <template #header-actions>
+        <button v-if="false" class="record-button" type="button" @click="openRecordModal">
           <span class="record-button__icon">+</span>
           自定义添加
         </button>
-      </template> -->
+      </template>
       <template #suggestions>
         <div class="chat-input-pills">
           <tr-dropdown-menu
