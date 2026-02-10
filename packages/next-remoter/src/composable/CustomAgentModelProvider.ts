@@ -429,6 +429,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
                 type: 'tool',
                 id: content.id,
                 name: content.toolName,
+                content: JSON.stringify({ input: content.inputStr, output: content.output }),
                 status: content.error ? 'failed' : content.running ? 'running' : 'success'
               }
             }
