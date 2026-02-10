@@ -149,7 +149,7 @@ export const useTinyRobotChat = ({ systemPrompt, llmConfig }: useTinyRobotOption
 
   // 获取token, 并保存到最后一条消息上
   customAgentProvider.agent.onUsage = (usage) => {
-    let lastMessage = messages.value[messages.value.length - 1]
+    const lastMessage = messages.value[messages.value.length - 1]
     lastMessage.usage = usage
   }
 

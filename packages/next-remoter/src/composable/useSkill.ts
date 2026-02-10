@@ -17,7 +17,7 @@ export interface UseSkillWithToolsOptions {
  * 基于 skillMdModules + next-sdk：拼入 systemPrompt 技能说明、注入 list_skills / get_skill_content 工具，无 @ 提及
  */
 export function useSkillWithTools(options: UseSkillWithToolsOptions) {
-  const { skillMdModulesRef } = options
+  const { skillMdModulesRef, systemPrompt, customAgentProvider } = options
 
   const skillOverviews = computed<SkillMeta[]>(() => {
     const mod = skillMdModulesRef?.value
@@ -35,6 +35,14 @@ export function useSkillWithTools(options: UseSkillWithToolsOptions) {
     const mod = skillMdModulesRef?.value
     return mod ? createSkillTools(mod) : {}
   })
+
+  // 初始化:将「可用技能」说明拼入 systemPrompt
+  const base = systemPrompt || ''
+  customAgentProvider.systemPrompt = skillPromptPart.value ? `${base}\n\n${skillPromptPart.value}` : base
+
+  // 初始化:将 list_skills / get_skill_content 注入 extraTools
+  const extra = customAgentProvider.llmConfig?.extraTools ?? {}
+  customAgentProvider.llmConfig.extraTools = { ...extra, ...skillTools.value }
 
   /** 发送前占位：已不再处理 @ 提及，直接不拦截 */
   const processSkillMentions = async (): Promise<{ shouldBlock: boolean; skillItems: never[] }> => {
