@@ -1,6 +1,5 @@
 /**
  * Web 端 Skill 公共能力模块（next-sdk）
- * - 不依赖 Vite/import.meta，所有函数接收 skillMdModules (Record<path, content>)
  * - 提供解析、概况、systemPrompt 拼接、按路径/名称查文档
  * - 提供 createSkillTools：供 remoter 注入为 AI 工具，大模型可自动识别并加载技能文档
  */
@@ -8,15 +7,11 @@
 import { tool } from 'ai'
 import { z } from 'zod'
 
-// ============ 常量：主 SKILL 路径与 front matter 解析 ============
-
 /** 主 SKILL.md 路径格式：仅匹配一级子目录下的 SKILL.md，如 ./calculator/SKILL.md */
 const MAIN_SKILL_PATH_REG = /^\.\/[^/]+\/SKILL\.md$/
 
 /** 从 front matter 中提取 name 和 description 的正则（--- 与 --- 之间） */
 const FRONT_MATTER_REG = /^---\s*\nname:\s*(.+?)\s*\ndescription:\s*([\s\S]*?)\s*\n---/
-
-// ============ 类型 ============
 
 /** 单个技能的概况信息（从主 SKILL.md 的 front matter 提取） */
 export interface SkillMeta {
@@ -27,8 +22,6 @@ export interface SkillMeta {
   /** 主 SKILL.md 相对路径，如 ./calculator/SKILL.md */
   path: string
 }
-
-// ============ 纯函数：解析与查询（均以 modules 为第一参数，便于在任意端使用） ============
 
 /**
  * 从主 SKILL.md 的 YAML front matter 中用正则提取 name、description
