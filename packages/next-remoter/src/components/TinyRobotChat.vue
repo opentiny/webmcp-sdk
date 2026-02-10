@@ -160,8 +160,7 @@ import {
   TrAttachments,
   TrUploadButton,
   type PluginInfo,
-  type MarketCategoryOption,
-  type MentionItem
+  type MarketCategoryOption
 } from '@opentiny/tiny-robot'
 
 import { GenuiRenderer } from '@opentiny/genui-sdk-vue'
@@ -267,9 +266,13 @@ const props = defineProps({
     type: Array as () => UnifiedModelConfig[],
     default: undefined
   },
-  skills: {
-    type: Object as () => MentionItem[],
-    default: () => []
+  /**
+   * 用户层传入的 skill .md 模块（Vite import.meta.glob 等得到的 Record<path, content>），
+   * 由 remoter 调用 next-sdk 的 skill 能力处理：生成 systemPrompt 技能说明、内置 list_skills / get_skill_content 工具，大模型可自动识别并加载技能
+   */
+  skillMdModules: {
+    type: Object as () => Record<string, string>,
+    default: undefined
   },
   /** 布局模式：支持所有 CSS position 属性值 'static' | 'relative' | 'absolute' | 'fixed' | 'sticky' */
   layoutMode: {
@@ -334,10 +337,34 @@ const {
 
 customAgentProvider.isGenuiEnabled = genUiAble
 
-// ===== 2. 使用 useSkillWithTools composable（skills 相关逻辑）=====
-// 将 props.skills 转换为 ref 以便响应式追踪
-const skillsRef = computed(() => props.skills || [])
-const { processSkillMentions } = useSkillWithTools(skillsRef, props.systemPrompt || '', agent, customAgentProvider)
+// ===== 2. 使用 useSkillWithTools composable（仅 skillMdModules + next-sdk，无 @ 提及）=====
+const skillMdModulesRef = toRef(props, 'skillMdModules')
+const { processSkillMentions, skillPromptPart, skillTools } = useSkillWithTools({
+  skillMdModulesRef,
+  systemPrompt: props.systemPrompt || '',
+  agent,
+  customAgentProvider
+})
+
+// 当存在 skillMdModules 时：将「可用技能」说明拼入 systemPrompt，并将 list_skills / get_skill_content 注入 extraTools
+watch(
+  [skillPromptPart, () => props.systemPrompt],
+  () => {
+    const base = props.systemPrompt || ''
+    customAgentProvider.systemPrompt = skillPromptPart.value
+      ? `${base}\n\n${skillPromptPart.value}`
+      : base
+  },
+  { immediate: true }
+)
+watch(
+  skillTools,
+  (tools) => {
+    const extra = customAgentProvider.llmConfig?.extraTools ?? {}
+    customAgentProvider.llmConfig.extraTools = { ...extra, ...tools }
+  },
+  { immediate: true }
+)
 
 // ===== 3. 组合聊天逻辑和 skills 逻辑：创建包装的 handleSendMessage 函数 =====
 const handleSendMessage = async (inputValue: string, attachmentsContent?: any[]): Promise<boolean> => {
@@ -568,8 +595,8 @@ defineExpose({
   addMessage
 })
 
-//  加载skills， 暂时先不watch 变化
-const senderExtensions = [TrSender.mention(props.skills)]
+// 已采用 skillMdModules + list_skills/get_skill_content 方案，不再使用输入框 @ 提及
+const senderExtensions = []
 </script>
 
 <style scoped lang="less">
