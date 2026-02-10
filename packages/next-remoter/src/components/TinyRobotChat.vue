@@ -83,7 +83,6 @@
           :loading="senderLoading"
           :showWordLimit="true"
           :maxLength="20000"
-          :extensions="senderExtensions"
           @submit="handleSendMessageCustom"
           @cancel="abortRequest"
         >
@@ -283,10 +282,9 @@ const props = defineProps({
 
 const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })
 const show = defineModel('show', { type: Boolean, default: false })
+
 const selectedModelId = defineModel('selectedModelId', { type: String, default: undefined, required: false })
-// 使用 defineModel 定义 genUiAble，实现双向绑定（简化逻辑，统一使用 v-model:genUiAble）
 const genUiAble = defineModel('genUiAble', { type: Boolean, default: false, required: false })
-// 使用 defineModel 定义 enabledTools，实现双向绑定（默认启用的工具状态）
 const enabledTools = defineModel('enabledTools', {
   type: Object as () => Record<string, boolean> | undefined,
   default: undefined,
@@ -351,12 +349,11 @@ watch(
   [skillPromptPart, () => props.systemPrompt],
   () => {
     const base = props.systemPrompt || ''
-    customAgentProvider.systemPrompt = skillPromptPart.value
-      ? `${base}\n\n${skillPromptPart.value}`
-      : base
+    customAgentProvider.systemPrompt = skillPromptPart.value ? `${base}\n\n${skillPromptPart.value}` : base
   },
   { immediate: true }
 )
+
 watch(
   skillTools,
   (tools) => {
@@ -554,8 +551,6 @@ onMounted(async () => {
   }
 })
 
-// 插件操作事件处理器由 usePlugin 提供，直接在模板中使用
-
 // 使用自定义 MCP 服务器添加 composable
 const { handleCustomAdd } = useCustomMcpServer(agent, installedPlugins, defaultPluginSrc)
 
@@ -594,9 +589,6 @@ defineExpose({
   /** 添加消息 */
   addMessage
 })
-
-// 已采用 skillMdModules + list_skills/get_skill_content 方案，不再使用输入框 @ 提及
-const senderExtensions = []
 </script>
 
 <style scoped lang="less">
