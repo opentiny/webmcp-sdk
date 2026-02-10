@@ -11,7 +11,7 @@ import { z } from 'zod'
 const MAIN_SKILL_PATH_REG = /^\.\/[^/]+\/SKILL\.md$/
 
 /** 从 front matter 中提取 name 和 description 的正则（--- 与 --- 之间） */
-const FRONT_MATTER_REG = /^---\s*\nname:\s*(.+?)\s*\ndescription:\s*([\s\S]*?)\s*\n---/
+const FRONT_MATTER_BLOCK_REG = /^---\s*\n([\s\S]+?)\s*\n---/
 
 /** 单个技能的概况信息（从主 SKILL.md 的 front matter 提取） */
 export interface SkillMeta {
@@ -27,10 +27,18 @@ export interface SkillMeta {
  * 从主 SKILL.md 的 YAML front matter 中用正则提取 name、description
  */
 export function parseSkillFrontMatter(content: string): { name: string; description: string } | null {
-  const match = content.match(FRONT_MATTER_REG)
-  if (!match?.[1] || !match?.[2]) return null
-  const name = match[1].trim()
-  const description = match[2].trim()
+  // 先提取 --- 之间的文本块
+  const blockMatch = content.match(FRONT_MATTER_BLOCK_REG)
+  if (!blockMatch?.[1]) return null
+  const block = blockMatch[1]
+
+  // 分别匹配 name 和 description 字段（支持任意顺序）
+  const nameMatch = block.match(/^name:\s*(.+)$/m)
+  const descMatch = block.match(/^description:\s*(.+)$/m)
+
+  const name = nameMatch?.[1]?.trim()
+  const description = descMatch?.[1]?.trim()
+
   return name && description ? { name, description } : null
 }
 
@@ -113,7 +121,6 @@ export function createSkillTools(modules: Record<string, string>): SkillToolsSet
       path: z.string().optional().describe('文档相对路径，如 ./calculator/SKILL.md 或 ./product-guide/reference/xxx.md')
     }),
     execute: (args: { skillName?: string; path?: string }) => {
-      debugger
       const { skillName, path: pathArg } = args
       let content: string | undefined
       if (pathArg) {
