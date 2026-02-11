@@ -8,8 +8,6 @@ export interface StreamVisitorOption {
   onText?: (content: TextContent) => void
   onTool?: (content: ToolContent) => void
   onFinish?: () => void
-  onError?: (error: any) => void
-  onAbort?: () => void
 }
 
 export interface StartContent {
@@ -192,14 +190,20 @@ export class StreamVisitor {
             // todo: 待实现
             break
           case 'error':
-            startContent!.error = event.error as any
-            this.option.onError?.(event.error as any)
+            if (startContent!) {
+              startContent.running = false
+              startContent!.error = event.error as any
+              startContent!.finishReason = 'error'
+            }
+            this.option.onFinish?.()
             break
           case 'abort':
-            if (startContent) {
+            if (startContent!) {
               startContent.running = false
+              startContent!.error = { message: event.reason }
+              startContent!.finishReason = 'other'
             }
-            this.option.onAbort?.()
+            this.option.onFinish?.()
             break
           default:
             // 忽略未知事件
@@ -245,3 +249,6 @@ export class StreamVisitor {
 //    {type: 'finish-step', finishReason: 'stop', rawFinishReason: 'stop', usage: {…}, providerMetadata: {…}, …}
 //
 // {type: 'finish', finishReason: 'stop', rawFinishReason: 'stop', totalUsage: {…}}
+
+// {type: 'abort', reason: 'signal is aborted without reason'}  // abort 会立即停止，之后没有消息
+// {type: 'error', error: {......}                              // error 会立即停止，之后没有消息

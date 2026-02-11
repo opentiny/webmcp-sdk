@@ -396,9 +396,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
           dp.resolve()
           handler.onDone()
         })
-      },
-      onError: (error) => dp.reject(error),
-      onAbort: () => dp.reject('')
+      }
     })
     const streamContent = await visitor.traverse(result)
 
@@ -445,7 +443,11 @@ export class CustomAgentModelProvider extends BaseModelProvider {
 
           // 有确定消息时，才返回onData， 避免白块的出现和loading太快，看不到
           if (value.steps.length >= 1) {
-            handler.onData({ ...defaultMessage, uiContent: uiContent.flat() })
+            handler.onData({
+              ...defaultMessage,
+              uiContent: uiContent.flat(),
+              usage: value.totalUsage || null
+            })
           }
         }
       },
