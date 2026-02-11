@@ -145,12 +145,6 @@ export const useTinyRobotChat = ({ systemPrompt, llmConfig }: useTinyRobotOption
     return true // 成功发送
   }
 
-  // 获取token, 并保存到最后一条消息上
-  customAgentProvider.agent.onUsage = (usage) => {
-    let lastMessage = messages.value[messages.value.length - 1]
-    lastMessage.usage = usage
-  }
-
   // 页面加载完成后自动聚焦输入框
   onMounted(() => {
     senderRef.value?.focus()
