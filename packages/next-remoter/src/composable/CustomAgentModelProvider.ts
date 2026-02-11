@@ -429,6 +429,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
                 type: 'tool',
                 id: content.id,
                 name: content.toolName,
+                content: JSON.stringify({ input: content.inputStr, output: content.output }),
                 status: content.error ? 'failed' : content.running ? 'running' : 'success'
               }
             }
@@ -442,7 +443,10 @@ export class CustomAgentModelProvider extends BaseModelProvider {
             uiContent.push(errorMsg)
           }
 
-          handler.onData({ ...defaultMessage, uiContent: uiContent.flat() })
+          // 有确定消息时，才返回onData， 避免白块的出现和loading太快，看不到
+          if (value.steps.length >= 1) {
+            handler.onData({ ...defaultMessage, uiContent: uiContent.flat() })
+          }
         }
       },
       { deep: true }
