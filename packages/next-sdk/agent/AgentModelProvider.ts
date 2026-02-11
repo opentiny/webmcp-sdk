@@ -45,18 +45,6 @@ export class AgentModelProvider {
   responseMessages: any[] = []
   /** 是否使用 ReAct 模式（通过提示词而非 function calling 进行工具调用） */
   useReActMode: boolean = false
-  /** 流结束后，返回token细节的事件 */
-  onUsage?: (usage: {
-    inputTokens: number
-    outputTokens: number
-    totalTokens: number
-    inputTokenDetails?: {
-      cacheReadTokens?: number
-    }
-    outputTokenDetails?: {
-      reasoningTokens?: number
-    }
-  }) => void
 
   constructor({ llmConfig, mcpServers }: IAgentModelProviderOption) {
     if (!llmConfig) {
@@ -859,13 +847,6 @@ export class AgentModelProvider {
       // 然后添加 AI 返回的消息
       this.responseMessages.push(...res.messages)
     })
-
-    // 读取使用量
-    if ('usage' in result && result.usage) {
-      result.usage.then((usage: any) => {
-        this.onUsage?.(usage)
-      })
-    }
 
     return result
   }
