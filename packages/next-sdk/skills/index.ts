@@ -28,7 +28,9 @@ export function parseSkillFrontMatter(content: string): { name: string; descript
   if (!content) return null
 
   const { data } = matter(content)
-  return data || null
+  if (!data || !data.name || !data.description) return null
+
+  return { name: data.name, description: data.description }
 }
 
 /**
