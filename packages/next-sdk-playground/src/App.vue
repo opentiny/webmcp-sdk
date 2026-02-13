@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { File, Repl } from '@vue/repl'
-import Monaco from '@vue/repl/monaco-editor'
+import Editor from '@vue/repl/codemirror-editor'
 import { nextTick, onMounted, ref, watch, watchEffect } from 'vue'
 import Header from './Header.vue'
 import { generateImportMap, generateStore, getDefaultFiles, getVersions } from './utils'
@@ -67,7 +67,7 @@ onMounted(async () => {
 
     <!-- Main playground area -->
     <main class="playground-main">
-      <Repl :store="store" :editor="Monaco" :show-compile-output="false" :key="nextSdkVersion" />
+      <Repl :store="store" :editor="Editor" :show-compile-output="false" :key="nextSdkVersion" />
     </main>
   </div>
 </template>
