@@ -346,7 +346,6 @@ const skillsRef = toRef(props, 'skills')
 const { processSkillMentions } = useSkillWithTools({
   skillsRef,
   systemPrompt: props.systemPrompt || '',
-  agent,
   customAgentProvider
 })
 

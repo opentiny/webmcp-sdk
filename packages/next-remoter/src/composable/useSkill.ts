@@ -6,8 +6,6 @@ export interface UseSkillWithToolsOptions {
   skillsRef?: Ref<Record<string, string> | undefined>
   /** 基础系统提示词 */
   systemPrompt: string
-  /** CustomAgentModelProvider 的 agent 实例 */
-  agent: any
   /** CustomAgentModelProvider 实例，用于写 systemPrompt、合并 extraTools */
   customAgentProvider: any
 }

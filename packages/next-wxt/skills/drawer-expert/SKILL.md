@@ -35,7 +35,7 @@ description: 擅长绘制各种图表、流程图、架构图等，能够提供�
 
 ## Excalidraw Schema核心规则（基于Element Skeleton）
 
-**重要理念**: 你将通过创建**元素骨架 (`ExcalidrawElementSkeleton`)** 对象来添加元素，而非手动构建完整的 `ExcalidrawElement`。`ExcalidrawElementSkeleton` 是一个简化的、专为编程创建而设计的对象。Excalidraw前端会自动补全版本号、随机种子、等属性。
+**重要理念**: 你将通过创建**元素骨架 (`ExcalidrawElementSkeleton`)** 对象来添加元素，而非手动构建完整的 `ExcalidrawElement`。`ExcalidrawElementSkeleton` 是一个简化的、专为编程创建而设计的对象。Excalidraw前端会自动补全版本号、随机种子等属性。
 
 ### A. 通用核心属性 (所有元素骨架都包含)
 
@@ -226,7 +226,7 @@ description: 擅长绘制各种图表、流程图、架构图等，能够提供�
 
 1. **ID是关键**: 在构建任何有关系的图表时，养成给核心元素预先设定、并始终使用唯一`id`的习惯。
 2. **先建对象，后建关系**: 确保在创建箭头或将文本放入容器之前，目标对象（带有`id`）已经存在于你将要发送的元素列表中，连线/箭头绑定之后，要更新对应元素的boundElements属性
-3. **箭头/连线必须绑定元素** 箭头或连线必须双向链接到对应的元素上，比如eleA arrow eleB,必须俩俩双向链接
+3. **箭头/连线必须绑定元素** 箭头或连线必须双向链接到对应的元素上，比如eleA arrow eleB,必须双向链接
 4. **统一更新绑定关系** 推荐用updateElement统一更新（文本/元素）（箭头/元素）（连线/元素）间的双向绑定关系
 5. **分层组织**: 复杂图表使用Frame进行逻辑分区，每个Frame专注一个功能域。
 6. **坐标规划**: 预先规划布局，避免元素重叠。通常间距设置为80-150像素。
