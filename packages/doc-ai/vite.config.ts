@@ -6,6 +6,7 @@ import AutoImport from 'unplugin-auto-import/vite'
 import { TinyVueSingleResolver } from '@opentiny/unplugin-tiny-vue'
 import vueJsx from '@vitejs/plugin-vue-jsx'
 import svgLoader from 'vite-svg-loader'
+import { VantResolver } from '@vant/auto-import-resolver'
 
 // https://vite.dev/config/
 export default defineConfig(() => {
@@ -23,10 +24,10 @@ export default defineConfig(() => {
       vue(),
       vueJsx(),
       Components({
-        resolvers: [TinyVueSingleResolver]
+        resolvers: [TinyVueSingleResolver, VantResolver()]
       }),
       AutoImport({
-        resolvers: [TinyVueSingleResolver]
+        resolvers: [TinyVueSingleResolver, VantResolver()]
       }),
       svgLoader({
         defaultImport: 'component',

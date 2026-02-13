@@ -83,7 +83,6 @@
           :loading="senderLoading"
           :showWordLimit="true"
           :maxLength="20000"
-          :extensions="senderExtensions"
           @submit="handleSendMessageCustom"
           @cancel="abortRequest"
         >
@@ -160,8 +159,7 @@ import {
   TrAttachments,
   TrUploadButton,
   type PluginInfo,
-  type MarketCategoryOption,
-  type MentionItem
+  type MarketCategoryOption
 } from '@opentiny/tiny-robot'
 
 import { GenuiRenderer } from '@opentiny/genui-sdk-vue'
@@ -189,6 +187,7 @@ import { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import type { MenuItemConfig } from '@opentiny/next-sdk'
 import useModel from '../composable/useModel'
 import type { UnifiedModelConfig } from '../types/model-config'
+import type { McpServerConfig } from '@opentiny/next-sdk'
 
 defineOptions({
   name: 'TinyRemoter'
@@ -257,19 +256,28 @@ const props = defineProps({
     type: Object,
     default: () => ({})
   },
-  /** 自定义 MCP 市场服务列表 */
+  /** 自定义 MCP 市场服务列表一般是后台的mcp工具常驻存在 */
   customMarketMcpServers: {
     type: Array as () => PluginInfo[],
     default: () => []
+  },
+  /** MCP 服务器配置：业界格式 { "服务器名称": McpServerConfig }，name 即对象的 key */
+  mcpServers: {
+    type: Object as () => Record<string, McpServerConfig>,
+    default: undefined
   },
   /** LLM 配置数组，每一项基于 llmConfig 格式，额外包含 id、label、icon、isDefault、useReActMode 字段 */
   llmConfigs: {
     type: Array as () => UnifiedModelConfig[],
     default: undefined
   },
+  /**
+   * 用户层传入的 skill .md 模块（Record<path, content>，如 Vite import.meta.glob 得到的结果），
+   * 由 remoter 调用 next-sdk 的 skill 能力处理：生成 systemPrompt 技能说明、内置 get_skill_content 工具，大模型可自动识别并加载技能
+   */
   skills: {
-    type: Object as () => MentionItem[],
-    default: () => []
+    type: Object as () => Record<string, string>,
+    default: undefined
   },
   /** 布局模式：支持所有 CSS position 属性值 'static' | 'relative' | 'absolute' | 'fixed' | 'sticky' */
   layoutMode: {
@@ -280,10 +288,9 @@ const props = defineProps({
 
 const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })
 const show = defineModel('show', { type: Boolean, default: false })
+
 const selectedModelId = defineModel('selectedModelId', { type: String, default: undefined, required: false })
-// 使用 defineModel 定义 genUiAble，实现双向绑定（简化逻辑，统一使用 v-model:genUiAble）
 const genUiAble = defineModel('genUiAble', { type: Boolean, default: false, required: false })
-// 使用 defineModel 定义 enabledTools，实现双向绑定（默认启用的工具状态）
 const enabledTools = defineModel('enabledTools', {
   type: Object as () => Record<string, boolean> | undefined,
   default: undefined,
@@ -334,10 +341,13 @@ const {
 
 customAgentProvider.isGenuiEnabled = genUiAble
 
-// ===== 2. 使用 useSkillWithTools composable（skills 相关逻辑）=====
-// 将 props.skills 转换为 ref 以便响应式追踪
-const skillsRef = computed(() => props.skills || [])
-const { processSkillMentions } = useSkillWithTools(skillsRef, props.systemPrompt || '', agent, customAgentProvider)
+// ===== 2. 使用 useSkillWithTools composable（仅 skills + next-sdk，无 @ 提及）=====
+const skillsRef = toRef(props, 'skills')
+const { processSkillMentions } = useSkillWithTools({
+  skillsRef,
+  systemPrompt: props.systemPrompt || '',
+  customAgentProvider
+})
 
 // ===== 3. 组合聊天逻辑和 skills 逻辑：创建包装的 handleSendMessage 函数 =====
 const handleSendMessage = async (inputValue: string, attachmentsContent?: any[]): Promise<boolean> => {
@@ -525,9 +535,13 @@ onMounted(async () => {
   for (const plugin of preInstalledPlugins) {
     await addPluginFromMarket(plugin)
   }
-})
 
-// 插件操作事件处理器由 usePlugin 提供，直接在模板中使用
+  if (props.mcpServers) {
+    for (const [name, config] of Object.entries(props.mcpServers)) {
+      await loadMcpServerToPlugin(name, config)
+    }
+  }
+})
 
 // 使用自定义 MCP 服务器添加 composable
 const { handleCustomAdd } = useCustomMcpServer(agent, installedPlugins, defaultPluginSrc)
@@ -567,9 +581,6 @@ defineExpose({
   /** 添加消息 */
   addMessage
 })
-
-//  加载skills， 暂时先不watch 变化
-const senderExtensions = [TrSender.mention(props.skills)]
 </script>
 
 <style scoped lang="less">

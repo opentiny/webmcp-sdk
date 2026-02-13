@@ -41,9 +41,17 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 - `inBrowserExt` 设置组件运行在普通页面还是浏览器的扩展中，默认值为：false
 - `genUiAble` 设置是否支持生成式UI的渲染，默认值为：false
 - `genUiComponents` 生成式UI内置了一批组件，如果需要引入新组件，需要通过这里导入。 参考示例： shallowReactive({TinyUser, TinyAlert })
-- `customMarketMcpServers` 追加自定义 MCP 市场服务列表（`PluginInfo[]`），传入后会与组件内置的 `DEFAULT_SERVERS` 合并，用于扩展市场内容
-- `skills` 设置技能的配置数组。 在聊天输入框中输入 `@` 符号能唤起技能列表，选择相应的技能后，可能快速附带上技能对应的提示词内容,参考底部示例。
+- `customMarketMcpServers` 追加自定义 MCP 市场服务列表（`PluginInfo[]`），传入后会与组件内置的 `DEFAULT_SERVERS` 合并，用于扩展市场内容。**一般对应后台的 MCP 服务，可常驻存在。**
+- `mcpServers` 预置 MCP 服务器配置（业界格式 `Record<string, McpServerConfig>`）。键为服务器名称，值为单台服务器配置；组件初始化时会自动加载并出现在「已添加MCP服务」中。**一般对应前端的 MCP 服务，页面关闭后即不存在。** 配置说明见 [预置 MCP 服务器（mcpServers）](#预置-mcp-服务器mcpservers)
+- `skills` 设置技能的配置对象（`Record<string, string>` 类型）。通常配合 Vite 的 `import.meta.glob` 导入标准 `SKILL.md` 文件。AI 助手会自动识别用户意图并调用相应的技能，无需手动触发。
 - `layout-mode` 布局模式，支持所有 CSS position 属性值：`'static' | 'relative' | 'absolute' | 'fixed' | 'sticky'`，默认值为 `'fixed'`。用于控制组件的定位方式
+
+### customMarketMcpServers 与 mcpServers 的区别
+
+| 属性 | 典型场景 | 生命周期 |
+|------|----------|----------|
+| `customMarketMcpServers` | **后台** MCP 服务，由后端/代理常驻提供 | 可常驻存在，不随页面关闭而消失 |
+| `mcpServers` | **前端** MCP 服务，随当前页面或本地环境提供 | 与页面一致，页面关闭后连接即断开、不再存在 |
 
 ### llmConfig 配置详情
 
@@ -273,7 +281,7 @@ function promtClick(item) {
 
 ## 自定义市场 MCP 插件（customMarketMcpServers）
 
-`customMarketMcpServers` 属性让你可以在 TinyRemoter 的“插件市场”中动态追加自有 MCP 服务，数组结构遵循 `PluginInfo` 定义，常用字段如下：
+`customMarketMcpServers` 属性让你可以在 TinyRemoter 的“插件市场”中动态追加自有 MCP 服务。**一般用于接入后台的 MCP 服务，这类服务可常驻存在。** 数组结构遵循 `PluginInfo` 定义，常用字段如下：
 
 ```ts
 const customMarketMcpServers = [
@@ -296,6 +304,32 @@ const customMarketMcpServers = [
 - `enabled/addState/tools` 驱动 TinyRemoter 市场内的状态展示（中文注释：配合 UI 控制按钮、进度等）
 
 组件初始化时会把上述数组与 `DEFAULT_SERVERS` 合并，因此你可以通过简单传参扩展默认市场。
+
+## 预置 MCP 服务器（mcpServers）
+
+`mcpServers` 属性用于在组件初始化时预置一批 MCP 服务器，采用业界通用的对象格式：**键为服务器名称，值为 `McpServerConfig`**。**一般用于接入前端的 MCP 服务，生命周期与页面一致，页面关闭后连接即断开。** 这些服务器会在启动时自动加载并出现在「已添加MCP服务」中，无需用户从市场手动添加。
+
+格式示例：
+
+```ts
+// 业界格式：键为服务器名称，值为 McpServerConfig
+const mcpServers = {
+  'my-app-mcp-server': {
+    type: 'streamableHttp',
+    url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp?sessionId=stream06-1921-4f09-af63-51de410e9e09'
+  },
+  'local-mcp-server': {
+    type: 'local',
+    transport: clientTransport
+  }
+}
+```
+
+`McpServerConfig` 支持以下类型（与 next-sdk 一致）：
+
+- `type: 'streamableHttp'` 或 `type: 'sse'`：需提供 `url`，可选 `useAISdkClient`
+- `type: 'extension'`：需提供 `url`、`sessionId`，可选 `useAISdkClient`
+- `type: 'local'`：需提供 `transport`（MCP 传输层），可选 `useAISdkClient`
 
 ## 使用示例
 
@@ -668,7 +702,7 @@ watch(selectedModelId, (newModelId) => {
 
 ### 配置技能列表
 
-在输入框中输入 `@` 可以唤起技能列表，选择相应技能后，可以将技能提示词拼接到 `LLM 对话大模型` 的 `systemPrompt`属性中，支持同时`@`多个技能。
+通过 `skills` 属性传入技能配置，通常配合 Vite 的 `import.meta.glob` 导入标准的 `SKILL.md` 文件。
 
 ```vue
 <template>
@@ -685,7 +719,6 @@ watch(selectedModelId, (newModelId) => {
 <script setup>
 import { ref } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
-import { createAnthropic } from '@ai-sdk/anthropic'
 
 const show = ref(false)
 
@@ -696,18 +729,13 @@ const llmConfig = {
   model: 'gpt-4o',
   maxSteps: 10
 }
-interface SkillItem{
-  /** 技能名称 */
-  label:string;
-  /** 技能的提示词 */
-  value:string;
-  /** 【可选】技能依赖的 MCP 工具名称列表 */
-  tools? :string[];
-}
 
-const skills= ref([
-  {label:'办公助手', value:'你是一个办公助手，可以.......'},
-  {label:'画图专家', value:'你是一个画图专家，可以.......', tools: ['openUrl','computer']},
-])
+// 使用 import.meta.glob 导入 skills 目录下所有的 SKILL.md 文件
+// 格式为 Record<path, content>
+const skills = import.meta.glob('./skills/**/SKILL.md', {
+  query: '?raw',
+  import: 'default',
+  eager: true
+})
 </script>
 ```

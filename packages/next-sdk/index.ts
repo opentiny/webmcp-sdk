@@ -38,3 +38,17 @@ export { getAISDKTools } from './agent/utils/getAISDKTools'
 // 方便的二维码类
 export { QrCode, type QrCodeOption } from './remoter/QrCode'
 export type * from './agent/type'
+
+// Web 端 Skill 公共能力：解析 skill 文档、生成 systemPrompt、内置 list_skills / get_skill_content 工具
+export {
+  getSkillOverviews,
+  formatSkillsForSystemPrompt,
+  getSkillMdPaths,
+  getSkillMdContent,
+  getMainSkillPaths,
+  getMainSkillPathByName,
+  parseSkillFrontMatter,
+  createSkillTools,
+  type SkillMeta,
+  type SkillToolsSet
+} from './skills/index'

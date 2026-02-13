@@ -4,82 +4,31 @@
     <div class="main-content">
       <router-view />
     </div>
-    <tiny-remoter :sessionId="sessionId" :menuItems="menuItems"> </tiny-remoter>
+    <!-- 用户层传入 skillMdModules，由 remoter 内部调用 next-sdk 的 skill 能力处理 -->
+    <tiny-remoter :skills="skillMdModules" :show="show" :menuItems="menuItems" :mcpServers="mcpServers"> </tiny-remoter>
   </div>
 </template>
 
 <script setup lang="ts">
 import { TinyRemoter } from '@opentiny/next-remoter'
-import { WebMcpClient, createMessageChannelPairTransport } from '@opentiny/next-sdk'
-import type { Transport, MenuItemConfig } from '@opentiny/next-sdk'
-import { AGENT_ROOT } from './const'
-import { provide, ref } from 'vue'
-
-const [serverTransport, clientTransport] = createMessageChannelPairTransport()
+import type { MenuItemConfig } from '@opentiny/next-sdk'
+import { onMounted, ref } from 'vue'
+import { skillMdModules } from './skills'
+import { createMcpServer, clientTransport } from './mcp-servers'
 const menuItems = ref<MenuItemConfig[]>([])
+const show = ref(true)
 
-menuItems.value = [
-  {
-    action: 'qr-code',
-    show: false
+// 业界格式：key 为 MCP 服务器名称，value 为 McpServerConfig
+const mcpServers = {
+  'local-mcp-server': {
+    type: 'local',
+    transport: clientTransport
   }
-]
-
-// 定义 MCP Server 的能力
-const capabilities = {
-  prompts: { listChanged: true },
-  resources: { subscribe: true, listChanged: true },
-  tools: { listChanged: true },
-  completions: {},
-  logging: {}
 }
 
-const mcpServer: {
-  transport: Transport | null
-  capabilities: Record<string, any>
-} = {
-  transport: serverTransport,
-  capabilities
-}
-
-provide('mcpServer', mcpServer)
-
-serverTransport.onerror = (error) => {
-  console.error(`ServerTransport error:`, error)
-}
-
-const sessionId = ref('')
-
-const createProxyTransport = async () => {
-  const client = new WebMcpClient(
-    { name: 'mcp-web-client', version: '1.0.0' },
-    { capabilities: { roots: { listChanged: true }, sampling: {}, elicitation: {} } }
-  )
-  // @ts-expect-error client
-  window.client = client
-  await client.connect(clientTransport)
-
-  try {
-    const { sessionId: _sessionId } = await client.connect({
-      url: AGENT_ROOT + 'mcp',
-      sessionId: localStorage.getItem('mcp-sessionId') || undefined,
-      agent: true,
-      onError: (error: Error) => {
-        console.error('Connect proxy error:', error)
-      }
-    })
-
-    console.log('sessionId', _sessionId)
-    localStorage.setItem('mcp-sessionId', _sessionId)
-    sessionId.value = _sessionId
-  } catch (error) {
-    console.error('WebMcpClient的连接失败', error)
-  }
-
-  window.addEventListener('pagehide', client.onPagehide)
-}
-
-createProxyTransport()
+onMounted(async () => {
+  await createMcpServer()
+})
 </script>
 
 <style scoped></style>
