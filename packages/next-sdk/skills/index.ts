@@ -1,7 +1,7 @@
 /**
  * Web 端 Skill 公共能力模块（next-sdk）
  * - 提供解析、概况、systemPrompt 拼接、按路径/名称查文档
- * - 提供 createSkillTools：供 remoter 注入为 AI 工具，大模型可自动识别并加载技能文档
+ * - 提供 createSkillTools：供 remoter 注入 get_skill_content 工具，大模型可按需加载技能文档
  */
 
 import { tool } from 'ai'
@@ -108,7 +108,6 @@ export type SkillToolsSet = Record<string, any>
 
 /**
  * 根据 skillMdModules 创建供 AI 调用的工具集
- * - list_skills: 列出所有技能概况（name、description）
  * - get_skill_content: 按技能名或路径获取完整文档内容，便于大模型自动识别并加载技能
  * remoter 可将返回的 tools 合并进 extraTools 注入 agent
  */

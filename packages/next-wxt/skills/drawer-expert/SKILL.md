@@ -85,7 +85,7 @@ description: 擅长绘制各种图表、流程图、架构图等，能够提供�
    - **流程**:
      1. 为形状和文本元素分别创建唯一的id
      2. 在文本元素中，添加containerId属性，其值为形状的id
-     3. 必须）调用updateElement，更新形状元素，添加boundElements属性，其值为一个数组，包含指向文本元素的引用
+     3. （必须）调用updateElement，更新形状元素，添加boundElements属性，其值为一个数组，包含指向文本元素的引用
      4. 为保证居中对齐，建议将文本元素的 `textAlign` 设置为 `"center"`，`verticalAlign` 设置为 `"middle"`
    - **示例**:
 
