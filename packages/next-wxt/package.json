@@ -2,7 +2,7 @@
   "name": "@opentiny/next-wxt",
   "description": "Opentiny Next 框架的浏览器扩展插件",
   "private": true,
-  "version": "0.0.5",
+  "version": "0.0.6",
   "type": "module",
   "scripts": {
     "dev": "wxt prepare && wxt --mode open",

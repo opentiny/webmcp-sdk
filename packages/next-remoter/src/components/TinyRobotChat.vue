@@ -187,6 +187,7 @@ import { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import type { MenuItemConfig } from '@opentiny/next-sdk'
 import useModel from '../composable/useModel'
 import type { UnifiedModelConfig } from '../types/model-config'
+import type { McpServerConfig } from '@opentiny/next-sdk'
 
 defineOptions({
   name: 'TinyRemoter'
@@ -255,10 +256,15 @@ const props = defineProps({
     type: Object,
     default: () => ({})
   },
-  /** 自定义 MCP 市场服务列表 */
+  /** 自定义 MCP 市场服务列表一般是后台的mcp工具常驻存在 */
   customMarketMcpServers: {
     type: Array as () => PluginInfo[],
     default: () => []
+  },
+  /** MCP 服务器配置：业界格式 { "服务器名称": McpServerConfig }，name 即对象的 key */
+  mcpServers: {
+    type: Object as () => Record<string, McpServerConfig>,
+    default: undefined
   },
   /** LLM 配置数组，每一项基于 llmConfig 格式，额外包含 id、label、icon、isDefault、useReActMode 字段 */
   llmConfigs: {
@@ -266,8 +272,8 @@ const props = defineProps({
     default: undefined
   },
   /**
-   * 用户层传入的 skill .md 模块（Vite import.meta.glob 等得到的 Record<path, content>），
-   * 由 remoter 调用 next-sdk 的 skill 能力处理：生成 systemPrompt 技能说明、内置 list_skills / get_skill_content 工具，大模型可自动识别并加载技能
+   * 用户层传入的 skill .md 模块（Record<path, content>，如 Vite import.meta.glob 得到的结果），
+   * 由 remoter 调用 next-sdk 的 skill 能力处理：生成 systemPrompt 技能说明、内置 get_skill_content 工具，大模型可自动识别并加载技能
    */
   skills: {
     type: Object as () => Record<string, string>,
@@ -340,7 +346,6 @@ const skillsRef = toRef(props, 'skills')
 const { processSkillMentions } = useSkillWithTools({
   skillsRef,
   systemPrompt: props.systemPrompt || '',
-  agent,
   customAgentProvider
 })
 
@@ -529,6 +534,12 @@ onMounted(async () => {
   // 批量添加预安装的插件
   for (const plugin of preInstalledPlugins) {
     await addPluginFromMarket(plugin)
+  }
+
+  if (props.mcpServers) {
+    for (const [name, config] of Object.entries(props.mcpServers)) {
+      await loadMcpServerToPlugin(name, config)
+    }
   }
 })
 

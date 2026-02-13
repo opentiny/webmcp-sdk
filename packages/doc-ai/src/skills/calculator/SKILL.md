@@ -9,9 +9,9 @@ description: 执行商品库存管理相关的计算。
 
 ## 输入参数
 
-- `a` (number): 商品数量 当前商品数量
-- `b` (number): 商品库存 商品库存
-- `operation` (string): 要执行的运算类型 加、减、乘、除
+- `a` (number): 当前商品数量
+- `b` (number): 商品库存数量
+- `operation` (string): 要执行的运算类型（加、减、乘、除）
 
 ## Handler
 
