@@ -187,6 +187,7 @@ import { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import type { MenuItemConfig } from '@opentiny/next-sdk'
 import useModel from '../composable/useModel'
 import type { UnifiedModelConfig } from '../types/model-config'
+import type { McpServerConfig } from '@opentiny/next-sdk'
 
 defineOptions({
   name: 'TinyRemoter'
@@ -255,10 +256,15 @@ const props = defineProps({
     type: Object,
     default: () => ({})
   },
-  /** 自定义 MCP 市场服务列表 */
+  /** 自定义 MCP 市场服务列表一般是后台的mcp工具常驻存在 */
   customMarketMcpServers: {
     type: Array as () => PluginInfo[],
     default: () => []
+  },
+  /** MCP 服务器配置：业界格式 { "服务器名称": McpServerConfig }，name 即对象的 key */
+  mcpServers: {
+    type: Object as () => Record<string, McpServerConfig>,
+    default: undefined
   },
   /** LLM 配置数组，每一项基于 llmConfig 格式，额外包含 id、label、icon、isDefault、useReActMode 字段 */
   llmConfigs: {
@@ -529,6 +535,12 @@ onMounted(async () => {
   // 批量添加预安装的插件
   for (const plugin of preInstalledPlugins) {
     await addPluginFromMarket(plugin)
+  }
+
+  if (props.mcpServers) {
+    for (const [name, config] of Object.entries(props.mcpServers)) {
+      await loadMcpServerToPlugin(name, config)
+    }
   }
 })
 
