@@ -43,13 +43,19 @@ export const DEFAULT_MODEL_CONFIGS: UnifiedModelConfig[] = [
     icon: IconModelDeepseek as unknown as Component
   },
   {
-    id: 'deepseek-r1:1.5b',
-    label: 'deepseek-r1:1.5b',
-    model: 'deepseek-r1:1.5b',
+    id: 'qwen3-vl:8b',
+    label: 'qwen3-vl:8b',
+    model: 'qwen3-vl:8b',
     apiKey: 'sk-trial',
     baseURL: 'http://localhost:11434/api',
     providerType: createOllama,
     useReActMode: false,
+    // 多模态能力配置：启用文件上传功能
+    multimodal: {
+      supportImages: true, // 支持图片上传
+      maxFileSize: 10, // 最大文件大小 10MB
+      supportedMimeTypes: ['image/'] // 支持的文件类型：所有图片格式
+    },
     icon: IconModelDeepseek as unknown as Component
   },
   {
