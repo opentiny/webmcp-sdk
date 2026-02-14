@@ -6,12 +6,10 @@
 
 import { tool } from 'ai'
 import { z } from 'zod'
+import matter from 'gray-matter-browser'
 
 /** 主 SKILL.md 路径格式：仅匹配一级子目录下的 SKILL.md，如 ./calculator/SKILL.md */
 const MAIN_SKILL_PATH_REG = /^\.\/[^/]+\/SKILL\.md$/
-
-/** 从 front matter 中提取 name 和 description 的正则（--- 与 --- 之间） */
-const FRONT_MATTER_BLOCK_REG = /^---\s*\n([\s\S]+?)\s*\n---/
 
 /** 单个技能的概况信息（从主 SKILL.md 的 front matter 提取） */
 export interface SkillMeta {
@@ -27,19 +25,12 @@ export interface SkillMeta {
  * 从主 SKILL.md 的 YAML front matter 中用正则提取 name、description
  */
 export function parseSkillFrontMatter(content: string): { name: string; description: string } | null {
-  // 先提取 --- 之间的文本块
-  const blockMatch = content.match(FRONT_MATTER_BLOCK_REG)
-  if (!blockMatch?.[1]) return null
-  const block = blockMatch[1]
+  if (!content) return null
 
-  // 分别匹配 name 和 description 字段（支持任意顺序）
-  const nameMatch = block.match(/^name:\s*(.+)$/m)
-  const descMatch = block.match(/^description:\s*(.+)$/m)
+  const { data } = matter(content)
+  if (!data || !data.name || !data.description) return null
 
-  const name = nameMatch?.[1]?.trim()
-  const description = descMatch?.[1]?.trim()
-
-  return name && description ? { name, description } : null
+  return { name: data.name, description: data.description }
 }
 
 /**
@@ -56,13 +47,11 @@ export function getSkillOverviews(modules: Record<string, string>): SkillMeta[] 
   const mainPaths = getMainSkillPaths(modules)
   const list: SkillMeta[] = []
   for (const path of mainPaths) {
-    const content = modules[path]
-    if (!content) continue
-    const parsed = parseSkillFrontMatter(content)
+    const parsed = parseSkillFrontMatter(modules[path])
     if (!parsed) continue
+
     list.push({
-      name: parsed.name,
-      description: parsed.description,
+      ...parsed,
       path
     })
   }
@@ -119,8 +108,7 @@ export function createSkillTools(modules: Record<string, string>): SkillToolsSet
       skillName: z.string().optional().describe('技能名称，与目录名一致，如 calculator'),
       path: z.string().optional().describe('文档相对路径，如 ./calculator/SKILL.md 或 ./product-guide/reference/xxx.md')
     }),
-    execute: (args: { skillName?: string; path?: string }) => {
-      const { skillName, path: pathArg } = args
+    execute: ({ skillName, path: pathArg }) => {
       let content: string | undefined
       if (pathArg) {
         content = getSkillMdContent(modules, pathArg)

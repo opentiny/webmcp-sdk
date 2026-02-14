@@ -37,9 +37,7 @@ export function useSkillWithTools(options: UseSkillWithToolsOptions) {
   // 响应式同步：skillsRef 变化时自动更新 systemPrompt 和 extraTools
   const base = systemPrompt || ''
   watchEffect(() => {
-    customAgentProvider.systemPrompt = skillPromptPart.value
-      ? `${base}\n\n${skillPromptPart.value}`
-      : base
+    customAgentProvider.systemPrompt = skillPromptPart.value ? `${base}\n\n${skillPromptPart.value}` : base
 
     if (customAgentProvider.llmConfig) {
       const extra = customAgentProvider.llmConfig.extraTools ?? {}
