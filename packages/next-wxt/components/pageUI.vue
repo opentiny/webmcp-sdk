@@ -16,7 +16,8 @@ const message = defineModel('message', { type: String, default: '' })
 // 国际化文本常量
 const CALLING_TEXT = '正在调用'
 
-const visible = ref(true)
+// 悬浮按钮默认隐藏，仅在调用工具时（status 变为 run）显示
+const visible = ref(false)
 const isDragging = ref(false)
 const position = reactive({ x: window.innerWidth - 100, y: window.innerHeight - 100 })
 let startX = 0
