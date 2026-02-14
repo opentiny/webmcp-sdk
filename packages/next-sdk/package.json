@@ -49,8 +49,7 @@
     "qrcode": "catalog:",
     "zod": "catalog:",
     "ajv": "catalog:",
-    "ai": "catalog:",
-    "gray-matter-browser": "4.0.4"
+    "ai": "catalog:"
   },
   "devDependencies": {
     "typescript": "catalog:",
