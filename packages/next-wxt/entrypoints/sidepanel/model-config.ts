@@ -9,6 +9,7 @@ import type { UnifiedModelConfig } from '@opentiny/next-remoter'
 import type { Component } from 'vue'
 import { markRaw } from 'vue'
 import { builtInAI } from '@built-in-ai/core'
+import { createOllama } from 'ollama-ai-provider-v2'
 // 从本地导入图标
 // Import icons from local directory
 import IconModelDeepseek from './icons/icon-model-deepseek.svg'
@@ -38,6 +39,16 @@ export const DEFAULT_MODEL_CONFIGS: UnifiedModelConfig[] = [
     apiKey: 'sk-trial',
     baseURL: 'https://agent.opentiny.design/api/v1/ai',
     providerType: 'deepseek',
+    useReActMode: false,
+    icon: IconModelDeepseek as unknown as Component
+  },
+  {
+    id: 'deepseek-r1:1.5b',
+    label: 'deepseek-r1:1.5b',
+    model: 'deepseek-r1:1.5b',
+    apiKey: 'sk-trial',
+    baseURL: 'http://localhost:11434/api',
+    providerType: createOllama,
     useReActMode: false,
     icon: IconModelDeepseek as unknown as Component
   },

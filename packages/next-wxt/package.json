@@ -20,6 +20,7 @@
     "@opentiny/vue": "catalog:",
     "@opentiny/vue-icon": "catalog:",
     "puppeteer-core": "catalog:",
+    "ollama-ai-provider-v2": "~3.3.0",
     "@built-in-ai/core": "catalog:",
     "vant": "catalog:",
     "vue": "catalog:",
