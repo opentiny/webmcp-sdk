@@ -13,11 +13,14 @@ import { manifestOptionsPlugin } from './plugins/vite-plugin-manifest-options'
 export default defineConfig({
   modules: ['@wxt-dev/module-vue', '@wxt-dev/auto-icons'],
   runner: {
-    chromiumArgs: ['--user-data-dir=./.wxt/chrome-data'] // 设置用户数据目录
+    chromiumArgs: [
+      '--disable-web-security', // 允许跨域请求，开发时使用，生产环境请谨慎使用
+      '--user-data-dir=./.wxt/chrome-data' // 设置用户数据目录
+    ]
   },
   manifest: {
     name: 'OpenTiny AI Extension',
-    // 定义manifiest
+    // 定义manifest
     permissions: [
       'storage',
       'tabs',

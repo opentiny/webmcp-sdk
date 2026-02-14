@@ -28,6 +28,30 @@ const DEFAULT_FACTORY_CONFIG = {
   providerType: 'deepseek' as const
 }
 
+/**
+ * 合并用户 providerOptions 与默认 GENUI_CONFIG
+ * 按 provider 维度浅合并，用户配置中的同名字段会覆盖默认值
+ * @param user 用户传递的自定义配置（如 { deepseek: { user: 'userId' } }）
+ * @param defaults 默认 GENUI 配置
+ */
+function mergeProviderOptions(
+  user?: Record<string, any>,
+  defaults?: Record<string, any>
+): Record<string, any> | undefined {
+  if (!defaults && !user) return undefined
+  if (!user) return defaults
+  if (!defaults) return user
+  const result = { ...defaults }
+  for (const [provider, options] of Object.entries(user)) {
+    if (options && typeof options === 'object' && !Array.isArray(options)) {
+      result[provider] = { ...(result[provider] || {}), ...options }
+    } else {
+      result[provider] = options
+    }
+  }
+  return result
+}
+
 /** Tiny-robot 所需要的自定义大语言的Provider */
 export class CustomAgentModelProvider extends BaseModelProvider {
   transport: any
@@ -82,7 +106,8 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     apiKey,
     providerType,
     useReActMode,
-    llm
+    llm,
+    providerOptions
   }: {
     modelId: string
     baseURL?: string
@@ -90,6 +115,8 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     providerType?: 'deepseek' | 'openai' | ((options: any) => ProviderV2)
     useReActMode?: boolean
     llm?: ProviderV2
+    /** 自定义请求体字段，会合并到 AI SDK streamText 的 providerOptions 中 */
+    providerOptions?: Record<string, any>
   }) {
     if (llm) {
       this.agent.llm = llm
@@ -131,6 +158,8 @@ export class CustomAgentModelProvider extends BaseModelProvider {
 
       this.agent.llm = providerFn({ apiKey, baseURL })
     }
+    // 更新 providerOptions（自定义请求体字段），每次切换模型时同步，undefined 时清空避免残留
+    this.llmConfig.providerOptions = providerOptions
   }
 
   /**
@@ -352,7 +381,8 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       toolChoice: 'auto',
       tools: { ['get-today']: getToday, ...(this.llmConfig.extraTools || {}) },
       maxSteps: this.llmConfig.maxSteps,
-      providerOptions: this.llmConfig.providerOptions || GENUI_CONFIG,
+      // 合并用户传递的 providerOptions 与默认 GENUI_CONFIG，用户配置优先
+      providerOptions: mergeProviderOptions(this.llmConfig.providerOptions, GENUI_CONFIG),
       prepareStep: ({ messages }: { messages: any[] }) => {
         // 在步骤开始前清理旧的快照消息
         // prepareStep 会在每次步骤开始前被调用，可以修改即将用于请求的 messages

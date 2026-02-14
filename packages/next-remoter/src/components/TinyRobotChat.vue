@@ -207,7 +207,7 @@ const props = defineProps({
   /** 系统提示词 */
   systemPrompt: {
     type: String,
-    default: '你是一个智能生活助手，擅长通过工具调用帮助用户完成任务'
+    default: '你是一个智能助手，擅长通过工具调用帮助用户解决问题和满足用户需求'
   },
   /** 左上角的标题 */
   title: {
@@ -385,7 +385,9 @@ const updateLLMConfigFromModel = () => {
       apiKey: model.apiKey || '',
       providerType: model.providerType,
       useReActMode: model.useReActMode,
-      llm: model.llm
+      llm: model.llm,
+      // 传递 providerOptions，确保 model-config 中的自定义请求体（如 user/userId）能生效
+      providerOptions: model.providerOptions
     })
   }
 }
