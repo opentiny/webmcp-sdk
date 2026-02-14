@@ -385,7 +385,9 @@ const updateLLMConfigFromModel = () => {
       apiKey: model.apiKey || '',
       providerType: model.providerType,
       useReActMode: model.useReActMode,
-      llm: model.llm
+      llm: model.llm,
+      // 传递 providerOptions，确保 model-config 中的自定义请求体（如 user/userId）能生效
+      providerOptions: model.providerOptions
     })
   }
 }
