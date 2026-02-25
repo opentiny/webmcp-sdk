@@ -1,5 +1,5 @@
 import { WebMcpServer, z, createMessageChannelPairTransport } from '@opentiny/next-sdk'
-import { getAllMcpServersByIsAlwaysEnabled } from '@/mcp-servers'
+import { getAllMcpServersByIsAlwaysEnabled, getToolModuleMap } from '@/mcp-servers'
 import { useExtraTools } from './extraTools'
 
 export const createMcpServer = async () => {
@@ -10,8 +10,23 @@ export const createMcpServer = async () => {
   const mcpServers = getAllMcpServersByIsAlwaysEnabled()
 
   const createProxServer = (meta: { name: string; url: string; [key: string]: any }) => {
+    // 获取工具模块映射表
+    const toolModuleMapRef = getToolModuleMap()
+    
     const resolveTargetUrl = (toolName: string) => {
-      return meta.toolsJumpLinks?.[toolName] ?? meta.url
+      // 优先检查是否是子模块工具
+      const moduleInfo = toolModuleMapRef.get(toolName)
+      if (moduleInfo && moduleInfo.domain === meta.name) {
+        return moduleInfo.moduleUrl
+      }
+      
+      // 其次检查 toolsJumpLinks 配置
+      if (meta.toolsJumpLinks?.[toolName]) {
+        return meta.toolsJumpLinks[toolName]
+      }
+      
+      // 最后使用默认 URL
+      return meta.url
     }
 
     const isUrlMatch = (tabUrl: string | undefined, targetUrl: string) => {

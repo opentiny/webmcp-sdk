@@ -23,13 +23,14 @@ export const createMcpServer = async (tabId: number) => {
   const cookieData = getCookieData()
   const server = new WebMcpServer(serverInfo)
 
-  // 获取当前页面域名
+  // 获取当前页面域名和完整 URL
   const hostname = window.location.hostname
-  const mcpTool = getMcpToolByHostname(hostname)
+  const currentUrl = window.location.href
+  const mcpTool = getMcpToolByHostname(hostname, currentUrl)
 
   // 如果找到匹配的工具配置，则注册
   if (mcpTool) {
-    console.log('找到匹配的 MCP 工具配置，正在注册...')
+    console.log('找到匹配的 MCP 工具配置，正在注册...', { hostname, currentUrl })
     mcpTool({ server, z, cookie: cookieData })
   } else {
     console.log('当前域名没有配置 MCP 工具')
@@ -51,9 +52,10 @@ export const createMcpServer = async (tabId: number) => {
 export const createProxyMcpServer = async (tabId: number) => {
   const cookieData = getCookieData()
 
-  // 获取当前页面域名
+  // 获取当前页面域名和完整 URL
   const hostname = window.location.hostname
-  const mcpTool = getMcpToolByHostname(hostname)
+  const currentUrl = window.location.href
+  const mcpTool = getMcpToolByHostname(hostname, currentUrl)
   const toolMap = new Map<string, any>()
 
   const server = {
@@ -119,7 +121,7 @@ export const createProxyMcpServer = async (tabId: number) => {
 
   // 如果找到匹配的工具配置，则注册
   if (mcpTool) {
-    console.log('找到匹配的 MCP 工具配置，正在注册...')
+    console.log('找到匹配的 MCP 工具配置，正在注册...', { hostname, currentUrl })
     mcpTool({ server, z, cookie: cookieData })
   } else {
     console.log('当前域名没有配置 MCP 工具')
