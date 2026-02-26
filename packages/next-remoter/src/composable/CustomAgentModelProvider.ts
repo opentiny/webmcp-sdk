@@ -107,7 +107,8 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     providerType,
     useReActMode,
     llm,
-    providerOptions
+    providerOptions,
+    headers
   }: {
     modelId: string
     baseURL?: string
@@ -117,6 +118,8 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     llm?: ProviderV2
     /** 自定义请求体字段，会合并到 AI SDK streamText 的 providerOptions 中 */
     providerOptions?: Record<string, any>
+    /** 自定义请求 Header，透传给 ai-sdk Provider 实例 */
+    headers?: Record<string, string>
   }) {
     if (llm) {
       this.agent.llm = llm
@@ -144,7 +147,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       this.agent.useReActMode = useReActMode || false
 
       // 根据 providerType 创建新的 llm 实例
-      let providerFn: (options: { apiKey: string; baseURL: string }) => ProviderV2 | OpenAIProvider
+      let providerFn: (options: { apiKey: string; baseURL: string; headers?: Record<string, string> }) => ProviderV2 | OpenAIProvider
 
       if (providerType === 'deepseek') {
         providerFn = createDeepSeek
@@ -156,10 +159,12 @@ export class CustomAgentModelProvider extends BaseModelProvider {
         throw new Error(`Unsupported providerType: ${providerType}`)
       }
 
-      this.agent.llm = providerFn({ apiKey, baseURL })
+      // 将 headers 透传给 provider 工厂函数（undefined 时不传，避免覆盖 sdk 默认值）
+      this.agent.llm = providerFn({ apiKey, baseURL, ...(headers ? { headers } : {}) })
     }
-    // 更新 providerOptions（自定义请求体字段），每次切换模型时同步，undefined 时清空避免残留
+    // 每次切换模型时同步 providerOptions 和 headers，undefined 时清空避免残留
     this.llmConfig.providerOptions = providerOptions
+    this.llmConfig.headers = headers
   }
 
   /**

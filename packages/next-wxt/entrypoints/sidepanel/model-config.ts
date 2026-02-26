@@ -39,6 +39,11 @@ export const DEFAULT_MODEL_CONFIGS: UnifiedModelConfig[] = [
     baseURL: 'https://agent.opentiny.design/api/v1/ai',
     providerType: 'deepseek',
     useReActMode: false,
+    // 自定义请求 Header
+    headers: {
+      'X-Custom-Header': 'my-value',
+      'X-Trace-Id': 'abc-123'
+    },
     icon: IconModelDeepseek as unknown as Component
   },
   {
