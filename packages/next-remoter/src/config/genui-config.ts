@@ -2,7 +2,7 @@ export const GENUI_CONFIG: Record<string, any> = {
   deepseek: {
     'prompt': {
       strategy: 'append',
-      'id': '5ed1b9071c15d1ed59b5827ea5dcabd4',
+      'id': '53e8f602ffc54527192aabd17465442e',
       'params': {
         customComponents: [
           {
@@ -73,10 +73,10 @@ export const GENUI_CONFIG: Record<string, any> = {
               properties: {
                 message: {
                   type: 'string',
-                  description: '对话消息,可以是按钮文本等，也可以是其他内容',
-                },
-              },
-            },
+                  description: '对话消息,可以是按钮文本等，也可以是其他内容'
+                }
+              }
+            }
           }
         ]
       }

@@ -5,7 +5,16 @@
       <router-view />
     </div>
     <!-- 用户层传入 skillMdModules，由 remoter 内部调用 next-sdk 的 skill 能力处理 -->
-    <tiny-remoter :skills="skillMdModules" :show="show" :menuItems="menuItems" :mcpServers="mcpServers"> </tiny-remoter>
+    <tiny-remoter
+      :skills="skillMdModules"
+      :genUiAble="true"
+      :show="show"
+      :fullscreen="fullscreen"
+      :menuItems="menuItems"
+      :systemPrompt="systemPrompt"
+      :mcpServers="mcpServers"
+    >
+    </tiny-remoter>
   </div>
 </template>
 
@@ -15,9 +24,10 @@ import type { MenuItemConfig } from '@opentiny/next-sdk'
 import { onMounted, ref } from 'vue'
 import { skillMdModules } from './skills'
 import { createMcpServer, clientTransport } from './mcp-servers'
+const systemPrompt = ref('要求：<important>输出格式为 Markdown 格式，不要使用schemaJson格式</important>')
 const menuItems = ref<MenuItemConfig[]>([])
 const show = ref(true)
-
+const fullscreen = ref(true)
 // 业界格式：key 为 MCP 服务器名称，value 为 McpServerConfig
 const mcpServers = {
   'local-mcp-server': {
