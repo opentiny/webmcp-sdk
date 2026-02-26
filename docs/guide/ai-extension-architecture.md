@@ -59,11 +59,8 @@ AI-Extension 浏览器插件的系统架构分为三个主要层次：
 
 ### Skills 技能配置层
 
-- **meta.ts**：技能元信息配置文件，定义技能的标识、别名、描述等
-- **prompt.md**：系统提示词文件，定义 AI 的专业角色和行为模式
-- **tools.ts**：工具列表文件，声明技能需要的 MCP 工具
-- **index.ts**：技能导出文件，组合并导出完整的技能配置
-- **技能目录 (skills/)**：按技能名称组织的技能目录结构
+- **SKILL.md**：技能定义文件，由 YAML Front Matter（元数据）和 Markdown Body（系统提示词）组成
+- **技能目录 (skills/)**：按技能名称组织的技能目录结构，每个目录包含一个 `SKILL.md` 文件
 
 ### 架构交互流程
 
@@ -87,11 +84,10 @@ AI-Extension 浏览器插件的系统架构分为三个主要层次：
    - 操作后自动获取新快照以验证结果
 
 5. **技能激活流程**：
-   - 用户在对话中输入 `@` 符号触发技能选择器
-   - 系统显示可用技能列表，支持按名称、别名、分类过滤
-   - 用户选择技能后，系统组合技能的系统提示词
-   - 检查技能需要的工具是否可用，如有缺失则提示用户
-   - 激活技能后，AI 以专业专家身份响应用户需求
+   - 系统通过 `import.meta.glob` 自动扫描并加载所有 `SKILL.md` 文件
+   - AI 助手自动分析用户意图，匹配并加载合适的技能
+   - 将 `SKILL.md` 中的 Markdown Body 作为系统提示词注入对话
+   - 激活技能后，AI 以对应专业专家身份响应用户需求
 
 ## 三、核心架构组件
 
@@ -257,7 +253,7 @@ export const createContentProxy = (tabId: number) => {
 
 ### 3.4 Skills 技能系统
 
-Skills（技能）系统是 AI Extension 的专家角色定义机制，允许为 AI 助手定义专业角色和能力，通过系统提示词和工具列表的组合，实现专业化的 AI 行为模式。
+Skills（技能）系统是 AI Extension 的专家角色定义机制，允许为 AI 助手定义专业角色和能力。AI 助手会自动识别用户意图并加载对应技能，无需用户显式触发。
 
 #### 3.4.1 技能系统架构
 
@@ -266,127 +262,61 @@ Skills（技能）系统是 AI Extension 的专家角色定义机制，允许为
 ```
 skills/
 ├── index.ts              # 技能自动发现和加载逻辑
-├── types.d.ts            # TypeScript 类型定义
-├── skillManager.ts       # 技能管理器（组合提示词、工具列表等）
-├── office-expert/        # 办公专家技能
-│   ├── meta.ts          # 技能元信息配置
-│   ├── prompt.md         # 系统提示词内容
-│   ├── tools.ts          # 工具列表定义
-│   └── index.ts         # 技能导出文件
-└── drawer-expert/        # 画图专家技能
-    ├── meta.ts
-    ├── prompt.md
-    ├── tools.ts
-    └── index.ts
+├── drawer-expert/        # 画图专家技能
+│   └── SKILL.md          # 技能定义文件
+└── month-report-expert/  # 月报专家技能
+    └── SKILL.md
 ```
 
 **核心组件**：
 
-- **技能自动发现**：使用 `import.meta.glob` 自动扫描并加载所有技能
-- **技能管理器**：负责组合多个技能的提示词、管理工具列表、验证工具可用性
-- **技能选择器**：用户界面组件，支持通过 `@` 符号触发技能选择
+- **技能自动发现**：使用 `import.meta.glob` 自动扫描并加载所有 `SKILL.md` 文件
+- **技能定义文件**：每个技能仅需一个 `SKILL.md`，包含元数据和系统提示词
 
 #### 3.4.2 技能配置结构
 
-每个技能包含三个核心部分：
+每个技能由一个 `SKILL.md` 文件定义，格式遵循业界标准 Skill 协议，由两部分组成：
 
-1. **元信息 (meta.ts)**：
+1. **YAML Front Matter（元信息）**：
    - `name`：技能唯一标识符
-   - `label`：显示名称（用于 @ 调用）
-   - `aliases`：别名数组，支持多个 @ 名称
-   - `description`：技能描述
-   - `category`：分类（用于分组）
-   - `requiredDomains`：需要的域名列表（可选）
+   - `description`：技能描述，用于 AI 理解何时激活该技能
 
-2. **系统提示词 (prompt.md)**：
+2. **Markdown Body（系统提示词）**：
    - 定义 AI 的专业角色和行为模式
    - 包含核心原则、工作方式、交互风格等
-   - 通过示例对话展示期望的行为
 
-3. **工具列表 (tools.ts)**：
-   - 声明技能需要的 MCP 工具名称
-   - 系统自动检查工具可用性
-   - 支持工具依赖验证
+**SKILL.md 示例**：
+
+```markdown
+---
+name: drawer-expert
+description: 擅长绘制各种图表、流程图、架构图等，能够提供专业的设计建议和方案
+---
+
+# 画图专家
+
+你是一位顶级的解决方案架构师...
+
+## 核心任务
+
+根据用户的需求，通过调用工具与画布交互...
+
+## 规则
+
+1. 规则 1...
+```
 
 #### 3.4.3 技能激活机制
 
-**单技能激活**：
+系统在启动时通过 `import.meta.glob` 自动加载所有 `SKILL.md`，AI 助手根据用户输入的意图自动匹配并激活对应技能，将 `SKILL.md` 的 Markdown Body 作为系统提示词注入对话，无需用户显式操作：
 
 ```typescript
-// 用户输入：@办公专家 帮我安排下周的出差
-// 系统处理：
-1. 匹配技能：根据 label 或 aliases 找到 'office-expert'
-2. 组合提示词：将 office-expert 的 prompt.md 内容作为系统提示词
-3. 检查工具：验证 tools.ts 中声明的工具是否可用
-4. 激活技能：AI 以办公专家身份响应
-```
-
-**多技能协作**：
-
-```typescript
-// 用户输入：@办公专家 @画图专家 帮我创建一个出差计划并画流程图
-// 系统处理：
-1. 匹配多个技能：找到 'office-expert' 和 'drawer-expert'
-2. 组合提示词：生成多专家协作模式的组合提示词
-3. 合并工具列表：合并所有技能需要的工具，去重后检查
-4. 多专家协作：AI 同时具备多个专家的能力，根据需求选择合适的视角
-```
-
-**组合提示词格式**：
-
-```markdown
-# 多专家协作模式
-
-你同时具备以下 2 位专家的能力，请根据用户需求选择合适的专家视角来回答问题：
-
-## 办公专家（专家 1）
-
-[办公专家的提示词内容]
-
----
-
-## 画图专家（专家 2）
-
-[画图专家的提示词内容]
-```
-
-#### 3.4.4 技能匹配规则
-
-当用户输入 `@` 后输入文本时，系统会：
-
-1. **精确匹配**：首先匹配 `label` 字段
-2. **别名匹配**：然后匹配 `aliases` 数组中的别名
-3. **模糊匹配**：支持部分匹配，例如输入 `@off` 可以匹配 `office-expert`
-4. **分类过滤**：如果设置了分类，可以按分类过滤技能
-5. **域名过滤**：如果设置了 `requiredDomains`，只在匹配的域名下显示
-
-#### 3.4.5 工具依赖检查
-
-当用户激活技能时，系统会：
-
-1. **提取工具列表**：从技能的 `tools.ts` 中获取需要的工具名称
-2. **检查工具可用性**：验证工具是否已注册和启用
-3. **提示用户**：如果有工具不可用，显示确认对话框
-4. **阻止发送**：如果用户选择取消，阻止消息发送，等待工具准备就绪
-
-**实现示例**：
-
-```typescript
-// skillManager.ts
-export function getToolsForSkills(skillNames: string[]): string[] {
-  const skills = getSkillsByNames(skillNames)
-  const toolSet = new Set<string>()
-  
-  for (const skill of skills) {
-    if (skill.tools && Array.isArray(skill.tools)) {
-      for (const tool of skill.tools) {
-        toolSet.add(tool)
-      }
-    }
-  }
-  
-  return Array.from(toolSet)
-}
+// skills/index.ts
+export const skillMdModules: Record<string, string> = import.meta.glob('./**/*.md', {
+  query: '?raw',
+  import: 'default',
+  eager: true
+}) as Record<string, string>
 ```
 
 ### 3.5 内置智能功能
@@ -661,40 +591,31 @@ customMarketMcpServers: [
 
 **专家角色定义**：
 
-- 通过系统提示词定义 AI 的专业角色和行为模式
-- 支持多专家协作，同时激活多个技能
-- 灵活的别名匹配机制，提升用户体验
+- 通过 `SKILL.md` 中的系统提示词定义 AI 的专业角色和行为模式
+- AI 助手自动识别用户意图，无需显式唤起，按需加载技能
 
 **技能配置**：
 
-- **声明式配置**：通过 `meta.ts`、`prompt.md`、`tools.ts` 三个文件定义技能
-- **自动发现**：系统自动扫描并加载所有技能，无需手动注册
-- **工具依赖管理**：自动检查技能需要的工具是否可用
-
-**使用体验**：
-
-- **快速激活**：用户通过 `@` 符号快速激活技能
-- **智能匹配**：支持精确匹配、别名匹配、模糊匹配
-- **多专家协作**：支持同时激活多个技能，实现多专家协作模式
+- **单文件定义**：每个技能仅需一个 `SKILL.md`，包含元数据与系统提示词，遵循业界标准 Skill 协议
+- **自动发现**：系统通过 `import.meta.glob` 自动扫描并加载所有技能，无需手动注册
 
 **实现优势**：
 
 - 零侵入式设计，技能配置与业务代码完全分离
-- 模块化结构，每个技能独立目录，互不干扰
-- 类型安全，完整的 TypeScript 类型定义
-- 易于扩展，添加新技能只需创建目录和配置文件
+- 结构极简，每个技能只有一个文件，易于维护和扩展
+- 添加新技能只需创建目录和 `SKILL.md` 文件，无其他额外配置
 
 **配置示例**：
 
-```typescript
-// skills/office-expert/meta.ts
-export default {
-  name: 'office-expert',
-  label: '办公专家',
-  aliases: ['office', '办公专家'],
-  description: '擅长通过工具调用帮助用户管理日程、处理出差申请和规划行程。',
-  category: 'office'
-}
+```markdown
+---
+name: drawer-expert
+description: 擅长绘制各种图表、流程图、架构图等，能够提供专业的设计建议和方案
+---
+
+# 画图专家
+
+你是一位顶级的解决方案架构师...
 ```
 
 ## 五、总结
