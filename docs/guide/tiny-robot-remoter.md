@@ -79,6 +79,12 @@ type ICustomAgentModelProviderLlmConfig = (ProviderFactoryConfig | ProviderInsta
   providerOptions?: Record<string, any>
   /** 额外自定义工具 */
   extraTools?: Record<string, any>
+  /**
+   * 自定义请求 Header，会在创建 Provider 实例时透传给 ai-sdk
+   * 仅在使用 providerType（工厂模式）时生效，使用 llm 实例时请自行处理
+   * 适用于需要在每次请求时携带特定 Header 的场景（如鉴权、链路追踪等）
+   */
+  headers?: Record<string, string>
 }
 ```
 
@@ -104,6 +110,131 @@ const claudeConfig = {
     apiKey: process.env.ANTHROPIC_API_KEY
   })
 }
+```
+
+### 自定义请求 Header（headers）
+
+`headers` 字段允许你在每次向 LLM 发起请求时，携带自定义的 HTTP 请求头。常见用途包括：
+
+- **鉴权**：传递业务系统的 Token 或 Session 信息
+- **链路追踪**：传递 `X-Request-Id`、`X-Trace-Id` 等追踪头
+- **多租户路由**：传递租户标识，让代理网关按租户转发
+
+> **注意**：`headers` 仅在使用 `providerType`（工厂模式）时生效，内部会将其透传给 ai-sdk 的 Provider 工厂函数（如 `createOpenAI`、`createDeepSeek`）。若使用 `llm` 实例配置，请在构造 Provider 实例时自行处理 Headers。
+
+#### 在 llmConfig 中使用自定义 Header
+
+```vue
+<template>
+  <TinyRemoter
+    v-model:show="show"
+    sessionId="your-session-id"
+    title="我的AI助手"
+    systemPrompt="你是一个智能助手"
+    :llmConfig="llmConfig"
+  />
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
+
+const show = ref(false)
+
+const llmConfig = {
+  apiKey: 'your-api-key',
+  baseURL: 'https://api.openai.com/v1',
+  providerType: 'openai',
+  model: 'gpt-4o',
+  maxSteps: 10,
+  // 自定义请求头，每次 LLM 请求都会携带
+  headers: {
+    'X-Custom-Token': 'your-business-token',
+    'X-Trace-Id': 'trace-001'
+  }
+}
+</script>
+```
+
+#### 在 llmConfigs 中为每个模型配置独立 Header
+
+当使用多模型切换（`llmConfigs`）时，每个模型可以配置各自独立的 `headers`，切换模型时组件会自动同步对应的 Headers：
+
+```vue
+<template>
+  <TinyRemoter
+    v-model:show="show"
+    v-model:selected-model-id="selectedModelId"
+    sessionId="your-session-id"
+    title="我的AI助手"
+    systemPrompt="你是一个智能助手"
+    :llmConfigs="modelConfigs"
+  />
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
+
+const show = ref(false)
+const selectedModelId = ref('gpt-4o')
+
+const modelConfigs = [
+  {
+    id: 'gpt-4o',
+    label: 'GPT-4o',
+    isDefault: true,
+    apiKey: 'your-openai-api-key',
+    baseURL: 'https://api.openai.com/v1',
+    providerType: 'openai',
+    model: 'gpt-4o',
+    maxSteps: 10,
+    // 为 GPT-4o 配置专属请求头
+    headers: {
+      'X-Business-Token': 'openai-business-token',
+      'X-User-Id': 'user-123'
+    }
+  },
+  {
+    id: 'deepseek-v3',
+    label: 'DeepSeek V3',
+    apiKey: 'your-deepseek-api-key',
+    baseURL: 'https://api.deepseek.com',
+    providerType: 'deepseek',
+    model: 'deepseek-chat',
+    maxSteps: 15,
+    // 为 DeepSeek 配置专属请求头
+    headers: {
+      'X-Business-Token': 'deepseek-business-token',
+      'X-Tenant-Id': 'tenant-456'
+    }
+  }
+]
+</script>
+```
+
+#### 使用 llm 实例时自行处理 Header
+
+如果使用 `llm` 实例配置（`ProviderInstanceConfig`），需要在构造 Provider 实例时自行传入 Headers：
+
+```vue
+<script setup>
+import { createOpenAI } from '@ai-sdk/openai'
+import { TinyRemoter } from '@opentiny/next-remoter'
+
+const llmConfig = {
+  // 在 createOpenAI 中直接传入 headers，效果等同于上面的 headers 字段
+  llm: createOpenAI({
+    apiKey: 'your-api-key',
+    baseURL: 'https://api.openai.com/v1',
+    headers: {
+      'X-Custom-Token': 'your-business-token',
+      'X-Trace-Id': 'trace-001'
+    }
+  }),
+  model: 'gpt-4o'
+}
+</script>
 ```
 
 ## 插槽
