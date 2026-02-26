@@ -20,6 +20,11 @@ export type ICustomAgentModelProviderLlmConfig = IAgentModelProviderLlmConfig & 
   providerOptions?: Record<string, any>
   extraTools?: Record<string, any>
   /**
+   * 自定义请求 Header，会在创建 Provider 实例时透传给 ai-sdk
+   * 适用于需要在每次请求时携带特定 Header 的场景（如鉴权、链路追踪等）
+   */
+  headers?: Record<string, string>
+  /**
    * 在 chatStream 调用前执行的钩子函数
    * 可用于修改消息内容，例如自动添加截图
    * @param lastUserMsg 最后一条用户消息
