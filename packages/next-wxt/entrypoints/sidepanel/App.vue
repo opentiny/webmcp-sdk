@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, type Ref, shallowReactive, computed, watch } from 'vue'
+import { ref, type Ref, shallowReactive, computed, watch, onMounted } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
 import { useBrowserExtensions } from './composable/useBrowserExtensions'
 import { useWebAgentServer } from './composable/useWebAgentServer'
@@ -10,7 +10,7 @@ import { AGENT_ROOT, ROBOT_URL } from './const'
 import { useGenerateCode } from './composable/useGenerateCode'
 import RecordModal from './components/RecordModal.vue'
 import QrCodeDialog from './components/QrCodeDialog.vue'
-import { skillMdModules } from '@/skills'
+import { getUnifiedSkills } from '@/utils/skills-unified'
 import { RENDERER_SETTINGS_KEY } from '@opentiny/genui-sdk-vue'
 import { CustomFunction } from '@/utils/customFunction'
 import { DEFAULT_MODEL_CONFIGS } from './model-config'
@@ -25,8 +25,11 @@ const llmConfig = {
   maxSteps: 30
 }
 
-// 直接透传 skillMdModules 给 remoter，内部会自动调用 next-sdk/skills 处理
-const skills = skillMdModules
+// 从统一入口读取 skills（built-in + 用户在 Options 中的覆盖）
+const skills = ref<Record<string, string>>({})
+onMounted(async () => {
+  skills.value = await getUnifiedSkills()
+})
 
 const remoterRef = ref() as Ref<InstanceType<typeof TinyRemoter>>
 useBrowserExtensions(remoterRef)
