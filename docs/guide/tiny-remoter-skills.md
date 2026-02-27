@@ -317,21 +317,3 @@ console.log('已加载技能文件：', Object.keys(skills))
 ### 参考资料文件支持哪些格式？
 
 支持任意**文本类**文件：`.md`、`.json`、`.xml`、`.txt`、`.yaml`、`.csv` 等。AI 会将文件内容作为纯文本读取，因此不建议放置图片、音视频等二进制文件。
-
-### YAML Front Matter 解析失败？
-
-确保 `---` 符号独占一行，且 YAML 格式正确。值中若含冒号等特殊字符需加引号：
-
-```markdown
-<!-- ❌ 错误：description 值包含冒号未加引号 -->
----
-name: my-expert
-description: 我是专家：擅长分析
----
-
-<!-- ✅ 正确：包含特殊字符时用引号包裹 -->
----
-name: my-expert
-description: "我是专家：擅长分析"
----
-```
