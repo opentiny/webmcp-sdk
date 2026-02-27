@@ -16,8 +16,9 @@ import {
   removeSkillOverrideRecursive,
   isUserAddedPath
 } from './utils/skills-storage'
+import JSZip from 'jszip'
 // TinyVue Icon 是函数，需执行后得到组件再使用
-import { iconEdit, iconDel, iconAdd, iconFolder, iconFiletext, iconPlusSquare } from '@opentiny/vue-icon'
+import { iconEdit, iconDel, iconAdd, iconFolder, iconFiletext, iconPlusSquare, iconDownload } from '@opentiny/vue-icon'
 // TinyVue Form 用于添加对话框的表单校验
 import { Form as TinyForm } from '@opentiny/vue'
 
@@ -27,6 +28,7 @@ const IconAddComp = iconAdd()
 const IconFolderComp = iconFolder()
 const IconFiletextComp = iconFiletext()
 const IconPlusSquareComp = iconPlusSquare()
+const IconDownloadComp = iconDownload()
 
 // 合并 built-in 与用户覆盖，用于构建树
 const mergedModules = computed<Record<string, string>>(() => {
@@ -71,6 +73,28 @@ const deletingNode = ref<SkillsTreeNode | null>(null)
 // 加载用户覆盖
 async function loadOverrides() {
   overrides.value = await getSkillsOverrides()
+}
+
+// 导出备份：将 skills 打包为 zip，解压后即 skills 文件夹结构，避免清除缓存后丢失
+async function downloadBackup() {
+  const data = mergedModules.value
+  const fileEntries = Object.entries(data).filter(([path]) => !path.endsWith('/'))
+  if (fileEntries.length === 0) {
+    alert('暂无数据可导出')
+    return
+  }
+  const zip = new JSZip()
+  for (const [path, content] of fileEntries) {
+    const zipPath = path.replace(/^\.\//, '')
+    zip.file(zipPath, content)
+  }
+  const blob = await zip.generateAsync({ type: 'blob' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `skills-backup-${new Date().toISOString().slice(0, 10)}.zip`
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 // 打开文件编辑
@@ -273,13 +297,19 @@ onMounted(() => {
 <template>
   <div class="skills-tab">
     <div class="skills-header">
-      <p class="skills-desc">管理 skills 目录下的技能文件。修改保存到本地缓存。</p>
+      <p class="skills-desc">管理 skills 目录下的技能文件。修改保存到本地缓存，建议定期导出备份。</p>
     </div>
     <div class="tree-toolbar">
       <TinyButton class="toolbar-btn" @click="openAdd(null, 'file')">
         <span class="toolbar-btn-inner">
           <component :is="IconAddComp" />
           <span>添加 skill</span>
+        </span>
+      </TinyButton>
+      <TinyButton class="toolbar-btn" @click="downloadBackup">
+        <span class="toolbar-btn-inner">
+          <component :is="IconDownloadComp" />
+          <span>导出备份</span>
         </span>
       </TinyButton>
     </div>
