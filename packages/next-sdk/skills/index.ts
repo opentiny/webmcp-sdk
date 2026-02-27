@@ -80,14 +80,14 @@ export function formatSkillsForSystemPrompt(skills: SkillMeta[]): string {
 }
 
 /**
- * 获取所有已加载的 md 文件路径（含主 SKILL.md 与 reference 等）
+ * 获取所有已加载的技能文件路径（含主 SKILL.md 与 reference 下的 .md/.json/.xml 等）
  */
 export function getSkillMdPaths(modules: Record<string, string>): string[] {
   return Object.keys(modules)
 }
 
 /**
- * 根据相对路径获取某个 md 文档的原始内容
+ * 根据相对路径获取某个技能文档的原始内容（支持 .md、.json、.xml 等文本格式）
  */
 export function getSkillMdContent(modules: Record<string, string>, path: string): string | undefined {
   return modules[path]
@@ -114,10 +114,10 @@ export type SkillToolsSet = Record<string, any>
 export function createSkillTools(modules: Record<string, string>): SkillToolsSet {
   const getSkillContent = tool({
     description:
-      '根据技能名称或文档路径获取该技能的完整 Markdown 文档内容。传入 skillName（如 calculator）或 path（如 ./calculator/SKILL.md）',
+      '根据技能名称或文档路径获取该技能的完整文档内容。传入 skillName（如 calculator）或 path（如 ./calculator/SKILL.md）。支持 .md、.json、.xml 等各类文本格式文件。',
     inputSchema: z.object({
       skillName: z.string().optional().describe('技能名称，与目录名一致，如 calculator'),
-      path: z.string().optional().describe('文档相对路径，如 ./calculator/SKILL.md 或 ./product-guide/reference/xxx.md')
+      path: z.string().optional().describe('文档相对路径，如 ./calculator/SKILL.md 或 ./product-guide/reference/xxx.json')
     }),
     execute: (args: { skillName?: string; path?: string }) => {
       const { skillName, path: pathArg } = args

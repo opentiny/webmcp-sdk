@@ -4,8 +4,9 @@
  * - 导出 skillMdModules 供 TinyRemoter 使用
  */
 
-// 全量 .md 文档（Vite 构建时注入），key 为相对 skills 的路径，value 为文件原始内容
-export const skillMdModules: Record<string, string> = import.meta.glob('./**/*.md', {
+// 全量技能文件（Vite 构建时注入），含 SKILL.md 及 reference 下的 .md/.json/.xml 等
+// key 为相对 skills 的路径，value 为文件原始内容
+export const skillMdModules: Record<string, string> = import.meta.glob('./**/*', {
   query: '?raw',
   import: 'default',
   eager: true

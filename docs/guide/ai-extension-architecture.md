@@ -59,8 +59,8 @@ AI-Extension 浏览器插件的系统架构分为三个主要层次：
 
 ### Skills 技能配置层
 
-- **SKILL.md**：技能定义文件，由 YAML Front Matter（元数据）和 Markdown Body（系统提示词）组成
-- **技能目录 (skills/)**：按技能名称组织的技能目录结构，每个目录包含一个 `SKILL.md` 文件
+- **SKILL.md**：技能入口文件，由 YAML Front Matter（元数据）和 Markdown Body（系统提示词）组成
+- **技能目录 (skills/)**：按技能名称组织的技能目录结构，每个目录包含 `SKILL.md` 及可选的 `reference/` 参考资料（支持 `.md`、`.json`、`.xml` 等）
 
 ### 架构交互流程
 
@@ -84,10 +84,10 @@ AI-Extension 浏览器插件的系统架构分为三个主要层次：
    - 操作后自动获取新快照以验证结果
 
 5. **技能激活流程**：
-   - 系统通过 `import.meta.glob` 自动扫描并加载所有 `SKILL.md` 文件
+   - 系统通过 `import.meta.glob('./**/*')` 自动扫描并加载 skills 目录下所有文件（含 `SKILL.md` 及 `.md`、`.json`、`.xml` 等参考资料）
    - AI 助手自动分析用户意图，匹配并加载合适的技能
    - 将 `SKILL.md` 中的 Markdown Body 作为系统提示词注入对话
-   - 激活技能后，AI 以对应专业专家身份响应用户需求
+   - 激活技能后，AI 可按需通过 `get_skill_content` 工具读取参考资料，以对应专业专家身份响应用户需求
 
 ## 三、核心架构组件
 
@@ -253,7 +253,7 @@ export const createContentProxy = (tabId: number) => {
 
 ### 3.4 Skills 技能系统
 
-Skills（技能）系统是 AI Extension 的专家角色定义机制，允许为 AI 助手定义专业角色和能力。AI 助手会自动识别用户意图并加载对应技能，无需用户显式触发。
+Skills（技能）系统是 AI Extension 的专家角色定义机制，允许为 AI 助手定义专业角色和能力。每个技能由 `SKILL.md` 入口文件及可选的参考资料（`.md`、`.json`、`.xml` 等）组成。AI 助手会自动识别用户意图并加载对应技能，无需用户显式触发。
 
 #### 3.4.1 技能系统架构
 
@@ -263,15 +263,18 @@ Skills（技能）系统是 AI Extension 的专家角色定义机制，允许为
 skills/
 ├── index.ts              # 技能自动发现和加载逻辑
 ├── drawer-expert/        # 画图专家技能
-│   └── SKILL.md          # 技能定义文件
+│   ├── SKILL.md          # 技能入口（必须）
+│   └── reference/        # 参考资料目录（可选）
+│       ├── flow-chart.md
+│       └── templates.json
 └── month-report-expert/  # 月报专家技能
     └── SKILL.md
 ```
 
 **核心组件**：
 
-- **技能自动发现**：使用 `import.meta.glob` 自动扫描并加载所有 `SKILL.md` 文件
-- **技能定义文件**：每个技能仅需一个 `SKILL.md`，包含元数据和系统提示词
+- **技能自动发现**：使用 `import.meta.glob('./**/*')` 自动扫描并加载 skills 目录下所有文件（含 `SKILL.md` 及 `.md`、`.json`、`.xml` 等参考资料）
+- **技能入口文件**：每个技能必须包含一个 `SKILL.md`，作为元数据和系统提示词；可选的 `reference/` 目录下放置各类参考资料，AI 可按需通过 `get_skill_content` 工具读取
 
 #### 3.4.2 技能配置结构
 
@@ -308,11 +311,11 @@ description: 擅长绘制各种图表、流程图、架构图等，能够提供�
 
 #### 3.4.3 技能激活机制
 
-系统在启动时通过 `import.meta.glob` 自动加载所有 `SKILL.md`，AI 助手根据用户输入的意图自动匹配并激活对应技能，将 `SKILL.md` 的 Markdown Body 作为系统提示词注入对话，无需用户显式操作：
+系统在启动时通过 `import.meta.glob('./**/*')` 自动加载 skills 目录下所有文件，AI 助手根据用户输入的意图自动匹配并激活对应技能，将 `SKILL.md` 的 Markdown Body 作为系统提示词注入对话，无需用户显式操作：
 
 ```typescript
 // skills/index.ts
-export const skillMdModules: Record<string, string> = import.meta.glob('./**/*.md', {
+export const skillMdModules: Record<string, string> = import.meta.glob('./**/*', {
   query: '?raw',
   import: 'default',
   eager: true
@@ -596,14 +599,14 @@ customMarketMcpServers: [
 
 **技能配置**：
 
-- **单文件定义**：每个技能仅需一个 `SKILL.md`，包含元数据与系统提示词，遵循业界标准 Skill 协议
-- **自动发现**：系统通过 `import.meta.glob` 自动扫描并加载所有技能，无需手动注册
+- **入口 + 参考资料**：每个技能必须包含 `SKILL.md` 入口文件及可选的 `reference/` 参考资料（`.md`、`.json`、`.xml` 等），遵循业界标准 Skill 协议
+- **自动发现**：系统通过 `import.meta.glob('./**/*')` 自动扫描并加载 skills 目录下所有文件，无需手动注册
 
 **实现优势**：
 
 - 零侵入式设计，技能配置与业务代码完全分离
-- 结构极简，每个技能只有一个文件，易于维护和扩展
-- 添加新技能只需创建目录和 `SKILL.md` 文件，无其他额外配置
+- 结构清晰，支持技能入口 + 参考资料，扩展灵活
+- 添加新技能只需创建目录和 `SKILL.md` 文件，参考资料可按需添加，无需修改代码
 
 **配置示例**：
 
