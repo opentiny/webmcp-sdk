@@ -273,14 +273,15 @@ onMounted(() => {
 <template>
   <div class="skills-tab">
     <div class="skills-header">
-      <p class="skills-desc">
-        管理 skills 目录下的技能文件。使用 next-sdk 的 getSkillOverviews、getSkillMdContent 查看技能。修改保存到本地缓存。
-      </p>
+      <p class="skills-desc">管理 skills 目录下的技能文件。修改保存到本地缓存。</p>
     </div>
     <div class="tree-toolbar">
-      <span class="icon-btn" title="添加根级 skill" @click="openAdd(null, 'file')">
-        <component :is="IconAddComp" />
-      </span>
+      <TinyButton class="toolbar-btn" @click="openAdd(null, 'file')">
+        <span class="toolbar-btn-inner">
+          <component :is="IconAddComp" />
+          <span>添加 skill</span>
+        </span>
+      </TinyButton>
     </div>
     <div class="tree-wrapper">
       <TinyTree
@@ -317,12 +318,7 @@ onMounted(() => {
             >
               <component :is="IconFolderComp" />
             </span>
-            <span
-              v-if="node.data.isFolder"
-              class="icon-btn"
-              title="重命名"
-              @click.stop="openRenameFolder(node.data)"
-            >
+            <span v-if="node.data.isFolder" class="icon-btn" title="重命名" @click.stop="openRenameFolder(node.data)">
               <component :is="IconEditComp" />
             </span>
             <span v-else class="icon-btn" title="编辑" @click.stop="openEditFile(node.data)">
@@ -340,7 +336,7 @@ onMounted(() => {
         </template>
       </TinyTree>
       <div v-else class="empty-tree">
-        暂无 skills 文件，点击上方图标添加，或在 <code>packages/next-wxt/skills/</code> 目录下添加 SKILL.md
+        暂无 skills 文件，点击上方按钮添加，或在 <code>packages/next-wxt/skills/</code> 目录下添加 SKILL.md
       </div>
     </div>
 
@@ -391,27 +387,35 @@ onMounted(() => {
     <TinyModal
       v-model="addDialogVisible"
       :title="addType === 'folder' ? '添加子文件夹' : addType === 'fileInFolder' ? '添加文件' : '添加 skill'"
-      width="400px"
+      width="520px"
       :append-to-body="true"
       :show-footer="true"
       @close="addDialogVisible = false"
     >
       <div class="add-dialog-body">
-        <TinyForm ref="addFormRef" :model="addFormData" :rules="addFormRules" label-width="120px">
+        <TinyForm ref="addFormRef" :model="addFormData" :rules="addFormRules" label-position="top">
           <TinyFormItem
-            :label="addType === 'folder' ? '文件夹名称' : addType === 'fileInFolder' ? '文件名（含扩展名）' : 'Skill 名称'"
+            :label="
+              addType === 'folder' ? '文件夹名称' : addType === 'fileInFolder' ? '文件名(必须带后缀名)' : 'Skill 名称'
+            "
             prop="addName"
           >
             <TinyInput
               v-model="addFormData.addName"
               :placeholder="
-                addType === 'folder' ? '字母、数字、下划线、中划线' : addType === 'fileInFolder' ? '如 guide.md、config.json、data.xml' : '字母、数字、下划线、中划线'
+                addType === 'folder'
+                  ? '字母、数字、下划线、中划线'
+                  : addType === 'fileInFolder'
+                    ? '如 guide.md、config.json、data.xml'
+                    : '字母、数字、下划线、中划线'
               "
               clearable
             />
           </TinyFormItem>
         </TinyForm>
-        <p v-if="addType === 'fileInFolder'" class="add-file-tip">.md 文件会自动生成技能文档模板（name、description）</p>
+        <p v-if="addType === 'fileInFolder'" class="add-file-tip">
+          .md 文件会自动生成技能文档模板（name、description）
+        </p>
       </div>
       <template #footer>
         <div class="add-dialog-footer">
@@ -458,8 +462,22 @@ onMounted(() => {
 
 .tree-toolbar {
   display: flex;
+  align-items: center;
   gap: 8px;
   margin-bottom: 12px;
+}
+
+/* 工具栏主按钮：TinyButton 包裹，图标+文字上下居中 */
+.toolbar-btn :deep(button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.toolbar-btn-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .icon-btn {
@@ -535,6 +553,11 @@ onMounted(() => {
 .add-dialog-body,
 .delete-dialog-body {
   padding: 8px 0;
+}
+
+/* 添加对话框：表单 label 左对齐，避免大片空白 */
+.add-dialog-body :deep([class*='form-item'] [class*='label']) {
+  text-align: left;
 }
 
 .skill-meta {
