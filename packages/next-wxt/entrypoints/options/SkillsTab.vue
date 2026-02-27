@@ -5,7 +5,7 @@
  * 支持：编辑、重命名、添加 skill、添加子文件夹、删除
  * 使用 next-sdk 的 parseSkillFrontMatter 解析并展示技能 meta
  */
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, reactive, nextTick } from 'vue'
 import { skillMdModules } from '@/skills'
 import { parseSkillFrontMatter } from '@opentiny/next-sdk'
 import { modulesToTree, type SkillsTreeNode } from './utils/skills-tree'
@@ -18,6 +18,8 @@ import {
 } from './utils/skills-storage'
 // TinyVue Icon 是函数，需执行后得到组件再使用
 import { iconEdit, iconDel, iconAdd, iconFolder, iconFiletext, iconPlusSquare } from '@opentiny/vue-icon'
+// TinyVue Form 用于添加对话框的表单校验
+import { Form as TinyForm } from '@opentiny/vue'
 
 const IconEditComp = iconEdit()
 const IconDelComp = iconDel()
@@ -59,7 +61,8 @@ const renameValue = ref('')
 const addDialogVisible = ref(false)
 const addParentNode = ref<SkillsTreeNode | null>(null)
 const addType = ref<'file' | 'folder' | 'fileInFolder'>('file') // file=根skill, folder=子文件夹, fileInFolder=文件夹下添加文件
-const addName = ref('')
+const addFormData = reactive({ addName: '' })
+const addFormRef = ref<{ validate: () => Promise<boolean>; clearValidate?: () => void } | null>(null)
 
 // 删除确认
 const deleteDialogVisible = ref(false)
@@ -106,29 +109,75 @@ async function saveRenameFolder() {
   renamingNode.value = null
 }
 
+// 添加表单校验规则（根据 addType 动态生成）
+const addFormRules = computed(() => {
+  if (addType.value === 'fileInFolder') {
+    return {
+      addName: [
+        { required: true, message: '请输入文件名', trigger: 'blur' },
+        {
+          pattern: /^[a-zA-Z0-9_.-]+$/,
+          message: '文件名只能包含字母、数字、下划线、中划线、点',
+          trigger: 'blur'
+        },
+        {
+          pattern: /\.\w+$/,
+          message: '文件名必须带后缀名，如 .md、.json、.xml、.js',
+          trigger: 'blur'
+        }
+      ]
+    }
+  }
+  if (addType.value === 'folder') {
+    return {
+      addName: [
+        { required: true, message: '请输入文件夹名称', trigger: 'blur' },
+        {
+          pattern: /^[a-zA-Z0-9_-]+$/,
+          message: '名称只能包含字母、数字、下划线、中划线',
+          trigger: 'blur'
+        }
+      ]
+    }
+  }
+  return {
+    addName: [
+      { required: true, message: '请输入 Skill 名称', trigger: 'blur' },
+      {
+        pattern: /^[a-zA-Z0-9_-]+$/,
+        message: '名称只能包含字母、数字、下划线、中划线',
+        trigger: 'blur'
+      }
+    ]
+  }
+})
+
 // 打开添加对话框
-function openAdd(parent: SkillsTreeNode | null, type: 'file' | 'folder' | 'fileInFolder') {
+async function openAdd(parent: SkillsTreeNode | null, type: 'file' | 'folder' | 'fileInFolder') {
   addParentNode.value = parent
   addType.value = type
-  addName.value = ''
+  addFormData.addName = ''
   addDialogVisible.value = true
+  await nextTick()
+  addFormRef.value?.clearValidate?.()
 }
 
-// 保存添加
+// 添加对话框确认（校验不通过不关闭弹窗，仅成功时关闭）
+async function handleAddConfirm() {
+  await saveAdd()
+}
+
+// 保存添加（先校验表单，通过后再执行；校验失败不关闭弹窗）
 async function saveAdd() {
-  const name = addName.value.trim()
+  try {
+    await addFormRef.value?.validate()
+  } catch {
+    return // 校验失败，表单会显示错误信息
+  }
+  const name = addFormData.addName.trim()
   const parent = addParentNode.value
 
   if (addType.value === 'fileInFolder') {
-    // 文件夹下添加文件：文件名必须带后缀名，如 guide.md、config.json
-    if (!name || !/^[a-zA-Z0-9_.-]+$/.test(name)) {
-      alert('文件名只能包含字母、数字、下划线、中划线、点')
-      return
-    }
-    if (!/\.\w+$/.test(name)) {
-      alert('文件名必须带后缀名，如 .md、.json、.xml、.js')
-      return
-    }
     const basePath = parent?.isFolder ? parent.path.replace(/\/$/, '') : ''
     if (!basePath) return
     const filePath = `${basePath}/${name}`
@@ -145,20 +194,12 @@ description: 请填写技能描述
       : ''
     await setSkillOverride(filePath, content)
   } else if (addType.value === 'folder') {
-    if (!name || !/^[a-zA-Z0-9_-]+$/.test(name)) {
-      alert('名称只能包含字母、数字、下划线、中划线')
-      return
-    }
     const basePath = parent?.isFolder ? parent.path.replace(/\/$/, '') : ''
     const folderPath = basePath ? `${basePath}/${name}` : `./${name}`
     const folderKey = folderPath.endsWith('/') ? folderPath : `${folderPath}/`
     await setSkillOverride(folderKey, '')
   } else {
     // 根级 skill：创建 SKILL.md
-    if (!name || !/^[a-zA-Z0-9_-]+$/.test(name)) {
-      alert('名称只能包含字母、数字、下划线、中划线')
-      return
-    }
     const folderPath = `./${name}`
     const filePath = `${folderPath}/SKILL.md`
     const template = `---
@@ -346,30 +387,38 @@ onMounted(() => {
       </div>
     </TinyModal>
 
-    <!-- 添加 skill/子文件夹/文件 对话框 -->
+    <!-- 添加 skill/子文件夹/文件 对话框（使用 TinyForm 校验，校验不通过不关闭） -->
     <TinyModal
       v-model="addDialogVisible"
       :title="addType === 'folder' ? '添加子文件夹' : addType === 'fileInFolder' ? '添加文件' : '添加 skill'"
       width="400px"
       :append-to-body="true"
       :show-footer="true"
-      @confirm="saveAdd"
       @close="addDialogVisible = false"
     >
       <div class="add-dialog-body">
-        <div class="form-item">
-          <label class="form-item-label">{{
-            addType === 'folder' ? '文件夹名称' : addType === 'fileInFolder' ? '文件名（含扩展名）' : 'Skill 名称'
-          }}</label>
-          <TinyInput
-            v-model="addName"
-            :placeholder="
-              addType === 'folder' ? '字母、数字、下划线、中划线' : addType === 'fileInFolder' ? '如 guide.md、config.json、data.xml' : '字母、数字、下划线、中划线'
-            "
-          />
-        </div>
+        <TinyForm ref="addFormRef" :model="addFormData" :rules="addFormRules" label-width="120px">
+          <TinyFormItem
+            :label="addType === 'folder' ? '文件夹名称' : addType === 'fileInFolder' ? '文件名（含扩展名）' : 'Skill 名称'"
+            prop="addName"
+          >
+            <TinyInput
+              v-model="addFormData.addName"
+              :placeholder="
+                addType === 'folder' ? '字母、数字、下划线、中划线' : addType === 'fileInFolder' ? '如 guide.md、config.json、data.xml' : '字母、数字、下划线、中划线'
+              "
+              clearable
+            />
+          </TinyFormItem>
+        </TinyForm>
         <p v-if="addType === 'fileInFolder'" class="add-file-tip">.md 文件会自动生成技能文档模板（name、description）</p>
       </div>
+      <template #footer>
+        <div class="add-dialog-footer">
+          <TinyButton @click="addDialogVisible = false">取消</TinyButton>
+          <TinyButton type="primary" @click="handleAddConfirm">确认</TinyButton>
+        </div>
+      </template>
     </TinyModal>
 
     <!-- 删除确认对话框 -->
@@ -536,5 +585,12 @@ onMounted(() => {
   margin-top: 12px;
   font-size: 12px;
   color: #909399;
+}
+
+/* 添加对话框底部按钮 */
+.add-dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
 }
 </style>

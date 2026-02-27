@@ -10,6 +10,7 @@ declare module 'vue' {
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     TinyButton: typeof import('@opentiny/vue-button')['default']
+    TinyForm: typeof import('@opentiny/vue-form')['default']
     TinyFormItem: typeof import('@opentiny/vue-form-item')['default']
     TinyInput: typeof import('@opentiny/vue-input')['default']
     TinyModal: typeof import('@opentiny/vue-modal')['default']
