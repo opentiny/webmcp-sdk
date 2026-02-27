@@ -16,11 +16,22 @@ export type SkillsOverrides = Record<string, string>
 
 /**
  * 获取用户覆盖的 skills 内容
+ * 使用 getItem 而非 getMeta：setMeta 会合并属性，删除时无法真正移除项
+ * 兼容旧版：若 getItem 为空但 getMeta 有数据，则迁移到 getItem
  */
 export async function getSkillsOverrides(): Promise<SkillsOverrides> {
   try {
-    const data = (await storage.getMeta(SKILLS_OVERRIDES_KEY)) as SkillsOverrides | undefined
-    return data && typeof data === 'object' ? data : {}
+    let data = (await storage.getItem(SKILLS_OVERRIDES_KEY)) as SkillsOverrides | undefined
+    if (!data || typeof data !== 'object') {
+      const legacy = (await storage.getMeta(SKILLS_OVERRIDES_KEY)) as SkillsOverrides | undefined
+      if (legacy && typeof legacy === 'object' && Object.keys(legacy).length > 0) {
+        await storage.setItem(SKILLS_OVERRIDES_KEY, legacy)
+        data = legacy
+      } else {
+        data = {}
+      }
+    }
+    return data
   } catch {
     return {}
   }
@@ -28,9 +39,10 @@ export async function getSkillsOverrides(): Promise<SkillsOverrides> {
 
 /**
  * 保存用户覆盖的 skills 内容
+ * 使用 setItem 完全替换，确保删除操作能生效
  */
 export async function setSkillsOverrides(overrides: SkillsOverrides): Promise<void> {
-  await storage.setMeta(SKILLS_OVERRIDES_KEY, overrides)
+  await storage.setItem(SKILLS_OVERRIDES_KEY, overrides)
 }
 
 /**

@@ -19,9 +19,20 @@ export type UnifiedSkills = Record<string, string>
 export async function getUnifiedSkills(): Promise<UnifiedSkills> {
   const builtIn = { ...skillMdModules }
   try {
-    const overrides = (await storage.getMeta(SKILLS_OVERRIDES_KEY)) as Record<string, string> | undefined
-    if (overrides && typeof overrides === 'object') {
-      Object.assign(builtIn, overrides)
+    let overrides = (await storage.getItem(SKILLS_OVERRIDES_KEY)) as Record<string, string> | undefined
+    if (!overrides || typeof overrides !== 'object') {
+      const legacy = (await storage.getMeta(SKILLS_OVERRIDES_KEY)) as Record<string, string> | undefined
+      if (legacy && typeof legacy === 'object' && Object.keys(legacy).length > 0) {
+        await storage.setItem(SKILLS_OVERRIDES_KEY, legacy)
+        overrides = legacy
+      } else {
+        overrides = {}
+      }
+    }
+    if (overrides && Object.keys(overrides).length > 0) {
+      // 排除空文件夹占位（路径以 / 结尾），仅用于树展示，不作为 skill 传给 Remoter
+      const filtered = Object.fromEntries(Object.entries(overrides).filter(([k]) => !k.endsWith('/')))
+      Object.assign(builtIn, filtered)
     }
   } catch {
     // 忽略存储读取失败

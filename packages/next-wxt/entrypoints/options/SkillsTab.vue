@@ -17,13 +17,13 @@ import {
   isUserAddedPath
 } from './utils/skills-storage'
 // TinyVue Icon 是函数，需执行后得到组件再使用
-import { iconEdit, iconDel, iconPlusSquare, iconAdd, iconFolder } from '@opentiny/vue-icon'
+import { iconEdit, iconDel, iconAdd, iconFolder, iconFiletext } from '@opentiny/vue-icon'
 
 const IconEditComp = iconEdit()
 const IconDelComp = iconDel()
-const IconPlusSquareComp = iconPlusSquare()
 const IconAddComp = iconAdd()
 const IconFolderComp = iconFolder()
+const IconFiletextComp = iconFiletext()
 
 // 合并 built-in 与用户覆盖，用于构建树
 const mergedModules = computed<Record<string, string>>(() => {
@@ -123,9 +123,15 @@ async function saveAdd() {
   const parent = addParentNode.value
   const basePath = parent?.isFolder ? parent.path.replace(/\/$/, '') : ''
   const folderPath = basePath ? `${basePath}/${name}` : `./${name}`
-  const filePath = `${folderPath}/SKILL.md`
 
-  const template = `---
+  if (addType.value === 'folder') {
+    // 子文件夹：仅创建空文件夹节点，不生成任何文件；用于 reference 等存放 md/json/xml/js 等
+    const folderKey = folderPath.endsWith('/') ? folderPath : `${folderPath}/`
+    await setSkillOverride(folderKey, '')
+  } else {
+    // 根级 skill：创建 SKILL.md
+    const filePath = `${folderPath}/SKILL.md`
+    const template = `---
 name: ${name}
 description: 请填写技能描述
 ---
@@ -134,7 +140,8 @@ description: 请填写技能描述
 
 请在此编写技能内容。
 `
-  await setSkillOverride(filePath, template)
+    await setSkillOverride(filePath, template)
+  }
   await loadOverrides()
   addDialogVisible.value = false
   addParentNode.value = null
@@ -203,9 +210,6 @@ onMounted(() => {
       <span class="icon-btn" title="添加根级 skill" @click="openAdd(null, 'file')">
         <component :is="IconAddComp" />
       </span>
-      <span class="icon-btn" title="添加根级子文件夹" @click="openAdd(null, 'folder')">
-        <component :is="IconFolderComp" />
-      </span>
     </div>
     <div class="tree-wrapper">
       <TinyTree
@@ -218,16 +222,14 @@ onMounted(() => {
         :current-node-key="currentNodeKey"
         @node-click="(node: { data?: SkillsTreeNode }) => (currentNodeKey = node?.data?.id ?? '')"
       >
+        <!-- 节点前置图标：文件夹用 folder，文件用 filetext -->
+        <template #prefix="{ node }">
+          <span class="tree-node-prefix-icon">
+            <component :is="node?.data?.isFolder ? IconFolderComp : IconFiletextComp" />
+          </span>
+        </template>
         <template #operation="{ node }">
           <span v-if="node?.data" class="node-actions">
-            <span
-              v-if="node.data.isFolder"
-              class="icon-btn"
-              title="添加子 skill"
-              @click.stop="openAdd(node.data, 'file')"
-            >
-              <component :is="IconPlusSquareComp" />
-            </span>
             <span
               v-if="node.data.isFolder"
               class="icon-btn"
@@ -393,6 +395,15 @@ onMounted(() => {
   border-radius: 8px;
   padding: 12px;
   background: #fff;
+}
+
+/* 节点前置图标：文件夹/文件区分 */
+.tree-node-prefix-icon {
+  display: inline-flex;
+  align-items: center;
+  margin-right: 6px;
+  color: #909399;
+  font-size: 16px;
 }
 
 .node-actions {

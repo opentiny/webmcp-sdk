@@ -26,15 +26,16 @@ export interface SkillsTreeNode {
 export function modulesToTree(modules: Record<string, string>): SkillsTreeNode[] {
   const root: Record<string, SkillsTreeNode> = {}
 
-  // 仅处理技能相关文件，排除 index.ts 等
+  // 仅处理技能相关文件，排除 index.ts 等；路径以 / 结尾表示空文件夹节点
   const contentExts = ['.md', '.json', '.xml', '.txt', '.yaml', '.yml']
   const isContentFile = (p: string) => contentExts.some((ext) => p.endsWith(ext))
+  const isFolderOnly = (p: string) => p.replace(/^\.\//, '').endsWith('/')
 
   for (const rawPath of Object.keys(modules)) {
-    if (!isContentFile(rawPath)) continue
+    if (!isContentFile(rawPath) && !isFolderOnly(rawPath)) continue
     // 去掉开头的 ./
     const path = rawPath.startsWith('./') ? rawPath.slice(2) : rawPath
-    const parts = path.split('/')
+    const parts = path.split('/').filter(Boolean) // 过滤空串，如 ./ref/ 得 ['ref']
     const content = modules[rawPath]
 
     let currentPath = ''
@@ -42,9 +43,11 @@ export function modulesToTree(modules: Record<string, string>): SkillsTreeNode[]
 
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i]
+      if (!part) continue
       currentPath = currentPath ? `${currentPath}/${part}` : part
       const fullPath = `./${currentPath}`
       const isLast = i === parts.length - 1
+      const isFolderNode = !isLast || isFolderOnly(rawPath) // 非最后一段，或空文件夹路径
 
       if (root[fullPath]) {
         parent = root[fullPath]
@@ -55,8 +58,8 @@ export function modulesToTree(modules: Record<string, string>): SkillsTreeNode[]
         id: fullPath,
         label: part,
         path: fullPath,
-        isFolder: !isLast,
-        ...(isLast ? { content } : { children: [] })
+        isFolder: isFolderNode,
+        ...(isFolderNode ? { children: [] } : { content })
       }
 
       root[fullPath] = node
