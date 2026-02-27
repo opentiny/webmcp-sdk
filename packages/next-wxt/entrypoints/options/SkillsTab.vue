@@ -381,7 +381,7 @@ onMounted(() => {
       @close="editDialogVisible = false"
     >
       <div class="edit-dialog-body">
-        <div v-if="editingNode && parseSkillFrontMatter(editContent)" class="skill-meta">
+        <div v-if="editingNode" class="skill-meta">
           <p><strong>技能名：</strong>{{ parseSkillFrontMatter(editContent)?.name }}</p>
           <p><strong>描述：</strong>{{ parseSkillFrontMatter(editContent)?.description }}</p>
         </div>

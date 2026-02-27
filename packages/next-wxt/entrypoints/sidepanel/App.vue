@@ -17,14 +17,6 @@ import { DEFAULT_MODEL_CONFIGS } from './model-config'
 import { getStorageItem, setStorageItem } from './utils/local-storage'
 import { StorageKeys } from './utils/storage-keys'
 
-const llmConfig = {
-  apiKey: import.meta.env.VITE_LLM_API_KEY,
-  baseURL: import.meta.env.VITE_LLM_BASE_URL,
-  providerType: 'deepseek',
-  model: import.meta.env.VITE_LLM_MODEL,
-  maxSteps: 30
-}
-
 // 从统一入口读取 skills（built-in + 用户在 Options 中的覆盖）
 const skills = ref<Record<string, string>>({})
 onMounted(async () => {
@@ -223,7 +215,6 @@ browser.runtime.onMessage.addListener((message) => {
       show
       fullscreen
       title=""
-      :llmConfig="llmConfig"
       :llmConfigs="DEFAULT_MODEL_CONFIGS"
       v-model:selected-model-id="selectedModelId"
       v-model:genUiAble="genuiEnabled"
