@@ -27,7 +27,7 @@ export function modulesToTree(modules: Record<string, string>): SkillsTreeNode[]
   const root: Record<string, SkillsTreeNode> = {}
 
   // 仅处理技能相关文件，排除 index.ts 等；路径以 / 结尾表示空文件夹节点
-  const contentExts = ['.md', '.json', '.xml', '.txt', '.yaml', '.yml']
+  const contentExts = ['.md', '.json', '.xml', '.txt', '.yaml', '.yml', '.js']
   const isContentFile = (p: string) => contentExts.some((ext) => p.endsWith(ext))
   const isFolderOnly = (p: string) => p.replace(/^\.\//, '').endsWith('/')
 

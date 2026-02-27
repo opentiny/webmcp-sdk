@@ -17,13 +17,14 @@ import {
   isUserAddedPath
 } from './utils/skills-storage'
 // TinyVue Icon 是函数，需执行后得到组件再使用
-import { iconEdit, iconDel, iconAdd, iconFolder, iconFiletext } from '@opentiny/vue-icon'
+import { iconEdit, iconDel, iconAdd, iconFolder, iconFiletext, iconPlusSquare } from '@opentiny/vue-icon'
 
 const IconEditComp = iconEdit()
 const IconDelComp = iconDel()
 const IconAddComp = iconAdd()
 const IconFolderComp = iconFolder()
 const IconFiletextComp = iconFiletext()
+const IconPlusSquareComp = iconPlusSquare()
 
 // 合并 built-in 与用户覆盖，用于构建树
 const mergedModules = computed<Record<string, string>>(() => {
@@ -54,10 +55,10 @@ const renameDialogVisible = ref(false)
 const renamingNode = ref<SkillsTreeNode | null>(null)
 const renameValue = ref('')
 
-// 添加 skill/子文件夹对话框
+// 添加 skill/子文件夹/文件 对话框
 const addDialogVisible = ref(false)
 const addParentNode = ref<SkillsTreeNode | null>(null)
-const addType = ref<'file' | 'folder'>('file')
+const addType = ref<'file' | 'folder' | 'fileInFolder'>('file') // file=根skill, folder=子文件夹, fileInFolder=文件夹下添加文件
 const addName = ref('')
 
 // 删除确认
@@ -106,7 +107,7 @@ async function saveRenameFolder() {
 }
 
 // 打开添加对话框
-function openAdd(parent: SkillsTreeNode | null, type: 'file' | 'folder') {
+function openAdd(parent: SkillsTreeNode | null, type: 'file' | 'folder' | 'fileInFolder') {
   addParentNode.value = parent
   addType.value = type
   addName.value = ''
@@ -116,20 +117,49 @@ function openAdd(parent: SkillsTreeNode | null, type: 'file' | 'folder') {
 // 保存添加
 async function saveAdd() {
   const name = addName.value.trim()
-  if (!name || !/^[a-zA-Z0-9_-]+$/.test(name)) {
-    alert('名称只能包含字母、数字、下划线、中划线')
-    return
-  }
   const parent = addParentNode.value
-  const basePath = parent?.isFolder ? parent.path.replace(/\/$/, '') : ''
-  const folderPath = basePath ? `${basePath}/${name}` : `./${name}`
 
-  if (addType.value === 'folder') {
-    // 子文件夹：仅创建空文件夹节点，不生成任何文件；用于 reference 等存放 md/json/xml/js 等
+  if (addType.value === 'fileInFolder') {
+    // 文件夹下添加文件：文件名必须带后缀名，如 guide.md、config.json
+    if (!name || !/^[a-zA-Z0-9_.-]+$/.test(name)) {
+      alert('文件名只能包含字母、数字、下划线、中划线、点')
+      return
+    }
+    if (!/\.\w+$/.test(name)) {
+      alert('文件名必须带后缀名，如 .md、.json、.xml、.js')
+      return
+    }
+    const basePath = parent?.isFolder ? parent.path.replace(/\/$/, '') : ''
+    if (!basePath) return
+    const filePath = `${basePath}/${name}`
+    const content = name.toLowerCase().endsWith('.md')
+      ? `---
+name: ${name.replace(/\.md$/i, '')}
+description: 请填写技能描述
+---
+
+# ${name.replace(/\.md$/i, '')}
+
+请在此编写技能内容。
+`
+      : ''
+    await setSkillOverride(filePath, content)
+  } else if (addType.value === 'folder') {
+    if (!name || !/^[a-zA-Z0-9_-]+$/.test(name)) {
+      alert('名称只能包含字母、数字、下划线、中划线')
+      return
+    }
+    const basePath = parent?.isFolder ? parent.path.replace(/\/$/, '') : ''
+    const folderPath = basePath ? `${basePath}/${name}` : `./${name}`
     const folderKey = folderPath.endsWith('/') ? folderPath : `${folderPath}/`
     await setSkillOverride(folderKey, '')
   } else {
     // 根级 skill：创建 SKILL.md
+    if (!name || !/^[a-zA-Z0-9_-]+$/.test(name)) {
+      alert('名称只能包含字母、数字、下划线、中划线')
+      return
+    }
+    const folderPath = `./${name}`
     const filePath = `${folderPath}/SKILL.md`
     const template = `---
 name: ${name}
@@ -233,6 +263,14 @@ onMounted(() => {
             <span
               v-if="node.data.isFolder"
               class="icon-btn"
+              title="添加文件"
+              @click.stop="openAdd(node.data, 'fileInFolder')"
+            >
+              <component :is="IconPlusSquareComp" />
+            </span>
+            <span
+              v-if="node.data.isFolder"
+              class="icon-btn"
               title="添加子文件夹"
               @click.stop="openAdd(node.data, 'folder')"
             >
@@ -308,10 +346,10 @@ onMounted(() => {
       </div>
     </TinyModal>
 
-    <!-- 添加 skill/子文件夹对话框 -->
+    <!-- 添加 skill/子文件夹/文件 对话框 -->
     <TinyModal
       v-model="addDialogVisible"
-      :title="addType === 'folder' ? '添加子文件夹' : '添加 skill'"
+      :title="addType === 'folder' ? '添加子文件夹' : addType === 'fileInFolder' ? '添加文件' : '添加 skill'"
       width="400px"
       :append-to-body="true"
       :show-footer="true"
@@ -320,9 +358,17 @@ onMounted(() => {
     >
       <div class="add-dialog-body">
         <div class="form-item">
-          <label class="form-item-label">{{ addType === 'folder' ? '文件夹名称' : 'Skill 名称' }}</label>
-          <TinyInput v-model="addName" placeholder="字母、数字、下划线、中划线" />
+          <label class="form-item-label">{{
+            addType === 'folder' ? '文件夹名称' : addType === 'fileInFolder' ? '文件名（含扩展名）' : 'Skill 名称'
+          }}</label>
+          <TinyInput
+            v-model="addName"
+            :placeholder="
+              addType === 'folder' ? '字母、数字、下划线、中划线' : addType === 'fileInFolder' ? '如 guide.md、config.json、data.xml' : '字母、数字、下划线、中划线'
+            "
+          />
         </div>
+        <p v-if="addType === 'fileInFolder'" class="add-file-tip">.md 文件会自动生成技能文档模板（name、description）</p>
       </div>
     </TinyModal>
 
@@ -485,6 +531,7 @@ onMounted(() => {
 }
 
 .rename-tip,
+.add-file-tip,
 .delete-dialog-body p {
   margin-top: 12px;
   font-size: 12px;
