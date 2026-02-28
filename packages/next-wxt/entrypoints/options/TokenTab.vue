@@ -5,9 +5,7 @@
  */
 import { ref, onMounted } from 'vue'
 import { storage } from '@wxt-dev/storage'
-
-/** 存储键：LLM Token */
-const TOKEN_STORAGE_KEY = 'local:llm-token'
+import { TOKEN_STORAGE_KEY, getStoredToken } from '../sidepanel/utils/token-storage'
 
 /** Token 接口地址，可通过环境变量 VITE_TOKEN_API_URL 配置 */
 const TOKEN_API_URL = (import.meta as any).env?.VITE_TOKEN_API_URL || ''
@@ -24,20 +22,12 @@ const messageType = ref<'success' | 'error' | ''>('')
 // 当前已存储的 token（脱敏显示）
 const storedTokenPreview = ref('')
 
-// 加载已存储的 token 预览（兼容 getItem 与 getMeta）
+// 加载已存储的 token 预览（复用 token-storage 统一读取）
 async function loadStoredToken() {
-  try {
-    let data: string | { token?: string } | undefined = (await storage.getItem(TOKEN_STORAGE_KEY)) as string | undefined
-    if (!data || typeof data !== 'string') {
-      data = (await storage.getMeta(TOKEN_STORAGE_KEY)) as string | { token?: string } | undefined
-    }
-    const token = typeof data === 'string' ? data : data?.token
-    if (token && token.length > 8) {
-      storedTokenPreview.value = `${token.slice(0, 8)}****${token.slice(-4)}`
-    } else {
-      storedTokenPreview.value = ''
-    }
-  } catch {
+  const token = await getStoredToken()
+  if (token && token.length > 8) {
+    storedTokenPreview.value = `${token.slice(0, 8)}****${token.slice(-4)}`
+  } else {
     storedTokenPreview.value = ''
   }
 }

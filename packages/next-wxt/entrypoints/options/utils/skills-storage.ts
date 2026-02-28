@@ -9,9 +9,6 @@ import { storage } from '@wxt-dev/storage'
 /** 存储键：用户对 skills 的修改（覆盖/新增） */
 export const SKILLS_OVERRIDES_KEY = 'local:skills-overrides'
 
-/** 存储键：文件夹重命名映射，key 为旧路径，value 为新路径 */
-export const SKILLS_RENAME_MAP_KEY = 'local:skills-rename-map'
-
 export type SkillsOverrides = Record<string, string>
 
 /**
@@ -75,10 +72,7 @@ export function isUserAddedPath(path: string, builtInPaths: Set<string>): boolea
  * 删除路径及其所有子路径（用于删除文件夹）
  * 仅删除 overrides 中的项
  */
-export async function removeSkillOverrideRecursive(
-  folderPath: string,
-  builtInPaths: Set<string>
-): Promise<void> {
+export async function removeSkillOverrideRecursive(folderPath: string): Promise<void> {
   const current = await getSkillsOverrides()
   const prefix = folderPath.replace(/\/$/, '') + '/'
   for (const p of Object.keys(current)) {

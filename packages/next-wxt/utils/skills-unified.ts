@@ -5,9 +5,7 @@
  */
 
 import { skillMdModules } from '@/skills'
-import { storage } from '@wxt-dev/storage'
-
-const SKILLS_OVERRIDES_KEY = 'local:skills-overrides'
+import { getSkillsOverrides } from '@/entrypoints/options/utils/skills-storage'
 
 /** 合并后的 skills：built-in 优先，用户覆盖可覆盖同路径内容 */
 export type UnifiedSkills = Record<string, string>
@@ -19,16 +17,7 @@ export type UnifiedSkills = Record<string, string>
 export async function getUnifiedSkills(): Promise<UnifiedSkills> {
   const builtIn = { ...skillMdModules }
   try {
-    let overrides = (await storage.getItem(SKILLS_OVERRIDES_KEY)) as Record<string, string> | undefined
-    if (!overrides || typeof overrides !== 'object') {
-      const legacy = (await storage.getMeta(SKILLS_OVERRIDES_KEY)) as Record<string, string> | undefined
-      if (legacy && typeof legacy === 'object' && Object.keys(legacy).length > 0) {
-        await storage.setItem(SKILLS_OVERRIDES_KEY, legacy)
-        overrides = legacy
-      } else {
-        overrides = {}
-      }
-    }
+    const overrides = await getSkillsOverrides()
     if (overrides && Object.keys(overrides).length > 0) {
       // 排除空文件夹占位（路径以 / 结尾），仅用于树展示，不作为 skill 传给 Remoter
       const filtered = Object.fromEntries(Object.entries(overrides).filter(([k]) => !k.endsWith('/')))

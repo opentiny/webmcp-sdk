@@ -51,20 +51,21 @@ const genUiComponents = shallowReactive({ TinyUser })
 const customMarketMcpServers = useCustomMarketMcpServers()
 
 // 管理选中的模型 ID（从存储读取，变化时保存）
-// modelConfigs 异步加载，初始为空，需用可选链避免 defaultModel 为 undefined 时报错
-const defaultModel = modelConfigs.value.find((config) => config.isDefault) || modelConfigs.value[0]
+// modelConfigs 异步加载，初始用 storedModel，加载完成后由 watch 校验并兜底
 const storedModel = getStorageItem<string>(StorageKeys.SELECTED_MODEL)
-const selectedModelId = ref<string>(
-  storedModel && modelConfigs.value.some((config) => config.id === storedModel) ? storedModel : (defaultModel?.id ?? '')
-)
+const selectedModelId = ref<string>(storedModel ?? '')
 // modelConfigs 加载完成后，校验 selectedModelId 是否在列表中（含初始为空时的兜底）
-watch(modelConfigs, (configs) => {
-  if (!configs.length) return
-  const defaultId = configs.find((c) => c.isDefault)?.id ?? configs[0].id
-  if (!selectedModelId.value || !configs.some((c) => c.id === selectedModelId.value)) {
-    selectedModelId.value = defaultId
-  }
-})
+watch(
+  modelConfigs,
+  (configs) => {
+    if (!configs.length) return
+    const defaultId = configs.find((c) => c.isDefault)?.id ?? configs[0].id
+    if (!configs.some((c) => c.id === selectedModelId.value)) {
+      selectedModelId.value = defaultId
+    }
+  },
+  { immediate: true }
+)
 
 // 管理生成式UI启用状态（从存储读取，变化时保存）
 // 使用 localStorage 同步读取，可以在初始化时直接获取值

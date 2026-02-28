@@ -43,7 +43,6 @@ export function modulesToTree(modules: Record<string, string>): SkillsTreeNode[]
 
     for (let i = 0; i < parts.length; i++) {
       const part = parts[i]
-      if (!part) continue
       currentPath = currentPath ? `${currentPath}/${part}` : part
       const fullPath = `./${currentPath}`
       const isLast = i === parts.length - 1

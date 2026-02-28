@@ -27,7 +27,8 @@ export async function getModelConfigsWithToken(): Promise<UnifiedModelConfig[]> 
   const token = needToken ? await getStoredToken() : ''
   return BASE_MODEL_CONFIGS.map((config) => {
     if (!needToken) return { ...config }
-    const headers = { ...config.headers, 'x-auth-token': token || '' }
+    if (!token) return { ...config }
+    const headers = { ...config.headers, 'x-auth-token': token }
     return { ...config, headers }
   })
 }

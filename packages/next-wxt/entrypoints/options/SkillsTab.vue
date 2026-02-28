@@ -257,9 +257,11 @@ async function confirmDelete() {
 
   if (node.isFolder) {
     if (isUserAddedPath(path, builtInPaths.value)) {
-      await removeSkillOverrideRecursive(path, builtInPaths.value)
+      await removeSkillOverrideRecursive(path)
     } else {
       alert('内置技能文件夹无法删除，仅可删除其下用户新增的文件')
+      deleteDialogVisible.value = false
+      deletingNode.value = null
       return
     }
   } else {

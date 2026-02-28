@@ -34,7 +34,7 @@ export const OPEN_BASE_MODEL_CONFIGS: UnifiedModelConfig[] = [
     providerType: 'deepseek',
     useReActMode: false,
     headers: { 'X-Custom-Header': 'my-value', 'X-Trace-Id': 'abc-123' },
-    icon: IconModelDeepseek as unknown as Component
+    icon: markRaw(IconModelDeepseek as unknown as Component)
   },
   {
     id: 'qwen-vl-max',
