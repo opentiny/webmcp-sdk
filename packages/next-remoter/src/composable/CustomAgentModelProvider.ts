@@ -24,7 +24,7 @@ const DEFAULT_SHARED_CONFIG = {
 
 const DEFAULT_FACTORY_CONFIG = {
   apiKey: 'sk-trial',
-  baseURL: 'https://agent.opentiny.design/api/v1/ai',
+  baseURL: 'https://agent.opentiny.design/api/v1/ai/prompt',
   providerType: 'deepseek' as const
 }
 
@@ -147,7 +147,11 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       this.agent.useReActMode = useReActMode || false
 
       // 根据 providerType 创建新的 llm 实例
-      let providerFn: (options: { apiKey: string; baseURL: string; headers?: Record<string, string> }) => ProviderV2 | OpenAIProvider
+      let providerFn: (options: {
+        apiKey: string
+        baseURL: string
+        headers?: Record<string, string>
+      }) => ProviderV2 | OpenAIProvider
 
       if (providerType === 'deepseek') {
         providerFn = createDeepSeek
