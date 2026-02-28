@@ -1,6 +1,6 @@
 <script lang="ts" setup>
 import { ref, type Ref, shallowReactive, computed, watch, onMounted } from 'vue'
-import { TinyRemoter } from '@opentiny/next-remoter'
+import { TinyRemoter, type UnifiedModelConfig } from '@opentiny/next-remoter'
 import { useBrowserExtensions } from './composable/useBrowserExtensions'
 import { useWebAgentServer } from './composable/useWebAgentServer'
 import TinyUser from '@opentiny/vue-user'
@@ -13,14 +13,17 @@ import QrCodeDialog from './components/QrCodeDialog.vue'
 import { getUnifiedSkills } from '@/utils/skills-unified'
 import { RENDERER_SETTINGS_KEY } from '@opentiny/genui-sdk-vue'
 import { CustomFunction } from '@/utils/customFunction'
-import { DEFAULT_MODEL_CONFIGS } from './model-config'
+import { getModelConfigsWithToken } from './model-manage'
 import { getStorageItem, setStorageItem } from './utils/local-storage'
 import { StorageKeys } from './utils/storage-keys'
 
 // 从统一入口读取 skills（built-in + 用户在 Options 中的覆盖）
 const skills = ref<Record<string, string>>({})
+// 模型配置（异步加载，含 TokenTab 缓存的 x-auth-token）
+const modelConfigs = ref<UnifiedModelConfig[]>([])
 onMounted(async () => {
   skills.value = await getUnifiedSkills()
+  modelConfigs.value = await getModelConfigsWithToken()
 })
 
 const remoterRef = ref() as Ref<InstanceType<typeof TinyRemoter>>
@@ -48,12 +51,20 @@ const genUiComponents = shallowReactive({ TinyUser })
 const customMarketMcpServers = useCustomMarketMcpServers()
 
 // 管理选中的模型 ID（从存储读取，变化时保存）
-// 使用 localStorage 同步读取，可以在初始化时直接获取值
-const defaultModel = DEFAULT_MODEL_CONFIGS.find((config) => config.isDefault) || DEFAULT_MODEL_CONFIGS[0]
+// modelConfigs 异步加载，初始为空，需用可选链避免 defaultModel 为 undefined 时报错
+const defaultModel = modelConfigs.value.find((config) => config.isDefault) || modelConfigs.value[0]
 const storedModel = getStorageItem<string>(StorageKeys.SELECTED_MODEL)
 const selectedModelId = ref<string>(
-  storedModel && DEFAULT_MODEL_CONFIGS.some((config) => config.id === storedModel) ? storedModel : defaultModel.id
+  storedModel && modelConfigs.value.some((config) => config.id === storedModel) ? storedModel : (defaultModel?.id ?? '')
 )
+// modelConfigs 加载完成后，校验 selectedModelId 是否在列表中（含初始为空时的兜底）
+watch(modelConfigs, (configs) => {
+  if (!configs.length) return
+  const defaultId = configs.find((c) => c.isDefault)?.id ?? configs[0].id
+  if (!selectedModelId.value || !configs.some((c) => c.id === selectedModelId.value)) {
+    selectedModelId.value = defaultId
+  }
+})
 
 // 管理生成式UI启用状态（从存储读取，变化时保存）
 // 使用 localStorage 同步读取，可以在初始化时直接获取值
@@ -215,7 +226,7 @@ browser.runtime.onMessage.addListener((message) => {
       show
       fullscreen
       title=""
-      :llmConfigs="DEFAULT_MODEL_CONFIGS"
+      :llmConfigs="modelConfigs"
       v-model:selected-model-id="selectedModelId"
       v-model:genUiAble="genuiEnabled"
       v-model:enabled-tools="enabledTools"

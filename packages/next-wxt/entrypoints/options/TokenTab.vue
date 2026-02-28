@@ -24,10 +24,13 @@ const messageType = ref<'success' | 'error' | ''>('')
 // 当前已存储的 token（脱敏显示）
 const storedTokenPreview = ref('')
 
-// 加载已存储的 token 预览
+// 加载已存储的 token 预览（兼容 getItem 与 getMeta）
 async function loadStoredToken() {
   try {
-    const data = (await storage.getMeta(TOKEN_STORAGE_KEY)) as string | { token?: string } | undefined
+    let data: string | { token?: string } | undefined = (await storage.getItem(TOKEN_STORAGE_KEY)) as string | undefined
+    if (!data || typeof data !== 'string') {
+      data = (await storage.getMeta(TOKEN_STORAGE_KEY)) as string | { token?: string } | undefined
+    }
     const token = typeof data === 'string' ? data : data?.token
     if (token && token.length > 8) {
       storedTokenPreview.value = `${token.slice(0, 8)}****${token.slice(-4)}`
@@ -79,7 +82,7 @@ async function handleSubmit() {
       data?.token ?? data?.access_token ?? data?.accessToken ?? data?.data?.token ?? data?.data?.access_token
 
     if (token && typeof token === 'string') {
-      await storage.setMeta(TOKEN_STORAGE_KEY, token)
+      await storage.setItem(TOKEN_STORAGE_KEY, token)
       await loadStoredToken()
       account.value = ''
       password.value = ''
