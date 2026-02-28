@@ -124,6 +124,14 @@ export async function renameSkillFolder(oldFolderPath: string, newLabel: string)
     }
   }
 
+  // 防止重命名目标覆盖已有路径（非本次移动的集合）
+  const movedSet = new Set(toDelete)
+  for (const [newPath] of updates) {
+    if (!movedSet.has(newPath) && current[newPath] !== undefined) {
+      throw new Error(`目标路径已存在: ${newPath}`)
+    }
+  }
+
   // 先写入新路径，再删除旧路径
   for (const [newPath, content] of updates) {
     current[newPath] = content
@@ -148,6 +156,9 @@ export async function renameSkillFile(oldFilePath: string, newFileName: string):
   const lastSlash = oldFilePath.lastIndexOf('/')
   const parentDir = lastSlash >= 0 ? oldFilePath.slice(0, lastSlash + 1) : './'
   const newPath = parentDir + newFileName
+  if (newPath !== oldFilePath && current[newPath] !== undefined) {
+    throw new Error(`目标路径已存在: ${newPath}`)
+  }
   current[newPath] = content
   delete current[oldFilePath]
   await setSkillsOverrides(current)

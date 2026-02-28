@@ -15,7 +15,10 @@ export type UnifiedSkills = Record<string, string>
  * Options 页保存后通过 reload-sidepanel 刷新 sidepanel，重新加载时即会读取最新覆盖
  */
 export async function getUnifiedSkills(): Promise<UnifiedSkills> {
-  const builtIn = { ...skillMdModules }
+  // 过滤 built-in 中的空文件夹占位（路径以 / 结尾），与 overrides 处理一致
+  const builtIn = Object.fromEntries(
+    Object.entries(skillMdModules).filter(([k]) => !k.endsWith('/'))
+  )
   try {
     const overrides = await getSkillsOverrides()
     if (overrides && Object.keys(overrides).length > 0) {

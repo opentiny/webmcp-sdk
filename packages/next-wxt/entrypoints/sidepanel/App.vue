@@ -22,8 +22,13 @@ const skills = ref<Record<string, string>>({})
 // 模型配置（异步加载，含 TokenTab 缓存的 x-auth-token）
 const modelConfigs = ref<UnifiedModelConfig[]>([])
 onMounted(async () => {
-  skills.value = await getUnifiedSkills()
-  modelConfigs.value = await getModelConfigsWithToken()
+  try {
+    skills.value = await getUnifiedSkills()
+    modelConfigs.value = await getModelConfigsWithToken()
+  } catch (error) {
+    console.error('加载 skills 或模型配置失败', error)
+    modelConfigs.value = []
+  }
 })
 
 const remoterRef = ref() as Ref<InstanceType<typeof TinyRemoter>>

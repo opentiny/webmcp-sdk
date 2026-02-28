@@ -67,10 +67,12 @@ const editDialogVisible = ref(false)
 const editingNode = ref<SkillsTreeNode | null>(null)
 const editContent = ref('')
 
-// 文件夹重命名对话框
+// 重命名对话框
 const renameDialogVisible = ref(false)
 const renamingNode = ref<SkillsTreeNode | null>(null)
-const renameValue = ref('')
+const renameFormData = reactive({ renameName: '' })
+const renameFormRef = ref<{ validate: () => Promise<boolean>; clearValidate?: () => void } | null>(null)
+const renameError = ref('') // 异步错误（如目标路径已存在）
 
 // 添加 skill/子文件夹/文件 对话框
 const addDialogVisible = ref(false)
@@ -119,10 +121,12 @@ function openEditFile(node: SkillsTreeNode) {
 }
 
 // 保存文件内容到 storage
+// 仅当为内置文件且内容恢复原样时移除 override；用户新增文件清空内容时仍保存，不删除
 async function saveFileContent() {
   if (!editingNode.value) return
   const path = editingNode.value.path
-  if (editContent.value === (skillMdModules[path] ?? '')) {
+  const isBuiltIn = Object.prototype.hasOwnProperty.call(skillMdModules, path)
+  if (isBuiltIn && editContent.value === skillMdModules[path]) {
     await removeSkillOverride(path)
   } else {
     await setSkillOverride(path, editContent.value)
@@ -134,46 +138,75 @@ async function saveFileContent() {
 }
 
 // 打开重命名对话框（文件夹或文件）
-function openRename(node: SkillsTreeNode) {
+async function openRename(node: SkillsTreeNode) {
   if (!canRename(node)) {
     alert(node.isFolder ? '内置技能文件夹无法重命名' : '内置技能文件无法重命名，仅可重命名用户新增的文件')
     return
   }
   renamingNode.value = node
-  renameValue.value = node.label
+  renameFormData.renameName = node.label
+  renameError.value = ''
   renameDialogVisible.value = true
+  await nextTick()
+  renameFormRef.value?.clearValidate?.()
 }
 
-// 执行重命名：根据节点类型（文件夹/文件）调用对应 storage 方法
+// 重命名表单校验规则（根据节点类型动态生成）
+const renameFormRules = computed(() => {
+  if (renamingNode.value?.isFolder) {
+    return {
+      renameName: [
+        { required: true, message: '请输入文件夹名称', trigger: 'blur' },
+        {
+          pattern: /^[a-zA-Z0-9_-]+$/,
+          message: '文件夹名称只能包含字母、数字、下划线、中划线',
+          trigger: 'blur'
+        }
+      ]
+    }
+  }
+  return {
+    renameName: [
+      { required: true, message: '请输入文件名', trigger: 'blur' },
+      {
+        pattern: /^[a-zA-Z0-9_.-]+$/,
+        message: '文件名只能包含字母、数字、下划线、中划线、点',
+        trigger: 'blur'
+      },
+      {
+        pattern: /\.\w+$/,
+        message: '文件名必须带后缀名，如 .md、.json、.xml',
+        trigger: 'blur'
+      }
+    ]
+  }
+})
+
+// 执行重命名：先校验表单，通过后调用 storage 方法
 async function saveRename() {
   const node = renamingNode.value
   if (!node) return
-  const newName = renameValue.value.trim()
-  if (!newName) {
-    alert(node.isFolder ? '请输入文件夹名称' : '请输入文件名')
-    return
-  }
+  const newName = renameFormData.renameName.trim()
   if (newName === node.label) {
     renameDialogVisible.value = false
     renamingNode.value = null
     return
   }
-  if (node.isFolder) {
-    if (!/^[a-zA-Z0-9_-]+$/.test(newName)) {
-      alert('文件夹名称只能包含字母、数字、下划线、中划线')
-      return
+  try {
+    await renameFormRef.value?.validate()
+  } catch {
+    return // 校验失败，表单会显示错误信息
+  }
+  renameError.value = ''
+  try {
+    if (node.isFolder) {
+      await renameSkillFolder(node.path, newName)
+    } else {
+      await renameSkillFile(node.path, newName)
     }
-    await renameSkillFolder(node.path, newName)
-  } else {
-    if (!/^[a-zA-Z0-9_.-]+$/.test(newName)) {
-      alert('文件名只能包含字母、数字、下划线、中划线、点')
-      return
-    }
-    if (!/\.\w+$/.test(newName)) {
-      alert('文件名必须带后缀名，如 .md、.json、.xml')
-      return
-    }
-    await renameSkillFile(node.path, newName)
+  } catch (e: any) {
+    renameError.value = e?.message || '重命名失败'
+    return
   }
   await loadOverrides()
   renameDialogVisible.value = false
@@ -236,6 +269,11 @@ const addFormRules = computed(() => {
   }
 })
 
+// 添加时显示错误（重复路径等）
+function showAddError(msg: string) {
+  alert(msg)
+}
+
 // 打开添加对话框
 async function openAdd(parent: SkillsTreeNode | null, type: 'file' | 'folder' | 'fileInFolder') {
   addParentNode.value = parent
@@ -265,6 +303,10 @@ async function saveAdd() {
     const basePath = parent?.isFolder ? parent.path.replace(/\/$/, '') : ''
     if (!basePath) return
     const filePath = `${basePath}/${name}`
+    if (mergedModules.value[filePath] !== undefined) {
+      showAddError('同名文件已存在')
+      return
+    }
     const content = name.toLowerCase().endsWith('.md')
       ? `---
 name: ${name.replace(/\.md$/i, '')}
@@ -281,11 +323,20 @@ description: 请填写技能描述
     const basePath = parent?.isFolder ? parent.path.replace(/\/$/, '') : ''
     const folderPath = basePath ? `${basePath}/${name}` : `./${name}`
     const folderKey = folderPath.endsWith('/') ? folderPath : `${folderPath}/`
+    const prefix = folderPath.replace(/\/$/, '') + '/'
+    if (Object.keys(mergedModules.value).some((p) => p === folderKey || p.startsWith(prefix))) {
+      showAddError('同名文件夹已存在')
+      return
+    }
     await setSkillOverride(folderKey, '')
   } else {
     // 根级 skill：创建 SKILL.md
     const folderPath = `./${name}`
     const filePath = `${folderPath}/SKILL.md`
+    if (mergedModules.value[filePath] !== undefined) {
+      showAddError('该 Skill 已存在')
+      return
+    }
     const template = `---
 name: ${name}
 description: 请填写技能描述
@@ -344,11 +395,9 @@ function canDelete(node: SkillsTreeNode): boolean {
 }
 
 function notifyReload() {
-  try {
-    browser.runtime.sendMessage({ type: 'reload-sidepanel' })
-  } catch {
-    // 忽略
-  }
+  void browser.runtime.sendMessage({ type: 'reload-sidepanel' }).catch(() => {
+    // 忽略 Promise 拒绝（如 sidepanel 未打开）
+  })
 }
 
 onMounted(() => {
@@ -410,12 +459,7 @@ onMounted(() => {
             >
               <component :is="IconFolderComp" />
             </span>
-            <span
-              v-if="canRename(node.data)"
-              class="icon-btn"
-              title="重命名"
-              @click.stop="openRename(node.data)"
-            >
+            <span v-if="canRename(node.data)" class="icon-btn" title="重命名" @click.stop="openRename(node.data)">
               <component :is="IconReplaceComp" />
             </span>
             <span v-if="!node.data.isFolder" class="icon-btn" title="编辑" @click.stop="openEditFile(node.data)">
@@ -461,28 +505,36 @@ onMounted(() => {
       </div>
     </TinyModal>
 
-    <!-- 重命名对话框（文件夹或文件通用） -->
+    <!-- 重命名对话框（使用 TinyForm 校验，校验不通过不关闭；取消按钮可关闭） -->
     <TinyModal
       v-model="renameDialogVisible"
       :title="renamingNode?.isFolder ? '重命名文件夹' : '重命名文件'"
       width="400px"
       :append-to-body="true"
       :show-footer="true"
-      @confirm="saveRename"
       @close="renameDialogVisible = false"
     >
       <div class="rename-dialog-body">
-        <div class="form-item">
-          <label class="form-item-label">{{ renamingNode?.isFolder ? '文件夹名称' : '文件名（含后缀）' }}</label>
-          <TinyInput
-            v-model="renameValue"
-            :placeholder="renamingNode?.isFolder ? '字母、数字、下划线、中划线' : '如 guide.md、config.json'"
-          />
-        </div>
+        <TinyForm ref="renameFormRef" :model="renameFormData" :rules="renameFormRules" label-position="top">
+          <TinyFormItem :label="renamingNode?.isFolder ? '文件夹名称' : '文件名（含后缀）'" prop="renameName">
+            <TinyInput
+              v-model="renameFormData.renameName"
+              :placeholder="renamingNode?.isFolder ? '字母、数字、下划线、中划线' : '如 guide.md、config.json'"
+              clearable
+            />
+          </TinyFormItem>
+        </TinyForm>
+        <p v-if="renameError" class="rename-error">{{ renameError }}</p>
         <p class="rename-tip">
           注：重命名会更新本地缓存中的路径，仅对用户新增的{{ renamingNode?.isFolder ? '文件夹' : '文件' }}生效。
         </p>
       </div>
+      <template #footer>
+        <div class="rename-dialog-footer">
+          <TinyButton @click="renameDialogVisible = false">取消</TinyButton>
+          <TinyButton type="primary" @click="saveRename">确认</TinyButton>
+        </div>
+      </template>
     </TinyModal>
 
     <!-- 添加 skill/子文件夹/文件 对话框（使用 TinyForm 校验，校验不通过不关闭） -->
@@ -657,8 +709,9 @@ onMounted(() => {
   padding: 8px 0;
 }
 
-/* 添加对话框：表单 label 左对齐，避免大片空白 */
-.add-dialog-body :deep([class*='form-item'] [class*='label']) {
+/* 添加/重命名对话框：表单 label 左对齐，避免大片空白 */
+.add-dialog-body :deep([class*='form-item'] [class*='label']),
+.rename-dialog-body :deep([class*='form-item'] [class*='label']) {
   text-align: left;
 }
 
@@ -704,6 +757,16 @@ onMounted(() => {
   color: #606266;
 }
 
+.rename-error {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 6px;
+  font-size: 14px;
+  background: #fef0f0;
+  color: #c45656;
+  border: 1px solid #fbc4c4;
+}
+
 .rename-tip,
 .add-file-tip,
 .delete-dialog-body p {
@@ -712,8 +775,9 @@ onMounted(() => {
   color: #909399;
 }
 
-/* 添加对话框底部按钮 */
-.add-dialog-footer {
+/* 添加/重命名对话框底部按钮 */
+.add-dialog-footer,
+.rename-dialog-footer {
   display: flex;
   justify-content: flex-end;
   gap: 12px;

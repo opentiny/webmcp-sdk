@@ -72,14 +72,16 @@ export function modulesToTree(modules: Record<string, string>): SkillsTreeNode[]
     }
   }
 
-  // 按路径排序子节点，文件夹在前、文件在后
+  // 节点排序：文件夹在前、文件在后，同类型按名称排序
+  function compareNodes(a: SkillsTreeNode, b: SkillsTreeNode): number {
+    const aIsFolder = a.isFolder ? 1 : 0
+    const bIsFolder = b.isFolder ? 1 : 0
+    if (bIsFolder !== aIsFolder) return bIsFolder - aIsFolder
+    return a.label.localeCompare(b.label)
+  }
+
   function sortChildren(nodes: SkillsTreeNode[]): SkillsTreeNode[] {
-    return [...nodes].sort((a, b) => {
-      const aIsFolder = a.isFolder ? 1 : 0
-      const bIsFolder = b.isFolder ? 1 : 0
-      if (bIsFolder !== aIsFolder) return bIsFolder - aIsFolder
-      return a.label.localeCompare(b.label)
-    })
+    return [...nodes].sort(compareNodes)
   }
 
   function sortTree(n: SkillsTreeNode): SkillsTreeNode {
@@ -98,12 +100,7 @@ export function modulesToTree(modules: Record<string, string>): SkillsTreeNode[]
   const topLevel = topLevelPaths
     .map((p) => root[p])
     .filter((n) => n)
-    .sort((a, b) => {
-      const aIsFolder = a.isFolder ? 1 : 0
-      const bIsFolder = b.isFolder ? 1 : 0
-      if (bIsFolder !== aIsFolder) return bIsFolder - aIsFolder
-      return a.label.localeCompare(b.label)
-    })
+    .sort(compareNodes)
 
   return topLevel.map(sortTree)
 }

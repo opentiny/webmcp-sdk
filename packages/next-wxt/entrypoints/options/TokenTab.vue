@@ -10,6 +10,18 @@ import { TOKEN_STORAGE_KEY, getStoredToken } from '../sidepanel/utils/token-stor
 /** Token 接口地址，可通过环境变量 VITE_TOKEN_API_URL 配置 */
 const TOKEN_API_URL = (import.meta as any).env?.VITE_TOKEN_API_URL || ''
 
+/** 校验 Token API URL 是否有效（支持 https、http） */
+function getValidatedTokenApiUrl(): string | null {
+  if (!TOKEN_API_URL.trim()) return null
+  try {
+    const url = new URL(TOKEN_API_URL.trim())
+    if (url.protocol !== 'https:' && url.protocol !== 'http:') return null
+    return TOKEN_API_URL.trim()
+  } catch {
+    return null
+  }
+}
+
 // 表单数据
 const account = ref('')
 const password = ref('')
@@ -18,6 +30,7 @@ const password = ref('')
 const loading = ref(false)
 const message = ref('')
 const messageType = ref<'success' | 'error' | ''>('')
+let messageTimer: ReturnType<typeof setTimeout> | null = null
 
 // 当前已存储的 token（脱敏显示）
 const storedTokenPreview = ref('')
@@ -32,18 +45,21 @@ async function loadStoredToken() {
   }
 }
 
-// 显示提示信息
+// 显示提示信息（单一定时器，避免连续调用时旧定时器清除新消息）
 function showMsg(text: string, type: 'success' | 'error') {
   message.value = text
   messageType.value = type
-  setTimeout(() => {
+  if (messageTimer) clearTimeout(messageTimer)
+  messageTimer = setTimeout(() => {
     message.value = ''
     messageType.value = ''
+    messageTimer = null
   }, 3000)
 }
 
 // 提交获取 token
 async function handleSubmit() {
+  if (loading.value) return // 防止重复提交
   const acc = account.value.trim()
   const pwd = password.value
 
@@ -56,12 +72,18 @@ async function handleSubmit() {
     return
   }
 
+  const apiUrl = getValidatedTokenApiUrl()
+  if (!apiUrl) {
+    showMsg('Token 接口地址未配置或不安全，请检查环境变量 VITE_TOKEN_API_URL', 'error')
+    return
+  }
+
   loading.value = true
   message.value = ''
   messageType.value = ''
 
   try {
-    const res = await fetch(TOKEN_API_URL, {
+    const res = await fetch(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'User-Agent': 'MyCustomApp/1.0' },
       body: JSON.stringify({ account: acc, password: pwd })
@@ -90,11 +112,9 @@ async function handleSubmit() {
 
 // 通知 sidepanel 刷新
 function notifyReload() {
-  try {
-    browser.runtime.sendMessage({ type: 'reload-sidepanel' })
-  } catch {
-    // 忽略
-  }
+  void browser.runtime.sendMessage({ type: 'reload-sidepanel' }).catch(() => {
+    // 忽略 Promise 拒绝（如 sidepanel 未打开）
+  })
 }
 
 onMounted(() => {
