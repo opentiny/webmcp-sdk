@@ -12,9 +12,9 @@ const AGENT_BASE_URL = 'https://agent.opentiny.design'
 
 export const INNER_BASE_MODEL_CONFIGS: UnifiedModelConfig[] = [
   {
-    id: 'deepseek-ai/DeepSeek-R1',
-    label: 'DeepSeek-R1',
-    model: 'deepseek-ai/DeepSeek-R1',
+    id: 'deepseek-ai/DeepSeek-V3',
+    label: 'DeepSeek-V3',
+    model: 'deepseek-ai/DeepSeek-V3',
     apiKey: 'sk-trial',
     baseURL: `${AGENT_BASE_URL}/api/v1/ai`,
     providerType: 'deepseek',
