@@ -10,8 +10,7 @@ import { storage } from '@wxt-dev/storage'
 const TOKEN_STORAGE_KEY = 'local:llm-token'
 
 /** Token 接口地址，可通过环境变量 VITE_TOKEN_API_URL 配置 */
-const TOKEN_API_URL =
-  (import.meta as any).env?.VITE_TOKEN_API_URL || 'https://agent.opentiny.design/api/v1/auth/token'
+const TOKEN_API_URL = (import.meta as any).env?.VITE_TOKEN_API_URL || ''
 
 // 表单数据
 const account = ref('')
@@ -71,8 +70,8 @@ async function handleSubmit() {
   try {
     const res = await fetch(TOKEN_API_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ account: acc, username: acc, password: pwd })
+      headers: { 'Content-Type': 'application/json', 'User-Agent': 'MyCustomApp/1.0' },
+      body: JSON.stringify({ account: acc, password: pwd })
     })
 
     const data = await res.json().catch(() => ({}))
@@ -112,9 +111,7 @@ onMounted(() => {
 
 <template>
   <div class="token-tab">
-    <p class="token-desc">
-      输入账号和密码获取 Token，获取成功后会自动保存到本地缓存，供 AI 对话使用。
-    </p>
+    <p class="token-desc">输入账号和密码获取 Token，获取成功后会自动保存到本地缓存，供 AI 对话使用。</p>
 
     <div class="token-form">
       <div class="form-item">
@@ -126,7 +123,7 @@ onMounted(() => {
         <TinyInput v-model="password" type="password" placeholder="请输入密码" :show-password="true" clearable />
       </div>
       <div class="form-actions">
-        <TinyButton type="primary" :loading="loading" @click="handleSubmit">确认获取 Token</TinyButton>
+        <TinyButton type="primary" :loading="loading" @click="handleSubmit">生成 Token</TinyButton>
       </div>
     </div>
 
