@@ -14,15 +14,28 @@ import {
   setSkillOverride,
   removeSkillOverride,
   removeSkillOverrideRecursive,
+  renameSkillFolder,
+  renameSkillFile,
+  hasBuiltInDescendants,
   isUserAddedPath
 } from './utils/skills-storage'
 import JSZip from 'jszip'
 // TinyVue Icon 是函数，需执行后得到组件再使用
-import { iconEdit, iconDel, iconAdd, iconFolder, iconFiletext, iconPlusSquare, iconDownload } from '@opentiny/vue-icon'
+import {
+  iconEdit,
+  iconReplace,
+  iconDel,
+  iconAdd,
+  iconFolder,
+  iconFiletext,
+  iconPlusSquare,
+  iconDownload
+} from '@opentiny/vue-icon'
 // TinyVue Form 用于添加对话框的表单校验
 import { Form as TinyForm } from '@opentiny/vue'
 
 const IconEditComp = iconEdit()
+const IconReplaceComp = iconReplace() // 重命名图标，与编辑区分
 const IconDelComp = iconDel()
 const IconAddComp = iconAdd()
 const IconFolderComp = iconFolder()
@@ -120,17 +133,64 @@ async function saveFileContent() {
   notifyReload()
 }
 
-// 打开文件夹重命名
-function openRenameFolder(node: SkillsTreeNode) {
-  if (!node.isFolder) return
+// 打开重命名对话框（文件夹或文件）
+function openRename(node: SkillsTreeNode) {
+  if (!canRename(node)) {
+    alert(node.isFolder ? '内置技能文件夹无法重命名' : '内置技能文件无法重命名，仅可重命名用户新增的文件')
+    return
+  }
   renamingNode.value = node
   renameValue.value = node.label
   renameDialogVisible.value = true
 }
 
-async function saveRenameFolder() {
+// 执行重命名：根据节点类型（文件夹/文件）调用对应 storage 方法
+async function saveRename() {
+  const node = renamingNode.value
+  if (!node) return
+  const newName = renameValue.value.trim()
+  if (!newName) {
+    alert(node.isFolder ? '请输入文件夹名称' : '请输入文件名')
+    return
+  }
+  if (newName === node.label) {
+    renameDialogVisible.value = false
+    renamingNode.value = null
+    return
+  }
+  if (node.isFolder) {
+    if (!/^[a-zA-Z0-9_-]+$/.test(newName)) {
+      alert('文件夹名称只能包含字母、数字、下划线、中划线')
+      return
+    }
+    await renameSkillFolder(node.path, newName)
+  } else {
+    if (!/^[a-zA-Z0-9_.-]+$/.test(newName)) {
+      alert('文件名只能包含字母、数字、下划线、中划线、点')
+      return
+    }
+    if (!/\.\w+$/.test(newName)) {
+      alert('文件名必须带后缀名，如 .md、.json、.xml')
+      return
+    }
+    await renameSkillFile(node.path, newName)
+  }
+  await loadOverrides()
   renameDialogVisible.value = false
   renamingNode.value = null
+  notifyReload()
+}
+
+// 判断节点是否可重命名
+// 文件夹：仅无内置内容的用户文件夹可重命名
+// 文件：仅用户新增的文件可重命名，但 SKILL.md 按规范不可重命名
+function canRename(node: SkillsTreeNode): boolean {
+  if (node.isFolder) {
+    return !hasBuiltInDescendants(node.path, builtInPaths.value)
+  }
+  // SKILL.md 为规范命名，不允许重命名
+  if (node.label === 'SKILL.md') return false
+  return isUserAddedPath(node.path, builtInPaths.value)
 }
 
 // 添加表单校验规则（根据 addType 动态生成）
@@ -256,7 +316,7 @@ async function confirmDelete() {
   const path = node.path
 
   if (node.isFolder) {
-    if (isUserAddedPath(path, builtInPaths.value)) {
+    if (!hasBuiltInDescendants(path, builtInPaths.value)) {
       await removeSkillOverrideRecursive(path)
     } else {
       alert('内置技能文件夹无法删除，仅可删除其下用户新增的文件')
@@ -274,11 +334,11 @@ async function confirmDelete() {
 }
 
 // 判断节点是否可删除
-// 文件夹：仅用户新增的整个文件夹可删
+// 文件夹：仅无内置内容的用户文件夹可删（含子文件夹、子文件时递归删除，同 Windows）
 // 文件：均可删（用户新增则移除，built-in 则还原）
 function canDelete(node: SkillsTreeNode): boolean {
   if (node.isFolder) {
-    return isUserAddedPath(node.path, builtInPaths.value)
+    return !hasBuiltInDescendants(node.path, builtInPaths.value)
   }
   return true
 }
@@ -350,10 +410,15 @@ onMounted(() => {
             >
               <component :is="IconFolderComp" />
             </span>
-            <span v-if="node.data.isFolder" class="icon-btn" title="重命名" @click.stop="openRenameFolder(node.data)">
-              <component :is="IconEditComp" />
+            <span
+              v-if="canRename(node.data)"
+              class="icon-btn"
+              title="重命名"
+              @click.stop="openRename(node.data)"
+            >
+              <component :is="IconReplaceComp" />
             </span>
-            <span v-else class="icon-btn" title="编辑" @click.stop="openEditFile(node.data)">
+            <span v-if="!node.data.isFolder" class="icon-btn" title="编辑" @click.stop="openEditFile(node.data)">
               <component :is="IconEditComp" />
             </span>
             <span
@@ -396,22 +461,27 @@ onMounted(() => {
       </div>
     </TinyModal>
 
-    <!-- 文件夹重命名对话框 -->
+    <!-- 重命名对话框（文件夹或文件通用） -->
     <TinyModal
       v-model="renameDialogVisible"
-      title="重命名文件夹"
+      :title="renamingNode?.isFolder ? '重命名文件夹' : '重命名文件'"
       width="400px"
       :append-to-body="true"
       :show-footer="true"
-      @confirm="saveRenameFolder"
+      @confirm="saveRename"
       @close="renameDialogVisible = false"
     >
       <div class="rename-dialog-body">
         <div class="form-item">
-          <label class="form-item-label">文件夹名称</label>
-          <TinyInput v-model="renameValue" placeholder="请输入新名称" />
+          <label class="form-item-label">{{ renamingNode?.isFolder ? '文件夹名称' : '文件名（含后缀）' }}</label>
+          <TinyInput
+            v-model="renameValue"
+            :placeholder="renamingNode?.isFolder ? '字母、数字、下划线、中划线' : '如 guide.md、config.json'"
+          />
         </div>
-        <p class="rename-tip">注：浏览器插件无法修改扩展包内文件路径，重命名仅影响显示。</p>
+        <p class="rename-tip">
+          注：重命名会更新本地缓存中的路径，仅对用户新增的{{ renamingNode?.isFolder ? '文件夹' : '文件' }}生效。
+        </p>
       </div>
     </TinyModal>
 
