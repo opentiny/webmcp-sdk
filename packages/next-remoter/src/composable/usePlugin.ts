@@ -357,6 +357,7 @@ export function usePlugin(
     togglePlugin,
     toggleTool,
     deletePlugin,
+    addPluginCore, // 添加插件的核心方法
     addPluginFromMarket, // 从市场添加插件（明确的方法名）
     addPluginFromScan, // 从扫码添加插件（新增）
     handleClientDisconnected,

@@ -1,6 +1,6 @@
-import { computed, h, ref, Ref } from 'vue'
+import { computed, h, ref, Ref, VNode } from 'vue'
 import { IconButton } from '@opentiny/tiny-robot'
-import { IconCopy, IconRefresh, IconUser } from '@opentiny/tiny-robot-svgs'
+import { IconCopy, IconRefresh } from '@opentiny/tiny-robot-svgs'
 import { GeneratingStatus } from '@opentiny/tiny-robot-kit'
 import TinyTooltip from '@opentiny/vue-tooltip'
 import tokenUsageVue from '../components/tokenUsage.vue'
@@ -11,6 +11,7 @@ import logo from '../../public/svgs/logo-next-no-bg-right.svg'
  * 用于定义消息气泡的外观、头像、操作按钮等 UI 配置
  */
 export function useMessageRoles(options: {
+  props: { roleAvatar: { user: VNode; assistant: VNode } }
   messages: Ref<any[]>
   messageState: any
   inputMessage: Ref<string>
@@ -19,8 +20,6 @@ export function useMessageRoles(options: {
   const { messages, messageState, inputMessage, handleSendMessage } = options
 
   // ===== 头像配置 =====
-  const aiAvatar = h(logo, { style: { fontSize: '32px' } })
-  const userAvatar = h(IconUser, { style: { fontSize: '32px' } })
   const welcomeIcon = h(logo, { style: { width: '48px', height: '48px' } })
 
   // ===== 状态管理 =====
@@ -55,11 +54,11 @@ export function useMessageRoles(options: {
   const copyMessageToClipboard = async (index: number) => {
     const message = messages.value[index]
     const textContent = typeof message.content === 'string' ? message.content : JSON.stringify(message.content)
-    
+
     // 添加错误处理：剪贴板 API 可能因权限、安全上下文或浏览器支持而失败
     try {
       await navigator.clipboard.writeText(textContent)
-      
+
       // 提示复制成功
       if (index !== undefined) {
         copyingStates.value[index] = true
@@ -81,14 +80,14 @@ export function useMessageRoles(options: {
   const regenerateMessage = async (index: number) => {
     // 向上找最后一次 user 消息
     const lastUserIndex = messages.value.findLastIndex((m, idx) => m.role === 'user' && idx <= index)
-    
+
     // 添加守卫：如果没找到用户消息，则不执行重新生成操作
     if (lastUserIndex === -1) {
       console.warn('未找到可重新生成的用户消息')
       showToast('无法重新生成消息')
       return
     }
-    
+
     const lastUserMsg = messages.value[lastUserIndex]
 
     // 从上个user消息截断， 只保留上半断。  last user消息也截掉。
@@ -125,7 +124,7 @@ export function useMessageRoles(options: {
     assistant: {
       type: 'markdown',
       placement: 'start',
-      avatar: aiAvatar,
+      avatar: options.props.roleAvatar.assistant,
       maxWidth: '80%',
       customContentField: 'uiContent',
       slots: {
@@ -185,16 +184,14 @@ export function useMessageRoles(options: {
     },
     user: {
       placement: 'end',
-      avatar: userAvatar,
+      avatar: options.props.roleAvatar.user,
       maxWidth: '80%',
       customContentField: 'uiContent' // 使用 uiContent 字段渲染消息内容
     }
   }
 
   return {
-    // 头像
-    aiAvatar,
-    userAvatar,
+    // 欢迎logo
     welcomeIcon,
 
     // 角色配置
