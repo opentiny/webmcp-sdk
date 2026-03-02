@@ -90,8 +90,7 @@ async function handleSubmit() {
     })
 
     const data = await res.json().catch(() => ({}))
-    const token =
-      data?.token ?? data?.access_token ?? data?.accessToken ?? data?.data?.token ?? data?.data?.access_token
+    const token = data?.result?.token
 
     if (token && typeof token === 'string') {
       await storage.setItem(TOKEN_STORAGE_KEY, token)
