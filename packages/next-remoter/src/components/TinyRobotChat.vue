@@ -235,7 +235,7 @@ const props = defineProps({
   AILogoUrl: {
     type: String
   },
-   /** 角色头像配置, 允许配置 user,assistant 的头像，值为 VNode, 比如： h(IconUser, { style: { fontSize: '32px' } }) */
+   /** 角色user,assistant的头像配置, 值为 VNode, 比如： h(IconUser, { style: { fontSize: '32px' } }) */
   roleAvatar: {
     type: Object as () => {user:VNode, assistant:VNode},
     default: ()=>{
