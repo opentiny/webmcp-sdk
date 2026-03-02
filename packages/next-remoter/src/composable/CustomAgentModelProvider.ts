@@ -475,13 +475,13 @@ export class CustomAgentModelProvider extends BaseModelProvider {
           if (value?.error) {
             const errorMsg = {
               type: 'markdown',
-              content: `**错误**：${value.error.message || '未知错误'}`
+              content: `**错误**：${value.error.responseBody || value.error.message || '未知错误'}`
             }
             uiContent.push(errorMsg)
           }
 
           // 有确定消息时，才返回onData， 避免白块的出现和loading太快，看不到
-          if (value.steps.length >= 1) {
+          if (value.steps.length >= 1 || value?.error) {
             handler.onData({
               ...defaultMessage,
               uiContent: uiContent.flat(),
