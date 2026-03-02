@@ -29,10 +29,11 @@ import {
   iconFolder,
   iconFiletext,
   iconPlusSquare,
-  iconDownload
+  iconDownload,
+  iconUpload
 } from '@opentiny/vue-icon'
 // TinyVue Form 用于添加对话框的表单校验
-import { Form as TinyForm } from '@opentiny/vue'
+import { TinyForm, Message } from '@opentiny/vue'
 
 const IconEditComp = iconEdit()
 const IconReplaceComp = iconReplace() // 重命名图标，与编辑区分
@@ -42,6 +43,7 @@ const IconFolderComp = iconFolder()
 const IconFiletextComp = iconFiletext()
 const IconPlusSquareComp = iconPlusSquare()
 const IconDownloadComp = iconDownload()
+const IconUploadComp = iconUpload()
 
 // 合并 built-in 与用户覆盖，用于构建树
 const mergedModules = computed<Record<string, string>>(() => {
@@ -95,7 +97,7 @@ async function downloadBackup() {
   const data = mergedModules.value
   const fileEntries = Object.entries(data).filter(([path]) => !path.endsWith('/'))
   if (fileEntries.length === 0) {
-    alert('暂无数据可导出')
+    Message.message({ message: '暂无数据可导出', status: 'warning' })
     return
   }
   const zip = new JSZip()
@@ -110,6 +112,51 @@ async function downloadBackup() {
   a.download = `skills-backup-${new Date().toISOString().slice(0, 10)}.zip`
   a.click()
   URL.revokeObjectURL(url)
+}
+
+// 导入备份：读取 zip 压缩包，将文件系统覆盖到 skills storage
+const importInputRef = ref<HTMLInputElement | null>(null)
+const isImporting = ref(false)
+
+function triggerImport() {
+  importInputRef.value?.click()
+}
+
+async function handleImportFile(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  // 重置 input，确保同一文件可再次触发
+  input.value = ''
+  if (!file) return
+  if (!file.name.endsWith('.zip')) {
+    Message.message({ message: '请选择 .zip 格式的备份文件', status: 'warning' })
+    return
+  }
+  isImporting.value = true
+  try {
+    const zip = new JSZip()
+    const loaded = await zip.loadAsync(file)
+    const entries = Object.entries(loaded.files)
+    // 过滤掉文件夹条目，只处理实际文件
+    const fileEntries = entries.filter(([, zipObj]) => !zipObj.dir)
+    if (fileEntries.length === 0) {
+      Message.message({ message: '压缩包中未找到任何文件', status: 'warning' })
+      return
+    }
+    for (const [zipPath, zipObj] of fileEntries) {
+      const content = await zipObj.async('string')
+      // 还原为 skills storage 使用的 ./ 前缀路径格式
+      const storagePath = zipPath.startsWith('./') ? zipPath : `./${zipPath}`
+      await setSkillOverride(storagePath, content)
+    }
+    await loadOverrides()
+    notifyReload()
+    Message.message({ message: `导入成功，共覆盖 ${fileEntries.length} 个文件`, status: 'success' })
+  } catch (e: any) {
+    Message.message({ message: `导入失败：${e?.message || '未知错误'}`, status: 'error' })
+  } finally {
+    isImporting.value = false
+  }
 }
 
 // 打开文件编辑
@@ -140,7 +187,10 @@ async function saveFileContent() {
 // 打开重命名对话框（文件夹或文件）
 async function openRename(node: SkillsTreeNode) {
   if (!canRename(node)) {
-    alert(node.isFolder ? '内置技能文件夹无法重命名' : '内置技能文件无法重命名，仅可重命名用户新增的文件')
+    Message.message({
+      message: node.isFolder ? '内置技能文件夹无法重命名' : '内置技能文件无法重命名，仅可重命名用户新增的文件',
+      status: 'warning'
+    })
     return
   }
   renamingNode.value = node
@@ -271,7 +321,7 @@ const addFormRules = computed(() => {
 
 // 添加时显示错误（重复路径等）
 function showAddError(msg: string) {
-  alert(msg)
+  Message.message({ message: msg, status: 'warning' })
 }
 
 // 打开添加对话框
@@ -370,7 +420,7 @@ async function confirmDelete() {
     if (!hasBuiltInDescendants(path, builtInPaths.value)) {
       await removeSkillOverrideRecursive(path)
     } else {
-      alert('内置技能文件夹无法删除，仅可删除其下用户新增的文件')
+      Message.message({ message: '内置技能文件夹无法删除，仅可删除其下用户新增的文件', status: 'warning' })
       deleteDialogVisible.value = false
       deletingNode.value = null
       return
@@ -421,6 +471,14 @@ onMounted(() => {
         <span class="toolbar-btn-inner">
           <component :is="IconDownloadComp" />
           <span>导出备份</span>
+        </span>
+      </TinyButton>
+      <!-- 隐藏的文件输入，由导入按钮触发 -->
+      <input ref="importInputRef" type="file" accept=".zip" style="display: none" @change="handleImportFile" />
+      <TinyButton class="toolbar-btn" :disabled="isImporting" @click="triggerImport">
+        <span class="toolbar-btn-inner">
+          <component :is="IconUploadComp" />
+          <span>{{ isImporting ? '导入中...' : '导入备份' }}</span>
         </span>
       </TinyButton>
     </div>
