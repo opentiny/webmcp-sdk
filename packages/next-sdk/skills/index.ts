@@ -43,20 +43,41 @@ export function parseSkillFrontMatter(content: string): { name: string; descript
 }
 
 /**
+ * 将 Vite import.meta.glob 得到的多种 key 格式统一为「相对 skills 根目录」的路径（如 ./calculator/SKILL.md），
+ * 以便 getSkillMdContent / getMainSkillPathByName 等能正确按 path 查找。
+ * 兼容任意引入位置：./skills/xxx、../skills/xxx、src/skills/xxx 等，取最后一个 skills/ 后的部分并加上 ./
+ */
+function normalizeSkillModuleKeys(modules: Record<string, string>): Record<string, string> {
+  const result: Record<string, string> = {}
+  for (const [key, content] of Object.entries(modules)) {
+    const normalizedKey = key.replace(/\\/g, '/')
+    const skillsIndex = normalizedKey.lastIndexOf('skills/')
+    const relativePath = skillsIndex >= 0 ? normalizedKey.slice(skillsIndex + 7) : normalizedKey
+    const standardPath = relativePath.startsWith('./') ? relativePath : `./${relativePath}`
+    result[standardPath] = content
+  }
+  return result
+}
+
+/**
  * 获取所有「主 SKILL.md」的路径（一级子目录下的 SKILL.md）
+ * - 对传入的 modules 先做 normalize，兼容任意 import.meta.glob 写法
  */
 export function getMainSkillPaths(modules: Record<string, string>): string[] {
-  return Object.keys(modules).filter((path) => MAIN_SKILL_PATH_REG.test(path))
+  const normalized = normalizeSkillModuleKeys(modules)
+  return Object.keys(normalized).filter((path) => MAIN_SKILL_PATH_REG.test(path))
 }
 
 /**
  * 获取所有技能的概况列表（name、description、path），用于 systemPrompt 或列表展示
+ * - 内部统一对 modules 做 normalize，避免调用方关心路径细节
  */
 export function getSkillOverviews(modules: Record<string, string>): SkillMeta[] {
-  const mainPaths = getMainSkillPaths(modules)
+  const normalized = normalizeSkillModuleKeys(modules)
+  const mainPaths = Object.keys(normalized).filter((path) => MAIN_SKILL_PATH_REG.test(path))
   const list: SkillMeta[] = []
   for (const path of mainPaths) {
-    const content = modules[path]
+    const content = normalized[path]
     if (!content) continue
     const parsed = parseSkillFrontMatter(content)
     if (!parsed) continue
@@ -81,20 +102,25 @@ export function formatSkillsForSystemPrompt(skills: SkillMeta[]): string {
 
 /**
  * 获取所有已加载的技能文件路径（含主 SKILL.md 与 reference 下的 .md/.json/.xml 等）
+ * - 对 modules 做 normalize 后再返回 key 列表
  */
 export function getSkillMdPaths(modules: Record<string, string>): string[] {
-  return Object.keys(modules)
+  const normalized = normalizeSkillModuleKeys(modules)
+  return Object.keys(normalized)
 }
 
 /**
  * 根据相对路径获取某个技能文档的原始内容（支持 .md、.json、.xml 等文本格式）
+ * - 自动对 modules 做 normalize，再按 path 查找
  */
 export function getSkillMdContent(modules: Record<string, string>, path: string): string | undefined {
-  return modules[path]
+  const normalized = normalizeSkillModuleKeys(modules)
+  return normalized[path]
 }
 
 /**
  * 根据技能 name 查找其主 SKILL.md 的路径（name 与目录名一致）
+ * - 依赖 getMainSkillPaths，内部已做 normalize
  */
 export function getMainSkillPathByName(modules: Record<string, string>, name: string): string | undefined {
   return getMainSkillPaths(modules).find((p) => p.startsWith(`./${name}/SKILL.md`))
@@ -112,26 +138,30 @@ export type SkillToolsSet = Record<string, any>
  * remoter 可将返回的 tools 合并进 extraTools 注入 agent
  */
 export function createSkillTools(modules: Record<string, string>): SkillToolsSet {
+  const normalizedModules = normalizeSkillModuleKeys(modules)
   const getSkillContent = tool({
     description:
       '根据技能名称或文档路径获取该技能的完整文档内容。传入 skillName（如 calculator）或 path（如 ./calculator/SKILL.md）。支持 .md、.json、.xml 等各类文本格式文件。',
     inputSchema: z.object({
       skillName: z.string().optional().describe('技能名称，与目录名一致，如 calculator'),
-      path: z.string().optional().describe('文档相对路径，如 ./calculator/SKILL.md 或 ./product-guide/reference/xxx.json')
+      path: z
+        .string()
+        .optional()
+        .describe('文档相对路径，如 ./calculator/SKILL.md 或 ./product-guide/reference/xxx.json')
     }),
     execute: (args: { skillName?: string; path?: string }) => {
       const { skillName, path: pathArg } = args
       let content: string | undefined
       if (pathArg) {
-        content = getSkillMdContent(modules, pathArg)
+        content = getSkillMdContent(normalizedModules, pathArg)
       } else if (skillName) {
-        const mainPath = getMainSkillPathByName(modules, skillName)
-        content = mainPath ? getSkillMdContent(modules, mainPath) : undefined
+        const mainPath = getMainSkillPathByName(normalizedModules, skillName)
+        content = mainPath ? getSkillMdContent(normalizedModules, mainPath) : undefined
       }
       if (content === undefined) {
         return { error: '未找到对应技能文档', skillName: skillName ?? pathArg }
       }
-      return { content, path: pathArg ?? getMainSkillPathByName(modules, skillName!) }
+      return { content, path: pathArg ?? getMainSkillPathByName(normalizedModules, skillName!) }
     }
   })
 
