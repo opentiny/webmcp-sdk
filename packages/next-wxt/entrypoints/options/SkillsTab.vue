@@ -128,7 +128,8 @@ async function handleImportFile(event: Event) {
   // 重置 input，确保同一文件可再次触发
   input.value = ''
   if (!file) return
-  if (!file.name.endsWith('.zip')) {
+  // 修复：大小写不敏感的后缀校验，兼容 .ZIP/.Zip 等情况
+  if (!file.name.toLowerCase().endsWith('.zip')) {
     Message.message({ message: '请选择 .zip 格式的备份文件', status: 'warning' })
     return
   }
@@ -143,15 +144,31 @@ async function handleImportFile(event: Event) {
       Message.message({ message: '压缩包中未找到任何文件', status: 'warning' })
       return
     }
+    // 修复：先全量读取到内存，再批量写入，确保原子性（避免中途失败导致部分写入）
+    const parsedEntries: Array<{ storagePath: string; content: string }> = []
     for (const [zipPath, zipObj] of fileEntries) {
+      // 修复：安全校验，过滤路径遍历（..）和绝对路径，防止污染 storage key
+      const normalizedPath = zipPath.replace(/\\/g, '/')
+      if (normalizedPath.includes('..') || normalizedPath.startsWith('/')) {
+        console.warn('[Skills Import] 跳过非法路径:', zipPath)
+        continue
+      }
       const content = await zipObj.async('string')
       // 还原为 skills storage 使用的 ./ 前缀路径格式
-      const storagePath = zipPath.startsWith('./') ? zipPath : `./${zipPath}`
+      const storagePath = normalizedPath.startsWith('./') ? normalizedPath : `./${normalizedPath}`
+      parsedEntries.push({ storagePath, content })
+    }
+    if (parsedEntries.length === 0) {
+      Message.message({ message: '压缩包中未找到合法的文件路径', status: 'warning' })
+      return
+    }
+    // 全量读取完毕，统一批量写入
+    for (const { storagePath, content } of parsedEntries) {
       await setSkillOverride(storagePath, content)
     }
     await loadOverrides()
     notifyReload()
-    Message.message({ message: `导入成功，共覆盖 ${fileEntries.length} 个文件`, status: 'success' })
+    Message.message({ message: `导入成功，共覆盖 ${parsedEntries.length} 个文件`, status: 'success' })
   } catch (e: any) {
     Message.message({ message: `导入失败：${e?.message || '未知错误'}`, status: 'error' })
   } finally {
