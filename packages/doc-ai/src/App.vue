@@ -32,8 +32,6 @@ const mcpServers = {
   }
 }
 
-console.log(skillMdModules)
-
 onMounted(async () => {
   await createMcpServer()
 })
