@@ -10,7 +10,7 @@ import IconModelDeepseek from '../icons/icon-model-deepseek.svg'
 
 const AGENT_BASE_URL = 'https://agent.opentiny.design'
 
-export const INNER_BASE_MODEL_CONFIGS: UnifiedModelConfig[] = [
+export const INTRANET_BASE_MODEL_CONFIGS: UnifiedModelConfig[] = [
   {
     id: 'deepseek-ai/DeepSeek-V3',
     label: 'DeepSeek-V3',

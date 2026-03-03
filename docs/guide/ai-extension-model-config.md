@@ -4,16 +4,16 @@
 
 在浏览器扩展工程 `next-wxt`中，`entrypoints/sidepanel/model-manage` 文件夹负责管理浏览器扩展中AI对话大模型的配置。该系统支持两种部署模式：
 
-- **inner模式**：适用于内网环境，需要身份认证
-- **open模式**：适用于公网环境，无需特殊认证
+- **内网模式**：适用于内网环境，需要身份认证
+- **公网模式**： 适用于公网环境，无需特殊认证
 
 ## 目录结构
 
 ```
 model-manage/
 ├── index.ts              # 配置入口文件，负责模式切换逻辑
-├── inner-model-config.ts # 内网模式模型配置
-└── open-model-config.ts  # 公网模式模型配置
+├── intranet-model-config.ts # 内网模式模型配置
+└── internet-model-config.ts  # 公网模式模型配置
 ```
 
 ## 如何配置大模型
@@ -62,14 +62,14 @@ import IconYourModel from '../icons/icon-model-your-model.svg'
   headers?: Record<string, string>, // 自定义请求头
   multimodal?: {                   // 多模态配置（可选）
     supportImages: boolean,
-    maxFileSize: number,
+    maxFileSize: number,           // 最大文件大小，单位： MB
     supportedMimeTypes: string[]
   },
-  llm?: any                        // 自定义 llm 。
+  llm?: any                         // 自定义 llm 。
 }
 ```
 
-> 特别提示： 如果大模型不兼容deepseek或openai协议时，可以自行构造一个ai-sdk的provider,请参考 [ai-sdk provider文档](https://ai-sdk.dev/providers/ai-sdk-providers)
+> 特别提示： 如果大模型不兼容deepseek或openai协议时，可以设置 `llm` 属性为一个ai-sdk的provider ,请参考 [ai-sdk provider文档](https://ai-sdk.dev/providers/ai-sdk-providers)
 
 ### 3. 高级配置选项
 
