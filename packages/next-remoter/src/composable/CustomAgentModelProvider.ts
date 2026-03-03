@@ -369,19 +369,6 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     let lastUserMsg = request.messages[request.messages.length - 1]
     if (!lastUserMsg) return
 
-    // 执行 beforeChatStream 钩子（如果存在）
-    // 注意：钩子返回的修改后的消息用于传递给 AI SDK，不影响 UI 显示
-    if (this.llmConfig.beforeChatStream) {
-      try {
-        const modifiedMsg = await this.llmConfig.beforeChatStream(lastUserMsg, this.systemPrompt)
-        if (modifiedMsg) {
-          lastUserMsg = modifiedMsg
-        }
-      } catch (error) {
-        console.error('[beforeChatStream] 钩子执行失败:', error)
-      }
-    }
-
     const chatStreamOptions: any = {
       model: this.llmConfig.model,
       system: this.systemPrompt,
