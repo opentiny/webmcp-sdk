@@ -105,9 +105,9 @@ import IconYourModel from '../icons/icon-model-your-model.svg'
 }
 ```
 
-### 3-3. 内置AI集成
+### 3-3. 集成Chrome内置AI
 
-使用chrome内置AI引擎的必要条件有：
+使用Chrome内置AI引擎,可以防止数据外流以及节省费用等优势，启用Chrome内置AI的必要条件有：
 
 - chrome版本号 138+
 - 满足`chrome`的硬件要求
@@ -117,6 +117,7 @@ import IconYourModel from '../icons/icon-model-your-model.svg'
 
 ```typescript
 import { builtInAI } from '@built-in-ai/core'
+import IconModelBuiltInAI from './icons/icon-model-built-in-ai.svg'
 
 {
   id: 'built-in-ai',
@@ -124,8 +125,46 @@ import { builtInAI } from '@built-in-ai/core'
   model: 'built-in-ai',
   llm: builtInAI as unknown as any,
   useReActMode: true,
-  icon: markRaw(IconBuiltInAI as unknown as Component)
+  icon: markRaw(IconModelBuiltInAI as unknown as Component)
 }
 ```
 
 通过以上配置，您可以灵活地为浏览器扩展添加各种AI大模型支持，满足不同部署环境的需求。
+
+### 3-4. 集成本地Ollama模型
+
+使用本地 `Ollama` 模型,同样具有防止数据外流以及节省费用等优势，用户本机需要安装 `Ollama` 程序并下载大模型文件，下面以 `qwen3:8b` 和 `qwen3-vl:8b` 来演示如何配置本地 `Ollama` 模型
+
+```typescript
+
+import IconModelDeepseek from './icons/icon-model-deepseek.svg'
+
+{
+    id: 'qwen3:8b',
+    label: 'qwen3:8b',
+    model: 'qwen3:8b',
+    apiKey: 'sk-trial',
+    baseURL: 'http://localhost:11434/api',
+    providerType: createOllama,
+    useReActMode: false,
+    icon: IconModelDeepseek as unknown as Component
+  },
+  {
+    id: 'qwen3-vl:8b',
+    label: 'qwen3-vl:8b',
+    model: 'qwen3-vl:8b',
+    apiKey: 'sk-trial',
+    baseURL: 'http://localhost:11434/api',
+    providerType: createOllama,
+    useReActMode: false,
+    // 多模态能力配置：启用文件上传功能
+    multimodal: {
+      supportImages: true, // 支持图片上传
+      maxFileSize: 10, // 最大文件大小 10MB
+      supportedMimeTypes: ['image/'] // 支持的文件类型：所有图片格式
+    },
+    icon: IconModelDeepseek as unknown as Component
+  },
+```
+
+通过以上配置，您可以选择本地 `Ollama` 大模型支持进行对话。
