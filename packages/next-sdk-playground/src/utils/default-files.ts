@@ -118,6 +118,7 @@ export function getDefaultFiles(options?: DefaultFilesOptions) {
 }
 .card-tiny-remoter{
   min-width: 478px;
+  min-height: 800px;
 }
 .counter-label{
   display: flex;

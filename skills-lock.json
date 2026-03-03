@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "skills": {
+    "tiny-robot-skill": {
+      "source": "opentiny/agent-skills",
+      "sourceType": "github",
+      "computedHash": "c6a37935830a554737c19b82b75f2cd0944950e838073cadb2c90b42962cd413"
+    },
+    "tiny-vue-skill": {
+      "source": "opentiny/agent-skills",
+      "sourceType": "github",
+      "computedHash": "cf91a7dd06104d56d3200c57682df8da759d8b4353b9181cc1c7cdcc4424b581"
+    }
+  }
+}

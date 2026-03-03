@@ -23,7 +23,8 @@
     "@built-in-ai/core": "catalog:",
     "vant": "catalog:",
     "vue": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "jszip": "^3.10.1"
   },
   "devDependencies": {
     "@babel/standalone": "catalog:",

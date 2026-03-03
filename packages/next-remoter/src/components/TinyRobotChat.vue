@@ -387,7 +387,9 @@ const updateLLMConfigFromModel = () => {
       useReActMode: model.useReActMode,
       llm: model.llm,
       // 传递 providerOptions，确保 model-config 中的自定义请求体（如 user/userId）能生效
-      providerOptions: model.providerOptions
+      providerOptions: model.providerOptions,
+      // 传递 headers，确保 model-config 中的自定义请求 Header 能生效
+      headers: model.headers
     })
   }
 }
