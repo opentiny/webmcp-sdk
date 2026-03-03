@@ -9,7 +9,7 @@
     "tiny-vue-skill": {
       "source": "opentiny/agent-skills",
       "sourceType": "github",
-      "computedHash": "9f50e84ab024cb93521fdb0dd8f8fb9f08becc2b15f573d958b3386550077102"
+      "computedHash": "cf91a7dd06104d56d3200c57682df8da759d8b4353b9181cc1c7cdcc4424b581"
     }
   }
 }
