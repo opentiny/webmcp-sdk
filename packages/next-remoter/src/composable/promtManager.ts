@@ -7,7 +7,7 @@ export class PromptManager {
   private tempPrompt = ''
 
   /** 返回全量的提示词 */
-  get systemPrompt() {
+  getSystemPrompt() {
     return `
 ${this.staticPrompt}
 ${this.skillMetaPrompt}
