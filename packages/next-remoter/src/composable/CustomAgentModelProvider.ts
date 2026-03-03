@@ -15,6 +15,7 @@ import { GENUI_CONFIG } from '../config/genui-config'
 import { StreamVisitor } from './streamVisitor'
 import { extractTextAndJson } from './handleSchema'
 import { DelayedPromise } from '@ai-sdk/provider-utils'
+import { PromptManager } from './promtManager'
 
 const DEFAULT_SHARED_CONFIG = {
   model: 'deepseek-ai/DeepSeek-V3',
@@ -57,7 +58,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   transport: any
   /** 一个 ai-sdk agent 封装 */
   agent: AgentModelProvider
-  systemPrompt: string
+  promptManager: PromptManager
   llmConfig: ICustomAgentModelProviderLlmConfig = { ...DEFAULT_SHARED_CONFIG, ...DEFAULT_FACTORY_CONFIG }
   /** 生成式UI启用状态 */
   isGenuiEnabled?: Ref<boolean>
@@ -88,7 +89,8 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     }
 
     this.agent = new AgentModelProvider(options)
-    this.systemPrompt = systemPrompt
+    this.promptManager = new PromptManager()
+    this.promptManager.setStatic(systemPrompt)
   }
 
   /**
@@ -371,7 +373,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
 
     const chatStreamOptions: any = {
       model: this.llmConfig.model,
-      system: this.systemPrompt,
+      system: this.promptManager.systemPrompt,
       abortSignal: request.options?.signal,
       // toolChoice: 'auto' | 'none' | 'required'
       toolChoice: 'auto',

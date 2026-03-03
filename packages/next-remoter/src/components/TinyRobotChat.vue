@@ -338,6 +338,9 @@ const {
   systemPrompt: props.systemPrompt || '',
   llmConfig: props.llmConfig
 })
+watch(()=>props.systemPrompt, prompt=>{
+  customAgentProvider.promptManager.setStatic(prompt)
+})
 
 customAgentProvider.isGenuiEnabled = genUiAble
 
@@ -345,7 +348,6 @@ customAgentProvider.isGenuiEnabled = genUiAble
 const skillsRef = toRef(props, 'skills')
 const { processSkillMentions } = useSkillWithTools({
   skillsRef,
-  systemPrompt: props.systemPrompt || '',
   customAgentProvider
 })
 

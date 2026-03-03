@@ -4,8 +4,6 @@ import { getSkillOverviews, formatSkillsForSystemPrompt, createSkillTools, type 
 export interface UseSkillWithToolsOptions {
   /** 用户层传入的 skill .md 模块（key 路径，value 内容），由 next-sdk 处理；大模型通过 get_skill_content 自动识别并加载技能 */
   skillsRef?: Ref<Record<string, string> | undefined>
-  /** 基础系统提示词 */
-  systemPrompt: string
   /** CustomAgentModelProvider 实例，用于写 systemPrompt、合并 extraTools */
   customAgentProvider: any
 }
@@ -15,7 +13,7 @@ export interface UseSkillWithToolsOptions {
  * 基于 skills + next-sdk：拼入 systemPrompt 技能说明、注入 get_skill_content 工具，无 @ 提及
  */
 export function useSkillWithTools(options: UseSkillWithToolsOptions) {
-  const { skillsRef, systemPrompt, customAgentProvider } = options
+  const { skillsRef, customAgentProvider } = options
 
   const skillOverviews = computed<SkillMeta[]>(() => {
     const mod = skillsRef?.value
@@ -34,12 +32,9 @@ export function useSkillWithTools(options: UseSkillWithToolsOptions) {
     return mod ? createSkillTools(mod) : {}
   })
 
-  // 响应式同步：skillsRef 变化时自动更新 systemPrompt 和 extraTools
-  const base = systemPrompt || ''
+  // 监听变化，并更新当前的提示词和skillTool
   watchEffect(() => {
-    customAgentProvider.systemPrompt = skillPromptPart.value
-      ? `${base}\n\n${skillPromptPart.value}`
-      : base
+    customAgentProvider.promptManager.setSkillMeta(skillPromptPart.value)
 
     if (customAgentProvider.llmConfig) {
       const extra = customAgentProvider.llmConfig.extraTools ?? {}
