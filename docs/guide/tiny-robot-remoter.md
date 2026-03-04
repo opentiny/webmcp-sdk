@@ -46,7 +46,6 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 - `skills` 设置技能的配置对象（`Record<string, string>` 类型）。通常配合 Vite 的 `import.meta.glob` 导入标准 `SKILL.md` 文件。AI 助手会自动识别用户意图并调用相应的技能，无需手动触发。
 - `layout-mode` 布局模式，支持所有 CSS position 属性值：`'static' | 'relative' | 'absolute' | 'fixed' | 'sticky'`，默认值为 `'fixed'`。用于控制组件的定位方式
 - `role-avatar` 设置角色user/assistant的头像, 值为 {user: VNode, assistant: VNode }, VNode 可以通过h函数创建，比如： h(IconUser, { style: { fontSize: '32px' } })
-- `show-plugin-button` 是否显示展开插件市场的按钮，默认为 true。 如果设置为false, 开发者只能通过 installedPlugins, addPluginCore,deletePlugin 来查看和控制对话中启用的插件。详见底部示例
 
 ### customMarketMcpServers 与 mcpServers 的区别
 
@@ -866,9 +865,9 @@ const roleAvatar = {
 </script>
 ```
 
-### 隐藏切换插件市场的按钮
+### 通过脚本控制插件市场
 
-有的场景不希望用户手动控制对话中要使用的 `MCP Tools`, 这时可以隐藏切换插件市场的按钮，然后通过脚本控制加载的插件。
+有的场景不希望用户手动控制对话中要使用的 `MCP Tools`, 而是通过脚本控制加载的插件。
 
 ```vue
 <template>
@@ -879,7 +878,6 @@ const roleAvatar = {
     title="我的AI助手"
     systemPrompt="你是一个智能助手"
     :llmConfig="llmConfig"
-    :show-plugin-button="false"
   />
 </template>
 

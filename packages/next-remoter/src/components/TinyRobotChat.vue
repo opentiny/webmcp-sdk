@@ -94,7 +94,7 @@
           <template #footer>
             <div class="action-buttons">
               <!-- 插件开关 Plugin toggle button -->
-              <PluginToggleButton v-if="showPluginButton" :installed-plugins="installedPlugins" @click="pluginVisible = !pluginVisible" />
+              <PluginToggleButton  :installed-plugins="installedPlugins" @click="pluginVisible = !pluginVisible" />
               <!-- 模型切换组件 Model switch component, 是否显示依赖于 props.llmConfigs, 所以无需 hasXXx 属性 -->
               <ModelSwitch
                 v-if="llmConfigsRef && llmConfigsRef.length > 0"
@@ -296,11 +296,6 @@ const props = defineProps({
   layoutMode: {
     type: String as () => 'static' | 'relative' | 'absolute' | 'fixed' | 'sticky',
     default: 'fixed'
-  },
-  /** 是否显示展开插件市场的按钮，默认为 true。 如果设置为false, 开发者只能通过 installedPlugins, addPluginCore,deletePlugin 来查看和控制对话中启用的插件 */
-  showPluginButton: {
-    type: Boolean,
-    default: true
   },
 })
 
