@@ -15,7 +15,7 @@ import { GENUI_CONFIG } from '../config/genui-config'
 import { StreamVisitor } from './streamVisitor'
 import { extractTextAndJson } from './handleSchema'
 import { DelayedPromise } from '@ai-sdk/provider-utils'
-import { PromptManager } from './promtManager'
+import { PromptManager } from './promptManager'
 
 const DEFAULT_SHARED_CONFIG = {
   model: 'deepseek-ai/DeepSeek-V3',
@@ -177,7 +177,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
    */
   cleanGetSkillContentToolResult(messages: any[]) {
     const lastMsg = messages[messages.length - 1]
-    if (lastMsg.role === 'tool') {
+    if (lastMsg.role === 'tool' && lastMsg.content.length > 0) {
       const lastContent = lastMsg.content[lastMsg.content.length - 1]
       if (lastContent.type === 'tool-result' && lastContent.toolName === 'get_skill_content') {
         lastContent.output.value.content = '查询到技能内容，并已添加到系统提示词中。'
@@ -406,7 +406,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       },
       onStepFinish: (result) => {
         // 如果当前是查询skill-content,则追加到临时提示词，并清除消息中的关于tool调用的记录栈。
-        if (result.finishReason === 'tool-calls') {
+        if (result.finishReason === 'tool-calls' && result.content.length > 0) {
           const lastMsg = result.content[result.content.length - 1]
           if (lastMsg.toolName === 'get_skill_content' && lastMsg.type === 'tool-result') {
             const skillPrompt = lastMsg.output.content

@@ -1,5 +1,5 @@
 export class PromptManager {
-  /** 固定系统提示司 */
+  /** 固定系统提示词 */
   private staticPrompt = ''
   /** 元数据提示词 */
   private skillMetaPrompt = ''
