@@ -45,13 +45,14 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 - `mcpServers` 预置 MCP 服务器配置（业界格式 `Record<string, McpServerConfig>`）。键为服务器名称，值为单台服务器配置；组件初始化时会自动加载并出现在「已添加MCP服务」中。**一般对应前端的 MCP 服务，页面关闭后即不存在。** 配置说明见 [预置 MCP 服务器（mcpServers）](#预置-mcp-服务器mcpservers)
 - `skills` 设置技能的配置对象（`Record<string, string>` 类型）。通常配合 Vite 的 `import.meta.glob` 导入标准 `SKILL.md` 文件。AI 助手会自动识别用户意图并调用相应的技能，无需手动触发。
 - `layout-mode` 布局模式，支持所有 CSS position 属性值：`'static' | 'relative' | 'absolute' | 'fixed' | 'sticky'`，默认值为 `'fixed'`。用于控制组件的定位方式
+- `role-avatar` 设置角色user/assistant的头像, 值为 {user: VNode, assistant: VNode }, VNode 可以通过h函数创建，比如： h(IconUser, { style: { fontSize: '32px' } })
 
 ### customMarketMcpServers 与 mcpServers 的区别
 
-| 属性 | 典型场景 | 生命周期 |
-|------|----------|----------|
-| `customMarketMcpServers` | **后台** MCP 服务，由后端/代理常驻提供 | 可常驻存在，不随页面关闭而消失 |
-| `mcpServers` | **前端** MCP 服务，随当前页面或本地环境提供 | 与页面一致，页面关闭后连接即断开、不再存在 |
+| 属性                     | 典型场景                                    | 生命周期                                   |
+| ------------------------ | ------------------------------------------- | ------------------------------------------ |
+| `customMarketMcpServers` | **后台** MCP 服务，由后端/代理常驻提供      | 可常驻存在，不随页面关闭而消失             |
+| `mcpServers`             | **前端** MCP 服务，随当前页面或本地环境提供 | 与页面一致，页面关闭后连接即断开、不再存在 |
 
 ### llmConfig 配置详情
 
@@ -830,3 +831,93 @@ watch(selectedModelId, (newModelId) => {
 1. **自动更新模型配置**：组件会监听 `selectedModel` 的变化，自动调用 `customAgentProvider.updateLLMConfig()` 方法
 2. **更新 LLM 实例**：`updateLLMConfig()` 方法会根据新的模型配置创建新的 Provider 实例，并更新到 `agent.llm`
 3. **支持的条件**：只有当模型配置中包含 `providerType` 时才会自动更新（如果使用 `llm` 实例配置，则不会自动更新）
+
+### 自定义AI, USER的头像
+
+```vue
+<template>
+  <TinyRemoter
+    v-model:show="show"
+    sessionId="your-session-id"
+    title="我的AI助手"
+    systemPrompt="你是一个智能助手"
+    :llmConfig="llmConfig"
+    :roleAvatar="roleAvatar"
+  />
+</template>
+
+<script setup>
+import { ref, h } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
+import { createOpenAI } from '@ai-sdk/openai'
+
+const llmConfig = {
+  apiKey: 'your-api-key',
+  baseURL: 'https://api.openai.com/v1',
+  providerType: 'openai',
+  model: 'gpt-4o'
+}
+
+const roleAvatar = {
+  user: h('div', { style: { fontSize: '32px' } }, 'U'),
+  assistant: h('img', { src: 'https://play.vuejs.org/logo.svg', width: '32px', height: '32px' })
+}
+</script>
+```
+
+### 通过脚本控制插件市场
+
+有的场景不希望用户手动控制对话中要使用的 `MCP Tools`, 而是通过脚本控制加载的插件。
+
+```vue
+<template>
+  <TinyRemoter
+    ref="myRemoter"
+    v-model:show="show"
+    sessionId="your-session-id"
+    title="我的AI助手"
+    systemPrompt="你是一个智能助手"
+    :llmConfig="llmConfig"
+  />
+</template>
+
+<script setup>
+import { ref, useTemplateRef } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
+import { createOpenAI } from '@ai-sdk/openai'
+
+const llmConfig = {
+  apiKey: 'your-api-key',
+  baseURL: 'https://api.openai.com/v1',
+  providerType: 'openai',
+  model: 'gpt-4o'
+}
+
+const myRemoter = useTemplateRef('myRemoter')
+
+// 通过脚本来查看和控制插件的加载
+async function setMyMcpTool() {
+  if (myRemoter.value) {
+    // 打印当前的插件
+    console.log('当前的插件', myRemoter.value.installedPlugins)
+
+    // 添加插件
+    await myRemoter.value.addPluginCore({
+      pluginId: 'my-pdf-mcptool',
+      name: '我的pdf工具',
+      description: 'pdf工具的描述',
+      mcpServer: {
+        type: 'streamableHttp',
+        url: 'https://agent.opentiny.design/servers/markdown2pdf-mcp/sse'
+      }
+    })
+
+    // 移除插件
+    const delPlugin = myRemoter.value.installedPlugins.find((item) => item.id === 'my-pdf-mcptool')
+    if (delPlugin) {
+      await myRemoter.value.deletePlugin(delPlugin)
+    }
+  }
+}
+</script>
+```

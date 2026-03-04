@@ -94,16 +94,16 @@
           <template #footer>
             <div class="action-buttons">
               <!-- 插件开关 Plugin toggle button -->
-              <PluginToggleButton :installed-plugins="installedPlugins" @click="pluginVisible = !pluginVisible" />
-              <!-- 模型切换组件 Model switch component -->
+              <PluginToggleButton  :installed-plugins="installedPlugins" @click="pluginVisible = !pluginVisible" />
+              <!-- 模型切换组件 Model switch component, 是否显示依赖于 props.llmConfigs, 所以无需 hasXXx 属性 -->
               <ModelSwitch
                 v-if="llmConfigsRef && llmConfigsRef.length > 0"
                 :model-configs="llmConfigsRef"
                 v-model:selected-model-id="selectedModelId"
               />
-              <!-- 生成式UI开关 GenUI toggle button -->
+              <!-- 生成式UI开关 GenUI toggle button 。只有在扩展才可以使用，属于私有功能,依赖于 Genui的开源-->
               <GenUISwitch v-if="inBrowserExt" v-model:genui-enabled="genUiAble" />
-              <!-- 文件上传按钮 File upload button (v0.4.x 新API) -->
+              <!-- 文件上传按钮 File upload button (v0.4.x 新API)， hasMultimodalSupport 值依赖于用户选中模型，而非简单的props 传入。-->
               <TrUploadButton
                 v-if="hasMultimodalSupport"
                 accept="image/*,application/pdf,.doc,.docx,.txt"
@@ -173,7 +173,7 @@ import { useMessageRoles } from '../composable/useMessageRoles'
 import { useConversationHistory } from '../composable/useConversationHistory'
 import { usePluginSession } from '../composable/usePluginSession'
 import { useMultimodalWithModel } from '../multimodal'
-import { toRef, computed, ref, onMounted, h, watch, type Ref, type ComponentInstance } from 'vue'
+import { toRef, computed, ref, onMounted, h, watch, type Ref, type ComponentInstance, VNode } from 'vue'
 import QrCodeScan from './QrCodeScan.vue'
 import ModelSwitch from './ModelSwitch.vue'
 import PluginToggleButton from './PluginToggleButton.vue'
@@ -188,6 +188,9 @@ import type { MenuItemConfig } from '@opentiny/next-sdk'
 import useModel from '../composable/useModel'
 import type { UnifiedModelConfig } from '../types/model-config'
 import type { McpServerConfig } from '@opentiny/next-sdk'
+
+import {  IconUser } from '@opentiny/tiny-robot-svgs'
+import IconAssistant from '../../public/svgs/logo-next-no-bg-right.svg'
 
 defineOptions({
   name: 'TinyRemoter'
@@ -231,6 +234,16 @@ const props = defineProps({
   /** 悬浮AI图标的地址 */
   AILogoUrl: {
     type: String
+  },
+   /** 角色user,assistant的头像配置, 值为 VNode, 比如： h(IconUser, { style: { fontSize: '32px' } }) */
+  roleAvatar: {
+    type: Object as () => {user:VNode, assistant:VNode},
+    default: ()=>{
+      return {
+       user: h(IconUser, { style: { fontSize: '32px' } }), 
+       assistant:  h(IconAssistant, { style: { fontSize: '32px' } })
+      }
+    }
   },
   /** 展示模式： 'remoter' | 'chat-dialog'
    * 遥控器模式： 自动在右下角显示一个AI图标，点击展开多个菜单项。
@@ -283,7 +296,7 @@ const props = defineProps({
   layoutMode: {
     type: String as () => 'static' | 'relative' | 'absolute' | 'fixed' | 'sticky',
     default: 'fixed'
-  }
+  },
 })
 
 const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })
@@ -357,6 +370,7 @@ const handleSendMessage = async (inputValue: string, attachmentsContent?: any[])
 
 // ===== 4. 使用 useMessageRoles composable（消息气泡 UI 配置）=====
 const { welcomeIcon, roles } = useMessageRoles({
+  props,
   messages,
   messageState,
   inputMessage,
@@ -442,6 +456,7 @@ const {
   togglePlugin,
   toggleTool,
   deletePlugin,
+  addPluginCore,
   addPluginFromMarket,
   addPluginFromScan, // 从扫码添加插件（统一接口）
   handleClientDisconnected, // 处理客户端断开连接
@@ -583,7 +598,13 @@ defineExpose({
   /** 处理客户端断开连接 */
   handleClientDisconnected,
   /** 添加消息 */
-  addMessage
+  addMessage,
+    /** 已安装的插件 */
+  installedPlugins,
+  /** 添加插件核心方法 */
+  addPluginCore,
+/** 删除插件核心方法 */
+  deletePlugin
 })
 </script>
 
