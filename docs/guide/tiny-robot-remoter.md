@@ -45,7 +45,7 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 - `mcpServers` 预置 MCP 服务器配置（业界格式 `Record<string, McpServerConfig>`）。键为服务器名称，值为单台服务器配置；组件初始化时会自动加载并出现在「已添加MCP服务」中。**一般对应前端的 MCP 服务，页面关闭后即不存在。** 配置说明见 [预置 MCP 服务器（mcpServers）](#预置-mcp-服务器mcpservers)
 - `skills` 设置技能的配置对象（`Record<string, string>` 类型）。通常配合 Vite 的 `import.meta.glob` 导入标准 `SKILL.md` 文件。AI 助手会自动识别用户意图并调用相应的技能，无需手动触发。
 - `layout-mode` 布局模式，支持所有 CSS position 属性值：`'static' | 'relative' | 'absolute' | 'fixed' | 'sticky'`，默认值为 `'fixed'`。用于控制组件的定位方式
-- `role-avatar` 设置角色user,assistant的头像, 值为 VNode, 比如： h(IconUser, { style: { fontSize: '32px' } })
+- `role-avatar` 设置角色user/assistant的头像, 值为 {user: VNode, assistant: VNode }, VNode 可以通过h函数创建，比如： h(IconUser, { style: { fontSize: '32px' } })
 - `show-plugin-button` 是否显示展开插件市场的按钮，默认为 true。 如果设置为false, 开发者只能通过 installedPlugins, addPluginCore,deletePlugin 来查看和控制对话中启用的插件。详见底部示例
 
 ### customMarketMcpServers 与 mcpServers 的区别
@@ -879,6 +879,7 @@ const roleAvatar = {
     title="我的AI助手"
     systemPrompt="你是一个智能助手"
     :llmConfig="llmConfig"
+    :show-plugin-button="false"
   />
 </template>
 
