@@ -5,8 +5,8 @@ import { TinyVueSingleResolver } from '@opentiny/unplugin-tiny-vue'
 import svgLoader from 'vite-svg-loader'
 import { VantResolver } from '@vant/auto-import-resolver'
 import { mcpServersPlugin } from './plugins/vite-plugin-mcp-servers'
-// import { vendorSdkPlugin } from './plugins/vite-plugin-vendor-sdk'
-// import { codeRecorderPlugin } from './plugins/vite-plugin-code-recorder'
+import { vendorSdkPlugin } from './plugins/vite-plugin-vendor-sdk'
+import { codeRecorderPlugin } from './plugins/vite-plugin-code-recorder'
 import { manifestOptionsPlugin } from './plugins/vite-plugin-manifest-options'
 
 // See https://wxt.dev/api/config.html
@@ -69,9 +69,9 @@ export default defineConfig({
         defaultImport: 'component',
         svgo: false
       }) as any,
-      // vendorSdkPlugin(), // 自动构建和更新 vendor/next-sdk.js 需要时打开
+      vendorSdkPlugin(), // 自动构建和更新 vendor/next-sdk.js 需要时打开
       mcpServersPlugin(), // 添加 mcp-servers 编译插件
-      // codeRecorderPlugin(), // dev 环境录制生成工具写入支持 需要时打开
+      codeRecorderPlugin(), // dev 环境录制生成工具写入支持 需要时打开
       manifestOptionsPlugin() // 确保 manifest.json 中 options_ui.open_in_tab 为 true（dev 和 build 模式）
     ]
   })

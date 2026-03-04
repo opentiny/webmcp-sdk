@@ -1,11 +1,11 @@
 (function(global2, factory) {
   typeof exports === "object" && typeof module !== "undefined" ? factory(exports) : typeof define === "function" && define.amd ? define(["exports"], factory) : (global2 = typeof globalThis !== "undefined" ? globalThis : global2 || self, factory(global2.WebMCP = {}));
-})(this, function(exports2) {
+})(this, (function(exports2) {
   "use strict";
   function getDefaultExportFromCjs(x) {
     return x && x.__esModule && Object.prototype.hasOwnProperty.call(x, "default") ? x["default"] : x;
   }
-  var ajv$1 = { exports: {} };
+  var ajv = { exports: {} };
   var core$1 = {};
   var validate = {};
   var boolSchema = {};
@@ -3081,93 +3081,63 @@
   };
   var uri = {};
   var fastUri = { exports: {} };
-  var scopedChars;
-  var hasRequiredScopedChars;
-  function requireScopedChars() {
-    if (hasRequiredScopedChars) return scopedChars;
-    hasRequiredScopedChars = 1;
-    const HEX = {
-      0: 0,
-      1: 1,
-      2: 2,
-      3: 3,
-      4: 4,
-      5: 5,
-      6: 6,
-      7: 7,
-      8: 8,
-      9: 9,
-      a: 10,
-      A: 10,
-      b: 11,
-      B: 11,
-      c: 12,
-      C: 12,
-      d: 13,
-      D: 13,
-      e: 14,
-      E: 14,
-      f: 15,
-      F: 15
-    };
-    scopedChars = {
-      HEX
-    };
-    return scopedChars;
-  }
   var utils;
   var hasRequiredUtils;
   function requireUtils() {
     if (hasRequiredUtils) return utils;
     hasRequiredUtils = 1;
-    const { HEX } = requireScopedChars();
-    const IPV4_REG = /^(?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)$/u;
-    function normalizeIPv4(host) {
-      if (findToken(host, ".") < 3) {
-        return { host, isIPV4: false };
-      }
-      const matches = host.match(IPV4_REG) || [];
-      const [address] = matches;
-      if (address) {
-        return { host: stripLeadingZeros(address, "."), isIPV4: true };
-      } else {
-        return { host, isIPV4: false };
-      }
-    }
-    function stringArrayToHexStripped(input, keepZero = false) {
+    const isUUID = RegExp.prototype.test.bind(/^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/iu);
+    const isIPv4 = RegExp.prototype.test.bind(/^(?:(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d{2}|[1-9]\d|\d)$/u);
+    function stringArrayToHexStripped(input) {
       let acc = "";
-      let strip = true;
-      for (const c of input) {
-        if (HEX[c] === void 0) return void 0;
-        if (c !== "0" && strip === true) strip = false;
-        if (!strip) acc += c;
+      let code2 = 0;
+      let i = 0;
+      for (i = 0; i < input.length; i++) {
+        code2 = input[i].charCodeAt(0);
+        if (code2 === 48) {
+          continue;
+        }
+        if (!(code2 >= 48 && code2 <= 57 || code2 >= 65 && code2 <= 70 || code2 >= 97 && code2 <= 102)) {
+          return "";
+        }
+        acc += input[i];
+        break;
       }
-      if (keepZero && acc.length === 0) acc = "0";
+      for (i += 1; i < input.length; i++) {
+        code2 = input[i].charCodeAt(0);
+        if (!(code2 >= 48 && code2 <= 57 || code2 >= 65 && code2 <= 70 || code2 >= 97 && code2 <= 102)) {
+          return "";
+        }
+        acc += input[i];
+      }
       return acc;
+    }
+    const nonSimpleDomain = RegExp.prototype.test.bind(/[^!"$&'()*+,\-.;=_`a-z{}~]/u);
+    function consumeIsZone(buffer) {
+      buffer.length = 0;
+      return true;
+    }
+    function consumeHextets(buffer, address, output) {
+      if (buffer.length) {
+        const hex = stringArrayToHexStripped(buffer);
+        if (hex !== "") {
+          address.push(hex);
+        } else {
+          output.error = true;
+          return false;
+        }
+        buffer.length = 0;
+      }
+      return true;
     }
     function getIPV6(input) {
       let tokenCount = 0;
       const output = { error: false, address: "", zone: "" };
       const address = [];
       const buffer = [];
-      let isZone = false;
       let endipv6Encountered = false;
       let endIpv6 = false;
-      function consume() {
-        if (buffer.length) {
-          if (isZone === false) {
-            const hex = stringArrayToHexStripped(buffer);
-            if (hex !== void 0) {
-              address.push(hex);
-            } else {
-              output.error = true;
-              return false;
-            }
-          }
-          buffer.length = 0;
-        }
-        return true;
-      }
+      let consume = consumeHextets;
       for (let i = 0; i < input.length; i++) {
         const cursor = input[i];
         if (cursor === "[" || cursor === "]") {
@@ -3177,31 +3147,30 @@
           if (endipv6Encountered === true) {
             endIpv6 = true;
           }
-          if (!consume()) {
+          if (!consume(buffer, address, output)) {
             break;
           }
-          tokenCount++;
-          address.push(":");
-          if (tokenCount > 7) {
+          if (++tokenCount > 7) {
             output.error = true;
             break;
           }
-          if (i - 1 >= 0 && input[i - 1] === ":") {
+          if (i > 0 && input[i - 1] === ":") {
             endipv6Encountered = true;
           }
+          address.push(":");
           continue;
         } else if (cursor === "%") {
-          if (!consume()) {
+          if (!consume(buffer, address, output)) {
             break;
           }
-          isZone = true;
+          consume = consumeIsZone;
         } else {
           buffer.push(cursor);
           continue;
         }
       }
       if (buffer.length) {
-        if (isZone) {
+        if (consume === consumeIsZone) {
           output.zone = buffer.join("");
         } else if (endIpv6) {
           address.push(buffer.join(""));
@@ -3224,32 +3193,10 @@
           newHost += "%" + ipv62.zone;
           escapedHost += "%25" + ipv62.zone;
         }
-        return { host: newHost, escapedHost, isIPV6: true };
+        return { host: newHost, isIPV6: true, escapedHost };
       } else {
         return { host, isIPV6: false };
       }
-    }
-    function stripLeadingZeros(str, token) {
-      let out = "";
-      let skip = true;
-      const l = str.length;
-      for (let i = 0; i < l; i++) {
-        const c = str[i];
-        if (c === "0" && skip) {
-          if (i + 1 <= l && str[i + 1] === token || i + 1 === l) {
-            out += c;
-            skip = false;
-          }
-        } else {
-          if (c === token) {
-            skip = true;
-          } else {
-            skip = false;
-          }
-          out += c;
-        }
-      }
-      return out;
     }
     function findToken(str, token) {
       let ind = 0;
@@ -3258,89 +3205,134 @@
       }
       return ind;
     }
-    const RDS1 = /^\.\.?\//u;
-    const RDS2 = /^\/\.(?:\/|$)/u;
-    const RDS3 = /^\/\.\.(?:\/|$)/u;
-    const RDS5 = /^\/?(?:.|\n)*?(?=\/|$)/u;
-    function removeDotSegments(input) {
+    function removeDotSegments(path) {
+      let input = path;
       const output = [];
-      while (input.length) {
-        if (input.match(RDS1)) {
-          input = input.replace(RDS1, "");
-        } else if (input.match(RDS2)) {
-          input = input.replace(RDS2, "/");
-        } else if (input.match(RDS3)) {
-          input = input.replace(RDS3, "/");
-          output.pop();
-        } else if (input === "." || input === "..") {
-          input = "";
-        } else {
-          const im = input.match(RDS5);
-          if (im) {
-            const s = im[0];
-            input = input.slice(s.length);
-            output.push(s);
+      let nextSlash = -1;
+      let len = 0;
+      while (len = input.length) {
+        if (len === 1) {
+          if (input === ".") {
+            break;
+          } else if (input === "/") {
+            output.push("/");
+            break;
           } else {
-            throw new Error("Unexpected dot segment condition");
+            output.push(input);
+            break;
           }
+        } else if (len === 2) {
+          if (input[0] === ".") {
+            if (input[1] === ".") {
+              break;
+            } else if (input[1] === "/") {
+              input = input.slice(2);
+              continue;
+            }
+          } else if (input[0] === "/") {
+            if (input[1] === "." || input[1] === "/") {
+              output.push("/");
+              break;
+            }
+          }
+        } else if (len === 3) {
+          if (input === "/..") {
+            if (output.length !== 0) {
+              output.pop();
+            }
+            output.push("/");
+            break;
+          }
+        }
+        if (input[0] === ".") {
+          if (input[1] === ".") {
+            if (input[2] === "/") {
+              input = input.slice(3);
+              continue;
+            }
+          } else if (input[1] === "/") {
+            input = input.slice(2);
+            continue;
+          }
+        } else if (input[0] === "/") {
+          if (input[1] === ".") {
+            if (input[2] === "/") {
+              input = input.slice(2);
+              continue;
+            } else if (input[2] === ".") {
+              if (input[3] === "/") {
+                input = input.slice(3);
+                if (output.length !== 0) {
+                  output.pop();
+                }
+                continue;
+              }
+            }
+          }
+        }
+        if ((nextSlash = input.indexOf("/", 1)) === -1) {
+          output.push(input);
+          break;
+        } else {
+          output.push(input.slice(0, nextSlash));
+          input = input.slice(nextSlash);
         }
       }
       return output.join("");
     }
-    function normalizeComponentEncoding(components, esc2) {
+    function normalizeComponentEncoding(component, esc2) {
       const func = esc2 !== true ? escape : unescape;
-      if (components.scheme !== void 0) {
-        components.scheme = func(components.scheme);
+      if (component.scheme !== void 0) {
+        component.scheme = func(component.scheme);
       }
-      if (components.userinfo !== void 0) {
-        components.userinfo = func(components.userinfo);
+      if (component.userinfo !== void 0) {
+        component.userinfo = func(component.userinfo);
       }
-      if (components.host !== void 0) {
-        components.host = func(components.host);
+      if (component.host !== void 0) {
+        component.host = func(component.host);
       }
-      if (components.path !== void 0) {
-        components.path = func(components.path);
+      if (component.path !== void 0) {
+        component.path = func(component.path);
       }
-      if (components.query !== void 0) {
-        components.query = func(components.query);
+      if (component.query !== void 0) {
+        component.query = func(component.query);
       }
-      if (components.fragment !== void 0) {
-        components.fragment = func(components.fragment);
+      if (component.fragment !== void 0) {
+        component.fragment = func(component.fragment);
       }
-      return components;
+      return component;
     }
-    function recomposeAuthority(components) {
+    function recomposeAuthority(component) {
       const uriTokens = [];
-      if (components.userinfo !== void 0) {
-        uriTokens.push(components.userinfo);
+      if (component.userinfo !== void 0) {
+        uriTokens.push(component.userinfo);
         uriTokens.push("@");
       }
-      if (components.host !== void 0) {
-        let host = unescape(components.host);
-        const ipV4res = normalizeIPv4(host);
-        if (ipV4res.isIPV4) {
-          host = ipV4res.host;
-        } else {
-          const ipV6res = normalizeIPv6(ipV4res.host);
+      if (component.host !== void 0) {
+        let host = unescape(component.host);
+        if (!isIPv4(host)) {
+          const ipV6res = normalizeIPv6(host);
           if (ipV6res.isIPV6 === true) {
             host = `[${ipV6res.escapedHost}]`;
           } else {
-            host = components.host;
+            host = component.host;
           }
         }
         uriTokens.push(host);
       }
-      if (typeof components.port === "number" || typeof components.port === "string") {
+      if (typeof component.port === "number" || typeof component.port === "string") {
         uriTokens.push(":");
-        uriTokens.push(String(components.port));
+        uriTokens.push(String(component.port));
       }
       return uriTokens.length ? uriTokens.join("") : void 0;
     }
     utils = {
+      nonSimpleDomain,
       recomposeAuthority,
       normalizeComponentEncoding,
       removeDotSegments,
-      normalizeIPv4,
+      isIPv4,
+      isUUID,
       normalizeIPv6,
       stringArrayToHexStripped
     };
@@ -3351,167 +3343,234 @@
   function requireSchemes() {
     if (hasRequiredSchemes) return schemes;
     hasRequiredSchemes = 1;
-    const UUID_REG = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/iu;
+    const { isUUID } = requireUtils();
     const URN_REG = /([\da-z][\d\-a-z]{0,31}):((?:[\w!$'()*+,\-.:;=@]|%[\da-f]{2})+)/iu;
-    function isSecure(wsComponents) {
-      return typeof wsComponents.secure === "boolean" ? wsComponents.secure : String(wsComponents.scheme).toLowerCase() === "wss";
+    const supportedSchemeNames = (
+      /** @type {const} */
+      [
+        "http",
+        "https",
+        "ws",
+        "wss",
+        "urn",
+        "urn:uuid"
+      ]
+    );
+    function isValidSchemeName(name) {
+      return supportedSchemeNames.indexOf(
+        /** @type {*} */
+        name
+      ) !== -1;
     }
-    function httpParse(components) {
-      if (!components.host) {
-        components.error = components.error || "HTTP URIs must have a host.";
+    function wsIsSecure(wsComponent) {
+      if (wsComponent.secure === true) {
+        return true;
+      } else if (wsComponent.secure === false) {
+        return false;
+      } else if (wsComponent.scheme) {
+        return wsComponent.scheme.length === 3 && (wsComponent.scheme[0] === "w" || wsComponent.scheme[0] === "W") && (wsComponent.scheme[1] === "s" || wsComponent.scheme[1] === "S") && (wsComponent.scheme[2] === "s" || wsComponent.scheme[2] === "S");
+      } else {
+        return false;
       }
-      return components;
     }
-    function httpSerialize(components) {
-      const secure = String(components.scheme).toLowerCase() === "https";
-      if (components.port === (secure ? 443 : 80) || components.port === "") {
-        components.port = void 0;
+    function httpParse(component) {
+      if (!component.host) {
+        component.error = component.error || "HTTP URIs must have a host.";
       }
-      if (!components.path) {
-        components.path = "/";
-      }
-      return components;
+      return component;
     }
-    function wsParse(wsComponents) {
-      wsComponents.secure = isSecure(wsComponents);
-      wsComponents.resourceName = (wsComponents.path || "/") + (wsComponents.query ? "?" + wsComponents.query : "");
-      wsComponents.path = void 0;
-      wsComponents.query = void 0;
-      return wsComponents;
+    function httpSerialize(component) {
+      const secure = String(component.scheme).toLowerCase() === "https";
+      if (component.port === (secure ? 443 : 80) || component.port === "") {
+        component.port = void 0;
+      }
+      if (!component.path) {
+        component.path = "/";
+      }
+      return component;
     }
-    function wsSerialize(wsComponents) {
-      if (wsComponents.port === (isSecure(wsComponents) ? 443 : 80) || wsComponents.port === "") {
-        wsComponents.port = void 0;
-      }
-      if (typeof wsComponents.secure === "boolean") {
-        wsComponents.scheme = wsComponents.secure ? "wss" : "ws";
-        wsComponents.secure = void 0;
-      }
-      if (wsComponents.resourceName) {
-        const [path, query] = wsComponents.resourceName.split("?");
-        wsComponents.path = path && path !== "/" ? path : void 0;
-        wsComponents.query = query;
-        wsComponents.resourceName = void 0;
-      }
-      wsComponents.fragment = void 0;
-      return wsComponents;
+    function wsParse(wsComponent) {
+      wsComponent.secure = wsIsSecure(wsComponent);
+      wsComponent.resourceName = (wsComponent.path || "/") + (wsComponent.query ? "?" + wsComponent.query : "");
+      wsComponent.path = void 0;
+      wsComponent.query = void 0;
+      return wsComponent;
     }
-    function urnParse(urnComponents, options) {
-      if (!urnComponents.path) {
-        urnComponents.error = "URN can not be parsed";
-        return urnComponents;
+    function wsSerialize(wsComponent) {
+      if (wsComponent.port === (wsIsSecure(wsComponent) ? 443 : 80) || wsComponent.port === "") {
+        wsComponent.port = void 0;
       }
-      const matches = urnComponents.path.match(URN_REG);
+      if (typeof wsComponent.secure === "boolean") {
+        wsComponent.scheme = wsComponent.secure ? "wss" : "ws";
+        wsComponent.secure = void 0;
+      }
+      if (wsComponent.resourceName) {
+        const [path, query] = wsComponent.resourceName.split("?");
+        wsComponent.path = path && path !== "/" ? path : void 0;
+        wsComponent.query = query;
+        wsComponent.resourceName = void 0;
+      }
+      wsComponent.fragment = void 0;
+      return wsComponent;
+    }
+    function urnParse(urnComponent, options) {
+      if (!urnComponent.path) {
+        urnComponent.error = "URN can not be parsed";
+        return urnComponent;
+      }
+      const matches = urnComponent.path.match(URN_REG);
       if (matches) {
-        const scheme = options.scheme || urnComponents.scheme || "urn";
-        urnComponents.nid = matches[1].toLowerCase();
-        urnComponents.nss = matches[2];
-        const urnScheme = `${scheme}:${options.nid || urnComponents.nid}`;
-        const schemeHandler = SCHEMES[urnScheme];
-        urnComponents.path = void 0;
+        const scheme = options.scheme || urnComponent.scheme || "urn";
+        urnComponent.nid = matches[1].toLowerCase();
+        urnComponent.nss = matches[2];
+        const urnScheme = `${scheme}:${options.nid || urnComponent.nid}`;
+        const schemeHandler = getSchemeHandler(urnScheme);
+        urnComponent.path = void 0;
         if (schemeHandler) {
-          urnComponents = schemeHandler.parse(urnComponents, options);
+          urnComponent = schemeHandler.parse(urnComponent, options);
         }
       } else {
-        urnComponents.error = urnComponents.error || "URN can not be parsed.";
+        urnComponent.error = urnComponent.error || "URN can not be parsed.";
       }
-      return urnComponents;
+      return urnComponent;
     }
-    function urnSerialize(urnComponents, options) {
-      const scheme = options.scheme || urnComponents.scheme || "urn";
-      const nid = urnComponents.nid.toLowerCase();
+    function urnSerialize(urnComponent, options) {
+      if (urnComponent.nid === void 0) {
+        throw new Error("URN without nid cannot be serialized");
+      }
+      const scheme = options.scheme || urnComponent.scheme || "urn";
+      const nid = urnComponent.nid.toLowerCase();
       const urnScheme = `${scheme}:${options.nid || nid}`;
-      const schemeHandler = SCHEMES[urnScheme];
+      const schemeHandler = getSchemeHandler(urnScheme);
       if (schemeHandler) {
-        urnComponents = schemeHandler.serialize(urnComponents, options);
+        urnComponent = schemeHandler.serialize(urnComponent, options);
       }
-      const uriComponents = urnComponents;
-      const nss = urnComponents.nss;
-      uriComponents.path = `${nid || options.nid}:${nss}`;
+      const uriComponent = urnComponent;
+      const nss = urnComponent.nss;
+      uriComponent.path = `${nid || options.nid}:${nss}`;
       options.skipEscape = true;
-      return uriComponents;
+      return uriComponent;
     }
-    function urnuuidParse(urnComponents, options) {
-      const uuidComponents = urnComponents;
-      uuidComponents.uuid = uuidComponents.nss;
-      uuidComponents.nss = void 0;
-      if (!options.tolerant && (!uuidComponents.uuid || !UUID_REG.test(uuidComponents.uuid))) {
-        uuidComponents.error = uuidComponents.error || "UUID is not valid.";
+    function urnuuidParse(urnComponent, options) {
+      const uuidComponent = urnComponent;
+      uuidComponent.uuid = uuidComponent.nss;
+      uuidComponent.nss = void 0;
+      if (!options.tolerant && (!uuidComponent.uuid || !isUUID(uuidComponent.uuid))) {
+        uuidComponent.error = uuidComponent.error || "UUID is not valid.";
       }
-      return uuidComponents;
+      return uuidComponent;
     }
-    function urnuuidSerialize(uuidComponents) {
-      const urnComponents = uuidComponents;
-      urnComponents.nss = (uuidComponents.uuid || "").toLowerCase();
-      return urnComponents;
+    function urnuuidSerialize(uuidComponent) {
+      const urnComponent = uuidComponent;
+      urnComponent.nss = (uuidComponent.uuid || "").toLowerCase();
+      return urnComponent;
     }
-    const http = {
-      scheme: "http",
-      domainHost: true,
-      parse: httpParse,
-      serialize: httpSerialize
+    const http = (
+      /** @type {SchemeHandler} */
+      {
+        scheme: "http",
+        domainHost: true,
+        parse: httpParse,
+        serialize: httpSerialize
+      }
+    );
+    const https = (
+      /** @type {SchemeHandler} */
+      {
+        scheme: "https",
+        domainHost: http.domainHost,
+        parse: httpParse,
+        serialize: httpSerialize
+      }
+    );
+    const ws = (
+      /** @type {SchemeHandler} */
+      {
+        scheme: "ws",
+        domainHost: true,
+        parse: wsParse,
+        serialize: wsSerialize
+      }
+    );
+    const wss = (
+      /** @type {SchemeHandler} */
+      {
+        scheme: "wss",
+        domainHost: ws.domainHost,
+        parse: ws.parse,
+        serialize: ws.serialize
+      }
+    );
+    const urn = (
+      /** @type {SchemeHandler} */
+      {
+        scheme: "urn",
+        parse: urnParse,
+        serialize: urnSerialize,
+        skipNormalize: true
+      }
+    );
+    const urnuuid = (
+      /** @type {SchemeHandler} */
+      {
+        scheme: "urn:uuid",
+        parse: urnuuidParse,
+        serialize: urnuuidSerialize,
+        skipNormalize: true
+      }
+    );
+    const SCHEMES = (
+      /** @type {Record<SchemeName, SchemeHandler>} */
+      {
+        http,
+        https,
+        ws,
+        wss,
+        urn,
+        "urn:uuid": urnuuid
+      }
+    );
+    Object.setPrototypeOf(SCHEMES, null);
+    function getSchemeHandler(scheme) {
+      return scheme && (SCHEMES[
+        /** @type {SchemeName} */
+        scheme
+      ] || SCHEMES[
+        /** @type {SchemeName} */
+        scheme.toLowerCase()
+      ]) || void 0;
+    }
+    schemes = {
+      wsIsSecure,
+      SCHEMES,
+      isValidSchemeName,
+      getSchemeHandler
     };
-    const https = {
-      scheme: "https",
-      domainHost: http.domainHost,
-      parse: httpParse,
-      serialize: httpSerialize
-    };
-    const ws = {
-      scheme: "ws",
-      domainHost: true,
-      parse: wsParse,
-      serialize: wsSerialize
-    };
-    const wss = {
-      scheme: "wss",
-      domainHost: ws.domainHost,
-      parse: ws.parse,
-      serialize: ws.serialize
-    };
-    const urn = {
-      scheme: "urn",
-      parse: urnParse,
-      serialize: urnSerialize,
-      skipNormalize: true
-    };
-    const urnuuid = {
-      scheme: "urn:uuid",
-      parse: urnuuidParse,
-      serialize: urnuuidSerialize,
-      skipNormalize: true
-    };
-    const SCHEMES = {
-      http,
-      https,
-      ws,
-      wss,
-      urn,
-      "urn:uuid": urnuuid
-    };
-    schemes = SCHEMES;
     return schemes;
   }
   var hasRequiredFastUri;
   function requireFastUri() {
     if (hasRequiredFastUri) return fastUri.exports;
     hasRequiredFastUri = 1;
-    const { normalizeIPv6, normalizeIPv4, removeDotSegments, recomposeAuthority, normalizeComponentEncoding } = requireUtils();
-    const SCHEMES = requireSchemes();
+    const { normalizeIPv6, removeDotSegments, recomposeAuthority, normalizeComponentEncoding, isIPv4, nonSimpleDomain } = requireUtils();
+    const { SCHEMES, getSchemeHandler } = requireSchemes();
     function normalize(uri2, options) {
       if (typeof uri2 === "string") {
-        uri2 = serialize(parse2(uri2, options), options);
+        uri2 = /** @type {T} */
+        serialize(parse2(uri2, options), options);
       } else if (typeof uri2 === "object") {
-        uri2 = parse2(serialize(uri2, options), options);
+        uri2 = /** @type {T} */
+        parse2(serialize(uri2, options), options);
       }
       return uri2;
     }
     function resolve2(baseURI, relativeURI, options) {
-      const schemelessOptions = Object.assign({ scheme: "null" }, options);
-      const resolved = resolveComponents(parse2(baseURI, schemelessOptions), parse2(relativeURI, schemelessOptions), schemelessOptions, true);
-      return serialize(resolved, { ...schemelessOptions, skipEscape: true });
+      const schemelessOptions = options ? Object.assign({ scheme: "null" }, options) : { scheme: "null" };
+      const resolved = resolveComponent(parse2(baseURI, schemelessOptions), parse2(relativeURI, schemelessOptions), schemelessOptions, true);
+      schemelessOptions.skipEscape = true;
+      return serialize(resolved, schemelessOptions);
     }
-    function resolveComponents(base, relative, options, skipNormalization) {
+    function resolveComponent(base, relative, options, skipNormalization) {
       const target = {};
       if (!skipNormalization) {
         base = parse2(serialize(base, options), options);
@@ -3541,7 +3600,7 @@
               target.query = base.query;
             }
           } else {
-            if (relative.path.charAt(0) === "/") {
+            if (relative.path[0] === "/") {
               target.path = removeDotSegments(relative.path);
             } else {
               if ((base.userinfo !== void 0 || base.host !== void 0 || base.port !== void 0) && !base.path) {
@@ -3580,7 +3639,7 @@
       return uriA.toLowerCase() === uriB.toLowerCase();
     }
     function serialize(cmpts, opts) {
-      const components = {
+      const component = {
         host: cmpts.host,
         scheme: cmpts.scheme,
         userinfo: cmpts.userinfo,
@@ -3598,59 +3657,48 @@
       };
       const options = Object.assign({}, opts);
       const uriTokens = [];
-      const schemeHandler = SCHEMES[(options.scheme || components.scheme || "").toLowerCase()];
-      if (schemeHandler && schemeHandler.serialize) schemeHandler.serialize(components, options);
-      if (components.path !== void 0) {
+      const schemeHandler = getSchemeHandler(options.scheme || component.scheme);
+      if (schemeHandler && schemeHandler.serialize) schemeHandler.serialize(component, options);
+      if (component.path !== void 0) {
         if (!options.skipEscape) {
-          components.path = escape(components.path);
-          if (components.scheme !== void 0) {
-            components.path = components.path.split("%3A").join(":");
+          component.path = escape(component.path);
+          if (component.scheme !== void 0) {
+            component.path = component.path.split("%3A").join(":");
           }
         } else {
-          components.path = unescape(components.path);
+          component.path = unescape(component.path);
         }
       }
-      if (options.reference !== "suffix" && components.scheme) {
-        uriTokens.push(components.scheme, ":");
+      if (options.reference !== "suffix" && component.scheme) {
+        uriTokens.push(component.scheme, ":");
       }
-      const authority = recomposeAuthority(components);
+      const authority = recomposeAuthority(component);
       if (authority !== void 0) {
         if (options.reference !== "suffix") {
           uriTokens.push("//");
         }
         uriTokens.push(authority);
-        if (components.path && components.path.charAt(0) !== "/") {
+        if (component.path && component.path[0] !== "/") {
           uriTokens.push("/");
         }
       }
-      if (components.path !== void 0) {
-        let s = components.path;
+      if (component.path !== void 0) {
+        let s = component.path;
         if (!options.absolutePath && (!schemeHandler || !schemeHandler.absolutePath)) {
           s = removeDotSegments(s);
         }
-        if (authority === void 0) {
-          s = s.replace(/^\/\//u, "/%2F");
+        if (authority === void 0 && s[0] === "/" && s[1] === "/") {
+          s = "/%2F" + s.slice(2);
         }
         uriTokens.push(s);
       }
-      if (components.query !== void 0) {
-        uriTokens.push("?", components.query);
+      if (component.query !== void 0) {
+        uriTokens.push("?", component.query);
       }
-      if (components.fragment !== void 0) {
-        uriTokens.push("#", components.fragment);
+      if (component.fragment !== void 0) {
+        uriTokens.push("#", component.fragment);
       }
       return uriTokens.join("");
-    }
-    const hexLookUp = Array.from({ length: 127 }, (_v, k) => /[^!"$&'()*+,\-.;=_`a-z{}~]/u.test(String.fromCharCode(k)));
-    function nonSimpleDomain(value) {
-      let code2 = 0;
-      for (let i = 0, len = value.length; i < len; ++i) {
-        code2 = value.charCodeAt(i);
-        if (code2 > 126 || hexLookUp[code2]) {
-          return true;
-        }
-      }
-      return false;
     }
     const URI_PARSE = /^(?:([^#/:?]+):)?(?:\/\/((?:([^#/?@]*)@)?(\[[^#/?\]]+\]|[^#/:?]*)(?::(\d*))?))?([^#?]*)(?:\?([^#]*))?(?:#((?:.|[\n\r])*))?/u;
     function parse2(uri2, opts) {
@@ -3664,9 +3712,14 @@
         query: void 0,
         fragment: void 0
       };
-      const gotEncoding = uri2.indexOf("%") !== -1;
       let isIP = false;
-      if (options.reference === "suffix") uri2 = (options.scheme ? options.scheme + ":" : "") + "//" + uri2;
+      if (options.reference === "suffix") {
+        if (options.scheme) {
+          uri2 = options.scheme + ":" + uri2;
+        } else {
+          uri2 = "//" + uri2;
+        }
+      }
       const matches = uri2.match(URI_PARSE);
       if (matches) {
         parsed.scheme = matches[1];
@@ -3680,13 +3733,12 @@
           parsed.port = matches[5];
         }
         if (parsed.host) {
-          const ipv4result = normalizeIPv4(parsed.host);
-          if (ipv4result.isIPV4 === false) {
-            const ipv6result = normalizeIPv6(ipv4result.host);
+          const ipv4result = isIPv4(parsed.host);
+          if (ipv4result === false) {
+            const ipv6result = normalizeIPv6(parsed.host);
             parsed.host = ipv6result.host.toLowerCase();
             isIP = ipv6result.isIPV6;
           } else {
-            parsed.host = ipv4result.host;
             isIP = true;
           }
         }
@@ -3702,7 +3754,7 @@
         if (options.reference && options.reference !== "suffix" && options.reference !== parsed.reference) {
           parsed.error = parsed.error || "URI is not a " + options.reference + " reference.";
         }
-        const schemeHandler = SCHEMES[(options.scheme || parsed.scheme || "").toLowerCase()];
+        const schemeHandler = getSchemeHandler(options.scheme || parsed.scheme);
         if (!options.unicodeSupport && (!schemeHandler || !schemeHandler.unicodeSupport)) {
           if (parsed.host && (options.domainHost || schemeHandler && schemeHandler.domainHost) && isIP === false && nonSimpleDomain(parsed.host)) {
             try {
@@ -3713,11 +3765,13 @@
           }
         }
         if (!schemeHandler || schemeHandler && !schemeHandler.skipNormalize) {
-          if (gotEncoding && parsed.scheme !== void 0) {
-            parsed.scheme = unescape(parsed.scheme);
-          }
-          if (gotEncoding && parsed.host !== void 0) {
-            parsed.host = unescape(parsed.host);
+          if (uri2.indexOf("%") !== -1) {
+            if (parsed.scheme !== void 0) {
+              parsed.scheme = unescape(parsed.scheme);
+            }
+            if (parsed.host !== void 0) {
+              parsed.host = unescape(parsed.host);
+            }
           }
           if (parsed.path) {
             parsed.path = escape(unescape(parsed.path));
@@ -3738,7 +3792,7 @@
       SCHEMES,
       normalize,
       resolve: resolve2,
-      resolveComponents,
+      resolveComponent,
       equal: equal2,
       serialize,
       parse: parse2
@@ -3867,7 +3921,7 @@
           uriResolver
         };
       }
-      class Ajv {
+      class Ajv2 {
         constructor(opts = {}) {
           this.schemas = {};
           this.refs = {};
@@ -4237,9 +4291,9 @@
           }
         }
       }
-      Ajv.ValidationError = validation_error_1.default;
-      Ajv.MissingRefError = ref_error_1.default;
-      exports3.default = Ajv;
+      Ajv2.ValidationError = validation_error_1.default;
+      Ajv2.MissingRefError = ref_error_1.default;
+      exports3.default = Ajv2;
       function checkOptions(checkOpts, options, msg, log = "error") {
         for (const key in checkOpts) {
           const opt = key;
@@ -6191,7 +6245,7 @@
   };
   var hasRequiredAjv;
   function requireAjv() {
-    if (hasRequiredAjv) return ajv$1.exports;
+    if (hasRequiredAjv) return ajv.exports;
     hasRequiredAjv = 1;
     (function(module2, exports3) {
       Object.defineProperty(exports3, "__esModule", { value: true });
@@ -6202,7 +6256,7 @@
       const draft7MetaSchema = require$$3;
       const META_SUPPORT_DATA = ["/properties"];
       const META_SCHEMA_ID = "http://json-schema.org/draft-07/schema";
-      class Ajv extends core_1.default {
+      class Ajv2 extends core_1.default {
         _addVocabularies() {
           super._addVocabularies();
           draft7_1.default.forEach((v) => this.addVocabulary(v));
@@ -6221,11 +6275,11 @@
           return this.opts.defaultMeta = super.defaultMeta() || (this.getSchema(META_SCHEMA_ID) ? META_SCHEMA_ID : void 0);
         }
       }
-      exports3.Ajv = Ajv;
-      module2.exports = exports3 = Ajv;
-      module2.exports.Ajv = Ajv;
+      exports3.Ajv = Ajv2;
+      module2.exports = exports3 = Ajv2;
+      module2.exports.Ajv = Ajv2;
       Object.defineProperty(exports3, "__esModule", { value: true });
-      exports3.default = Ajv;
+      exports3.default = Ajv2;
       var validate_1 = requireValidate();
       Object.defineProperty(exports3, "KeywordCxt", { enumerable: true, get: function() {
         return validate_1.KeywordCxt;
@@ -6257,11 +6311,11 @@
       Object.defineProperty(exports3, "MissingRefError", { enumerable: true, get: function() {
         return ref_error_1.default;
       } });
-    })(ajv$1, ajv$1.exports);
-    return ajv$1.exports;
+    })(ajv, ajv.exports);
+    return ajv.exports;
   }
   var ajvExports = requireAjv();
-  const ajv = /* @__PURE__ */ getDefaultExportFromCjs(ajvExports);
+  const Ajv = /* @__PURE__ */ getDefaultExportFromCjs(ajvExports);
   const NEVER$1 = Object.freeze({
     status: "aborted"
   });
@@ -9800,10 +9854,10 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     };
     inst.clone = (def2, params) => clone(inst, def2, params);
     inst.brand = () => inst;
-    inst.register = (reg, meta) => {
+    inst.register = ((reg, meta) => {
       reg.add(inst, meta);
       return inst;
-    };
+    });
     inst.parse = (data, params) => parse(inst, data, params, { callee: inst.parse });
     inst.safeParse = (data, params) => safeParse$1(inst, data, params);
     inst.parseAsync = async (data, params) => parseAsync(inst, data, params, { callee: inst.parseAsync });
@@ -10414,7 +10468,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
   const AssertObjectSchema = custom$1((v) => v !== null && (typeof v === "object" || typeof v === "function"));
   const ProgressTokenSchema = union([string(), number$1().int()]);
   const CursorSchema = string();
-  const TaskCreationParamsSchema = looseObject({
+  looseObject({
     /**
      * Time in milliseconds to keep task results available after completion.
      * If null, the task has unlimited lifetime until manually cleaned up.
@@ -10425,7 +10479,10 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      */
     pollInterval: number$1().optional()
   });
-  const RelatedTaskMetadataSchema = looseObject({
+  const TaskMetadataSchema = object$1({
+    ttl: number$1().optional()
+  });
+  const RelatedTaskMetadataSchema = object$1({
     taskId: string()
   });
   const RequestMetaSchema = looseObject({
@@ -10438,48 +10495,45 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      */
     [RELATED_TASK_META_KEY]: RelatedTaskMetadataSchema.optional()
   });
-  const BaseRequestParamsSchema = looseObject({
-    /**
-     * If specified, the caller is requesting that the receiver create a task to represent the request.
-     * Task creation parameters are now at the top level instead of in _meta.
-     */
-    task: TaskCreationParamsSchema.optional(),
+  const BaseRequestParamsSchema = object$1({
     /**
      * See [General fields: `_meta`](/specification/draft/basic/index#meta) for notes on `_meta` usage.
      */
     _meta: RequestMetaSchema.optional()
   });
+  const TaskAugmentedRequestParamsSchema = BaseRequestParamsSchema.extend({
+    /**
+     * If specified, the caller is requesting task-augmented execution for this request.
+     * The request will return a CreateTaskResult immediately, and the actual result can be
+     * retrieved later via tasks/result.
+     *
+     * Task augmentation is subject to capability negotiation - receivers MUST declare support
+     * for task augmentation of specific request types in their capabilities.
+     */
+    task: TaskMetadataSchema.optional()
+  });
+  const isTaskAugmentedRequestParams = (value) => TaskAugmentedRequestParamsSchema.safeParse(value).success;
   const RequestSchema = object$1({
     method: string(),
-    params: BaseRequestParamsSchema.optional()
+    params: BaseRequestParamsSchema.loose().optional()
   });
-  const NotificationsParamsSchema = looseObject({
+  const NotificationsParamsSchema = object$1({
     /**
      * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
      * for notes on _meta usage.
      */
-    _meta: object$1({
-      /**
-       * If specified, this notification is related to the provided task.
-       */
-      [RELATED_TASK_META_KEY]: optional(RelatedTaskMetadataSchema)
-    }).passthrough().optional()
+    _meta: RequestMetaSchema.optional()
   });
   const NotificationSchema = object$1({
     method: string(),
-    params: NotificationsParamsSchema.optional()
+    params: NotificationsParamsSchema.loose().optional()
   });
   const ResultSchema = looseObject({
     /**
      * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
      * for notes on _meta usage.
      */
-    _meta: looseObject({
-      /**
-       * If specified, this result is related to the provided task.
-       */
-      [RELATED_TASK_META_KEY]: RelatedTaskMetadataSchema.optional()
-    }).optional()
+    _meta: RequestMetaSchema.optional()
   });
   const RequestIdSchema = union([string(), number$1().int()]);
   const JSONRPCRequestSchema = object$1({
@@ -10493,12 +10547,12 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     ...NotificationSchema.shape
   }).strict();
   const isJSONRPCNotification = (value) => JSONRPCNotificationSchema.safeParse(value).success;
-  const JSONRPCResponseSchema = object$1({
+  const JSONRPCResultResponseSchema = object$1({
     jsonrpc: literal(JSONRPC_VERSION),
     id: RequestIdSchema,
     result: ResultSchema
   }).strict();
-  const isJSONRPCResponse = (value) => JSONRPCResponseSchema.safeParse(value).success;
+  const isJSONRPCResultResponse = (value) => JSONRPCResultResponseSchema.safeParse(value).success;
   var ErrorCode;
   (function(ErrorCode2) {
     ErrorCode2[ErrorCode2["ConnectionClosed"] = -32e3] = "ConnectionClosed";
@@ -10510,9 +10564,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     ErrorCode2[ErrorCode2["InternalError"] = -32603] = "InternalError";
     ErrorCode2[ErrorCode2["UrlElicitationRequired"] = -32042] = "UrlElicitationRequired";
   })(ErrorCode || (ErrorCode = {}));
-  const JSONRPCErrorSchema = object$1({
+  const JSONRPCErrorResponseSchema = object$1({
     jsonrpc: literal(JSONRPC_VERSION),
-    id: RequestIdSchema,
+    id: RequestIdSchema.optional(),
     error: object$1({
       /**
        * The error type that occurred.
@@ -10525,11 +10579,17 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       /**
        * Additional information about the error. The value of this member is defined by the sender (e.g. detailed error information, nested errors etc.).
        */
-      data: optional(unknown())
+      data: unknown().optional()
     })
   }).strict();
-  const isJSONRPCError = (value) => JSONRPCErrorSchema.safeParse(value).success;
-  const JSONRPCMessageSchema = union([JSONRPCRequestSchema, JSONRPCNotificationSchema, JSONRPCResponseSchema, JSONRPCErrorSchema]);
+  const isJSONRPCErrorResponse = (value) => JSONRPCErrorResponseSchema.safeParse(value).success;
+  const JSONRPCMessageSchema = union([
+    JSONRPCRequestSchema,
+    JSONRPCNotificationSchema,
+    JSONRPCResultResponseSchema,
+    JSONRPCErrorResponseSchema
+  ]);
+  union([JSONRPCResultResponseSchema, JSONRPCErrorResponseSchema]);
   const EmptyResultSchema = ResultSchema.strict();
   const CancelledNotificationParamsSchema = NotificationsParamsSchema.extend({
     /**
@@ -10537,7 +10597,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      *
      * This MUST correspond to the ID of a request previously issued in the same direction.
      */
-    requestId: RequestIdSchema,
+    requestId: RequestIdSchema.optional(),
     /**
      * An optional string describing the reason for the cancellation. This MAY be logged or presented to the user.
      */
@@ -10562,7 +10622,15 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      *
      * If not provided, the client should assume that the icon can be used at any size.
      */
-    sizes: array(string()).optional()
+    sizes: array(string()).optional(),
+    /**
+     * Optional specifier for the theme this icon is designed for. `light` indicates
+     * the icon is designed to be used with a light background, and `dark` indicates
+     * the icon is designed to be used with a dark background.
+     *
+     * If not provided, the client should assume the icon can be used with any theme.
+     */
+    theme: _enum(["light", "dark"]).optional()
   });
   const IconsSchema = object$1({
     /**
@@ -10598,7 +10666,15 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     /**
      * An optional URL of the website for this implementation.
      */
-    websiteUrl: string().optional()
+    websiteUrl: string().optional(),
+    /**
+     * An optional human-readable description of what this implementation does.
+     *
+     * This can be used by clients or servers to provide context about their purpose
+     * and capabilities. For example, a server might describe the types of resources
+     * or tools it provides, while a client might describe its intended use case.
+     */
+    description: string().optional()
   });
   const FormElicitationCapabilitySchema = intersection(object$1({
     applyDefaults: boolean().optional()
@@ -10614,54 +10690,54 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     form: FormElicitationCapabilitySchema.optional(),
     url: AssertObjectSchema.optional()
   }), record(string(), unknown()).optional()));
-  const ClientTasksCapabilitySchema = object$1({
+  const ClientTasksCapabilitySchema = looseObject({
     /**
      * Present if the client supports listing tasks.
      */
-    list: optional(object$1({}).passthrough()),
+    list: AssertObjectSchema.optional(),
     /**
      * Present if the client supports cancelling tasks.
      */
-    cancel: optional(object$1({}).passthrough()),
+    cancel: AssertObjectSchema.optional(),
     /**
      * Capabilities for task creation on specific request types.
      */
-    requests: optional(object$1({
+    requests: looseObject({
       /**
        * Task support for sampling requests.
        */
-      sampling: optional(object$1({
-        createMessage: optional(object$1({}).passthrough())
-      }).passthrough()),
+      sampling: looseObject({
+        createMessage: AssertObjectSchema.optional()
+      }).optional(),
       /**
        * Task support for elicitation requests.
        */
-      elicitation: optional(object$1({
-        create: optional(object$1({}).passthrough())
-      }).passthrough())
-    }).passthrough())
-  }).passthrough();
-  const ServerTasksCapabilitySchema = object$1({
+      elicitation: looseObject({
+        create: AssertObjectSchema.optional()
+      }).optional()
+    }).optional()
+  });
+  const ServerTasksCapabilitySchema = looseObject({
     /**
      * Present if the server supports listing tasks.
      */
-    list: optional(object$1({}).passthrough()),
+    list: AssertObjectSchema.optional(),
     /**
      * Present if the server supports cancelling tasks.
      */
-    cancel: optional(object$1({}).passthrough()),
+    cancel: AssertObjectSchema.optional(),
     /**
      * Capabilities for task creation on specific request types.
      */
-    requests: optional(object$1({
+    requests: looseObject({
       /**
        * Task support for tool requests.
        */
-      tools: optional(object$1({
-        call: optional(object$1({}).passthrough())
-      }).passthrough())
-    }).passthrough())
-  }).passthrough();
+      tools: looseObject({
+        call: AssertObjectSchema.optional()
+      }).optional()
+    }).optional()
+  });
   const ClientCapabilitiesSchema = object$1({
     /**
      * Experimental, non-standard capabilities that the client supports.
@@ -10697,7 +10773,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     /**
      * Present if the client supports task creation.
      */
-    tasks: optional(ClientTasksCapabilitySchema)
+    tasks: ClientTasksCapabilitySchema.optional()
   });
   const InitializeRequestParamsSchema = BaseRequestParamsSchema.extend({
     /**
@@ -10727,12 +10803,12 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     /**
      * Present if the server offers any prompt templates.
      */
-    prompts: optional(object$1({
+    prompts: object$1({
       /**
        * Whether this server supports issuing notifications for changes to the prompt list.
        */
-      listChanged: optional(boolean())
-    })),
+      listChanged: boolean().optional()
+    }).optional(),
     /**
      * Present if the server offers any resources to read.
      */
@@ -10758,8 +10834,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     /**
      * Present if the server supports task creation.
      */
-    tasks: optional(ServerTasksCapabilitySchema)
-  }).passthrough();
+    tasks: ServerTasksCapabilitySchema.optional()
+  });
   const InitializeResultSchema = ResultSchema.extend({
     /**
      * The version of the Model Context Protocol that the server wants to use. This may not match the version that the client requested. If the client cannot support this version, it MUST disconnect.
@@ -10775,11 +10851,13 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     instructions: string().optional()
   });
   const InitializedNotificationSchema = NotificationSchema.extend({
-    method: literal("notifications/initialized")
+    method: literal("notifications/initialized"),
+    params: NotificationsParamsSchema.optional()
   });
   const isInitializedNotification = (value) => InitializedNotificationSchema.safeParse(value).success;
   const PingRequestSchema = RequestSchema.extend({
-    method: literal("ping")
+    method: literal("ping"),
+    params: BaseRequestParamsSchema.optional()
   });
   const ProgressSchema = object$1({
     /**
@@ -10822,11 +10900,12 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * An opaque token representing the pagination position after the last returned result.
      * If present, there may be more results available.
      */
-    nextCursor: optional(CursorSchema)
+    nextCursor: CursorSchema.optional()
   });
+  const TaskStatusSchema = _enum(["working", "input_required", "completed", "failed", "cancelled"]);
   const TaskSchema = object$1({
     taskId: string(),
-    status: _enum(["working", "input_required", "completed", "failed", "cancelled"]),
+    status: TaskStatusSchema,
     /**
      * Time in milliseconds to keep task results available after completion.
      * If null, the task has unlimited lifetime until manually cleaned up.
@@ -10867,6 +10946,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       taskId: string()
     })
   });
+  ResultSchema.loose();
   const ListTasksRequestSchema = PaginatedRequestSchema.extend({
     method: literal("tasks/list")
   });
@@ -10905,7 +10985,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     try {
       atob(val);
       return true;
-    } catch (_a) {
+    } catch {
       return false;
     }
   }, { message: "Invalid Base64 string" });
@@ -10915,11 +10995,12 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      */
     blob: Base64Schema
   });
+  const RoleSchema = _enum(["user", "assistant"]);
   const AnnotationsSchema = object$1({
     /**
      * Intended audience(s) for the resource.
      */
-    audience: array(_enum(["user", "assistant"])).optional(),
+    audience: array(RoleSchema).optional(),
     /**
      * Importance hint for the resource, from 0 (least) to 1 (most).
      */
@@ -11012,7 +11093,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     contents: array(union([TextResourceContentsSchema, BlobResourceContentsSchema]))
   });
   const ResourceListChangedNotificationSchema = NotificationSchema.extend({
-    method: literal("notifications/resources/list_changed")
+    method: literal("notifications/resources/list_changed"),
+    params: NotificationsParamsSchema.optional()
   });
   const SubscribeRequestParamsSchema = ResourceRequestParamsSchema;
   const SubscribeRequestSchema = RequestSchema.extend({
@@ -11157,13 +11239,13 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * Arguments to pass to the tool.
      * Must conform to the tool's inputSchema.
      */
-    input: object$1({}).passthrough(),
+    input: record(string(), unknown()),
     /**
      * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
      * for notes on _meta usage.
      */
-    _meta: optional(object$1({}).passthrough())
-  }).passthrough();
+    _meta: record(string(), unknown()).optional()
+  });
   const EmbeddedResourceSchema = object$1({
     type: literal("resource"),
     resource: union([TextResourceContentsSchema, BlobResourceContentsSchema]),
@@ -11188,18 +11270,19 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     EmbeddedResourceSchema
   ]);
   const PromptMessageSchema = object$1({
-    role: _enum(["user", "assistant"]),
+    role: RoleSchema,
     content: ContentBlockSchema
   });
   const GetPromptResultSchema = ResultSchema.extend({
     /**
      * An optional description for the prompt.
      */
-    description: optional(string()),
+    description: string().optional(),
     messages: array(PromptMessageSchema)
   });
   const PromptListChangedNotificationSchema = NotificationSchema.extend({
-    method: literal("notifications/prompts/list_changed")
+    method: literal("notifications/prompts/list_changed"),
+    params: NotificationsParamsSchema.optional()
   });
   const ToolAnnotationsSchema = object$1({
     /**
@@ -11280,11 +11363,11 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     /**
      * Optional additional tool information.
      */
-    annotations: optional(ToolAnnotationsSchema),
+    annotations: ToolAnnotationsSchema.optional(),
     /**
      * Execution-related properties for this tool.
      */
-    execution: optional(ToolExecutionSchema),
+    execution: ToolExecutionSchema.optional(),
     /**
      * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
      * for notes on _meta usage.
@@ -11325,12 +11408,12 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * server does not support tool calls, or any other exceptional conditions,
      * should be reported as an MCP error response.
      */
-    isError: optional(boolean())
+    isError: boolean().optional()
   });
   CallToolResultSchema.or(ResultSchema.extend({
     toolResult: unknown()
   }));
-  const CallToolRequestParamsSchema = BaseRequestParamsSchema.extend({
+  const CallToolRequestParamsSchema = TaskAugmentedRequestParamsSchema.extend({
     /**
      * The name of the tool to call.
      */
@@ -11338,14 +11421,35 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     /**
      * Arguments to pass to the tool.
      */
-    arguments: optional(record(string(), unknown()))
+    arguments: record(string(), unknown()).optional()
   });
   const CallToolRequestSchema = RequestSchema.extend({
     method: literal("tools/call"),
     params: CallToolRequestParamsSchema
   });
   const ToolListChangedNotificationSchema = NotificationSchema.extend({
-    method: literal("notifications/tools/list_changed")
+    method: literal("notifications/tools/list_changed"),
+    params: NotificationsParamsSchema.optional()
+  });
+  const ListChangedOptionsBaseSchema = object$1({
+    /**
+     * If true, the list will be refreshed automatically when a list changed notification is received.
+     * The callback will be called with the updated list.
+     *
+     * If false, the callback will be called with null items, allowing manual refresh.
+     *
+     * @default true
+     */
+    autoRefresh: boolean().default(true),
+    /**
+     * Debounce time in milliseconds for list changed notification processing.
+     *
+     * Multiple notifications received within this timeframe will only trigger one refresh.
+     * Set to 0 to disable debouncing.
+     *
+     * @default 300
+     */
+    debounceMs: number$1().int().nonnegative().default(300)
   });
   const LoggingLevelSchema = _enum(["debug", "info", "notice", "warning", "error", "critical", "alert", "emergency"]);
   const SetLevelRequestParamsSchema = BaseRequestParamsSchema.extend({
@@ -11386,19 +11490,19 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     /**
      * Optional hints to use for model selection.
      */
-    hints: optional(array(ModelHintSchema)),
+    hints: array(ModelHintSchema).optional(),
     /**
      * How much to prioritize cost when selecting a model.
      */
-    costPriority: optional(number$1().min(0).max(1)),
+    costPriority: number$1().min(0).max(1).optional(),
     /**
      * How much to prioritize sampling speed (latency) when selecting a model.
      */
-    speedPriority: optional(number$1().min(0).max(1)),
+    speedPriority: number$1().min(0).max(1).optional(),
     /**
      * How much to prioritize intelligence and capabilities when selecting a model.
      */
-    intelligencePriority: optional(number$1().min(0).max(1))
+    intelligencePriority: number$1().min(0).max(1).optional()
   });
   const ToolChoiceSchema = object$1({
     /**
@@ -11407,20 +11511,20 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * - "required": Model MUST use at least one tool before completing
      * - "none": Model MUST NOT use any tools
      */
-    mode: optional(_enum(["auto", "required", "none"]))
+    mode: _enum(["auto", "required", "none"]).optional()
   });
   const ToolResultContentSchema = object$1({
     type: literal("tool_result"),
     toolUseId: string().describe("The unique identifier for the corresponding tool call."),
     content: array(ContentBlockSchema).default([]),
-    structuredContent: object$1({}).passthrough().optional(),
-    isError: optional(boolean()),
+    structuredContent: object$1({}).loose().optional(),
+    isError: boolean().optional(),
     /**
      * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
      * for notes on _meta usage.
      */
-    _meta: optional(object$1({}).passthrough())
-  }).passthrough();
+    _meta: record(string(), unknown()).optional()
+  });
   const SamplingContentSchema = discriminatedUnion("type", [TextContentSchema, ImageContentSchema, AudioContentSchema]);
   const SamplingMessageContentBlockSchema = discriminatedUnion("type", [
     TextContentSchema,
@@ -11430,15 +11534,15 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     ToolResultContentSchema
   ]);
   const SamplingMessageSchema = object$1({
-    role: _enum(["user", "assistant"]),
+    role: RoleSchema,
     content: union([SamplingMessageContentBlockSchema, array(SamplingMessageContentBlockSchema)]),
     /**
      * See [MCP specification](https://github.com/modelcontextprotocol/modelcontextprotocol/blob/47339c03c143bb4ec01a26e721a1b8fe66634ebe/docs/specification/draft/basic/index.mdx#general-fields)
      * for notes on _meta usage.
      */
-    _meta: optional(object$1({}).passthrough())
-  }).passthrough();
-  const CreateMessageRequestParamsSchema = BaseRequestParamsSchema.extend({
+    _meta: record(string(), unknown()).optional()
+  });
+  const CreateMessageRequestParamsSchema = TaskAugmentedRequestParamsSchema.extend({
     messages: array(SamplingMessageSchema),
     /**
      * The server's preferences for which model to select. The client MAY modify or omit this request.
@@ -11472,13 +11576,13 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * Tools that the model may use during generation.
      * The client MUST return an error if this field is provided but ClientCapabilities.sampling.tools is not declared.
      */
-    tools: optional(array(ToolSchema)),
+    tools: array(ToolSchema).optional(),
     /**
      * Controls how the model uses tools.
      * The client MUST return an error if this field is provided but ClientCapabilities.sampling.tools is not declared.
      * Default is `{ mode: "auto" }`.
      */
-    toolChoice: optional(ToolChoiceSchema)
+    toolChoice: ToolChoiceSchema.optional()
   });
   const CreateMessageRequestSchema = RequestSchema.extend({
     method: literal("sampling/createMessage"),
@@ -11500,7 +11604,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * This field is an open string to allow for provider-specific stop reasons.
      */
     stopReason: optional(_enum(["endTurn", "stopSequence", "maxTokens"]).or(string())),
-    role: _enum(["user", "assistant"]),
+    role: RoleSchema,
     /**
      * Response content. Single content block (text, image, or audio).
      */
@@ -11523,7 +11627,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * This field is an open string to allow for provider-specific stop reasons.
      */
     stopReason: optional(_enum(["endTurn", "stopSequence", "maxTokens", "toolUse"]).or(string())),
-    role: _enum(["user", "assistant"]),
+    role: RoleSchema,
     /**
      * Response content. May be a single block or array. May include ToolUseContent if stopReason is "toolUse".
      */
@@ -11607,7 +11711,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
   const MultiSelectEnumSchemaSchema = union([UntitledMultiSelectEnumSchemaSchema, TitledMultiSelectEnumSchemaSchema]);
   const EnumSchemaSchema = union([LegacyTitledEnumSchemaSchema, SingleSelectEnumSchemaSchema, MultiSelectEnumSchemaSchema]);
   const PrimitiveSchemaDefinitionSchema = union([EnumSchemaSchema, BooleanSchemaSchema, StringSchemaSchema, NumberSchemaSchema]);
-  const ElicitRequestFormParamsSchema = BaseRequestParamsSchema.extend({
+  const ElicitRequestFormParamsSchema = TaskAugmentedRequestParamsSchema.extend({
     /**
      * The elicitation mode.
      *
@@ -11628,7 +11732,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       required: array(string()).optional()
     })
   });
-  const ElicitRequestURLParamsSchema = BaseRequestParamsSchema.extend({
+  const ElicitRequestURLParamsSchema = TaskAugmentedRequestParamsSchema.extend({
     /**
      * The elicitation mode.
      */
@@ -11760,13 +11864,15 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     _meta: record(string(), unknown()).optional()
   });
   const ListRootsRequestSchema = RequestSchema.extend({
-    method: literal("roots/list")
+    method: literal("roots/list"),
+    params: BaseRequestParamsSchema.optional()
   });
   const ListRootsResultSchema = ResultSchema.extend({
     roots: array(RootSchema)
   });
   const RootsListChangedNotificationSchema = NotificationSchema.extend({
-    method: literal("notifications/roots/list_changed")
+    method: literal("notifications/roots/list_changed"),
+    params: NotificationsParamsSchema.optional()
   });
   union([
     PingRequestSchema,
@@ -11784,7 +11890,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     ListToolsRequestSchema,
     GetTaskRequestSchema,
     GetTaskPayloadRequestSchema,
-    ListTasksRequestSchema
+    ListTasksRequestSchema,
+    CancelTaskRequestSchema
   ]);
   union([
     CancelledNotificationSchema,
@@ -11810,7 +11917,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     ListRootsRequestSchema,
     GetTaskRequestSchema,
     GetTaskPayloadRequestSchema,
-    ListTasksRequestSchema
+    ListTasksRequestSchema,
+    CancelTaskRequestSchema
   ]);
   union([
     CancelledNotificationSchema,
@@ -11865,8 +11973,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       });
     }
     get elicitations() {
-      var _a, _b;
-      return (_b = (_a = this.data) === null || _a === void 0 ? void 0 : _a.elicitations) !== null && _b !== void 0 ? _b : [];
+      return this.data?.elicitations ?? [];
     }
   }
   var util;
@@ -15773,14 +15880,14 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
   const onumber = () => numberType().optional();
   const oboolean = () => booleanType().optional();
   const coerce = {
-    string: (arg) => ZodString.create({ ...arg, coerce: true }),
-    number: (arg) => ZodNumber.create({ ...arg, coerce: true }),
-    boolean: (arg) => ZodBoolean.create({
+    string: ((arg) => ZodString.create({ ...arg, coerce: true })),
+    number: ((arg) => ZodNumber.create({ ...arg, coerce: true })),
+    boolean: ((arg) => ZodBoolean.create({
       ...arg,
       coerce: true
-    }),
-    bigint: (arg) => ZodBigInt.create({ ...arg, coerce: true }),
-    date: (arg) => ZodDate.create({ ...arg, coerce: true })
+    })),
+    bigint: ((arg) => ZodBigInt.create({ ...arg, coerce: true })),
+    date: ((arg) => ZodDate.create({ ...arg, coerce: true }))
   };
   const NEVER = INVALID;
   const z = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
@@ -15922,10 +16029,10 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     };
     inst.clone = (_def, params) => clone(inst, _def, params);
     inst.brand = () => inst;
-    inst.register = (reg, meta) => {
+    inst.register = ((reg, meta) => {
       reg.add(inst, meta);
       return inst;
-    };
+    });
   });
   const ZodMiniObject = /* @__PURE__ */ $constructor("ZodMiniObject", (inst, def) => {
     $ZodObject.init(inst, def);
@@ -15978,13 +16085,12 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     return result;
   }
   function getObjectShape(schema) {
-    var _a, _b;
     if (!schema)
       return void 0;
     let rawShape;
     if (isZ4Schema(schema)) {
       const v4Schema = schema;
-      rawShape = (_b = (_a = v4Schema._zod) === null || _a === void 0 ? void 0 : _a.def) === null || _b === void 0 ? void 0 : _b.shape;
+      rawShape = v4Schema._zod?.def?.shape;
     } else {
       const v3Schema = schema;
       rawShape = v3Schema.shape;
@@ -15994,14 +16100,13 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     if (typeof rawShape === "function") {
       try {
         return rawShape();
-      } catch (_c) {
+      } catch {
         return void 0;
       }
     }
     return rawShape;
   }
   function normalizeObjectSchema(schema) {
-    var _a;
     if (!schema)
       return void 0;
     if (typeof schema === "object") {
@@ -16016,7 +16121,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     }
     if (isZ4Schema(schema)) {
       const v4Schema = schema;
-      const def = (_a = v4Schema._zod) === null || _a === void 0 ? void 0 : _a.def;
+      const def = v4Schema._zod?.def;
       if (def && (def.type === "object" || def.shape !== void 0)) {
         return schema;
       }
@@ -16041,38 +16146,30 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       }
       try {
         return JSON.stringify(error);
-      } catch (_a) {
+      } catch {
         return String(error);
       }
     }
     return String(error);
   }
   function getSchemaDescription(schema) {
-    var _a, _b, _c, _d;
-    if (isZ4Schema(schema)) {
-      const v4Schema = schema;
-      return (_b = (_a = v4Schema._zod) === null || _a === void 0 ? void 0 : _a.def) === null || _b === void 0 ? void 0 : _b.description;
-    }
-    const v3Schema = schema;
-    return (_c = schema.description) !== null && _c !== void 0 ? _c : (_d = v3Schema._def) === null || _d === void 0 ? void 0 : _d.description;
+    return schema.description;
   }
   function isSchemaOptional(schema) {
-    var _a, _b, _c;
     if (isZ4Schema(schema)) {
       const v4Schema = schema;
-      return ((_b = (_a = v4Schema._zod) === null || _a === void 0 ? void 0 : _a.def) === null || _b === void 0 ? void 0 : _b.type) === "optional";
+      return v4Schema._zod?.def?.type === "optional";
     }
     const v3Schema = schema;
     if (typeof schema.isOptional === "function") {
       return schema.isOptional();
     }
-    return ((_c = v3Schema._def) === null || _c === void 0 ? void 0 : _c.typeName) === "ZodOptional";
+    return v3Schema._def?.typeName === "ZodOptional";
   }
   function getLiteralValue(schema) {
-    var _a;
     if (isZ4Schema(schema)) {
       const v4Schema = schema;
-      const def2 = (_a = v4Schema._zod) === null || _a === void 0 ? void 0 : _a.def;
+      const def2 = v4Schema._zod?.def;
       if (def2) {
         if (def2.value !== void 0)
           return def2.value;
@@ -17311,21 +17408,20 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     return "draft-7";
   }
   function toJsonSchemaCompat(schema, opts) {
-    var _a, _b, _c;
     if (isZ4Schema(schema)) {
       return toJSONSchema(schema, {
-        target: mapMiniTarget(opts === null || opts === void 0 ? void 0 : opts.target),
-        io: (_a = opts === null || opts === void 0 ? void 0 : opts.pipeStrategy) !== null && _a !== void 0 ? _a : "input"
+        target: mapMiniTarget(opts?.target),
+        io: opts?.pipeStrategy ?? "input"
       });
     }
     return zodToJsonSchema(schema, {
-      strictUnions: (_b = opts === null || opts === void 0 ? void 0 : opts.strictUnions) !== null && _b !== void 0 ? _b : true,
-      pipeStrategy: (_c = opts === null || opts === void 0 ? void 0 : opts.pipeStrategy) !== null && _c !== void 0 ? _c : "input"
+      strictUnions: opts?.strictUnions ?? true,
+      pipeStrategy: opts?.pipeStrategy ?? "input"
     });
   }
   function getMethodLiteral(schema) {
     const shape = getObjectShape(schema);
-    const methodSchema = shape === null || shape === void 0 ? void 0 : shape.method;
+    const methodSchema = shape?.method;
     if (!methodSchema) {
       throw new Error("Schema is missing a method literal");
     }
@@ -17367,8 +17463,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         // Automatic pong by default.
         (_request) => ({})
       );
-      this._taskStore = _options === null || _options === void 0 ? void 0 : _options.taskStore;
-      this._taskMessageQueue = _options === null || _options === void 0 ? void 0 : _options.taskMessageQueue;
+      this._taskStore = _options?.taskStore;
+      this._taskMessageQueue = _options?.taskMessageQueue;
       if (this._taskStore) {
         this.setRequestHandler(GetTaskRequestSchema, async (request, extra) => {
           const task = await this._taskStore.getTask(request.params.taskId, extra.sessionId);
@@ -17381,7 +17477,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         });
         this.setRequestHandler(GetTaskPayloadRequestSchema, async (request, extra) => {
           const handleTaskResult = async () => {
-            var _a;
             const taskId = request.params.taskId;
             if (this._taskMessageQueue) {
               let queuedMessage;
@@ -17405,7 +17500,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
                   }
                   continue;
                 }
-                await ((_a = this._transport) === null || _a === void 0 ? void 0 : _a.send(queuedMessage.message, { relatedRequestId: extra.requestId }));
+                await this._transport?.send(queuedMessage.message, { relatedRequestId: extra.requestId });
               }
             }
             const task = await this._taskStore.getTask(taskId, extra.sessionId);
@@ -17434,9 +17529,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           return await handleTaskResult();
         });
         this.setRequestHandler(ListTasksRequestSchema, async (request, extra) => {
-          var _a;
           try {
-            const { tasks, nextCursor } = await this._taskStore.listTasks((_a = request.params) === null || _a === void 0 ? void 0 : _a.cursor, extra.sessionId);
+            const { tasks, nextCursor } = await this._taskStore.listTasks(request.params?.cursor, extra.sessionId);
             return {
               tasks,
               nextCursor,
@@ -17475,8 +17569,11 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       }
     }
     async _oncancel(notification) {
+      if (!notification.params.requestId) {
+        return;
+      }
       const controller = this._requestHandlerAbortControllers.get(notification.params.requestId);
-      controller === null || controller === void 0 ? void 0 : controller.abort(notification.params.reason);
+      controller?.abort(notification.params.reason);
     }
     _setupTimeout(messageId, timeout, maxTotalTimeout, onTimeout, resetTimeoutOnProgress = false) {
       this._timeoutInfo.set(messageId, {
@@ -17517,22 +17614,21 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * The Protocol object assumes ownership of the Transport, replacing any callbacks that have already been set, and expects that it is the only user of the Transport instance going forward.
      */
     async connect(transport) {
-      var _a, _b, _c;
       this._transport = transport;
-      const _onclose = (_a = this.transport) === null || _a === void 0 ? void 0 : _a.onclose;
+      const _onclose = this.transport?.onclose;
       this._transport.onclose = () => {
-        _onclose === null || _onclose === void 0 ? void 0 : _onclose();
+        _onclose?.();
         this._onclose();
       };
-      const _onerror = (_b = this.transport) === null || _b === void 0 ? void 0 : _b.onerror;
+      const _onerror = this.transport?.onerror;
       this._transport.onerror = (error) => {
-        _onerror === null || _onerror === void 0 ? void 0 : _onerror(error);
+        _onerror?.(error);
         this._onerror(error);
       };
-      const _onmessage = (_c = this._transport) === null || _c === void 0 ? void 0 : _c.onmessage;
+      const _onmessage = this._transport?.onmessage;
       this._transport.onmessage = (message, extra) => {
-        _onmessage === null || _onmessage === void 0 ? void 0 : _onmessage(message, extra);
-        if (isJSONRPCResponse(message) || isJSONRPCError(message)) {
+        _onmessage?.(message, extra);
+        if (isJSONRPCResultResponse(message) || isJSONRPCErrorResponse(message)) {
           this._onresponse(message);
         } else if (isJSONRPCRequest(message)) {
           this._onrequest(message, extra);
@@ -17545,7 +17641,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       await this._transport.start();
     }
     _onclose() {
-      var _a;
       const responseHandlers = this._responseHandlers;
       this._responseHandlers = /* @__PURE__ */ new Map();
       this._progressHandlers.clear();
@@ -17553,28 +17648,25 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       this._pendingDebouncedNotifications.clear();
       const error = McpError.fromError(ErrorCode.ConnectionClosed, "Connection closed");
       this._transport = void 0;
-      (_a = this.onclose) === null || _a === void 0 ? void 0 : _a.call(this);
+      this.onclose?.();
       for (const handler of responseHandlers.values()) {
         handler(error);
       }
     }
     _onerror(error) {
-      var _a;
-      (_a = this.onerror) === null || _a === void 0 ? void 0 : _a.call(this, error);
+      this.onerror?.(error);
     }
     _onnotification(notification) {
-      var _a;
-      const handler = (_a = this._notificationHandlers.get(notification.method)) !== null && _a !== void 0 ? _a : this.fallbackNotificationHandler;
+      const handler = this._notificationHandlers.get(notification.method) ?? this.fallbackNotificationHandler;
       if (handler === void 0) {
         return;
       }
       Promise.resolve().then(() => handler(notification)).catch((error) => this._onerror(new Error(`Uncaught error in notification handler: ${error}`)));
     }
     _onrequest(request, extra) {
-      var _a, _b, _c, _d, _e, _f;
-      const handler = (_a = this._requestHandlers.get(request.method)) !== null && _a !== void 0 ? _a : this.fallbackRequestHandler;
+      const handler = this._requestHandlers.get(request.method) ?? this.fallbackRequestHandler;
       const capturedTransport = this._transport;
-      const relatedTaskId = (_d = (_c = (_b = request.params) === null || _b === void 0 ? void 0 : _b._meta) === null || _c === void 0 ? void 0 : _c[RELATED_TASK_META_KEY]) === null || _d === void 0 ? void 0 : _d.taskId;
+      const relatedTaskId = request.params?._meta?.[RELATED_TASK_META_KEY]?.taskId;
       if (handler === void 0) {
         const errorResponse = {
           jsonrpc: "2.0",
@@ -17589,20 +17681,20 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
             type: "error",
             message: errorResponse,
             timestamp: Date.now()
-          }, capturedTransport === null || capturedTransport === void 0 ? void 0 : capturedTransport.sessionId).catch((error) => this._onerror(new Error(`Failed to enqueue error response: ${error}`)));
+          }, capturedTransport?.sessionId).catch((error) => this._onerror(new Error(`Failed to enqueue error response: ${error}`)));
         } else {
-          capturedTransport === null || capturedTransport === void 0 ? void 0 : capturedTransport.send(errorResponse).catch((error) => this._onerror(new Error(`Failed to send an error response: ${error}`)));
+          capturedTransport?.send(errorResponse).catch((error) => this._onerror(new Error(`Failed to send an error response: ${error}`)));
         }
         return;
       }
       const abortController = new AbortController();
       this._requestHandlerAbortControllers.set(request.id, abortController);
-      const taskCreationParams = (_e = request.params) === null || _e === void 0 ? void 0 : _e.task;
-      const taskStore = this._taskStore ? this.requestTaskStore(request, capturedTransport === null || capturedTransport === void 0 ? void 0 : capturedTransport.sessionId) : void 0;
+      const taskCreationParams = isTaskAugmentedRequestParams(request.params) ? request.params.task : void 0;
+      const taskStore = this._taskStore ? this.requestTaskStore(request, capturedTransport?.sessionId) : void 0;
       const fullExtra = {
         signal: abortController.signal,
-        sessionId: capturedTransport === null || capturedTransport === void 0 ? void 0 : capturedTransport.sessionId,
-        _meta: (_f = request.params) === null || _f === void 0 ? void 0 : _f._meta,
+        sessionId: capturedTransport?.sessionId,
+        _meta: request.params?._meta,
         sendNotification: async (notification) => {
           const notificationOptions = { relatedRequestId: request.id };
           if (relatedTaskId) {
@@ -17611,25 +17703,24 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           await this.notification(notification, notificationOptions);
         },
         sendRequest: async (r, resultSchema, options) => {
-          var _a2, _b2;
           const requestOptions = { ...options, relatedRequestId: request.id };
           if (relatedTaskId && !requestOptions.relatedTask) {
             requestOptions.relatedTask = { taskId: relatedTaskId };
           }
-          const effectiveTaskId = (_b2 = (_a2 = requestOptions.relatedTask) === null || _a2 === void 0 ? void 0 : _a2.taskId) !== null && _b2 !== void 0 ? _b2 : relatedTaskId;
+          const effectiveTaskId = requestOptions.relatedTask?.taskId ?? relatedTaskId;
           if (effectiveTaskId && taskStore) {
             await taskStore.updateTaskStatus(effectiveTaskId, "input_required");
           }
           return await this.request(r, resultSchema, requestOptions);
         },
-        authInfo: extra === null || extra === void 0 ? void 0 : extra.authInfo,
+        authInfo: extra?.authInfo,
         requestId: request.id,
-        requestInfo: extra === null || extra === void 0 ? void 0 : extra.requestInfo,
+        requestInfo: extra?.requestInfo,
         taskId: relatedTaskId,
         taskStore,
-        taskRequestedTtl: taskCreationParams === null || taskCreationParams === void 0 ? void 0 : taskCreationParams.ttl,
-        closeSSEStream: extra === null || extra === void 0 ? void 0 : extra.closeSSEStream,
-        closeStandaloneSSEStream: extra === null || extra === void 0 ? void 0 : extra.closeStandaloneSSEStream
+        taskRequestedTtl: taskCreationParams?.ttl,
+        closeSSEStream: extra?.closeSSEStream,
+        closeStandaloneSSEStream: extra?.closeStandaloneSSEStream
       };
       Promise.resolve().then(() => {
         if (taskCreationParams) {
@@ -17649,12 +17740,11 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
             type: "response",
             message: response,
             timestamp: Date.now()
-          }, capturedTransport === null || capturedTransport === void 0 ? void 0 : capturedTransport.sessionId);
+          }, capturedTransport?.sessionId);
         } else {
-          await (capturedTransport === null || capturedTransport === void 0 ? void 0 : capturedTransport.send(response));
+          await capturedTransport?.send(response);
         }
       }, async (error) => {
-        var _a2;
         if (abortController.signal.aborted) {
           return;
         }
@@ -17663,7 +17753,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           id: request.id,
           error: {
             code: Number.isSafeInteger(error["code"]) ? error["code"] : ErrorCode.InternalError,
-            message: (_a2 = error.message) !== null && _a2 !== void 0 ? _a2 : "Internal error",
+            message: error.message ?? "Internal error",
             ...error["data"] !== void 0 && { data: error["data"] }
           }
         };
@@ -17672,9 +17762,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
             type: "error",
             message: errorResponse,
             timestamp: Date.now()
-          }, capturedTransport === null || capturedTransport === void 0 ? void 0 : capturedTransport.sessionId);
+          }, capturedTransport?.sessionId);
         } else {
-          await (capturedTransport === null || capturedTransport === void 0 ? void 0 : capturedTransport.send(errorResponse));
+          await capturedTransport?.send(errorResponse);
         }
       }).catch((error) => this._onerror(new Error(`Failed to send response: ${error}`))).finally(() => {
         this._requestHandlerAbortControllers.delete(request.id);
@@ -17708,7 +17798,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       const resolver = this._requestResolvers.get(messageId);
       if (resolver) {
         this._requestResolvers.delete(messageId);
-        if (isJSONRPCResponse(response)) {
+        if (isJSONRPCResultResponse(response)) {
           resolver(response);
         } else {
           const error = new McpError(response.error.code, response.error.message, response.error.data);
@@ -17724,7 +17814,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       this._responseHandlers.delete(messageId);
       this._cleanupTimeout(messageId);
       let isTaskResponse = false;
-      if (isJSONRPCResponse(response) && response.result && typeof response.result === "object") {
+      if (isJSONRPCResultResponse(response) && response.result && typeof response.result === "object") {
         const result = response.result;
         if (result.task && typeof result.task === "object") {
           const task = result.task;
@@ -17737,7 +17827,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       if (!isTaskResponse) {
         this._progressHandlers.delete(messageId);
       }
-      if (isJSONRPCResponse(response)) {
+      if (isJSONRPCResultResponse(response)) {
         handler(response);
       } else {
         const error = McpError.fromError(response.error.code, response.error.message, response.error.data);
@@ -17751,8 +17841,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * Closes the connection.
      */
     async close() {
-      var _a;
-      await ((_a = this._transport) === null || _a === void 0 ? void 0 : _a.close());
+      await this._transport?.close();
     }
     /**
      * Sends a request and returns an AsyncGenerator that yields response messages.
@@ -17782,8 +17871,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * @experimental Use `client.experimental.tasks.requestStream()` to access this method.
      */
     async *requestStream(request, resultSchema, options) {
-      var _a, _b, _c, _d;
-      const { task } = options !== null && options !== void 0 ? options : {};
+      const { task } = options ?? {};
       if (!task) {
         try {
           const result = await this.request(request, resultSchema, options);
@@ -17830,9 +17918,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
             yield { type: "result", result };
             return;
           }
-          const pollInterval = (_c = (_a = task2.pollInterval) !== null && _a !== void 0 ? _a : (_b = this._options) === null || _b === void 0 ? void 0 : _b.defaultTaskPollInterval) !== null && _c !== void 0 ? _c : 1e3;
+          const pollInterval = task2.pollInterval ?? this._options?.defaultTaskPollInterval ?? 1e3;
           await new Promise((resolve2) => setTimeout(resolve2, pollInterval));
-          (_d = options === null || options === void 0 ? void 0 : options.signal) === null || _d === void 0 ? void 0 : _d.throwIfAborted();
+          options?.signal?.throwIfAborted();
         }
       } catch (error) {
         yield {
@@ -17847,9 +17935,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * Do not use this method to emit notifications! Use notification() instead.
      */
     request(request, resultSchema, options) {
-      const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options !== null && options !== void 0 ? options : {};
+      const { relatedRequestId, resumptionToken, onresumptiontoken, task, relatedTask } = options ?? {};
       return new Promise((resolve2, reject) => {
-        var _a, _b, _c, _d, _e, _f, _g;
         const earlyReject = (error) => {
           reject(error);
         };
@@ -17857,7 +17944,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           earlyReject(new Error("Not connected"));
           return;
         }
-        if (((_a = this._options) === null || _a === void 0 ? void 0 : _a.enforceStrictCapabilities) === true) {
+        if (this._options?.enforceStrictCapabilities === true) {
           try {
             this.assertCapabilityForMethod(request.method);
             if (task) {
@@ -17868,19 +17955,19 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
             return;
           }
         }
-        (_b = options === null || options === void 0 ? void 0 : options.signal) === null || _b === void 0 ? void 0 : _b.throwIfAborted();
+        options?.signal?.throwIfAborted();
         const messageId = this._requestMessageId++;
         const jsonrpcRequest = {
           ...request,
           jsonrpc: "2.0",
           id: messageId
         };
-        if (options === null || options === void 0 ? void 0 : options.onprogress) {
+        if (options?.onprogress) {
           this._progressHandlers.set(messageId, options.onprogress);
           jsonrpcRequest.params = {
             ...request.params,
             _meta: {
-              ...((_c = request.params) === null || _c === void 0 ? void 0 : _c._meta) || {},
+              ...request.params?._meta || {},
               progressToken: messageId
             }
           };
@@ -17895,17 +17982,16 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           jsonrpcRequest.params = {
             ...jsonrpcRequest.params,
             _meta: {
-              ...((_d = jsonrpcRequest.params) === null || _d === void 0 ? void 0 : _d._meta) || {},
+              ...jsonrpcRequest.params?._meta || {},
               [RELATED_TASK_META_KEY]: relatedTask
             }
           };
         }
         const cancel = (reason) => {
-          var _a2;
           this._responseHandlers.delete(messageId);
           this._progressHandlers.delete(messageId);
           this._cleanupTimeout(messageId);
-          (_a2 = this._transport) === null || _a2 === void 0 ? void 0 : _a2.send({
+          this._transport?.send({
             jsonrpc: "2.0",
             method: "notifications/cancelled",
             params: {
@@ -17917,8 +18003,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           reject(error);
         };
         this._responseHandlers.set(messageId, (response) => {
-          var _a2;
-          if ((_a2 = options === null || options === void 0 ? void 0 : options.signal) === null || _a2 === void 0 ? void 0 : _a2.aborted) {
+          if (options?.signal?.aborted) {
             return;
           }
           if (response instanceof Error) {
@@ -17935,14 +18020,13 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
             reject(error);
           }
         });
-        (_e = options === null || options === void 0 ? void 0 : options.signal) === null || _e === void 0 ? void 0 : _e.addEventListener("abort", () => {
-          var _a2;
-          cancel((_a2 = options === null || options === void 0 ? void 0 : options.signal) === null || _a2 === void 0 ? void 0 : _a2.reason);
+        options?.signal?.addEventListener("abort", () => {
+          cancel(options?.signal?.reason);
         });
-        const timeout = (_f = options === null || options === void 0 ? void 0 : options.timeout) !== null && _f !== void 0 ? _f : DEFAULT_REQUEST_TIMEOUT_MSEC;
+        const timeout = options?.timeout ?? DEFAULT_REQUEST_TIMEOUT_MSEC;
         const timeoutHandler = () => cancel(McpError.fromError(ErrorCode.RequestTimeout, "Request timed out", { timeout }));
-        this._setupTimeout(messageId, timeout, options === null || options === void 0 ? void 0 : options.maxTotalTimeout, timeoutHandler, (_g = options === null || options === void 0 ? void 0 : options.resetTimeoutOnProgress) !== null && _g !== void 0 ? _g : false);
-        const relatedTaskId = relatedTask === null || relatedTask === void 0 ? void 0 : relatedTask.taskId;
+        this._setupTimeout(messageId, timeout, options?.maxTotalTimeout, timeoutHandler, options?.resetTimeoutOnProgress ?? false);
+        const relatedTaskId = relatedTask?.taskId;
         if (relatedTaskId) {
           const responseResolver = (response) => {
             const handler = this._responseHandlers.get(messageId);
@@ -18005,12 +18089,11 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * Emits a notification, which is a one-way message that does not expect a response.
      */
     async notification(notification, options) {
-      var _a, _b, _c, _d, _e;
       if (!this._transport) {
         throw new Error("Not connected");
       }
       this.assertNotificationCapability(notification.method);
-      const relatedTaskId = (_a = options === null || options === void 0 ? void 0 : options.relatedTask) === null || _a === void 0 ? void 0 : _a.taskId;
+      const relatedTaskId = options?.relatedTask?.taskId;
       if (relatedTaskId) {
         const jsonrpcNotification2 = {
           ...notification,
@@ -18018,7 +18101,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           params: {
             ...notification.params,
             _meta: {
-              ...((_b = notification.params) === null || _b === void 0 ? void 0 : _b._meta) || {},
+              ...notification.params?._meta || {},
               [RELATED_TASK_META_KEY]: options.relatedTask
             }
           }
@@ -18030,15 +18113,14 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         });
         return;
       }
-      const debouncedMethods = (_d = (_c = this._options) === null || _c === void 0 ? void 0 : _c.debouncedNotificationMethods) !== null && _d !== void 0 ? _d : [];
-      const canDebounce = debouncedMethods.includes(notification.method) && !notification.params && !(options === null || options === void 0 ? void 0 : options.relatedRequestId) && !(options === null || options === void 0 ? void 0 : options.relatedTask);
+      const debouncedMethods = this._options?.debouncedNotificationMethods ?? [];
+      const canDebounce = debouncedMethods.includes(notification.method) && !notification.params && !options?.relatedRequestId && !options?.relatedTask;
       if (canDebounce) {
         if (this._pendingDebouncedNotifications.has(notification.method)) {
           return;
         }
         this._pendingDebouncedNotifications.add(notification.method);
         Promise.resolve().then(() => {
-          var _a2, _b2;
           this._pendingDebouncedNotifications.delete(notification.method);
           if (!this._transport) {
             return;
@@ -18047,19 +18129,19 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
             ...notification,
             jsonrpc: "2.0"
           };
-          if (options === null || options === void 0 ? void 0 : options.relatedTask) {
+          if (options?.relatedTask) {
             jsonrpcNotification2 = {
               ...jsonrpcNotification2,
               params: {
                 ...jsonrpcNotification2.params,
                 _meta: {
-                  ...((_a2 = jsonrpcNotification2.params) === null || _a2 === void 0 ? void 0 : _a2._meta) || {},
+                  ...jsonrpcNotification2.params?._meta || {},
                   [RELATED_TASK_META_KEY]: options.relatedTask
                 }
               }
             };
           }
-          (_b2 = this._transport) === null || _b2 === void 0 ? void 0 : _b2.send(jsonrpcNotification2, options).catch((error) => this._onerror(error));
+          this._transport?.send(jsonrpcNotification2, options).catch((error) => this._onerror(error));
         });
         return;
       }
@@ -18067,13 +18149,13 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         ...notification,
         jsonrpc: "2.0"
       };
-      if (options === null || options === void 0 ? void 0 : options.relatedTask) {
+      if (options?.relatedTask) {
         jsonrpcNotification = {
           ...jsonrpcNotification,
           params: {
             ...jsonrpcNotification.params,
             _meta: {
-              ...((_e = jsonrpcNotification.params) === null || _e === void 0 ? void 0 : _e._meta) || {},
+              ...jsonrpcNotification.params?._meta || {},
               [RELATED_TASK_META_KEY]: options.relatedTask
             }
           }
@@ -18149,11 +18231,10 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * simply propagates the error.
      */
     async _enqueueTaskMessage(taskId, message, sessionId) {
-      var _a;
       if (!this._taskStore || !this._taskMessageQueue) {
         throw new Error("Cannot enqueue task message: taskStore and taskMessageQueue are not configured");
       }
-      const maxQueueSize = (_a = this._options) === null || _a === void 0 ? void 0 : _a.maxTaskQueueSize;
+      const maxQueueSize = this._options?.maxTaskQueueSize;
       await this._taskMessageQueue.enqueue(taskId, message, sessionId, maxQueueSize);
     }
     /**
@@ -18186,14 +18267,13 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * @returns Promise that resolves when an update occurs or rejects if aborted
      */
     async _waitForTaskUpdate(taskId, signal) {
-      var _a, _b, _c;
-      let interval = (_b = (_a = this._options) === null || _a === void 0 ? void 0 : _a.defaultTaskPollInterval) !== null && _b !== void 0 ? _b : 1e3;
+      let interval = this._options?.defaultTaskPollInterval ?? 1e3;
       try {
-        const task = await ((_c = this._taskStore) === null || _c === void 0 ? void 0 : _c.getTask(taskId));
-        if (task === null || task === void 0 ? void 0 : task.pollInterval) {
+        const task = await this._taskStore?.getTask(taskId);
+        if (task?.pollInterval) {
           interval = task.pollInterval;
         }
-      } catch (_d) {
+      } catch {
       }
       return new Promise((resolve2, reject) => {
         if (signal.aborted) {
@@ -18618,7 +18698,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
   var distExports = requireDist();
   const _addFormats = /* @__PURE__ */ getDefaultExportFromCjs(distExports);
   function createDefaultAjvInstance() {
-    const ajv2 = new ajvExports.Ajv({
+    const ajv2 = new Ajv({
       strict: false,
       validateFormats: true,
       validateSchema: false,
@@ -18650,7 +18730,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * ```
      */
     constructor(ajv2) {
-      this._ajv = ajv2 !== null && ajv2 !== void 0 ? ajv2 : createDefaultAjvInstance();
+      this._ajv = ajv2 ?? createDefaultAjvInstance();
     }
     /**
      * Create a validator for the given JSON Schema
@@ -18662,8 +18742,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * @returns A validator function that validates input data
      */
     getValidator(schema) {
-      var _a;
-      const ajvValidator = "$id" in schema && typeof schema.$id === "string" ? (_a = this._ajv.getSchema(schema.$id)) !== null && _a !== void 0 ? _a : this._ajv.compile(schema) : this._ajv.compile(schema);
+      const ajvValidator = "$id" in schema && typeof schema.$id === "string" ? this._ajv.getSchema(schema.$id) ?? this._ajv.compile(schema) : this._ajv.compile(schema);
       return (input) => {
         const valid = ajvValidator(input);
         if (valid) {
@@ -18723,13 +18802,12 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * @experimental
      */
     async *callToolStream(params, resultSchema = CallToolResultSchema, options) {
-      var _a;
       const clientInternal = this._client;
       const optionsWithTask = {
         ...options,
         // We check if the tool is known to be a task during auto-configuration, but assume
         // the caller knows what they're doing if they pass this explicitly
-        task: (_a = options === null || options === void 0 ? void 0 : options.task) !== null && _a !== void 0 ? _a : clientInternal.isToolTask(params.name) ? {} : void 0
+        task: options?.task ?? (clientInternal.isToolTask(params.name) ? {} : void 0)
       };
       const stream = clientInternal.requestStream({ method: "tools/call", params }, resultSchema, optionsWithTask);
       const validator = clientInternal.getToolOutputValidator(params.name);
@@ -18836,31 +18914,29 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     }
   }
   function assertToolsCallTaskCapability(requests, method, entityName) {
-    var _a;
     if (!requests) {
       throw new Error(`${entityName} does not support task creation (required for ${method})`);
     }
     switch (method) {
       case "tools/call":
-        if (!((_a = requests.tools) === null || _a === void 0 ? void 0 : _a.call)) {
+        if (!requests.tools?.call) {
           throw new Error(`${entityName} does not support task creation for tools/call (required for ${method})`);
         }
         break;
     }
   }
   function assertClientRequestTaskCapability(requests, method, entityName) {
-    var _a, _b;
     if (!requests) {
       throw new Error(`${entityName} does not support task creation (required for ${method})`);
     }
     switch (method) {
       case "sampling/createMessage":
-        if (!((_a = requests.sampling) === null || _a === void 0 ? void 0 : _a.createMessage)) {
+        if (!requests.sampling?.createMessage) {
           throw new Error(`${entityName} does not support task creation for sampling/createMessage (required for ${method})`);
         }
         break;
       case "elicitation/create":
-        if (!((_b = requests.elicitation) === null || _b === void 0 ? void 0 : _b.create)) {
+        if (!requests.elicitation?.create) {
           throw new Error(`${entityName} does not support task creation for elicitation/create (required for ${method})`);
         }
         break;
@@ -18884,12 +18960,16 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     }
     if (Array.isArray(schema.anyOf)) {
       for (const sub of schema.anyOf) {
-        applyElicitationDefaults(sub, data);
+        if (typeof sub !== "boolean") {
+          applyElicitationDefaults(sub, data);
+        }
       }
     }
     if (Array.isArray(schema.oneOf)) {
       for (const sub of schema.oneOf) {
-        applyElicitationDefaults(sub, data);
+        if (typeof sub !== "boolean") {
+          applyElicitationDefaults(sub, data);
+        }
       }
     }
   }
@@ -18908,14 +18988,43 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * Initializes this client with the given name and version information.
      */
     constructor(_clientInfo, options) {
-      var _a, _b;
       super(options);
       this._clientInfo = _clientInfo;
       this._cachedToolOutputValidators = /* @__PURE__ */ new Map();
       this._cachedKnownTaskTools = /* @__PURE__ */ new Set();
       this._cachedRequiredTaskTools = /* @__PURE__ */ new Set();
-      this._capabilities = (_a = options === null || options === void 0 ? void 0 : options.capabilities) !== null && _a !== void 0 ? _a : {};
-      this._jsonSchemaValidator = (_b = options === null || options === void 0 ? void 0 : options.jsonSchemaValidator) !== null && _b !== void 0 ? _b : new AjvJsonSchemaValidator();
+      this._listChangedDebounceTimers = /* @__PURE__ */ new Map();
+      this._capabilities = options?.capabilities ?? {};
+      this._jsonSchemaValidator = options?.jsonSchemaValidator ?? new AjvJsonSchemaValidator();
+      if (options?.listChanged) {
+        this._pendingListChangedConfig = options.listChanged;
+      }
+    }
+    /**
+     * Set up handlers for list changed notifications based on config and server capabilities.
+     * This should only be called after initialization when server capabilities are known.
+     * Handlers are silently skipped if the server doesn't advertise the corresponding listChanged capability.
+     * @internal
+     */
+    _setupListChangedHandlers(config2) {
+      if (config2.tools && this._serverCapabilities?.tools?.listChanged) {
+        this._setupListChangedHandler("tools", ToolListChangedNotificationSchema, config2.tools, async () => {
+          const result = await this.listTools();
+          return result.tools;
+        });
+      }
+      if (config2.prompts && this._serverCapabilities?.prompts?.listChanged) {
+        this._setupListChangedHandler("prompts", PromptListChangedNotificationSchema, config2.prompts, async () => {
+          const result = await this.listPrompts();
+          return result.prompts;
+        });
+      }
+      if (config2.resources && this._serverCapabilities?.resources?.listChanged) {
+        this._setupListChangedHandler("resources", ResourceListChangedNotificationSchema, config2.resources, async () => {
+          const result = await this.listResources();
+          return result.resources;
+        });
+      }
     }
     /**
      * Access experimental features.
@@ -18947,21 +19056,20 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * Override request handler registration to enforce client-side validation for elicitation.
      */
     setRequestHandler(requestSchema, handler) {
-      var _a, _b, _c;
       const shape = getObjectShape(requestSchema);
-      const methodSchema = shape === null || shape === void 0 ? void 0 : shape.method;
+      const methodSchema = shape?.method;
       if (!methodSchema) {
         throw new Error("Schema is missing a method literal");
       }
       let methodValue;
       if (isZ4Schema(methodSchema)) {
         const v4Schema = methodSchema;
-        const v4Def = (_a = v4Schema._zod) === null || _a === void 0 ? void 0 : _a.def;
-        methodValue = (_b = v4Def === null || v4Def === void 0 ? void 0 : v4Def.value) !== null && _b !== void 0 ? _b : v4Schema.value;
+        const v4Def = v4Schema._zod?.def;
+        methodValue = v4Def?.value ?? v4Schema.value;
       } else {
         const v3Schema = methodSchema;
         const legacyDef = v3Schema._def;
-        methodValue = (_c = legacyDef === null || legacyDef === void 0 ? void 0 : legacyDef.value) !== null && _c !== void 0 ? _c : v3Schema.value;
+        methodValue = legacyDef?.value ?? v3Schema.value;
       }
       if (typeof methodValue !== "string") {
         throw new Error("Schema method literal must be a string");
@@ -18969,19 +19077,18 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       const method = methodValue;
       if (method === "elicitation/create") {
         const wrappedHandler = async (request, extra) => {
-          var _a2, _b2, _c2;
           const validatedRequest = safeParse(ElicitRequestSchema, request);
           if (!validatedRequest.success) {
             const errorMessage = validatedRequest.error instanceof Error ? validatedRequest.error.message : String(validatedRequest.error);
             throw new McpError(ErrorCode.InvalidParams, `Invalid elicitation request: ${errorMessage}`);
           }
           const { params } = validatedRequest.data;
-          const mode = (_a2 = params.mode) !== null && _a2 !== void 0 ? _a2 : "form";
+          params.mode = params.mode ?? "form";
           const { supportsFormMode, supportsUrlMode } = getSupportedElicitationModes(this._capabilities.elicitation);
-          if (mode === "form" && !supportsFormMode) {
+          if (params.mode === "form" && !supportsFormMode) {
             throw new McpError(ErrorCode.InvalidParams, "Client does not support form-mode elicitation requests");
           }
-          if (mode === "url" && !supportsUrlMode) {
+          if (params.mode === "url" && !supportsUrlMode) {
             throw new McpError(ErrorCode.InvalidParams, "Client does not support URL-mode elicitation requests");
           }
           const result = await Promise.resolve(handler(request, extra));
@@ -18999,12 +19106,12 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
             throw new McpError(ErrorCode.InvalidParams, `Invalid elicitation result: ${errorMessage}`);
           }
           const validatedResult = validationResult.data;
-          const requestedSchema = mode === "form" ? params.requestedSchema : void 0;
-          if (mode === "form" && validatedResult.action === "accept" && validatedResult.content && requestedSchema) {
-            if ((_c2 = (_b2 = this._capabilities.elicitation) === null || _b2 === void 0 ? void 0 : _b2.form) === null || _c2 === void 0 ? void 0 : _c2.applyDefaults) {
+          const requestedSchema = params.mode === "form" ? params.requestedSchema : void 0;
+          if (params.mode === "form" && validatedResult.action === "accept" && validatedResult.content && requestedSchema) {
+            if (this._capabilities.elicitation?.form?.applyDefaults) {
               try {
                 applyElicitationDefaults(requestedSchema, validatedResult.content);
-              } catch (_d) {
+              } catch {
               }
             }
           }
@@ -19029,7 +19136,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
             }
             return taskValidationResult.data;
           }
-          const validationResult = safeParse(CreateMessageResultSchema, result);
+          const hasTools = params.tools || params.toolChoice;
+          const resultSchema = hasTools ? CreateMessageResultWithToolsSchema : CreateMessageResultSchema;
+          const validationResult = safeParse(resultSchema, result);
           if (!validationResult.success) {
             const errorMessage = validationResult.error instanceof Error ? validationResult.error.message : String(validationResult.error);
             throw new McpError(ErrorCode.InvalidParams, `Invalid sampling result: ${errorMessage}`);
@@ -19041,8 +19150,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       return super.setRequestHandler(requestSchema, handler);
     }
     assertCapability(capability, method) {
-      var _a;
-      if (!((_a = this._serverCapabilities) === null || _a === void 0 ? void 0 : _a[capability])) {
+      if (!this._serverCapabilities?.[capability]) {
         throw new Error(`Server does not support ${capability} (required for ${method})`);
       }
     }
@@ -19075,6 +19183,10 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         await this.notification({
           method: "notifications/initialized"
         });
+        if (this._pendingListChangedConfig) {
+          this._setupListChangedHandlers(this._pendingListChangedConfig);
+          this._pendingListChangedConfig = void 0;
+        }
       } catch (error) {
         void this.close();
         throw error;
@@ -19099,16 +19211,15 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       return this._instructions;
     }
     assertCapabilityForMethod(method) {
-      var _a, _b, _c, _d, _e;
       switch (method) {
         case "logging/setLevel":
-          if (!((_a = this._serverCapabilities) === null || _a === void 0 ? void 0 : _a.logging)) {
+          if (!this._serverCapabilities?.logging) {
             throw new Error(`Server does not support logging (required for ${method})`);
           }
           break;
         case "prompts/get":
         case "prompts/list":
-          if (!((_b = this._serverCapabilities) === null || _b === void 0 ? void 0 : _b.prompts)) {
+          if (!this._serverCapabilities?.prompts) {
             throw new Error(`Server does not support prompts (required for ${method})`);
           }
           break;
@@ -19117,7 +19228,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         case "resources/read":
         case "resources/subscribe":
         case "resources/unsubscribe":
-          if (!((_c = this._serverCapabilities) === null || _c === void 0 ? void 0 : _c.resources)) {
+          if (!this._serverCapabilities?.resources) {
             throw new Error(`Server does not support resources (required for ${method})`);
           }
           if (method === "resources/subscribe" && !this._serverCapabilities.resources.subscribe) {
@@ -19126,22 +19237,21 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           break;
         case "tools/call":
         case "tools/list":
-          if (!((_d = this._serverCapabilities) === null || _d === void 0 ? void 0 : _d.tools)) {
+          if (!this._serverCapabilities?.tools) {
             throw new Error(`Server does not support tools (required for ${method})`);
           }
           break;
         case "completion/complete":
-          if (!((_e = this._serverCapabilities) === null || _e === void 0 ? void 0 : _e.completions)) {
+          if (!this._serverCapabilities?.completions) {
             throw new Error(`Server does not support completions (required for ${method})`);
           }
           break;
       }
     }
     assertNotificationCapability(method) {
-      var _a;
       switch (method) {
         case "notifications/roots/list_changed":
-          if (!((_a = this._capabilities.roots) === null || _a === void 0 ? void 0 : _a.listChanged)) {
+          if (!this._capabilities.roots?.listChanged) {
             throw new Error(`Client does not support roots list changed notifications (required for ${method})`);
           }
           break;
@@ -19178,15 +19288,13 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       }
     }
     assertTaskCapability(method) {
-      var _a, _b;
-      assertToolsCallTaskCapability((_b = (_a = this._serverCapabilities) === null || _a === void 0 ? void 0 : _a.tasks) === null || _b === void 0 ? void 0 : _b.requests, method, "Server");
+      assertToolsCallTaskCapability(this._serverCapabilities?.tasks?.requests, method, "Server");
     }
     assertTaskHandlerCapability(method) {
-      var _a;
       if (!this._capabilities) {
         return;
       }
-      assertClientRequestTaskCapability((_a = this._capabilities.tasks) === null || _a === void 0 ? void 0 : _a.requests, method, "Client");
+      assertClientRequestTaskCapability(this._capabilities.tasks?.requests, method, "Client");
     }
     async ping(options) {
       return this.request({ method: "ping" }, EmptyResultSchema, options);
@@ -19250,8 +19358,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       return result;
     }
     isToolTask(toolName) {
-      var _a, _b, _c, _d;
-      if (!((_d = (_c = (_b = (_a = this._serverCapabilities) === null || _a === void 0 ? void 0 : _a.tasks) === null || _b === void 0 ? void 0 : _b.requests) === null || _c === void 0 ? void 0 : _c.tools) === null || _d === void 0 ? void 0 : _d.call)) {
+      if (!this._serverCapabilities?.tasks?.requests?.tools?.call) {
         return false;
       }
       return this._cachedKnownTaskTools.has(toolName);
@@ -19268,7 +19375,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * Called after listTools() to pre-compile validators for better performance.
      */
     cacheToolMetadata(tools) {
-      var _a;
       this._cachedToolOutputValidators.clear();
       this._cachedKnownTaskTools.clear();
       this._cachedRequiredTaskTools.clear();
@@ -19277,7 +19383,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           const toolValidator = this._jsonSchemaValidator.getValidator(tool.outputSchema);
           this._cachedToolOutputValidators.set(tool.name, toolValidator);
         }
-        const taskSupport = (_a = tool.execution) === null || _a === void 0 ? void 0 : _a.taskSupport;
+        const taskSupport = tool.execution?.taskSupport;
         if (taskSupport === "required" || taskSupport === "optional") {
           this._cachedKnownTaskTools.add(tool.name);
         }
@@ -19296,6 +19402,47 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       const result = await this.request({ method: "tools/list", params }, ListToolsResultSchema, options);
       this.cacheToolMetadata(result.tools);
       return result;
+    }
+    /**
+     * Set up a single list changed handler.
+     * @internal
+     */
+    _setupListChangedHandler(listType, notificationSchema, options, fetcher) {
+      const parseResult = ListChangedOptionsBaseSchema.safeParse(options);
+      if (!parseResult.success) {
+        throw new Error(`Invalid ${listType} listChanged options: ${parseResult.error.message}`);
+      }
+      if (typeof options.onChanged !== "function") {
+        throw new Error(`Invalid ${listType} listChanged options: onChanged must be a function`);
+      }
+      const { autoRefresh, debounceMs } = parseResult.data;
+      const { onChanged } = options;
+      const refresh = async () => {
+        if (!autoRefresh) {
+          onChanged(null, null);
+          return;
+        }
+        try {
+          const items2 = await fetcher();
+          onChanged(null, items2);
+        } catch (e) {
+          const error = e instanceof Error ? e : new Error(String(e));
+          onChanged(error, null);
+        }
+      };
+      const handler = () => {
+        if (debounceMs) {
+          const existingTimer = this._listChangedDebounceTimers.get(listType);
+          if (existingTimer) {
+            clearTimeout(existingTimer);
+          }
+          const timer = setTimeout(refresh, debounceMs);
+          this._listChangedDebounceTimers.set(listType, timer);
+        } else {
+          refresh();
+        }
+      };
+      this.setNotificationHandler(notificationSchema, handler);
     }
     async sendRootsListChanged() {
       return this.notification({ method: "notifications/roots/list_changed" });
@@ -19689,7 +19836,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         ...baseInit,
         ...init,
         // Headers need special handling - merge instead of replace
-        headers: (init === null || init === void 0 ? void 0 : init.headers) ? { ...normalizeHeaders(baseInit.headers), ...normalizeHeaders(init.headers) } : baseInit.headers
+        headers: init?.headers ? { ...normalizeHeaders(baseInit.headers), ...normalizeHeaders(init.headers) } : baseInit.headers
       };
       return baseFetch(url2, mergedInit);
     };
@@ -19984,7 +20131,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
   };
   class UnauthorizedError extends Error {
     constructor(message) {
-      super(message !== null && message !== void 0 ? message : "Unauthorized");
+      super(message ?? "Unauthorized");
     }
   }
   function isClientAuthMethod(method) {
@@ -20057,22 +20204,20 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     }
   }
   async function auth(provider, options) {
-    var _a, _b;
     try {
       return await authInternal(provider, options);
     } catch (error) {
       if (error instanceof InvalidClientError || error instanceof UnauthorizedClientError) {
-        await ((_a = provider.invalidateCredentials) === null || _a === void 0 ? void 0 : _a.call(provider, "all"));
+        await provider.invalidateCredentials?.("all");
         return await authInternal(provider, options);
       } else if (error instanceof InvalidGrantError) {
-        await ((_b = provider.invalidateCredentials) === null || _b === void 0 ? void 0 : _b.call(provider, "tokens"));
+        await provider.invalidateCredentials?.("tokens");
         return await authInternal(provider, options);
       }
       throw error;
     }
   }
   async function authInternal(provider, { serverUrl, authorizationCode, scope: scope2, resourceMetadataUrl, fetchFn }) {
-    var _a, _b;
     let resourceMetadata;
     let authorizationServerUrl;
     try {
@@ -20080,7 +20225,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       if (resourceMetadata.authorization_servers && resourceMetadata.authorization_servers.length > 0) {
         authorizationServerUrl = resourceMetadata.authorization_servers[0];
       }
-    } catch (_c) {
+    } catch {
     }
     if (!authorizationServerUrl) {
       authorizationServerUrl = new URL("/", serverUrl);
@@ -20094,7 +20239,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       if (authorizationCode !== void 0) {
         throw new Error("Existing OAuth client information is required when exchanging an authorization code");
       }
-      const supportsUrlBasedClientId = (metadata2 === null || metadata2 === void 0 ? void 0 : metadata2.client_id_metadata_document_supported) === true;
+      const supportsUrlBasedClientId = metadata2?.client_id_metadata_document_supported === true;
       const clientMetadataUrl = provider.clientMetadataUrl;
       if (clientMetadataUrl && !isHttpsUrl(clientMetadataUrl)) {
         throw new InvalidClientMetadataError(`clientMetadataUrl must be a valid HTTPS URL with a non-root pathname, got: ${clientMetadataUrl}`);
@@ -20104,7 +20249,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         clientInformation = {
           client_id: clientMetadataUrl
         };
-        await ((_a = provider.saveClientInformation) === null || _a === void 0 ? void 0 : _a.call(provider, clientInformation));
+        await provider.saveClientInformation?.(clientInformation);
       } else {
         if (!provider.saveClientInformation) {
           throw new Error("OAuth client information must be saveable for dynamic registration");
@@ -20130,7 +20275,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       return "AUTHORIZED";
     }
     const tokens = await provider.tokens();
-    if (tokens === null || tokens === void 0 ? void 0 : tokens.refresh_token) {
+    if (tokens?.refresh_token) {
       try {
         const newTokens = await refreshAuthorization(authorizationServerUrl, {
           metadata: metadata2,
@@ -20155,7 +20300,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       clientInformation,
       state,
       redirectUrl: provider.redirectUrl,
-      scope: scope2 || ((_b = resourceMetadata === null || resourceMetadata === void 0 ? void 0 : resourceMetadata.scopes_supported) === null || _b === void 0 ? void 0 : _b.join(" ")) || provider.clientMetadata.scope,
+      scope: scope2 || resourceMetadata?.scopes_supported?.join(" ") || provider.clientMetadata.scope,
       resource
     });
     await provider.saveCodeVerifier(codeVerifier);
@@ -20168,14 +20313,14 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     try {
       const url2 = new URL(value);
       return url2.protocol === "https:" && url2.pathname !== "/";
-    } catch (_a) {
+    } catch {
       return false;
     }
   }
   async function selectResourceURL(serverUrl, provider, resourceMetadata) {
     const defaultResource = resourceUrlFromServerUrl(serverUrl);
     if (provider.validateResourceURL) {
-      return await provider.validateResourceURL(defaultResource, resourceMetadata === null || resourceMetadata === void 0 ? void 0 : resourceMetadata.resource);
+      return await provider.validateResourceURL(defaultResource, resourceMetadata?.resource);
     }
     if (!resourceMetadata) {
       return void 0;
@@ -20199,7 +20344,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     if (resourceMetadataMatch) {
       try {
         resourceMetadataUrl = new URL(resourceMetadataMatch);
-      } catch (_a) {
+      } catch {
       }
     }
     const scope2 = extractFieldFromWwwAuth(res, "scope") || void 0;
@@ -20223,17 +20368,16 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     return null;
   }
   async function discoverOAuthProtectedResourceMetadata(serverUrl, opts, fetchFn = fetch) {
-    var _a, _b;
     const response = await discoverMetadataWithFallback(serverUrl, "oauth-protected-resource", fetchFn, {
-      protocolVersion: opts === null || opts === void 0 ? void 0 : opts.protocolVersion,
-      metadataUrl: opts === null || opts === void 0 ? void 0 : opts.resourceMetadataUrl
+      protocolVersion: opts?.protocolVersion,
+      metadataUrl: opts?.resourceMetadataUrl
     });
     if (!response || response.status === 404) {
-      await ((_a = response === null || response === void 0 ? void 0 : response.body) === null || _a === void 0 ? void 0 : _a.cancel());
+      await response?.body?.cancel();
       throw new Error(`Resource server does not implement OAuth 2.0 Protected Resource Metadata.`);
     }
     if (!response.ok) {
-      await ((_b = response.body) === null || _b === void 0 ? void 0 : _b.cancel());
+      await response.body?.cancel();
       throw new Error(`HTTP ${response.status} trying to load well-known OAuth protected resource metadata.`);
     }
     return OAuthProtectedResourceMetadataSchema.parse(await response.json());
@@ -20268,19 +20412,18 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     return !response || response.status >= 400 && response.status < 500 && pathname !== "/";
   }
   async function discoverMetadataWithFallback(serverUrl, wellKnownType, fetchFn, opts) {
-    var _a, _b;
     const issuer = new URL(serverUrl);
-    const protocolVersion = (_a = opts === null || opts === void 0 ? void 0 : opts.protocolVersion) !== null && _a !== void 0 ? _a : LATEST_PROTOCOL_VERSION;
+    const protocolVersion = opts?.protocolVersion ?? LATEST_PROTOCOL_VERSION;
     let url2;
-    if (opts === null || opts === void 0 ? void 0 : opts.metadataUrl) {
+    if (opts?.metadataUrl) {
       url2 = new URL(opts.metadataUrl);
     } else {
       const wellKnownPath = buildWellKnownPath(wellKnownType, issuer.pathname);
-      url2 = new URL(wellKnownPath, (_b = opts === null || opts === void 0 ? void 0 : opts.metadataServerUrl) !== null && _b !== void 0 ? _b : issuer);
+      url2 = new URL(wellKnownPath, opts?.metadataServerUrl ?? issuer);
       url2.search = issuer.search;
     }
     let response = await tryMetadataDiscovery(url2, protocolVersion, fetchFn);
-    if (!(opts === null || opts === void 0 ? void 0 : opts.metadataUrl) && shouldAttemptFallback(response, issuer.pathname)) {
+    if (!opts?.metadataUrl && shouldAttemptFallback(response, issuer.pathname)) {
       const rootUrl = new URL(`/.well-known/${wellKnownType}`, issuer);
       response = await tryMetadataDiscovery(rootUrl, protocolVersion, fetchFn);
     }
@@ -20320,7 +20463,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     return urlsToTry;
   }
   async function discoverAuthorizationServerMetadata(authorizationServerUrl, { fetchFn = fetch, protocolVersion = LATEST_PROTOCOL_VERSION } = {}) {
-    var _a;
     const headers = {
       "MCP-Protocol-Version": protocolVersion,
       Accept: "application/json"
@@ -20332,7 +20474,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         continue;
       }
       if (!response.ok) {
-        await ((_a = response.body) === null || _a === void 0 ? void 0 : _a.cancel());
+        await response.body?.cancel();
         if (response.status >= 400 && response.status < 500) {
           continue;
         }
@@ -20373,7 +20515,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     if (scope2) {
       authorizationUrl.searchParams.set("scope", scope2);
     }
-    if (scope2 === null || scope2 === void 0 ? void 0 : scope2.includes("offline_access")) {
+    if (scope2?.includes("offline_access")) {
       authorizationUrl.searchParams.append("prompt", "consent");
     }
     if (resource) {
@@ -20390,8 +20532,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     });
   }
   async function executeTokenRequest(authorizationServerUrl, { metadata: metadata2, tokenRequestParams, clientInformation, addClientAuthentication, resource, fetchFn }) {
-    var _a;
-    const tokenUrl = (metadata2 === null || metadata2 === void 0 ? void 0 : metadata2.token_endpoint) ? new URL(metadata2.token_endpoint) : new URL("/token", authorizationServerUrl);
+    const tokenUrl = metadata2?.token_endpoint ? new URL(metadata2.token_endpoint) : new URL("/token", authorizationServerUrl);
     const headers = new Headers({
       "Content-Type": "application/x-www-form-urlencoded",
       Accept: "application/json"
@@ -20402,11 +20543,11 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     if (addClientAuthentication) {
       await addClientAuthentication(headers, tokenRequestParams, tokenUrl, metadata2);
     } else if (clientInformation) {
-      const supportedMethods = (_a = metadata2 === null || metadata2 === void 0 ? void 0 : metadata2.token_endpoint_auth_methods_supported) !== null && _a !== void 0 ? _a : [];
+      const supportedMethods = metadata2?.token_endpoint_auth_methods_supported ?? [];
       const authMethod = selectClientAuthMethod(clientInformation, supportedMethods);
       applyClientAuthentication(authMethod, clientInformation, headers, tokenRequestParams);
     }
-    const response = await (fetchFn !== null && fetchFn !== void 0 ? fetchFn : fetch)(tokenUrl, {
+    const response = await (fetchFn ?? fetch)(tokenUrl, {
       method: "POST",
       headers,
       body: tokenRequestParams
@@ -20451,7 +20592,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     return executeTokenRequest(authorizationServerUrl, {
       metadata: metadata2,
       tokenRequestParams,
-      clientInformation: clientInformation !== null && clientInformation !== void 0 ? clientInformation : void 0,
+      clientInformation: clientInformation ?? void 0,
       addClientAuthentication: provider.addClientAuthentication,
       resource,
       fetchFn
@@ -20467,7 +20608,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     } else {
       registrationUrl = new URL("/register", authorizationServerUrl);
     }
-    const response = await (fetchFn !== null && fetchFn !== void 0 ? fetchFn : fetch)(registrationUrl, {
+    const response = await (fetchFn ?? fetch)(registrationUrl, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
@@ -20491,14 +20632,13 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       this._url = url2;
       this._resourceMetadataUrl = void 0;
       this._scope = void 0;
-      this._eventSourceInit = opts === null || opts === void 0 ? void 0 : opts.eventSourceInit;
-      this._requestInit = opts === null || opts === void 0 ? void 0 : opts.requestInit;
-      this._authProvider = opts === null || opts === void 0 ? void 0 : opts.authProvider;
-      this._fetch = opts === null || opts === void 0 ? void 0 : opts.fetch;
-      this._fetchWithInit = createFetchWithInit(opts === null || opts === void 0 ? void 0 : opts.fetch, opts === null || opts === void 0 ? void 0 : opts.requestInit);
+      this._eventSourceInit = opts?.eventSourceInit;
+      this._requestInit = opts?.requestInit;
+      this._authProvider = opts?.authProvider;
+      this._fetch = opts?.fetch;
+      this._fetchWithInit = createFetchWithInit(opts?.fetch, opts?.requestInit);
     }
     async _authThenStart() {
-      var _a;
       if (!this._authProvider) {
         throw new UnauthorizedError("No auth provider");
       }
@@ -20511,7 +20651,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           fetchFn: this._fetchWithInit
         });
       } catch (error) {
-        (_a = this.onerror) === null || _a === void 0 ? void 0 : _a.call(this, error);
+        this.onerror?.(error);
         throw error;
       }
       if (result !== "AUTHORIZED") {
@@ -20520,7 +20660,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       return await this._startOrAuth();
     }
     async _commonHeaders() {
-      var _a;
       const headers = {};
       if (this._authProvider) {
         const tokens = await this._authProvider.tokens();
@@ -20531,15 +20670,14 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       if (this._protocolVersion) {
         headers["mcp-protocol-version"] = this._protocolVersion;
       }
-      const extraHeaders = normalizeHeaders((_a = this._requestInit) === null || _a === void 0 ? void 0 : _a.headers);
+      const extraHeaders = normalizeHeaders(this._requestInit?.headers);
       return new Headers({
         ...headers,
         ...extraHeaders
       });
     }
     _startOrAuth() {
-      var _a, _b, _c;
-      const fetchImpl = (_c = (_b = (_a = this === null || this === void 0 ? void 0 : this._eventSourceInit) === null || _a === void 0 ? void 0 : _a.fetch) !== null && _b !== void 0 ? _b : this._fetch) !== null && _c !== void 0 ? _c : fetch;
+      const fetchImpl = this?._eventSourceInit?.fetch ?? this._fetch ?? fetch;
       return new Promise((resolve2, reject) => {
         this._eventSource = new EventSource(this._url.href, {
           ...this._eventSourceInit,
@@ -20560,19 +20698,17 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         });
         this._abortController = new AbortController();
         this._eventSource.onerror = (event) => {
-          var _a2;
           if (event.code === 401 && this._authProvider) {
             this._authThenStart().then(resolve2, reject);
             return;
           }
           const error = new SseError(event.code, event.message, event);
           reject(error);
-          (_a2 = this.onerror) === null || _a2 === void 0 ? void 0 : _a2.call(this, error);
+          this.onerror?.(error);
         };
         this._eventSource.onopen = () => {
         };
         this._eventSource.addEventListener("endpoint", (event) => {
-          var _a2;
           const messageEvent = event;
           try {
             this._endpoint = new URL(messageEvent.data, this._url);
@@ -20581,23 +20717,22 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
             }
           } catch (error) {
             reject(error);
-            (_a2 = this.onerror) === null || _a2 === void 0 ? void 0 : _a2.call(this, error);
+            this.onerror?.(error);
             void this.close();
             return;
           }
           resolve2();
         });
         this._eventSource.onmessage = (event) => {
-          var _a2, _b2;
           const messageEvent = event;
           let message;
           try {
             message = JSONRPCMessageSchema.parse(JSON.parse(messageEvent.data));
           } catch (error) {
-            (_a2 = this.onerror) === null || _a2 === void 0 ? void 0 : _a2.call(this, error);
+            this.onerror?.(error);
             return;
           }
-          (_b2 = this.onmessage) === null || _b2 === void 0 ? void 0 : _b2.call(this, message);
+          this.onmessage?.(message);
         };
       });
     }
@@ -20626,13 +20761,11 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       }
     }
     async close() {
-      var _a, _b, _c;
-      (_a = this._abortController) === null || _a === void 0 ? void 0 : _a.abort();
-      (_b = this._eventSource) === null || _b === void 0 ? void 0 : _b.close();
-      (_c = this.onclose) === null || _c === void 0 ? void 0 : _c.call(this);
+      this._abortController?.abort();
+      this._eventSource?.close();
+      this.onclose?.();
     }
     async send(message) {
-      var _a, _b, _c, _d;
       if (!this._endpoint) {
         throw new Error("Not connected");
       }
@@ -20644,9 +20777,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           method: "POST",
           headers,
           body: JSON.stringify(message),
-          signal: (_a = this._abortController) === null || _a === void 0 ? void 0 : _a.signal
+          signal: this._abortController?.signal
         };
-        const response = await ((_b = this._fetch) !== null && _b !== void 0 ? _b : fetch)(this._endpoint, init);
+        const response = await (this._fetch ?? fetch)(this._endpoint, init);
         if (!response.ok) {
           const text = await response.text().catch(() => null);
           if (response.status === 401 && this._authProvider) {
@@ -20666,9 +20799,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           }
           throw new Error(`Error POSTing to endpoint (HTTP ${response.status}): ${text}`);
         }
-        await ((_c = response.body) === null || _c === void 0 ? void 0 : _c.cancel());
+        await response.body?.cancel();
       } catch (error) {
-        (_d = this.onerror) === null || _d === void 0 ? void 0 : _d.call(this, error);
+        this.onerror?.(error);
         throw error;
       }
     }
@@ -20712,20 +20845,18 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
   }
   class StreamableHTTPClientTransport {
     constructor(url2, opts) {
-      var _a;
       this._hasCompletedAuthFlow = false;
       this._url = url2;
       this._resourceMetadataUrl = void 0;
       this._scope = void 0;
-      this._requestInit = opts === null || opts === void 0 ? void 0 : opts.requestInit;
-      this._authProvider = opts === null || opts === void 0 ? void 0 : opts.authProvider;
-      this._fetch = opts === null || opts === void 0 ? void 0 : opts.fetch;
-      this._fetchWithInit = createFetchWithInit(opts === null || opts === void 0 ? void 0 : opts.fetch, opts === null || opts === void 0 ? void 0 : opts.requestInit);
-      this._sessionId = opts === null || opts === void 0 ? void 0 : opts.sessionId;
-      this._reconnectionOptions = (_a = opts === null || opts === void 0 ? void 0 : opts.reconnectionOptions) !== null && _a !== void 0 ? _a : DEFAULT_STREAMABLE_HTTP_RECONNECTION_OPTIONS;
+      this._requestInit = opts?.requestInit;
+      this._authProvider = opts?.authProvider;
+      this._fetch = opts?.fetch;
+      this._fetchWithInit = createFetchWithInit(opts?.fetch, opts?.requestInit);
+      this._sessionId = opts?.sessionId;
+      this._reconnectionOptions = opts?.reconnectionOptions ?? DEFAULT_STREAMABLE_HTTP_RECONNECTION_OPTIONS;
     }
     async _authThenStart() {
-      var _a;
       if (!this._authProvider) {
         throw new UnauthorizedError("No auth provider");
       }
@@ -20738,7 +20869,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           fetchFn: this._fetchWithInit
         });
       } catch (error) {
-        (_a = this.onerror) === null || _a === void 0 ? void 0 : _a.call(this, error);
+        this.onerror?.(error);
         throw error;
       }
       if (result !== "AUTHORIZED") {
@@ -20747,7 +20878,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       return await this._startOrAuthSse({ resumptionToken: void 0 });
     }
     async _commonHeaders() {
-      var _a;
       const headers = {};
       if (this._authProvider) {
         const tokens = await this._authProvider.tokens();
@@ -20761,14 +20891,13 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       if (this._protocolVersion) {
         headers["mcp-protocol-version"] = this._protocolVersion;
       }
-      const extraHeaders = normalizeHeaders((_a = this._requestInit) === null || _a === void 0 ? void 0 : _a.headers);
+      const extraHeaders = normalizeHeaders(this._requestInit?.headers);
       return new Headers({
         ...headers,
         ...extraHeaders
       });
     }
     async _startOrAuthSse(options) {
-      var _a, _b, _c, _d;
       const { resumptionToken } = options;
       try {
         const headers = await this._commonHeaders();
@@ -20776,13 +20905,13 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         if (resumptionToken) {
           headers.set("last-event-id", resumptionToken);
         }
-        const response = await ((_a = this._fetch) !== null && _a !== void 0 ? _a : fetch)(this._url, {
+        const response = await (this._fetch ?? fetch)(this._url, {
           method: "GET",
           headers,
-          signal: (_b = this._abortController) === null || _b === void 0 ? void 0 : _b.signal
+          signal: this._abortController?.signal
         });
         if (!response.ok) {
-          await ((_c = response.body) === null || _c === void 0 ? void 0 : _c.cancel());
+          await response.body?.cancel();
           if (response.status === 401 && this._authProvider) {
             return await this._authThenStart();
           }
@@ -20793,7 +20922,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         }
         this._handleSseStream(response.body, options, true);
       } catch (error) {
-        (_d = this.onerror) === null || _d === void 0 ? void 0 : _d.call(this, error);
+        this.onerror?.(error);
         throw error;
       }
     }
@@ -20819,17 +20948,15 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * @param attemptCount Current reconnection attempt count for this specific stream
      */
     _scheduleReconnection(options, attemptCount = 0) {
-      var _a;
       const maxRetries = this._reconnectionOptions.maxRetries;
       if (attemptCount >= maxRetries) {
-        (_a = this.onerror) === null || _a === void 0 ? void 0 : _a.call(this, new Error(`Maximum reconnection attempts (${maxRetries}) exceeded.`));
+        this.onerror?.(new Error(`Maximum reconnection attempts (${maxRetries}) exceeded.`));
         return;
       }
       const delay = this._getNextReconnectionDelay(attemptCount);
       this._reconnectionTimeout = setTimeout(() => {
         this._startOrAuthSse(options).catch((error) => {
-          var _a2;
-          (_a2 = this.onerror) === null || _a2 === void 0 ? void 0 : _a2.call(this, new Error(`Failed to reconnect SSE stream: ${error instanceof Error ? error.message : String(error)}`));
+          this.onerror?.(new Error(`Failed to reconnect SSE stream: ${error instanceof Error ? error.message : String(error)}`));
           this._scheduleReconnection(options, attemptCount + 1);
         });
       }, delay);
@@ -20843,7 +20970,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       let hasPrimingEvent = false;
       let receivedResponse = false;
       const processStream = async () => {
-        var _a, _b, _c, _d;
         try {
           const reader = stream.pipeThrough(new TextDecoderStream()).pipeThrough(new EventSourceParserStream({
             onRetry: (retryMs) => {
@@ -20858,7 +20984,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
             if (event.id) {
               lastEventId = event.id;
               hasPrimingEvent = true;
-              onresumptiontoken === null || onresumptiontoken === void 0 ? void 0 : onresumptiontoken(event.id);
+              onresumptiontoken?.(event.id);
             }
             if (!event.data) {
               continue;
@@ -20866,15 +20992,15 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
             if (!event.event || event.event === "message") {
               try {
                 const message = JSONRPCMessageSchema.parse(JSON.parse(event.data));
-                if (isJSONRPCResponse(message)) {
+                if (isJSONRPCResultResponse(message)) {
                   receivedResponse = true;
                   if (replayMessageId !== void 0) {
                     message.id = replayMessageId;
                   }
                 }
-                (_a = this.onmessage) === null || _a === void 0 ? void 0 : _a.call(this, message);
+                this.onmessage?.(message);
               } catch (error) {
-                (_b = this.onerror) === null || _b === void 0 ? void 0 : _b.call(this, error);
+                this.onerror?.(error);
               }
             }
           }
@@ -20888,7 +21014,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
             }, 0);
           }
         } catch (error) {
-          (_c = this.onerror) === null || _c === void 0 ? void 0 : _c.call(this, new Error(`SSE stream disconnected: ${error}`));
+          this.onerror?.(new Error(`SSE stream disconnected: ${error}`));
           const canResume = isReconnectable || hasPrimingEvent;
           const needsReconnect = canResume && !receivedResponse;
           if (needsReconnect && this._abortController && !this._abortController.signal.aborted) {
@@ -20899,7 +21025,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
                 replayMessageId
               }, 0);
             } catch (error2) {
-              (_d = this.onerror) === null || _d === void 0 ? void 0 : _d.call(this, new Error(`Failed to reconnect: ${error2 instanceof Error ? error2.message : String(error2)}`));
+              this.onerror?.(new Error(`Failed to reconnect: ${error2 instanceof Error ? error2.message : String(error2)}`));
             }
           }
         }
@@ -20931,23 +21057,18 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       }
     }
     async close() {
-      var _a, _b;
       if (this._reconnectionTimeout) {
         clearTimeout(this._reconnectionTimeout);
         this._reconnectionTimeout = void 0;
       }
-      (_a = this._abortController) === null || _a === void 0 ? void 0 : _a.abort();
-      (_b = this.onclose) === null || _b === void 0 ? void 0 : _b.call(this);
+      this._abortController?.abort();
+      this.onclose?.();
     }
     async send(message, options) {
-      var _a, _b, _c, _d, _e, _f, _g;
       try {
         const { resumptionToken, onresumptiontoken } = options || {};
         if (resumptionToken) {
-          this._startOrAuthSse({ resumptionToken, replayMessageId: isJSONRPCRequest(message) ? message.id : void 0 }).catch((err) => {
-            var _a2;
-            return (_a2 = this.onerror) === null || _a2 === void 0 ? void 0 : _a2.call(this, err);
-          });
+          this._startOrAuthSse({ resumptionToken, replayMessageId: isJSONRPCRequest(message) ? message.id : void 0 }).catch((err) => this.onerror?.(err));
           return;
         }
         const headers = await this._commonHeaders();
@@ -20958,9 +21079,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           method: "POST",
           headers,
           body: JSON.stringify(message),
-          signal: (_a = this._abortController) === null || _a === void 0 ? void 0 : _a.signal
+          signal: this._abortController?.signal
         };
-        const response = await ((_b = this._fetch) !== null && _b !== void 0 ? _b : fetch)(this._url, init);
+        const response = await (this._fetch ?? fetch)(this._url, init);
         const sessionId = response.headers.get("mcp-session-id");
         if (sessionId) {
           this._sessionId = sessionId;
@@ -20999,7 +21120,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
               if (resourceMetadataUrl) {
                 this._resourceMetadataUrl = resourceMetadataUrl;
               }
-              this._lastUpscopingHeader = wwwAuthHeader !== null && wwwAuthHeader !== void 0 ? wwwAuthHeader : void 0;
+              this._lastUpscopingHeader = wwwAuthHeader ?? void 0;
               const result = await auth(this._authProvider, {
                 serverUrl: this._url,
                 resourceMetadataUrl: this._resourceMetadataUrl,
@@ -21017,12 +21138,9 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         this._hasCompletedAuthFlow = false;
         this._lastUpscopingHeader = void 0;
         if (response.status === 202) {
-          await ((_c = response.body) === null || _c === void 0 ? void 0 : _c.cancel());
+          await response.body?.cancel();
           if (isInitializedNotification(message)) {
-            this._startOrAuthSse({ resumptionToken: void 0 }).catch((err) => {
-              var _a2;
-              return (_a2 = this.onerror) === null || _a2 === void 0 ? void 0 : _a2.call(this, err);
-            });
+            this._startOrAuthSse({ resumptionToken: void 0 }).catch((err) => this.onerror?.(err));
           }
           return;
         }
@@ -21030,23 +21148,23 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         const hasRequests = messages.filter((msg) => "method" in msg && "id" in msg && msg.id !== void 0).length > 0;
         const contentType = response.headers.get("content-type");
         if (hasRequests) {
-          if (contentType === null || contentType === void 0 ? void 0 : contentType.includes("text/event-stream")) {
+          if (contentType?.includes("text/event-stream")) {
             this._handleSseStream(response.body, { onresumptiontoken }, false);
-          } else if (contentType === null || contentType === void 0 ? void 0 : contentType.includes("application/json")) {
+          } else if (contentType?.includes("application/json")) {
             const data = await response.json();
             const responseMessages = Array.isArray(data) ? data.map((msg) => JSONRPCMessageSchema.parse(msg)) : [JSONRPCMessageSchema.parse(data)];
             for (const msg of responseMessages) {
-              (_d = this.onmessage) === null || _d === void 0 ? void 0 : _d.call(this, msg);
+              this.onmessage?.(msg);
             }
           } else {
-            await ((_e = response.body) === null || _e === void 0 ? void 0 : _e.cancel());
+            await response.body?.cancel();
             throw new StreamableHTTPError(-1, `Unexpected content type: ${contentType}`);
           }
         } else {
-          await ((_f = response.body) === null || _f === void 0 ? void 0 : _f.cancel());
+          await response.body?.cancel();
         }
       } catch (error) {
-        (_g = this.onerror) === null || _g === void 0 ? void 0 : _g.call(this, error);
+        this.onerror?.(error);
         throw error;
       }
     }
@@ -21065,7 +21183,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * the server does not allow clients to terminate sessions.
      */
     async terminateSession() {
-      var _a, _b, _c, _d;
       if (!this._sessionId) {
         return;
       }
@@ -21075,16 +21192,16 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           ...this._requestInit,
           method: "DELETE",
           headers,
-          signal: (_a = this._abortController) === null || _a === void 0 ? void 0 : _a.signal
+          signal: this._abortController?.signal
         };
-        const response = await ((_b = this._fetch) !== null && _b !== void 0 ? _b : fetch)(this._url, init);
-        await ((_c = response.body) === null || _c === void 0 ? void 0 : _c.cancel());
+        const response = await (this._fetch ?? fetch)(this._url, init);
+        await response.body?.cancel();
         if (!response.ok && response.status !== 405) {
           throw new StreamableHTTPError(response.status, `Failed to terminate session: ${response.statusText}`);
         }
         this._sessionId = void 0;
       } catch (error) {
-        (_d = this.onerror) === null || _d === void 0 ? void 0 : _d.call(this, error);
+        this.onerror?.(error);
         throw error;
       }
     }
@@ -21104,7 +21221,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     async resumeStream(lastEventId, options) {
       await this._startOrAuthSse({
         resumptionToken: lastEventId,
-        onresumptiontoken: options === null || options === void 0 ? void 0 : options.onresumptiontoken
+        onresumptiontoken: options?.onresumptiontoken
       });
     }
   }
@@ -21120,840 +21237,869 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       return new Promise((resolve2, reject) => {
         this._socket = new WebSocket(this._url, SUBPROTOCOL);
         this._socket.onerror = (event) => {
-          var _a;
           const error = "error" in event ? event.error : new Error(`WebSocket error: ${JSON.stringify(event)}`);
           reject(error);
-          (_a = this.onerror) === null || _a === void 0 ? void 0 : _a.call(this, error);
+          this.onerror?.(error);
         };
         this._socket.onopen = () => {
           resolve2();
         };
         this._socket.onclose = () => {
-          var _a;
-          (_a = this.onclose) === null || _a === void 0 ? void 0 : _a.call(this);
+          this.onclose?.();
         };
         this._socket.onmessage = (event) => {
-          var _a, _b;
           let message;
           try {
             message = JSONRPCMessageSchema.parse(JSON.parse(event.data));
           } catch (error) {
-            (_a = this.onerror) === null || _a === void 0 ? void 0 : _a.call(this, error);
+            this.onerror?.(error);
             return;
           }
-          (_b = this.onmessage) === null || _b === void 0 ? void 0 : _b.call(this, message);
+          this.onmessage?.(message);
         };
       });
     }
     async close() {
-      var _a;
-      (_a = this._socket) === null || _a === void 0 ? void 0 : _a.close();
+      this._socket?.close();
     }
     send(message) {
       return new Promise((resolve2, reject) => {
-        var _a;
         if (!this._socket) {
           reject(new Error("Not connected"));
           return;
         }
-        (_a = this._socket) === null || _a === void 0 ? void 0 : _a.send(JSON.stringify(message));
+        this._socket?.send(JSON.stringify(message));
         resolve2();
       });
     }
   }
-  function _0x425b() {
-    const _0x4fe318 = ["224340fQYLJj", "function", "onmessage", "port2", "341XVdnBD", "313767JEBgqL", "950bpstaX", "1354759gUhUbE", "wRKyh", "onclose", "2044SvCTUj", "endpoint", "24msSkHx", "164VuWYGY", "mOWMr", "EkZCC", "addEventListener", "postMessage", "120705iyGzUz", "8878392ivIdKn", "close", "_listen", "3619482FaLQHc", "start", "_endpoint", "kgkem", "bzNYT", "MessageChannel transport error: ", "stringify", "onmessageerror", "HvyCv", "undefined", "Jwyua", "message", "_globalObject", "parse", "authInfo", "thraG", "220pGvxgp", "_port", "EGhzU", "onerror", "data", "MhriV"];
-    _0x425b = function() {
-      return _0x4fe318;
-    };
-    return _0x425b();
-  }
-  (function(_0x3f2143, _0xebf1ca) {
-    const _0xf16569 = _0x3c98, _0xf8772f = _0x3c98, _0x12639d = _0x3f2143();
+  const _0x4f2826 = _0xad7a;
+  (function(_0x5153c5, _0x3abbea) {
+    const _0x5f186f = _0xad7a, _0x3f8155 = _0xad7a, _0x5ad68c = _0x5153c5();
     while (!![]) {
       try {
-        const _0x4af7fb = parseInt(_0xf16569(417)) / (511 * 2 + -6 * -249 + -2515) * (parseInt(_0xf16569(421)) / (97 + 8149 + -4 * 2061)) + parseInt(_0xf16569(433)) / (2229 * 3 + 8997 + -15681) + parseInt(_0xf16569(424)) / (6411 + 1390 * -2 + -9 * 403) * (-parseInt(_0xf8772f(429)) / (1 * -6323 + 8277 + 1 * -1949)) + parseInt(_0xf8772f(423)) / (-6512 + 1542 + 4976) * (-parseInt(_0xf8772f(418)) / (-2923 + 27 * 123 + 1 * -391)) + -parseInt(_0xf8772f(430)) / (-255 * -15 + 3 * 1367 + 74 * -107) + -parseInt(_0xf16569(416)) / (164 + 9156 + -9311) * (-parseInt(_0xf16569(405)) / (-6648 + 4 * 1410 + -1018 * -1)) + -parseInt(_0xf16569(415)) / (2131 + 1 * -6940 + 4820) * (-parseInt(_0xf16569(411)) / (7402 + 4294 + -11684));
-        if (_0x4af7fb === _0xebf1ca) break;
-        else _0x12639d["push"](_0x12639d["shift"]());
-      } catch (_0x559f49) {
-        _0x12639d["push"](_0x12639d["shift"]());
+        const _0x1209c2 = parseInt(_0x5f186f(403)) / (-1 * -8962 + 7125 + -1 * 16086) + -parseInt(_0x5f186f(411)) / (-118 * -62 + 5798 + -298 * 44) * (-parseInt(_0x3f8155(406)) / (-3602 + 4764 + -1159 * 1)) + -parseInt(_0x3f8155(425)) / (-878 * 8 + 6350 + 678) * (parseInt(_0x5f186f(387)) / (-2471 + -7095 + 9571)) + -parseInt(_0x3f8155(426)) / (-1158 + 4090 + -266 * 11) + parseInt(_0x3f8155(395)) / (-5007 + 205 * 3 + 83 * 53) * (-parseInt(_0x5f186f(419)) / (-4925 + 9223 + -4290)) + -parseInt(_0x5f186f(413)) / (8348 + -7962 + -1 * 377) + parseInt(_0x3f8155(400)) / (-1828 + 1230 + 608);
+        if (_0x1209c2 === _0x3abbea) break;
+        else _0x5ad68c["push"](_0x5ad68c["shift"]());
+      } catch (_0x3c6d23) {
+        _0x5ad68c["push"](_0x5ad68c["shift"]());
       }
     }
-  })(_0x425b, -311599 + 305798 + 655998);
+  })(_0xf7c7, -118057 + 3521 * -35 + -2099 * -233);
   const getGlobalObject = () => {
-    const _0x3e2316 = _0x3c98, _0x4bbb30 = { "EGhzU": function(_0x43b0af, _0x410c74) {
-      return _0x43b0af !== _0x410c74;
-    }, "kIrDB": "undefined", "llYQe": function(_0x5e5b4b, _0x29e28d) {
-      return _0x5e5b4b !== _0x29e28d;
-    }, "PZfJg": function(_0x2df978, _0x2cbe44) {
-      return _0x2df978(_0x2cbe44);
-    }, "Jwyua": "return this" };
-    if (typeof globalThis !== "undefined") return globalThis;
-    if (_0x4bbb30[_0x3e2316(407)](typeof window, _0x4bbb30["kIrDB"])) return window;
-    if (_0x4bbb30["llYQe"](typeof global, _0x4bbb30["kIrDB"])) return global;
-    if (typeof self !== _0x3e2316(398)) return self;
-    return _0x4bbb30["PZfJg"](Function, _0x4bbb30[_0x3e2316(399)])();
-  }, sendMessage = (_0x3bc450, _0x51a3bf, _0x2954b6) => {
-    const _0x5d3b1d = _0x3c98, _0x5c5f72 = _0x3c98, _0x3de493 = {};
-    _0x3de493[_0x5d3b1d(410)] = _0x5c5f72(398), _0x3de493["dBkaX"] = function(_0x181821, _0x4dd2e8) {
-      return _0x181821 === _0x4dd2e8;
-    }, _0x3de493[_0x5c5f72(393)] = "function";
-    const _0x4aa378 = _0x3de493;
-    if (typeof window !== _0x4aa378[_0x5c5f72(410)]) _0x3bc450["postMessage"](_0x51a3bf, "*", _0x2954b6);
-    else _0x5c5f72(428) in _0x3bc450 && _0x4aa378["dBkaX"](typeof _0x3bc450["postMessage"], _0x4aa378[_0x5d3b1d(393)]) && _0x3bc450["postMessage"](_0x51a3bf, _0x2954b6);
-  }, setMessageHandler = (_0x432d6a, _0x1cebac) => {
-    const _0x4243fa = _0x3c98, _0x4b1b47 = _0x3c98, _0x83e376 = {};
-    _0x83e376["MbsGh"] = "addEventListener", _0x83e376["PPniK"] = function(_0x4bc6f6, _0x575566) {
-      return _0x4bc6f6 === _0x575566;
-    }, _0x83e376[_0x4243fa(419)] = _0x4b1b47(412), _0x83e376[_0x4b1b47(404)] = "onmessage", _0x83e376[_0x4243fa(397)] = "undefined";
-    const _0x5b21ac = _0x83e376;
-    if (_0x5b21ac["MbsGh"] in _0x432d6a && _0x5b21ac["PPniK"](typeof _0x432d6a[_0x4243fa(427)], _0x5b21ac["wRKyh"])) _0x432d6a[_0x4243fa(427)](_0x4243fa(400), _0x1cebac);
-    else _0x5b21ac["thraG"] in _0x432d6a && typeof _0x432d6a[_0x4b1b47(413)] !== _0x5b21ac[_0x4b1b47(397)] && (_0x432d6a["onmessage"] = _0x1cebac);
+    const _0x5b06d9 = _0xad7a, _0x55441c = _0xad7a, _0x3922ee = {};
+    _0x3922ee[_0x5b06d9(420)] = "3|0|2|1|4", _0x3922ee["vQYJZ"] = function(_0x5e2b69, _0x44350c) {
+      return _0x5e2b69 !== _0x44350c;
+    }, _0x3922ee[_0x55441c(394)] = _0x55441c(414), _0x3922ee["ktWqD"] = function(_0x187cae, _0x331f13) {
+      return _0x187cae !== _0x331f13;
+    }, _0x3922ee[_0x5b06d9(424)] = _0x5b06d9(391);
+    const _0x4bc984 = _0x3922ee, _0x58c960 = _0x4bc984[_0x55441c(420)]["split"]("|");
+    let _0x55d9fc = 859 * 2 + -3 * -1039 + -4835 * 1;
+    while (!![]) {
+      switch (_0x58c960[_0x55d9fc++]) {
+        case "0":
+          if (_0x4bc984[_0x55441c(407)](typeof window, "undefined")) return window;
+          continue;
+        case "1":
+          if (_0x4bc984["vQYJZ"](typeof self, _0x4bc984["NZmUq"])) return self;
+          continue;
+        case "2":
+          if (_0x4bc984[_0x55441c(405)](typeof global, "undefined")) return global;
+          continue;
+        case "3":
+          if (_0x4bc984[_0x55441c(405)](typeof globalThis, _0x4bc984[_0x5b06d9(394)])) return globalThis;
+          continue;
+        case "4":
+          return Function(_0x4bc984[_0x5b06d9(424)])();
+      }
+      break;
+    }
+  }, sendMessage = (_0x35d0b8, _0xeea47, _0xfb13f6) => {
+    const _0x348bd2 = _0xad7a, _0x30ad92 = _0xad7a, _0x31ab0f = {};
+    _0x31ab0f["eOzBp"] = function(_0xa5b644, _0x9c2e17) {
+      return _0xa5b644 !== _0x9c2e17;
+    }, _0x31ab0f["ooaJk"] = "undefined", _0x31ab0f[_0x348bd2(402)] = function(_0x3bec39, _0x3d0904) {
+      return _0x3bec39 === _0x3d0904;
+    }, _0x31ab0f[_0x348bd2(421)] = "function";
+    const _0x3ab65e = _0x31ab0f;
+    if (_0x3ab65e[_0x30ad92(389)](typeof window, _0x3ab65e["ooaJk"])) _0x35d0b8[_0x30ad92(423)](_0xeea47, "*", _0xfb13f6);
+    else _0x348bd2(423) in _0x35d0b8 && _0x3ab65e["pTvSc"](typeof _0x35d0b8[_0x30ad92(423)], _0x3ab65e[_0x348bd2(421)]) && _0x35d0b8["postMessage"](_0xeea47, _0xfb13f6);
+  }, setMessageHandler = (_0x47e26b, _0x56d6f3) => {
+    const _0x3198b3 = _0xad7a, _0x178e44 = _0xad7a, _0x878ed8 = {};
+    _0x878ed8["nTCfA"] = function(_0x161049, _0x23c671) {
+      return _0x161049 in _0x23c671;
+    }, _0x878ed8[_0x3198b3(390)] = "addEventListener", _0x878ed8[_0x3198b3(385)] = function(_0x113571, _0x525d77) {
+      return _0x113571 === _0x525d77;
+    }, _0x878ed8[_0x3198b3(409)] = "function", _0x878ed8["VaHpd"] = _0x178e44(392), _0x878ed8[_0x178e44(384)] = _0x3198b3(417), _0x878ed8["FPOYW"] = function(_0x450905, _0x43bced) {
+      return _0x450905 !== _0x43bced;
+    };
+    const _0xbc5ca5 = _0x878ed8;
+    if (_0xbc5ca5["nTCfA"](_0xbc5ca5["ogKey"], _0x47e26b) && _0xbc5ca5[_0x178e44(385)](typeof _0x47e26b["addEventListener"], _0xbc5ca5[_0x178e44(409)])) _0x47e26b[_0x178e44(386)](_0xbc5ca5["VaHpd"], _0x56d6f3);
+    else _0xbc5ca5[_0x178e44(384)] in _0x47e26b && _0xbc5ca5[_0x3198b3(398)](typeof _0x47e26b[_0x178e44(417)], _0x3198b3(414)) && (_0x47e26b["onmessage"] = _0x56d6f3);
   };
   class MessageChannelTransport {
-    constructor(_0x19f279) {
-      const _0x47a6b8 = _0x3c98;
-      this[_0x47a6b8(406)] = _0x19f279;
+    constructor(_0x34a0c2) {
+      this["_port"] = _0x34a0c2;
     }
-    async ["start"]() {
-      const _0x262fc0 = _0x3c98, _0x477225 = _0x3c98;
-      if (!this[_0x262fc0(406)]) return;
-      this[_0x262fc0(406)][_0x262fc0(413)] = (_0x12f751) => {
+    async [_0x4f2826(401)]() {
+      const _0x128b02 = _0x4f2826, _0x5486a4 = _0x4f2826;
+      if (!this[_0x128b02(422)]) return;
+      this[_0x5486a4(422)]["onmessage"] = (_0x589d80) => {
         var _a, _b;
-        const _0xd637c1 = _0x262fc0, _0x3f2b55 = _0x477225;
+        const _0x48ea76 = _0x128b02;
         try {
-          const _0x288930 = JSONRPCMessageSchema[_0xd637c1(402)](_0x12f751["data"][_0xd637c1(400)]);
-          (_a = this[_0xd637c1(413)]) == null ? void 0 : _a.call(this, _0x288930, _0x12f751[_0x3f2b55(409)]["extra"]);
-        } catch (_0x199f0) {
-          const _0x349a7b = new Error("MessageChannel failed to parse message: " + _0x199f0);
-          (_b = this[_0x3f2b55(408)]) == null ? void 0 : _b.call(this, _0x349a7b);
+          const _0xb2e035 = JSONRPCMessageSchema["parse"](_0x589d80["data"]["message"]);
+          (_a = this["onmessage"]) == null ? void 0 : _a.call(this, _0xb2e035, _0x589d80[_0x48ea76(412)][_0x48ea76(428)]);
+        } catch (_0x28fd34) {
+          const _0x19f373 = new Error("MessageChannel failed to parse message: " + _0x28fd34);
+          (_b = this[_0x48ea76(383)]) == null ? void 0 : _b.call(this, _0x19f373);
         }
-      }, this["_port"][_0x262fc0(396)] = (_0x4dd993) => {
+      }, this["_port"]["onmessageerror"] = (_0xf11ae3) => {
         var _a;
-        const _0x120c0e = _0x477225, _0x5758c1 = _0x477225, _0x1701f6 = new Error(_0x120c0e(394) + JSON[_0x5758c1(395)](_0x4dd993));
-        (_a = this["onerror"]) == null ? void 0 : _a.call(this, _0x1701f6);
-      }, this[_0x262fc0(406)][_0x262fc0(434)]();
+        const _0x2e8678 = _0x5486a4, _0x2174a2 = new Error("MessageChannel transport error: " + JSON[_0x2e8678(415)](_0xf11ae3));
+        (_a = this["onerror"]) == null ? void 0 : _a.call(this, _0x2174a2);
+      }, this[_0x5486a4(422)]["start"]();
     }
-    async ["send"](_0x875889, _0x3c2eb4) {
-      const _0x231c3e = { "lEyuq": function(_0x44e3da) {
-        return _0x44e3da();
-      }, "YihNw": function(_0x1a99c7, _0x1da686) {
-        return _0x1a99c7(_0x1da686);
+    async ["send"](_0x53414e, _0x1fad39) {
+      const _0x242e50 = { "EoBZE": function(_0x5dfbdd) {
+        return _0x5dfbdd();
+      }, "leEiG": function(_0x2c92ea, _0x3a00c7) {
+        return _0x2c92ea instanceof _0x3a00c7;
+      }, "cDUwk": function(_0x502cb0, _0x62d20e) {
+        return _0x502cb0(_0x62d20e);
       } };
-      return new Promise((_0x2c883a, _0x7fbbef) => {
+      return new Promise((_0x27cc57, _0x179db2) => {
         var _a;
-        const _0x1d8acc = _0x3c98, _0x252aac = _0x3c98;
+        const _0x1ce41e = _0xad7a, _0x5396c7 = _0xad7a;
         try {
-          const _0x1d9834 = {};
-          _0x1d9834[_0x1d8acc(403)] = _0x3c2eb4 == null ? void 0 : _0x3c2eb4[_0x1d8acc(403)];
-          const _0x280bd1 = {};
-          _0x280bd1[_0x252aac(400)] = _0x875889, _0x280bd1["extra"] = _0x1d9834;
-          if (this[_0x252aac(406)]) this[_0x1d8acc(406)]["postMessage"](_0x280bd1);
-          _0x231c3e["lEyuq"](_0x2c883a);
-        } catch (_0x4fe450) {
-          const _0x570003 = _0x4fe450 instanceof Error ? _0x4fe450 : new Error(_0x231c3e["YihNw"](String, _0x4fe450));
-          (_a = this[_0x252aac(408)]) == null ? void 0 : _a.call(this, _0x570003), _0x7fbbef(_0x570003);
+          const _0x4c1128 = {};
+          _0x4c1128[_0x1ce41e(404)] = _0x1fad39 == null ? void 0 : _0x1fad39[_0x1ce41e(404)];
+          const _0x2b6c6f = {};
+          _0x2b6c6f[_0x1ce41e(392)] = _0x53414e, _0x2b6c6f["extra"] = _0x4c1128;
+          if (this["_port"]) this["_port"][_0x5396c7(423)](_0x2b6c6f);
+          _0x242e50[_0x1ce41e(399)](_0x27cc57);
+        } catch (_0xd49ca8) {
+          const _0x306c32 = _0x242e50["leEiG"](_0xd49ca8, Error) ? _0xd49ca8 : new Error(_0x242e50["cDUwk"](String, _0xd49ca8));
+          (_a = this["onerror"]) == null ? void 0 : _a.call(this, _0x306c32), _0x179db2(_0x306c32);
         }
       });
     }
     async ["close"]() {
       var _a, _b;
-      const _0x48e40 = _0x3c98, _0x15c0bc = _0x3c98;
-      (_a = this["_port"]) == null ? void 0 : _a[_0x48e40(431)](), this["_port"] = void 0, (_b = this[_0x15c0bc(420)]) == null ? void 0 : _b.call(this);
+      const _0x45fe11 = _0x4f2826, _0x27cc50 = _0x4f2826;
+      (_a = this["_port"]) == null ? void 0 : _a[_0x45fe11(393)](), this[_0x45fe11(422)] = void 0, (_b = this[_0x27cc50(408)]) == null ? void 0 : _b.call(this);
     }
   }
   class MessageChannelClientTransport extends MessageChannelTransport {
-    constructor(_0x597360, _0x528781 = getGlobalObject()) {
-      const _0x264b2b = _0x3c98, _0x1bf448 = _0x3c98, _0x34395f = { "EkZCC": function(_0x252e11, _0x32a364, _0x3fa642, _0x313f91) {
-        return _0x252e11(_0x32a364, _0x3fa642, _0x313f91);
+    constructor(_0x20201a, _0x4e42d0 = getGlobalObject()) {
+      const _0xe917b4 = _0x4f2826, _0x2ee57a = { "lSpBh": function(_0x15fcf6, _0xd26994, _0x5aabc7, _0x5b05d2) {
+        return _0x15fcf6(_0xd26994, _0x5aabc7, _0x5b05d2);
       } };
-      super(), this[_0x264b2b(391)] = _0x597360, this[_0x1bf448(401)] = _0x528781;
-      const _0x2395ac = new MessageChannel();
-      this[_0x1bf448(406)] = _0x2395ac["port1"], _0x34395f[_0x1bf448(426)](sendMessage, this[_0x264b2b(401)], { "endpoint": this[_0x1bf448(391)] }, [_0x2395ac[_0x1bf448(414)]]);
+      super(), this["_endpoint"] = _0x20201a, this["_globalObject"] = _0x4e42d0;
+      const _0x24f521 = new MessageChannel();
+      this["_port"] = _0x24f521[_0xe917b4(410)], _0x2ee57a[_0xe917b4(418)](sendMessage, this["_globalObject"], { "endpoint": this[_0xe917b4(397)] }, [_0x24f521[_0xe917b4(429)]]);
     }
   }
   class MessageChannelServerTransport extends MessageChannelTransport {
-    constructor(_0x43868d, _0x200cbf = getGlobalObject()) {
-      const _0x1cf24b = _0x3c98, _0x5f15b5 = { "mOWMr": function(_0x117b52, _0x3755b6) {
-        return _0x117b52 === _0x3755b6;
-      }, "kgkem": function(_0x263de6, _0x137f7b, _0x35ee9a) {
-        return _0x263de6(_0x137f7b, _0x35ee9a);
+    constructor(_0x3de1c8, _0x3c4f19 = getGlobalObject()) {
+      const _0x2eab2a = _0x4f2826, _0x26e754 = _0x4f2826, _0x496337 = { "HITdC": function(_0xf4906b, _0x545503) {
+        return _0xf4906b === _0x545503;
+      }, "QdDxM": function(_0xe02af1) {
+        return _0xe02af1();
+      }, "jowPp": function(_0x44b8f3, _0x17adcb, _0xc8cd9d) {
+        return _0x44b8f3(_0x17adcb, _0xc8cd9d);
       } };
-      super(), this["_endpoint"] = _0x43868d, this["_globalObject"] = _0x200cbf, this[_0x1cf24b(432)] = new Promise((_0xc5a6a8) => {
-        const _0x205b86 = _0x1cf24b, _0x13755a = _0x1cf24b;
-        _0x5f15b5[_0x205b86(392)](setMessageHandler, this[_0x13755a(401)], (_0x44b81a) => {
-          const _0xd9e0bf = _0x13755a, _0x5f1705 = _0x13755a;
-          _0x44b81a["data"] && _0x5f15b5[_0xd9e0bf(425)](_0x44b81a["data"][_0x5f1705(422)], this[_0x5f1705(391)]) && (this[_0x5f1705(406)] = _0x44b81a["ports"][-1 * 4852 + 1 * 1601 + 3251], _0xc5a6a8());
+      super(), this[_0x2eab2a(397)] = _0x3de1c8, this[_0x26e754(388)] = _0x3c4f19, this[_0x26e754(416)] = new Promise((_0x1e1df9) => {
+        const _0x5d87de = _0x2eab2a, _0xb8f004 = { "XlglK": function(_0xfd91d5, _0x4e700d) {
+          return _0x496337["HITdC"](_0xfd91d5, _0x4e700d);
+        }, "pXlad": function(_0x35325b) {
+          return _0x496337["QdDxM"](_0x35325b);
+        } };
+        _0x496337[_0x5d87de(427)](setMessageHandler, this["_globalObject"], (_0x594651) => {
+          const _0x598787 = _0x5d87de, _0x338e8d = _0x5d87de;
+          _0x594651[_0x598787(412)] && _0xb8f004["XlglK"](_0x594651["data"][_0x338e8d(396)], this["_endpoint"]) && (this[_0x598787(422)] = _0x594651[_0x338e8d(430)][122 * -38 + 1600 + -1518 * -2], _0xb8f004["pXlad"](_0x1e1df9));
         });
       });
     }
     async ["listen"]() {
-      const _0x5cffe3 = _0x3c98;
-      return this[_0x5cffe3(432)];
+      return this["_listen"];
     }
   }
-  function _0x3c98(_0x5f3c48, _0x59969d) {
-    const _0x29bc72 = _0x425b();
-    return _0x3c98 = function(_0x7d5de0, _0x53ddc5) {
-      _0x7d5de0 = _0x7d5de0 - (17 * -491 + -669 + 9407);
-      let _0x21b3d3 = _0x29bc72[_0x7d5de0];
-      return _0x21b3d3;
-    }, _0x3c98(_0x5f3c48, _0x59969d);
+  function _0xf7c7() {
+    const _0x217378 = ["message", "close", "NZmUq", "177464iLQCGm", "endpoint", "_endpoint", "FPOYW", "EoBZE", "3022630ngzRBs", "start", "pTvSc", "272809yMhhPJ", "authInfo", "ktWqD", "21849KofsKk", "vQYJZ", "onclose", "mkHJS", "port1", "22dUTKmE", "data", "608229RXNlUs", "undefined", "stringify", "_listen", "onmessage", "lSpBh", "8FmlYyF", "XwdDB", "cHbAW", "_port", "postMessage", "kFtNB", "72572mbPnfL", "689424jqaGZE", "jowPp", "extra", "port2", "ports", "onerror", "Fzdib", "mkuHv", "addEventListener", "55juYkZZ", "_globalObject", "eOzBp", "ogKey", "return this"];
+    _0xf7c7 = function() {
+      return _0x217378;
+    };
+    return _0xf7c7();
+  }
+  function _0xad7a(_0x5c8efe, _0x17336f) {
+    const _0x4b62f0 = _0xf7c7();
+    return _0xad7a = function(_0x222a68, _0x35aa14) {
+      _0x222a68 = _0x222a68 - (9175 + 8052 + 1 * -16844);
+      let _0x4cf37b = _0x4b62f0[_0x222a68];
+      return _0x4cf37b;
+    }, _0xad7a(_0x5c8efe, _0x17336f);
   }
   const createTransportPair = () => {
-    const _0x3ab70f = new MessageChannel();
-    return [new MessageChannelTransport(_0x3ab70f["port1"]), new MessageChannelTransport(_0x3ab70f["port2"])];
+    const _0x4bcc62 = new MessageChannel();
+    return [new MessageChannelTransport(_0x4bcc62["port1"]), new MessageChannelTransport(_0x4bcc62["port2"])];
   };
-  (function(_0x34e6b0, _0x35a269) {
-    const _0x1d530d = _0x436f, _0x4b1650 = _0x436f, _0x32f138 = _0x34e6b0();
+  (function(_0x3d7f1e, _0xfc81c8) {
+    const _0x276c7b = _0x21a3, _0x2dfe35 = _0x21a3, _0x234d86 = _0x3d7f1e();
     while (!![]) {
       try {
-        const _0x464b19 = parseInt(_0x1d530d(355)) / (-9237 + 21 * -101 + 11359) + -parseInt(_0x1d530d(356)) / (-1 * 393 + -1 * -7768 + -1 * 7373) * (-parseInt(_0x1d530d(373)) / (-705 + -4769 * 2 + -47 * -218)) + -parseInt(_0x1d530d(337)) / (-245 * 15 + 893 * 7 + 1 * -2572) + parseInt(_0x4b1650(357)) / (-240 * 17 + 3192 + 893) + -parseInt(_0x4b1650(389)) / (149 * 44 + 545 * -2 + -5460) * (-parseInt(_0x1d530d(396)) / (-5159 + -276 * -13 + -3 * -526)) + parseInt(_0x4b1650(325)) / (1 * -6978 + -3854 + -8 * -1355) * (parseInt(_0x1d530d(382)) / (-7214 + -2969 + 26 * 392)) + -parseInt(_0x1d530d(366)) / (316 * -5 + 562 * 5 + -61 * 20);
-        if (_0x464b19 === _0x35a269) break;
-        else _0x32f138["push"](_0x32f138["shift"]());
-      } catch (_0x390ed1) {
-        _0x32f138["push"](_0x32f138["shift"]());
+        const _0x380f07 = parseInt(_0x276c7b(452)) / (-9341 * 1 + 3580 + 5762) * (parseInt(_0x2dfe35(441)) / (-6775 + 1161 + 16 * 351)) + parseInt(_0x2dfe35(434)) / (-4159 + -9100 + -349 * -38) * (-parseInt(_0x2dfe35(418)) / (6 * -1155 + 1020 * 9 + 2246 * -1)) + parseInt(_0x276c7b(459)) / (-2939 * -1 + -7622 + 4688) + parseInt(_0x276c7b(482)) / (8451 * 1 + 426 * 14 + -14409) * (-parseInt(_0x276c7b(479)) / (8180 + 7314 + -17 * 911)) + -parseInt(_0x276c7b(458)) / (6370 + -4744 + -1618) * (parseInt(_0x276c7b(457)) / (10 * 983 + 2949 * -3 + -487 * 2)) + -parseInt(_0x2dfe35(416)) / (-1 * -8615 + 9674 + -18279) + -parseInt(_0x276c7b(450)) / (-9359 + 3829 + 5541) * (-parseInt(_0x276c7b(433)) / (6146 + -143 * 39 + 1 * -557));
+        if (_0x380f07 === _0xfc81c8) break;
+        else _0x234d86["push"](_0x234d86["shift"]());
+      } catch (_0x1d5794) {
+        _0x234d86["push"](_0x234d86["shift"]());
       }
     }
-  })(_0x312b, -763475 + -52067 * 10 + 1724410);
-  const forwardServerRequest = async (_0x39b9c9, _0x5af7c1, _0x5dd2f7) => {
+  })(_0x3610, -411935 * 1 + 228107 + 208149 * 2);
+  const forwardServerRequest = async (_0x1da138, _0x46e2a5, _0xa7e9d) => {
     var _a;
-    const _0x4d8179 = _0x436f, _0x45d1c8 = _0x436f, _0x259709 = {};
-    _0x259709[_0x4d8179(345)] = "tools/list", _0x259709["rqstG"] = "tools/call", _0x259709["WqUnk"] = "resources/list", _0x259709[_0x4d8179(329)] = _0x45d1c8(358), _0x259709[_0x4d8179(365)] = _0x4d8179(335), _0x259709["ookoz"] = "resources/unsubscribe", _0x259709[_0x4d8179(385)] = _0x4d8179(340), _0x259709["VTIWq"] = "prompts/list", _0x259709["SkoRK"] = _0x4d8179(376), _0x259709["QUtUV"] = _0x4d8179(388), _0x259709["XtowM"] = _0x45d1c8(332);
-    const _0x386240 = _0x259709, { id: _0x5e3819, method: _0x1e7aac, params: _0xb3b73d } = _0x5dd2f7;
-    let _0x1affd2 = {};
-    switch (_0x1e7aac) {
-      case _0x386240[_0x45d1c8(345)]:
-        _0x1affd2 = await _0x5af7c1["listTools"](_0xb3b73d);
+    const _0x334ed0 = _0x21a3, _0x4f511c = _0x21a3, _0x249fa5 = {};
+    _0x249fa5["VRyiJ"] = "tools/list", _0x249fa5["VkPYu"] = "tools/call", _0x249fa5[_0x334ed0(475)] = _0x334ed0(411), _0x249fa5["SoCaE"] = "resources/templates/list", _0x249fa5[_0x4f511c(484)] = "resources/read", _0x249fa5[_0x334ed0(461)] = "prompts/get", _0x249fa5["srIIC"] = _0x4f511c(477), _0x249fa5[_0x4f511c(436)] = _0x4f511c(478), _0x249fa5[_0x4f511c(442)] = _0x334ed0(437), _0x249fa5["dEmVs"] = _0x334ed0(465);
+    const _0x472708 = _0x249fa5, { id: _0x467a84, method: _0x866073, params: _0x4698ee } = _0xa7e9d;
+    let _0x413eb6 = {};
+    switch (_0x866073) {
+      case _0x472708["VRyiJ"]:
+        _0x413eb6 = await _0x46e2a5["listTools"](_0x4698ee);
         break;
-      case _0x386240["rqstG"]:
-        _0x1affd2 = await _0x5af7c1["callTool"](_0xb3b73d);
+      case _0x472708["VkPYu"]:
+        _0x413eb6 = await _0x46e2a5["callTool"](_0x4698ee);
         break;
-      case _0x386240[_0x4d8179(334)]:
-        _0x1affd2 = await _0x5af7c1[_0x4d8179(350)](_0xb3b73d);
+      case _0x472708["fgMSD"]:
+        _0x413eb6 = await _0x46e2a5["listResources"](_0x4698ee);
         break;
-      case _0x386240[_0x45d1c8(329)]:
-        _0x1affd2 = await _0x5af7c1["listResourceTemplates"](_0xb3b73d);
+      case _0x472708[_0x4f511c(466)]:
+        _0x413eb6 = await _0x46e2a5["listResourceTemplates"](_0x4698ee);
         break;
-      case _0x4d8179(372):
-        _0x1affd2 = await _0x5af7c1[_0x4d8179(383)](_0xb3b73d);
+      case _0x472708["sthgI"]:
+        _0x413eb6 = await _0x46e2a5[_0x334ed0(455)](_0x4698ee);
         break;
-      case _0x386240["HgYgW"]:
-        _0x1affd2 = await _0x5af7c1["subscribeResource"](_0xb3b73d);
+      case _0x4f511c(486):
+        _0x413eb6 = await _0x46e2a5["subscribeResource"](_0x4698ee);
         break;
-      case _0x386240["ookoz"]:
-        _0x1affd2 = await _0x5af7c1["unsubscribeResource"](_0xb3b73d);
+      case _0x334ed0(410):
+        _0x413eb6 = await _0x46e2a5["unsubscribeResource"](_0x4698ee);
         break;
-      case _0x386240[_0x4d8179(385)]:
-        _0x1affd2 = await _0x5af7c1["getPrompt"](_0xb3b73d);
+      case _0x472708[_0x4f511c(461)]:
+        _0x413eb6 = await _0x46e2a5[_0x4f511c(414)](_0x4698ee);
         break;
-      case _0x386240["VTIWq"]:
-        _0x1affd2 = await _0x5af7c1["listPrompts"](_0xb3b73d);
+      case _0x472708[_0x334ed0(412)]:
+        _0x413eb6 = await _0x46e2a5[_0x334ed0(491)](_0x4698ee);
         break;
-      case _0x386240[_0x4d8179(344)]:
-        _0x1affd2 = await _0x5af7c1[_0x4d8179(376)]();
+      case _0x472708[_0x334ed0(436)]:
+        _0x413eb6 = await _0x46e2a5[_0x334ed0(478)]();
         break;
-      case _0x386240["QUtUV"]:
-        _0x1affd2 = await _0x5af7c1["complete"](_0xb3b73d);
+      case _0x472708["kkNqg"]:
+        _0x413eb6 = await _0x46e2a5["complete"](_0x4698ee);
         break;
-      case _0x4d8179(390):
-        _0x1affd2 = await _0x5af7c1[_0x4d8179(336)](_0xb3b73d == null ? void 0 : _0xb3b73d["level"]);
+      case _0x334ed0(464):
+        _0x413eb6 = await _0x46e2a5["setLoggingLevel"](_0x4698ee == null ? void 0 : _0x4698ee[_0x4f511c(443)]);
         break;
     }
-    const _0x1b9b3c = {};
-    _0x1b9b3c[_0x4d8179(361)] = _0x1affd2, _0x1b9b3c[_0x4d8179(394)] = _0x386240[_0x4d8179(364)], _0x1b9b3c["id"] = _0x5e3819, await ((_a = _0x39b9c9 == null ? void 0 : _0x39b9c9["transport"]) == null ? void 0 : _a[_0x4d8179(392)](_0x1b9b3c));
-  }, forwardClientRequest = async (_0x28f3d6, _0x4ac89d, _0x1051c9) => {
+    const _0x58de11 = {};
+    _0x58de11["result"] = _0x413eb6, _0x58de11["jsonrpc"] = _0x472708[_0x4f511c(472)], _0x58de11["id"] = _0x467a84, await ((_a = _0x1da138 == null ? void 0 : _0x1da138[_0x4f511c(488)]) == null ? void 0 : _a[_0x334ed0(460)](_0x58de11));
+  }, forwardClientRequest = async (_0x28a0ac, _0x338cef, _0x40baf5) => {
     var _a;
-    const _0x3dda47 = _0x436f, _0x381b7f = _0x436f, _0xd1fdf3 = {};
-    _0xd1fdf3["jQBBS"] = "sampling/createMessage", _0xd1fdf3["EZqgC"] = "elicitation/create", _0xd1fdf3[_0x3dda47(370)] = _0x381b7f(376), _0xd1fdf3["aVeaL"] = _0x381b7f(332);
-    const _0x49fa5b = _0xd1fdf3, { id: _0x242c62, method: _0x5e5313, params: _0x26f936 } = _0x1051c9;
-    let _0x4a0446 = {};
-    switch (_0x5e5313) {
-      case _0x3dda47(368):
-        const _0x5729fc = {};
-        _0x5729fc["method"] = _0x5e5313, _0x5729fc[_0x381b7f(367)] = _0x26f936, _0x4a0446 = await _0x4ac89d["request"](_0x5729fc, ListRootsResultSchema);
+    const _0x5efcdf = _0x21a3, _0x450048 = _0x21a3, _0x2c33ce = {};
+    _0x2c33ce[_0x5efcdf(487)] = _0x450048(462), _0x2c33ce["ypHTC"] = "ping", _0x2c33ce["fPExS"] = _0x5efcdf(465);
+    const _0x319e5f = _0x2c33ce, { id: _0x70260b, method: _0x3f464d, params: _0x362734 } = _0x40baf5;
+    let _0xc56c52 = {};
+    switch (_0x3f464d) {
+      case "roots/list":
+        const _0x408740 = {};
+        _0x408740["method"] = _0x3f464d, _0x408740[_0x450048(446)] = _0x362734, _0xc56c52 = await _0x338cef[_0x5efcdf(469)](_0x408740, ListRootsResultSchema);
         break;
-      case _0x49fa5b[_0x381b7f(391)]:
-        const _0x1a4de5 = {};
-        _0x1a4de5["method"] = _0x5e5313, _0x1a4de5[_0x381b7f(367)] = _0x26f936, _0x4a0446 = await _0x4ac89d[_0x381b7f(381)](_0x1a4de5, CreateMessageResultSchema);
+      case "sampling/createMessage":
+        const _0x14dd4f = {};
+        _0x14dd4f[_0x5efcdf(481)] = _0x3f464d, _0x14dd4f[_0x5efcdf(446)] = _0x362734, _0xc56c52 = await _0x338cef["request"](_0x14dd4f, CreateMessageResultSchema);
         break;
-      case _0x49fa5b["EZqgC"]:
-        const _0x439309 = {};
-        _0x439309["method"] = _0x5e5313, _0x439309["params"] = _0x26f936, _0x4a0446 = await _0x4ac89d["request"](_0x439309, ElicitResultSchema);
+      case _0x319e5f[_0x5efcdf(487)]:
+        const _0x5991f6 = {};
+        _0x5991f6["method"] = _0x3f464d, _0x5991f6[_0x450048(446)] = _0x362734, _0xc56c52 = await _0x338cef["request"](_0x5991f6, ElicitResultSchema);
         break;
-      case _0x49fa5b[_0x381b7f(370)]:
-        const _0x26032a = {};
-        _0x26032a["method"] = _0x5e5313, _0x4a0446 = await _0x4ac89d[_0x381b7f(381)](_0x26032a, EmptyResultSchema);
+      case _0x319e5f["ypHTC"]:
+        const _0x41ab78 = {};
+        _0x41ab78["method"] = _0x3f464d, _0xc56c52 = await _0x338cef["request"](_0x41ab78, EmptyResultSchema);
         break;
     }
-    const _0x1cd5b1 = {};
-    return _0x1cd5b1[_0x381b7f(361)] = _0x4a0446, _0x1cd5b1["jsonrpc"] = _0x49fa5b[_0x381b7f(387)], _0x1cd5b1["id"] = _0x242c62, await ((_a = _0x28f3d6 == null ? void 0 : _0x28f3d6[_0x3dda47(371)]) == null ? void 0 : _a["send"](_0x1cd5b1)), _0x4a0446;
+    const _0x5e6d17 = {};
+    return _0x5e6d17["result"] = _0xc56c52, _0x5e6d17["jsonrpc"] = _0x319e5f["fPExS"], _0x5e6d17["id"] = _0x70260b, await ((_a = _0x28a0ac == null ? void 0 : _0x28a0ac["transport"]) == null ? void 0 : _a["send"](_0x5e6d17)), _0xc56c52;
   };
-  const forwardServerOnRequest = (_0x295fa6, _0x251926) => {
-    const _0x1cc476 = _0x436f, _0x23ae0d = { "gXsjT": function(_0x3ae5bb, _0x164ced) {
-      return _0x3ae5bb === _0x164ced;
-    }, "oegpC": _0x1cc476(351), "lZOUC": function(_0x453ca3, _0x364f6d, _0x56cba4, _0x977d42) {
-      return _0x453ca3(_0x364f6d, _0x56cba4, _0x977d42);
-    }, "ifIKG": "2.0" }, _0x4bcbe0 = _0x295fa6["_onrequest"];
-    _0x295fa6["_onrequest"] = async (_0x19eadb, _0x1be045) => {
+  function _0x21a3(_0x59a0be, _0x1661dd) {
+    const _0x4be0a9 = _0x3610();
+    return _0x21a3 = function(_0x137762, _0x29cfcd) {
+      _0x137762 = _0x137762 - (-71 * 113 + 4 * -2344 + -17809 * -1);
+      let _0x1f8d56 = _0x4be0a9[_0x137762];
+      return _0x1f8d56;
+    }, _0x21a3(_0x59a0be, _0x1661dd);
+  }
+  const forwardServerOnRequest = (_0x329455, _0x16d5d5) => {
+    const _0x5a2100 = _0x21a3, _0x4a22d9 = _0x21a3, _0x577008 = { "vYlhn": function(_0x330259, _0x50ff20) {
+      return _0x330259 === _0x50ff20;
+    }, "DhPFX": _0x5a2100(470), "NYVNC": function(_0x5732a5, _0x76d95c, _0x228f7f, _0x207877) {
+      return _0x5732a5(_0x76d95c, _0x228f7f, _0x207877);
+    }, "yfZbw": "2.0" }, _0x516d92 = _0x329455["_onrequest"];
+    _0x329455[_0x4a22d9(463)] = async (_0x5a04f0, _0xbef58f) => {
       var _a, _b, _c, _d, _e;
-      const _0x18b546 = _0x1cc476, _0x2a3fc6 = _0x1cc476, { id: _0x352576, method: _0x55a8de } = _0x19eadb;
+      const _0x54051b = _0x4a22d9, _0x80d773 = _0x5a2100, { id: _0x32bf38, method: _0x463a73 } = _0x5a04f0;
       try {
-        _0x23ae0d[_0x18b546(333)](_0x55a8de, _0x23ae0d["oegpC"]) ? await _0x4bcbe0[_0x18b546(386)](_0x295fa6, _0x19eadb, _0x1be045) : await _0x23ae0d["lZOUC"](forwardServerRequest, _0x295fa6, _0x251926, _0x19eadb);
-      } catch (_0x260152) {
-        const { code: _0x109aa0, message: _0x12f9b1, data: _0x2a49eb } = _0x260152;
+        _0x577008[_0x54051b(451)](_0x463a73, _0x577008["DhPFX"]) ? await _0x516d92["call"](_0x329455, _0x5a04f0, _0xbef58f) : await _0x577008[_0x80d773(474)](forwardServerRequest, _0x329455, _0x16d5d5, _0x5a04f0);
+      } catch (_0x508f60) {
+        const { code: _0x214832, message: _0xfed545, data: _0x33967a } = _0x508f60;
         try {
-          if (_0x109aa0) {
-            const _0x33e2da = {};
-            _0x33e2da["code"] = _0x109aa0, _0x33e2da["message"] = _0x12f9b1, _0x33e2da["data"] = _0x2a49eb;
-            const _0x577f56 = {};
-            _0x577f56["error"] = _0x33e2da, _0x577f56[_0x18b546(394)] = _0x23ae0d[_0x2a3fc6(331)], _0x577f56["id"] = _0x352576, await ((_a = _0x295fa6 == null ? void 0 : _0x295fa6["transport"]) == null ? void 0 : _a["send"](_0x577f56));
-          } else (_c = (_b = _0x295fa6 == null ? void 0 : _0x295fa6[_0x2a3fc6(371)]) == null ? void 0 : _b["onerror"]) == null ? void 0 : _c.call(_b, _0x260152);
-        } catch (_0x31b055) {
-          (_e = (_d = _0x295fa6 == null ? void 0 : _0x295fa6[_0x18b546(371)]) == null ? void 0 : _d["onerror"]) == null ? void 0 : _e.call(_d, _0x31b055);
+          if (_0x214832) {
+            const _0x15f047 = {};
+            _0x15f047[_0x80d773(485)] = _0x214832, _0x15f047[_0x54051b(422)] = _0xfed545, _0x15f047["data"] = _0x33967a;
+            const _0x567f35 = {};
+            _0x567f35[_0x80d773(448)] = _0x15f047, _0x567f35["jsonrpc"] = _0x577008[_0x54051b(417)], _0x567f35["id"] = _0x32bf38, await ((_a = _0x329455 == null ? void 0 : _0x329455["transport"]) == null ? void 0 : _a[_0x80d773(460)](_0x567f35));
+          } else (_c = (_b = _0x329455 == null ? void 0 : _0x329455["transport"]) == null ? void 0 : _b["onerror"]) == null ? void 0 : _c.call(_b, _0x508f60);
+        } catch (_0x541ca6) {
+          (_e = (_d = _0x329455 == null ? void 0 : _0x329455["transport"]) == null ? void 0 : _d["onerror"]) == null ? void 0 : _e.call(_d, _0x541ca6);
         }
       }
     };
   };
-  const forwardServerOnNotification = (_0xbf4216, _0x2c1d64) => {
-    const _0x41d9f8 = _0x436f, _0x2f9e6b = _0x436f, _0x1b758a = {};
-    _0x1b758a[_0x41d9f8(363)] = function(_0x3941d3, _0x9b010a) {
-      return _0x3941d3 !== _0x9b010a;
-    }, _0x1b758a[_0x41d9f8(398)] = _0x41d9f8(353), _0x1b758a["hzhyg"] = "notifications/cancelled";
-    const _0xbe4b4b = _0x1b758a;
-    _0xbf4216["_onnotification"] = async (_0x1da5cb) => {
+  const forwardServerOnNotification = (_0x59fb06, _0xc053ae) => {
+    const _0xa34383 = _0x21a3, _0x5b22bf = _0x21a3, _0x4c9779 = {};
+    _0x4c9779[_0xa34383(476)] = _0xa34383(439), _0x4c9779[_0xa34383(431)] = function(_0x473631, _0x5f30f9) {
+      return _0x473631 !== _0x5f30f9;
+    }, _0x4c9779["UPdQt"] = "notifications/cancelled";
+    const _0x1bd652 = _0x4c9779;
+    _0x59fb06[_0xa34383(421)] = async (_0xa54d77) => {
       var _a, _b;
-      const _0x1daf66 = _0x41d9f8, _0x3a44ec = _0x2f9e6b, { method: _0x36956c, params: _0x3bca7c } = _0x1da5cb;
-      if (_0xbe4b4b[_0x1daf66(363)](_0x36956c, _0xbe4b4b[_0x3a44ec(398)]) && (_0xbe4b4b[_0x1daf66(363)](_0x36956c, _0xbe4b4b["hzhyg"]) || (_0x3bca7c == null ? void 0 : _0x3bca7c["forward"]))) try {
-        await _0x2c1d64["notification"](_0x1da5cb);
-      } catch (_0x322fdf) {
-        (_b = (_a = _0xbf4216 == null ? void 0 : _0xbf4216["transport"]) == null ? void 0 : _a["onerror"]) == null ? void 0 : _b.call(_a, _0x322fdf);
+      const _0x2e1bc3 = _0xa34383, _0x535235 = _0x5b22bf, { method: _0x33bd7f, params: _0x53a86f } = _0xa54d77;
+      if (_0x33bd7f !== _0x1bd652[_0x2e1bc3(476)] && (_0x1bd652["QWYMz"](_0x33bd7f, _0x1bd652["UPdQt"]) || (_0x53a86f == null ? void 0 : _0x53a86f[_0x535235(490)]))) try {
+        await _0xc053ae[_0x2e1bc3(445)](_0xa54d77);
+      } catch (_0x113034) {
+        (_b = (_a = _0x59fb06 == null ? void 0 : _0x59fb06[_0x2e1bc3(488)]) == null ? void 0 : _a[_0x2e1bc3(480)]) == null ? void 0 : _b.call(_a, _0x113034);
       }
     };
   };
-  const forwardClientOnRequest = (_0x5ba9fc, _0x3c2127) => async (_0x35e391) => {
+  const forwardClientOnRequest = (_0x30f928, _0x3f46c8) => async (_0x31962c) => {
     var _a, _b, _c, _d, _e;
-    const _0x18219 = _0x436f, _0xf7764b = _0x436f, _0x1fe570 = {};
-    _0x1fe570["SEmWX"] = _0x18219(332);
-    const _0x4db6d5 = _0x1fe570;
+    const _0x356ff8 = _0x21a3, _0x26811b = _0x21a3, _0x1cab49 = { "TJhyV": function(_0x18467a, _0x4aa001, _0x48eb92, _0x5965f6) {
+      return _0x18467a(_0x4aa001, _0x48eb92, _0x5965f6);
+    }, "MMNTY": _0x356ff8(465) };
     try {
-      return await forwardClientRequest(_0x5ba9fc, _0x3c2127, _0x35e391);
-    } catch (_0x5475d2) {
-      const { code: _0x145668, message: _0x30e917, data: _0x308ae4 } = _0x5475d2;
+      return await _0x1cab49["TJhyV"](forwardClientRequest, _0x30f928, _0x3f46c8, _0x31962c);
+    } catch (_0x29fecb) {
+      const { code: _0x3da4f4, message: _0x3bdceb, data: _0x3744ea } = _0x29fecb;
       try {
-        if (_0x145668) {
-          const _0x3f0c29 = {};
-          _0x3f0c29[_0xf7764b(377)] = _0x145668, _0x3f0c29["message"] = _0x30e917, _0x3f0c29["data"] = _0x308ae4;
-          const _0x3e511c = {};
-          _0x3e511c[_0xf7764b(348)] = _0x3f0c29, _0x3e511c["jsonrpc"] = _0x4db6d5[_0x18219(338)], _0x3e511c["id"] = _0x35e391["id"], await ((_a = _0x5ba9fc == null ? void 0 : _0x5ba9fc["transport"]) == null ? void 0 : _a[_0xf7764b(392)](_0x3e511c));
-        } else (_c = (_b = _0x5ba9fc == null ? void 0 : _0x5ba9fc["transport"]) == null ? void 0 : _b[_0xf7764b(339)]) == null ? void 0 : _c.call(_b, _0x5475d2);
-      } catch (_0x44d349) {
-        (_e = (_d = _0x5ba9fc == null ? void 0 : _0x5ba9fc[_0x18219(371)]) == null ? void 0 : _d[_0xf7764b(339)]) == null ? void 0 : _e.call(_d, _0x44d349);
+        if (_0x3da4f4) {
+          const _0x3e55f6 = {};
+          _0x3e55f6["code"] = _0x3da4f4, _0x3e55f6[_0x356ff8(422)] = _0x3bdceb, _0x3e55f6[_0x26811b(419)] = _0x3744ea;
+          const _0x290f0d = {};
+          _0x290f0d[_0x356ff8(448)] = _0x3e55f6, _0x290f0d[_0x356ff8(424)] = _0x1cab49["MMNTY"], _0x290f0d["id"] = _0x31962c["id"], await ((_a = _0x30f928 == null ? void 0 : _0x30f928["transport"]) == null ? void 0 : _a[_0x26811b(460)](_0x290f0d));
+        } else (_c = (_b = _0x30f928 == null ? void 0 : _0x30f928["transport"]) == null ? void 0 : _b[_0x356ff8(480)]) == null ? void 0 : _c.call(_b, _0x29fecb);
+      } catch (_0x1c8062) {
+        (_e = (_d = _0x30f928 == null ? void 0 : _0x30f928[_0x356ff8(488)]) == null ? void 0 : _d["onerror"]) == null ? void 0 : _e.call(_d, _0x1c8062);
       }
     }
   };
-  const forwardClientOnNotification = (_0x28d609, _0x4bf7cb) => async (_0x4bc3b1) => {
+  const forwardClientOnNotification = (_0x320cea, _0x3f25ca) => async (_0x4767e2) => {
     var _a, _b, _c;
-    const _0x3b3b4a = _0x436f, _0x1002c0 = _0x436f, _0x35ae78 = {};
-    _0x35ae78["dtUgZ"] = function(_0x4ee941, _0x184cdc) {
-      return _0x4ee941 !== _0x184cdc;
-    }, _0x35ae78["jgCIb"] = _0x3b3b4a(353), _0x35ae78["uUjKY"] = "2.0";
-    const _0x564be4 = _0x35ae78, { method: _0x4170f4, params: _0x466e2b } = _0x4bc3b1;
-    if (_0x564be4["dtUgZ"](_0x4170f4, _0x564be4["jgCIb"]) && (_0x4170f4 !== _0x3b3b4a(400) || (_0x466e2b == null ? void 0 : _0x466e2b["forward"]))) try {
-      const _0x2fa139 = { ..._0x4bc3b1 };
-      _0x2fa139[_0x3b3b4a(394)] = _0x564be4[_0x1002c0(352)], await ((_a = _0x4bf7cb == null ? void 0 : _0x4bf7cb[_0x3b3b4a(371)]) == null ? void 0 : _a[_0x3b3b4a(392)](_0x2fa139));
-    } catch (_0x4981b1) {
-      (_c = (_b = _0x28d609 == null ? void 0 : _0x28d609[_0x3b3b4a(371)]) == null ? void 0 : _b[_0x1002c0(339)]) == null ? void 0 : _c.call(_b, _0x4981b1);
+    const _0x1d24fb = _0x21a3, _0x27d938 = _0x21a3, _0x213b9b = {};
+    _0x213b9b["xmcLM"] = function(_0x12d227, _0x276a63) {
+      return _0x12d227 !== _0x276a63;
+    }, _0x213b9b["xSWLt"] = "notifications/initialized", _0x213b9b[_0x1d24fb(420)] = _0x27d938(453);
+    const _0x1e4b70 = _0x213b9b, { method: _0x4711e2, params: _0x108731 } = _0x4767e2;
+    if (_0x1e4b70["xmcLM"](_0x4711e2, _0x1e4b70["xSWLt"]) && (_0x1e4b70["xmcLM"](_0x4711e2, _0x1e4b70[_0x27d938(420)]) || (_0x108731 == null ? void 0 : _0x108731[_0x27d938(490)]))) try {
+      const _0x8005f4 = { ..._0x4767e2 };
+      _0x8005f4["jsonrpc"] = _0x1d24fb(465), await ((_a = _0x3f25ca == null ? void 0 : _0x3f25ca[_0x1d24fb(488)]) == null ? void 0 : _a["send"](_0x8005f4));
+    } catch (_0x32056a) {
+      (_c = (_b = _0x320cea == null ? void 0 : _0x320cea["transport"]) == null ? void 0 : _b["onerror"]) == null ? void 0 : _c.call(_b, _0x32056a);
     }
   };
-  function _0x436f(_0x3eb3da, _0x246fe0) {
-    const _0x190ef0 = _0x312b();
-    return _0x436f = function(_0x3844a1, _0x22bcbf) {
-      _0x3844a1 = _0x3844a1 - (9 * -113 + -1439 * -1 + -97);
-      let _0x3446e7 = _0x190ef0[_0x3844a1];
-      return _0x3446e7;
-    }, _0x436f(_0x3eb3da, _0x246fe0);
+  function _0x3610() {
+    const _0x541b55 = ["JMaxV", "cNneM", "completion/complete", "addResponseListener", "notifications/initialized", "call", "570686biwZQB", "kkNqg", "level", "addNotificationListener", "notification", "params", "addListener", "error", "_onresponse", "164054EGcqjc", "vYlhn", "1PDRdga", "notifications/cancelled", "_requestHandlers", "readResource", "FjTAY", "1782ueLDLp", "4496TJFZWc", "1767765yPcVQJ", "send", "HefvS", "elicitation/create", "_onrequest", "logging/setLevel", "2.0", "SoCaE", "HucXo", "function", "request", "initialize", "push", "dEmVs", "addRequestListener", "NYVNC", "fgMSD", "CSjwA", "prompts/list", "ping", "35pZrnNj", "onerror", "method", "238086YifXhM", "get", "sthgI", "code", "resources/subscribe", "sttJM", "transport", "jsmFN", "forward", "listPrompts", "resources/unsubscribe", "resources/list", "srIIC", "originalOnResponse", "getPrompt", "indexOf", "3653560KcjkMk", "yfZbw", "4SAWlvk", "data", "rCDHw", "_onnotification", "message", "UlqiY", "jsonrpc", "yCyFn", "clearNotificationListener", "VWsxO", "name", "UynHf", "length", "QWYMz", "fallbackRequestHandler", "492jTClKn", "1028589HsbHVQ"];
+    _0x3610 = function() {
+      return _0x541b55;
+    };
+    return _0x3610();
   }
-  const forwardClientOnResponse = (_0x1e680e, _0x1c8008) => async (_0x525a8d) => {
+  const forwardClientOnResponse = (_0x52736d, _0x58c3cf) => async (_0xd20f53) => {
     var _a, _b, _c, _d, _e, _f;
-    const _0x4cc7de = _0x436f, _0x48c146 = _0x436f, _0x15ca71 = {};
-    _0x15ca71[_0x4cc7de(401)] = _0x48c146(332);
-    const _0x27611c = _0x15ca71;
+    const _0xf4b324 = _0x21a3, _0x2956df = _0x21a3, _0x4964bc = {};
+    _0x4964bc["kSvAZ"] = _0xf4b324(465);
+    const _0x4c53ce = _0x4964bc;
     try {
-      await ((_a = _0x1c8008 == null ? void 0 : _0x1c8008["transport"]) == null ? void 0 : _a["send"](_0x525a8d));
-    } catch (_0x4fb145) {
-      const { code: _0x42cf0b, message: _0xe29332, data: _0x3919ab } = _0x4fb145;
+      await ((_a = _0x58c3cf == null ? void 0 : _0x58c3cf[_0x2956df(488)]) == null ? void 0 : _a[_0x2956df(460)](_0xd20f53));
+    } catch (_0x1408a9) {
+      const { code: _0x512075, message: _0xe99b85, data: _0x347365 } = _0x1408a9;
       try {
-        if (_0x42cf0b) {
-          const _0x15d8af = {};
-          _0x15d8af["code"] = _0x42cf0b, _0x15d8af[_0x4cc7de(399)] = _0xe29332, _0x15d8af["data"] = _0x3919ab;
-          const _0x5acd21 = {};
-          _0x5acd21[_0x4cc7de(348)] = _0x15d8af, _0x5acd21[_0x4cc7de(394)] = _0x27611c["OhJjz"], _0x5acd21["id"] = _0x525a8d["id"], await ((_b = _0x1e680e == null ? void 0 : _0x1e680e[_0x4cc7de(371)]) == null ? void 0 : _b["send"](_0x5acd21));
-        } else (_d = (_c = _0x1e680e == null ? void 0 : _0x1e680e["transport"]) == null ? void 0 : _c[_0x48c146(339)]) == null ? void 0 : _d.call(_c, _0x4fb145);
-      } catch (_0x18c5af) {
-        (_f = (_e = _0x1e680e == null ? void 0 : _0x1e680e["transport"]) == null ? void 0 : _e["onerror"]) == null ? void 0 : _f.call(_e, _0x18c5af);
+        if (_0x512075) {
+          const _0x6472f2 = {};
+          _0x6472f2["code"] = _0x512075, _0x6472f2["message"] = _0xe99b85, _0x6472f2["data"] = _0x347365;
+          const _0x41cab2 = {};
+          _0x41cab2["error"] = _0x6472f2, _0x41cab2[_0x2956df(424)] = _0x4c53ce["kSvAZ"], _0x41cab2["id"] = _0xd20f53["id"], await ((_b = _0x52736d == null ? void 0 : _0x52736d["transport"]) == null ? void 0 : _b["send"](_0x41cab2));
+        } else (_d = (_c = _0x52736d == null ? void 0 : _0x52736d["transport"]) == null ? void 0 : _c[_0xf4b324(480)]) == null ? void 0 : _d.call(_c, _0x1408a9);
+      } catch (_0x1e60d2) {
+        (_f = (_e = _0x52736d == null ? void 0 : _0x52736d[_0xf4b324(488)]) == null ? void 0 : _e[_0x2956df(480)]) == null ? void 0 : _f.call(_e, _0x1e60d2);
       }
     }
   };
   const createHandleListener = () => {
-    const _0x584790 = _0x436f, _0xfde4fe = _0x436f, _0x4ea6ca = { "vnkqu": function(_0x403bc5, _0x53bd2e) {
-      return _0x403bc5 !== _0x53bd2e;
-    }, "wxDWr": function(_0x1c881b, _0x66c10d) {
-      return _0x1c881b(_0x66c10d);
-    }, "GdkkV": function(_0x9d4748, _0x24b020) {
-      return _0x9d4748 === _0x24b020;
-    } }, _0x5de2ad = [], _0x1c01fe = (_0x431466, _0x28ccda) => {
-      const _0x1d408a = _0x436f, _0x120458 = _0x436f;
-      if (_0x28ccda) {
-        const _0x1e8724 = [];
-        for (const _0x1264b7 of _0x5de2ad) {
+    const _0xac9689 = _0x21a3, _0x1107c8 = { "rgPZO": function(_0x5d043a, _0x1def76) {
+      return _0x5d043a !== _0x1def76;
+    }, "VWsxO": function(_0x2ade8e, _0xecf54) {
+      return _0x2ade8e(_0xecf54);
+    }, "FjTAY": "function" }, _0x2eb4ef = [], _0x4b0952 = (_0x496b22, _0x2a3c52) => {
+      const _0x4de46f = _0x21a3;
+      if (_0x2a3c52) {
+        const _0x568d5d = [];
+        for (const _0x3baad7 of _0x2eb4ef) {
           try {
-            _0x1e8724["push"](_0x1264b7(_0x431466, _0x28ccda));
+            _0x568d5d["push"](_0x3baad7(_0x496b22, _0x2a3c52));
           } catch {
           }
         }
-        for (const _0x445fc2 of _0x1e8724) {
-          if (_0x4ea6ca[_0x1d408a(379)](_0x445fc2, null)) return _0x445fc2;
+        for (const _0x5f4b66 of _0x568d5d) {
+          if (_0x1107c8["rgPZO"](_0x5f4b66, null)) return _0x5f4b66;
         }
-      } else for (const _0x4637f1 of _0x5de2ad) {
+      } else for (const _0xbf6e37 of _0x2eb4ef) {
         try {
-          _0x4ea6ca[_0x120458(343)](_0x4637f1, _0x431466);
+          _0x1107c8[_0x4de46f(427)](_0xbf6e37, _0x496b22);
         } catch {
         }
       }
-    }, _0x46917c = (_0x2b37ef) => {
-      const _0x562515 = _0x436f;
-      _0x4ea6ca[_0x562515(384)](typeof _0x2b37ef, _0x562515(369)) && !_0x5de2ad["includes"](_0x2b37ef) && _0x5de2ad["push"](_0x2b37ef);
-    }, _0x1187af = (_0x522cb1) => {
-      const _0x530b39 = _0x5de2ad["indexOf"](_0x522cb1);
-      _0x530b39 !== -1 && _0x5de2ad["splice"](_0x530b39, 1 * -6854 + 8 * -33 + 7119);
-    }, _0x21be0c = () => {
-      const _0x217721 = _0x436f;
-      _0x5de2ad[_0x217721(374)] = 7102 * 1 + 5522 + -526 * 24;
-    }, _0x3a7414 = {};
-    return _0x3a7414[_0x584790(346)] = _0x1c01fe, _0x3a7414[_0xfde4fe(330)] = _0x46917c, _0x3a7414["removeListener"] = _0x1187af, _0x3a7414[_0x584790(359)] = _0x21be0c, _0x3a7414;
-  }, setClientListener = (_0x44ee2c) => {
-    const _0x41b7db = _0x436f, _0x543db2 = _0x436f, _0x158fa1 = { "xwPeb": function(_0x2ff8e4) {
-      return _0x2ff8e4();
-    }, "Mfvzm": function(_0x557d5a) {
-      return _0x557d5a();
+    }, _0x55a910 = (_0x173206) => {
+      const _0xcd10e3 = _0x21a3, _0x1d3d8a = _0x21a3;
+      typeof _0x173206 === _0x1107c8[_0xcd10e3(456)] && !_0x2eb4ef["includes"](_0x173206) && _0x2eb4ef[_0x1d3d8a(471)](_0x173206);
+    }, _0x5bbfbf = (_0x5069e7) => {
+      const _0x26df23 = _0x21a3, _0x270444 = _0x2eb4ef[_0x26df23(415)](_0x5069e7);
+      _0x270444 !== -1 && _0x2eb4ef["splice"](_0x270444, -9598 + -7993 + 6 * 2932);
+    }, _0x5e8325 = () => {
+      const _0x1c5cd6 = _0x21a3;
+      _0x2eb4ef[_0x1c5cd6(430)] = -505 * 7 + 1322 + 2213;
+    }, _0x192b11 = {};
+    return _0x192b11["handleListener"] = _0x4b0952, _0x192b11[_0xac9689(447)] = _0x55a910, _0x192b11["removeListener"] = _0x5bbfbf, _0x192b11["clearListener"] = _0x5e8325, _0x192b11;
+  }, setClientListener = (_0x3f2a4b) => {
+    const _0x2b0dcf = _0x21a3, _0x59aa79 = _0x21a3, _0x1dbe74 = { "UlqiY": function(_0x29f7e1) {
+      return _0x29f7e1();
+    }, "jsmFN": function(_0x491d18) {
+      return _0x491d18();
     } };
     {
-      const { handleListener: _0x1d5fdc, addListener: _0x47b60e, removeListener: _0x7a7da6, clearListener: _0x32a47a } = _0x158fa1[_0x41b7db(326)](createHandleListener);
-      _0x44ee2c["_onresponse"] = _0x1d5fdc, _0x44ee2c[_0x41b7db(395)] = _0x47b60e, _0x44ee2c["removeResponseListener"] = _0x7a7da6, _0x44ee2c["clearResponseListener"] = _0x32a47a;
+      const { handleListener: _0x396f91, addListener: _0xd63d09, removeListener: _0x5219aa, clearListener: _0x2d1072 } = _0x1dbe74[_0x2b0dcf(423)](createHandleListener);
+      _0x3f2a4b["_onresponse"] = _0x396f91, _0x3f2a4b[_0x59aa79(438)] = _0xd63d09, _0x3f2a4b["removeResponseListener"] = _0x5219aa, _0x3f2a4b["clearResponseListener"] = _0x2d1072;
     }
     {
-      const { handleListener: _0x2a5fe3, addListener: _0x630b07, removeListener: _0xb70f6, clearListener: _0x3e94ce } = _0x158fa1[_0x543db2(326)](createHandleListener);
-      _0x44ee2c[_0x543db2(328)] = _0x2a5fe3, _0x44ee2c["addRequestListener"] = _0x630b07, _0x44ee2c[_0x543db2(354)] = _0xb70f6, _0x44ee2c[_0x543db2(341)] = _0x3e94ce;
+      const { handleListener: _0x22f5be, addListener: _0x3da798, removeListener: _0x288ae5, clearListener: _0x351358 } = _0x1dbe74[_0x2b0dcf(489)](createHandleListener);
+      _0x3f2a4b[_0x2b0dcf(432)] = _0x22f5be, _0x3f2a4b[_0x59aa79(473)] = _0x3da798, _0x3f2a4b["removeRequestListener"] = _0x288ae5, _0x3f2a4b["clearRequestListener"] = _0x351358;
     }
     {
-      const { handleListener: _0x535dd5, addListener: _0x394877, removeListener: _0x253b3b, clearListener: _0x44f208 } = _0x158fa1[_0x41b7db(375)](createHandleListener);
-      _0x44ee2c[_0x41b7db(342)] = _0x535dd5, _0x44ee2c[_0x41b7db(327)] = _0x394877, _0x44ee2c["removeNotificationListener"] = _0x253b3b, _0x44ee2c["clearNotificationListener"] = _0x44f208;
+      const { handleListener: _0x2ac8fa, addListener: _0x7c4ea0, removeListener: _0x5e1228, clearListener: _0x2230ce } = _0x1dbe74["jsmFN"](createHandleListener);
+      _0x3f2a4b["fallbackNotificationHandler"] = _0x2ac8fa, _0x3f2a4b[_0x2b0dcf(444)] = _0x7c4ea0, _0x3f2a4b["removeNotificationListener"] = _0x5e1228, _0x3f2a4b[_0x59aa79(426)] = _0x2230ce;
     }
   };
-  function _0x312b() {
-    const _0x10336d = ["uUjKY", "notifications/initialized", "removeRequestListener", "96194JysfjF", "36346SGEWAV", "1357830AJaOeY", "resources/templates/list", "clearListener", "iQqcJ", "result", "tqDZP", "sSeCz", "XtowM", "HgYgW", "3913230mjiatC", "params", "roots/list", "function", "bfmJT", "transport", "resources/read", "27FNuDmk", "length", "Mfvzm", "ping", "code", "_onresponse", "vnkqu", "cjSoZ", "request", "9gIMIPC", "readResource", "GdkkV", "ptMjy", "call", "aVeaL", "completion/complete", "5035122lFbpzR", "logging/setLevel", "jQBBS", "send", "_requestHandlers", "jsonrpc", "addResponseListener", "7SpcenI", "ElOQH", "MDIkN", "message", "notifications/cancelled", "OhJjz", "clear", "672216JzFEyR", "xwPeb", "addNotificationListener", "fallbackRequestHandler", "sYzPD", "addListener", "ifIKG", "2.0", "gXsjT", "WqUnk", "resources/subscribe", "setLoggingLevel", "2491772kFUWFh", "SEmWX", "onerror", "prompts/get", "clearRequestListener", "fallbackNotificationHandler", "wxDWr", "SkoRK", "uTeHc", "handleListener", "Zybtx", "error", "originalOnResponse", "listResources", "initialize"];
-    _0x312b = function() {
-      return _0x10336d;
-    };
-    return _0x312b();
-  }
-  const initClientHandler = (_0x4eae35, { beforeInit: _0x5ede3e, afterInit: _0x392ad7 } = {}) => {
-    const _0x39ee68 = _0x436f, _0x2ff689 = _0x436f, _0xef50a3 = { "tqDZP": function(_0x3b46af, _0x42b551) {
-      return _0x3b46af === _0x42b551;
-    }, "cjSoZ": "function", "iQqcJ": _0x39ee68(378), "Zybtx": function(_0x5e40d5, _0xea2fd6) {
-      return _0x5e40d5(_0xea2fd6);
-    }, "ElOQH": function(_0x29a1dd) {
-      return _0x29a1dd();
-    } }, _0x28c085 = new Map(_0x4eae35["_notificationHandlers"]);
-    _0x4eae35[_0x39ee68(393)][_0x39ee68(402)](), _0x4eae35["_notificationHandlers"][_0x39ee68(402)](), _0xef50a3["tqDZP"](typeof _0x5ede3e, _0xef50a3[_0x39ee68(380)]) && _0x5ede3e(), _0xef50a3[_0x39ee68(362)](_0x4eae35["_onresponse"]["name"], _0xef50a3[_0x39ee68(360)]) && (_0x4eae35[_0x2ff689(349)] = _0x4eae35["_onresponse"]), _0xef50a3[_0x39ee68(347)](setClientListener, _0x4eae35), _0x4eae35["addResponseListener"]((_0x5b9ccc) => {
-      const _0x44116a = _0x2ff689;
-      _0x4eae35["originalOnResponse"][_0x44116a(386)](_0x4eae35, _0x5b9ccc);
-    }), _0xef50a3["tqDZP"](typeof _0x392ad7, _0xef50a3[_0x2ff689(380)]) && _0xef50a3[_0x39ee68(397)](_0x392ad7), _0x4eae35[_0x2ff689(327)]((_0x4b3e63) => {
-      const { method: _0x52cc8d } = _0x4b3e63, _0x1d4650 = _0x28c085["get"](_0x52cc8d);
-      _0xef50a3["tqDZP"](typeof _0x1d4650, _0xef50a3["cjSoZ"]) && _0x1d4650(_0x4b3e63);
+  const initClientHandler = (_0x44fc4b, { beforeInit: _0x2f7bcf, afterInit: _0x3a8b46 } = {}) => {
+    const _0xd1a2a = _0x21a3, _0x2c5aa6 = _0x21a3, _0xd894da = { "HucXo": function(_0x4f3317, _0x48b59e) {
+      return _0x4f3317 === _0x48b59e;
+    }, "HicFO": _0xd1a2a(468), "JMaxV": function(_0x38cdf8) {
+      return _0x38cdf8();
+    }, "DclXr": function(_0x2d9c7c, _0x40079a) {
+      return _0x2d9c7c(_0x40079a);
+    }, "UynHf": function(_0xe96982, _0x5d6dbc) {
+      return _0xe96982 === _0x5d6dbc;
+    }, "yCyFn": function(_0x2d408b) {
+      return _0x2d408b();
+    } }, _0x2ed60f = new Map(_0x44fc4b["_notificationHandlers"]);
+    _0x44fc4b[_0xd1a2a(454)]["clear"](), _0x44fc4b["_notificationHandlers"]["clear"](), _0xd894da["HucXo"](typeof _0x2f7bcf, _0xd894da["HicFO"]) && _0xd894da[_0xd1a2a(435)](_0x2f7bcf), _0xd894da[_0xd1a2a(467)](_0x44fc4b[_0xd1a2a(449)][_0x2c5aa6(428)], _0xd1a2a(449)) && (_0x44fc4b[_0x2c5aa6(413)] = _0x44fc4b[_0x2c5aa6(449)]), _0xd894da["DclXr"](setClientListener, _0x44fc4b), _0x44fc4b[_0x2c5aa6(438)]((_0x2331a6) => {
+      const _0x34d91a = _0xd1a2a;
+      _0x44fc4b["originalOnResponse"][_0x34d91a(440)](_0x44fc4b, _0x2331a6);
+    }), _0xd894da[_0xd1a2a(429)](typeof _0x3a8b46, _0xd894da["HicFO"]) && _0xd894da[_0x2c5aa6(425)](_0x3a8b46), _0x44fc4b[_0x2c5aa6(444)]((_0x339f8e) => {
+      const _0x4a50fe = _0x2c5aa6, { method: _0x325e41 } = _0x339f8e, _0x11bd8a = _0x2ed60f[_0x4a50fe(483)](_0x325e41);
+      _0xd894da[_0x4a50fe(467)](typeof _0x11bd8a, "function") && _0x11bd8a(_0x339f8e);
     });
   };
-  const _0x1c80bf = _0x4f47, _0x53d80a = _0x4f47;
-  (function(_0x274e6a, _0x42a727) {
-    const _0x110d0e = _0x4f47, _0x242f23 = _0x4f47, _0x198664 = _0x274e6a();
+  const _0x580c11 = _0x3345;
+  (function(_0x478e44, _0xa6dc8a) {
+    const _0x25e00b = _0x3345, _0x47302c = _0x3345, _0x2eda2a = _0x478e44();
     while (!![]) {
       try {
-        const _0x571b93 = -parseInt(_0x110d0e(393)) / (7531 + 5849 + -13379) + parseInt(_0x110d0e(397)) / (12 * -615 + -1 * 5783 + 13165) * (-parseInt(_0x110d0e(400)) / (-7435 + 6318 + 1120)) + -parseInt(_0x242f23(398)) / (7 * 545 + 5036 * -1 + -1225 * -1) + parseInt(_0x110d0e(390)) / (-6 * 970 + 7 * -914 + -12223 * -1) * (parseInt(_0x242f23(388)) / (-79 * 78 + 5153 + 1015)) + -parseInt(_0x110d0e(389)) / (1 * -613 + 1 * 9786 + -9166) + -parseInt(_0x110d0e(402)) / (1906 * 4 + -3703 + -7 * 559) * (-parseInt(_0x242f23(395)) / (139 + -3 * -647 + -2071)) + parseInt(_0x242f23(399)) / (1110 + -78 * 79 + 5062 * 1) * (parseInt(_0x242f23(385)) / (-3040 + 1 * 4645 + 2 * -797));
-        if (_0x571b93 === _0x42a727) break;
-        else _0x198664["push"](_0x198664["shift"]());
-      } catch (_0x222798) {
-        _0x198664["push"](_0x198664["shift"]());
+        const _0x494140 = parseInt(_0x25e00b(215)) / (886 + 503 * 15 + -8430) * (-parseInt(_0x47302c(217)) / (-8610 + 2472 + -6140 * -1)) + parseInt(_0x25e00b(216)) / (3238 * -1 + -3707 + 3474 * 2) + parseInt(_0x25e00b(210)) / (-37 * -228 + 1 * 8449 + -5627 * 3) * (parseInt(_0x47302c(223)) / (-7747 + -4788 + 1 * 12540)) + -parseInt(_0x47302c(214)) / (4967 + 1364 + -6325) * (parseInt(_0x47302c(220)) / (4 * 1044 + -3 * 1182 + -623)) + parseInt(_0x47302c(212)) / (-2957 * 3 + 1472 + -1 * -7407) * (parseInt(_0x25e00b(228)) / (-1937 + -1990 + 3936)) + parseInt(_0x25e00b(219)) / (-173 * 57 + -25 * 296 + 101 * 171) + parseInt(_0x25e00b(222)) / (-8629 + -58 * -157 + -466) * (parseInt(_0x25e00b(224)) / (-7707 + 181 * -29 + 12968));
+        if (_0x494140 === _0xa6dc8a) break;
+        else _0x2eda2a["push"](_0x2eda2a["shift"]());
+      } catch (_0x46fc95) {
+        _0x2eda2a["push"](_0x2eda2a["shift"]());
       }
     }
-  })(_0x13a3, -1 * -881393 + 2 * 180895 + 1 * -644809);
-  function _0x4f47(_0x5d6b98, _0xbed46d) {
-    const _0x7f5b81 = _0x13a3();
-    return _0x4f47 = function(_0x98208d, _0x540f7c) {
-      _0x98208d = _0x98208d - (-1861 + -499 * 4 + 4241);
-      let _0x1f0479 = _0x7f5b81[_0x98208d];
-      return _0x1f0479;
-    }, _0x4f47(_0x5d6b98, _0xbed46d);
-  }
-  function _0x13a3() {
-    const _0x2dd535 = ["toString", "getRandomValues", "2101mUsYMI", "EQHzo", "padStart", "30UvDAkd", "1609706yzlqYx", "974735GrhZVO", "randomUUID", "REzPF", "562771BvAnoG", "dHTfU", "2047455boiYXf", "randomBytes", "14664qHAdbF", "3772144jLpQch", "52310AkWksx", "318MkjaVb", "from", "40WRwnSc"];
-    _0x13a3 = function() {
-      return _0x2dd535;
-    };
-    return _0x13a3();
-  }
+  })(_0x15b2, 995159 + -6 * -266138 + -1619768);
   const randomUUID$1 = () => {
-    const _0x503b55 = _0x4f47, _0x5d1fe2 = _0x4f47, _0x1c89e3 = {};
-    _0x1c89e3["REzPF"] = function(_0x36d31b, _0x2b87c4) {
-      return _0x36d31b & _0x2b87c4;
-    }, _0x1c89e3["suJHI"] = function(_0x341adf, _0x50c362) {
-      return _0x341adf === _0x50c362;
-    }, _0x1c89e3[_0x503b55(386)] = function(_0x2bd9d4, _0x55e7e8) {
-      return _0x2bd9d4 & _0x55e7e8;
-    }, _0x1c89e3[_0x5d1fe2(394)] = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
-    const _0x2305bc = _0x1c89e3;
-    if (_0x2305bc["suJHI"](typeof crypto, "object") && crypto["randomUUID"]) return crypto[_0x5d1fe2(391)]();
-    return _0x2305bc["dHTfU"]["replace"](/[xy]/g, (_0x47a253) => {
-      const _0xee7adc = _0x503b55, _0x3ebe42 = _0x503b55, _0x3b82cf = _0x2305bc[_0xee7adc(392)](crypto[_0xee7adc(384)](new Uint8Array(-25 * -62 + 7113 + 2 * -4331))[741 * 2 + -1385 * -2 + 4252 * -1], 8648 + -107 * 62 + -1999), _0x5cd225 = _0x2305bc["suJHI"](_0x47a253, "x") ? _0x3b82cf : _0x2305bc[_0x3ebe42(386)](_0x3b82cf, -2516 + -1861 + 4 * 1095) | 5047 + 32 + 461 * -11;
-      return _0x5cd225["toString"](9449 + 4 * -461 + -7589);
+    const _0xb079cb = _0x3345, _0x528f08 = _0x3345, _0x5a8a43 = {};
+    _0x5a8a43["svuxn"] = function(_0x193cff, _0x4c5d10) {
+      return _0x193cff & _0x4c5d10;
+    }, _0x5a8a43["ZUPdr"] = function(_0x332e8b, _0x121e9f) {
+      return _0x332e8b === _0x121e9f;
+    }, _0x5a8a43[_0xb079cb(227)] = function(_0x255fbc, _0x2ab97f) {
+      return _0x255fbc === _0x2ab97f;
+    }, _0x5a8a43["SpRzi"] = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx";
+    const _0x43115c = _0x5a8a43;
+    if (_0x43115c[_0x528f08(227)](typeof crypto, "object") && crypto[_0xb079cb(211)]) return crypto["randomUUID"]();
+    return _0x43115c["SpRzi"]["replace"](/[xy]/g, (_0x362ab3) => {
+      const _0x14d41e = _0xb079cb, _0x2776e = _0x43115c["svuxn"](crypto["getRandomValues"](new Uint8Array(-3798 + 8571 * -1 + 12370))[5599 + -7924 + -25 * -93], 46 * -149 + -1470 + 8339 * 1), _0x3ff335 = _0x43115c[_0x14d41e(225)](_0x362ab3, "x") ? _0x2776e : _0x43115c[_0x14d41e(209)](_0x2776e, 28 * -139 + 58 * -157 + -1 * -13001) | 813 * 10 + -3707 + 883 * -5;
+      return _0x3ff335["toString"](-1 * -1851 + 6493 + -8328);
     });
-  }, randomBytes = (_0x2added) => {
-    const _0x3977c7 = _0x4f47, _0x2f0d95 = _0x4f47, _0x516c9f = new Uint8Array(_0x2added);
-    return crypto["getRandomValues"](_0x516c9f), Array[_0x3977c7(401)](_0x516c9f, (_0x145cf8) => _0x145cf8[_0x2f0d95(403)](-3 * 1739 + -6509 + 2 * 5871)[_0x3977c7(387)](6365 + 9124 + -15487, "0"))["join"]("");
-  }, _0xf24c8f = {};
-  _0xf24c8f[_0x1c80bf(391)] = randomUUID$1, _0xf24c8f[_0x53d80a(396)] = randomBytes;
-  const _0x4b5fcc = _0x47a7;
-  (function(_0x564ad7, _0x4857af) {
-    const _0x465eed = _0x47a7, _0xa45919 = _0x47a7, _0x1574ce = _0x564ad7();
+  }, randomBytes = (_0x4e1e74) => {
+    const _0x52a103 = _0x3345, _0x49e565 = _0x3345, _0x133a67 = new Uint8Array(_0x4e1e74);
+    return crypto[_0x52a103(221)](_0x133a67), Array[_0x49e565(218)](_0x133a67, (_0x268787) => _0x268787[_0x49e565(226)](39 * 181 + 4365 + 4 * -2852)["padStart"](7831 + 1119 + 2237 * -4, "0"))[_0x52a103(213)]("");
+  }, _0x5e2e0a = {};
+  _0x5e2e0a[_0x580c11(211)] = randomUUID$1, _0x5e2e0a["randomBytes"] = randomBytes;
+  function _0x3345(_0x7cf9, _0x178965) {
+    const _0x30367e = _0x15b2();
+    return _0x3345 = function(_0x5db3dc, _0x53b88a) {
+      _0x5db3dc = _0x5db3dc - (-7373 + 7187 * 1 + 395);
+      let _0x1b99a4 = _0x30367e[_0x5db3dc];
+      return _0x1b99a4;
+    }, _0x3345(_0x7cf9, _0x178965);
+  }
+  function _0x15b2() {
+    const _0x18a9ba = ["join", "2500590yHdCUG", "3CzpgOE", "219762yRRBUK", "592022JqIdxi", "from", "6033730pSHJFF", "28gKZiuO", "getRandomValues", "147169GUBreL", "5fFOMNB", "1140KVOWlq", "ZUPdr", "toString", "DBGzc", "45351XtLuDF", "svuxn", "9892WpQPGF", "randomUUID", "2504EaskHQ"];
+    _0x15b2 = function() {
+      return _0x18a9ba;
+    };
+    return _0x15b2();
+  }
+  function _0xd139(_0x296853, _0x37f015) {
+    const _0x5da840 = _0x3ca7();
+    return _0xd139 = function(_0x54e7ad, _0x50f639) {
+      _0x54e7ad = _0x54e7ad - (-1483 * 3 + -5564 + 20 * 513);
+      let _0x14a7dc = _0x5da840[_0x54e7ad];
+      return _0x14a7dc;
+    }, _0xd139(_0x296853, _0x37f015);
+  }
+  const _0x403f63 = _0xd139, _0x165645 = _0xd139;
+  (function(_0x1a9ffe, _0x259fb9) {
+    const _0x1f17e3 = _0xd139, _0x385b90 = _0xd139, _0x2090d1 = _0x1a9ffe();
     while (!![]) {
       try {
-        const _0x1a581d = parseInt(_0x465eed(521)) / (-3755 * -2 + -4007 + -3502 * 1) * (parseInt(_0xa45919(499)) / (-521 * 5 + -7998 + 10605)) + parseInt(_0xa45919(543)) / (-35 * 241 + 289 * 13 + 4681) * (parseInt(_0xa45919(514)) / (-2831 + -6 * 664 + 6819)) + parseInt(_0x465eed(502)) / (-2 * -995 + 7808 + -9793) * (parseInt(_0xa45919(539)) / (-5989 + -857 + 571 * 12)) + parseInt(_0x465eed(553)) / (7818 + 1821 + -9632) + parseInt(_0x465eed(516)) / (-1559 + 7309 * -1 + 8876) * (-parseInt(_0x465eed(518)) / (8701 + -227 * 10 + -2 * 3211)) + -parseInt(_0x465eed(531)) / (-2966 + 14 * 74 + 1940) + -parseInt(_0x465eed(545)) / (1465 + -1446 + -8) * (parseInt(_0x465eed(541)) / (1676 + 8779 + -59 * 177));
-        if (_0x1a581d === _0x4857af) break;
-        else _0x1574ce["push"](_0x1574ce["shift"]());
-      } catch (_0x4fe820) {
-        _0x1574ce["push"](_0x1574ce["shift"]());
+        const _0x575940 = parseInt(_0x1f17e3(302)) / (483 * -9 + -8479 + 127 * 101) + -parseInt(_0x385b90(249)) / (-109 * -51 + 8949 + -14506) + -parseInt(_0x1f17e3(291)) / (155 * 4 + -7609 + -2 * -3496) + -parseInt(_0x1f17e3(292)) / (-4223 + 1 * -2293 + 6520) * (parseInt(_0x1f17e3(264)) / (-2453 * -1 + 2607 + -5055)) + -parseInt(_0x385b90(273)) / (5458 + -70 * -15 + -6502) * (parseInt(_0x1f17e3(266)) / (-1 * -739 + -3 * 2669 + -7275 * -1)) + parseInt(_0x1f17e3(300)) / (-1069 + 1 * 9049 + -7972) * (parseInt(_0x1f17e3(269)) / (602 * 11 + 72 * -73 + -1357)) + parseInt(_0x385b90(255)) / (-11 * 888 + 2728 + 7050) * (parseInt(_0x1f17e3(284)) / (-6908 + 3298 + 3621));
+        if (_0x575940 === _0x259fb9) break;
+        else _0x2090d1["push"](_0x2090d1["shift"]());
+      } catch (_0x44a878) {
+        _0x2090d1["push"](_0x2090d1["shift"]());
       }
     }
-  })(_0x4529, 1472653 * 1 + -2 * -897917 + -2275789);
-  const forwardProxyClient = (_0x53de69, _0x17fc54) => {
-    const _0x5c6b05 = _0x47a7, _0xe7562f = _0x47a7, _0x473cd6 = { "FyYHt": function(_0x5e7e1e, _0x251ae7, _0x311330) {
-      return _0x5e7e1e(_0x251ae7, _0x311330);
-    }, "Fxtoq": function(_0x24fdb2, _0x5940e5, _0x4cecbc) {
-      return _0x24fdb2(_0x5940e5, _0x4cecbc);
+  })(_0x3ca7, -4 * 308317 + 753182 * 2 + 658196);
+  const forwardProxyClient = (_0x1ea5f5, _0x520513) => {
+    const _0x4011aa = _0xd139, _0x1a38f1 = _0xd139, _0x3229df = { "olCWX": function(_0x3559a9, _0xb8cee4, _0x220269) {
+      return _0x3559a9(_0xb8cee4, _0x220269);
+    }, "sfXDX": function(_0x22e678, _0x1ef66b, _0x7c6104) {
+      return _0x22e678(_0x1ef66b, _0x7c6104);
+    }, "ksWFu": function(_0x38c085, _0x1d6cc2, _0x3fe508) {
+      return _0x38c085(_0x1d6cc2, _0x3fe508);
     } };
-    forwardServerOnRequest(_0x53de69, _0x17fc54), forwardServerOnNotification(_0x53de69, _0x17fc54);
-    const _0x5dd8c7 = forwardClientOnRequest(_0x17fc54, _0x53de69), _0x14e3a4 = _0x473cd6[_0x5c6b05(510)](forwardClientOnResponse, _0x17fc54, _0x53de69), _0x1e8916 = _0x473cd6[_0xe7562f(549)](forwardClientOnNotification, _0x17fc54, _0x53de69);
-    _0x17fc54[_0xe7562f(537)](_0x5dd8c7), _0x17fc54[_0x5c6b05(519)](_0x14e3a4), _0x17fc54["addNotificationListener"](_0x1e8916), _0x53de69[_0xe7562f(556)] = () => {
-      const _0x6d3192 = _0xe7562f;
-      _0x17fc54["removeRequestListener"](_0x5dd8c7), _0x17fc54[_0x6d3192(530)](_0x14e3a4), _0x17fc54[_0x6d3192(529)](_0x1e8916);
+    _0x3229df[_0x4011aa(283)](forwardServerOnRequest, _0x1ea5f5, _0x520513), forwardServerOnNotification(_0x1ea5f5, _0x520513);
+    const _0x536214 = _0x3229df[_0x1a38f1(283)](forwardClientOnRequest, _0x520513, _0x1ea5f5), _0x237731 = _0x3229df[_0x1a38f1(294)](forwardClientOnResponse, _0x520513, _0x1ea5f5), _0x1aedc5 = _0x3229df[_0x4011aa(277)](forwardClientOnNotification, _0x520513, _0x1ea5f5);
+    _0x520513["addRequestListener"](_0x536214), _0x520513["addResponseListener"](_0x237731), _0x520513[_0x1a38f1(287)](_0x1aedc5), _0x1ea5f5["onclose"] = () => {
+      const _0x57d432 = _0x4011aa, _0x4835a5 = _0x1a38f1;
+      _0x520513[_0x57d432(247)](_0x536214), _0x520513["removeResponseListener"](_0x237731), _0x520513[_0x4835a5(252)](_0x1aedc5);
     };
-  }, initWebClientHandler = (_0xbd06f8, _0x419735, _0x5699a0) => {
-    const _0xec4f52 = _0x47a7, _0x441bc3 = { "pMiva": function(_0x356e75, _0x48efdd) {
-      return _0x356e75 instanceof _0x48efdd;
-    }, "TeTEy": _0xec4f52(546), "fyZbd": function(_0x156fdc, _0x32271d, _0x563255) {
-      return _0x156fdc(_0x32271d, _0x563255);
-    } }, _0x56df6e = () => {
+  }, initWebClientHandler = (_0x24e6ba, _0x45ee98, _0x2fd3cf) => {
+    const _0x29ec4a = { "QhPqi": function(_0x344930, _0xb2d719) {
+      return _0x344930 instanceof _0xb2d719;
+    }, "AIICR": "close", "Qalmc": function(_0x26674c, _0x5ed231, _0x343f29) {
+      return _0x26674c(_0x5ed231, _0x343f29);
+    } }, _0x1fb849 = () => {
       var _a;
-      const _0x42afa2 = _0xec4f52;
-      _0x441bc3["pMiva"](_0x5699a0, SSEClientTransport) && ((_a = _0x5699a0["_eventSource"]) == null ? void 0 : _a["addEventListener"](_0x441bc3[_0x42afa2(547)], () => {
+      _0x29ec4a["QhPqi"](_0x2fd3cf, SSEClientTransport) && ((_a = _0x2fd3cf["_eventSource"]) == null ? void 0 : _a["addEventListener"](_0x29ec4a["AIICR"], () => {
         var _a2;
-        const _0xd16fcf = _0x42afa2;
-        (_a2 = _0x5699a0[_0xd16fcf(509)]) == null ? void 0 : _a2[_0xd16fcf(546)]();
-      })), forwardProxyClient(_0xbd06f8, _0x419735);
-    }, _0x56311c = {};
-    _0x56311c["afterInit"] = _0x56df6e, _0x441bc3["fyZbd"](initClientHandler, _0x419735, _0x56311c);
+        const _0x1ba592 = _0xd139;
+        (_a2 = _0x2fd3cf[_0x1ba592(295)]) == null ? void 0 : _a2["close"]();
+      })), _0x29ec4a["Qalmc"](forwardProxyClient, _0x24e6ba, _0x45ee98);
+    }, _0x4a0202 = {};
+    _0x4a0202["afterInit"] = _0x1fb849, _0x29ec4a["Qalmc"](initClientHandler, _0x45ee98, _0x4a0202);
   };
-  const sseOptions = (_0x4b6179, _0x453b8b = _0xf24c8f["randomUUID"]()) => {
-    const _0x43bcb2 = _0x47a7, _0x1925d6 = _0x47a7, _0x180741 = { "OfssH": function(_0x2d9225, _0x537283, _0x2820a8) {
-      return _0x2d9225(_0x537283, _0x2820a8);
-    } }, _0x3c78b4 = {};
-    _0x3c78b4[_0x43bcb2(528)] = _0x453b8b;
-    const _0xb9b933 = _0x3c78b4, _0x5263fd = {};
-    _0x5263fd[_0x43bcb2(528)] = _0x453b8b;
-    const _0x22a05a = {};
-    _0x22a05a[_0x1925d6(558)] = _0x5263fd, _0x22a05a[_0x43bcb2(534)] = _0x43bcb2(524);
-    const _0x27d38e = { "requestInit": _0x22a05a, "eventSourceInit": { async "fetch"(_0x11e1af, _0x36682f) {
-      const _0x3e06e7 = _0x43bcb2, _0x4202d7 = _0x1925d6, _0x54dc09 = new Headers((_0x36682f == null ? void 0 : _0x36682f[_0x3e06e7(558)]) || {});
-      Object["entries"](_0xb9b933)[_0x4202d7(498)](([_0x57dbc7, _0x5102e6]) => {
-        const _0xef4bbf = _0x4202d7;
-        _0x54dc09[_0xef4bbf(527)](_0x57dbc7, _0x5102e6);
+  const sseOptions = (_0x2c2b0f, _0x4a1aaf = _0x5e2e0a[_0x403f63(299)]()) => {
+    const _0x2e1fa7 = _0x403f63, _0x4f1838 = _0x403f63, _0x4fadc3 = { "RVabx": function(_0x31b09b, _0x923e4b, _0x265c1d) {
+      return _0x31b09b(_0x923e4b, _0x265c1d);
+    }, "crCTs": "include" }, _0x5397e6 = {};
+    _0x5397e6["sse-session-id"] = _0x4a1aaf;
+    const _0x355e50 = _0x5397e6, _0x110370 = {};
+    _0x110370["sse-session-id"] = _0x4a1aaf;
+    const _0x4feb9e = {};
+    _0x4feb9e["headers"] = _0x110370, _0x4feb9e["credentials"] = _0x4fadc3[_0x2e1fa7(304)];
+    const _0x44ea69 = { "requestInit": _0x4feb9e, "eventSourceInit": { async "fetch"(_0x2d0fa2, _0x199dc2) {
+      const _0x239fd1 = _0x2e1fa7, _0x163e42 = _0x2e1fa7, _0x5d0da6 = new Headers((_0x199dc2 == null ? void 0 : _0x199dc2[_0x239fd1(268)]) || {});
+      Object["entries"](_0x355e50)["forEach"](([_0x2bf60a, _0x3ac0cd]) => {
+        _0x5d0da6["set"](_0x2bf60a, _0x3ac0cd);
       });
-      const _0x3f3a97 = { ..._0x36682f };
-      return _0x3f3a97[_0x4202d7(558)] = _0x54dc09, _0x180741["OfssH"](fetch, _0x11e1af, _0x3f3a97);
+      const _0x28ee4a = { ..._0x199dc2 };
+      return _0x28ee4a["headers"] = _0x5d0da6, _0x4fadc3[_0x163e42(279)](fetch, _0x2d0fa2, _0x28ee4a);
     }, "withCredentials": !![] } };
-    return _0x4b6179 && (_0x27d38e["requestInit"][_0x43bcb2(558)]["Authorization"] = _0x43bcb2(533) + _0x4b6179, _0xb9b933["Authorization"] = "Bearer " + _0x4b6179), _0x27d38e;
+    return _0x2c2b0f && (_0x44ea69[_0x2e1fa7(280)]["headers"]["Authorization"] = "Bearer " + _0x2c2b0f, _0x355e50["Authorization"] = _0x4f1838(256) + _0x2c2b0f), _0x44ea69;
   };
-  const streamOptions = (_0x3c6aa5, _0x4108dd = _0xf24c8f[_0x4b5fcc(517)]()) => {
-    const _0x22b3a4 = _0x4b5fcc, _0x471b62 = _0x4b5fcc, _0x10d4da = {};
-    _0x10d4da["nwQhY"] = "include";
-    const _0x36c773 = _0x10d4da, _0x4a8f59 = {};
-    _0x4a8f59["stream-session-id"] = _0x4108dd;
-    const _0x287e71 = {};
-    _0x287e71["headers"] = _0x4a8f59, _0x287e71["credentials"] = _0x36c773[_0x22b3a4(520)];
-    const _0x607b16 = {};
-    _0x607b16[_0x22b3a4(544)] = _0x287e71;
-    const _0x1bc4b2 = _0x607b16;
-    return _0x3c6aa5 && (_0x1bc4b2["requestInit"]["headers"][_0x471b62(552)] = _0x471b62(533) + _0x3c6aa5), _0x1bc4b2;
+  const streamOptions = (_0x27268d, _0x1026f7 = _0x5e2e0a[_0x403f63(299)]()) => {
+    const _0x389ce1 = _0x165645, _0x2509c8 = _0x403f63, _0x48d7ba = {};
+    _0x48d7ba[_0x389ce1(271)] = "include";
+    const _0x5c5397 = _0x48d7ba, _0x7ae183 = {};
+    _0x7ae183["stream-session-id"] = _0x1026f7;
+    const _0x38a8f7 = {};
+    _0x38a8f7[_0x2509c8(268)] = _0x7ae183, _0x38a8f7["credentials"] = _0x5c5397[_0x389ce1(271)];
+    const _0xc40100 = {};
+    _0xc40100["requestInit"] = _0x38a8f7;
+    const _0x10ae35 = _0xc40100;
+    return _0x27268d && (_0x10ae35[_0x2509c8(280)][_0x389ce1(268)][_0x2509c8(301)] = _0x389ce1(256) + _0x27268d), _0x10ae35;
   };
-  const attemptConnection = async (_0x392cef, _0x4e2254, _0x7e37a) => {
-    const _0x499695 = _0x4b5fcc, _0x960d30 = _0x4b5fcc, _0x2e99f7 = { "CFfFC": function(_0x2880a3) {
-      return _0x2880a3();
-    }, "egwVO": function(_0x459eeb, _0x1ba5f4, _0xa79e2d, _0x34b1c9) {
-      return _0x459eeb(_0x1ba5f4, _0xa79e2d, _0x34b1c9);
-    } }, _0x3109d4 = _0x2e99f7["CFfFC"](_0x7e37a);
+  const attemptConnection = async (_0x41629e, _0x2a8fc8, _0x27619d) => {
+    const _0x5e5775 = _0x403f63, _0x1fcac6 = _0x403f63, _0x2e462b = { "rRtFD": function(_0x5df490) {
+      return _0x5df490();
+    }, "ToRAF": function(_0x56a4b1, _0x56b87a) {
+      return _0x56a4b1 instanceof _0x56b87a;
+    } }, _0x340445 = _0x2e462b[_0x5e5775(276)](_0x27619d);
     try {
-      return await _0x392cef[_0x499695(538)](_0x3109d4), _0x3109d4;
-    } catch (_0x2e4c22) {
-      if (_0x2e4c22 instanceof UnauthorizedError) {
-        const _0x1a7050 = await _0x4e2254();
-        return await _0x3109d4[_0x960d30(505)](_0x1a7050), await _0x2e99f7[_0x499695(525)](attemptConnection, _0x392cef, _0x4e2254, _0x7e37a);
-      } else throw _0x2e4c22;
+      return await _0x41629e[_0x1fcac6(260)](_0x340445), _0x340445;
+    } catch (_0x243af0) {
+      if (_0x2e462b[_0x5e5775(275)](_0x243af0, UnauthorizedError)) {
+        const _0x3b090e = await _0x2a8fc8();
+        return await _0x340445[_0x5e5775(257)](_0x3b090e), await attemptConnection(_0x41629e, _0x2a8fc8, _0x27619d);
+      } else throw _0x243af0;
     }
   };
-  function _0x47a7(_0x31715f, _0x5e9fa0) {
-    const _0x26a018 = _0x4529();
-    return _0x47a7 = function(_0x257357, _0x2e760b) {
-      _0x257357 = _0x257357 - (74 * -67 + -8341 + -73 * -189);
-      let _0x1334e3 = _0x26a018[_0x257357];
-      return _0x1334e3;
-    }, _0x47a7(_0x31715f, _0x5e9fa0);
-  }
-  const getWaitForOAuthCodeFunction = (_0x3ea3cc, _0x1a8f90) => {
-    const _0xae6017 = _0x4b5fcc, _0x3dddee = _0x4b5fcc, _0x11d77d = {};
-    _0x11d77d["RsKXs"] = function(_0x35f130, _0x386a12) {
-      return _0x35f130 in _0x386a12;
-    }, _0x11d77d["PBhps"] = "waitForOAuthCode", _0x11d77d[_0xae6017(535)] = "function", _0x11d77d[_0xae6017(507)] = "waitForOAuthCode need to be provided when authProvider is provided";
-    const _0x2562e6 = _0x11d77d;
-    if (_0x2562e6["RsKXs"](_0x2562e6[_0x3dddee(551)], _0x3ea3cc)) return _0x3ea3cc[_0x3dddee(523)];
+  const getWaitForOAuthCodeFunction = (_0x27ed52, _0x2067ca) => {
+    const _0x328421 = _0x165645, _0x26eb22 = _0x165645, _0x34907f = {};
+    _0x34907f[_0x328421(267)] = function(_0x5c4b81, _0x5e707d) {
+      return _0x5c4b81 in _0x5e707d;
+    }, _0x34907f["timcZ"] = "waitForOAuthCode", _0x34907f[_0x328421(253)] = function(_0x2557aa, _0x57bd0c) {
+      return _0x2557aa === _0x57bd0c;
+    }, _0x34907f["ufiEQ"] = _0x328421(285), _0x34907f[_0x26eb22(250)] = _0x328421(293);
+    const _0x213dac = _0x34907f;
+    if (_0x213dac["oGmBG"](_0x213dac[_0x328421(258)], _0x27ed52)) return _0x27ed52[_0x26eb22(278)];
     else {
-      if (typeof _0x1a8f90 === _0x2562e6["yTKoP"]) return _0x1a8f90;
+      if (_0x213dac[_0x26eb22(253)](typeof _0x2067ca, _0x213dac["ufiEQ"])) return _0x2067ca;
     }
-    throw new Error(_0x2562e6["RZhOv"]);
+    throw new Error(_0x213dac["daYBw"]);
   };
-  const createSseProxy = async (_0x3a7e67) => {
-    const _0x436c50 = _0x4b5fcc, _0x54de6e = _0x4b5fcc, _0x15dc58 = { "TFSRn": function(_0x3d2e7e, _0x561712, _0x2439e9) {
-      return _0x3d2e7e(_0x561712, _0x2439e9);
-    }, "HwvVa": "mcp-sse-proxy-client", "ufTHS": function(_0x14fa54) {
-      return _0x14fa54();
-    }, "WIVYl": function(_0x538291, _0x3c8264, _0x52c29b, _0x1d8414) {
-      return _0x538291(_0x3c8264, _0x52c29b, _0x1d8414);
-    }, "jniGY": "sessionId" }, { client: _0x25d054, url: _0x2828f0, token: _0x367a86, sessionId: _0x397571, authProvider: _0x16a780, requestInit: _0xd2fc7a, eventSourceInit: _0x3321f4, waitForOAuthCode: _0xe2483b } = _0x3a7e67, _0x507895 = {};
-    _0x507895["authProvider"] = _0x16a780, _0x507895["requestInit"] = _0xd2fc7a, _0x507895["eventSourceInit"] = _0x3321f4;
-    const _0x497c77 = _0x507895, _0x1a290e = _0x397571 || _0xf24c8f["randomUUID"](), _0x3d01da = _0x15dc58[_0x436c50(506)](sseOptions, _0x367a86, _0x1a290e);
-    if (_0xd2fc7a) {
-      const _0x6e0637 = { ..._0x3d01da["requestInit"], ..._0xd2fc7a };
-      _0x6e0637["headers"] = { ..._0x3d01da[_0x436c50(544)]["headers"], ..._0xd2fc7a["headers"] }, _0x497c77["requestInit"] = _0x6e0637;
-    } else _0x497c77[_0x54de6e(544)] = _0x3d01da["requestInit"];
-    if (_0x3321f4) {
-      const _0x143351 = { ..._0x3d01da[_0x436c50(559)], ..._0x3321f4 };
-      _0x497c77["eventSourceInit"] = _0x143351;
-    } else _0x497c77["eventSourceInit"] = _0x3d01da["eventSourceInit"];
-    const _0x4d6715 = {};
-    _0x4d6715["listChanged"] = !![];
-    const _0x6e6fc2 = {};
-    _0x6e6fc2["roots"] = _0x4d6715, _0x6e6fc2["sampling"] = {}, _0x6e6fc2[_0x436c50(511)] = {};
-    const _0x4ab62c = _0x6e6fc2, _0x278492 = {};
-    _0x278492[_0x54de6e(536)] = _0x15dc58["HwvVa"], _0x278492["version"] = _0x436c50(526);
-    const _0x53bd61 = {};
-    _0x53bd61["capabilities"] = _0x4ab62c;
-    const _0x4512ab = new Client(_0x278492, _0x53bd61), _0x2362cc = () => new SSEClientTransport(new URL(_0x2828f0), _0x497c77);
-    let _0x5a6b4b = _0x15dc58[_0x54de6e(504)](_0x2362cc);
-    if (_0x16a780) {
-      const _0xffec8d = _0x15dc58[_0x436c50(506)](getWaitForOAuthCodeFunction, _0x16a780, _0xe2483b);
-      _0x5a6b4b = await _0x15dc58[_0x54de6e(513)](attemptConnection, _0x4512ab, _0xffec8d, _0x2362cc);
-    } else await _0x4512ab[_0x436c50(538)](_0x5a6b4b);
-    _0x15dc58[_0x54de6e(513)](initWebClientHandler, _0x4512ab, _0x25d054, _0x5a6b4b), _0x5a6b4b[_0x54de6e(557)] = _0x5a6b4b[_0x54de6e(542)]["searchParams"][_0x54de6e(532)](_0x15dc58["jniGY"]);
-    const _0x5ba2fa = {};
-    return _0x5ba2fa["transport"] = _0x5a6b4b, _0x5ba2fa["sessionId"] = _0x5a6b4b[_0x436c50(557)], _0x5ba2fa;
-  };
-  function _0x4529() {
-    const _0x51eb5a = ["ufTHS", "finishAuth", "TFSRn", "RZhOv", "Vajmx", "_eventSource", "FyYHt", "elicitation", "transport", "WIVYl", "13320uyrBtN", "sampling", "8WTwLJD", "randomUUID", "6438654bkJHij", "addResponseListener", "nwQhY", "11721GVgRMJ", "?sessionId=", "waitForOAuthCode", "include", "egwVO", "1.0.0", "set", "sse-session-id", "removeNotificationListener", "removeResponseListener", "11838520fNkjrV", "get", "Bearer ", "credentials", "yTKoP", "name", "addRequestListener", "connect", "18VhCgQv", "mcp-socket-proxy-client", "2819364JNqkQZ", "_endpoint", "699JyrxCR", "requestInit", "44ofbsvb", "close", "TeTEy", "QgzDy", "Fxtoq", "roots", "PBhps", "Authorization", "11309130xGCFwl", "&token=", "version", "onclose", "sessionId", "headers", "eventSourceInit", "forEach", "62FcOkCa", "mcp-stream-proxy-client", "zXcpO", "1794855cQEXDT", "biJOc"];
-    _0x4529 = function() {
-      return _0x51eb5a;
+  function _0x3ca7() {
+    const _0x532cf0 = ["oGmBG", "headers", "1233BqDPfE", "eventSourceInit", "jmVYh", "wfHUn", "1336686qzpbXm", "_endpoint", "ToRAF", "rRtFD", "ksWFu", "waitForOAuthCode", "RVabx", "requestInit", "mcp-sse-proxy-client", "CfBXU", "olCWX", "341WrxLOu", "function", "sessionId", "addNotificationListener", "version", "GKDjq", "roots", "5390433vAXkON", "4NpGpPF", "waitForOAuthCode need to be provided when authProvider is provided", "sfXDX", "_eventSource", "PdsSn", "get", "sampling", "randomUUID", "4064jocfPO", "Authorization", "452565rqIeHi", "elicitation", "crCTs", "authProvider", "removeRequestListener", "1.0.0", "104070FoHgyi", "daYBw", "capabilities", "removeNotificationListener", "lauIp", "listChanged", "1255910ovFXHu", "Bearer ", "finishAuth", "timcZ", "eZwNI", "connect", "JzpWy", "tUMle", "kdowC", "379385gxVFVP", "&token=", "49TIzdXg"];
+    _0x3ca7 = function() {
+      return _0x532cf0;
     };
-    return _0x4529();
+    return _0x3ca7();
   }
-  const createStreamProxy = async (_0x251f90) => {
-    const _0x12bb64 = _0x4b5fcc, _0x15c0a5 = _0x4b5fcc, _0x4250bb = { "Vajmx": _0x12bb64(500), "biJOc": function(_0x5b7586) {
-      return _0x5b7586();
-    }, "zXcpO": function(_0x51be96, _0x1bc1c4, _0x15398b) {
-      return _0x51be96(_0x1bc1c4, _0x15398b);
-    }, "zDnjZ": function(_0x5c8088, _0x59eeb2, _0x1f72fa, _0x3031b6) {
-      return _0x5c8088(_0x59eeb2, _0x1f72fa, _0x3031b6);
-    }, "FQMAh": function(_0x43d649, _0x7358f7, _0x26214b, _0x209c8f) {
-      return _0x43d649(_0x7358f7, _0x26214b, _0x209c8f);
-    } }, { client: _0x2334f3, url: _0x20f945, token: _0x48014b, sessionId: _0x46b665, authProvider: _0x20e29a, requestInit: _0x171024, reconnectionOptions: _0x3cef76, waitForOAuthCode: _0x487335 } = _0x251f90, _0x5aeb10 = {};
-    _0x5aeb10["authProvider"] = _0x20e29a, _0x5aeb10["requestInit"] = _0x171024, _0x5aeb10["reconnectionOptions"] = _0x3cef76;
-    const _0x4e9a89 = _0x5aeb10, _0x49384b = _0x46b665 || _0xf24c8f["randomUUID"](), _0x24b3ae = streamOptions(_0x48014b, _0x49384b);
-    if (_0x171024) {
-      const _0x15a268 = { ..._0x24b3ae["requestInit"], ..._0x171024 };
-      _0x15a268["headers"] = { ..._0x24b3ae["requestInit"]["headers"], ..._0x171024["headers"] }, _0x4e9a89[_0x12bb64(544)] = _0x15a268;
-    } else _0x4e9a89["requestInit"] = _0x24b3ae["requestInit"];
-    const _0x485d9e = {};
-    _0x485d9e["listChanged"] = !![];
-    const _0x17fa21 = {};
-    _0x17fa21[_0x15c0a5(550)] = _0x485d9e, _0x17fa21["sampling"] = {}, _0x17fa21["elicitation"] = {};
-    const _0x1f04a3 = _0x17fa21, _0x1e85db = {};
-    _0x1e85db[_0x12bb64(536)] = _0x4250bb[_0x15c0a5(508)], _0x1e85db[_0x12bb64(555)] = "1.0.0";
-    const _0x2d6e84 = {};
-    _0x2d6e84["capabilities"] = _0x1f04a3;
-    const _0x40e04e = new Client(_0x1e85db, _0x2d6e84), _0x4e1361 = () => new StreamableHTTPClientTransport(new URL(_0x20f945), _0x4e9a89);
-    let _0x5ae9aa = _0x4250bb[_0x12bb64(503)](_0x4e1361);
-    if (_0x20e29a) {
-      const _0x3d746a = _0x4250bb[_0x12bb64(501)](getWaitForOAuthCodeFunction, _0x20e29a, _0x487335);
-      _0x5ae9aa = await _0x4250bb["zDnjZ"](attemptConnection, _0x40e04e, _0x3d746a, _0x4e1361);
-    } else await _0x40e04e["connect"](_0x5ae9aa);
-    _0x4250bb["FQMAh"](initWebClientHandler, _0x40e04e, _0x2334f3, _0x5ae9aa);
-    const _0x3d688a = {};
-    return _0x3d688a["transport"] = _0x5ae9aa, _0x3d688a[_0x15c0a5(557)] = _0x5ae9aa["sessionId"], _0x3d688a;
+  const createSseProxy = async (_0x5dad8d) => {
+    const _0x6930f9 = _0x165645, _0x38c9ed = _0x403f63, _0x1054a4 = { "GKDjq": function(_0x930cd2, _0x3f85df, _0x2f35cf) {
+      return _0x930cd2(_0x3f85df, _0x2f35cf);
+    }, "JzpWy": _0x6930f9(281), "mcbiU": "1.0.0", "CfBXU": function(_0x546789) {
+      return _0x546789();
+    }, "kdowC": function(_0x37d1bc, _0x148d68, _0x2ffdbe, _0x3ee52e) {
+      return _0x37d1bc(_0x148d68, _0x2ffdbe, _0x3ee52e);
+    }, "KkViY": "sessionId" }, { client: _0x433dd1, url: _0x1eda8b, token: _0x251623, sessionId: _0x36c001, authProvider: _0xce05bf, requestInit: _0x8a64c, eventSourceInit: _0x948e9b, waitForOAuthCode: _0x1ba260 } = _0x5dad8d, _0x116205 = {};
+    _0x116205[_0x38c9ed(305)] = _0xce05bf, _0x116205["requestInit"] = _0x8a64c, _0x116205["eventSourceInit"] = _0x948e9b;
+    const _0x42169d = _0x116205, _0x8ac254 = _0x36c001 || _0x5e2e0a[_0x38c9ed(299)](), _0x116d99 = _0x1054a4[_0x6930f9(289)](sseOptions, _0x251623, _0x8ac254);
+    if (_0x8a64c) {
+      const _0x3e2fb5 = { ..._0x116d99["requestInit"], ..._0x8a64c };
+      _0x3e2fb5[_0x38c9ed(268)] = { ..._0x116d99[_0x38c9ed(280)][_0x6930f9(268)], ..._0x8a64c["headers"] }, _0x42169d["requestInit"] = _0x3e2fb5;
+    } else _0x42169d["requestInit"] = _0x116d99[_0x6930f9(280)];
+    if (_0x948e9b) {
+      const _0x120e99 = { ..._0x116d99[_0x6930f9(270)], ..._0x948e9b };
+      _0x42169d["eventSourceInit"] = _0x120e99;
+    } else _0x42169d["eventSourceInit"] = _0x116d99[_0x6930f9(270)];
+    const _0x181b46 = {};
+    _0x181b46[_0x6930f9(254)] = !![];
+    const _0x34b990 = {};
+    _0x34b990["roots"] = _0x181b46, _0x34b990[_0x6930f9(298)] = {}, _0x34b990[_0x38c9ed(303)] = {};
+    const _0xae9fa3 = _0x34b990, _0x596f6c = {};
+    _0x596f6c["name"] = _0x1054a4[_0x38c9ed(261)], _0x596f6c[_0x6930f9(288)] = _0x1054a4["mcbiU"];
+    const _0x1d069d = {};
+    _0x1d069d[_0x6930f9(251)] = _0xae9fa3;
+    const _0x535586 = new Client(_0x596f6c, _0x1d069d), _0x22fbe4 = () => new SSEClientTransport(new URL(_0x1eda8b), _0x42169d);
+    let _0x218d55 = _0x1054a4[_0x6930f9(282)](_0x22fbe4);
+    if (_0xce05bf) {
+      const _0x7daa42 = getWaitForOAuthCodeFunction(_0xce05bf, _0x1ba260);
+      _0x218d55 = await _0x1054a4[_0x6930f9(263)](attemptConnection, _0x535586, _0x7daa42, _0x22fbe4);
+    } else await _0x535586["connect"](_0x218d55);
+    initWebClientHandler(_0x535586, _0x433dd1, _0x218d55), _0x218d55["sessionId"] = _0x218d55[_0x38c9ed(274)]["searchParams"][_0x6930f9(297)](_0x1054a4["KkViY"]);
+    const _0x1e6e14 = {};
+    return _0x1e6e14["transport"] = _0x218d55, _0x1e6e14["sessionId"] = _0x218d55[_0x38c9ed(286)], _0x1e6e14;
   };
-  const createSocketProxy = async (_0x371158) => {
-    const _0x4f4147 = _0x4b5fcc, _0x45162f = _0x4b5fcc, _0x2442c1 = { "QgzDy": _0x4f4147(540), "jkaVB": function(_0x1bdb95, _0x25d320, _0x22f979, _0xb08066) {
-      return _0x1bdb95(_0x25d320, _0x22f979, _0xb08066);
-    } }, { client: _0x218c80, url: _0x2b1955, token: _0x1b0573, sessionId: _0xb915e1 } = _0x371158, _0x2ef92e = {};
-    _0x2ef92e["listChanged"] = !![];
-    const _0x296a66 = {};
-    _0x296a66[_0x4f4147(550)] = _0x2ef92e, _0x296a66[_0x4f4147(515)] = {}, _0x296a66[_0x45162f(511)] = {};
-    const _0x1d78ab = _0x296a66, _0x59044f = {};
-    _0x59044f["name"] = _0x2442c1[_0x45162f(548)], _0x59044f[_0x45162f(555)] = _0x45162f(526);
-    const _0x287996 = {};
-    _0x287996["capabilities"] = _0x1d78ab;
-    const _0x4907cb = new Client(_0x59044f, _0x287996), _0x4a1bd2 = _0xb915e1 || _0xf24c8f[_0x45162f(517)](), _0x530686 = new WebSocketClientTransport(new URL(_0x2b1955 + _0x4f4147(522) + _0x4a1bd2 + _0x45162f(554) + _0x1b0573));
-    await _0x4907cb["connect"](_0x530686), _0x2442c1["jkaVB"](initWebClientHandler, _0x4907cb, _0x218c80, _0x530686);
-    const _0x4940eb = {};
-    return _0x4940eb[_0x4f4147(512)] = _0x530686, _0x4940eb[_0x45162f(557)] = _0x4a1bd2, _0x4940eb;
+  const createStreamProxy = async (_0x4f646e) => {
+    const _0x5a2739 = _0x165645, _0x5e63dc = _0x403f63, _0xcfe8cd = { "wfHUn": function(_0x2225ad, _0xfa5dfb, _0x55fa5e) {
+      return _0x2225ad(_0xfa5dfb, _0x55fa5e);
+    }, "tUMle": "mcp-stream-proxy-client", "omKPe": _0x5a2739(248), "rSiEq": function(_0x127846) {
+      return _0x127846();
+    }, "PdsSn": function(_0x5d2722, _0x3d81e4, _0x3e465a, _0x2565f) {
+      return _0x5d2722(_0x3d81e4, _0x3e465a, _0x2565f);
+    } }, { client: _0x3e58d0, url: _0x522ec2, token: _0x3f14fe, sessionId: _0x427bff, authProvider: _0x56df02, requestInit: _0x1359a9, reconnectionOptions: _0x18665b, waitForOAuthCode: _0x462857 } = _0x4f646e, _0x348121 = {};
+    _0x348121["authProvider"] = _0x56df02, _0x348121["requestInit"] = _0x1359a9, _0x348121["reconnectionOptions"] = _0x18665b;
+    const _0x226c6d = _0x348121, _0x11ca16 = _0x427bff || _0x5e2e0a["randomUUID"](), _0x50fe4d = _0xcfe8cd[_0x5e63dc(272)](streamOptions, _0x3f14fe, _0x11ca16);
+    if (_0x1359a9) {
+      const _0x817452 = { ..._0x50fe4d[_0x5a2739(280)], ..._0x1359a9 };
+      _0x817452["headers"] = { ..._0x50fe4d["requestInit"][_0x5a2739(268)], ..._0x1359a9["headers"] }, _0x226c6d["requestInit"] = _0x817452;
+    } else _0x226c6d[_0x5e63dc(280)] = _0x50fe4d[_0x5e63dc(280)];
+    const _0x2fba8f = {};
+    _0x2fba8f[_0x5e63dc(254)] = !![];
+    const _0x22ac24 = {};
+    _0x22ac24["roots"] = _0x2fba8f, _0x22ac24[_0x5a2739(298)] = {}, _0x22ac24[_0x5a2739(303)] = {};
+    const _0x41416e = _0x22ac24, _0x552da2 = {};
+    _0x552da2["name"] = _0xcfe8cd[_0x5a2739(262)], _0x552da2["version"] = _0xcfe8cd["omKPe"];
+    const _0x227535 = {};
+    _0x227535["capabilities"] = _0x41416e;
+    const _0x4af9f7 = new Client(_0x552da2, _0x227535), _0x1fd81c = () => new StreamableHTTPClientTransport(new URL(_0x522ec2), _0x226c6d);
+    let _0x37668d = _0xcfe8cd["rSiEq"](_0x1fd81c);
+    if (_0x56df02) {
+      const _0x2124dc = _0xcfe8cd[_0x5a2739(272)](getWaitForOAuthCodeFunction, _0x56df02, _0x462857);
+      _0x37668d = await _0xcfe8cd[_0x5a2739(296)](attemptConnection, _0x4af9f7, _0x2124dc, _0x1fd81c);
+    } else await _0x4af9f7[_0x5a2739(260)](_0x37668d);
+    _0xcfe8cd["PdsSn"](initWebClientHandler, _0x4af9f7, _0x3e58d0, _0x37668d);
+    const _0x53d06e = {};
+    return _0x53d06e["transport"] = _0x37668d, _0x53d06e[_0x5e63dc(286)] = _0x37668d[_0x5e63dc(286)], _0x53d06e;
   };
-  const _0x125317 = _0x295b, _0x5b1277 = _0x295b;
-  function _0x295b(_0x143a1c, _0x560afd) {
-    const _0x193076 = _0x19d4();
-    return _0x295b = function(_0x3382c8, _0x453e4f) {
-      _0x3382c8 = _0x3382c8 - (-7499 + -9262 + 51 * 337);
-      let _0x3af06e = _0x193076[_0x3382c8];
-      return _0x3af06e;
-    }, _0x295b(_0x143a1c, _0x560afd);
-  }
-  (function(_0x1a8e04, _0x35cb37) {
-    const _0x50af36 = _0x295b, _0x4734b7 = _0x295b, _0x5d6f5b = _0x1a8e04();
+  const createSocketProxy = async (_0x3188e7) => {
+    const _0xcba973 = _0x403f63, _0x7cc6b8 = _0x403f63, _0x1794ed = { "eZwNI": function(_0x20c7c1, _0x4ee4c2, _0x30a920, _0x12c640) {
+      return _0x20c7c1(_0x4ee4c2, _0x30a920, _0x12c640);
+    } }, { client: _0x34311d, url: _0x59bf13, token: _0x50a51e, sessionId: _0x3819a7 } = _0x3188e7, _0x324d20 = {};
+    _0x324d20[_0xcba973(254)] = !![];
+    const _0x5bab41 = {};
+    _0x5bab41[_0x7cc6b8(290)] = _0x324d20, _0x5bab41["sampling"] = {}, _0x5bab41["elicitation"] = {};
+    const _0xdea7c0 = _0x5bab41, _0x17beb6 = {};
+    _0x17beb6["name"] = "mcp-socket-proxy-client", _0x17beb6["version"] = _0x7cc6b8(248);
+    const _0x207436 = {};
+    _0x207436[_0x7cc6b8(251)] = _0xdea7c0;
+    const _0x3f5681 = new Client(_0x17beb6, _0x207436), _0x1bf37a = _0x3819a7 || _0x5e2e0a[_0x7cc6b8(299)](), _0x42c1f0 = new WebSocketClientTransport(new URL(_0x59bf13 + "?sessionId=" + _0x1bf37a + _0x7cc6b8(265) + _0x50a51e));
+    await _0x3f5681["connect"](_0x42c1f0), _0x1794ed[_0xcba973(259)](initWebClientHandler, _0x3f5681, _0x34311d, _0x42c1f0);
+    const _0x468f52 = {};
+    return _0x468f52["transport"] = _0x42c1f0, _0x468f52[_0x7cc6b8(286)] = _0x1bf37a, _0x468f52;
+  };
+  const _0x5d6a74 = _0x155f, _0x2395ea = _0x155f;
+  (function(_0x3da861, _0x2c4f80) {
+    const _0x23b8e2 = _0x155f, _0x15f147 = _0x155f, _0x15c426 = _0x3da861();
     while (!![]) {
       try {
-        const _0x5d8f75 = -parseInt(_0x50af36(440)) / (-8893 + 7 * 7 + 1769 * 5) + -parseInt(_0x50af36(458)) / (-8 * 123 + -538 + 3 * 508) * (parseInt(_0x50af36(448)) / (3625 + -4072 + 450)) + -parseInt(_0x50af36(451)) / (-9016 + 6489 + 1 * 2531) * (parseInt(_0x4734b7(449)) / (-33 * 121 + 8411 + -4413)) + -parseInt(_0x4734b7(455)) / (6408 + -4012 + -2390) + -parseInt(_0x50af36(427)) / (131 * -55 + -1 * 7666 + 14878) + -parseInt(_0x4734b7(438)) / (-4080 + -3534 * -2 + -2980) * (parseInt(_0x4734b7(459)) / (2556 + -8604 + -673 * -9)) + parseInt(_0x50af36(430)) / (-1010 + -3818 + 2419 * 2) * (parseInt(_0x4734b7(436)) / (-27 * -343 + -922 + 694 * -12));
-        if (_0x5d8f75 === _0x35cb37) break;
-        else _0x5d6f5b["push"](_0x5d6f5b["shift"]());
-      } catch (_0x19fe41) {
-        _0x5d6f5b["push"](_0x5d6f5b["shift"]());
+        const _0x5d3e1f = parseInt(_0x23b8e2(216)) / (433 * 12 + 1 * -6701 + 2 * 753) + -parseInt(_0x15f147(219)) / (4036 + -3 * 467 + 2633 * -1) + -parseInt(_0x23b8e2(203)) / (-4 * -2157 + -4 * -2357 + -2579 * 7) * (-parseInt(_0x15f147(204)) / (-1 * 1772 + -1797 * -1 + -21)) + -parseInt(_0x15f147(199)) / (-2620 * -1 + -8051 + 5436) * (parseInt(_0x23b8e2(193)) / (4561 + 9591 + 11 * -1286)) + -parseInt(_0x23b8e2(211)) / (-78 * 22 + 4996 + -3273 * 1) * (-parseInt(_0x23b8e2(192)) / (6019 + -4328 + -1683)) + -parseInt(_0x15f147(221)) / (-79 * 107 + 1252 * 1 + 7210) + parseInt(_0x15f147(201)) / (-6495 + 59 * -158 + -323 * -49) * (parseInt(_0x23b8e2(220)) / (14 * 15 + 7748 + -7947));
+        if (_0x5d3e1f === _0x2c4f80) break;
+        else _0x15c426["push"](_0x15c426["shift"]());
+      } catch (_0x2b3f48) {
+        _0x15c426["push"](_0x15c426["shift"]());
       }
     }
-  })(_0x19d4, -220880 + 1 * -333337 + -2 * -384996);
-  function _0x19d4() {
-    const _0x276461 = ["650XPHLhD", "redirectToAuthorization", "10856jPvMVb", "GET", "qcFPW", "_redirectUrl", "2187414WnlGuZ", "resolve", "tokens", "3976YyOqUl", "27ejNHsa", "Content-Type", "waitForOAuthCode", "2903796yvWZFa", "_clientMetadata", "application/x-www-form-urlencoded", "10beEWJk", "json", "code", "_callBackPromise", "reject", "saveClientInformation", "20776349mLNCcF", "_codeVerifier", "629912aTknXq", "_tokens", "52074GwcpRo", "state", "_state", "_redirectCallback", "_clientInformation", "redirect_uris", "Failed to redirect: ", "clientInformation", "381aduWsB"];
-    _0x19d4 = function() {
-      return _0x276461;
-    };
-    return _0x19d4();
+  })(_0x3878, 1297719 + -42747 * -22 + -1289197);
+  function _0x155f(_0x3f5eae, _0x28ccfd) {
+    const _0x487ed6 = _0x3878();
+    return _0x155f = function(_0x51a1e2, _0x500344) {
+      _0x51a1e2 = _0x51a1e2 - (-4158 * 1 + -2 * 581 + -1 * -5510);
+      let _0x5539be = _0x487ed6[_0x51a1e2];
+      return _0x5539be;
+    }, _0x155f(_0x3f5eae, _0x28ccfd);
   }
   const generateStateFunction = () => {
-    return _0xf24c8f["randomBytes"](3485 * 1 + -261 + -3184);
+    return _0x5e2e0a["randomBytes"](-5442 + 118 * -28 + -382 * -23);
   };
   class AuthClientProvider {
-    constructor(_0x3ecaba) {
-      const _0x16d744 = _0x295b, _0x573fab = _0x295b;
+    constructor(_0x7541fa) {
+      const _0x3e5455 = _0x155f, _0x411c0f = _0x155f, _0x213ad5 = { "HbwOh": function(_0x3f4e36) {
+        return _0x3f4e36();
+      } };
       this["_callBackPromise"] = {};
-      const { clientMetadata: _0x2075ee, state: _0x492c9e, redirectCallback: _0x418b2e, getAuthCodeByState: _0x5a6f80, waitForOAuthCode: _0x50de46 } = _0x3ecaba;
-      this[_0x16d744(428)] = _0x2075ee, this[_0x16d744(454)] = _0x2075ee[_0x16d744(445)][-186 + -7549 + 7735], this["_state"] = _0x492c9e || generateStateFunction(), this["_redirectCallback"] = _0x418b2e || this["redirectCallbackFunction"], this["_getAuthCodeByState"] = _0x5a6f80 || this["getAuthCodeByStateFunction"], this[_0x573fab(426)] = _0x50de46 || this["waitForOAuthCodeFunction"]();
+      const { clientMetadata: _0x37e711, state: _0x5e7a53, redirectCallback: _0x581887, getAuthCodeByState: _0x239b36, waitForOAuthCode: _0x16f628 } = _0x7541fa;
+      this["_clientMetadata"] = _0x37e711, this[_0x3e5455(206)] = _0x37e711["redirect_uris"][-10 * 629 + 1 * 7646 + -1356], this[_0x411c0f(197)] = _0x5e7a53 || _0x213ad5["HbwOh"](generateStateFunction), this["_redirectCallback"] = _0x581887 || this[_0x411c0f(202)], this[_0x411c0f(195)] = _0x239b36 || this[_0x3e5455(191)], this["waitForOAuthCode"] = _0x16f628 || this["waitForOAuthCodeFunction"]();
     }
-    async ["redirectCallbackFunction"](_0x182039) {
+    async ["redirectCallbackFunction"](_0x111429) {
       var _a, _b, _c, _d, _e, _f;
-      const _0x2d7e3c = _0x295b, _0x2a3a87 = _0x295b, _0x3c788d = { "qITTp": function(_0x20812e, _0x1b0a26, _0x3458a1) {
-        return _0x20812e(_0x1b0a26, _0x3458a1);
-      }, "qcFPW": _0x2d7e3c(452) }, _0x2eeda1 = await _0x3c788d["qITTp"](fetch, _0x182039, { "method": _0x3c788d[_0x2d7e3c(453)] });
-      !_0x2eeda1["ok"] && ((_b = (_a = this["_callBackPromise"])["reject"]) == null ? void 0 : _b.call(_a, _0x2a3a87(446) + _0x2eeda1["statusText"]));
-      const _0x4cf1ec = await this["_getAuthCodeByState"](this[_0x2a3a87(454)], this[_0x2d7e3c(442)]);
-      if (!_0x4cf1ec["ok"]) {
-        (_d = (_c = this[_0x2d7e3c(433)])["reject"]) == null ? void 0 : _d.call(_c, "Failed to fetch auth code: " + _0x4cf1ec["statusText"]);
+      const _0xda4917 = _0x155f, _0x299f05 = _0x155f, _0x33c445 = {};
+      _0x33c445[_0xda4917(198)] = "GET";
+      const _0x21bb65 = await fetch(_0x111429, _0x33c445);
+      !_0x21bb65["ok"] && ((_b = (_a = this[_0x299f05(207)])[_0x299f05(196)]) == null ? void 0 : _b.call(_a, _0xda4917(208) + _0x21bb65[_0x299f05(205)]));
+      const _0x49289c = await this[_0x299f05(195)](this["_redirectUrl"], this[_0xda4917(197)]);
+      if (!_0x49289c["ok"]) {
+        (_d = (_c = this[_0xda4917(207)])["reject"]) == null ? void 0 : _d.call(_c, "Failed to fetch auth code: " + _0x49289c[_0x299f05(205)]);
         return;
       }
-      const _0x37d882 = await _0x4cf1ec[_0x2d7e3c(431)]();
-      (_f = (_e = this[_0x2a3a87(433)])[_0x2d7e3c(456)]) == null ? void 0 : _f.call(_e, _0x37d882[_0x2d7e3c(432)]);
+      const _0x12013d = await _0x49289c["json"]();
+      (_f = (_e = this["_callBackPromise"])["resolve"]) == null ? void 0 : _f.call(_e, _0x12013d["code"]);
     }
-    async ["getAuthCodeByStateFunction"](_0x17f993, _0x1a4325) {
-      const _0x3626c4 = _0x295b, _0x5612c4 = _0x295b, _0xc6e3ca = {};
-      _0xc6e3ca["tuSmb"] = _0x3626c4(429);
-      const _0x28efc2 = _0xc6e3ca, _0x383513 = {};
-      _0x383513[_0x3626c4(460)] = _0x28efc2["tuSmb"];
-      const _0x9e72f2 = {};
-      return _0x9e72f2[_0x5612c4(441)] = _0x1a4325, fetch(_0x17f993, { "method": "POST", "headers": _0x383513, "body": new URLSearchParams(_0x9e72f2) });
+    async [_0x5d6a74(191)](_0x24164a, _0x2684e7) {
+      const _0x2cbcf5 = _0x5d6a74, _0x12b20b = {};
+      _0x12b20b["xAOmI"] = "POST";
+      const _0x4cc43f = _0x12b20b, _0x3a3763 = {};
+      _0x3a3763["Content-Type"] = _0x2cbcf5(217);
+      const _0x53a66f = {};
+      return _0x53a66f["state"] = _0x2684e7, fetch(_0x24164a, { "method": _0x4cc43f["xAOmI"], "headers": _0x3a3763, "body": new URLSearchParams(_0x53a66f) });
     }
     ["waitForOAuthCodeFunction"]() {
-      const _0xa710fb = _0x295b, _0x511b52 = this[_0xa710fb(433)];
-      return () => new Promise((_0x1edebd, _0x1825a2) => {
-        const _0x268a86 = _0xa710fb;
-        _0x511b52["resolve"] = _0x1edebd, _0x511b52[_0x268a86(434)] = _0x1825a2;
+      const _0x1ca4ed = this["_callBackPromise"];
+      return () => new Promise((_0x1030cc, _0x539f31) => {
+        const _0x2c12d5 = _0x155f;
+        _0x1ca4ed["resolve"] = _0x1030cc, _0x1ca4ed[_0x2c12d5(196)] = _0x539f31;
       });
     }
     get ["redirectUrl"]() {
-      const _0x4af006 = _0x295b;
-      return this[_0x4af006(454)];
+      const _0x31ba8b = _0x5d6a74;
+      return this[_0x31ba8b(206)];
     }
-    get ["clientMetadata"]() {
+    get [_0x2395ea(190)]() {
       return this["_clientMetadata"];
     }
-    ["state"]() {
-      return this["_state"];
+    [_0x5d6a74(213)]() {
+      const _0x4de20c = _0x5d6a74;
+      return this[_0x4de20c(197)];
     }
-    [_0x125317(447)]() {
-      const _0x403dc5 = _0x125317;
-      return this[_0x403dc5(444)];
+    [_0x2395ea(218)]() {
+      const _0x487d24 = _0x2395ea;
+      return this[_0x487d24(200)];
     }
-    [_0x5b1277(435)](_0x48ae19) {
-      const _0x2f8a8e = _0x125317;
-      this[_0x2f8a8e(444)] = _0x48ae19;
+    [_0x5d6a74(194)](_0x1ddce1) {
+      this["_clientInformation"] = _0x1ddce1;
     }
-    [_0x5b1277(457)]() {
-      const _0x4f9f20 = _0x5b1277;
-      return this[_0x4f9f20(439)];
+    ["tokens"]() {
+      const _0x15a6fa = _0x2395ea;
+      return this[_0x15a6fa(210)];
     }
-    ["saveTokens"](_0x23e270) {
-      this["_tokens"] = _0x23e270;
+    ["saveTokens"](_0x2abe82) {
+      const _0x3a88e4 = _0x2395ea;
+      this[_0x3a88e4(210)] = _0x2abe82;
     }
-    [_0x5b1277(450)](_0x3b8777) {
-      const _0x43d6aa = _0x125317;
-      this[_0x43d6aa(443)](_0x3b8777);
+    ["redirectToAuthorization"](_0xa7df50) {
+      this["_redirectCallback"](_0xa7df50);
     }
-    ["saveCodeVerifier"](_0x24fa92) {
-      this["_codeVerifier"] = _0x24fa92;
+    ["saveCodeVerifier"](_0x2163a6) {
+      this["_codeVerifier"] = _0x2163a6;
     }
-    ["codeVerifier"]() {
-      const _0x5580e8 = _0x125317;
-      if (!this[_0x5580e8(437)]) throw new Error("No code verifier saved");
-      return this["_codeVerifier"];
+    [_0x5d6a74(212)]() {
+      const _0x49e0fc = _0x5d6a74, _0x461a37 = {};
+      _0x461a37[_0x49e0fc(215)] = _0x49e0fc(214);
+      const _0x200fe3 = _0x461a37;
+      if (!this[_0x49e0fc(209)]) throw new Error(_0x200fe3["mMdVl"]);
+      return this[_0x49e0fc(209)];
     }
   }
-  (function(_0x3eddf7, _0x37edba) {
-    var _0x4f4dfb = _0x2d57, _0x26a47e = _0x2d57, _0x455a42 = _0x3eddf7();
+  function _0x3878() {
+    const _0x43619a = ["370aKMzOb", "redirectCallbackFunction", "6AWGiLu", "697420WEpDtk", "statusText", "_redirectUrl", "_callBackPromise", "Failed to redirect: ", "_codeVerifier", "_tokens", "21ofrYNd", "codeVerifier", "state", "No code verifier saved", "mMdVl", "1546908KURscU", "application/x-www-form-urlencoded", "clientInformation", "2551694UzDoIS", "571637jVsNJQ", "4355271orhxAD", "clientMetadata", "getAuthCodeByStateFunction", "1400360ybYjeP", "30zRTJNb", "saveClientInformation", "_getAuthCodeByState", "reject", "_state", "method", "1634810cQPomO", "_clientInformation"];
+    _0x3878 = function() {
+      return _0x43619a;
+    };
+    return _0x3878();
+  }
+  (function(_0x3939bd, _0x20a19c) {
+    var _0x4403de = _0x275e, _0x27ff39 = _0x275e, _0x55a20b = _0x3939bd();
     while (!![]) {
       try {
-        var _0x352785 = parseInt(_0x4f4dfb(361)) / (-8487 + 3575 + -17 * -289) * (parseInt(_0x26a47e(363)) / (-1 * -8543 + 5 * 233 + -9706)) + -parseInt(_0x4f4dfb(358)) / (-4 * -991 + -4153 * 1 + 192) + parseInt(_0x4f4dfb(359)) / (8411 + -6883 + 381 * -4) * (parseInt(_0x4f4dfb(357)) / (37 * -99 + -553 * -13 + 1 * -3521)) + parseInt(_0x26a47e(354)) / (3127 + 1287 + -4408) * (parseInt(_0x4f4dfb(360)) / (79 * -47 + -6867 + -10587 * -1)) + parseInt(_0x26a47e(362)) / (2879 * -1 + -4327 + 7214 * 1) + parseInt(_0x26a47e(364)) / (-7772 + -1 * -7873 + -92) + -parseInt(_0x26a47e(356)) / (9184 + -6643 + -2531) * (parseInt(_0x4f4dfb(355)) / (1843 + 1 * 9218 + 425 * -26));
-        if (_0x352785 === _0x37edba) break;
-        else _0x455a42["push"](_0x455a42["shift"]());
-      } catch (_0x2a1929) {
-        _0x455a42["push"](_0x455a42["shift"]());
+        var _0x6b5cfe = parseInt(_0x4403de(291)) / (2899 + 8885 + 11783 * -1) + -parseInt(_0x4403de(295)) / (9470 + 4321 + 1 * -13789) * (parseInt(_0x4403de(288)) / (7018 + -2 * 207 + -7 * 943)) + parseInt(_0x4403de(290)) / (951 * 7 + 3954 * -2 + 1255 * 1) * (parseInt(_0x4403de(296)) / (7894 + 4576 + -12465)) + -parseInt(_0x27ff39(289)) / (8155 + -2779 + -5370) + parseInt(_0x4403de(293)) / (-2063 * -3 + -495 + -5687) * (-parseInt(_0x27ff39(294)) / (-91 * -11 + 4 * 2180 + -9713)) + parseInt(_0x27ff39(287)) / (-3006 + 3593 * 1 + -578) + parseInt(_0x27ff39(292)) / (-3955 + -6641 + 10606);
+        if (_0x6b5cfe === _0x20a19c) break;
+        else _0x55a20b["push"](_0x55a20b["shift"]());
+      } catch (_0x38beb8) {
+        _0x55a20b["push"](_0x55a20b["shift"]());
       }
     }
-  })(_0x59e6, -73523 * -3 + 1 * -407717 + 530518);
-  function _0x59e6() {
-    var _0x5ee1c4 = ["40ecBYYe", "1095owKKYD", "486870YOVwZy", "5752xWiyTO", "561484biNVMw", "1fWJmxQ", "1866064SPnyhb", "1109522vMiuMX", "1602351pPEGwH", "12sVyMLL", "2573296LTwOhv"];
-    _0x59e6 = function() {
-      return _0x5ee1c4;
+  })(_0x204d, 262 * -2438 + 1346066 * -1 + 2 * 1373311);
+  function _0x204d() {
+    var _0x54e54d = ["279100FsqxFu", "7326315yxcNFg", "50823VTWXXj", "6441948uoPUwt", "92BSiBRu", "1361711dyawqa", "5202960gnlAWp", "7tNVFlv", "11056792usEcvw", "90CRWXmt"];
+    _0x204d = function() {
+      return _0x54e54d;
     };
-    return _0x59e6();
+    return _0x204d();
   }
-  function _0x2d57(_0x22a4e9, _0x3c5d7b) {
-    var _0x3ed0bb = _0x59e6();
-    return _0x2d57 = function(_0x19cb9d, _0x563453) {
-      _0x19cb9d = _0x19cb9d - (-1 * -642 + 503 * -5 + 2227);
-      var _0x246bca = _0x3ed0bb[_0x19cb9d];
-      return _0x246bca;
-    }, _0x2d57(_0x22a4e9, _0x3c5d7b);
+  function _0x275e(_0x25fced, _0x3ae797) {
+    var _0x266459 = _0x204d();
+    return _0x275e = function(_0x2ae679, _0x528716) {
+      _0x2ae679 = _0x2ae679 - (6359 + 5503 + -11575);
+      var _0x462119 = _0x266459[_0x2ae679];
+      return _0x462119;
+    }, _0x275e(_0x25fced, _0x3ae797);
   }
   class ExperimentalServerTasks {
     constructor(_server) {
@@ -22030,7 +22176,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * Initializes this server with the given name and version information.
      */
     constructor(_serverInfo, options) {
-      var _a, _b;
       super(options);
       this._serverInfo = _serverInfo;
       this._loggingLevels = /* @__PURE__ */ new Map();
@@ -22039,18 +22184,14 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         const currentLevel = this._loggingLevels.get(sessionId);
         return currentLevel ? this.LOG_LEVEL_SEVERITY.get(level) < this.LOG_LEVEL_SEVERITY.get(currentLevel) : false;
       };
-      this._capabilities = (_a = options === null || options === void 0 ? void 0 : options.capabilities) !== null && _a !== void 0 ? _a : {};
-      this._instructions = options === null || options === void 0 ? void 0 : options.instructions;
-      this._jsonSchemaValidator = (_b = options === null || options === void 0 ? void 0 : options.jsonSchemaValidator) !== null && _b !== void 0 ? _b : new AjvJsonSchemaValidator();
+      this._capabilities = options?.capabilities ?? {};
+      this._instructions = options?.instructions;
+      this._jsonSchemaValidator = options?.jsonSchemaValidator ?? new AjvJsonSchemaValidator();
       this.setRequestHandler(InitializeRequestSchema, (request) => this._oninitialize(request));
-      this.setNotificationHandler(InitializedNotificationSchema, () => {
-        var _a2;
-        return (_a2 = this.oninitialized) === null || _a2 === void 0 ? void 0 : _a2.call(this);
-      });
+      this.setNotificationHandler(InitializedNotificationSchema, () => this.oninitialized?.());
       if (this._capabilities.logging) {
         this.setRequestHandler(SetLevelRequestSchema, async (request, extra) => {
-          var _a2;
-          const transportSessionId = extra.sessionId || ((_a2 = extra.requestInfo) === null || _a2 === void 0 ? void 0 : _a2.headers["mcp-session-id"]) || void 0;
+          const transportSessionId = extra.sessionId || extra.requestInfo?.headers["mcp-session-id"] || void 0;
           const { level } = request.params;
           const parseResult = LoggingLevelSchema.safeParse(level);
           if (parseResult.success) {
@@ -22090,21 +22231,20 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * Override request handler registration to enforce server-side validation for tools/call.
      */
     setRequestHandler(requestSchema, handler) {
-      var _a, _b, _c;
       const shape = getObjectShape(requestSchema);
-      const methodSchema = shape === null || shape === void 0 ? void 0 : shape.method;
+      const methodSchema = shape?.method;
       if (!methodSchema) {
         throw new Error("Schema is missing a method literal");
       }
       let methodValue;
       if (isZ4Schema(methodSchema)) {
         const v4Schema = methodSchema;
-        const v4Def = (_a = v4Schema._zod) === null || _a === void 0 ? void 0 : _a.def;
-        methodValue = (_b = v4Def === null || v4Def === void 0 ? void 0 : v4Def.value) !== null && _b !== void 0 ? _b : v4Schema.value;
+        const v4Def = v4Schema._zod?.def;
+        methodValue = v4Def?.value ?? v4Schema.value;
       } else {
         const v3Schema = methodSchema;
         const legacyDef = v3Schema._def;
-        methodValue = (_c = legacyDef === null || legacyDef === void 0 ? void 0 : legacyDef.value) !== null && _c !== void 0 ? _c : v3Schema.value;
+        methodValue = legacyDef?.value ?? v3Schema.value;
       }
       if (typeof methodValue !== "string") {
         throw new Error("Schema method literal must be a string");
@@ -22139,27 +22279,25 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       return super.setRequestHandler(requestSchema, handler);
     }
     assertCapabilityForMethod(method) {
-      var _a, _b, _c;
       switch (method) {
         case "sampling/createMessage":
-          if (!((_a = this._clientCapabilities) === null || _a === void 0 ? void 0 : _a.sampling)) {
+          if (!this._clientCapabilities?.sampling) {
             throw new Error(`Client does not support sampling (required for ${method})`);
           }
           break;
         case "elicitation/create":
-          if (!((_b = this._clientCapabilities) === null || _b === void 0 ? void 0 : _b.elicitation)) {
+          if (!this._clientCapabilities?.elicitation) {
             throw new Error(`Client does not support elicitation (required for ${method})`);
           }
           break;
         case "roots/list":
-          if (!((_c = this._clientCapabilities) === null || _c === void 0 ? void 0 : _c.roots)) {
+          if (!this._clientCapabilities?.roots) {
             throw new Error(`Client does not support listing roots (required for ${method})`);
           }
           break;
       }
     }
     assertNotificationCapability(method) {
-      var _a, _b;
       switch (method) {
         case "notifications/message":
           if (!this._capabilities.logging) {
@@ -22183,7 +22321,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           }
           break;
         case "notifications/elicitation/complete":
-          if (!((_b = (_a = this._clientCapabilities) === null || _a === void 0 ? void 0 : _a.elicitation) === null || _b === void 0 ? void 0 : _b.url)) {
+          if (!this._clientCapabilities?.elicitation?.url) {
             throw new Error(`Client does not support URL elicitation (required for ${method})`);
           }
           break;
@@ -22234,15 +22372,13 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       }
     }
     assertTaskCapability(method) {
-      var _a, _b;
-      assertClientRequestTaskCapability((_b = (_a = this._clientCapabilities) === null || _a === void 0 ? void 0 : _a.tasks) === null || _b === void 0 ? void 0 : _b.requests, method, "Client");
+      assertClientRequestTaskCapability(this._clientCapabilities?.tasks?.requests, method, "Client");
     }
     assertTaskHandlerCapability(method) {
-      var _a;
       if (!this._capabilities) {
         return;
       }
-      assertToolsCallTaskCapability((_a = this._capabilities.tasks) === null || _a === void 0 ? void 0 : _a.requests, method, "Server");
+      assertToolsCallTaskCapability(this._capabilities.tasks?.requests, method, "Server");
     }
     async _oninitialize(request) {
       const requestedVersion = request.params.protocolVersion;
@@ -22276,9 +22412,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
     }
     // Implementation
     async createMessage(params, options) {
-      var _a, _b;
       if (params.tools || params.toolChoice) {
-        if (!((_b = (_a = this._clientCapabilities) === null || _a === void 0 ? void 0 : _a.sampling) === null || _b === void 0 ? void 0 : _b.tools)) {
+        if (!this._clientCapabilities?.sampling?.tools) {
           throw new Error("Client does not support sampling tools capability.");
         }
       }
@@ -22318,18 +22453,17 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * @returns The result of the elicitation request.
      */
     async elicitInput(params, options) {
-      var _a, _b, _c, _d, _e;
-      const mode = (_a = params.mode) !== null && _a !== void 0 ? _a : "form";
+      const mode = params.mode ?? "form";
       switch (mode) {
         case "url": {
-          if (!((_c = (_b = this._clientCapabilities) === null || _b === void 0 ? void 0 : _b.elicitation) === null || _c === void 0 ? void 0 : _c.url)) {
+          if (!this._clientCapabilities?.elicitation?.url) {
             throw new Error("Client does not support url elicitation.");
           }
           const urlParams = params;
           return this.request({ method: "elicitation/create", params: urlParams }, ElicitResultSchema, options);
         }
         case "form": {
-          if (!((_e = (_d = this._clientCapabilities) === null || _d === void 0 ? void 0 : _d.elicitation) === null || _e === void 0 ? void 0 : _e.form)) {
+          if (!this._clientCapabilities?.elicitation?.form) {
             throw new Error("Client does not support form elicitation.");
           }
           const formParams = params.mode === "form" ? params : { ...params, mode: "form" };
@@ -22361,8 +22495,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * @returns A function that emits the completion notification when awaited.
      */
     createElicitationCompletionNotifier(elicitationId, options) {
-      var _a, _b;
-      if (!((_b = (_a = this._clientCapabilities) === null || _a === void 0 ? void 0 : _a.elicitation) === null || _b === void 0 ? void 0 : _b.url)) {
+      if (!this._clientCapabilities?.elicitation?.url) {
         throw new Error("Client does not support URL elicitation (required for notifications/elicitation/complete)");
       }
       return () => this.notification({
@@ -22422,7 +22555,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
   }
   function getCompleter(schema) {
     const meta = schema[COMPLETABLE_SYMBOL];
-    return meta === null || meta === void 0 ? void 0 : meta.complete;
+    return meta?.complete;
   }
   var McpZodTypeKind;
   (function(McpZodTypeKind2) {
@@ -22595,7 +22728,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       const name = part.name;
       switch (part.operator) {
         case "":
-          pattern2 = part.exploded ? "([^/]+(?:,[^/]+)*)" : "([^/,]+)";
+          pattern2 = part.exploded ? "([^/,]+(?:,[^/,]+)*)" : "([^/,]+)";
           break;
         case "+":
         case "#":
@@ -22605,7 +22738,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           pattern2 = "\\.([^/,]+)";
           break;
         case "/":
-          pattern2 = "/" + (part.exploded ? "([^/]+(?:,[^/]+)*)" : "([^/,]+)");
+          pattern2 = "/" + (part.exploded ? "([^/,]+(?:,[^/,]+)*)" : "([^/,]+)");
           break;
         default:
           pattern2 = "([^/]+)";
@@ -22799,7 +22932,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         })
       }));
       this.server.setRequestHandler(CallToolRequestSchema, async (request, extra) => {
-        var _a;
         try {
           const tool = this._registeredTools[request.params.name];
           if (!tool) {
@@ -22809,7 +22941,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
             throw new McpError(ErrorCode.InvalidParams, `Tool ${request.params.name} disabled`);
           }
           const isTaskRequest = !!request.params.task;
-          const taskSupport = (_a = tool.execution) === null || _a === void 0 ? void 0 : _a.taskSupport;
+          const taskSupport = tool.execution?.taskSupport;
           const isTaskHandler = "createTask" in tool.handler;
           if ((taskSupport === "required" || taskSupport === "optional") && !isTaskHandler) {
             throw new McpError(ErrorCode.InternalError, `Tool ${request.params.name} has taskSupport '${taskSupport}' but was not registered with registerToolTask`);
@@ -22863,7 +22995,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         return void 0;
       }
       const inputObj = normalizeObjectSchema(tool.inputSchema);
-      const schemaToParse = inputObj !== null && inputObj !== void 0 ? inputObj : tool.inputSchema;
+      const schemaToParse = inputObj ?? tool.inputSchema;
       const parseResult = await safeParseAsync(schemaToParse, args);
       if (!parseResult.success) {
         const error = "error" in parseResult ? parseResult.error : "Unknown error";
@@ -22927,7 +23059,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * Handles automatic task polling for tools with taskSupport 'optional'.
      */
     async handleAutomaticTaskPolling(tool, request, extra) {
-      var _a;
       if (!extra.taskStore) {
         throw new Error("No task store provided for task-capable tool.");
       }
@@ -22940,7 +23071,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       );
       const taskId = createTaskResult.task.taskId;
       let task = createTaskResult.task;
-      const pollInterval = (_a = task.pollInterval) !== null && _a !== void 0 ? _a : 5e3;
+      const pollInterval = task.pollInterval ?? 5e3;
       while (task.status !== "completed" && task.status !== "failed" && task.status !== "cancelled") {
         await new Promise((resolve2) => setTimeout(resolve2, pollInterval));
         const updatedTask = await extra.taskStore.getTask(taskId);
@@ -22985,7 +23116,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         return EMPTY_COMPLETION_RESULT;
       }
       const promptShape = getObjectShape(prompt.argsSchema);
-      const field = promptShape === null || promptShape === void 0 ? void 0 : promptShape[request.params.argument.name];
+      const field = promptShape?.[request.params.argument.name];
       if (!isCompletable(field)) {
         return EMPTY_COMPLETION_RESULT;
       }
@@ -23070,7 +23201,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         }
         throw new McpError(ErrorCode.InvalidParams, `Resource ${uri2} not found`);
       });
-      this.setCompletionRequestHandler();
       this._resourceHandlersInitialized = true;
     }
     setPromptRequestHandlers() {
@@ -23118,7 +23248,6 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
           return await Promise.resolve(cb(extra));
         }
       });
-      this.setCompletionRequestHandler();
       this._promptHandlersInitialized = true;
     }
     resource(name, uriOrTemplate, ...rest) {
@@ -23226,6 +23355,11 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         }
       };
       this._registeredResourceTemplates[name] = registeredResourceTemplate;
+      const variableNames = template.uriTemplate.variableNames;
+      const hasCompleter = Array.isArray(variableNames) && variableNames.some((v) => !!template.completeCallback(v));
+      if (hasCompleter) {
+        this.setCompletionRequestHandler();
+      }
       return registeredResourceTemplate;
     }
     _createRegisteredPrompt(name, title2, description2, argsSchema, callback) {
@@ -23258,6 +23392,15 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
         }
       };
       this._registeredPrompts[name] = registeredPrompt;
+      if (argsSchema) {
+        const hasCompletable = Object.values(argsSchema).some((field) => {
+          const inner = field instanceof ZodOptional ? field._def?.innerType : field;
+          return isCompletable(inner);
+        });
+        if (hasCompletable) {
+          this.setCompletionRequestHandler();
+        }
+      }
       return registeredPrompt;
     }
     _createRegisteredTool(name, title2, description2, inputSchema, outputSchema, annotations, execution, _meta, handler) {
@@ -23290,6 +23433,8 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
             registeredTool.description = updates.description;
           if (typeof updates.paramsSchema !== "undefined")
             registeredTool.inputSchema = objectFromShape(updates.paramsSchema);
+          if (typeof updates.outputSchema !== "undefined")
+            registeredTool.outputSchema = objectFromShape(updates.outputSchema);
           if (typeof updates.callback !== "undefined")
             registeredTool.handler = updates.callback;
           if (typeof updates.annotations !== "undefined")
@@ -23438,8 +23583,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
      * Gets the callback for completing a specific URI template variable, if one was provided.
      */
     completeCallback(variable) {
-      var _a;
-      return (_a = this._callbacks.complete) === null || _a === void 0 ? void 0 : _a[variable];
+      return this._callbacks.complete?.[variable];
     }
   }
   const EMPTY_OBJECT_JSON_SCHEMA = {
@@ -23489,7 +23633,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
   }
   function getMethodValue(schema) {
     const shape = getObjectShape(schema);
-    const methodSchema = shape === null || shape === void 0 ? void 0 : shape.method;
+    const methodSchema = shape?.method;
     if (!methodSchema) {
       throw new Error("Schema is missing a method literal");
     }
@@ -24026,11 +24170,10 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
   const isMessageChannelClientTransport = (transport) => transport instanceof MessageChannelClientTransport;
   const isMcpClient = (client) => client instanceof Client;
   function getDisplayName(metadata2) {
-    var _a;
     if (metadata2.title !== void 0 && metadata2.title !== "") {
       return metadata2.title;
     }
-    if ("annotations" in metadata2 && ((_a = metadata2.annotations) === null || _a === void 0 ? void 0 : _a.title)) {
+    if ("annotations" in metadata2 && metadata2.annotations?.title) {
       return metadata2.annotations.title;
     }
     return metadata2.name;
@@ -24166,7 +24309,7 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
       }
     }
   }
-  exports2.Ajv = ajv;
+  exports2.Ajv = Ajv;
   exports2.AuthClientProvider = AuthClientProvider;
   exports2.ExtensionPageServerTransport = ExtensionPageServerTransport;
   exports2.ResourceTemplate = ResourceTemplate;
@@ -24188,4 +24331,4 @@ Set the \`cycles\` parameter to \`"ref"\` to resolve cyclical schemas with defs.
   exports2.isStreamableHTTPClientTransport = isStreamableHTTPClientTransport;
   exports2.z = z;
   Object.defineProperty(exports2, Symbol.toStringTag, { value: "Module" });
-});
+}));
