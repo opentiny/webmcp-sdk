@@ -4,15 +4,17 @@
  */
 
 import type { UnifiedModelConfig } from '@opentiny/next-remoter'
-import { OPEN_BASE_MODEL_CONFIGS } from './open-model-config'
-import { INNER_BASE_MODEL_CONFIGS } from './inner-model-config'
+import { INTERNET_BASE_MODEL_CONFIGS } from './internet-model-config'
+import { INTRANET_BASE_MODEL_CONFIGS } from './intranet-model-config'
 import { getStoredToken } from '../utils/token-storage'
 
 /** 是否为内部模式：VITE_MODEL_CONFIG=inner 或 MODE 包含 inner */
 const isInnerMode = import.meta.env.VITE_MODEL_CONFIG === 'inner' || String(import.meta.env.MODE).includes('inner')
 
 /** 当前模式下的基础模型配置 */
-export const BASE_MODEL_CONFIGS: UnifiedModelConfig[] = isInnerMode ? INNER_BASE_MODEL_CONFIGS : OPEN_BASE_MODEL_CONFIGS
+export const BASE_MODEL_CONFIGS: UnifiedModelConfig[] = isInnerMode
+  ? INTRANET_BASE_MODEL_CONFIGS
+  : INTERNET_BASE_MODEL_CONFIGS
 
 /** 同步导出的默认配置（无 token，兼容旧用法） */
 export const DEFAULT_MODEL_CONFIGS: UnifiedModelConfig[] = BASE_MODEL_CONFIGS
