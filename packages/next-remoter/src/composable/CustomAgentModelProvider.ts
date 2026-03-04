@@ -180,9 +180,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     if (lastMsg.role === 'tool' && lastMsg.content.length > 0) {
       const lastContent = lastMsg.content[lastMsg.content.length - 1]
       if (lastContent.type === 'tool-result' && lastContent.toolName === 'get_skill_content') {
-        lastContent.output.value.content = '查询到技能内容，并已添加到系统提示词中。'
-
-        messages.unshift({ role: 'system', content: this.promptManager.getSystemPrompt() })
+        lastContent.output.value.content = '查询到技能内容已添加到系统提示词中。'
       }
     }
   }
@@ -396,11 +394,12 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       providerOptions: mergeProviderOptions(this.llmConfig.providerOptions, GENUI_CONFIG),
       prepareStep: ({ messages }: { messages: any[] }) => {
         // 1. 清除get-skill-content的消息（暂时无法修改systemPrompt,先屏蔽)
-        // this.cleanGetSkillContentToolResult(messages)
+        this.cleanGetSkillContentToolResult(messages)
 
         // 2.在步骤开始前清理旧的快照消息
         const cleanedMessages = this.cleanupOldSnapshotsInMessages(messages)
         return {
+          system: this.promptManager.getSystemPrompt(),
           messages: cleanedMessages
         }
       },
