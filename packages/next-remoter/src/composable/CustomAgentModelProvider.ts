@@ -393,7 +393,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       // 合并用户传递的 providerOptions 与默认 GENUI_CONFIG，用户配置优先
       providerOptions: mergeProviderOptions(this.llmConfig.providerOptions, GENUI_CONFIG),
       prepareStep: ({ messages }: { messages: any[] }) => {
-        // 1. 清除get-skill-content的消息（暂时无法修改systemPrompt,先屏蔽)
+        // 1. 清除get-skill-content的消息
         this.cleanGetSkillContentToolResult(messages)
 
         // 2.在步骤开始前清理旧的快照消息
