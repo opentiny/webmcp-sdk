@@ -15,6 +15,7 @@ import { GENUI_CONFIG } from '../config/genui-config'
 import { StreamVisitor } from './streamVisitor'
 import { extractTextAndJson } from './handleSchema'
 import { DelayedPromise } from '@ai-sdk/provider-utils'
+import { PromptManager } from './promptManager'
 
 const DEFAULT_SHARED_CONFIG = {
   model: 'deepseek-ai/DeepSeek-V3',
@@ -57,7 +58,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   transport: any
   /** 一个 ai-sdk agent 封装 */
   agent: AgentModelProvider
-  systemPrompt: string
+  promptManager: PromptManager
   llmConfig: ICustomAgentModelProviderLlmConfig = { ...DEFAULT_SHARED_CONFIG, ...DEFAULT_FACTORY_CONFIG }
   /** 生成式UI启用状态 */
   isGenuiEnabled?: Ref<boolean>
@@ -88,7 +89,8 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     }
 
     this.agent = new AgentModelProvider(options)
-    this.systemPrompt = systemPrompt
+    this.promptManager = new PromptManager()
+    this.promptManager.setStatic(systemPrompt)
   }
 
   /**
@@ -170,7 +172,20 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     this.llmConfig.providerOptions = providerOptions
     this.llmConfig.headers = headers
   }
+  /**
+   * 清理消息数组中的 get-skill-content 工具调用结果
+   */
+  cleanGetSkillContentToolResult(messages: any[]) {
+    const lastMsg = messages[messages.length - 1]
+    if (lastMsg.role === 'tool' && lastMsg.content.length > 0) {
+      const lastContent = lastMsg.content[lastMsg.content.length - 1]
+      if (lastContent.type === 'tool-result' && lastContent.toolName === 'get_skill_content') {
+        lastContent.output.value.content = '查询到技能内容，并已添加到系统提示词中。'
 
+        messages.unshift({ role: 'system', content: this.promptManager.getSystemPrompt() })
+      }
+    }
+  }
   /**
    * 清理消息数组中的旧快照消息，只保留最新的快照
    * @param messages 消息数组
@@ -369,22 +384,9 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     let lastUserMsg = request.messages[request.messages.length - 1]
     if (!lastUserMsg) return
 
-    // 执行 beforeChatStream 钩子（如果存在）
-    // 注意：钩子返回的修改后的消息用于传递给 AI SDK，不影响 UI 显示
-    if (this.llmConfig.beforeChatStream) {
-      try {
-        const modifiedMsg = await this.llmConfig.beforeChatStream(lastUserMsg, this.systemPrompt)
-        if (modifiedMsg) {
-          lastUserMsg = modifiedMsg
-        }
-      } catch (error) {
-        console.error('[beforeChatStream] 钩子执行失败:', error)
-      }
-    }
-
     const chatStreamOptions: any = {
       model: this.llmConfig.model,
-      system: this.systemPrompt,
+      system: this.promptManager.getSystemPrompt(),
       abortSignal: request.options?.signal,
       // toolChoice: 'auto' | 'none' | 'required'
       toolChoice: 'auto',
@@ -393,15 +395,28 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       // 合并用户传递的 providerOptions 与默认 GENUI_CONFIG，用户配置优先
       providerOptions: mergeProviderOptions(this.llmConfig.providerOptions, GENUI_CONFIG),
       prepareStep: ({ messages }: { messages: any[] }) => {
-        // 在步骤开始前清理旧的快照消息
-        // prepareStep 会在每次步骤开始前被调用，可以修改即将用于请求的 messages
+        // 1. 清除get-skill-content的消息（暂时无法修改systemPrompt,先屏蔽)
+        // this.cleanGetSkillContentToolResult(messages)
+
+        // 2.在步骤开始前清理旧的快照消息
         const cleanedMessages = this.cleanupOldSnapshotsInMessages(messages)
         return {
           messages: cleanedMessages
         }
       },
+      onStepFinish: (result) => {
+        // 如果当前是查询skill-content,则追加到临时提示词，并清除消息中的关于tool调用的记录栈。
+        if (result.finishReason === 'tool-calls' && result.content.length > 0) {
+          const lastMsg = result.content[result.content.length - 1]
+          if (lastMsg.toolName === 'get_skill_content' && lastMsg.type === 'tool-result') {
+            const skillPrompt = lastMsg.output.content
+            this.promptManager.appendTemp(skillPrompt)
+          }
+        }
+      },
       onFinish: async () => {
         await this.agent.closeAll()
+        this.promptManager.setTemp('') // 清除临时skillPrompt的提示词
       }
     }
 
