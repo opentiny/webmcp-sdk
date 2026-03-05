@@ -150,10 +150,10 @@ function buildPageHandler(name: string, route: string, timeout = 30000) {
             sendCall()
             return
           }
-          // 页面未激活：先触发导航，再等待 page-ready 信号
-          if (_navigator) {
-            await _navigator(route)
-          }
+
+          // ⚠️ 必须先注册 readyHandler 再触发导航：
+          // 若先导航再注册，极快的导航（同步或微任务）可能导致
+          // 目标页面已广播 page-ready 而监听器尚未挂载，从而错过信号。
           readyHandler = (event: MessageEvent) => {
             if (event.source === window && event.data?.type === MSG_PAGE_READY && event.data.route === route) {
               window.removeEventListener('message', readyHandler!)
@@ -161,6 +161,19 @@ function buildPageHandler(name: string, route: string, timeout = 30000) {
             }
           }
           window.addEventListener('message', readyHandler)
+
+          if (_navigator) {
+            await _navigator(route)
+          }
+
+          // 导航 await 完成后，再次检查 activePages：
+          // 若页面在注册监听器与导航之间极短间隙内已激活（极端竞态），
+          // message 事件已被 handleMessage 消费但 readyHandler 未执行，
+          // 此处补充检查确保不会永久等待。
+          if (activePages.get(route)) {
+            window.removeEventListener('message', readyHandler)
+            sendCall()
+          }
         } catch (err) {
           // 导航本身抛出异常时，确保 Promise 被 reject 而非永远挂起
           cleanup()

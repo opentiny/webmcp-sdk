@@ -87,7 +87,7 @@
           <div v-for="product in recentProducts" :key="product.id" class="product-item">
             <div class="product-info">
               <div class="product-name">{{ product.name }}</div>
-              <div class="product-meta">{{ categoryLabels[product.category] }} · ¥{{ product.price }}</div>
+              <div class="product-meta">{{ categoryLabels[product.category] ?? product.category }} · ¥{{ product.price }}</div>
             </div>
             <span class="status-badge" :class="product.status">
               {{ product.status === 'on' ? '上架' : '下架' }}
