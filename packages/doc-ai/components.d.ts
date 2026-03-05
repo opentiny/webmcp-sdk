@@ -10,6 +10,7 @@ declare module 'vue' {
     AntDesignX: typeof import('./src/components/ant-design-x.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    TinyButton: typeof import('@opentiny/vue-button')['default']
     TinyGrid: typeof import('@opentiny/vue-grid')['default']
     TinyGridColumn: typeof import('@opentiny/vue-grid-column')['default']
     TinyTag: typeof import('@opentiny/vue-tag')['default']

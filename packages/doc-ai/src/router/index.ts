@@ -5,12 +5,18 @@ const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: '/comprehensive' //综合示例
+      name: 'Home',
+      component: () => import('../views/home/index.vue')
     },
     {
       path: '/comprehensive',
       name: 'Comprehensive',
       component: () => import('../views/comprehensive/index.vue')
+    },
+    {
+      path: '/price-protection',
+      name: 'PriceProtection',
+      component: () => import('../views/price-protection/index.vue')
     },
     {
       path: '/:pathMatch(.*)*',
