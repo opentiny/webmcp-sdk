@@ -57,7 +57,7 @@
  *   }
  */
 import type { ZodRawShape } from 'zod'
-import type { ToolCallback, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js'
+import type { RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
 import type { WebMcpServer } from './WebMcpServer'
 import { randomUUID } from './utils/uuid'
@@ -112,7 +112,11 @@ export type PageAwareServer = Omit<WebMcpServer, 'registerTool'> & {
   registerTool<InputArgs extends ZodRawShape, OutputArgs extends ZodRawShape>(
     name: string,
     config: RegisterToolConfig<InputArgs, OutputArgs>,
-    handlerOrRoute: ToolCallback<InputArgs> | RouteConfig
+    // handler 不引入 ToolCallback<InputArgs>：该类型含 MCP SDK 深层泛型，
+    // 叠加 ZodRawShape 推断链后会触发"类型实例化过深"。
+    // 实际类型安全由 Proxy 内部透传给 WebMcpServer.registerTool 保证。
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handlerOrRoute: ((...args: any[]) => any) | RouteConfig
   ): RegisteredTool
 }
 
