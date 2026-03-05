@@ -159,6 +159,15 @@ function buildPageHandler(name: string, route: string, timeout = 30000) {
         window.postMessage({ type: MSG_TOOL_CALL, callId, toolName: name, route, input }, window.location.origin || '*')
       }
 
+      // 单次发送守卫：readyHandler 与导航后 activePages 补充检查均可触发 sendCall，
+      // 用此 flag 确保同一次工具调用只发送一条消息，防止工具被重复执行。
+      let callSent = false
+      const sendCallOnce = () => {
+        if (callSent) return
+        callSent = true
+        sendCall()
+      }
+
       // 将异步导航逻辑提取为独立 run 函数并用 void 调用，
       // 避免在 Promise executor 中直接使用 async（Biome noAsyncPromiseExecutor 规则）。
       // 导航失败时显式 reject，防止外层 Promise 永远挂起。
@@ -166,7 +175,7 @@ function buildPageHandler(name: string, route: string, timeout = 30000) {
         try {
           if (activePages.get(route)) {
             // 页面已激活，直接发送
-            sendCall()
+            sendCallOnce()
             return
           }
 
@@ -176,7 +185,7 @@ function buildPageHandler(name: string, route: string, timeout = 30000) {
           readyHandler = (event: MessageEvent) => {
             if (event.source === window && event.data?.type === MSG_PAGE_READY && event.data.route === route) {
               window.removeEventListener('message', readyHandler!)
-              sendCall()
+              sendCallOnce()
             }
           }
           window.addEventListener('message', readyHandler)
@@ -189,9 +198,10 @@ function buildPageHandler(name: string, route: string, timeout = 30000) {
           // 若页面在注册监听器与导航之间极短间隙内已激活（极端竞态），
           // message 事件已被 handleMessage 消费但 readyHandler 未执行，
           // 此处补充检查确保不会永久等待。
+          // sendCallOnce 保证即使两条路径都触发，消息也只发送一次。
           if (activePages.get(route)) {
             window.removeEventListener('message', readyHandler)
-            sendCall()
+            sendCallOnce()
           }
         } catch (err) {
           // 导航本身抛出异常时，确保 Promise 被 reject 而非永远挂起
