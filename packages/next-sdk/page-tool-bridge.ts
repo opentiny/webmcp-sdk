@@ -56,6 +56,9 @@
  *     }
  *   }
  */
+import type { ZodRawShape } from 'zod'
+import type { ToolCallback, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js'
+import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
 import type { WebMcpServer } from './WebMcpServer'
 import { randomUUID } from './utils/uuid'
 
@@ -90,11 +93,27 @@ export type RouteConfig = {
 }
 
 /**
+ * PageAwareServer 的 registerTool 配置对象类型，与 WebMcpServer.registerTool 保持一致。
+ */
+type RegisterToolConfig<InputArgs extends ZodRawShape, OutputArgs extends ZodRawShape> = {
+  title?: string
+  description?: string
+  inputSchema?: InputArgs
+  outputSchema?: OutputArgs
+  annotations?: ToolAnnotations
+}
+
+/**
  * 包装 WebMcpServer 后的类型：registerTool 第三个参数额外支持 RouteConfig。
+ * 泛型签名与 WebMcpServer.registerTool 对齐，保持完整的类型推导能力。
  * 原有的回调函数写法完全兼容，无需改动。
  */
 export type PageAwareServer = Omit<WebMcpServer, 'registerTool'> & {
-  registerTool(name: string, config: Record<string, any>, handlerOrRoute: ((...args: any[]) => any) | RouteConfig): any
+  registerTool<InputArgs extends ZodRawShape, OutputArgs extends ZodRawShape>(
+    name: string,
+    config: RegisterToolConfig<InputArgs, OutputArgs>,
+    handlerOrRoute: ToolCallback<InputArgs> | RouteConfig
+  ): RegisteredTool
 }
 
 /**
@@ -217,7 +236,7 @@ export function withPageTools(server: WebMcpServer): PageAwareServer {
       }
       return Reflect.get(target, prop, receiver)
     }
-  }) as PageAwareServer
+  }) as unknown as PageAwareServer
 }
 
 /**
@@ -260,6 +279,15 @@ export function withPageTools(server: WebMcpServer): PageAwareServer {
  */
 export function registerPageTool(options: {
   route: string
+  /**
+   * 工具名 → 处理函数的映射表。
+   *
+   * 此处 handler 的 input 参数类型保留 any：
+   * 若改为 unknown，TypeScript 函数参数逆变规则会导致用户的具名解构写法
+   *（如 `async ({ productId }: { productId: string }) => ...`）无法通过类型检查，
+   * 破坏现有调用方代码的开发体验。运行时输入由 MCP inputSchema 保证类型安全。
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   handlers: Record<string, (input: any) => Promise<any>>
 }): () => void {
   const { route, handlers } = options
