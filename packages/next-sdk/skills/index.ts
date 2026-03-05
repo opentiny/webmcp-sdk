@@ -132,6 +132,12 @@ export function getMainSkillPathByName(modules: Record<string, string>, name: st
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type SkillToolsSet = Record<string, any>
 
+// 提升为模块级常量：避免 tool() 推断 PARAMETERS 泛型时递归展开 Zod 链导致"类型实例化过深"
+const SKILL_INPUT_SCHEMA = z.object({
+  skillName: z.string().optional().describe('技能名称，与目录名一致，如 calculator'),
+  path: z.string().optional().describe('文档相对路径，如 ./calculator/SKILL.md 或 ./product-guide/reference/xxx.json')
+})
+
 /**
  * 根据 skillMdModules 创建供 AI 调用的工具集
  * - get_skill_content: 按技能名或路径获取完整文档内容，便于大模型自动识别并加载技能
@@ -142,13 +148,7 @@ export function createSkillTools(modules: Record<string, string>): SkillToolsSet
   const getSkillContent = tool({
     description:
       '根据技能名称或文档路径获取该技能的完整文档内容。传入 skillName（如 calculator）或 path（如 ./calculator/SKILL.md）。支持 .md、.json、.xml 等各类文本格式文件。',
-    inputSchema: z.object({
-      skillName: z.string().optional().describe('技能名称，与目录名一致，如 calculator'),
-      path: z
-        .string()
-        .optional()
-        .describe('文档相对路径，如 ./calculator/SKILL.md 或 ./product-guide/reference/xxx.json')
-    }),
+    inputSchema: SKILL_INPUT_SCHEMA,
     execute: (args: { skillName?: string; path?: string }): Record<string, unknown> => {
       const { skillName, path: pathArg } = args
       let content: string | undefined
