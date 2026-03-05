@@ -1,0 +1,93 @@
+[
+  {
+    "id": 1,
+    "orderId": "ORD-2024-0315-001",
+    "productId": 1,
+    "productName": "iPhone 16",
+    "buyPrice": 6499,
+    "currentPrice": 5999,
+    "diffPrice": 500,
+    "status": "pending",
+    "applyDate": "2026-03-01",
+    "expireDate": "2026-04-01",
+    "remark": ""
+  },
+  {
+    "id": 2,
+    "orderId": "ORD-2024-0310-002",
+    "productId": 4,
+    "productName": "Huawei Pura 70",
+    "buyPrice": 6999,
+    "currentPrice": 6499,
+    "diffPrice": 500,
+    "status": "approved",
+    "applyDate": "2026-02-20",
+    "expireDate": "2026-03-20",
+    "remark": "审核通过，差价将在3个工作日内退回"
+  },
+  {
+    "id": 3,
+    "orderId": "ORD-2024-0305-003",
+    "productId": 2,
+    "productName": "MacBook Pro",
+    "buyPrice": 14999,
+    "currentPrice": 12999,
+    "diffPrice": 2000,
+    "status": "rejected",
+    "applyDate": "2026-02-10",
+    "expireDate": "2026-03-10",
+    "remark": "超出价保期限，不予受理"
+  },
+  {
+    "id": 4,
+    "orderId": "ORD-2024-0228-004",
+    "productId": 5,
+    "productName": "Huawei Mate XT ultimate",
+    "buyPrice": 24999,
+    "currentPrice": 23999,
+    "diffPrice": 1000,
+    "status": "pending",
+    "applyDate": "2026-03-03",
+    "expireDate": "2026-04-03",
+    "remark": ""
+  },
+  {
+    "id": 5,
+    "orderId": "ORD-2024-0220-005",
+    "productId": 3,
+    "productName": "iPad",
+    "buyPrice": 2799,
+    "currentPrice": 2399,
+    "diffPrice": 400,
+    "status": "expired",
+    "applyDate": "2025-01-15",
+    "expireDate": "2025-02-15",
+    "remark": "申请已过期"
+  },
+  {
+    "id": 6,
+    "orderId": "ORD-2024-0301-006",
+    "productId": 6,
+    "productName": "小米15",
+    "buyPrice": 5299,
+    "currentPrice": 4999,
+    "diffPrice": 300,
+    "status": "approved",
+    "applyDate": "2026-02-28",
+    "expireDate": "2026-03-28",
+    "remark": "审核通过，差价将在3个工作日内退回"
+  },
+  {
+    "id": 7,
+    "orderId": "ORD-2024-0302-007",
+    "productId": 7,
+    "productName": "小米 13",
+    "buyPrice": 4299,
+    "currentPrice": 3999,
+    "diffPrice": 300,
+    "status": "pending",
+    "applyDate": "2026-03-02",
+    "expireDate": "2026-04-02",
+    "remark": ""
+  }
+]
