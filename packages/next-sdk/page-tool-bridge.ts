@@ -1,5 +1,5 @@
 /**
- * pageToolBridge - Web MCP 页面工具桥接模块（框架无关）
+ * page-tool-bridge - Web MCP 页面工具桥接模块（框架无关）
  *
  * 解决 Web-MCP 工具动态加载问题：工具定义（mcp-servers/）不直接写业务逻辑，
  * 而是通过 window.postMessage 将调用转发给目标页面，页面处理后返回结果。
@@ -105,15 +105,20 @@ export type PageAwareServer = Omit<WebMcpServer, 'registerTool'> & {
  * 3. 页面处理后回传结果，Promise resolve
  */
 function buildPageHandler(name: string, route: string, timeout = 30000) {
-  return async (input: any): Promise<any> => {
+  return (input: any): Promise<any> => {
     const callId = randomUUID()
 
-    return new Promise<any>(async (resolve, reject) => {
+    return new Promise<any>((resolve, reject) => {
       let timer: ReturnType<typeof setTimeout>
+      // readyHandler 需在 cleanup 中一并移除，避免导航失败时泄漏监听器
+      let readyHandler: ((event: MessageEvent) => void) | undefined
 
       const cleanup = () => {
         clearTimeout(timer)
         window.removeEventListener('message', responseHandler)
+        if (readyHandler) {
+          window.removeEventListener('message', readyHandler)
+        }
       }
 
       // 超时兜底，防止页面永远不响应
@@ -132,25 +137,37 @@ function buildPageHandler(name: string, route: string, timeout = 30000) {
       window.addEventListener('message', responseHandler)
 
       const sendCall = () => {
-        window.postMessage({ type: MSG_TOOL_CALL, callId, toolName: name, route, input }, '*')
+        window.postMessage({ type: MSG_TOOL_CALL, callId, toolName: name, route, input }, window.location.origin || '*')
       }
 
-      if (activePages.get(route)) {
-        // 页面已激活，直接发送
-        sendCall()
-      } else {
-        // 页面未激活：先触发导航，再等待 page-ready 信号
-        if (_navigator) {
-          await _navigator(route)
-        }
-        const readyHandler = (event: MessageEvent) => {
-          if (event.source === window && event.data?.type === MSG_PAGE_READY && event.data.route === route) {
-            window.removeEventListener('message', readyHandler)
+      // 将异步导航逻辑提取为独立 run 函数并用 void 调用，
+      // 避免在 Promise executor 中直接使用 async（Biome noAsyncPromiseExecutor 规则）。
+      // 导航失败时显式 reject，防止外层 Promise 永远挂起。
+      const run = async () => {
+        try {
+          if (activePages.get(route)) {
+            // 页面已激活，直接发送
             sendCall()
+            return
           }
+          // 页面未激活：先触发导航，再等待 page-ready 信号
+          if (_navigator) {
+            await _navigator(route)
+          }
+          readyHandler = (event: MessageEvent) => {
+            if (event.source === window && event.data?.type === MSG_PAGE_READY && event.data.route === route) {
+              window.removeEventListener('message', readyHandler!)
+              sendCall()
+            }
+          }
+          window.addEventListener('message', readyHandler)
+        } catch (err) {
+          // 导航本身抛出异常时，确保 Promise 被 reject 而非永远挂起
+          cleanup()
+          reject(err instanceof Error ? err : new Error(String(err)))
         }
-        window.addEventListener('message', readyHandler)
       }
+      void run()
     })
   }
 }
@@ -235,26 +252,35 @@ export function registerPageTool(options: {
   const { route, handlers } = options
 
   const handleMessage = async (event: MessageEvent) => {
-    if (event.source !== window || event.data?.type !== MSG_TOOL_CALL || !(event.data.toolName in handlers)) {
+    // 同时校验 route 字段，防止多页面注册同名工具时发生跨路由串扰
+    if (
+      event.source !== window ||
+      event.data?.type !== MSG_TOOL_CALL ||
+      event.data?.route !== route ||
+      !(event.data.toolName in handlers)
+    ) {
       return
     }
     const { callId, toolName, input } = event.data
     try {
       const result = await handlers[toolName](input)
-      window.postMessage({ type: MSG_TOOL_RESPONSE, callId, result }, '*')
+      window.postMessage({ type: MSG_TOOL_RESPONSE, callId, result }, window.location.origin || '*')
     } catch (err) {
-      window.postMessage({
-        type: MSG_TOOL_RESPONSE,
-        callId,
-        error: err instanceof Error ? err.message : String(err)
-      }, '*')
+      window.postMessage(
+        {
+          type: MSG_TOOL_RESPONSE,
+          callId,
+          error: err instanceof Error ? err.message : String(err)
+        },
+        window.location.origin || '*'
+      )
     }
   }
 
   // 注册页面为已激活状态并广播就绪信号
   activePages.set(route, true)
   window.addEventListener('message', handleMessage)
-  window.postMessage({ type: MSG_PAGE_READY, route }, '*')
+  window.postMessage({ type: MSG_PAGE_READY, route }, window.location.origin || '*')
 
   // 返回 cleanup，由各框架在页面销毁时调用
   return () => {

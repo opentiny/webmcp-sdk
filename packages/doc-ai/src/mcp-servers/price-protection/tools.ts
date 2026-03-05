@@ -1,7 +1,7 @@
 import { z } from '@opentiny/next-sdk'
 import type { PageAwareServer } from '@opentiny/next-sdk'
 
-export default (server: PageAwareServer) => {
+const registerPriceProtectionTools = (server: PageAwareServer) => {
   // 查询价保申请列表，支持按状态过滤
   server.registerTool(
     'price-protection-query',
@@ -43,3 +43,5 @@ export default (server: PageAwareServer) => {
     { route: '/price-protection' }
   )
 }
+
+export default registerPriceProtectionTools

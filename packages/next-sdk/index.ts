@@ -40,7 +40,7 @@ export { QrCode, type QrCodeOption } from './remoter/QrCode'
 export type * from './agent/type'
 
 // Web MCP 页面工具桥接：工具调用自动导航 + 页面消息通信
-export * from './pageToolBridge'
+export * from './page-tool-bridge'
 
 // Web 端 Skill 公共能力：解析 skill 文档、生成 systemPrompt、内置 list_skills / get_skill_content 工具
 export {

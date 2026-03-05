@@ -1,7 +1,7 @@
 import { z } from '@opentiny/next-sdk'
 import type { PageAwareServer } from '@opentiny/next-sdk'
 
-export default (server: PageAwareServer) => {
+const registerProductGuideTools = (server: PageAwareServer) => {
   server.registerTool(
     'product-guide',
     {
@@ -17,3 +17,5 @@ export default (server: PageAwareServer) => {
     { route: '/comprehensive' }
   )
 }
+
+export default registerProductGuideTools

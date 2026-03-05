@@ -69,7 +69,7 @@
             <div class="category-bar-wrap">
               <div
                 class="category-bar"
-                :style="{ width: (cat.count / stats.total * 100) + '%' }"
+                :style="{ width: (stats.total > 0 ? (cat.count / stats.total) * 100 : 0) + '%' }"
               ></div>
             </div>
             <span class="category-count">{{ cat.count }} 件</span>

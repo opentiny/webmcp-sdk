@@ -75,7 +75,21 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { registerPageTool } from '@opentiny/next-sdk'
 import productsData from './products.json'
 
-const products = ref(productsData)
+// 根据 products.json 结构定义类型，避免使用 any
+type Product = {
+  id: number
+  name: string
+  price: number
+  stock: number
+  category: 'phones' | 'laptops' | 'tablets' | string
+  status: 'on' | 'off' | string
+  description?: string
+  image?: string
+  createdAt?: string
+  updatedAt?: string
+}
+
+const products = ref<Product[]>(productsData as Product[])
 
 const categoryLabels: Record<string, string> = {
   phones: '手机',
@@ -92,8 +106,8 @@ onMounted(() => {
     route: '/comprehensive',
     handlers: {
       // 处理 product-guide 工具的实际业务逻辑
-      'product-guide': async ({ productId }) => {
-        const product = (products.value as any[]).find((p: any) => String(p.id) === String(productId))
+      'product-guide': async ({ productId }: { productId: string }) => {
+        const product = products.value.find((p) => String(p.id) === productId)
         const text = product
           ? `产品信息：${JSON.stringify(product, null, 2)}`
           : `未找到产品 ID 为 ${productId} 的商品`
