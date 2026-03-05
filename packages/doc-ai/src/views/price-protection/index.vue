@@ -44,7 +44,9 @@
           <template #default="{ row }">
             <template v-if="row.status === 'pending'">
               <tiny-button type="primary" size="mini" @click="handleApprove(row)">通过</tiny-button>
-              <tiny-button type="danger" size="mini" style="margin-left:6px" @click="handleReject(row)">拒绝</tiny-button>
+              <tiny-button type="danger" size="mini" style="margin-left: 6px" @click="handleReject(row)"
+                >拒绝</tiny-button
+              >
             </template>
             <span v-else class="no-action">—</span>
           </template>
@@ -105,27 +107,41 @@ onMounted(() => {
     handlers: {
       // 查询价保申请列表，支持按状态过滤
       'price-protection-query': async ({ status }: { status?: string }) => {
-        const result = status
-          ? records.value.filter((r) => r.status === status)
-          : records.value
+        const result = status ? records.value.filter((r) => r.status === status) : records.value
         return {
           content: [{ type: 'text', text: JSON.stringify(result, null, 2) }]
         }
       },
 
       // 审批价保申请
-      'price-protection-review': async ({ id, action, remark }: { id: number; action: 'approve' | 'reject'; remark?: string }) => {
+      'price-protection-review': async ({
+        id,
+        action,
+        remark
+      }: {
+        id: number
+        action: 'approve' | 'reject'
+        remark?: string
+      }) => {
         const record = records.value.find((r) => r.id === id)
         if (!record) {
           return { content: [{ type: 'text', text: `未找到 ID 为 ${id} 的价保申请` }] }
         }
         if (record.status !== 'pending') {
-          return { content: [{ type: 'text', text: `申请 ${id} 当前状态为「${statusLabels[record.status]}」，无法再次审核` }] }
+          return {
+            content: [{ type: 'text', text: `申请 ${id} 当前状态为「${statusLabels[record.status]}」，无法再次审核` }]
+          }
         }
         record.status = action === 'approve' ? 'approved' : 'rejected'
-        record.remark = remark ?? (action === 'approve' ? '审核通过，差价将在3个工作日内退回' : '不符合价保条件，不予受理')
+        record.remark =
+          remark ?? (action === 'approve' ? '审核通过，差价将在3个工作日内退回' : '不符合价保条件，不予受理')
         return {
-          content: [{ type: 'text', text: `申请 ${id}（${record.productName}）已${action === 'approve' ? '通过' : '拒绝'}，备注：${record.remark}` }]
+          content: [
+            {
+              type: 'text',
+              text: `申请 ${id}（${record.productName}）已${action === 'approve' ? '通过' : '拒绝'}，备注：${record.remark}`
+            }
+          ]
         }
       },
 
@@ -169,10 +185,22 @@ onUnmounted(() => cleanupPageTool?.())
     border-radius: 12px;
     font-weight: 500;
 
-    &.pending  { background: #fff7e6; color: #fa8c16; }
-    &.approved { background: #f6ffed; color: #52c41a; }
-    &.rejected { background: #fff1f0; color: #ff4d4f; }
-    &.expired  { background: #f5f5f5; color: #8c8c8c; }
+    &.pending {
+      background: #fff7e6;
+      color: #fa8c16;
+    }
+    &.approved {
+      background: #f6ffed;
+      color: #52c41a;
+    }
+    &.rejected {
+      background: #fff1f0;
+      color: #ff4d4f;
+    }
+    &.expired {
+      background: #f5f5f5;
+      color: #8c8c8c;
+    }
   }
 }
 

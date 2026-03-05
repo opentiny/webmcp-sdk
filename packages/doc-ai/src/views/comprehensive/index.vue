@@ -103,14 +103,11 @@ let cleanupPageTool: () => void
 
 onMounted(() => {
   cleanupPageTool = registerPageTool({
-    route: '/comprehensive',
     handlers: {
       // 处理 product-guide 工具的实际业务逻辑
       'product-guide': async ({ productId }: { productId: string }) => {
         const product = products.value.find((p) => String(p.id) === productId)
-        const text = product
-          ? `产品信息：${JSON.stringify(product, null, 2)}`
-          : `未找到产品 ID 为 ${productId} 的商品`
+        const text = product ? `产品信息：${JSON.stringify(product, null, 2)}` : `未找到产品 ID 为 ${productId} 的商品`
         return { content: [{ type: 'text', text }] }
       }
     }

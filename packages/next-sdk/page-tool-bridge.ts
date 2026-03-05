@@ -288,7 +288,6 @@ export function withPageTools(server: WebMcpServer): PageAwareServer {
  * }
  */
 export function registerPageTool(options: {
-  route: string
   /**
    * 工具名 → 处理函数的映射表。
    *
@@ -300,7 +299,9 @@ export function registerPageTool(options: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   handlers: Record<string, (input: any) => Promise<any>>
 }): () => void {
-  const { route, handlers } = options
+  const { handlers } = options
+  // 路由路径由运行时自动取当前页面地址，无需调用方手动传入
+  const route = window.location.pathname
 
   const handleMessage = async (event: MessageEvent) => {
     // 同时校验 route 字段，防止多页面注册同名工具时发生跨路由串扰
