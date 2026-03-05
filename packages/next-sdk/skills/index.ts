@@ -149,7 +149,7 @@ export function createSkillTools(modules: Record<string, string>): SkillToolsSet
         .optional()
         .describe('文档相对路径，如 ./calculator/SKILL.md 或 ./product-guide/reference/xxx.json')
     }),
-    execute: (args: { skillName?: string; path?: string }) => {
+    execute: (args: { skillName?: string; path?: string }): Record<string, unknown> => {
       const { skillName, path: pathArg } = args
       let content: string | undefined
       if (pathArg) {
