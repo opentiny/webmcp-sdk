@@ -106,6 +106,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   updateLLMConfig({
     modelId,
     baseURL,
+    genuiUrl,
     apiKey,
     providerType,
     useReActMode,
@@ -115,6 +116,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   }: {
     modelId: string
     baseURL?: string
+    genuiUrl?: string
     apiKey?: string
     providerType?: 'deepseek' | 'openai' | ((options: any) => ProviderV2)
     useReActMode?: boolean
@@ -130,17 +132,10 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       this.llmConfig.useReActMode = useReActMode || false
       this.agent.useReActMode = useReActMode || false
     } else if (providerType && baseURL && apiKey) {
-      // 如果启用了生成式UI，在 baseURL 后面加上 '/prompt'
+      // 如果启用了生成式UI, 切换大模型地址
       if (this.isGenuiEnabled?.value) {
-        // 如果 baseURL 还没有包含 '/prompt'，则添加
-        if (!baseURL.includes('/prompt')) {
-          baseURL = baseURL + '/prompt'
-        }
-      } else {
-        // 如果关闭了生成式UI，移除 '/prompt' 后缀
-        baseURL = baseURL.replace('/prompt', '')
+        baseURL = genuiUrl || baseURL // 优先用它，未配置则用base
       }
-
       // 更新本地配置
       this.llmConfig.model = modelId
       this.llmConfig.apiKey = apiKey

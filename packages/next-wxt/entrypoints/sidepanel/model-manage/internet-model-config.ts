@@ -20,6 +20,7 @@ export const INTERNET_BASE_MODEL_CONFIGS: UnifiedModelConfig[] = [
     model: 'deepseek-ai/DeepSeek-V3',
     apiKey: 'sk-trial',
     baseURL: `${AGENT_BASE_URL}/api/v1/ai`,
+    genuiUrl: `${AGENT_BASE_URL}/api/v1/ai/prompt`,
     providerType: 'deepseek',
     useReActMode: false,
     icon: markRaw(IconModelDeepseek as unknown as Component),
@@ -31,6 +32,7 @@ export const INTERNET_BASE_MODEL_CONFIGS: UnifiedModelConfig[] = [
     model: 'deepseek-ai/DeepSeek-R1',
     apiKey: 'sk-trial',
     baseURL: `${AGENT_BASE_URL}/api/v1/ai`,
+    genuiUrl: `${AGENT_BASE_URL}/api/v1/ai/prompt`,
     providerType: 'deepseek',
     useReActMode: false,
     headers: { 'X-Custom-Header': 'my-value', 'X-Trace-Id': 'abc-123' },
@@ -42,6 +44,7 @@ export const INTERNET_BASE_MODEL_CONFIGS: UnifiedModelConfig[] = [
     model: 'qwen-vl-max',
     apiKey: 'sk-trial',
     baseURL: `${AGENT_BASE_URL}/api/v1/ai`,
+    genuiUrl: `${AGENT_BASE_URL}/api/v1/ai/prompt`,
     providerType: 'deepseek',
     useReActMode: true,
     multimodal: {

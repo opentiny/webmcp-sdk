@@ -403,6 +403,7 @@ const updateLLMConfigFromModel = () => {
     customAgentProvider.updateLLMConfig({
       modelId: model.id,
       baseURL: model.baseURL || '',
+      genuiUrl: model.genuiUrl || '',
       apiKey: model.apiKey || '',
       providerType: model.providerType,
       useReActMode: model.useReActMode,

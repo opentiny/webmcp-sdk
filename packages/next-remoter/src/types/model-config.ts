@@ -13,10 +13,10 @@ import type { ICustomAgentModelProviderLlmConfig } from './type'
 export interface MultimodalCapability {
   /** 是否支持图片 Support images */
   supportImages?: boolean
-  
+
   /** 最大文件大小（MB） Max file size in MB */
   maxFileSize?: number
-  
+
   /** 支持的MIME类型 Supported MIME types */
   supportedMimeTypes?: string[]
 }
@@ -45,4 +45,7 @@ export type UnifiedModelConfig = ICustomAgentModelProviderLlmConfig & {
 
   /** 多模态能力配置 Multimodal capability configuration */
   multimodal?: MultimodalCapability
+
+  // 生成式UI 的 url
+  genuiUrl?: string
 }
