@@ -237,7 +237,9 @@ export default registerPriceProtectionTools
 
 ## 第四步：在页面内注册工具处理器
 
-这是 Page Tool Bridge 的核心——在页面挂载时注册处理器，卸载时清除。路由路径由 SDK 自动从 `window.location.pathname` 获取，无需手动传入。
+这是 Page Tool Bridge 的核心——在页面挂载时注册处理器，卸载时清除。
+
+`registerPageTool` 的 `route` 参数为**可选**：省略时 SDK 自动读取 `window.location.pathname`；当页面路由与 `pathname` 不一致时（如使用 hash 路由、子路径前缀、或路由 `path` 与实际 URL 存在差异的场景），需手动传入 `route`，并与 `server.registerTool` 中 `RouteConfig.route` 保持一致。
 
 ### 4.1 产品查询页面
 
@@ -521,8 +523,8 @@ TinyRemoter 展示最终回复给用户
 
 默认超时 30 秒。常见原因：
 - 页面未调用 `registerPageTool`，或 handler 中对应的工具名拼写有误
-- 路由配置的 `route` 路径与实际路由 `path` 不一致
-- `registerPageTool` 在 `onMounted` 之外调用，导致 `window.location.pathname` 取到了错误路径
+- 路由配置的 `route` 与 `registerPageTool` 侧实际匹配的路径不一致
+- `registerPageTool` 未传 `route` 且在 `onMounted` 之外调用，导致 `window.location.pathname` 取到了错误路径；此时应手动传入 `route` 字段以明确指定路径
 
 ### 工具名大小写要注意
 
