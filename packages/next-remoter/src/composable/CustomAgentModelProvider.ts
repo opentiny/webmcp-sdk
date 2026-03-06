@@ -62,6 +62,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   llmConfig: ICustomAgentModelProviderLlmConfig = { ...DEFAULT_SHARED_CONFIG, ...DEFAULT_FACTORY_CONFIG }
   /** 生成式UI启用状态 */
   isGenuiEnabled?: Ref<boolean>
+  debugStream: boolean = false
 
   constructor(config: AIModelConfig, systemPrompt: string, llmConfig?: ICustomAgentModelProviderLlmConfig) {
     super(config)
@@ -442,8 +443,9 @@ export class CustomAgentModelProvider extends BaseModelProvider {
 
     // 待返回的promise对象，用户阻塞住函数立即返回。
     const dp = new DelayedPromise<void>()
+    console.log(this.debugStream, 'dddstream')
     const visitor = new StreamVisitor({
-      debug: false,
+      debug: this.debugStream,
       onFinish: () => {
         nextTick(() => {
           dp.resolve()

@@ -297,6 +297,10 @@ const props = defineProps({
     type: String as () => 'static' | 'relative' | 'absolute' | 'fixed' | 'sticky',
     default: 'fixed'
   },
+  debugStream: {
+    type: Boolean,
+    default: false
+  },
 })
 
 const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })
@@ -356,6 +360,7 @@ watch(()=>props.systemPrompt, prompt=>{
 })
 
 customAgentProvider.isGenuiEnabled = genUiAble
+customAgentProvider.debugStream = props.debugStream
 
 // ===== 2. 使用 useSkillWithTools composable（仅 skills + next-sdk，无 @ 提及）=====
 const skillsRef = toRef(props, 'skills')
