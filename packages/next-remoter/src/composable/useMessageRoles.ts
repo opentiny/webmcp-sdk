@@ -3,7 +3,7 @@ import { IconButton } from '@opentiny/tiny-robot'
 import { IconCopy, IconRefresh } from '@opentiny/tiny-robot-svgs'
 import { GeneratingStatus } from '@opentiny/tiny-robot-kit'
 import TinyTooltip from '@opentiny/vue-tooltip'
-import tokenUsageVue from '../components/tokenUsage.vue'
+import tokenUsageVue from '../components/Token-Usage.vue'
 import logo from '../../public/svgs/logo-next-no-bg-right.svg'
 
 /**
