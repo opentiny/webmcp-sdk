@@ -1,5 +1,5 @@
 <template>
-  <div class="token-usage-wrap" :title="allTitle">
+  <div class="token-usage-wrap" :title="allTitle" v-if="!autoHide">
     <div v-for="(val, key) in values" :key="key" :class="key" :style="{ width: val[0] }"></div>
   </div>
 </template>
@@ -22,6 +22,11 @@ const props = defineProps({
     }>,
     default: ''
   }
+})
+
+// 如果没有totalTokens，则自动隐藏
+const autoHide = computed(() => {
+  return props.usage.totalTokens === 0 || typeof props.usage.totalTokens === 'undefined'
 })
 
 const values = computed(() => {
