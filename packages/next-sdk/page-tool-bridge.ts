@@ -22,17 +22,21 @@
  *   // 或仍然使用普通回调（完全兼容）
  *   server.registerTool('simple-tool', { ... }, async (input) => { ... })
  *
- *   // 目标页面（Vue）
- *   onMounted(() => { cleanup = registerPageTool({ route, handlers }) })
+ *   // 目标页面（Vue）— route 可省略，默认取 window.location.pathname
+ *   onMounted(() => { cleanup = registerPageTool({ handlers }) })
+ *   onUnmounted(() => cleanup())
+ *
+ *   // 目标页面（Vue）— 当页面路由与 pathname 不一致时，手动指定 route
+ *   onMounted(() => { cleanup = registerPageTool({ route: '/my-page', handlers }) })
  *   onUnmounted(() => cleanup())
  *
  *   // 目标页面（React）
- *   useEffect(() => registerPageTool({ route, handlers }), [])
+ *   useEffect(() => registerPageTool({ handlers }), [])
  *
  *   // 目标页面（Angular）
  *   export class MyComponent implements OnInit, OnDestroy {
  *     private cleanupPageTool!: () => void
- *     ngOnInit() { this.cleanupPageTool = registerPageTool({ route, handlers }) }
+ *     ngOnInit() { this.cleanupPageTool = registerPageTool({ handlers }) }
  *     ngOnDestroy() { this.cleanupPageTool() }
  *   }
  *
@@ -267,13 +271,17 @@ export function withPageTools(server: WebMcpServer): PageAwareServer {
  * 返回 cleanup 函数，页面销毁时调用。
  *
  * @example
- * // Vue（Composition API）
+ * // Vue（Composition API）— 省略 route，默认读 window.location.pathname
  * let cleanup: () => void
+ * onMounted(() => { cleanup = registerPageTool({ handlers: { ... } }) })
+ * onUnmounted(() => cleanup())
+ *
+ * // Vue — 当页面路由与 pathname 不一致时，手动指定 route
  * onMounted(() => { cleanup = registerPageTool({ route: '/comprehensive', handlers: { ... } }) })
  * onUnmounted(() => cleanup())
  *
  * // React（Hooks）
- * useEffect(() => registerPageTool({ route: '/comprehensive', handlers: { ... } }), [])
+ * useEffect(() => registerPageTool({ handlers: { ... } }), [])
  * // useEffect 直接返回 cleanup 函数，React 会在组件卸载时自动调用
  *
  * // Angular（实现 OnInit / OnDestroy 接口）
@@ -282,7 +290,6 @@ export function withPageTools(server: WebMcpServer): PageAwareServer {
  *
  *   ngOnInit(): void {
  *     this.cleanupPageTool = registerPageTool({
- *       route: '/price-protection',
  *       handlers: {
  *         'price-protection-query': async ({ status }) => { ... },
  *       }
@@ -296,6 +303,12 @@ export function withPageTools(server: WebMcpServer): PageAwareServer {
  */
 export function registerPageTool(options: {
   /**
+   * 目标路由路径，与 RouteConfig.route 保持一致。
+   * 省略时自动读取 window.location.pathname。
+   * 当页面路由与 pathname 不一致时（如 hash 路由、子路径前缀等），需手动传入。
+   */
+  route?: string
+  /**
    * 工具名 → 处理函数的映射表。
    *
    * 此处 handler 的 input 参数类型保留 any：
@@ -306,10 +319,11 @@ export function registerPageTool(options: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   handlers: Record<string, (input: any) => Promise<any>>
 }): () => void {
-  const { handlers } = options
+  const { route: routeOption, handlers } = options
   // 规范化路由：去除尾部斜杠，空路径兜底为 '/'，确保与 buildPageHandler 侧一致
+  // 优先使用用户传入的 route，否则回退到 window.location.pathname
   const normalizeRoute = (value: string) => value.replace(/\/+$/, '') || '/'
-  const route = normalizeRoute(window.location.pathname)
+  const route = normalizeRoute(routeOption ?? window.location.pathname)
 
   const handleMessage = async (event: MessageEvent) => {
     // 同时校验 route 字段，防止多页面注册同名工具时发生跨路由串扰
