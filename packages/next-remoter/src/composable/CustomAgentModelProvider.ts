@@ -443,7 +443,6 @@ export class CustomAgentModelProvider extends BaseModelProvider {
 
     // 待返回的promise对象，用户阻塞住函数立即返回。
     const dp = new DelayedPromise<void>()
-    console.log(this.debugStream, 'dddstream')
     const visitor = new StreamVisitor({
       debug: this.debugStream,
       onFinish: () => {
