@@ -57,7 +57,7 @@
  *   }
  */
 import type { ZodRawShape } from 'zod'
-import type { ToolCallback, RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js'
+import type { RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
 import type { WebMcpServer } from './WebMcpServer'
 import { randomUUID } from './utils/uuid'
@@ -112,7 +112,11 @@ export type PageAwareServer = Omit<WebMcpServer, 'registerTool'> & {
   registerTool<InputArgs extends ZodRawShape, OutputArgs extends ZodRawShape>(
     name: string,
     config: RegisterToolConfig<InputArgs, OutputArgs>,
-    handlerOrRoute: ToolCallback<InputArgs> | RouteConfig
+    // handler 不引入 ToolCallback<InputArgs>：该类型含 MCP SDK 深层泛型，
+    // 叠加 ZodRawShape 推断链后会触发"类型实例化过深"。
+    // 实际类型安全由 Proxy 内部透传给 WebMcpServer.registerTool 保证。
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    handlerOrRoute: ((...args: any[]) => any) | RouteConfig
   ): RegisteredTool
 }
 
@@ -236,12 +240,15 @@ export function withPageTools(server: WebMcpServer): PageAwareServer {
       if (prop === 'registerTool') {
         return (name: string, config: any, handlerOrRoute: ((...args: any[]) => any) | RouteConfig) => {
           // 第三个参数是函数 → 直接透传，行为与原始 registerTool 完全相同
+          // 通过 (target as any) 避免 WebMcpServer.registerTool 深层泛型触发"类型实例化过深"
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const rawRegister = (target as any).registerTool.bind(target)
           if (typeof handlerOrRoute === 'function') {
-            return target.registerTool(name, config, handlerOrRoute as any)
+            return rawRegister(name, config, handlerOrRoute)
           }
           // 第三个参数是路由配置对象 → 自动生成转发 handler
           const { route, timeout } = handlerOrRoute
-          return target.registerTool(name, config, buildPageHandler(name, route, timeout) as any)
+          return rawRegister(name, config, buildPageHandler(name, route, timeout))
         }
       }
       return Reflect.get(target, prop, receiver)
@@ -288,7 +295,6 @@ export function withPageTools(server: WebMcpServer): PageAwareServer {
  * }
  */
 export function registerPageTool(options: {
-  route: string
   /**
    * 工具名 → 处理函数的映射表。
    *
@@ -300,14 +306,18 @@ export function registerPageTool(options: {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   handlers: Record<string, (input: any) => Promise<any>>
 }): () => void {
-  const { route, handlers } = options
+  const { handlers } = options
+  // 规范化路由：去除尾部斜杠，空路径兜底为 '/'，确保与 buildPageHandler 侧一致
+  const normalizeRoute = (value: string) => value.replace(/\/+$/, '') || '/'
+  const route = normalizeRoute(window.location.pathname)
 
   const handleMessage = async (event: MessageEvent) => {
     // 同时校验 route 字段，防止多页面注册同名工具时发生跨路由串扰
+    // 对消息携带的 route 同样规范化，避免因尾部斜杠等差异导致匹配失败
     if (
       event.source !== window ||
       event.data?.type !== MSG_TOOL_CALL ||
-      event.data?.route !== route ||
+      normalizeRoute(String(event.data?.route ?? '')) !== route ||
       !(event.data.toolName in handlers)
     ) {
       return
