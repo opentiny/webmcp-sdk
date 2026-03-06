@@ -19,7 +19,7 @@ Web MCP 与传统 MCP（运行在服务器/进程中）的本质区别在于：*
 
 用户不一定打开了工具对应的页面，Page Tool Bridge 解决了这个问题：
 
-```
+```text
 AI 调用工具 → 检测目标页面是否已加载
     ↓ 未加载                ↓ 已加载
 自动路由跳转          直接通过 postMessage 发送指令
@@ -450,7 +450,7 @@ description: 商品管理指南技能包。提供商品管理相关的搜索和�
 
 ## 可用参考资料
 
-- 商品上架流程：'./product-guide/reference/product-shangjia.md'
+- 商品上架流程：'./reference/product-shangjia.md'
 ```
 
 > **description 字段非常重要**：AI 依赖此字段决定何时激活该技能，请尽量描述清楚技能的使用场景。
@@ -482,7 +482,7 @@ tags: [商品管理, 上架, 库存]
 
 以用户对话「帮我查一下产品 ID 为 123 的信息」为例，完整流程如下：
 
-```
+```text
 用户发送消息
     ↓
 TinyRemoter 将消息发给 LLM

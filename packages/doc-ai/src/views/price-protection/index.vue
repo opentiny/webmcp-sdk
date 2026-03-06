@@ -75,6 +75,12 @@ const statusType: Record<string, string> = {
   expired: 'info'
 }
 
+// 审批默认备注，统一管理避免多处重复导致不一致
+const DEFAULT_REMARKS = {
+  approve: '审核通过，差价将在3个工作日内退回',
+  reject: '不符合价保条件，不予受理'
+} as const
+
 const records = ref(rawData as any[])
 
 // 各状态数量统计
@@ -89,13 +95,13 @@ const statusCount = computed(() => {
 // 审核通过
 function handleApprove(row: any) {
   row.status = 'approved'
-  row.remark = '审核通过，差价将在3个工作日内退回'
+  row.remark = DEFAULT_REMARKS.approve
 }
 
 // 审核拒绝
 function handleReject(row: any) {
   row.status = 'rejected'
-  row.remark = '不符合价保条件，不予受理'
+  row.remark = DEFAULT_REMARKS.reject
 }
 
 // 注册页面 MCP 工具处理器
@@ -133,8 +139,7 @@ onMounted(() => {
           }
         }
         record.status = action === 'approve' ? 'approved' : 'rejected'
-        record.remark =
-          remark ?? (action === 'approve' ? '审核通过，差价将在3个工作日内退回' : '不符合价保条件，不予受理')
+        record.remark = remark ?? (action === 'approve' ? DEFAULT_REMARKS.approve : DEFAULT_REMARKS.reject)
         return {
           content: [
             {
