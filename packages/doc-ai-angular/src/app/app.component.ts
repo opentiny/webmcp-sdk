@@ -9,55 +9,8 @@ import { createMcpServer } from '../mcp-servers'
   selector: 'app-root',
   standalone: true,
   imports: [RouterOutlet],
-  // 使用内联 template/styles，避免 Vite 等环境下未执行 resolveComponentResources 导致引导失败
-  template: `
-    <div class="app-container">
-      <div class="main-content">
-        <router-outlet />
-      </div>
-      <aside class="remoter-sidebar">
-        <iframe
-          #remoterFrame
-          class="remoter-frame"
-          src="/remoter.html"
-          frameborder="0"
-          allow="clipboard-write"
-          title="AI 助手"
-        ></iframe>
-      </aside>
-    </div>
-  `,
-  styles: [
-    `
-      .app-container {
-        position: relative;
-        width: 100%;
-        min-height: 100vh;
-      }
-      .main-content {
-        width: 70%;
-        min-height: 100vh;
-        overflow: auto;
-      }
-      .remoter-sidebar {
-        position: fixed;
-        top: 0;
-        right: 0;
-        width: 30%;
-        height: 100vh;
-        border-left: 1px solid #eee;
-        background: #fff;
-        z-index: 10;
-      }
-      .remoter-frame {
-        width: 100%;
-        height: 100%;
-        min-height: 100vh;
-        border: none;
-        display: block;
-      }
-    `
-  ]
+  templateUrl: './app.component.html',
+  styleUrl: './app.component.scss'
 })
 export class AppComponent implements OnInit {
   private router = inject(Router)

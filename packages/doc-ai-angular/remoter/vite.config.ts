@@ -9,12 +9,12 @@ import importPlugin from '@opentiny/vue-vite-import'
 import { resolve } from 'path'
 
 /**
- * 仅用于开发/构建 iframe 内的 Vue TinyRemoter。
- * 配置对齐 next-remoter 的 vite.remoter.config.ts：TinyVue、Vant 按需解析与自动导入，SVG 作为组件。
- * ng serve 通过 proxy.conf.json 将 /remoter.html 和 /src/remoter 代理到本服务（端口 5174）。
+ * doc-ai-angular 的 Remoter 子包：独立 Vite 工程，仅负责 iframe 内的 Vue TinyRemoter。
+ * 与 Angular 主应用完全解耦：Angular 用 ng serve，本包用 pnpm dev 单独起在 5179。
+ * 配置对齐 next-remoter：TinyVue、Vant 按需解析与自动导入，SVG 作为组件。
  */
 export default defineConfig({
-  root: '.',
+  root: __dirname,
   define: {
     'process.env': { TINY_MODE: 'pc' }
   },
@@ -49,17 +49,15 @@ export default defineConfig({
     )
   ],
   server: {
-    port: 5174,
+    port: 5179,
     strictPort: true,
-    origin: 'http://localhost:5174'
+    origin: 'http://localhost:5179'
   },
   build: {
-    outDir: 'dist/remoter',
+    outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
-      input: {
-        remoter: resolve(__dirname, 'remoter.html')
-      }
+      input: resolve(__dirname, 'index.html')
     }
   }
 })

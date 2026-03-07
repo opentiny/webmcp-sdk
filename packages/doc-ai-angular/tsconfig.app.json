@@ -1,6 +1,7 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
+    "baseUrl": ".",
     "outDir": "./dist/out-tsc",
     "types": [],
     "moduleResolution": "node",
@@ -8,6 +9,6 @@
       "@opentiny/next-sdk": ["./src/lib/next-sdk-shim.ts"]
     }
   },
-  "include": ["src/main.ts", "src/app/**/*.ts", "src/mcp-servers/**/*.ts", "src/lib/**/*.ts"],
+  "include": ["src/main.ts", "src/app/**/*.ts", "src/mcp-servers/**/*.ts", "src/lib/**/*.ts", "src/typings/**/*.d.ts"],
   "exclude": ["node_modules"]
 }

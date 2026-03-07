@@ -1,0 +1,28 @@
+{
+  "/api": {
+    "target": "https://agent.opentiny.design",
+    "secure": true,
+    "changeOrigin": true
+  },
+  "/remoter.html": {
+    "target": "http://localhost:5179",
+    "pathRewrite": { "^/remoter.html": "/" },
+    "secure": false
+  },
+  "/src": {
+    "target": "http://localhost:5179",
+    "secure": false
+  },
+  "/node_modules": {
+    "target": "http://localhost:5179",
+    "secure": false
+  },
+  "/@vite": {
+    "target": "http://localhost:5179",
+    "secure": false
+  },
+  "/@id": {
+    "target": "http://localhost:5179",
+    "secure": false
+  }
+}
