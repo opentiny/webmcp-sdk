@@ -14,8 +14,8 @@ export class AppComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     const { setNavigator } = await import('@opentiny/next-sdk')
-    setNavigator((route) => {
-      void this.router.navigateByUrl(route)
+    setNavigator(async (route) => {
+      await this.router.navigateByUrl(route)
     })
     const { createMcpServer } = await import('../mcp-servers')
     await createMcpServer()

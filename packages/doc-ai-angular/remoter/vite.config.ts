@@ -16,8 +16,9 @@ import { resolve } from 'path'
 export default defineConfig({
   root: __dirname,
   base: '/remoter/',
+  // 只替换 TINY_MODE，避免覆盖 process.env.NODE_ENV 等
   define: {
-    'process.env': { TINY_MODE: 'pc' }
+    'process.env.TINY_MODE': JSON.stringify('pc')
   },
   plugins: [
     vue(),

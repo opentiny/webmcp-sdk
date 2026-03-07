@@ -54,7 +54,7 @@ src/
     └── product-guide/
         ├── SKILL.md
         └── reference/
-            └── product-shangjia.md
+            └── product-listing.md
 ```
 
 ## 安装依赖
@@ -452,7 +452,7 @@ description: 商品管理指南技能包。提供商品管理相关的搜索和�
 
 ## 可用参考资料
 
-- 商品上架流程：'./reference/product-shangjia.md'
+- 商品上架流程：'./reference/product-listing.md'
 ```
 
 > **description 字段非常重要**：AI 依赖此字段决定何时激活该技能，请尽量描述清楚技能的使用场景。
@@ -460,7 +460,7 @@ description: 商品管理指南技能包。提供商品管理相关的搜索和�
 ### 6.3 添加参考资料文件
 
 ```markdown
-<!-- src/skills/product-guide/reference/product-shangjia.md -->
+<!-- src/skills/product-guide/reference/product-listing.md -->
 ---
 title: 商品上架
 tags: [商品管理, 上架, 库存]

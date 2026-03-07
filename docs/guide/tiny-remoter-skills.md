@@ -25,7 +25,7 @@ src/
     ├── product-guide/                   # 技能：商品管理指南
     │   ├── SKILL.md                     # 技能入口（必须）
     │   └── reference/                   # 参考资料目录（可选）
-    │       ├── product-shangjia.md      # 参考文档：商品上架流程
+    │       ├── product-listing.md      # 参考文档：商品上架流程
     │       ├── inventory-rules.json     # 参考数据：库存规则配置
     │       └── category-schema.xml      # 参考数据：类目结构
     ├── code-review-expert/              # 技能：代码审查专家
@@ -62,7 +62,7 @@ description: 商品管理指南技能包。提供商品管理相关的搜索和�
 
 ## 子技能
 
-商品上架管理：具体的商品上架参考文档 './product-guide/reference/product-shangjia.md'
+商品上架管理：具体的商品上架参考文档 './product-guide/reference/product-listing.md'
 ```
 
 | 字段 | 位置 | 说明 |
@@ -71,7 +71,7 @@ description: 商品管理指南技能包。提供商品管理相关的搜索和�
 | `description` | YAML Front Matter | 技能描述，AI **依赖此字段**判断何时激活该技能，请尽量详细 |
 | Markdown Body | `---` 之后的内容 | 角色提示词，定义 AI 的角色、能力及如何引用参考资料 |
 
-> **提示**：在 Markdown Body 中，可以用文件相对路径（如 `'./product-guide/reference/product-shangjia.md'`）告知 AI 哪些参考文件可用，AI 会通过内置的 `get_skill_content` 工具按需读取。
+> **提示**：在 Markdown Body 中，可以用文件相对路径（如 `'./product-guide/reference/product-listing.md'`）告知 AI 哪些参考文件可用，AI 会通过内置的 `get_skill_content` 工具按需读取。
 
 ## 分步配置教程
 
@@ -100,7 +100,7 @@ description: 商品管理指南技能包。提供商品管理相关的搜索和�
 
 ## 可用参考资料
 
-- 商品上架流程：'./product-guide/reference/product-shangjia.md'
+- 商品上架流程：'./product-guide/reference/product-listing.md'
 - 库存规则配置：'./product-guide/reference/inventory-rules.json'
 ```
 
@@ -108,7 +108,7 @@ description: 商品管理指南技能包。提供商品管理相关的搜索和�
 
 在 `reference/` 目录中放置各类参考文件，支持 `.md`、`.json`、`.xml` 等任意文本格式：
 
-**`reference/product-shangjia.md`**（操作指南类）：
+**`reference/product-listing.md`**（操作指南类）：
 
 ```markdown
 ---
@@ -146,7 +146,7 @@ src/skills/
 └── product-guide/
     ├── SKILL.md                        ✅ 技能入口
     └── reference/
-        ├── product-shangjia.md         ✅ 操作指南
+        ├── product-listing.md         ✅ 操作指南
         └── inventory-rules.json        ✅ 规则数据
 ```
 
@@ -207,7 +207,7 @@ src/skills/
 ├── product-guide/
 │   ├── SKILL.md
 │   └── reference/
-│       ├── product-shangjia.md
+│       ├── product-listing.md
 │       └── inventory-rules.json
 └── code-review-expert/                 ✅ 新增技能
     ├── SKILL.md
@@ -235,7 +235,7 @@ src/
     ├── product-guide/
     │   ├── SKILL.md
     │   └── reference/
-    │       ├── product-shangjia.md
+    │       ├── product-listing.md
     │       └── inventory-rules.json
     ├── code-review-expert/
     │   ├── SKILL.md
@@ -308,7 +308,7 @@ console.log('已加载技能文件：', Object.keys(skills))
 // 输出示例：
 // [
 //   './skills/product-guide/SKILL.md',
-//   './skills/product-guide/reference/product-shangjia.md',
+//   './skills/product-guide/reference/product-listing.md',
 //   './skills/product-guide/reference/inventory-rules.json',
 //   './skills/code-review-expert/SKILL.md',
 // ]

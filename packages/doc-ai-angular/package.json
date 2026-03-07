@@ -33,6 +33,6 @@
     "@types/node": "catalog:",
     "dotenv": "catalog:",
     "sass": "^1.80.0",
-    "typescript": "~5.9.0"
+    "typescript": "^5.9.0"
   }
 }

@@ -1,5 +1,11 @@
 <template>
-  <tiny-remoter :skills="skillMdModules" :show="show" :menuItems="menuItems" :mcpServers="mcpServers" />
+  <tiny-remoter
+    :skills="skillMdModules"
+    :show="show"
+    :fullscreen="true"
+    :menuItems="menuItems"
+    :mcpServers="mcpServers"
+  />
 </template>
 
 <script setup lang="ts">

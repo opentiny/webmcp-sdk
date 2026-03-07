@@ -7,10 +7,12 @@
   "/remoter.html": {
     "target": "http://localhost:5179",
     "pathRewrite": { "^/remoter.html": "/remoter/" },
-    "secure": false
+    "secure": false,
+    "changeOrigin": true
   },
   "/remoter": {
     "target": "http://localhost:5179",
-    "secure": false
+    "secure": false,
+    "changeOrigin": true
   }
 }

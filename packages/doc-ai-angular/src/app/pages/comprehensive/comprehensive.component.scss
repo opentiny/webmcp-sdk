@@ -43,10 +43,17 @@
 .data-table tr:hover td {
   background: #fafafa;
 }
+/* 可编辑单元格：用 button 以支持键盘聚焦与 Enter/Space 触发，样式与原文一致 */
 .editable-cell {
   cursor: pointer;
   padding: 2px 4px;
   border-radius: 3px;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  width: 100%;
 }
 .editable-cell:hover {
   background: #e6f4ff;

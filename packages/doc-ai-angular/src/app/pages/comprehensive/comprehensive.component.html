@@ -28,9 +28,13 @@
               />
             </ng-container>
             <ng-template #nameView>
-              <span class="editable-cell" (click)="startEdit(product.id, 'name', product.name)">{{
-                product.name
-              }}</span>
+              <button
+                type="button"
+                class="editable-cell"
+                (click)="startEdit(product.id, 'name', product.name)"
+              >
+                {{ product.name }}
+              </button>
             </ng-template>
           </td>
           <td>
@@ -45,9 +49,13 @@
               />
             </ng-container>
             <ng-template #priceView>
-              <span class="editable-cell" (click)="startEdit(product.id, 'price', product.price)"
-                >¥{{ product.price }}</span
+              <button
+                type="button"
+                class="editable-cell"
+                (click)="startEdit(product.id, 'price', product.price)"
               >
+                ¥{{ product.price }}
+              </button>
             </ng-template>
           </td>
           <td>
@@ -62,9 +70,13 @@
               />
             </ng-container>
             <ng-template #stockView>
-              <span class="editable-cell" (click)="startEdit(product.id, 'stock', product.stock)">{{
-                product.stock
-              }}</span>
+              <button
+                type="button"
+                class="editable-cell"
+                (click)="startEdit(product.id, 'stock', product.stock)"
+              >
+                {{ product.stock }}
+              </button>
             </ng-template>
           </td>
           <td>{{ categoryLabels[product.category] ?? product.category }}</td>
