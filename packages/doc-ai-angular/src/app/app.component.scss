@@ -1,0 +1,31 @@
+// 根布局：左侧主内容 70%，右侧 AI 助手固定 30%
+.app-container {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+}
+
+.main-content {
+  width: 70%;
+  min-height: 100vh;
+  overflow: auto;
+}
+
+.remoter-sidebar {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 30%;
+  height: 100vh;
+  border-left: 1px solid #eee;
+  background: #fff;
+  z-index: 10;
+}
+
+.remoter-frame {
+  width: 100%;
+  height: 100%;
+  min-height: 100vh;
+  border: none;
+  display: block;
+}

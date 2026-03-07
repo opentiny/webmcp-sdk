@@ -1,0 +1,18 @@
+{
+  "/api": {
+    "target": "https://agent.opentiny.design",
+    "secure": true,
+    "changeOrigin": true
+  },
+  "/remoter.html": {
+    "target": "http://localhost:5179",
+    "pathRewrite": { "^/remoter.html": "/remoter/" },
+    "secure": false,
+    "changeOrigin": true
+  },
+  "/remoter": {
+    "target": "http://localhost:5179",
+    "secure": false,
+    "changeOrigin": true
+  }
+}

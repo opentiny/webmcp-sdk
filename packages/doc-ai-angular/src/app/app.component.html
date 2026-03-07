@@ -1,0 +1,16 @@
+<!-- 左右分栏：左侧 70% 主内容，右侧 30% AI 助手 -->
+<div class="app-container">
+  <div class="main-content">
+    <router-outlet />
+  </div>
+  <aside class="remoter-sidebar">
+    <iframe
+      #remoterFrame
+      class="remoter-frame"
+      src="/remoter.html"
+      frameborder="0"
+      allow="clipboard-write"
+      title="AI 助手"
+    ></iframe>
+  </aside>
+</div>

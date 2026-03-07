@@ -1,0 +1,105 @@
+<div class="home-page">
+  <div class="page-header">
+    <div class="header-title">
+      <h2>商品管理系统</h2>
+      <p>统一管理您的商品信息，支持 AI 助手智能操作</p>
+    </div>
+    <div class="header-actions">
+      <a routerLink="/comprehensive" class="btn-primary">商品管理</a>
+      <a routerLink="/price-protection" class="btn-secondary">价保管理</a>
+    </div>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card">
+      <div class="stat-icon total">📦</div>
+      <div class="stat-info">
+        <div class="stat-value">{{ stats.total }}</div>
+        <div class="stat-label">商品总数</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon on">✅</div>
+      <div class="stat-info">
+        <div class="stat-value">{{ stats.on }}</div>
+        <div class="stat-label">上架中</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon off">⏸</div>
+      <div class="stat-info">
+        <div class="stat-value">{{ stats.off }}</div>
+        <div class="stat-label">已下架</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon category">🗂</div>
+      <div class="stat-info">
+        <div class="stat-value">{{ stats.categories }}</div>
+        <div class="stat-label">商品分类</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon price-pending">🛡</div>
+      <div class="stat-info">
+        <div class="stat-value">{{ priceStats.pending }}</div>
+        <div class="stat-label">价保待审核</div>
+      </div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-icon price-total">💰</div>
+      <div class="stat-info">
+        <div class="stat-value">¥{{ priceStats.totalDiff }}</div>
+        <div class="stat-label">待退差价总额</div>
+      </div>
+    </div>
+  </div>
+  <div class="main-content">
+    <div class="panel">
+      <div class="panel-header">分类概览</div>
+      <div class="category-list">
+        <div *ngFor="let cat of categoryStats" class="category-item">
+          <span class="category-name">{{ cat.label }}</span>
+          <div class="category-bar-wrap">
+            <div class="category-bar" [style.width]="getCategoryBarWidth(cat.count)"></div>
+          </div>
+          <span class="category-count">{{ cat.count }} 件</span>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        近期商品
+        <a routerLink="/comprehensive" class="panel-link">查看全部 →</a>
+      </div>
+      <div class="product-list">
+        <div *ngFor="let product of recentProducts" class="product-item">
+          <div class="product-info">
+            <div class="product-name">{{ product.name }}</div>
+            <div class="product-meta">
+              {{ categoryLabels[product.category] ?? product.category }} · ¥{{ product.price }}
+            </div>
+          </div>
+          <span class="status-badge" [ngClass]="product.status">
+            {{ product.status === 'on' ? '上架' : '下架' }}
+          </span>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        价保申请
+        <a routerLink="/price-protection" class="panel-link">查看全部 →</a>
+      </div>
+      <div class="product-list">
+        <div *ngFor="let record of pendingPriceRecords" class="product-item">
+          <div class="product-info">
+            <div class="product-name">{{ record.productName }}</div>
+            <div class="product-meta">{{ record.orderId }} · 可退 ¥{{ record.diffPrice }}</div>
+          </div>
+          <span class="status-badge pending">待审核</span>
+        </div>
+        <div *ngIf="pendingPriceRecords.length === 0" class="empty-tip">暂无待审核申请</div>
+      </div>
+    </div>
+  </div>
+</div>

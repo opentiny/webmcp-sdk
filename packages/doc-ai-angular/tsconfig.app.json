@@ -1,0 +1,10 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "outDir": "./dist/out-tsc",
+    "types": []
+  },
+  "include": ["src/main.ts", "src/app/**/*.ts", "src/mcp-servers/**/*.ts", "src/lib/**/*.ts", "src/typings/**/*.d.ts"],
+  "exclude": ["node_modules"]
+}

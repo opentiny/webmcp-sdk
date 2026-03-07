@@ -1,0 +1,98 @@
+[
+  {
+    "id": 1,
+    "name": "iPhone 16",
+    "price": 5999,
+    "description": "苹果手机",
+    "image": "https://www.opentiny.xyz/images/iphone.jpg",
+    "category": "phones",
+    "stock": 100,
+    "status": "on",
+    "createdAt": "2024-03-20",
+    "updatedAt": "2025-05-29T21:56:30.481Z"
+  },
+  {
+    "id": 2,
+    "name": "MacBook Pro",
+    "price": 12999,
+    "description": "笔记本电脑",
+    "image": "https://www.opentiny.xyz/images/macbook.jpg",
+    "category": "laptops",
+    "stock": 50,
+    "status": "off",
+    "createdAt": "2024-03-20",
+    "updatedAt": "2024-03-20"
+  },
+  {
+    "id": 3,
+    "name": "iPad",
+    "price": 2399,
+    "description": "平板电脑",
+    "image": "https://www.opentiny.xyz/images/ipad.jpg",
+    "category": "tablets",
+    "stock": 12999,
+    "status": "on",
+    "createdAt": "2025-05-27T00:49:29.993Z",
+    "updatedAt": "2025-05-29T16:11:49.743Z"
+  },
+  {
+    "id": 4,
+    "name": "Huawei Pura 70",
+    "price": 6499,
+    "description": "华为手机",
+    "image": "https://www.opentiny.xyz/images/huawei-pura.jpg",
+    "category": "phones",
+    "stock": 1999,
+    "status": "on",
+    "createdAt": "2025-05-27T00:54:38.771Z",
+    "updatedAt": "2025-05-29T22:29:40.124Z"
+  },
+  {
+    "id": 5,
+    "name": "Huawei Mate XT ultimate",
+    "price": 23999,
+    "description": "华为手机 非凡大师",
+    "image": "https://www.opentiny.xyz/images/huawei-mate.jpg",
+    "category": "phones",
+    "stock": 100,
+    "status": "on",
+    "createdAt": "2025-05-27T00:54:38.771Z",
+    "updatedAt": "2025-05-30T17:40:59.199Z"
+  },
+  {
+    "id": 6,
+    "name": "小米15",
+    "price": 4999,
+    "description": "小米手机",
+    "image": "https://www.opentiny.xyz/images/xiaomi-15.jpg",
+    "category": "phones",
+    "stock": 222,
+    "status": "off",
+    "createdAt": "2025-05-29T00:30:02.226Z",
+    "updatedAt": "2025-05-29T16:14:35.150Z"
+  },
+  {
+    "id": 7,
+    "name": "小米 13",
+    "price": 3999,
+    "description": "小米手机",
+    "image": "https://www.opentiny.xyz/images/xiaomi-13.jpg",
+    "category": "phones",
+    "stock": 2222,
+    "status": "on",
+    "createdAt": "2025-05-29T00:32:46.308Z",
+    "updatedAt": "2025-05-30T21:28:28.543Z"
+  },
+  {
+    "id": 8,
+    "name": "Vivo X90",
+    "price": 2999,
+    "description": "Vivo手机",
+    "image": "https://www.opentiny.xyz/images/vivo-x90.jpg",
+    "category": "phones",
+    "stock": 3999,
+    "status": "on",
+    "createdAt": "2025-05-27T00:54:38.771Z",
+    "updatedAt": "2025-05-30T17:40:59.199Z"
+  }
+]
