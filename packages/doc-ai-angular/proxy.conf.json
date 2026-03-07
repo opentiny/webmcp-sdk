@@ -6,22 +6,10 @@
   },
   "/remoter.html": {
     "target": "http://localhost:5179",
-    "pathRewrite": { "^/remoter.html": "/" },
+    "pathRewrite": { "^/remoter.html": "/remoter/" },
     "secure": false
   },
-  "/src": {
-    "target": "http://localhost:5179",
-    "secure": false
-  },
-  "/node_modules": {
-    "target": "http://localhost:5179",
-    "secure": false
-  },
-  "/@vite": {
-    "target": "http://localhost:5179",
-    "secure": false
-  },
-  "/@id": {
+  "/remoter": {
     "target": "http://localhost:5179",
     "secure": false
   }

@@ -3,40 +3,45 @@
   background: #f5f7fa;
   min-height: 100vh;
   box-sizing: border-box;
-
-  .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 16px;
-
-    h3 {
-      margin: 0;
-      font-size: 18px;
-      font-weight: 600;
-      color: #1a1a1a;
-    }
-  }
 }
-
-/* 状态统计标签组 */
+.price-protection-page .page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.price-protection-page .page-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
 .header-stats {
   display: flex;
   gap: 12px;
-
-  .stat-item {
-    font-size: 13px;
-    padding: 3px 12px;
-    border-radius: 12px;
-    font-weight: 500;
-
-    &.pending  { background: #fff7e6; color: #fa8c16; }
-    &.approved { background: #f6ffed; color: #52c41a; }
-    &.rejected { background: #fff1f0; color: #ff4d4f; }
-    &.expired  { background: #f5f5f5; color: #8c8c8c; }
-  }
 }
-
+.stat-item {
+  font-size: 13px;
+  padding: 3px 12px;
+  border-radius: 12px;
+  font-weight: 500;
+}
+.stat-item.pending {
+  background: #fff7e6;
+  color: #fa8c16;
+}
+.stat-item.approved {
+  background: #f6ffed;
+  color: #52c41a;
+}
+.stat-item.rejected {
+  background: #fff1f0;
+  color: #ff4d4f;
+}
+.stat-item.expired {
+  background: #f5f5f5;
+  color: #8c8c8c;
+}
 .page-content {
   padding: 20px;
   background: #fff;
@@ -44,79 +49,81 @@
   box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
   overflow: auto;
 }
-
-/* 数据表格 */
 .data-table {
   width: 100%;
   border-collapse: collapse;
   font-size: 14px;
-
-  th, td {
-    padding: 12px 14px;
-    text-align: left;
-    border-bottom: 1px solid #f0f0f0;
-  }
-
-  th {
-    background: #fafafa;
-    color: #595959;
-    font-weight: 500;
-    font-size: 13px;
-  }
-
-  tr:hover td {
-    background: #fafafa;
-  }
 }
-
+.data-table th,
+.data-table td {
+  padding: 12px 14px;
+  text-align: left;
+  border-bottom: 1px solid #f0f0f0;
+}
+.data-table th {
+  background: #fafafa;
+  color: #595959;
+  font-weight: 500;
+  font-size: 13px;
+}
+.data-table tr:hover td {
+  background: #fafafa;
+}
 .diff-price {
   color: #ff4d4f;
   font-weight: 600;
 }
-
 .remark-text {
   font-size: 12px;
   color: #595959;
 }
-
-/* 状态标签 */
 .tag {
   display: inline-block;
   padding: 2px 10px;
   border-radius: 10px;
   font-size: 12px;
   font-weight: 500;
-
-  &.tag-warning { background: #fff7e6; color: #fa8c16; border: 1px solid #ffd591; }
-  &.tag-success { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
-  &.tag-danger  { background: #fff1f0; color: #ff4d4f; border: 1px solid #ffccc7; }
-  &.tag-info    { background: #f5f5f5; color: #8c8c8c; border: 1px solid #d9d9d9; }
 }
-
-/* 操作按钮 */
+.tag.tag-warning {
+  background: #fff7e6;
+  color: #fa8c16;
+  border: 1px solid #ffd591;
+}
+.tag.tag-success {
+  background: #f6ffed;
+  color: #52c41a;
+  border: 1px solid #b7eb8f;
+}
+.tag.tag-danger {
+  background: #fff1f0;
+  color: #ff4d4f;
+  border: 1px solid #ffccc7;
+}
+.tag.tag-info {
+  background: #f5f5f5;
+  color: #8c8c8c;
+  border: 1px solid #d9d9d9;
+}
 .action-btn {
   padding: 4px 12px;
   font-size: 12px;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  transition: opacity 0.15s;
-
-  &:hover { opacity: 0.8; }
-
-  &.btn-success {
-    background: #f6ffed;
-    color: #52c41a;
-    border: 1px solid #b7eb8f;
-  }
-
-  &.btn-danger {
-    background: #fff1f0;
-    color: #ff4d4f;
-    border: 1px solid #ffccc7;
-  }
 }
-
+.action-btn:hover {
+  opacity: 0.8;
+}
+.action-btn.btn-success {
+  background: #f6ffed;
+  color: #52c41a;
+  border: 1px solid #b7eb8f;
+}
+.action-btn.btn-danger {
+  background: #fff1f0;
+  color: #ff4d4f;
+  border: 1px solid #ffccc7;
+}
 .no-action {
   color: #bfbfbf;
   font-size: 13px;

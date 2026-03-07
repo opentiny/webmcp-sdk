@@ -18,7 +18,7 @@
     "@angular/forms": "^21.2.0",
     "@angular/platform-browser": "^21.2.0",
     "@angular/router": "^21.2.0",
-    "@opentiny/next-sdk": "workspace:*",
+    "@opentiny/next-sdk": "0.2.6-beta.0",
     "rxjs": "^7.8.0",
     "tslib": "^2.6.0",
     "vue": "catalog:",

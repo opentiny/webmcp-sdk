@@ -17,6 +17,6 @@
     "forceConsistentCasingInFileNames": true,
     "paths": {}
   },
-  "include": ["src/**/*.ts", "src/**/*.d.ts", "vite.config.ts"],
+  "include": ["src/**/*.ts", "src/**/*.d.ts"],
   "exclude": ["node_modules"]
 }

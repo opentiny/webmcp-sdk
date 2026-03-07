@@ -1,9 +1,6 @@
 import { Component, OnInit, inject } from '@angular/core'
 import { Router } from '@angular/router'
 import { RouterOutlet } from '@angular/router'
-import { setNavigator } from '@opentiny/next-sdk'
-// mcp-servers 在 src/mcp-servers，从 src/app 需用 .. 引用；并已在 tsconfig.app.json 的 include 中
-import { createMcpServer } from '../mcp-servers'
 
 @Component({
   selector: 'app-root',
@@ -15,11 +12,12 @@ import { createMcpServer } from '../mcp-servers'
 export class AppComponent implements OnInit {
   private router = inject(Router)
 
-  ngOnInit(): void {
-    // navigateByUrl 返回 Promise<boolean>，setNavigator 期望 void | Promise<void>，用 void 忽略返回值
+  async ngOnInit(): Promise<void> {
+    const { setNavigator } = await import('@opentiny/next-sdk')
     setNavigator((route) => {
       void this.router.navigateByUrl(route)
     })
-    void createMcpServer()
+    const { createMcpServer } = await import('../mcp-servers')
+    await createMcpServer()
   }
 }

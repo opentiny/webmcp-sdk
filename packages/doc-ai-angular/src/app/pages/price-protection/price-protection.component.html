@@ -8,7 +8,6 @@
       <span class="stat-item expired">已过期 {{ statusCount.expired }}</span>
     </div>
   </div>
-
   <div class="page-content">
     <table class="data-table">
       <thead>
@@ -39,9 +38,9 @@
           <td>{{ record.applyDate }}</td>
           <td>{{ record.expireDate }}</td>
           <td>
-            <span class="tag" [ngClass]="statusClass[record.status]">
-              {{ statusLabels[record.status] ?? record.status }}
-            </span>
+            <span class="tag" [ngClass]="statusClass[record.status]">{{
+              statusLabels[record.status] ?? record.status
+            }}</span>
           </td>
           <td>
             <span class="remark-text">{{ record.remark || '—' }}</span>
@@ -49,11 +48,11 @@
           <td>
             <ng-container *ngIf="record.status === 'pending'; else noAction">
               <button class="action-btn btn-success" (click)="handleApprove(record)">通过</button>
-              <button class="action-btn btn-danger" style="margin-left: 6px" (click)="handleReject(record)">拒绝</button>
+              <button class="action-btn btn-danger" style="margin-left: 6px" (click)="handleReject(record)">
+                拒绝
+              </button>
             </ng-container>
-            <ng-template #noAction>
-              <span class="no-action">—</span>
-            </ng-template>
+            <ng-template #noAction><span class="no-action">—</span></ng-template>
           </td>
         </tr>
       </tbody>

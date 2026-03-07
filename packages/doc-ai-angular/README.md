@@ -60,10 +60,19 @@ Angular 无法直接使用 `@opentiny/next-remoter` 中的 Vue 组件，采用 *
 ## 启动
 
 ```bash
-pnpm dev
+pnpm dev          # 同时起 Angular (8099) 与 Remoter (5179)
+pnpm dev:ng       # 仅 Angular
+pnpm dev:remoter  # 仅 Remoter
 ```
 
-访问 http://localhost:8090
+访问 http://localhost:8099
+
+### 若 `ng serve` 一直卡在 Building...
+
+- **main.ts**：已移除 `import '@angular/compiler'`（application 为 AOT，无需在浏览器加载 JIT compiler）。
+- 当前使用 **npm 上的 @opentiny/next-sdk@0.2.6-beta.0** 构建产物，可减轻解析卡住问题。
+
+**建议**：在仓库根目录 `.npmrc` 中增加 `node-linker=hoisted` 后执行 `pnpm install`，再重试；或增大 Node 内存后执行 `ng serve`。
 
 ## 目录结构
 
@@ -85,8 +94,10 @@ src/
 │       ├── home/                  # 首页
 │       ├── comprehensive/         # 商品管理（ngOnInit 调用 registerPageTool）
 │       └── price-protection/      # 价保管理（ngOnInit 调用 registerPageTool）
-└── remoter/                       # iframe 入口（Vue，职责单一）
-    ├── remoter-main.ts            # Vue 启动
-    ├── RemoterApp.vue             # TinyRemoter + clientTransport（极简）
-    └── skills/                    # AI 技能文档（保留在 Vue 侧）
+remoter/                           # 独立子包（与 src 同级），iframe 内 Vue TinyRemoter
+    ├── package.json + vite.config.ts
+    ├── index.html
+    └── src/
+        ├── main.ts, App.vue
+        └── skills/
 ```

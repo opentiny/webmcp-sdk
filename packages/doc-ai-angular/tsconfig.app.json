@@ -4,10 +4,7 @@
     "baseUrl": ".",
     "outDir": "./dist/out-tsc",
     "types": [],
-    "moduleResolution": "node",
-    "paths": {
-      "@opentiny/next-sdk": ["./src/lib/next-sdk-shim.ts"]
-    }
+    "moduleResolution": "node"
   },
   "include": ["src/main.ts", "src/app/**/*.ts", "src/mcp-servers/**/*.ts", "src/lib/**/*.ts", "src/typings/**/*.d.ts"],
   "exclude": ["node_modules"]

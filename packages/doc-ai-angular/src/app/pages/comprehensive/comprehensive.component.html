@@ -1,7 +1,5 @@
 <div class="products-page">
-  <div class="page-header">
-    <h3>商品管理</h3>
-  </div>
+  <div class="page-header"><h3>商品管理</h3></div>
   <div class="page-content">
     <table class="data-table">
       <thead>
@@ -18,8 +16,6 @@
       <tbody>
         <tr *ngFor="let product of products; let i = index">
           <td>{{ i + 1 }}</td>
-
-          <!-- 商品名称：支持点击行内编辑 -->
           <td>
             <ng-container *ngIf="isEditing(product.id, 'name'); else nameView">
               <input
@@ -32,13 +28,11 @@
               />
             </ng-container>
             <ng-template #nameView>
-              <span class="editable-cell" (click)="startEdit(product.id, 'name', product.name)">
-                {{ product.name }}
-              </span>
+              <span class="editable-cell" (click)="startEdit(product.id, 'name', product.name)">{{
+                product.name
+              }}</span>
             </ng-template>
           </td>
-
-          <!-- 价格：支持行内编辑 -->
           <td>
             <ng-container *ngIf="isEditing(product.id, 'price'); else priceView">
               <input
@@ -51,13 +45,11 @@
               />
             </ng-container>
             <ng-template #priceView>
-              <span class="editable-cell" (click)="startEdit(product.id, 'price', product.price)">
-                ¥{{ product.price }}
-              </span>
+              <span class="editable-cell" (click)="startEdit(product.id, 'price', product.price)"
+                >¥{{ product.price }}</span
+              >
             </ng-template>
           </td>
-
-          <!-- 库存：支持行内编辑 -->
           <td>
             <ng-container *ngIf="isEditing(product.id, 'stock'); else stockView">
               <input
@@ -70,23 +62,21 @@
               />
             </ng-container>
             <ng-template #stockView>
-              <span class="editable-cell" (click)="startEdit(product.id, 'stock', product.stock)">
-                {{ product.stock }}
-              </span>
+              <span class="editable-cell" (click)="startEdit(product.id, 'stock', product.stock)">{{
+                product.stock
+              }}</span>
             </ng-template>
           </td>
-
-          <!-- 分类 -->
           <td>{{ categoryLabels[product.category] ?? product.category }}</td>
-
-          <!-- 状态 -->
           <td>
-            <span class="tag" [class.tag-success]="product.status === 'on'" [class.tag-warning]="product.status !== 'on'">
+            <span
+              class="tag"
+              [class.tag-success]="product.status === 'on'"
+              [class.tag-warning]="product.status !== 'on'"
+            >
               {{ product.status === 'on' ? '上架' : '下架' }}
             </span>
           </td>
-
-          <!-- 操作 -->
           <td>
             <button
               class="action-btn"
