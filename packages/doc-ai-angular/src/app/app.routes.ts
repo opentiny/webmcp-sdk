@@ -1,6 +1,5 @@
 import { Routes } from '@angular/router'
 
-// 路由配置，对应 Vue 版本的 router/index.ts
 export const routes: Routes = [
   {
     path: '',
@@ -16,8 +15,5 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/price-protection/price-protection.component').then((m) => m.PriceProtectionComponent)
   },
-  {
-    path: '**',
-    redirectTo: ''
-  }
+  { path: '**', redirectTo: '' }
 ]

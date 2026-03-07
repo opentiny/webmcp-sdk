@@ -1,21 +1,16 @@
+<!-- 左右分栏：左侧 70% 主内容，右侧 30% AI 助手 -->
 <div class="app-container">
-  <!-- 主体内容区：Angular 路由渲染出口 -->
   <div class="main-content">
     <router-outlet />
   </div>
-
-  <!--
-    TinyRemoter 悬浮 AI 助手：运行在独立的 iframe 中
-    remoter.html 是一个独立的 Vue SPA 入口，专门渲染 TinyRemoter 组件
-    Angular 无法直接使用 Vue 组件，通过多入口 + iframe 方案解决跨框架兼容性
-    跨窗口消息通信由 RemoterBridgeService 桥接
-  -->
-  <iframe
-    #remoterFrame
-    class="remoter-frame"
-    src="/remoter.html"
-    frameborder="0"
-    allow="clipboard-write"
-    title="AI 助手"
-  ></iframe>
+  <aside class="remoter-sidebar">
+    <iframe
+      #remoterFrame
+      class="remoter-frame"
+      src="/remoter.html"
+      frameborder="0"
+      allow="clipboard-write"
+      title="AI 助手"
+    ></iframe>
+  </aside>
 </div>

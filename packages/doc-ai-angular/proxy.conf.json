@@ -1,0 +1,27 @@
+{
+  "/api": {
+    "target": "https://agent.opentiny.design",
+    "secure": true,
+    "changeOrigin": true
+  },
+  "/remoter.html": {
+    "target": "http://localhost:5174",
+    "secure": false
+  },
+  "/src/remoter": {
+    "target": "http://localhost:5174",
+    "secure": false
+  },
+  "/node_modules": {
+    "target": "http://localhost:5174",
+    "secure": false
+  },
+  "/@vite": {
+    "target": "http://localhost:5174",
+    "secure": false
+  },
+  "/@id": {
+    "target": "http://localhost:5174",
+    "secure": false
+  }
+}

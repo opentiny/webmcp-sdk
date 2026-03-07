@@ -4,12 +4,16 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "dev": "concurrently -n ng,remoter \"ng serve\" \"vite --config vite.remoter.config.ts\"",
+    "dev:ng": "ng serve",
+    "dev:remoter": "vite --config vite.remoter.config.ts",
+    "build": "ng build",
+    "build:remoter": "vite build --config vite.remoter.config.ts",
+    "preview": "ng serve --configuration production"
   },
   "dependencies": {
     "@angular/common": "^19.0.0",
+    "zod": "catalog:",
     "@angular/compiler": "^19.0.0",
     "@angular/core": "^19.0.0",
     "@angular/forms": "^19.0.0",
@@ -23,11 +27,20 @@
     "zone.js": "^0.15.0"
   },
   "devDependencies": {
-    "@analogjs/vite-plugin-angular": "^2.0.0",
+    "@angular-devkit/build-angular": "^19.0.0",
+    "@angular/cli": "^19.0.0",
+    "@analogjs/vite-plugin-angular": "^2.3.1",
     "@angular/build": "^19.2.22",
     "@angular/compiler-cli": "^19.0.0",
-    "@types/node": "catalog:",
+    "@opentiny/unplugin-tiny-vue": "catalog:",
+    "@opentiny/vue-vite-import": "catalog:",
+    "@vant/auto-import-resolver": "catalog:",
     "@vitejs/plugin-vue": "catalog:",
+    "concurrently": "^9.1.0",
+    "@types/node": "catalog:",
+    "unplugin-auto-import": "catalog:",
+    "unplugin-vue-components": "catalog:",
+    "vite-svg-loader": "catalog:",
     "dotenv": "catalog:",
     "sass": "^1.80.0",
     "typescript": "~5.6.3",

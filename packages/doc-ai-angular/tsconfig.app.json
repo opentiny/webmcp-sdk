@@ -3,8 +3,11 @@
   "compilerOptions": {
     "outDir": "./dist/out-tsc",
     "types": [],
-    "moduleResolution": "node"
+    "moduleResolution": "node",
+    "paths": {
+      "@opentiny/next-sdk": ["./src/lib/next-sdk-shim.ts"]
+    }
   },
-  "include": ["src/main.ts", "src/app/**/*.ts"],
+  "include": ["src/main.ts", "src/app/**/*.ts", "src/mcp-servers/**/*.ts", "src/lib/**/*.ts"],
   "exclude": ["node_modules"]
 }

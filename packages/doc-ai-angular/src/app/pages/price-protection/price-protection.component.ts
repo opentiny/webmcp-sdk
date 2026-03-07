@@ -22,8 +22,91 @@ type PriceRecord = {
   selector: 'app-price-protection',
   standalone: true,
   imports: [NgFor, NgIf, NgClass],
-  templateUrl: './price-protection.component.html',
-  styleUrl: './price-protection.component.scss'
+  template: `
+    <div class="price-protection-page">
+      <div class="page-header">
+        <h3>价保管理</h3>
+        <div class="header-stats">
+          <span class="stat-item pending">待审核 {{ statusCount.pending }}</span>
+          <span class="stat-item approved">已通过 {{ statusCount.approved }}</span>
+          <span class="stat-item rejected">已拒绝 {{ statusCount.rejected }}</span>
+          <span class="stat-item expired">已过期 {{ statusCount.expired }}</span>
+        </div>
+      </div>
+      <div class="page-content">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="width: 50px">#</th>
+              <th style="width: 180px">订单号</th>
+              <th>商品名称</th>
+              <th>购买价格</th>
+              <th>当前价格</th>
+              <th>可退差价</th>
+              <th style="width: 110px">申请日期</th>
+              <th style="width: 110px">到期日期</th>
+              <th style="width: 90px">状态</th>
+              <th>备注</th>
+              <th style="width: 150px">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let record of records; let i = index">
+              <td>{{ i + 1 }}</td>
+              <td>{{ record.orderId }}</td>
+              <td>{{ record.productName }}</td>
+              <td>¥{{ record.buyPrice }}</td>
+              <td>¥{{ record.currentPrice }}</td>
+              <td><span class="diff-price">¥{{ record.diffPrice }}</span></td>
+              <td>{{ record.applyDate }}</td>
+              <td>{{ record.expireDate }}</td>
+              <td>
+                <span class="tag" [ngClass]="statusClass[record.status]">{{ statusLabels[record.status] ?? record.status }}</span>
+              </td>
+              <td><span class="remark-text">{{ record.remark || '—' }}</span></td>
+              <td>
+                <ng-container *ngIf="record.status === 'pending'; else noAction">
+                  <button class="action-btn btn-success" (click)="handleApprove(record)">通过</button>
+                  <button class="action-btn btn-danger" style="margin-left: 6px" (click)="handleReject(record)">拒绝</button>
+                </ng-container>
+                <ng-template #noAction><span class="no-action">—</span></ng-template>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  `,
+  styles: [
+    `
+      .price-protection-page { padding: 24px; background: #f5f7fa; min-height: 100vh; box-sizing: border-box; }
+      .price-protection-page .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+      .price-protection-page .page-header h3 { margin: 0; font-size: 18px; font-weight: 600; color: #1a1a1a; }
+      .header-stats { display: flex; gap: 12px; }
+      .stat-item { font-size: 13px; padding: 3px 12px; border-radius: 12px; font-weight: 500; }
+      .stat-item.pending { background: #fff7e6; color: #fa8c16; }
+      .stat-item.approved { background: #f6ffed; color: #52c41a; }
+      .stat-item.rejected { background: #fff1f0; color: #ff4d4f; }
+      .stat-item.expired { background: #f5f5f5; color: #8c8c8c; }
+      .page-content { padding: 20px; background: #fff; border-radius: 8px; box-shadow: 0 2px 12px rgba(0,0,0,0.03); overflow: auto; }
+      .data-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+      .data-table th, .data-table td { padding: 12px 14px; text-align: left; border-bottom: 1px solid #f0f0f0; }
+      .data-table th { background: #fafafa; color: #595959; font-weight: 500; font-size: 13px; }
+      .data-table tr:hover td { background: #fafafa; }
+      .diff-price { color: #ff4d4f; font-weight: 600; }
+      .remark-text { font-size: 12px; color: #595959; }
+      .tag { display: inline-block; padding: 2px 10px; border-radius: 10px; font-size: 12px; font-weight: 500; }
+      .tag.tag-warning { background: #fff7e6; color: #fa8c16; border: 1px solid #ffd591; }
+      .tag.tag-success { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+      .tag.tag-danger { background: #fff1f0; color: #ff4d4f; border: 1px solid #ffccc7; }
+      .tag.tag-info { background: #f5f5f5; color: #8c8c8c; border: 1px solid #d9d9d9; }
+      .action-btn { padding: 4px 12px; font-size: 12px; border: none; border-radius: 4px; cursor: pointer; }
+      .action-btn:hover { opacity: 0.8; }
+      .action-btn.btn-success { background: #f6ffed; color: #52c41a; border: 1px solid #b7eb8f; }
+      .action-btn.btn-danger { background: #fff1f0; color: #ff4d4f; border: 1px solid #ffccc7; }
+      .no-action { color: #bfbfbf; font-size: 13px; }
+    `
+  ]
 })
 export class PriceProtectionComponent implements OnInit, OnDestroy {
   records: PriceRecord[] = rawData as PriceRecord[]
