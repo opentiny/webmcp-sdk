@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TinyRemoter - iframe host</title>
+    <style>
+      /* 去除 body 默认 margin，使 TinyRemoter 能贴边显示 */
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        background: transparent;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- Vue TinyRemoter 挂载点 -->
+    <div id="remoter-app"></div>
+    <!-- Vue remoter 独立入口脚本 -->
+    <script type="module" src="/src/remoter/remoter-main.ts"></script>
+  </body>
+</html>

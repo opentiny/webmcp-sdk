@@ -1,0 +1,30 @@
+.app-container {
+  position: relative;
+  width: 100%;
+  min-height: 100vh;
+}
+
+.main-content {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/**
+ * TinyRemoter iframe 定位策略：
+ *
+ * 与 Intercom/Crisp 等真实聊天组件相同的做法——将 iframe 固定在右下角。
+ * 优点：主内容区域完全可交互，不需要 pointer-events 穿透等复杂机制。
+ * 约定：TinyRemoter 浮动按钮位于右下角，聊天面板向上/左展开，
+ *       均在 iframe 区域（420x700）内渲染。
+ */
+.remoter-frame {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  width: 420px;
+  height: 700px;
+  border: none;
+  background: transparent;
+  z-index: 9999;
+  pointer-events: auto;
+}

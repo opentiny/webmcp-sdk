@@ -1,0 +1,104 @@
+<div class="products-page">
+  <div class="page-header">
+    <h3>商品管理</h3>
+  </div>
+  <div class="page-content">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width: 50px">#</th>
+          <th>商品名称</th>
+          <th>价格</th>
+          <th>库存</th>
+          <th>分类</th>
+          <th>状态</th>
+          <th style="width: 120px">操作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let product of products; let i = index">
+          <td>{{ i + 1 }}</td>
+
+          <!-- 商品名称：支持点击行内编辑 -->
+          <td>
+            <ng-container *ngIf="isEditing(product.id, 'name'); else nameView">
+              <input
+                class="cell-input"
+                [(ngModel)]="editingValue"
+                (blur)="saveEdit(product)"
+                (keyup.enter)="saveEdit(product)"
+                (keyup.escape)="cancelEdit()"
+                autofocus
+              />
+            </ng-container>
+            <ng-template #nameView>
+              <span class="editable-cell" (click)="startEdit(product.id, 'name', product.name)">
+                {{ product.name }}
+              </span>
+            </ng-template>
+          </td>
+
+          <!-- 价格：支持行内编辑 -->
+          <td>
+            <ng-container *ngIf="isEditing(product.id, 'price'); else priceView">
+              <input
+                class="cell-input"
+                type="number"
+                [(ngModel)]="editingValue"
+                (blur)="saveEdit(product)"
+                (keyup.enter)="saveEdit(product)"
+                (keyup.escape)="cancelEdit()"
+              />
+            </ng-container>
+            <ng-template #priceView>
+              <span class="editable-cell" (click)="startEdit(product.id, 'price', product.price)">
+                ¥{{ product.price }}
+              </span>
+            </ng-template>
+          </td>
+
+          <!-- 库存：支持行内编辑 -->
+          <td>
+            <ng-container *ngIf="isEditing(product.id, 'stock'); else stockView">
+              <input
+                class="cell-input"
+                type="number"
+                [(ngModel)]="editingValue"
+                (blur)="saveEdit(product)"
+                (keyup.enter)="saveEdit(product)"
+                (keyup.escape)="cancelEdit()"
+              />
+            </ng-container>
+            <ng-template #stockView>
+              <span class="editable-cell" (click)="startEdit(product.id, 'stock', product.stock)">
+                {{ product.stock }}
+              </span>
+            </ng-template>
+          </td>
+
+          <!-- 分类 -->
+          <td>{{ categoryLabels[product.category] ?? product.category }}</td>
+
+          <!-- 状态 -->
+          <td>
+            <span class="tag" [class.tag-success]="product.status === 'on'" [class.tag-warning]="product.status !== 'on'">
+              {{ product.status === 'on' ? '上架' : '下架' }}
+            </span>
+          </td>
+
+          <!-- 操作 -->
+          <td>
+            <button
+              class="action-btn"
+              [class.btn-danger]="product.status === 'on'"
+              [class.btn-success]="product.status !== 'on'"
+              (click)="toggleStatus(product)"
+            >
+              {{ product.status === 'on' ? '下架' : '上架' }}
+            </button>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
