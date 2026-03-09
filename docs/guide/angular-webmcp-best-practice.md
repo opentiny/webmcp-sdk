@@ -57,13 +57,13 @@ packages/doc-ai-angular/
 │   │   ├── app.routes.ts                # ① 路由定义
 │   │   ├── app.component.ts             # ② 根组件：setNavigator + 启动 MCP Server
 │   │   ├── app.component.html           # ③ 布局：主内容 + iframe 嵌入 remoter
-│   │   ├── mcp-servers/                 # ④ MCP 工具定义（主窗口）
-│   │   │   ├── index.ts                 # MCP Server + createMessageChannelServerTransport
-│   │   │   ├── product-guide/tools.ts
-│   │   │   └── price-protection/tools.ts
 │   │   └── pages/
 │   │       ├── comprehensive/          # ⑤ 页面内 registerPageTool
 │   │       └── price-protection/       # ⑤ 页面内 registerPageTool
+│   ├── mcp-servers/                     # ④ MCP 工具定义（主窗口，与 app 平级）
+│   │   ├── index.ts                     # MCP Server + createMessageChannelServerTransport
+│   │   ├── product-guide/tools.ts
+│   │   └── price-protection/tools.ts
 │   └── proxy.conf.json                  # ⑥ 将 /remoter.html、/remoter 代理到 Remoter 开发服务
 ├── remoter/                             # 独立 Vue 子工程（iframe 内容）
 │   ├── package.json
@@ -309,6 +309,7 @@ export class ComprehensiveComponent implements OnInit, OnDestroy {
 
 ```ts
 // src/app/pages/price-protection/price-protection.component.ts（节选）
+// registerPageTool 的 options 类型为 { route?: string; handlers: Record<string, (input) => Promise<...>> }
 this.cleanupPageTool = registerPageTool({
   route: '/price-protection',
   handlers: {
@@ -316,9 +317,11 @@ this.cleanupPageTool = registerPageTool({
     'price-protection-review': async ({ id, action, remark }: { ... }) => { /* ... */ },
     'price-protection-detail': async ({ id }: { id: number }) => { /* ... */ }
   }
-} as any)
+})
 ```
 
+> **说明**：若使用的 next-sdk 版本类型声明中未包含 `route` 字段，可暂时使用 `as Parameters<typeof registerPageTool>[0]` 或升级 SDK。
+>
 > **处理器编写规范**（与 Vue 版相同）：
 >
 > - handler 参数类型由工具的 `inputSchema` 决定。
