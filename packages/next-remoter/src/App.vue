@@ -44,6 +44,7 @@ import IconModelBuiltInAI from './components/icons/icon-model.svg'
 import { markRaw } from 'vue'
 import { builtInAI } from '@built-in-ai/core'
 import type { Component } from 'vue'
+import type { UnifiedModelConfig } from './types/model-config'
 
 const props = defineProps({
   support: String // 支持什么应用：  office: 办公场景，  shop: 电商场景
@@ -58,10 +59,10 @@ const selectedModelId = ref<string>()
 const query = new URLSearchParams(window.location.search)
 
 // 1、语言 en-US、zh-CN
-const locale = query.get('lang') || 'zh-CN'
+const locale: string = query.get('lang') || 'zh-CN'
 
 // 2、会话ID， 必传
-const sessionId = ref(query.get('sessionId') || '')
+const sessionId = ref<string>(query.get('sessionId') || '')
 
 // 3、组件内部的已经有默认值。 这里允许通过url 更换agent地址。
 const agentRoot = query.get('agentRoot') || 'https://agent.opentiny.design/api/v1/webmcp-trial/'
@@ -82,16 +83,11 @@ function handleSuggestionClick(str: string) {
   robotRef.value!.inputMessage = str
 }
 
-const skills = ref([
-  {
-    label: '画图专家',
-    value: '你是一个画图专家，你具有....'
-  },
-  {
-    label: '办公助手',
-    value: '你是一个办公助手，你具有....'
-  }
-])
+// skills 需要传入 Record<string, string>，由 next-sdk 解析为技能元数据
+const skills = ref<Record<string, string>>({
+  'skill-drawing-expert': '你是一个画图专家，你具有....',
+  'skill-office-assistant': '你是一个办公助手，你具有....'
+})
 
 // 自定义市场 MCP 服务器列表
 // enabled: true 表示该服务器默认启用
@@ -110,14 +106,15 @@ const customMarketMcpServers = ref([
   }
 ])
 
-const llmConfigs = ref([
+const llmConfigs = ref<UnifiedModelConfig[]>([
   {
     id: 'deepseek-ai/DeepSeek-V3',
     label: 'DeepSeek-V3',
     model: 'deepseek-ai/DeepSeek-V3',
     apiKey: 'sk-trial',
-    baseURL: 'https://agent.opentiny.design/api/v1/ai/prompt',
-    providerType: 'deepseek',
+    baseURL: 'https://agent.opentiny.design/api/v1/ai/',
+    genuiUrl: 'https://agent.opentiny.design/api/v1/ai/prompt',
+    providerType: 'deepseek' as const,
     useReActMode: false,
     icon: markRaw(IconModelDeepseek as unknown as Component)
   },
@@ -127,7 +124,8 @@ const llmConfigs = ref([
     model: 'deepseek-ai/DeepSeek-R1',
     apiKey: 'sk-trial',
     baseURL: 'https://agent.opentiny.design/api/v1/ai',
-    providerType: 'deepseek',
+    genuiUrl: 'https://agent.opentiny.design/api/v1/ai/prompt',
+    providerType: 'deepseek' as const,
     useReActMode: false,
     icon: IconModelDeepseek as unknown as Component
   },
@@ -137,7 +135,8 @@ const llmConfigs = ref([
     model: 'qwen-vl-max',
     apiKey: 'sk-trial',
     baseURL: 'https://agent.opentiny.design/api/v1/ai',
-    providerType: 'deepseek',
+    genuiUrl: 'https://agent.opentiny.design/api/v1/ai/prompt',
+    providerType: 'deepseek' as const,
     useReActMode: true,
     isDefault: true,
     icon: markRaw(IconModelAliyunBailian as unknown as Component),
