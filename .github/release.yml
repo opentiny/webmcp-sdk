@@ -18,8 +18,10 @@ changelog:
       labels:
         - Semver-Patch
         - bug
+    # '*' 为 catch-all；同时保留 documentation/refactoring 等，便于区分归类
     - title: Other Changes
       labels:
+        - "*"
         - documentation
         - refactoring
         - unit-test
