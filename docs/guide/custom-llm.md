@@ -133,6 +133,8 @@ type ICustomAgentModelProviderLlmConfig = (ProviderFactoryConfig | ProviderInsta
   providerOptions?: Record<string, any>
   /** 额外自定义工具 */
   extraTools?: Record<string, any>
+  /** 生成式 UI 服务地址；与 baseURL 同时配置时，输入框旁会显示生成式 UI 开关 */
+  genuiUrl?: string
 }
 ```
 
@@ -274,6 +276,10 @@ VITE_LLM_PROVIDER_TYPE=openai
 VITE_LLM_MODEL=gpt-4o
 VITE_AGENT_ROOT=https://your-agent-server.com/api/v1/webmcp/
 ```
+
+## 生成式 UI
+
+若需在输入框旁显示「生成式 UI」开关，请在模型配置中同时提供 `baseURL` 与 `genuiUrl`。开关的显示由当前生效的模型配置决定，与是否在浏览器扩展中运行（`inBrowserExt`）无关。启用后可通过 `v-model:genUiAble` 控制是否渲染生成式 UI 内容。
 
 ## 注意事项
 

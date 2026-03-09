@@ -25,7 +25,8 @@ const DEFAULT_SHARED_CONFIG = {
 
 const DEFAULT_FACTORY_CONFIG = {
   apiKey: 'sk-trial',
-  baseURL: 'https://agent.opentiny.design/api/v1/ai/prompt',
+  baseURL: 'https://agent.opentiny.design/api/v1/ai/',
+  genuiUrl: 'https://agent.opentiny.design/api/v1/ai/prompt',
   providerType: 'deepseek' as const
 }
 

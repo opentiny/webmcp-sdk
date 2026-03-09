@@ -13,7 +13,6 @@
       :systemPrompt="systemPrompt"
       :customMarketMcpServers="customMarketMcpServers"
       :skills="skills"
-      :llmConfigs="llmConfigs"
       mode="chat-dialog"
     >
       <template #welcome v-if="welcomeTitle">
@@ -116,7 +115,8 @@ const llmConfigs = ref([
     label: 'DeepSeek-V3',
     model: 'deepseek-ai/DeepSeek-V3',
     apiKey: 'sk-trial',
-    baseURL: 'https://agent.opentiny.design/api/v1/ai/prompt',
+    baseURL: 'https://agent.opentiny.design/api/v1/ai/',
+    genuiUrl: 'https://agent.opentiny.design/api/v1/ai/prompt',
     providerType: 'deepseek',
     useReActMode: false,
     icon: markRaw(IconModelDeepseek as unknown as Component)
@@ -127,6 +127,7 @@ const llmConfigs = ref([
     model: 'deepseek-ai/DeepSeek-R1',
     apiKey: 'sk-trial',
     baseURL: 'https://agent.opentiny.design/api/v1/ai',
+    genuiUrl: 'https://agent.opentiny.design/api/v1/ai/prompt',
     providerType: 'deepseek',
     useReActMode: false,
     icon: IconModelDeepseek as unknown as Component
@@ -137,6 +138,7 @@ const llmConfigs = ref([
     model: 'qwen-vl-max',
     apiKey: 'sk-trial',
     baseURL: 'https://agent.opentiny.design/api/v1/ai',
+    genuiUrl: 'https://agent.opentiny.design/api/v1/ai/prompt',
     providerType: 'deepseek',
     useReActMode: true,
     isDefault: true,

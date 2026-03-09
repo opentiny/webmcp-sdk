@@ -94,15 +94,15 @@
           <template #footer>
             <div class="action-buttons">
               <!-- 插件开关 Plugin toggle button -->
-              <PluginToggleButton  :installed-plugins="installedPlugins" @click="pluginVisible = !pluginVisible" />
+              <PluginToggleButton :installed-plugins="installedPlugins" @click="pluginVisible = !pluginVisible" />
               <!-- 模型切换组件 Model switch component, 是否显示依赖于 props.llmConfigs, 所以无需 hasXXx 属性 -->
               <ModelSwitch
                 v-if="llmConfigsRef && llmConfigsRef.length > 0"
                 :model-configs="llmConfigsRef"
                 v-model:selected-model-id="selectedModelId"
               />
-              <!-- 生成式UI开关 GenUI toggle button 。只有在扩展才可以使用，属于私有功能,依赖于 Genui的开源-->
-              <GenUISwitch v-if="inBrowserExt" v-model:genui-enabled="genUiAble" />
+              <!-- 生成式UI开关：仅当当前模型配置同时包含 genuiUrl 和 baseURL 时显示 -->
+              <GenUISwitch v-if="showGenUISwitch" v-model:genui-enabled="genUiAble" />
               <!-- 文件上传按钮 File upload button (v0.4.x 新API)， hasMultimodalSupport 值依赖于用户选中模型，而非简单的props 传入。-->
               <TrUploadButton
                 v-if="hasMultimodalSupport"
@@ -189,7 +189,7 @@ import useModel from '../composable/useModel'
 import type { UnifiedModelConfig } from '../types/model-config'
 import type { McpServerConfig } from '@opentiny/next-sdk'
 
-import {  IconUser } from '@opentiny/tiny-robot-svgs'
+import { IconUser } from '@opentiny/tiny-robot-svgs'
 import IconAssistant from '../../public/svgs/logo-next-no-bg-right.svg'
 
 defineOptions({
@@ -235,13 +235,13 @@ const props = defineProps({
   AILogoUrl: {
     type: String
   },
-   /** 角色user,assistant的头像配置, 值为 VNode, 比如： h(IconUser, { style: { fontSize: '32px' } }) */
+  /** 角色user,assistant的头像配置, 值为 VNode, 比如： h(IconUser, { style: { fontSize: '32px' } }) */
   roleAvatar: {
-    type: Object as () => {user:VNode, assistant:VNode},
-    default: ()=>{
+    type: Object as () => { user: VNode; assistant: VNode },
+    default: () => {
       return {
-       user: h(IconUser, { style: { fontSize: '32px' } }), 
-       assistant:  h(IconAssistant, { style: { fontSize: '32px' } })
+        user: h(IconUser, { style: { fontSize: '32px' } }),
+        assistant: h(IconAssistant, { style: { fontSize: '32px' } })
       }
     }
   },
@@ -256,7 +256,10 @@ const props = defineProps({
   /** 大语言模型配置对象 */
   llmConfig: {
     type: Object as () => ICustomAgentModelProviderLlmConfig | undefined,
-    default: undefined
+    default: () => ({
+      baseURL: 'https://agent.opentiny.design/api/v1/ai/',
+      genuiUrl: 'https://agent.opentiny.design/api/v1/ai/prompt'
+    })
   },
   /** 设置组件运行在普通页面还是浏览器的扩展中 */
   inBrowserExt: {
@@ -300,7 +303,7 @@ const props = defineProps({
   debugStream: {
     type: Boolean,
     default: false
-  },
+  }
 })
 
 const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })
@@ -318,6 +321,15 @@ const enabledTools = defineModel('enabledTools', {
 const llmConfigsRef = props.llmConfigs ? (toRef(props, 'llmConfigs') as Ref<UnifiedModelConfig[]>) : undefined
 
 const { selectedModel } = useModel(llmConfigsRef, selectedModelId)
+
+// 是否显示生成式 UI 开关：仅当当前模型配置中同时包含 genuiUrl 和 baseURL 时显示（不再依赖 inBrowserExt）
+const showGenUISwitch = computed(() => {
+  const config = llmConfigsRef?.value?.length
+    ? selectedModel.value
+    : (props.llmConfig as UnifiedModelConfig | undefined)
+  if (!config) return false
+  return !!(config.baseURL && config.genuiUrl)
+})
 
 // 初始化多模态功能（统一入口）
 const {
@@ -355,9 +367,12 @@ const {
   systemPrompt: props.systemPrompt || '',
   llmConfig: props.llmConfig
 })
-watch(()=>props.systemPrompt, prompt=>{
-  customAgentProvider.promptManager.setStatic(prompt)
-})
+watch(
+  () => props.systemPrompt,
+  (prompt) => {
+    customAgentProvider.promptManager.setStatic(prompt)
+  }
+)
 
 customAgentProvider.isGenuiEnabled = genUiAble
 customAgentProvider.debugStream = props.debugStream
@@ -422,10 +437,8 @@ if (props.llmConfigs) {
   watch(selectedModel, updateLLMConfigFromModel, { immediate: true })
 }
 
-if (props.inBrowserExt) {
-  // 监听生成式UI状态变化
-  watch(genUiAble, updateLLMConfigFromModel)
-}
+// 监听生成式 UI 开关变化并同步到 LLM 配置（updateLLMConfigFromModel 内部会判断 selectedModel，无选中模型时不会执行）
+watch(genUiAble, updateLLMConfigFromModel)
 
 // 自定义消息渲染器 ---- 默认支持markdown 和 生成式UI（生成式UI有很多流处理，不容易解耦出来，所以统一处理）
 const contentRenderer = {
@@ -607,11 +620,11 @@ defineExpose({
   handleClientDisconnected,
   /** 添加消息 */
   addMessage,
-    /** 已安装的插件 */
+  /** 已安装的插件 */
   installedPlugins,
   /** 添加插件核心方法 */
   addPluginCore,
-/** 删除插件核心方法 */
+  /** 删除插件核心方法 */
   deletePlugin
 })
 </script>

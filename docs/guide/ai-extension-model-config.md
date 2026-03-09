@@ -59,6 +59,7 @@ import IconYourModel from '../icons/icon-model-your-model.svg'
   isDefault?: boolean,             // 是否为默认模型（可选）
 
   // 可选字段
+  genuiUrl?: string,               // 生成式 UI 服务地址。与 baseURL 同时配置时，输入框旁会显示「生成式 UI」开关
   headers?: Record<string, string>, // 自定义请求头
   multimodal?: {                   // 多模态配置（可选）
     supportImages: boolean,
