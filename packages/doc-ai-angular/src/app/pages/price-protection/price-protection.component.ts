@@ -62,15 +62,12 @@ export class PriceProtectionComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    /**
-     * 注册 MCP 工具处理器；显式指定 route 与 mcp-servers 中注册的路由一致。
-     * 线上 0.2.6-beta.0 类型声明可能无 route，运行时支持，故用类型断言。
-     */
-    this.cleanupPageTool = registerPageTool(
-      {
-        route: '/price-protection',
-        handlers: {
-          'price-protection-query': async ({ status }: { status?: string }) => {
+    // 注册 MCP 工具处理器，显式指定 route 与 mcp-servers 中注册的路由一致
+    // 运行时支持 route；若 SDK 类型声明未包含 route，用类型断言兼容
+    this.cleanupPageTool = registerPageTool({
+      route: '/price-protection',
+      handlers: {
+        'price-protection-query': async ({ status }: { status?: string }) => {
           const result = status ? this.records.filter((r) => r.status === status) : this.records
           return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
         },
@@ -111,7 +108,7 @@ export class PriceProtectionComponent implements OnInit, OnDestroy {
           return { content: [{ type: 'text', text: JSON.stringify(record, null, 2) }] }
         }
       }
-    } as any)
+    } as Parameters<typeof registerPageTool>[0])
   }
 
   ngOnDestroy(): void {

@@ -32,6 +32,13 @@ export default defineConfig({
           ]
         },
         {
+          text: 'webMCP&WebSkills 最佳实践',
+          items: [
+            { text: 'Vue 工程最佳实践', link: '/guide/vue-webmcp-best-practice' },
+            { text: 'Angular 工程最佳实践', link: '/guide/angular-webmcp-best-practice' }
+          ]
+        },
+        {
           text: 'NEXT-SDKs API',
           items: [
             { text: 'WebMcpClient 类', link: '/guide/api-client' },
@@ -47,8 +54,7 @@ export default defineConfig({
             { text: 'TinyRobot 版本', link: '/guide/tiny-robot-remoter' },
             { text: 'Skills 技能配置指南', link: '/guide/tiny-remoter-skills' },
             { text: 'custom llm 自定义大模型', link: '/guide/custom-llm' },
-            { text: '自定义AI对话框组件', link: '/guide/use-next-agent' },
-            { text: 'Vue 工程最佳实践', link: '/guide/vue-webmcp-best-practice' }
+            { text: '自定义AI对话框组件', link: '/guide/use-next-agent' }
           ]
         },
         {
