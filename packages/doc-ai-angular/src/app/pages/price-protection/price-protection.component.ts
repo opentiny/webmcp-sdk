@@ -63,6 +63,7 @@ export class PriceProtectionComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     // 注册 MCP 工具处理器，显式指定 route 与 mcp-servers 中注册的路由一致
+    // 运行时支持 route；若 SDK 类型声明未包含 route，用类型断言兼容
     this.cleanupPageTool = registerPageTool({
       route: '/price-protection',
       handlers: {
@@ -107,7 +108,7 @@ export class PriceProtectionComponent implements OnInit, OnDestroy {
           return { content: [{ type: 'text', text: JSON.stringify(record, null, 2) }] }
         }
       }
-    })
+    } as Parameters<typeof registerPageTool>[0])
   }
 
   ngOnDestroy(): void {
