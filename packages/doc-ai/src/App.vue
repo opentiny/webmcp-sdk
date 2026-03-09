@@ -1,11 +1,19 @@
 <template>
   <div class="app-container">
-    <!-- 主体内容区域 -->
+    <!-- 左侧主页面内容（70% 宽度） -->
     <div class="main-content">
       <router-view />
     </div>
-    <!-- 用户层传入 skillMdModules，由 remoter 内部调用 next-sdk 的 skill 能力处理 -->
-    <tiny-remoter :skills="skillMdModules" :show="show" :menuItems="menuItems" :mcpServers="mcpServers"> </tiny-remoter>
+    <!-- 右侧 AI 对话框（30% 宽度），使用相对布局避免覆盖左侧页面 -->
+    <tiny-remoter
+      class="remoter-pane"
+      :skills="skillMdModules"
+      :show="show"
+      :menuItems="menuItems"
+      :mcpServers="mcpServers"
+      :routeBasedPageTools="true"
+      :layoutMode="'relative'"
+    />
   </div>
 </template>
 
@@ -37,4 +45,28 @@ onMounted(async () => {
 })
 </script>
 
-<style scoped></style>
+<style scoped>
+.app-container {
+  display: flex;
+  width: 100%;
+  height: 100vh;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.main-content {
+  flex: 0 0 70%;
+  max-width: 70%;
+  height: 100%;
+  overflow: auto;
+}
+
+.remoter-pane {
+  flex: 0 0 30%;
+  max-width: 30%;
+  height: 100%;
+  box-sizing: border-box;
+  border-left: 1px solid #e5e6eb;
+  background-color: #f7f8fa;
+}
+</style>

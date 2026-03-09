@@ -70,9 +70,80 @@ import { randomUUID } from './utils/uuid'
 const MSG_TOOL_CALL = 'next-sdk:tool-call'
 const MSG_TOOL_RESPONSE = 'next-sdk:tool-response'
 const MSG_PAGE_READY = 'next-sdk:page-ready'
+/** 页面卸载广播，供 routeBasedPageTools 模式监听 */
+export const MSG_PAGE_LEAVE = 'next-sdk:page-leave'
+/** iframe 内 Remoter 就绪后向父窗口发送，父窗口回传 route-state-initial */
+export const MSG_REMOTER_READY = 'next-sdk:remoter-ready'
+/** 父窗口向 iframe Remoter 回传的初始路由状态（toolRouteMap + activeRoutes） */
+export const MSG_ROUTE_STATE_INITIAL = 'next-sdk:route-state-initial'
 
 // 已激活页面注册表：路由路径 → 是否已挂载
 const activePages = new Map<string, boolean>()
+
+// 跨窗口广播目标：同窗口默认 [window]，iframe 场景下会加入 remoter 的 contentWindow
+const broadcastTargets = new Set<Window>()
+
+function initBroadcastTargets() {
+  if (typeof window !== 'undefined') {
+    broadcastTargets.add(window)
+  }
+}
+initBroadcastTargets()
+
+/** 向所有广播目标发送路由变更消息（同窗口 + iframe 均能收到） */
+function broadcastRouteChange(type: string, route: string) {
+  const msg = { type, route }
+  const origin = window.location.origin || '*'
+  broadcastTargets.forEach((target) => {
+    try {
+      target.postMessage(msg, origin)
+    } catch {
+      // 跨域 iframe 可能抛错，忽略
+    }
+  })
+}
+
+/** 监听 iframe 内 Remoter 的 remoter-ready，回传初始路由状态并加入广播目标 */
+function setupIframeRemoterBridge() {
+  if (typeof window === 'undefined') return
+  window.addEventListener('message', (event: MessageEvent) => {
+    if (event.data?.type !== MSG_REMOTER_READY || !event.source) return
+    const target = event.source as Window
+    broadcastTargets.add(target)
+    const payload = {
+      type: MSG_ROUTE_STATE_INITIAL,
+      toolRouteMap: Array.from(toolRouteMap.entries()),
+      activeRoutes: Array.from(activePages.keys())
+    }
+    try {
+      target.postMessage(payload, window.location.origin || '*')
+    } catch {
+      // 忽略跨域错误
+    }
+  })
+}
+setupIframeRemoterBridge()
+
+// withPageTools 注册的工具路由映射表：工具名 → 目标路由
+const toolRouteMap = new Map<string, string>()
+
+/**
+ * 获取通过 withPageTools + RouteConfig 注册的全部工具路由映射。
+ * 返回的是内部 Map 的只读快照，可安全遍历。
+ * @returns toolName → route 的只读 Map
+ */
+export function getToolRouteMap(): ReadonlyMap<string, string> {
+  return toolRouteMap
+}
+
+/**
+ * 获取当前已激活（已挂载）的路由集合。
+ * 即调用了 registerPageTool 且尚未执行 cleanup 的页面路由。
+ * @returns 当前激活路由的 Set 快照
+ */
+export function getActiveRoutes(): Set<string> {
+  return new Set(activePages.keys())
+}
 
 // 应用注册的导航函数，由 setNavigator 设置
 let _navigator: ((route: string) => void | Promise<void>) | null = null
@@ -250,8 +321,9 @@ export function withPageTools(server: WebMcpServer): PageAwareServer {
           if (typeof handlerOrRoute === 'function') {
             return rawRegister(name, config, handlerOrRoute)
           }
-          // 第三个参数是路由配置对象 → 自动生成转发 handler
+          // 第三个参数是路由配置对象 → 自动生成转发 handler，并记录 tool → route 映射
           const { route, timeout } = handlerOrRoute
+          toolRouteMap.set(name, route)
           return rawRegister(name, config, buildPageHandler(name, route, timeout))
         }
       }
@@ -352,14 +424,15 @@ export function registerPageTool(options: {
     }
   }
 
-  // 注册页面为已激活状态并广播就绪信号
+  // 注册页面为已激活状态并广播就绪信号（同窗口 + iframe Remoter 均能收到）
   activePages.set(route, true)
   window.addEventListener('message', handleMessage)
-  window.postMessage({ type: MSG_PAGE_READY, route }, window.location.origin || '*')
+  broadcastRouteChange(MSG_PAGE_READY, route)
 
   // 返回 cleanup，由各框架在页面销毁时调用
   return () => {
     activePages.delete(route)
     window.removeEventListener('message', handleMessage)
+    broadcastRouteChange(MSG_PAGE_LEAVE, route)
   }
 }

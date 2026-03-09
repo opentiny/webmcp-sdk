@@ -168,6 +168,7 @@ import { IconNewSession, IconHistory } from '@opentiny/tiny-robot-svgs'
 import { useTinyRobotChat } from '../composable/useTinyRobotChat'
 import { useCustomMcpServer } from '../composable/useCustomMcpServer'
 import { usePlugin } from '../composable/usePlugin'
+import { useRouteBasedTools } from '../composable/useRouteBasedTools'
 import { useSkillWithTools } from '../composable/useSkill'
 import { useMessageRoles } from '../composable/useMessageRoles'
 import { useConversationHistory } from '../composable/useConversationHistory'
@@ -301,6 +302,16 @@ const props = defineProps({
     default: 'fixed'
   },
   debugStream: {
+    type: Boolean,
+    default: false
+  },
+  /**
+   * 开启路由感知工具过滤模式。
+   * 启用后，只有与当前激活路由匹配的 withPageTools 工具才对 LLM 可见，
+   * 其余路由的工具会自动加入 ignoreToolnames 屏蔽，避免一次性暴露太多工具。
+   * 默认 false（关闭），需显式传入 :routeBasedPageTools="true" 开启。
+   */
+  routeBasedPageTools: {
     type: Boolean,
     default: false
   }
@@ -485,6 +496,14 @@ const {
   handleClientDisconnected, // 处理客户端断开连接
   searchPlugin
 } = usePlugin(agent, enabledTools, defaultPluginSrc)
+
+// ===== 路由感知工具过滤（routeBasedPageTools 开关控制，默认关闭）=====
+// 启用后根据 withPageTools 注册的路由映射，自动过滤 LLM 可用工具
+useRouteBasedTools({
+  enabled: props.routeBasedPageTools,
+  agent,
+  installedPlugins
+})
 
 // 初始化市场插件数据
 marketPlugins.value = [...DEFAULT_SERVERS, ...props.customMarketMcpServers]
