@@ -13,6 +13,7 @@
       :systemPrompt="systemPrompt"
       :customMarketMcpServers="customMarketMcpServers"
       :skills="skills"
+      :llmConfigs="llmConfigs"
       mode="chat-dialog"
     >
       <template #welcome v-if="welcomeTitle">

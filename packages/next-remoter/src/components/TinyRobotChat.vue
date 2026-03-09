@@ -416,7 +416,7 @@ const updateLLMConfigFromModel = () => {
   if (selectedModel.value) {
     const model = selectedModel.value
     customAgentProvider.updateLLMConfig({
-      modelId: model.id,
+      model: model.model || '',
       baseURL: model.baseURL || '',
       genuiUrl: model.genuiUrl || '',
       apiKey: model.apiKey || '',
@@ -428,6 +428,8 @@ const updateLLMConfigFromModel = () => {
       // 传递 headers，确保 model-config 中的自定义请求 Header 能生效
       headers: model.headers
     })
+  } else {
+    customAgentProvider.updateLLMConfig(customAgentProvider.llmConfig)
   }
 }
 
@@ -438,7 +440,7 @@ if (props.llmConfigs) {
 }
 
 // 监听生成式 UI 开关变化并同步到 LLM 配置（updateLLMConfigFromModel 内部会判断 selectedModel，无选中模型时不会执行）
-watch(genUiAble, updateLLMConfigFromModel)
+watch(genUiAble, updateLLMConfigFromModel, { immediate: true })
 
 // 自定义消息渲染器 ---- 默认支持markdown 和 生成式UI（生成式UI有很多流处理，不容易解耦出来，所以统一处理）
 const contentRenderer = {

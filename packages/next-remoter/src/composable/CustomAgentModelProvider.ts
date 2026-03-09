@@ -105,7 +105,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
    * @param useReActMode 是否使用 ReAct 模式
    */
   updateLLMConfig({
-    modelId,
+    model,
     baseURL,
     genuiUrl,
     apiKey,
@@ -115,7 +115,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     providerOptions,
     headers
   }: {
-    modelId: string
+    model: string
     baseURL?: string
     genuiUrl?: string
     apiKey?: string
@@ -129,16 +129,14 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   }) {
     if (llm) {
       this.agent.llm = llm
-      this.llmConfig.model = modelId
+      this.llmConfig.model = model
       this.llmConfig.useReActMode = useReActMode || false
       this.agent.useReActMode = useReActMode || false
     } else if (providerType && baseURL && apiKey) {
       // 如果启用了生成式UI, 切换大模型地址
-      if (this.isGenuiEnabled?.value) {
-        baseURL = genuiUrl || baseURL // 优先用它，未配置则用base
-      }
+      const finallyBaseURL = this.isGenuiEnabled?.value ? genuiUrl || baseURL : baseURL // 优先用它，未配置则用base
       // 更新本地配置
-      this.llmConfig.model = modelId
+      this.llmConfig.model = model
       this.llmConfig.apiKey = apiKey
       this.llmConfig.baseURL = baseURL
       this.llmConfig.providerType = providerType
@@ -163,7 +161,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       }
 
       // 将 headers 透传给 provider 工厂函数（undefined 时不传，避免覆盖 sdk 默认值）
-      this.agent.llm = providerFn({ apiKey, baseURL, ...(headers ? { headers } : {}) })
+      this.agent.llm = providerFn({ apiKey, baseURL: finallyBaseURL, ...(headers ? { headers } : {}) })
     }
     // 每次切换模型时同步 providerOptions 和 headers，undefined 时清空避免残留
     this.llmConfig.providerOptions = providerOptions
