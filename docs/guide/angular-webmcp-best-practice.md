@@ -231,6 +231,10 @@ Remoter 是独立 Vue 应用，入口为 `remoter/index.html`，挂载 `remoter/
     :menuItems="menuItems"
     :mcpServers="mcpServers"
   />
+  <!--
+    可选：工具较多且各页面工具职责独立时，可添加 :pageToolsOnDemand="true"，
+    仅展示当前路由对应的工具，详见 TinyRemoter 文档。
+  -->
 </template>
 
 <script setup lang="ts">

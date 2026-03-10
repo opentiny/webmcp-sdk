@@ -168,6 +168,7 @@ import { IconNewSession, IconHistory } from '@opentiny/tiny-robot-svgs'
 import { useTinyRobotChat } from '../composable/useTinyRobotChat'
 import { useCustomMcpServer } from '../composable/useCustomMcpServer'
 import { usePlugin } from '../composable/usePlugin'
+import { useRouteBasedTools } from '../composable/useRouteBasedTools'
 import { useSkillWithTools } from '../composable/useSkill'
 import { useMessageRoles } from '../composable/useMessageRoles'
 import { useConversationHistory } from '../composable/useConversationHistory'
@@ -301,6 +302,15 @@ const props = defineProps({
     default: 'fixed'
   },
   debugStream: {
+    type: Boolean,
+    default: false
+  },
+  /**
+   * 开启页面工具按需加载：仅当前激活路由对应的 withPageTools 工具对 LLM 可见，
+   * 并在插件面板中展示；未加载页面的工具不会暴露给模型，也不显示在面板上。
+   * 默认 false（关闭），需显式传入 :pageToolsOnDemand="true" 开启。
+   */
+  pageToolsOnDemand: {
     type: Boolean,
     default: false
   }
@@ -485,6 +495,14 @@ const {
   handleClientDisconnected, // 处理客户端断开连接
   searchPlugin
 } = usePlugin(agent, enabledTools, defaultPluginSrc)
+
+// ===== 页面工具按需加载（pageToolsOnDemand 开关控制，默认关闭）=====
+// 启用后仅当前激活路由对应的 withPageTools 工具对 LLM 可见并在面板展示
+useRouteBasedTools({
+  enabled: toRef(props, 'pageToolsOnDemand'),
+  agent,
+  installedPlugins
+})
 
 // 初始化市场插件数据
 marketPlugins.value = [...DEFAULT_SERVERS, ...props.customMarketMcpServers]
