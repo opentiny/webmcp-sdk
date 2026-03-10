@@ -384,6 +384,10 @@ onUnmounted(() => cleanupPageTool?.())
       title="智能助手"
       :llmConfig="llmConfig"
     />
+    <!--
+      可选：如果注册了较多跨页面工具，希望大模型只看到当前页面的工具，
+      可以添加 :pageToolsOnDemand="true"，详见 TinyRemoter 文档。
+    -->
   </div>
 </template>
 

@@ -465,6 +465,37 @@ const mcpServers = {
 - `type: 'extension'`：需提供 `url`、`sessionId`，可选 `useAISdkClient`
 - `type: 'local'`：需提供 `transport`（MCP 传输层），可选 `useAISdkClient`
 
+## 页面工具按需加载（pageToolsOnDemand）
+
+> **默认情况下无需配置此属性。** 在大多数场景中，将所有工具同时暴露给大模型是合理的，且配置更简单。
+
+`pageToolsOnDemand` 是一个**可选的高级属性**，适合工具数量较多、不同页面的工具互相独立、希望大模型只关注当前页面能力的场景。
+
+开启后的效果：
+
+- 仅**当前激活路由**（调用了 `registerPageTool` 的页面）对应的 `withPageTools` 工具会对 LLM 可见；
+- 插件面板中也只展示当前路由的工具，**未加载页面的工具不会出现**，用户无法手动打开；
+- 同时支持业务页面与 TinyRemoter 在**同一个 window**，以及 TinyRemoter 运行在 **iframe 中**（见 [Angular WebMCP 最佳实践](./angular-webmcp-best-practice.md)）。
+
+### 适合开启的场景
+
+- 注册了较多跨页面工具，担心 LLM 因工具过多而混淆；
+- 不同页面的工具职责完全独立，在其他页面没有意义（如价保审批工具只在价保页面有效）；
+- 需要精确控制每个页面能调用哪些工具。
+
+### 使用示例
+
+```vue
+<TinyRemoter
+  :show="true"
+  :skills="skillMdModules"
+  :mcpServers="mcpServers"
+  :pageToolsOnDemand="true"
+/>
+```
+
+> 前提：业务侧的 WebMCP Server 使用 `withPageTools` 注册工具，并在对应页面中调用 `registerPageTool`。详见 [Vue WebMCP 最佳实践](./vue-webmcp-best-practice.md)。
+
 ## 使用示例
 
 ### 基本使用
