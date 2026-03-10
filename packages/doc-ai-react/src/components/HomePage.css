@@ -138,6 +138,13 @@
     font-size: 13px;
 }
 
+#root .main-content {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
 .panel {
     background: #fff;
     border-radius: 10px;
