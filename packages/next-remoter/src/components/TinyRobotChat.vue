@@ -306,12 +306,11 @@ const props = defineProps({
     default: false
   },
   /**
-   * 开启路由感知工具过滤模式。
-   * 启用后，只有与当前激活路由匹配的 withPageTools 工具才对 LLM 可见，
-   * 其余路由的工具会自动加入 ignoreToolnames 屏蔽，避免一次性暴露太多工具。
-   * 默认 false（关闭），需显式传入 :routeBasedPageTools="true" 开启。
+   * 开启页面工具按需加载：仅当前激活路由对应的 withPageTools 工具对 LLM 可见，
+   * 并在插件面板中展示；未加载页面的工具不会暴露给模型，也不显示在面板上。
+   * 默认 false（关闭），需显式传入 :pageToolsOnDemand="true" 开启。
    */
-  routeBasedPageTools: {
+  pageToolsOnDemand: {
     type: Boolean,
     default: false
   }
@@ -497,10 +496,10 @@ const {
   searchPlugin
 } = usePlugin(agent, enabledTools, defaultPluginSrc)
 
-// ===== 路由感知工具过滤（routeBasedPageTools 开关控制，默认关闭）=====
-// 启用后根据 withPageTools 注册的路由映射，自动过滤 LLM 可用工具
+// ===== 页面工具按需加载（pageToolsOnDemand 开关控制，默认关闭）=====
+// 启用后仅当前激活路由对应的 withPageTools 工具对 LLM 可见并在面板展示
 useRouteBasedTools({
-  enabled: props.routeBasedPageTools,
+  enabled: props.pageToolsOnDemand,
   agent,
   installedPlugins
 })

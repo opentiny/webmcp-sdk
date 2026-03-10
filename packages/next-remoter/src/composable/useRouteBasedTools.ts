@@ -6,7 +6,7 @@ import {
   MSG_REMOTER_READY,
   MSG_ROUTE_STATE_INITIAL
 } from '@opentiny/next-sdk'
-import type { PluginInfo } from '@opentiny/tiny-robot'
+import type { PluginInfo, PluginTool } from '@opentiny/tiny-robot'
 
 // 与 page-tool-bridge.ts 中保持一致
 const MSG_PAGE_READY = 'next-sdk:page-ready'
@@ -19,7 +19,7 @@ const MSG_PAGE_READY = 'next-sdk:page-ready'
  * - iframe：Remoter 在 iframe 内，通过 remoter-ready 握手获取父窗口的路由状态，
  *   并接收父窗口广播的 page-ready/page-leave，实现按需加载
  *
- * 默认关闭（enabled = false），需显式传入 :routeBasedPageTools="true" 开启。
+ * 默认关闭（enabled = false），需显式传入 :pageToolsOnDemand="true" 开启。
  */
 export function useRouteBasedTools(options: {
   /** 是否启用路由感知模式，默认 false */
@@ -42,6 +42,9 @@ export function useRouteBasedTools(options: {
     activeRoutes: Set<string>
   } | null = null
 
+  // 缓存每个插件的完整工具列表，用于根据当前路由动态筛选显示哪些工具
+  const fullToolsByPluginId = new Map<string, PluginTool[]>()
+
   // 路由路径规范化：去掉尾部斜杠，空路径兜底为 '/'
   const normalizeRoute = (r: string) => r.replace(/\/+$/, '') || '/'
 
@@ -50,66 +53,46 @@ export function useRouteBasedTools(options: {
     routeStateFromParent?.toolRouteMap ?? (getToolRouteMap() as Map<string, string>)
 
   /**
-   * 根据路由启用或禁用对应的 withPageTools 工具。
-   * @param route  触发变更的路由路径
-   * @param active 是否激活（true = 启用工具，false = 屏蔽工具）
-   */
-  const applyRouteTools = (route: string, active: boolean) => {
-    const normalizedRoute = normalizeRoute(route)
-    const routeMap = getRouteMap()
-
-    routeMap.forEach((toolRoute, toolName) => {
-      if (normalizeRoute(toolRoute) !== normalizedRoute) return
-
-      // 更新 agent.ignoreToolnames —— 这才是 LLM 实际看到的工具过滤逻辑
-      if (active) {
-        // 从忽略列表移除，使工具对 LLM 可见
-        agent.ignoreToolnames = (agent.ignoreToolnames as string[]).filter((n) => n !== toolName)
-      } else {
-        // 加入忽略列表，让 LLM 看不到该工具
-        if (!(agent.ignoreToolnames as string[]).includes(toolName)) {
-          ;(agent.ignoreToolnames as string[]).push(toolName)
-        }
-      }
-
-      // 同步更新插件面板中的视觉开关状态，让 UI 与实际状态保持一致
-      for (const plugin of installedPlugins.value) {
-        for (const tool of plugin.tools) {
-          if (tool.id === toolName) {
-            tool.enabled = active
-          }
-        }
-      }
-    })
-  }
-
-  /**
-   * 根据当前全部激活路由，对所有已注册 withPageTools 工具进行一次全量同步。
-   * 仅激活路由的工具保持开启，其余均屏蔽。
+   * 根据当前全部激活路由，对所有已注册 withPageTools 工具进行一次全量同步：
+   * - 仅激活路由的工具会暴露给大模型（ignoreToolnames 中移除）
+   * - 仅激活路由的工具会出现在插件面板，其他路由的工具会从面板中隐藏
    */
   const syncAllRoutes = () => {
     const activeRoutes = routeStateFromParent?.activeRoutes ?? getActiveRoutes()
     const routeMap = getRouteMap()
 
+    // 1. 计算当前应当激活的工具 ID 集合
+    const activeToolIds = new Set<string>()
     routeMap.forEach((toolRoute, toolName) => {
       const norm = normalizeRoute(toolRoute)
-      const isActive = activeRoutes.has(norm) || activeRoutes.has(toolRoute)
-
-      if (isActive) {
-        agent.ignoreToolnames = (agent.ignoreToolnames as string[]).filter((n) => n !== toolName)
-      } else {
-        if (!(agent.ignoreToolnames as string[]).includes(toolName)) {
-          ;(agent.ignoreToolnames as string[]).push(toolName)
-        }
+      const isActiveRoute = activeRoutes.has(norm) || activeRoutes.has(toolRoute)
+      if (isActiveRoute) {
+        activeToolIds.add(toolName)
       }
+    })
 
-      for (const plugin of installedPlugins.value) {
-        for (const tool of plugin.tools) {
-          if (tool.id === toolName) {
-            tool.enabled = isActive
-          }
-        }
+    // 2. 更新 ignoreToolnames：只保留非激活工具
+    const ignore = new Set<string>(agent.ignoreToolnames as string[])
+    // 将所有路由工具先加入忽略集合，然后移除当前激活的
+    routeMap.forEach((_route, toolName) => {
+      ignore.add(toolName)
+    })
+    activeToolIds.forEach((id) => ignore.delete(id))
+    agent.ignoreToolnames = Array.from(ignore)
+
+    // 3. 更新插件面板中的工具列表：
+    //    - 首次同步时为每个插件缓存完整工具列表
+    //    - plugin.tools 仅保留当前激活工具，使未加载页面的工具完全不显示
+    installedPlugins.value.forEach((plugin) => {
+      if (!fullToolsByPluginId.has(plugin.id)) {
+        fullToolsByPluginId.set(plugin.id, plugin.tools.slice())
       }
+      const fullList = fullToolsByPluginId.get(plugin.id) || []
+      plugin.tools = fullList.filter((tool) => activeToolIds.has(tool.id))
+      // 同步 tool.enabled，保持 UI 状态一致
+      plugin.tools.forEach((tool) => {
+        tool.enabled = true
+      })
     })
   }
 
@@ -120,20 +103,20 @@ export function useRouteBasedTools(options: {
   // 监听 page-ready 消息：某个路由页面挂载，开放该路由的工具
   const handlePageReady = (event: MessageEvent) => {
     if (!isTrustedSource(event.source) || event.data?.type !== MSG_PAGE_READY) return
-    applyRouteTools(event.data.route as string, true)
     // iframe 场景：更新本地 activeRoutes 缓存，供后续 sync 使用
     if (routeStateFromParent) {
       routeStateFromParent.activeRoutes.add(normalizeRoute(event.data.route))
     }
+    syncAllRoutes()
   }
 
   // 监听 page-leave 消息：某个路由页面卸载，屏蔽该路由的工具
   const handlePageLeave = (event: MessageEvent) => {
     if (!isTrustedSource(event.source) || event.data?.type !== MSG_PAGE_LEAVE) return
-    applyRouteTools(event.data.route as string, false)
     if (routeStateFromParent) {
       routeStateFromParent.activeRoutes.delete(normalizeRoute(event.data.route))
     }
+    syncAllRoutes()
   }
 
   // 监听父窗口回传的初始路由状态（仅 iframe 场景）

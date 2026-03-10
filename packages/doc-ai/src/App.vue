@@ -11,7 +11,7 @@
       :show="show"
       :menuItems="menuItems"
       :mcpServers="mcpServers"
-      :routeBasedPageTools="true"
+      :pageToolsOnDemand="true"
       :layoutMode="'relative'"
     />
   </div>

@@ -5,7 +5,7 @@
     :fullscreen="true"
     :menuItems="menuItems"
     :mcpServers="mcpServers"
-    :routeBasedPageTools="true"
+    :pageToolsOnDemand="true"
   />
 </template>
 
