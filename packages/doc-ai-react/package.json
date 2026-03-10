@@ -1,0 +1,36 @@
+{
+  "name": "doc-ai-react",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "concurrently -n react,remoter \"vite\" \"pnpm -C remoter dev\"",
+    "dev:react": "vite",
+    "dev:remoter": "pnpm -C remoter dev",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "@opentiny/next-sdk": "0.2.6-beta.2",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "@types/node": "catalog:",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.1.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
+    "globals": "^16.5.0",
+    "typescript": "catalog:",
+    "typescript-eslint": "^8.48.0",
+    "vite": "catalog:",
+    "concurrently": "^9.1.0",
+    "dotenv": "catalog:"
+  }
+}

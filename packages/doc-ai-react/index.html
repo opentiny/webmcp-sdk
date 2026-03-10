@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>vite-react</title>
+  </head>
+  <body>
+    <!-- 左右分栏：左侧 70% 主内容，右侧 30% AI 助手 -->
+    <div class="app-container">
+      <div class="main-content">
+        <div id="root"></div>
+      </div>
+      <aside class="remoter-sidebar">
+        <iframe
+          #remoterFrame
+          class="remoter-frame"
+          src="http://localhost:5179/remoter/"
+          frameborder="0"
+          allow="clipboard-write"
+          title="AI 助手"
+        ></iframe>
+      </aside>
+    </div>
+
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
