@@ -7,7 +7,11 @@ import type { MenuItemConfig } from '@opentiny/next-sdk'
  * 用于处理 sessionId 相关的所有逻辑：扫码添加插件、识别码输入、遥控器初始化等
  */
 export function usePluginSession(options: {
-  /** 未设置(undefined)时立即创建简化菜单；配置了(ref)时等 value 有值后再创建完整菜单 */
+  /**
+   * 会话 ID：
+   * - 初始为 undefined 或空字符串时：先渲染仅含「打开对话框」的 Logo
+   * - 后续变为非空字符串时：自动升级为带二维码 / 遥控器等完整菜单
+   */
   sessionId: Ref<string | undefined>
   agentRoot: string
   mode: string
@@ -32,8 +36,9 @@ export function usePluginSession(options: {
     inputMessage
   } = options
 
-  // 遥控器是否已创建（只创建一次）
-  let isCreateRemoter = false
+  // remoter 实例 & 是否已经以「有 sessionId」的方式创建过
+  let remoterInstance: ReturnType<typeof createRemoter> | null = null
+  let createdWithSessionId = false
 
   /**
    * 处理扫码成功，添加插件
@@ -97,22 +102,20 @@ export function usePluginSession(options: {
 
   /**
    * 初始化遥控器模式：mode=remoter 时创建右下角 AI Logo
-   * - sessionId 未设置(undefined)：立即创建，仅显示「打开对话框」
-   * - sessionId 已配置(ref)：等 value 有值后再创建，显示完整菜单（扫码、识别码、遥控器链接）
+   * - 初始 sessionId 为空串 / undefined：立即创建，仅显示「打开对话框」
+   * - 后续 sessionId 变为非空字符串：销毁旧实例并重建，展示完整菜单（扫码、识别码、遥控器链接）
    */
   const initializeRemoter = () => {
     watch(
       sessionId,
       (value) => {
-        if (mode !== 'remoter' || isCreateRemoter) return
+        if (mode !== 'remoter') return
 
-        // 未设置：value 为 undefined，立即创建简化菜单
-        const notConfigured = value === undefined
-        // 已配置：等 value 有值再创建完整菜单
-        const hasValue = !!value
+        const hasSession = !!value
 
-        if (notConfigured || hasValue) {
-          createRemoter({
+        if (!remoterInstance) {
+          // 首次创建：sessionId 可能为空串 / undefined，此时只展示「打开对话框」
+          remoterInstance = createRemoter({
             sessionId: value || undefined,
             qrCodeUrl,
             remoteUrl,
@@ -120,7 +123,19 @@ export function usePluginSession(options: {
             logoUrl: AILogoUrl,
             onShowAIChat: () => (show.value = true)
           })
-          isCreateRemoter = true
+          createdWithSessionId = hasSession
+        } else if (!createdWithSessionId && hasSession) {
+          // 之前以「无 sessionId」创建，现在拿到真正 sessionId：重建以展示完整菜单
+          remoterInstance.destroy()
+          remoterInstance = createRemoter({
+            sessionId: value,
+            qrCodeUrl,
+            remoteUrl,
+            menuItems,
+            logoUrl: AILogoUrl,
+            onShowAIChat: () => (show.value = true)
+          })
+          createdWithSessionId = true
         }
       },
       { immediate: true }

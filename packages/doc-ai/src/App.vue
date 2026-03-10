@@ -9,8 +9,8 @@
       class="remoter-pane"
       :skills="skillMdModules"
       :show="show"
-      :menuItems="menuItems"
       :mcpServers="mcpServers"
+      :sessionId="sessionId"
       layoutMode="relative"
     />
   </div>
@@ -18,10 +18,8 @@
 
 <script setup lang="ts">
 import { TinyRemoter } from '@opentiny/next-remoter'
-import type { MenuItemConfig } from '@opentiny/next-sdk'
 import { onMounted, ref } from 'vue'
 import { createMcpServer, clientTransport } from './mcp-servers'
-const menuItems = ref<MenuItemConfig[]>([])
 const show = ref(true)
 
 // 高兼容：同时匹配常见位置的 skills 目录，合并后直接传给 remoter，next-sdk 内部会统一处理 key

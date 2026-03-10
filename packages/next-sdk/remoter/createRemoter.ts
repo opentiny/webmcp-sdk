@@ -145,15 +145,18 @@ class FloatingBlock {
   }
 
   /**
-   * 合并菜单项配置；无 sessionId 时依赖会话的菜单项（qr-code/remote-url/remote-control）强制不显示
+   * 合并菜单项配置。
+   * - 有 sessionId：使用默认菜单 + 用户配置（可定制每一项的 show/text/icon 等）
+   * - 无 sessionId：不渲染任何下拉菜单，仅保留点击浮标打开对话框的能力
    */
   private mergeMenuItems(userMenuItems?: MenuItemConfig[]): MenuItemConfig[] {
-    const sessionDependentActions: ActionType[] = ['qr-code', 'remote-url', 'remote-control']
-    const forceHide = (item: MenuItemConfig) =>
-      !this.options.sessionId && sessionDependentActions.includes(item.action) ? { ...item, show: false } : item
+    // 无 sessionId：完全关闭下拉菜单（包括 ai-chat 项），只保留点击浮标触发 onShowAIChat
+    if (!this.options.sessionId) {
+      return []
+    }
 
     if (!userMenuItems) {
-      return getDefaultMenuItems(this.options).map(forceHide)
+      return getDefaultMenuItems(this.options)
     }
 
     return getDefaultMenuItems(this.options)
@@ -168,7 +171,6 @@ class FloatingBlock {
         }
         return defaultItem
       })
-      .map(forceHide)
   }
 
   private init(): void {
