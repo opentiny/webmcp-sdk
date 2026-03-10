@@ -17,7 +17,7 @@
  *
  *   // mcp-servers/product-guide/tools.ts
  *   server.registerTool('product-guide', { title, description, inputSchema },
- *     { route: '/comprehensive' }            // ← 路由配置对象，替代回调函数
+ *     { route: '/comprehensive', timeout: 15000 }  // ← 路由配置：route 必填，timeout 可选（ms，默认 30000）
  *   )
  *   // 或仍然使用普通回调（完全兼容）
  *   server.registerTool('simple-tool', { ... }, async (input) => { ... })
@@ -306,8 +306,8 @@ function buildPageHandler(name: string, route: string, timeout = 30000) {
  * @example
  * const server = withPageTools(new WebMcpServer())
  *
- * // 路由模式：第三个参数传路由配置
- * server.registerTool('product-guide', { title, inputSchema }, { route: '/comprehensive' })
+ * // 路由模式：第三个参数传路由配置（route 必填，timeout 可选，单位 ms，默认 30000）
+ * server.registerTool('product-guide', { title, inputSchema }, { route: '/comprehensive', timeout: 15000 })
  *
  * // 普通模式：第三个参数传回调（兼容原有写法）
  * server.registerTool('simple-tool', { title }, async (input) => ({ content: [...] }))

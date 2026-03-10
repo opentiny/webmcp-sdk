@@ -7,7 +7,8 @@ import type { MenuItemConfig } from '@opentiny/next-sdk'
  * 用于处理 sessionId 相关的所有逻辑：扫码添加插件、识别码输入、遥控器初始化等
  */
 export function usePluginSession(options: {
-  sessionId: Ref<string>
+  /** 未设置(undefined)时立即创建简化菜单；配置了(ref)时等 value 有值后再创建完整菜单 */
+  sessionId: Ref<string | undefined>
   agentRoot: string
   mode: string
   qrCodeUrl?: string
@@ -31,7 +32,7 @@ export function usePluginSession(options: {
     inputMessage
   } = options
 
-  // 遥控器是否已创建（确保只创建一次）
+  // 遥控器是否已创建（只创建一次）
   let isCreateRemoter = false
 
   /**
@@ -95,22 +96,30 @@ export function usePluginSession(options: {
   }
 
   /**
-   * 初始化遥控器模式
+   * 初始化遥控器模式：mode=remoter 时创建右下角 AI Logo
+   * - sessionId 未设置(undefined)：立即创建，仅显示「打开对话框」
+   * - sessionId 已配置(ref)：等 value 有值后再创建，显示完整菜单（扫码、识别码、遥控器链接）
    */
   const initializeRemoter = () => {
     watch(
       sessionId,
       (value) => {
-        if (value && mode === 'remoter' && !isCreateRemoter) {
+        if (mode !== 'remoter' || isCreateRemoter) return
+
+        // 未设置：value 为 undefined，立即创建简化菜单
+        const notConfigured = value === undefined
+        // 已配置：等 value 有值再创建完整菜单
+        const hasValue = !!value
+
+        if (notConfigured || hasValue) {
           createRemoter({
-            sessionId: value,
+            sessionId: value || undefined,
             qrCodeUrl,
             remoteUrl,
             menuItems,
             logoUrl: AILogoUrl,
             onShowAIChat: () => (show.value = true)
           })
-
           isCreateRemoter = true
         }
       },

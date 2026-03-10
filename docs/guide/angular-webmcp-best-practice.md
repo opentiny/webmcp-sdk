@@ -209,7 +209,7 @@ export const createMcpServer = async () => {
 }
 ```
 
-工具定义（`product-guide/tools.ts`、`price-protection/tools.ts`）与 Vue 版一致：`server.registerTool(name, schema, { route: '/path' })`，此处不再重复。
+工具定义（`product-guide/tools.ts`、`price-protection/tools.ts`）与 Vue 版一致：`server.registerTool(name, schema, { route: '/path', timeout?: number })`。其中 `timeout` 为可选，表示等待页面响应的超时时间（ms），默认 30000。此处不再重复。
 
 ---
 

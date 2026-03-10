@@ -231,7 +231,9 @@ export default registerPriceProtectionTools
 > | 方式 | 第三个参数 | 适用场景 |
 > |------|-----------|---------|
 > | 回调函数 | `async (input) => { return { content: [...] } }` | 工具逻辑简单，不需要访问页面状态或 Vue 响应式数据 |
-> | 路由配置 | `{ route: '/some-path' }` | 工具需要读写页面状态，或需要在特定页面内执行业务逻辑 |
+> | 路由配置 | `{ route: '/some-path', timeout?: number }` | 工具需要读写页面状态，或需要在特定页面内执行业务逻辑 |
+>
+> 路由配置对象（RouteConfig）支持字段：**route**（必填，目标路由路径）、**timeout**（可选，等待页面响应的超时时间，单位 ms，默认 30000）。
 
 ---
 
