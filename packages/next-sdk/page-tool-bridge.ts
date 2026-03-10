@@ -80,12 +80,14 @@ export const MSG_ROUTE_STATE_INITIAL = 'next-sdk:route-state-initial'
 // 已激活页面注册表：路由路径 → 是否已挂载
 const activePages = new Map<string, boolean>()
 
+type BroadcastTarget = { win: Window; origin: string }
+
 // 跨窗口广播目标：同窗口默认 [window]，iframe 场景下会加入 remoter 的 contentWindow
-const broadcastTargets = new Set<Window>()
+const broadcastTargets = new Set<BroadcastTarget>()
 
 function initBroadcastTargets() {
   if (typeof window !== 'undefined') {
-    broadcastTargets.add(window)
+    broadcastTargets.add({ win: window, origin: window.location.origin || '*' })
   }
 }
 initBroadcastTargets()
@@ -93,10 +95,9 @@ initBroadcastTargets()
 /** 向所有广播目标发送路由变更消息（同窗口 + iframe 均能收到） */
 function broadcastRouteChange(type: string, route: string) {
   const msg = { type, route }
-  const origin = window.location.origin || '*'
-  broadcastTargets.forEach((target) => {
+  broadcastTargets.forEach(({ win, origin }) => {
     try {
-      target.postMessage(msg, origin)
+      win.postMessage(msg, origin)
     } catch {
       // 跨域 iframe 可能抛错，忽略
     }
@@ -108,15 +109,17 @@ function setupIframeRemoterBridge() {
   if (typeof window === 'undefined') return
   window.addEventListener('message', (event: MessageEvent) => {
     if (event.data?.type !== MSG_REMOTER_READY || !event.source) return
+    // 仅接受与当前页面同源的 remoter，避免潜在的 XSS 风险
+    if (event.origin !== window.location.origin) return
     const target = event.source as Window
-    broadcastTargets.add(target)
+    broadcastTargets.add({ win: target, origin: event.origin || '*' })
     const payload = {
       type: MSG_ROUTE_STATE_INITIAL,
       toolRouteMap: Array.from(toolRouteMap.entries()),
       activeRoutes: Array.from(activePages.keys())
     }
     try {
-      target.postMessage(payload, window.location.origin || '*')
+      target.postMessage(payload, event.origin || '*')
     } catch {
       // 忽略跨域错误
     }
@@ -133,7 +136,7 @@ const toolRouteMap = new Map<string, string>()
  * @returns toolName → route 的只读 Map
  */
 export function getToolRouteMap(): ReadonlyMap<string, string> {
-  return toolRouteMap
+  return new Map(toolRouteMap)
 }
 
 /**

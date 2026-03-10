@@ -499,7 +499,7 @@ const {
 // ===== 页面工具按需加载（pageToolsOnDemand 开关控制，默认关闭）=====
 // 启用后仅当前激活路由对应的 withPageTools 工具对 LLM 可见并在面板展示
 useRouteBasedTools({
-  enabled: props.pageToolsOnDemand,
+  enabled: toRef(props, 'pageToolsOnDemand'),
   agent,
   installedPlugins
 })

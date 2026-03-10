@@ -11,7 +11,8 @@
       :show="show"
       :menuItems="menuItems"
       :mcpServers="mcpServers"
-      :layoutMode="'relative'"
+      :pageToolsOnDemand="true"
+      layoutMode="relative"
     />
   </div>
 </template>
