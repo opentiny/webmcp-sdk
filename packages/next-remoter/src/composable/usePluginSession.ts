@@ -7,7 +7,12 @@ import type { MenuItemConfig } from '@opentiny/next-sdk'
  * 用于处理 sessionId 相关的所有逻辑：扫码添加插件、识别码输入、遥控器初始化等
  */
 export function usePluginSession(options: {
-  sessionId: Ref<string>
+  /**
+   * 会话 ID：
+   * - 初始为 undefined 或空字符串时：先渲染仅含「打开对话框」的 Logo
+   * - 后续变为非空字符串时：自动升级为带二维码 / 遥控器等完整菜单
+   */
+  sessionId: Ref<string | undefined>
   agentRoot: string
   mode: string
   qrCodeUrl?: string
@@ -31,8 +36,9 @@ export function usePluginSession(options: {
     inputMessage
   } = options
 
-  // 遥控器是否已创建（确保只创建一次）
-  let isCreateRemoter = false
+  // remoter 实例 & 是否已经以「有 sessionId」的方式创建过
+  let remoterInstance: ReturnType<typeof createRemoter> | null = null
+  let createdWithSessionId = false
 
   /**
    * 处理扫码成功，添加插件
@@ -95,14 +101,33 @@ export function usePluginSession(options: {
   }
 
   /**
-   * 初始化遥控器模式
+   * 初始化遥控器模式：mode=remoter 时创建右下角 AI Logo
+   * - 初始 sessionId 为空串 / undefined：立即创建，仅显示「打开对话框」
+   * - 后续 sessionId 变为非空字符串：销毁旧实例并重建，展示完整菜单（扫码、识别码、遥控器链接）
    */
   const initializeRemoter = () => {
     watch(
       sessionId,
       (value) => {
-        if (value && mode === 'remoter' && !isCreateRemoter) {
-          createRemoter({
+        if (mode !== 'remoter') return
+
+        const hasSession = !!value
+
+        if (!remoterInstance) {
+          // 首次创建：sessionId 可能为空串 / undefined，此时只展示「打开对话框」
+          remoterInstance = createRemoter({
+            sessionId: value || undefined,
+            qrCodeUrl,
+            remoteUrl,
+            menuItems,
+            logoUrl: AILogoUrl,
+            onShowAIChat: () => (show.value = true)
+          })
+          createdWithSessionId = hasSession
+        } else if (!createdWithSessionId && hasSession) {
+          // 之前以「无 sessionId」创建，现在拿到真正 sessionId：重建以展示完整菜单
+          remoterInstance.destroy()
+          remoterInstance = createRemoter({
             sessionId: value,
             qrCodeUrl,
             remoteUrl,
@@ -110,8 +135,7 @@ export function usePluginSession(options: {
             logoUrl: AILogoUrl,
             onShowAIChat: () => (show.value = true)
           })
-
-          isCreateRemoter = true
+          createdWithSessionId = true
         }
       },
       { immediate: true }

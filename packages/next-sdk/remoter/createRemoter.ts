@@ -39,8 +39,8 @@ export interface FloatingBlockOptions {
 
   /** 遥控端页面地址，默认为： https://ai.opentiny.design/next-remoter */
   qrCodeUrl?: string
-  /** 被遥控页面的 sessionId, 必填 */
-  sessionId: string
+  /** 被遥控页面的 sessionId；无 sessionId 时仅显示「打开对话框」菜单，不显示二维码、识别码、遥控器链接 */
+  sessionId?: string
   /** 菜单项配置 */
   menuItems?: MenuItemConfig[]
   /** 遥控端页面地址，默认为： https://chat.opentiny.design */
@@ -52,11 +52,13 @@ export interface FloatingBlockOptions {
 // 动作类型
 export type ActionType = 'qr-code' | 'ai-chat' | 'remote-control' | 'remote-url'
 
+/** 有 sessionId 时的完整菜单；无 sessionId 时仅返回 ai-chat（不依赖会话的菜单项） */
 const getDefaultMenuItems = (options: FloatingBlockOptions): MenuItemConfig[] => {
-  return [
+  const hasSession = !!options.sessionId
+  const baseItems: MenuItemConfig[] = [
     {
       action: 'qr-code',
-      show: true,
+      show: hasSession,
       text: '扫码登录',
       desc: '使用手机遥控页面',
       icon: qrCode
@@ -70,7 +72,7 @@ const getDefaultMenuItems = (options: FloatingBlockOptions): MenuItemConfig[] =>
     },
     {
       action: 'remote-url',
-      show: true,
+      show: hasSession,
       text: `遥控器链接`,
       desc: `${options.remoteUrl}`,
       active: true,
@@ -80,14 +82,15 @@ const getDefaultMenuItems = (options: FloatingBlockOptions): MenuItemConfig[] =>
     },
     {
       action: 'remote-control',
-      show: true,
+      show: hasSession,
       text: `识别码`,
-      desc: `${options.sessionId.slice(-6)}`,
+      desc: hasSession ? `${options.sessionId!.slice(-6)}` : '',
       know: true,
       showCopyIcon: true,
       icon: scan
     }
   ]
+  return baseItems
 }
 
 class FloatingBlock {
@@ -105,10 +108,6 @@ class FloatingBlock {
   }
 
   constructor(options: FloatingBlockOptions) {
-    if (!options.sessionId) {
-      throw new Error('sessionId is required')
-    }
-
     this.options = {
       ...options,
       qrCodeUrl: options.qrCodeUrl || DEFAULT_QR_CODE_URL,
@@ -146,27 +145,32 @@ class FloatingBlock {
   }
 
   /**
-   * 合并菜单项配置
-   * @param userMenuItems 用户自定义菜单项配置
-   * @returns 合并后的菜单项配置
+   * 合并菜单项配置。
+   * - 有 sessionId：使用默认菜单 + 用户配置（可定制每一项的 show/text/icon 等）
+   * - 无 sessionId：不渲染任何下拉菜单，仅保留点击浮标打开对话框的能力
    */
   private mergeMenuItems(userMenuItems?: MenuItemConfig[]): MenuItemConfig[] {
+    // 无 sessionId：完全关闭下拉菜单（包括 ai-chat 项），只保留点击浮标触发 onShowAIChat
+    if (!this.options.sessionId) {
+      return []
+    }
+
     if (!userMenuItems) {
       return getDefaultMenuItems(this.options)
     }
 
-    return getDefaultMenuItems(this.options).map((defaultItem) => {
-      const userItem = userMenuItems.find((item) => item.action === defaultItem.action)
-      if (userItem) {
-        return {
-          ...defaultItem,
-          ...userItem,
-          // 确保show属性存在，默认为true
-          show: userItem.show !== undefined ? userItem.show : defaultItem.show
+    return getDefaultMenuItems(this.options)
+      .map((defaultItem) => {
+        const userItem = userMenuItems.find((item) => item.action === defaultItem.action)
+        if (userItem) {
+          return {
+            ...defaultItem,
+            ...userItem,
+            show: userItem.show !== undefined ? userItem.show : defaultItem.show
+          }
         }
-      }
-      return defaultItem
-    })
+        return defaultItem
+      })
   }
 
   private init(): void {
@@ -354,10 +358,12 @@ class FloatingBlock {
   }
 
   private copyRemoteControl(): void {
+    if (!this.options.sessionId) return
     this.copyToClipboard(this.options.sessionId.slice(-6))
   }
 
   private copyRemoteURL(): void {
+    if (!this.options.sessionId) return
     this.copyToClipboard(this.options.remoteUrl + this.sessionPrefix + this.options.sessionId)
   }
 
@@ -417,8 +423,9 @@ class FloatingBlock {
     }, 1500)
   }
 
-  // 创建二维码弹窗
+  // 创建二维码弹窗（无 sessionId 时不展示）
   private async showQRCode(): Promise<void> {
+    if (!this.options.sessionId) return
     const qrCode = new QrCode((this.options.qrCodeUrl || '') + this.sessionPrefix + this.options.sessionId, {})
     const base64 = await qrCode.toDataURL()
     const modal = this.createModal(

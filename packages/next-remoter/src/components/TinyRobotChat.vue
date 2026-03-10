@@ -198,10 +198,10 @@ defineOptions({
 })
 
 const props = defineProps({
-  /** 必传的会话id */
+  /** 会话 id，可选；未传时仅显示「打开对话框」，不展示扫码等菜单 */
   sessionId: {
     type: String,
-    default: ''
+    default: undefined
   },
   /** 后端的代理服务器地址 */
   agentRoot: {

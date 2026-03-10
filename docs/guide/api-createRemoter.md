@@ -34,7 +34,7 @@ const remoter = createRemoter({
 
 | 参数         | 类型             | 必填 | 默认值                                     | 说明                   |
 | ------------ | ---------------- | ---- | ------------------------------------------ | ---------------------- |
-| sessionId    | string           | ✅   | -                                          | 被遥控页面的会话ID     |
+| sessionId    | string           | ❌   | -                                          | 被遥控页面的会话ID；不传时仅显示「打开对话框」，不显示扫码/识别码/遥控器链接 |
 | qrCodeUrl    | string           | ❌   | https:\/\/ai.opentiny.design\/next-remoter | 遥控端页面地址         |
 | logoUrl      | string           | ❌   | -                                          | 悬浮AI LogUrl地址      |
 | onShowAIChat | function         | ❌   | -                                          | 显示AI对话框的回调函数 |
