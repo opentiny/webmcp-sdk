@@ -85,6 +85,7 @@
         :show="show"
         :mcpServers="mcpServers"
         layoutMode="relative"
+        :systemPrompt="systemPrompt"
       />
     </div>
   </div>
@@ -97,6 +98,7 @@ import { createMcpServer, clientTransport } from './mcp-servers'
 import { iconDesktopView, iconBoxSolid, iconLock, iconLineChart, iconCoin, iconShoppingCard } from '@opentiny/vue-icon'
 
 const show = ref(true)
+const systemPrompt = `特别提醒：回答时需要先使用对应的skill技能，然后再根据skill技能调用对应的工具`
 
 const IconDesktopView = iconDesktopView()
 const IconBoxSolid = iconBoxSolid()
