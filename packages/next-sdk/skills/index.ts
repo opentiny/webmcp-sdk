@@ -115,7 +115,17 @@ export function getSkillMdPaths(modules: Record<string, string>): string[] {
  */
 export function getSkillMdContent(modules: Record<string, string>, path: string): string | undefined {
   const normalized = normalizeSkillModuleKeys(modules)
-  return normalized[path]
+
+  // 1. 尝试原有的严格匹配
+  const exactMatch = normalized[path]
+  if (exactMatch) return exactMatch
+
+  // 2. 降级匹配：如果严格匹配完整路径未找到
+  // 则尝试寻找后缀能够匹配上的真实文件路径。
+  // 去除开头的 '.' 或 './' 以精确匹配结尾部分的路径。
+  const suffix = path.replace(/^\.?\//, '/')
+  const matchingKey = Object.keys(normalized).find((key) => key.endsWith(suffix))
+  return matchingKey ? normalized[matchingKey] : undefined
 }
 
 /**
@@ -134,8 +144,20 @@ export type SkillToolsSet = Record<string, any>
 
 // 提升为模块级常量：避免 tool() 推断 PARAMETERS 泛型时递归展开 Zod 链导致"类型实例化过深"
 const SKILL_INPUT_SCHEMA = z.object({
-  skillName: z.string().optional().describe('技能名称，与目录名一致，如 calculator'),
-  path: z.string().optional().describe('文档相对路径，如 ./calculator/SKILL.md 或 ./product-guide/reference/xxx.json')
+  skillName: z
+    .string()
+    .optional()
+    .describe('进入某个技能的主入口名称（如 ecommerce）。如果想进入某个技能领域，可以只传这个参数。'),
+  path: z
+    .string()
+    .optional()
+    .describe('你想查阅的文档的路径。如 ./calculator/SKILL.md 或从其他文档里看到的相对路径 ./reference/inventory.md。'),
+  currentPath: z
+    .string()
+    .optional()
+    .describe(
+      '你当前正在阅读的文档路径（如果有）。比如你刚刚读取了 ./ecommerce/SKILL.md，请把这个路径原样传回来，这样系统才能根据你的相对路径准确找到下一份文件。'
+    )
 })
 
 /**
@@ -145,23 +167,77 @@ const SKILL_INPUT_SCHEMA = z.object({
  */
 export function createSkillTools(modules: Record<string, string>): SkillToolsSet {
   const normalizedModules = normalizeSkillModuleKeys(modules)
+
+  // @ts-ignore
   const getSkillContent = tool({
     description:
-      '根据技能名称或文档路径获取该技能的完整文档内容。传入 skillName（如 calculator）或 path（如 ./calculator/SKILL.md）。支持 .md、.json、.xml 等各类文本格式文件。',
+      '根据技能名称或文档路径获取该技能的完整文档内容。如果你想根据相对路径查阅文件，请务必同时提供你当前所在的文件路径 currentPath。',
     inputSchema: SKILL_INPUT_SCHEMA,
-    execute: (args: { skillName?: string; path?: string }): Record<string, unknown> => {
-      const { skillName, path: pathArg } = args
+    execute: (args: { skillName?: string; path?: string; currentPath?: string }): Record<string, unknown> => {
+      const { skillName, path: pathArg, currentPath: currentPathArg } = args
       let content: string | undefined
+      let resolvedPath = ''
+
       if (pathArg) {
-        content = getSkillMdContent(normalizedModules, pathArg)
+        // 使用明确提供的当前阅读上下文作为基准路径（默认在根目录）
+        let basePathContext = '.'
+        if (currentPathArg) {
+          // 提取出当前文档所在的目录
+          // 比如 ./ecommerce/SKILL.md -> ./ecommerce
+          const lastSlashIndex = currentPathArg.lastIndexOf('/')
+          if (lastSlashIndex >= 0) {
+            basePathContext = currentPathArg.slice(0, lastSlashIndex)
+          }
+        }
+
+        // 尝试 1：按照大模型当前提供的上下文进行标准相对路径解析
+        const dummyBase = `http://localhost/${basePathContext}/`
+        const url = new URL(pathArg, dummyBase)
+        resolvedPath = '.' + url.pathname
+        content = getSkillMdContent(normalizedModules, resolvedPath)
+
+        // 尝试 2：如果大模型忘了传正确的 currentPath，或者是强行传错，做个智能根目录回退
+        if (content === undefined && pathArg.startsWith('./') && currentPathArg) {
+          const baseParts = currentPathArg.split('/')
+          if (baseParts.length >= 2) {
+            const skillRoot = baseParts[1]
+            const fallbackDummyBase = `http://localhost/${skillRoot}/`
+            const fallbackUrl = new URL(pathArg, fallbackDummyBase)
+            const fallbackPath = '.' + fallbackUrl.pathname
+            content = getSkillMdContent(normalizedModules, fallbackPath)
+            if (content) {
+              resolvedPath = fallbackPath
+            }
+          }
+        }
+
+        // 尝试 3：后缀自动降级匹配修正
+        if (content && !normalizedModules[resolvedPath]) {
+          const suffix = resolvedPath.replace(/^\.?\//, '/')
+          const matchingKey = Object.keys(normalizedModules).find((key) => key.endsWith(suffix))
+          if (matchingKey) {
+            resolvedPath = matchingKey
+          }
+        }
       } else if (skillName) {
         const mainPath = getMainSkillPathByName(normalizedModules, skillName)
-        content = mainPath ? getSkillMdContent(normalizedModules, mainPath) : undefined
+        if (mainPath) {
+          resolvedPath = mainPath
+          content = getSkillMdContent(normalizedModules, mainPath)
+        }
       }
+
       if (content === undefined) {
-        return { error: '未找到对应技能文档', skillName: skillName ?? pathArg }
+        return {
+          error: '未找到对应技能文档',
+          skillName,
+          path: pathArg,
+          providedCurrentPath: currentPathArg,
+          attemptedPath: resolvedPath
+        }
       }
-      return { content, path: pathArg ?? getMainSkillPathByName(normalizedModules, skillName!) }
+
+      return { content, path: resolvedPath }
     }
   })
 
