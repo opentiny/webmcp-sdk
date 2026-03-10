@@ -1,424 +1,209 @@
 <template>
-  <div class="home-page">
-    <!-- 顶部标题区 -->
+  <div class="home-view">
     <div class="page-header">
-      <div class="header-title">
-        <h2>商品管理系统</h2>
-        <p>统一管理您的商品信息，支持 AI 助手智能操作</p>
-      </div>
-      <div class="header-actions">
-        <router-link to="/comprehensive" class="btn-primary">商品管理</router-link>
-        <router-link to="/price-protection" class="btn-secondary">价保管理</router-link>
-      </div>
+      <h2>概览大盘</h2>
+      <p class="subtitle">电子商务业务数据实时监控</p>
     </div>
 
-    <!-- 数据统计卡片 -->
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-icon total">📦</div>
-        <div class="stat-info">
-          <div class="stat-value">{{ stats.total }}</div>
-          <div class="stat-label">商品总数</div>
+    <div class="stats-cards">
+      <div class="stat-card blue">
+        <div class="stat-icon">📈</div>
+        <div class="stat-content">
+          <div class="stat-title">今日销售额</div>
+          <div class="stat-value">￥128,450</div>
+          <div class="stat-trend positive">↑ 12.5% 较昨日</div>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon on">✅</div>
-        <div class="stat-info">
-          <div class="stat-value">{{ stats.on }}</div>
-          <div class="stat-label">上架中</div>
+      <div class="stat-card purple">
+        <div class="stat-icon">📦</div>
+        <div class="stat-content">
+          <div class="stat-title">总库存量</div>
+          <div class="stat-value">1,248件</div>
+          <div class="stat-trend negative">↓ 3.2% 较上周</div>
         </div>
       </div>
-      <div class="stat-card">
-        <div class="stat-icon off">⏸</div>
-        <div class="stat-info">
-          <div class="stat-value">{{ stats.off }}</div>
-          <div class="stat-label">已下架</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon category">🗂</div>
-        <div class="stat-info">
-          <div class="stat-value">{{ stats.categories }}</div>
-          <div class="stat-label">商品分类</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon price-pending">🛡</div>
-        <div class="stat-info">
-          <div class="stat-value">{{ priceStats.pending }}</div>
-          <div class="stat-label">价保待审核</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon price-total">💰</div>
-        <div class="stat-info">
-          <div class="stat-value">¥{{ priceStats.totalDiff }}</div>
-          <div class="stat-label">待退差价总额</div>
+      <div class="stat-card orange">
+        <div class="stat-icon">🛡️</div>
+        <div class="stat-content">
+          <div class="stat-title">待处理价保</div>
+          <div class="stat-value">12单</div>
+          <div class="stat-trend neutral">- 持平</div>
         </div>
       </div>
     </div>
 
-    <!-- 主内容区 -->
-    <div class="main-content">
-      <!-- 分类概览 -->
-      <div class="panel">
-        <div class="panel-header">分类概览</div>
-        <div class="category-list">
-          <div v-for="cat in categoryStats" :key="cat.value" class="category-item">
-            <span class="category-name">{{ cat.label }}</span>
-            <div class="category-bar-wrap">
-              <div
-                class="category-bar"
-                :style="{ width: (stats.total > 0 ? (cat.count / stats.total) * 100 : 0) + '%' }"
-              ></div>
-            </div>
-            <span class="category-count">{{ cat.count }} 件</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 近期商品 -->
-      <div class="panel">
-        <div class="panel-header">
-          近期商品
-          <router-link to="/comprehensive" class="panel-link">查看全部 →</router-link>
-        </div>
-        <div class="product-list">
-          <div v-for="product in recentProducts" :key="product.id" class="product-item">
-            <div class="product-info">
-              <div class="product-name">{{ product.name }}</div>
-              <div class="product-meta">{{ categoryLabels[product.category] ?? product.category }} · ¥{{ product.price }}</div>
-            </div>
-            <span class="status-badge" :class="product.status">
-              {{ product.status === 'on' ? '上架' : '下架' }}
-            </span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 价保申请概览 -->
-      <div class="panel">
-        <div class="panel-header">
-          价保申请
-          <router-link to="/price-protection" class="panel-link">查看全部 →</router-link>
-        </div>
-        <div class="product-list">
-          <div v-for="record in pendingPriceRecords" :key="record.id" class="product-item">
-            <div class="product-info">
-              <div class="product-name">{{ record.productName }}</div>
-              <div class="product-meta">{{ record.orderId }} · 可退 ¥{{ record.diffPrice }}</div>
-            </div>
-            <span class="status-badge pending">待审核</span>
-          </div>
-          <div v-if="pendingPriceRecords.length === 0" class="empty-tip">暂无待审核申请</div>
+    <div class="info-section">
+      <h3>使用指引</h3>
+      <div class="guide-box">
+        <p>本项目展示了如何将 <strong>webSkills</strong> 与 <strong>webMCP</strong> 集成到业务系统中：</p>
+        <ul>
+          <li><strong>左侧系统视图：</strong>标准的Vue + TinyVue业务系统，包含数据列表与操作。</li>
+          <li><strong>右侧 AI 助手：</strong>基于 TinyRobot 开发的终端，内置了电商相关的业务技能 (skills)。</li>
+        </ul>
+        <p><strong>💡 试试在右侧对AI说：</strong></p>
+        <div class="prompt-chips">
+          <span class="chip">"帮我添加100台iPhone 15到北京一号仓"</span>
+          <span class="chip">"顾客李四想申请订单ORD-123的价保50元，原因是百亿补贴变价了"</span>
+          <span class="chip">"请查询目前的库存情况"</span>
         </div>
       </div>
     </div>
   </div>
 </template>
 
-<script setup lang="ts">
-import { computed } from 'vue'
-import productsData from '../comprehensive/products.json'
-import priceData from '../price-protection/price-protection.json'
-
-// 分类标签映射
-const categoryLabels: Record<string, string> = {
-  phones: '手机',
-  laptops: '笔记本',
-  tablets: '平板'
+<style scoped>
+.home-view {
+  animation: fadeIn 0.4s ease-out;
 }
 
-// 商品统计数据
-const stats = computed(() => ({
-  total: productsData.length,
-  on: productsData.filter((p) => p.status === 'on').length,
-  off: productsData.filter((p) => p.status === 'off').length,
-  categories: new Set(productsData.map((p) => p.category)).size
-}))
-
-// 各分类商品数量
-const categoryStats = computed(() => {
-  const map: Record<string, number> = {}
-  productsData.forEach((p) => {
-    map[p.category] = (map[p.category] || 0) + 1
-  })
-  return Object.entries(map).map(([value, count]) => ({
-    value,
-    label: categoryLabels[value] ?? value,
-    count
-  }))
-})
-
-// 展示最近 5 条商品（按 id 倒序）
-const recentProducts = computed(() =>
-  [...productsData].sort((a, b) => b.id - a.id).slice(0, 5)
-)
-
-// 价保统计数据
-const priceStats = computed(() => ({
-  pending: priceData.filter((r) => r.status === 'pending').length,
-  totalDiff: priceData.filter((r) => r.status === 'pending').reduce((sum, r) => sum + r.diffPrice, 0)
-}))
-
-// 待审核的价保申请（最多显示 4 条）
-const pendingPriceRecords = computed(() =>
-  priceData.filter((r) => r.status === 'pending').slice(0, 4)
-)
-</script>
-
-<style scoped lang="less">
-.home-page {
-  padding: 24px;
-  background: #f5f7fa;
-  min-height: 100vh;
-  box-sizing: border-box;
-}
-
-/* 顶部标题区 */
 .page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: linear-gradient(135deg, #1677ff 0%, #0958d9 100%);
-  border-radius: 12px;
-  padding: 28px 32px;
   margin-bottom: 24px;
-  color: #fff;
-
-  .header-title {
-    h2 {
-      margin: 0 0 6px;
-      font-size: 22px;
-      font-weight: 600;
-    }
-    p {
-      margin: 0;
-      font-size: 14px;
-      opacity: 0.85;
-    }
-  }
 }
 
-.header-actions {
-  display: flex;
-  gap: 10px;
+.page-header h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1d2129;
+  margin: 0 0 4px 0;
 }
 
-.btn-primary {
-  display: inline-block;
-  padding: 9px 22px;
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 6px;
-  color: #fff;
-  text-decoration: none;
-  font-size: 14px;
-  transition: background 0.2s;
-
-  &:hover {
-    background: rgba(255, 255, 255, 0.32);
-  }
+.subtitle {
+  color: #86909c;
+  font-size: 0.95rem;
+  margin: 0;
 }
 
-.btn-secondary {
-  display: inline-block;
-  padding: 9px 22px;
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 6px;
-  color: rgba(255, 255, 255, 0.85);
-  text-decoration: none;
-  font-size: 14px;
-  transition: background 0.2s;
-
-  &:hover {
-    background: rgba(255, 255, 255, 0.18);
-  }
-}
-
-/* 统计卡片：前4列固定4列，第5、6列自动换行 */
-.stats-grid {
+.stats-cards {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 24px;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  margin-bottom: 32px;
 }
 
 .stat-card {
-  background: #fff;
-  border-radius: 10px;
-  padding: 20px 24px;
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
   display: flex;
   align-items: center;
-  gap: 16px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+  gap: 20px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+  transition:
+    transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1),
+    box-shadow 0.3s;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
 }
 
 .stat-icon {
-  font-size: 28px;
-  width: 52px;
-  height: 52px;
-  border-radius: 10px;
+  font-size: 2rem;
+  width: 64px;
+  height: 64px;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 16px;
+}
 
-  &.total         { background: #e6f4ff; }
-  &.on            { background: #f6ffed; }
-  &.off           { background: #fff7e6; }
-  &.category      { background: #f9f0ff; }
-  &.price-pending { background: #fff7e6; }
-  &.price-total   { background: #fff1f0; }
+.blue .stat-icon {
+  background: rgba(58, 120, 236, 0.1);
+}
+.purple .stat-icon {
+  background: rgba(142, 58, 236, 0.1);
+}
+.orange .stat-icon {
+  background: rgba(236, 117, 58, 0.1);
+}
+
+.stat-title {
+  color: #86909c;
+  font-size: 0.9rem;
+  margin-bottom: 4px;
 }
 
 .stat-value {
-  font-size: 28px;
+  font-size: 1.8rem;
   font-weight: 700;
-  color: #1a1a1a;
-  line-height: 1;
+  color: #1d2129;
+  margin-bottom: 8px;
 }
 
-.stat-label {
-  font-size: 13px;
-  color: #8c8c8c;
-  margin-top: 4px;
-}
-
-/* 主内容区：自动换行的双列布局 */
-.main-content {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
-.empty-tip {
-  padding: 20px;
-  text-align: center;
-  color: #bfbfbf;
-  font-size: 13px;
-}
-
-.panel {
-  background: #fff;
-  border-radius: 10px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
-  overflow: hidden;
-}
-
-.panel-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 16px 20px;
-  font-size: 15px;
-  font-weight: 600;
-  color: #1a1a1a;
-  border-bottom: 1px solid #f0f0f0;
-}
-
-.panel-link {
-  font-size: 13px;
-  font-weight: 400;
-  color: #1677ff;
-  text-decoration: none;
-
-  &:hover { opacity: 0.8; }
-}
-
-/* 分类概览 */
-.category-list {
-  padding: 16px 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.category-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.category-name {
-  width: 48px;
-  font-size: 13px;
-  color: #595959;
-  flex-shrink: 0;
-}
-
-.category-bar-wrap {
-  flex: 1;
-  height: 8px;
-  background: #f0f0f0;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.category-bar {
-  height: 100%;
-  background: linear-gradient(90deg, #1677ff, #69b1ff);
-  border-radius: 4px;
-  transition: width 0.5s ease;
-}
-
-.category-count {
-  width: 48px;
-  text-align: right;
-  font-size: 13px;
-  color: #595959;
-  flex-shrink: 0;
-}
-
-/* 近期商品 */
-.product-list {
-  padding: 8px 0;
-}
-
-.product-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 20px;
-  transition: background 0.15s;
-
-  &:hover {
-    background: #fafafa;
-  }
-}
-
-.product-name {
-  font-size: 14px;
-  color: #1a1a1a;
+.stat-trend {
+  font-size: 0.8rem;
   font-weight: 500;
 }
-
-.product-meta {
-  font-size: 12px;
-  color: #8c8c8c;
-  margin-top: 2px;
+.stat-trend.positive {
+  color: #00b42a;
+}
+.stat-trend.negative {
+  color: #f53f3f;
+}
+.stat-trend.neutral {
+  color: #86909c;
 }
 
-.status-badge {
-  font-size: 12px;
-  padding: 2px 10px;
-  border-radius: 10px;
-  flex-shrink: 0;
+.info-section {
+  background: white;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+}
 
-  &.on {
-    background: #f6ffed;
-    color: #52c41a;
-    border: 1px solid #b7eb8f;
+.info-section h3 {
+  margin: 0 0 16px 0;
+  font-size: 1.1rem;
+  color: #1d2129;
+}
+
+.guide-box {
+  background: #f7f8fc;
+  border-radius: 12px;
+  padding: 20px;
+  color: #4e5969;
+  line-height: 1.6;
+}
+
+.guide-box ul {
+  padding-left: 20px;
+  margin: 12px 0 20px 0;
+}
+
+.prompt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.chip {
+  background: #fff;
+  border: 1px solid #e5e6eb;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+  color: #3a78ec;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.chip:hover {
+  background: #f0f5ff;
+  border-color: #3a78ec;
+  transform: scale(1.02);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
   }
-  &.off {
-    background: #fff7e6;
-    color: #fa8c16;
-    border: 1px solid #ffd591;
-  }
-  &.pending {
-    background: #fff7e6;
-    color: #fa8c16;
-    border: 1px solid #ffd591;
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 </style>
