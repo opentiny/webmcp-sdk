@@ -4,6 +4,7 @@ import { setNavigator } from '@opentiny/next-sdk'
 import HomePage from './components/HomePage'
 import ComprehensivePage from './components/ComprehensivePage'
 import PriceProtectionPage from './components/PriceProtectionPage'
+import { createMcpServer } from './mcp-servers'
 import './App.css'
 
 // 路由管理器组件 - 在 Router 上下文中设置导航器
@@ -16,6 +17,8 @@ function RouterManager() {
       debugger
       await navigate(route)
     })
+    // 启动 MCP Server（创建 MessageChannel 服务端并等待 iframe 连接）
+    createMcpServer()
   }, [navigate])
 
   return null
