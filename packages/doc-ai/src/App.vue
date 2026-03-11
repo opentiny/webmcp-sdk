@@ -1,5 +1,5 @@
 <template>
-  <div class="app-container" ref="containerRef">
+  <div class="app-container">
     <!-- Left App Content — 宽度动态computed -->
     <div class="app-left" :style="{ width: show ? `calc(100% - ${rightWidth}px)` : '100%' }">
       <header class="app-header">
@@ -98,7 +98,7 @@ import { createMcpServer, clientTransport } from './mcp-servers'
 import { iconDesktopView, iconBoxSolid, iconLock, iconLineChart, iconCoin, iconShoppingCard } from '@opentiny/vue-icon'
 
 const show = ref(true)
-const systemPrompt = `特别提醒：回答时需要先使用对应的skill技能，然后再根据skill技能调用对应的工具`
+const systemPrompt = `特别提醒：请务必先使用 get_skill_content 工具读取对应的skill技能文档，了解业务规则和工具使用说明后，再根据文档要求按顺序调用对应的工具。严禁在没有阅读技能文档的情况下直接凭空猜测调用对应业务工具。`
 
 const IconDesktopView = iconDesktopView()
 const IconBoxSolid = iconBoxSolid()
@@ -116,8 +116,6 @@ const MAX_WIDTH = 720
 // 从 localStorage 恢复上一次宽度，否则使用默认值
 const savedWidth = parseInt(localStorage.getItem(STORAGE_KEY) ?? '', 10)
 const rightWidth = ref(isNaN(savedWidth) ? DEFAULT_WIDTH : savedWidth)
-
-const containerRef = ref<HTMLElement | null>(null)
 
 const startDrag = (e: MouseEvent) => {
   e.preventDefault()
