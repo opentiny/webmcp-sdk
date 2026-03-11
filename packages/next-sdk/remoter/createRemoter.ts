@@ -159,17 +159,18 @@ class FloatingBlock {
       return getDefaultMenuItems(this.options)
     }
 
-    return getDefaultMenuItems(this.options).map((defaultItem) => {
-      const userItem = userMenuItems.find((item) => item.action === defaultItem.action)
-      if (userItem) {
-        return {
-          ...defaultItem,
-          ...userItem,
-          show: userItem.show !== undefined ? userItem.show : defaultItem.show
+    return getDefaultMenuItems(this.options)
+      .map((defaultItem) => {
+        const userItem = userMenuItems.find((item) => item.action === defaultItem.action)
+        if (userItem) {
+          return {
+            ...defaultItem,
+            ...userItem,
+            show: userItem.show !== undefined ? userItem.show : defaultItem.show
+          }
         }
-      }
-      return defaultItem
-    })
+        return defaultItem
+      })
   }
 
   private init(): void {
@@ -910,21 +911,6 @@ class FloatingBlock {
     }
     if (this.dropdownMenu.parentNode) {
       this.dropdownMenu.parentNode.removeChild(this.dropdownMenu)
-    }
-  }
-
-  // 隐藏组件
-  public hide(): void {
-    if (this.floatingBlock) {
-      this.floatingBlock.style.display = 'none'
-    }
-    this.closeDropdown()
-  }
-
-  // 显示组件
-  public show(): void {
-    if (this.floatingBlock) {
-      this.floatingBlock.style.display = 'flex'
     }
   }
 }

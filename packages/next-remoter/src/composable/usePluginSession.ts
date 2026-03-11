@@ -137,26 +137,6 @@ export function usePluginSession(options: {
           })
           createdWithSessionId = true
         }
-
-        // 重建实例后，若对话框已打开则隐藏该图标（避免遮挡）
-        if (remoterInstance && show.value) {
-          remoterInstance.hide()
-        }
-      },
-      { immediate: true }
-    )
-
-    // 监听 AI 对话框显示状态，动态隐藏/显示 remoter 图标
-    watch(
-      show,
-      (isVisible) => {
-        if (remoterInstance) {
-          if (isVisible) {
-            remoterInstance.hide()
-          } else {
-            remoterInstance.show()
-          }
-        }
       },
       { immediate: true }
     )
