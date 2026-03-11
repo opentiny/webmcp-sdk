@@ -129,11 +129,30 @@ export function getSkillMdContent(modules: Record<string, string>, path: string)
 }
 
 /**
- * 根据技能 name 查找其主 SKILL.md 的路径（name 与目录名一致）
+ * 根据技能 name 查找其主 SKILL.md 的路径
+ * 支持匹配目录名（如 ecommerce）或 SKILL.md 内 frontmatter 定义的 name
  * - 依赖 getMainSkillPaths，内部已做 normalize
  */
 export function getMainSkillPathByName(modules: Record<string, string>, name: string): string | undefined {
-  return getMainSkillPaths(modules).find((p) => p.startsWith(`./${name}/SKILL.md`))
+  const normalizedModules = normalizeSkillModuleKeys(modules)
+  const paths = getMainSkillPaths(normalizedModules)
+
+  // 1. 先尝试按目录名精确匹配 (兼容老逻辑)
+  const dirMatch = paths.find((p) => p.startsWith(`./${name}/SKILL.md`))
+  if (dirMatch) return dirMatch
+
+  // 2. 如果按目录名找不到，则解析内容按 frontmatter 的 name 匹配
+  for (const p of paths) {
+    const content = normalizedModules[p]
+    if (content) {
+      const parsed = parseSkillFrontMatter(content)
+      if (parsed && parsed.name === name) {
+        return p
+      }
+    }
+  }
+
+  return undefined
 }
 
 // ============ 内置工具：供 remoter 注入，替代业界 skill 中「读取文档」的操作 ============
@@ -147,7 +166,9 @@ const SKILL_INPUT_SCHEMA = z.object({
   skillName: z
     .string()
     .optional()
-    .describe('进入某个技能的主入口名称（如 ecommerce）。如果想进入某个技能领域，可以只传这个参数。'),
+    .describe(
+      '进入某个技能的主入口名称。优先匹配技能的目录名（如 ecommerce），或者技能的中文名称（如"客户价保单创建及审核"）。'
+    ),
   path: z
     .string()
     .optional()
