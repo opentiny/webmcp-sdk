@@ -5,6 +5,7 @@
     width="500px"
     :modal-append-to-body="true"
     :close-on-click-modal="false"
+    @close="handleClose"
   >
     <div class="modal-content">
       <div class="alert-info">
@@ -55,6 +56,9 @@ let currentResolve: ((result: string) => void) | null = null
 
 // 由外部工具调用此方法，传入 AI 提取到的参数
 const openModal = (params: { productName: string; quantity: number; warehouse: string }) => {
+  if (currentResolve) {
+    currentResolve('❌ 用户发起了新的操作，前置入库已取消。')
+  }
   formData.value = {
     productName: params.productName || '',
     quantity: params.quantity || 1,
@@ -98,6 +102,13 @@ const handleCancel = () => {
   }
   visible.value = false
   currentResolve = null
+}
+
+const handleClose = () => {
+  if (currentResolve) {
+    currentResolve('❌ 对话框已关闭，操作取消。')
+    currentResolve = null
+  }
 }
 
 defineExpose({

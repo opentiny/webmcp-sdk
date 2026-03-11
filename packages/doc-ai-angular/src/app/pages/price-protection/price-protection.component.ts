@@ -97,7 +97,10 @@ export class PriceProtectionComponent implements OnInit, OnDestroy {
           if (record.status !== 'pending') {
             return {
               content: [
-                { type: 'text', text: `申请 ${id} 当前状态为「${this.statusLabels[record.status]}」，无法再次审核` }
+                {
+                  type: 'text',
+                  text: `申请 ${id} 当前状态为「${this.statusLabels[record.status] || record.status}」，无法再次审核`
+                }
               ]
             }
           }

@@ -125,7 +125,15 @@ const handleReject = (row: PriceProtectionOrder) => {
 const confirmReview = () => {
   const order = priceProtectionList.value.find((o) => o.id === reviewDialog.id)
   if (order) {
+    if (order.status !== 'Pending') {
+      alert(`申请单状态为「${order.status}」，无法重复审核。`)
+      reviewDialog.visible = false
+      return
+    }
     order.status = reviewDialog.action === 'approve' ? 'Approved' : 'Rejected'
+    if (reviewDialog.remark) {
+      order.remark = reviewDialog.remark
+    }
   }
   reviewDialog.visible = false
 }
@@ -158,7 +166,13 @@ onMounted(() => {
         if (!order) {
           return { content: [{ type: 'text', text: `未找到 ID 为 ${id} 的价保申请。` }] }
         }
+        if (order.status !== 'Pending') {
+          return { content: [{ type: 'text', text: `申请单状态为「${order.status}」，无法重复审核。` }] }
+        }
         order.status = action === 'approve' ? 'Approved' : 'Rejected'
+        if (remark) {
+          order.remark = remark
+        }
         const remarkText = remark ? `，备注：${remark}` : ''
         return {
           content: [

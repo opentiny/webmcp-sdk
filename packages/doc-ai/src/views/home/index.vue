@@ -185,15 +185,6 @@
   border-radius: 20px;
   font-size: 0.9rem;
   color: #3a78ec;
-  cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
-}
-
-.chip:hover {
-  background: #f0f5ff;
-  border-color: #3a78ec;
-  transform: scale(1.02);
 }
 
 @keyframes fadeIn {

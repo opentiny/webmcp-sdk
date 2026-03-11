@@ -167,7 +167,7 @@ const SKILL_INPUT_SCHEMA = z.object({
     .string()
     .optional()
     .describe(
-      '进入某个技能的主入口名称。优先匹配技能的中文名称（如"客户价保单创建及审核"），或者技能目录名（如 ecommerce）。'
+      '进入某个技能的主入口名称。优先匹配技能的目录名（如 ecommerce），或者技能的中文名称（如"客户价保单创建及审核"）。'
     ),
   path: z
     .string()

@@ -19,6 +19,7 @@ export interface PriceProtectionOrder {
   reason: string
   status: 'Pending' | 'Approved' | 'Rejected'
   createdAt: string
+  remark?: string
 }
 
 export interface OrderItem {

@@ -6,6 +6,7 @@
     :modal-append-to-body="true"
     :close-on-click-modal="false"
     custom-class="pp-dialog"
+    @close="handleClose"
   >
     <!-- AI Banner -->
     <div class="ai-banner">
@@ -79,6 +80,9 @@ const formData = ref({ customerName: '', orderId: '', amount: 0, reason: '' })
 let currentResolve: ((result: string) => void) | null = null
 
 const openModal = (params: { customerName: string; orderId: string; amount: number; reason: string }) => {
+  if (currentResolve) {
+    currentResolve('❌ 用户发起了新的操作，前置价保申请已取消。')
+  }
   formData.value = {
     customerName: params.customerName || '',
     orderId: params.orderId || '',
@@ -92,8 +96,20 @@ const openModal = (params: { customerName: string; orderId: string; amount: numb
 }
 
 const handleConfirm = () => {
+  if (!formData.value.customerName) {
+    alert('客户姓名不能为空')
+    return
+  }
   if (!formData.value.orderId) {
     alert('原订单号不能为空')
+    return
+  }
+  if (!formData.value.amount || formData.value.amount <= 0) {
+    alert('补偿金额必须大于 0')
+    return
+  }
+  if (!formData.value.reason) {
+    alert('申请事由不能为空')
     return
   }
   addPriceProtectionOrder({
@@ -113,6 +129,13 @@ const handleCancel = () => {
   currentResolve?.('已驳回该笔价保申请。')
   visible.value = false
   currentResolve = null
+}
+
+const handleClose = () => {
+  if (currentResolve) {
+    currentResolve('❌ 对话框已关闭，操作取消。')
+    currentResolve = null
+  }
 }
 
 defineExpose({ openModal })
