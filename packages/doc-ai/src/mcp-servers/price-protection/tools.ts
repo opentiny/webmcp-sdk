@@ -22,7 +22,10 @@ const registerPriceProtectionTools = (server: PageAwareServer) => {
       title: '审批价保申请',
       description: '对待审核的价保申请进行审批，支持通过（approve）或拒绝（reject），可附加备注',
       inputSchema: {
-        id: z.union([z.string(), z.number()]).describe('价保申请 ID'),
+        id: z
+          .string()
+          .regex(/^PP-\d{8}-\d{2}$/i, 'ID格式错误，必须形如 PP-20260301-01')
+          .describe('价保申请 ID'),
         action: z.enum(['approve', 'reject']).describe('审批动作：approve=通过，reject=拒绝'),
         remark: z.string().optional().describe('审批备注（可选）')
       }
@@ -37,7 +40,10 @@ const registerPriceProtectionTools = (server: PageAwareServer) => {
       title: '价保申请详情',
       description: '根据申请 ID 获取单条价保申请的完整详情',
       inputSchema: {
-        id: z.union([z.string(), z.number()]).describe('价保申请 ID')
+        id: z
+          .string()
+          .regex(/^PP-\d{8}-\d{2}$/i, 'ID格式错误，必须形如 PP-20260301-01')
+          .describe('价保申请 ID')
       }
     },
     { route: '/price-protection' }
