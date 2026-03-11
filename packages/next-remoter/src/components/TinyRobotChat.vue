@@ -816,6 +816,19 @@ defineExpose({
 .tr-history-demo {
   height: 100%;
   width: 100%;
+
+  :deep(.tr-history__group) {
+    height: 100%;
+    overflow: scroll;
+  }
+
+  :deep(.tr-history__group) {
+    height: 100%;
+    overflow: scroll;
+    .tr-history__group-items {
+      padding-bottom: 40px;
+    }
+  }
 }
 
 /* 助手消息操作按钮样式 */
