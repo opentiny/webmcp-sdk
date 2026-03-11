@@ -13,6 +13,7 @@
     "@opentiny/next-remoter": "workspace:*",
     "@opentiny/next-sdk": "workspace:*",
     "@opentiny/vue": "catalog:",
+    "@opentiny/vue-huicharts": "catalog:",
     "@opentiny/vue-icon": "catalog:",
     "markdown-it": "catalog:",
     "unocss": "catalog:",

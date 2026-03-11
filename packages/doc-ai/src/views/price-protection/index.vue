@@ -1,228 +1,372 @@
 <template>
-  <div class="price-protection-page">
+  <div class="price-protection-view">
     <div class="page-header">
-      <h3>价保管理</h3>
-      <div class="header-stats">
-        <span class="stat-item pending">待审核 {{ statusCount.pending }}</span>
-        <span class="stat-item approved">已通过 {{ statusCount.approved }}</span>
-        <span class="stat-item rejected">已拒绝 {{ statusCount.rejected }}</span>
-        <span class="stat-item expired">已过期 {{ statusCount.expired }}</span>
+      <div class="header-left">
+        <h2>价保单监控</h2>
+        <p class="subtitle">跟踪并审批客户提起的价保申请订单</p>
+      </div>
+      <div class="header-right">
+        <button class="btn-add" @click="handleManualAdd">＋ 新增价保申请</button>
       </div>
     </div>
-    <div class="page-content">
-      <tiny-grid
-        auto-resize
-        ref="gridRef"
-        :data="records"
-        :height="500"
-        :edit-config="{ trigger: 'click', mode: 'cell', showStatus: true }"
-      >
-        <tiny-grid-column type="index" width="50" />
-        <tiny-grid-column type="selection" width="50" />
-        <tiny-grid-column field="orderId" title="订单号" width="180" />
-        <tiny-grid-column field="productName" title="商品名称" />
-        <tiny-grid-column field="buyPrice" title="购买价格">
-          <template #default="{ row }">¥{{ row.buyPrice }}</template>
-        </tiny-grid-column>
-        <tiny-grid-column field="currentPrice" title="当前价格">
-          <template #default="{ row }">¥{{ row.currentPrice }}</template>
-        </tiny-grid-column>
-        <tiny-grid-column field="diffPrice" title="可退差价">
+
+    <div class="table-container">
+      <tiny-grid :data="priceProtectionList" border resizable>
+        <tiny-grid-column type="index" width="60" />
+        <tiny-grid-column field="id" title="价保单号" width="180" />
+        <tiny-grid-column field="orderId" title="原订单号" width="150" />
+        <tiny-grid-column field="customerName" title="客户姓名" width="100" />
+        <tiny-grid-column field="amount" title="补偿金额" width="110" align="right">
           <template #default="{ row }">
-            <span class="diff-price">¥{{ row.diffPrice }}</span>
+            <span class="amount">￥{{ row.amount }}</span>
           </template>
         </tiny-grid-column>
-        <tiny-grid-column field="applyDate" title="申请日期" width="110" />
-        <tiny-grid-column field="expireDate" title="到期日期" width="110" />
-        <tiny-grid-column field="status" title="状态" width="100">
+        <tiny-grid-column field="reason" title="价保原因" min-width="180" />
+        <tiny-grid-column field="status" title="当前状态" width="110" align="center">
           <template #default="{ row }">
-            <tiny-tag :type="statusType[row.status]">{{ statusLabels[row.status] }}</tiny-tag>
+            <span :class="['status-bubble', row.status.toLowerCase()]">
+              {{ statusLabel[row.status] }}
+            </span>
           </template>
         </tiny-grid-column>
-        <tiny-grid-column field="remark" title="备注" />
-        <tiny-grid-column title="操作" width="140">
+        <tiny-grid-column field="createdAt" title="提起时间" width="175" />
+        <!-- 操作列：仅 Pending 状态展示审批/驳回按钮 -->
+        <tiny-grid-column title="操作" width="150" align="center">
           <template #default="{ row }">
-            <template v-if="row.status === 'pending'">
-              <tiny-button type="primary" size="mini" @click="handleApprove(row)">通过</tiny-button>
-              <tiny-button type="danger" size="mini" style="margin-left: 6px" @click="handleReject(row)"
-                >拒绝</tiny-button
-              >
-            </template>
-            <span v-else class="no-action">—</span>
+            <div v-if="row.status === 'Pending'" class="row-actions">
+              <button class="act-btn approve" @click="handleApprove(row)">通过</button>
+              <button class="act-btn reject" @click="handleReject(row)">驳回</button>
+            </div>
+            <span v-else class="action-done">—</span>
           </template>
         </tiny-grid-column>
       </tiny-grid>
     </div>
+
+    <!-- 客户申请审批核对弹窗（AI 调用 / 手动新增共用） -->
+    <PriceProtectionModal ref="modalRef" />
+
+    <!-- 审批确认对话框 -->
+    <tiny-dialog-box
+      v-model:visible="reviewDialog.visible"
+      :title="reviewDialog.action === 'approve' ? '确认审批通过' : '确认驳回'"
+      width="420px"
+    >
+      <div class="review-confirm">
+        <p>
+          即将对价保申请
+          <strong>{{ reviewDialog.orderId }}</strong>
+          执行
+          <strong :class="reviewDialog.action === 'approve' ? 'text-success' : 'text-danger'">
+            {{ reviewDialog.action === 'approve' ? '审批通过' : '驳回' }}
+          </strong>
+          操作。
+        </p>
+        <tiny-form :model="reviewDialog">
+          <tiny-form-item label="备注（可选）">
+            <tiny-input v-model="reviewDialog.remark" type="textarea" :rows="2" placeholder="填写审批备注" />
+          </tiny-form-item>
+        </tiny-form>
+      </div>
+      <template #footer>
+        <tiny-button @click="reviewDialog.visible = false">取消</tiny-button>
+        <tiny-button :type="reviewDialog.action === 'approve' ? 'success' : 'danger'" @click="confirmReview">
+          确认{{ reviewDialog.action === 'approve' ? '通过' : '驳回' }}
+        </tiny-button>
+      </template>
+    </tiny-dialog-box>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { priceProtectionList, type PriceProtectionOrder } from '../../mock'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import PriceProtectionModal from '../../components/PriceProtectionModal.vue'
 import { registerPageTool } from '@opentiny/next-sdk'
-import rawData from './price-protection.json'
 
-// 状态标签与样式映射
-const statusLabels: Record<string, string> = {
-  pending: '待审核',
-  approved: '已通过',
-  rejected: '已拒绝',
-  expired: '已过期'
-}
-const statusType: Record<string, string> = {
-  pending: 'warning',
-  approved: 'success',
-  rejected: 'danger',
-  expired: 'info'
+const modalRef = ref()
+
+const statusLabel: Record<string, string> = {
+  Pending: '待处理',
+  Approved: '已通过',
+  Rejected: '已拒绝'
 }
 
-// 审批默认备注，统一管理避免多处重复导致不一致
-const DEFAULT_REMARKS = {
-  approve: '审核通过，差价将在3个工作日内退回',
-  reject: '不符合价保条件，不予受理'
-} as const
+// 手动点击按钮新增价保申请（与 AI 调用共用同一个弹窗）
+const handleManualAdd = () => {
+  modalRef.value?.openModal({ customerName: '', orderId: '', amount: 0, reason: '' })
+}
 
-const records = ref(rawData as any[])
-
-// 各状态数量统计
-const statusCount = computed(() => {
-  const count = { pending: 0, approved: 0, rejected: 0, expired: 0 }
-  records.value.forEach((r) => {
-    if (r.status in count) count[r.status as keyof typeof count]++
-  })
-  return count
+// 行内审批对话框状态
+const reviewDialog = reactive({
+  visible: false,
+  action: 'approve' as 'approve' | 'reject',
+  orderId: '',
+  id: '',
+  remark: ''
 })
 
-// 审核通过
-function handleApprove(row: any) {
-  row.status = 'approved'
-  row.remark = DEFAULT_REMARKS.approve
+const handleApprove = (row: PriceProtectionOrder) => {
+  reviewDialog.action = 'approve'
+  reviewDialog.orderId = row.orderId
+  reviewDialog.id = row.id
+  reviewDialog.remark = ''
+  reviewDialog.visible = true
 }
 
-// 审核拒绝
-function handleReject(row: any) {
-  row.status = 'rejected'
-  row.remark = DEFAULT_REMARKS.reject
+const handleReject = (row: PriceProtectionOrder) => {
+  reviewDialog.action = 'reject'
+  reviewDialog.orderId = row.orderId
+  reviewDialog.id = row.id
+  reviewDialog.remark = ''
+  reviewDialog.visible = true
 }
 
-// 注册页面 MCP 工具处理器
-let cleanupPageTool: () => void
+const confirmReview = () => {
+  const order = priceProtectionList.value.find((o) => o.id === reviewDialog.id)
+  if (order) {
+    if (order.status !== 'Pending') {
+      alert(`申请单状态为「${order.status}」，无法重复审核。`)
+      reviewDialog.visible = false
+      return
+    }
+    order.status = reviewDialog.action === 'approve' ? 'Approved' : 'Rejected'
+    if (reviewDialog.remark) {
+      order.remark = reviewDialog.remark
+    }
+  }
+  reviewDialog.visible = false
+}
+
+let cleanupPageTool: (() => void) | undefined
 
 onMounted(() => {
   cleanupPageTool = registerPageTool({
-    route: '/price-protection',
     handlers: {
-      // 查询价保申请列表，支持按状态过滤
+      // 查询价保列表（可按状态筛选）
       'price-protection-query': async ({ status }: { status?: string }) => {
-        const result = status ? records.value.filter((r) => r.status === status) : records.value
-        return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }]
-        }
+        const list = status
+          ? priceProtectionList.value.filter((o) => o.status.toLowerCase() === status.toLowerCase())
+          : priceProtectionList.value
+        const text = `查询到 ${list.length} 条价保申请：\n${JSON.stringify(list, null, 2)}`
+        return { content: [{ type: 'text', text }] }
       },
 
-      // 审批价保申请
+      // 审批价保申请（通过/拒绝）
       'price-protection-review': async ({
         id,
         action,
         remark
       }: {
-        id: number
+        id: string | number
         action: 'approve' | 'reject'
         remark?: string
       }) => {
-        const record = records.value.find((r) => r.id === id)
-        if (!record) {
-          return { content: [{ type: 'text', text: `未找到 ID 为 ${id} 的价保申请` }] }
+        const order = priceProtectionList.value.find((o) => o.id === String(id))
+        if (!order) {
+          return { content: [{ type: 'text', text: `未找到 ID 为 ${id} 的价保申请。` }] }
         }
-        if (record.status !== 'pending') {
-          return {
-            content: [{ type: 'text', text: `申请 ${id} 当前状态为「${statusLabels[record.status]}」，无法再次审核` }]
-          }
+        if (order.status !== 'Pending') {
+          return { content: [{ type: 'text', text: `申请单状态为「${order.status}」，无法重复审核。` }] }
         }
-        record.status = action === 'approve' ? 'approved' : 'rejected'
-        record.remark = remark ?? (action === 'approve' ? DEFAULT_REMARKS.approve : DEFAULT_REMARKS.reject)
+        order.status = action === 'approve' ? 'Approved' : 'Rejected'
+        if (remark) {
+          order.remark = remark
+        }
+        const remarkText = remark ? `，备注：${remark}` : ''
         return {
           content: [
-            {
-              type: 'text',
-              text: `申请 ${id}（${record.productName}）已${action === 'approve' ? '通过' : '拒绝'}，备注：${record.remark}`
-            }
+            { type: 'text', text: `价保申请 ${order.id} 已${action === 'approve' ? '通过' : '拒绝'}${remarkText}。` }
           ]
         }
       },
 
-      // 获取价保申请详情
-      'price-protection-detail': async ({ id }: { id: number }) => {
-        const record = records.value.find((r) => r.id === id)
-        if (!record) {
-          return { content: [{ type: 'text', text: `未找到 ID 为 ${id} 的价保申请` }] }
+      // 查询单条价保申请详情
+      'price-protection-detail': async ({ id }: { id: string | number }) => {
+        const order = priceProtectionList.value.find((o) => o.id === String(id))
+        const text = order ? `价保申请详情：\n${JSON.stringify(order, null, 2)}` : `未找到 ID 为 ${id} 的价保申请。`
+        return { content: [{ type: 'text', text }] }
+      },
+
+      // 新增价保申请（弹窗确认）
+      'add_price_protection': async (params: any) => {
+        if (!params.isSkillRead) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: '错误：在调用此工具前，你必须先使用 get_skill_content 读取相关技能文档。请先阅读技能文档后再重新调用。'
+              }
+            ]
+          }
         }
-        return { content: [{ type: 'text', text: JSON.stringify(record, null, 2) }] }
+        const result = await modalRef.value.openModal(params)
+        return { content: [{ type: 'text', text: result }] }
       }
     }
   })
 })
 
-onUnmounted(() => cleanupPageTool?.())
+onUnmounted(() => {
+  cleanupPageTool?.()
+})
 </script>
 
-<style scoped lang="less">
-.price-protection-page {
-  .page-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 15px;
-    height: 32px;
-
-    h3 {
-      margin: 0;
-    }
-  }
-}
-
-.header-stats {
+<style scoped>
+.price-protection-view {
+  animation: fadeIn 0.4s ease-out;
   display: flex;
-  gap: 12px;
-
-  .stat-item {
-    font-size: 13px;
-    padding: 3px 12px;
-    border-radius: 12px;
-    font-weight: 500;
-
-    &.pending {
-      background: #fff7e6;
-      color: #fa8c16;
-    }
-    &.approved {
-      background: #f6ffed;
-      color: #52c41a;
-    }
-    &.rejected {
-      background: #fff1f0;
-      color: #ff4d4f;
-    }
-    &.expired {
-      background: #f5f5f5;
-      color: #8c8c8c;
-    }
-  }
+  flex-direction: column;
+  height: 100%;
 }
 
-.page-content {
-  padding: 20px;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.03);
+.page-header {
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 }
 
-.diff-price {
-  color: #ff4d4f;
+.page-header h2 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1d2129;
+  margin: 0 0 4px 0;
+}
+
+.subtitle {
+  color: #86909c;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.review-confirm p {
+  font-size: 0.95rem;
+  margin-bottom: 16px;
+  color: #1d2129;
+  line-height: 1.6;
+}
+.review-confirm strong {
   font-weight: 600;
 }
+.text-success {
+  color: #00b42a;
+}
+.text-danger {
+  color: #f53f3f;
+}
 
-.no-action {
-  color: #bfbfbf;
-  font-size: 13px;
+.action-done {
+  color: #c9cdd4;
+  font-size: 1rem;
+}
+
+/* 顶部新增按钮 */
+.btn-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #6366f1;
+  background: #fff;
+  border: 1.5px solid #c7d2fe;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn-add:hover {
+  background: rgba(99, 102, 241, 0.06);
+  border-color: #818cf8;
+}
+
+/* 行内操作按钮组 */
+.row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.act-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.18s;
+  white-space: nowrap;
+}
+.act-btn.approve {
+  background: #ecfdf5;
+  color: #059669;
+  border: 1px solid #a7f3d0;
+}
+.act-btn.approve:hover {
+  background: #d1fae5;
+  border-color: #6ee7b7;
+}
+.act-btn.reject {
+  background: #fef2f2;
+  color: #dc2626;
+  border: 1px solid #fecaca;
+}
+.act-btn.reject:hover {
+  background: #fee2e2;
+  border-color: #f87171;
+}
+
+.table-container {
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+  flex: 1;
+}
+
+.amount {
+  font-weight: 600;
+  color: #f53f3f;
+}
+
+.status-bubble {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 10px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.status-bubble.approved {
+  background: #e8ffea;
+  color: #00b42a;
+}
+
+.status-bubble.pending {
+  background: #e8f3ff;
+  color: #165dff;
+}
+
+.status-bubble.rejected {
+  background: #ffece8;
+  color: #f53f3f;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 </style>

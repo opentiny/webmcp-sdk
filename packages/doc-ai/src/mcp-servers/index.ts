@@ -1,6 +1,10 @@
 import { WebMcpServer, createMessageChannelPairTransport, withPageTools } from '@opentiny/next-sdk'
-import registerProductGuideTools from './product-guide/tools'
+import registerInventoryTools from './inventory/tools'
 import registerPriceProtectionTools from './price-protection/tools'
+import registerProductGuideTools from './product-guide/tools'
+import registerSalesTools from './sales/tools'
+import registerFinanceTools from './finance/tools'
+import registerOrdersTools from './orders/tools'
 
 const rawServer = new WebMcpServer()
 const [serverTransport, clientTransport] = createMessageChannelPairTransport()
@@ -10,8 +14,19 @@ export const server = withPageTools(rawServer)
 
 export { clientTransport }
 
+let isConnected = false
+
 export const createMcpServer = async () => {
-  registerProductGuideTools(server)
+  if (isConnected) return
+  isConnected = true
+
+  // 注册所有模块的工具
+  registerInventoryTools(server)
   registerPriceProtectionTools(server)
+  registerProductGuideTools(server)
+  registerSalesTools(server)
+  registerFinanceTools(server)
+  registerOrdersTools(server)
+
   await rawServer.connect(serverTransport)
 }

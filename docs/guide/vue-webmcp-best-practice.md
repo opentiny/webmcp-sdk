@@ -6,12 +6,12 @@
 
 在开始之前，先理解三个模块的职责：
 
-| 模块 | 包名 | 职责 |
-|------|------|------|
-| **WebMCP Server** | `@opentiny/next-sdk` | 在浏览器中运行的 MCP 工具服务器，注册可供 AI 调用的工具 |
-| **Page Tool Bridge** | `@opentiny/next-sdk` | 工具调用时自动导航到目标页面，并通过消息通信执行页面内逻辑 |
-| **WebSkills** | `@opentiny/next-sdk` + `@opentiny/next-remoter` | 结构化知识包，让 AI 获得特定领域的角色和文档知识 |
-| **TinyRemoter** | `@opentiny/next-remoter` | AI 对话面板组件，集成 LLM + MCP + Skills |
+| 模块                 | 包名                                            | 职责                                                       |
+| -------------------- | ----------------------------------------------- | ---------------------------------------------------------- |
+| **WebMCP Server**    | `@opentiny/next-sdk`                            | 在浏览器中运行的 MCP 工具服务器，注册可供 AI 调用的工具    |
+| **Page Tool Bridge** | `@opentiny/next-sdk`                            | 工具调用时自动导航到目标页面，并通过消息通信执行页面内逻辑 |
+| **WebSkills**        | `@opentiny/next-sdk` + `@opentiny/next-remoter` | 结构化知识包，让 AI 获得特定领域的角色和文档知识           |
+| **TinyRemoter**      | `@opentiny/next-remoter`                        | AI 对话面板组件，集成 LLM + MCP + Skills                   |
 
 ### 为什么需要 Page Tool Bridge？
 
@@ -187,10 +187,7 @@ const registerPriceProtectionTools = (server: PageAwareServer) => {
       title: '查询价保申请',
       description: '查询价保申请列表，可按状态筛选（pending/approved/rejected/expired），不传则返回全部',
       inputSchema: {
-        status: z
-          .enum(['pending', 'approved', 'rejected', 'expired'])
-          .optional()
-          .describe('申请状态，不传则查询全部')
+        status: z.enum(['pending', 'approved', 'rejected', 'expired']).optional().describe('申请状态，不传则查询全部')
       }
     },
     { route: '/price-protection' }
@@ -202,7 +199,7 @@ const registerPriceProtectionTools = (server: PageAwareServer) => {
       title: '审批价保申请',
       description: '对待审核的价保申请进行审批，支持通过（approve）或拒绝（reject），可附加备注',
       inputSchema: {
-        id: z.number().describe('价保申请 ID'),
+        id: z.union([z.string(), z.number()]).describe('价保申请 ID'),
         action: z.enum(['approve', 'reject']).describe('审批动作：approve=通过，reject=拒绝'),
         remark: z.string().optional().describe('审批备注（可选）')
       }
@@ -216,7 +213,7 @@ const registerPriceProtectionTools = (server: PageAwareServer) => {
       title: '价保申请详情',
       description: '根据申请 ID 获取单条价保申请的完整详情',
       inputSchema: {
-        id: z.number().describe('价保申请 ID')
+        id: z.union([z.string(), z.number()]).describe('价保申请 ID')
       }
     },
     { route: '/price-protection' }
@@ -228,10 +225,10 @@ export default registerPriceProtectionTools
 
 > **两种工具注册方式对比：**
 >
-> | 方式 | 第三个参数 | 适用场景 |
-> |------|-----------|---------|
-> | 回调函数 | `async (input) => { return { content: [...] } }` | 工具逻辑简单，不需要访问页面状态或 Vue 响应式数据 |
-> | 路由配置 | `{ route: '/some-path', timeout?: number }` | 工具需要读写页面状态，或需要在特定页面内执行业务逻辑 |
+> | 方式     | 第三个参数                                       | 适用场景                                             |
+> | -------- | ------------------------------------------------ | ---------------------------------------------------- |
+> | 回调函数 | `async (input) => { return { content: [...] } }` | 工具逻辑简单，不需要访问页面状态或 Vue 响应式数据    |
+> | 路由配置 | `{ route: '/some-path', timeout?: number }`      | 工具需要读写页面状态，或需要在特定页面内执行业务逻辑 |
 >
 > 路由配置对象（RouteConfig）支持字段：**route**（必填，目标路由路径）、**timeout**（可选，等待页面响应的超时时间，单位 ms，默认 30000）。
 
@@ -250,9 +247,7 @@ export default registerPriceProtectionTools
 <template>
   <div class="products-page">
     <!-- 你的页面内容 -->
-    <div v-for="product in products" :key="product.id">
-      {{ product.name }} - ¥{{ product.price }}
-    </div>
+    <div v-for="product in products" :key="product.id">{{ product.name }} - ¥{{ product.price }}</div>
   </div>
 </template>
 
@@ -280,9 +275,7 @@ onMounted(() => {
       // key 必须与 mcp-servers 中注册的工具名一致
       'product-guide': async ({ productId }: { productId: string }) => {
         const product = products.value.find((p) => String(p.id) === productId)
-        const text = product
-          ? `产品信息：${JSON.stringify(product, null, 2)}`
-          : `未找到产品 ID 为 ${productId} 的商品`
+        const text = product ? `产品信息：${JSON.stringify(product, null, 2)}` : `未找到产品 ID 为 ${productId} 的商品`
         // 返回格式遵循 MCP 协议：content 数组，每项包含 type 和内容
         return { content: [{ type: 'text', text }] }
       }
@@ -317,9 +310,7 @@ onMounted(() => {
     handlers: {
       // 一个页面可以注册多个工具的处理器
       'price-protection-query': async ({ status }: { status?: string }) => {
-        const result = status
-          ? records.value.filter((r) => r.status === status)
-          : records.value
+        const result = status ? records.value.filter((r) => r.status === status) : records.value
         return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
       },
 
@@ -328,7 +319,7 @@ onMounted(() => {
         action,
         remark
       }: {
-        id: number
+        id: string | number
         action: 'approve' | 'reject'
         remark?: string
       }) => {
@@ -343,7 +334,7 @@ onMounted(() => {
         }
       },
 
-      'price-protection-detail': async ({ id }: { id: number }) => {
+      'price-protection-detail': async ({ id }: { id: string | number }) => {
         const record = records.value.find((r) => r.id === id)
         if (!record) {
           return { content: [{ type: 'text', text: `未找到 ID 为 ${id} 的申请` }] }
@@ -359,6 +350,7 @@ onUnmounted(() => cleanupPageTool?.())
 ```
 
 > **处理器编写规范：**
+>
 > - handler 的参数类型由对应工具的 `inputSchema` 决定，命名完全对应
 > - 返回值必须是 `{ content: Array<{ type: 'text', text: string }> }` 格式
 > - handler 内部可以访问任何 Vue 响应式数据（`ref`、`reactive`、`computed`、Pinia Store 等）
@@ -446,10 +438,11 @@ mkdir -p src/skills/product-guide/reference
 ### 6.2 编写 SKILL.md 入口
 
 ```markdown
-<!-- src/skills/product-guide/SKILL.md -->
----
+## <!-- src/skills/product-guide/SKILL.md -->
+
 name: product-guide
 description: 商品管理指南技能包。提供商品管理相关的搜索和查询功能。当用户询问商品创建、库存管理、价格设置、上架流程等问题时使用。
+
 ---
 
 # 商品管理指南
@@ -466,10 +459,11 @@ description: 商品管理指南技能包。提供商品管理相关的搜索和�
 ### 6.3 添加参考资料文件
 
 ```markdown
-<!-- src/skills/product-guide/reference/product-listing.md -->
----
+## <!-- src/skills/product-guide/reference/product-listing.md -->
+
 title: 商品上架
 tags: [商品管理, 上架, 库存]
+
 ---
 
 # 商品上架
@@ -528,6 +522,7 @@ TinyRemoter 展示最终回复给用户
 ### 工具调用超时？
 
 默认超时 30 秒。常见原因：
+
 - 页面未调用 `registerPageTool`，或 handler 中对应的工具名拼写有误
 - 路由配置的 `route` 与 `registerPageTool` 侧实际匹配的路径不一致
 - `registerPageTool` 未传 `route` 且在 `onMounted` 之外调用，导致 `window.location.pathname` 取到了错误路径；此时应手动传入 `route` 字段以明确指定路径

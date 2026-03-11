@@ -76,17 +76,32 @@ export class PriceProtectionComponent implements OnInit, OnDestroy {
           action,
           remark
         }: {
-          id: number
+          id: string | number
           action: 'approve' | 'reject'
           remark?: string
         }) => {
-          const record = this.records.find((r) => r.id === id)
+          const parseRecordId = (value: string | number): number | null => {
+            if (typeof value === 'number') {
+              return Number.isSafeInteger(value) ? value : null
+            }
+            return /^\d+$/.test(value) ? Number(value) : null
+          }
+          const recordId = parseRecordId(id)
+          if (recordId === null) {
+            return { content: [{ type: 'text', text: `无效的价保申请 ID：${id}` }] }
+          }
+          const record = this.records.find((r) => r.id === recordId)
           if (!record) {
             return { content: [{ type: 'text', text: `未找到 ID 为 ${id} 的价保申请` }] }
           }
           if (record.status !== 'pending') {
             return {
-              content: [{ type: 'text', text: `申请 ${id} 当前状态为「${this.statusLabels[record.status]}」，无法再次审核` }]
+              content: [
+                {
+                  type: 'text',
+                  text: `申请 ${id} 当前状态为「${this.statusLabels[record.status] || record.status}」，无法再次审核`
+                }
+              ]
             }
           }
           record.status = action === 'approve' ? 'approved' : 'rejected'
@@ -100,8 +115,16 @@ export class PriceProtectionComponent implements OnInit, OnDestroy {
             ]
           }
         },
-        'price-protection-detail': async ({ id }: { id: number }) => {
-          const record = this.records.find((r) => r.id === id)
+        'price-protection-detail': async ({ id }: { id: string | number }) => {
+          const parseRecordId = (value: string | number): number | null => {
+            if (typeof value === 'number') return Number.isSafeInteger(value) ? value : null
+            return /^\d+$/.test(value) ? Number(value) : null
+          }
+          const recordId = parseRecordId(id)
+          if (recordId === null) {
+            return { content: [{ type: 'text', text: `无效的价保申请 ID：${id}` }] }
+          }
+          const record = this.records.find((r) => r.id === recordId)
           if (!record) {
             return { content: [{ type: 'text', text: `未找到 ID 为 ${id} 的价保申请` }] }
           }

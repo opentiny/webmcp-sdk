@@ -8,12 +8,12 @@
 
 在开始之前，先理解各模块的职责及 Angular 的接入方式：
 
-| 模块 | 包名 | 职责 | Angular 中的位置 |
-| ------ | ------ | ------ | ------------------ |
-| **WebMCP Server** | `@opentiny/next-sdk` | 在浏览器中运行的 MCP 工具服务器，注册可供 AI 调用的工具 | Angular 主窗口（如 `mcp-servers/index.ts`） |
-| **Page Tool Bridge** | `@opentiny/next-sdk` | 工具调用时自动导航到目标页面，并通过消息通信执行页面内逻辑 | 同主窗口，与 `registerPageTool` 配合 |
-| **WebSkills** | `@opentiny/next-sdk` + 技能文档 | 结构化知识包，让 AI 获得特定领域的角色和文档知识 | Remoter 侧（Vue iframe 内） |
-| **TinyRemoter** | `@opentiny/next-remoter` | Vue 实现的 AI 对话面板组件，集成 LLM + MCP + Skills | **独立 Vue 应用，通过 iframe 嵌入** |
+| 模块                 | 包名                            | 职责                                                       | Angular 中的位置                            |
+| -------------------- | ------------------------------- | ---------------------------------------------------------- | ------------------------------------------- |
+| **WebMCP Server**    | `@opentiny/next-sdk`            | 在浏览器中运行的 MCP 工具服务器，注册可供 AI 调用的工具    | Angular 主窗口（如 `mcp-servers/index.ts`） |
+| **Page Tool Bridge** | `@opentiny/next-sdk`            | 工具调用时自动导航到目标页面，并通过消息通信执行页面内逻辑 | 同主窗口，与 `registerPageTool` 配合        |
+| **WebSkills**        | `@opentiny/next-sdk` + 技能文档 | 结构化知识包，让 AI 获得特定领域的角色和文档知识           | Remoter 侧（Vue iframe 内）                 |
+| **TinyRemoter**      | `@opentiny/next-remoter`        | Vue 实现的 AI 对话面板组件，集成 LLM + MCP + Skills        | **独立 Vue 应用，通过 iframe 嵌入**         |
 
 ### 为什么 Angular 需要 iframe + createMessageChannelClientTransport？
 
@@ -317,9 +317,23 @@ export class ComprehensiveComponent implements OnInit, OnDestroy {
 this.cleanupPageTool = registerPageTool({
   route: '/price-protection',
   handlers: {
-    'price-protection-query': async ({ status }: { status?: string }) => { /* ... */ },
-    'price-protection-review': async ({ id, action, remark }: { ... }) => { /* ... */ },
-    'price-protection-detail': async ({ id }: { id: number }) => { /* ... */ }
+    'price-protection-query': async ({ status }: { status?: string }) => {
+      /* ... */
+    },
+    'price-protection-review': async ({
+      id,
+      action,
+      remark
+    }: {
+      id: string | number
+      action: 'approve' | 'reject'
+      remark?: string
+    }) => {
+      /* ... */
+    },
+    'price-protection-detail': async ({ id }: { id: string | number }) => {
+      /* ... */
+    }
   }
 })
 ```
@@ -448,15 +462,15 @@ SDK 收到 page-ready，在主窗口内 postMessage 发送
 
 ## 与 Vue 版本的对照
 
-| 项目 | Vue 版本 | Angular 版本 |
-| ------ | ---------- | -------------- |
-| TinyRemoter 使用方式 | 直接在主应用内引用 Vue 组件 | **iframe 嵌入独立 Vue 应用**，主应用不直接引用 Remoter |
-| MCP 连接方式 | `createMessageChannelPairTransport()` 同窗口内存对 | **主窗口** `createMessageChannelServerTransport('local-mcp')` + **iframe** `createMessageChannelClientTransport('local-mcp', window.parent)` |
-| setNavigator | 在 `main.ts` 中 `setNavigator(router.push)` | 在根组件 `ngOnInit` 中 `setNavigator(router.navigateByUrl)` |
-| MCP Server 与工具注册 | 在 App.vue 或独立模块，同窗口 | 在 `mcp-servers/index.ts`，**主窗口** |
-| 页面工具注册 | `onMounted` + `registerPageTool`，`onUnmounted` + cleanup | `ngOnInit` + `registerPageTool`，`ngOnDestroy` + cleanup |
-| WebSkills 位置 | 主应用 `src/skills/` | **Remoter 工程** `remoter/src/skills/`（Vue 侧） |
-| 开发与代理 | 单应用，无需代理 | **双入口**：主应用 + Remoter 子包，主应用代理 `/remoter.html`、`/remoter` 到 Remoter 开发服务 |
+| 项目                  | Vue 版本                                                  | Angular 版本                                                                                                                                 |
+| --------------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| TinyRemoter 使用方式  | 直接在主应用内引用 Vue 组件                               | **iframe 嵌入独立 Vue 应用**，主应用不直接引用 Remoter                                                                                       |
+| MCP 连接方式          | `createMessageChannelPairTransport()` 同窗口内存对        | **主窗口** `createMessageChannelServerTransport('local-mcp')` + **iframe** `createMessageChannelClientTransport('local-mcp', window.parent)` |
+| setNavigator          | 在 `main.ts` 中 `setNavigator(router.push)`               | 在根组件 `ngOnInit` 中 `setNavigator(router.navigateByUrl)`                                                                                  |
+| MCP Server 与工具注册 | 在 App.vue 或独立模块，同窗口                             | 在 `mcp-servers/index.ts`，**主窗口**                                                                                                        |
+| 页面工具注册          | `onMounted` + `registerPageTool`，`onUnmounted` + cleanup | `ngOnInit` + `registerPageTool`，`ngOnDestroy` + cleanup                                                                                     |
+| WebSkills 位置        | 主应用 `src/skills/`                                      | **Remoter 工程** `remoter/src/skills/`（Vue 侧）                                                                                             |
+| 开发与代理            | 单应用，无需代理                                          | **双入口**：主应用 + Remoter 子包，主应用代理 `/remoter.html`、`/remoter` 到 Remoter 开发服务                                                |
 
 ---
 
