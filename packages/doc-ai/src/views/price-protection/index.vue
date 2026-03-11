@@ -150,7 +150,7 @@ onMounted(() => {
         action,
         remark
       }: {
-        id: number
+        id: string | number
         action: 'approve' | 'reject'
         remark?: string
       }) => {
@@ -168,7 +168,7 @@ onMounted(() => {
       },
 
       // 查询单条价保申请详情
-      'price-protection-detail': async ({ id }: { id: number }) => {
+      'price-protection-detail': async ({ id }: { id: string | number }) => {
         const order = priceProtectionList.value.find((o) => o.id === String(id))
         const text = order ? `价保申请详情：\n${JSON.stringify(order, null, 2)}` : `未找到 ID 为 ${id} 的价保申请。`
         return { content: [{ type: 'text', text }] }
