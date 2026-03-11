@@ -110,7 +110,7 @@ export default function PriceProtectionPage() {
     return () => {
       cleanupPageTool()
     }
-  }, [records])
+  }, [])
 
   const handleApprove = (record: PriceRecord) => {
     const updatedRecords = records.map((r) =>

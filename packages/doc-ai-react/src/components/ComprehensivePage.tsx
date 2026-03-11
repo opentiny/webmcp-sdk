@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { registerPageTool } from '@opentiny/next-sdk'
 import productsData from './data/products.json'
+
 import './ComprehensivePage.css'
 
 type Product = {
@@ -42,7 +43,7 @@ export default function ComprehensivePage() {
     return () => {
       cleanupPageTool()
     }
-  }, [products])
+  }, [])
 
   const startEdit = (id: number, field: string, value: string | number) => {
     setEditingCell({ id, field })
