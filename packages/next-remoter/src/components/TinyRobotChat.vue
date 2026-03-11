@@ -819,12 +819,8 @@ defineExpose({
 
   :deep(.tr-history__group) {
     height: 100%;
-    overflow: scroll;
-  }
-
-  :deep(.tr-history__group) {
-    height: 100%;
-    overflow: scroll;
+    overflow-y: scroll;
+    
     .tr-history__group-items {
       padding-bottom: 40px;
     }
