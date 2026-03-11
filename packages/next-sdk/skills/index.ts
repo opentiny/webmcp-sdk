@@ -134,7 +134,8 @@ export function getSkillMdContent(modules: Record<string, string>, path: string)
  * - 依赖 getMainSkillPaths，内部已做 normalize
  */
 export function getMainSkillPathByName(modules: Record<string, string>, name: string): string | undefined {
-  const paths = getMainSkillPaths(modules)
+  const normalizedModules = normalizeSkillModuleKeys(modules)
+  const paths = getMainSkillPaths(normalizedModules)
 
   // 1. 先尝试按目录名精确匹配 (兼容老逻辑)
   const dirMatch = paths.find((p) => p.startsWith(`./${name}/SKILL.md`))
@@ -142,7 +143,7 @@ export function getMainSkillPathByName(modules: Record<string, string>, name: st
 
   // 2. 如果按目录名找不到，则解析内容按 frontmatter 的 name 匹配
   for (const p of paths) {
-    const content = modules[p]
+    const content = normalizedModules[p]
     if (content) {
       const parsed = parseSkillFrontMatter(content)
       if (parsed && parsed.name === name) {

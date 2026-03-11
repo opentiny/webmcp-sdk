@@ -51,6 +51,11 @@ const registerPriceProtectionTools = (server: PageAwareServer) => {
       description:
         '【价保监控工具】帮助电商管理员处理顾客因降价提出的补差价请求（价保申请）。注意：在调用本工具前，你必须先使用 get_skill_content 工具读取相关的技能文档，严禁凭空构造参数或跳过业务规则直接调用。',
       inputSchema: {
+        isSkillRead: z
+          .boolean()
+          .describe(
+            '是否已经通过 get_skill_content 读取过技能文档？必须阅读文档后才允许传 true。如果你还没有阅读文档，严禁调用此工具。'
+          ),
         customerName: z.string().trim().min(1).describe('提出价保申请的顾客姓名'),
         orderId: z.string().trim().min(1).describe('需要价保补偿的原订单编号'),
         amount: z.number().positive().describe('申请补偿的差价金额'),

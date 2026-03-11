@@ -176,6 +176,16 @@ onMounted(() => {
 
       // 新增价保申请（弹窗确认）
       'add_price_protection': async (params: any) => {
+        if (!params.isSkillRead) {
+          return {
+            content: [
+              {
+                type: 'text',
+                text: '错误：在调用此工具前，你必须先使用 get_skill_content 读取相关技能文档。请先阅读技能文档后再重新调用。'
+              }
+            ]
+          }
+        }
         const result = await modalRef.value.openModal(params)
         return { content: [{ type: 'text', text: result }] }
       }
