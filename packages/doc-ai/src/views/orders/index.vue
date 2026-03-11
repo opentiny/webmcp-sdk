@@ -77,8 +77,11 @@ const statusLabelMap: Record<string, string> = {
 const filteredOrders = computed(() => {
   return orderList.value.filter((o) => {
     const matchStatus = !filterStatus.value || o.status === filterStatus.value
+    const searchLower = searchText.value.toLowerCase()
     const matchSearch =
-      !searchText.value || o.id.includes(searchText.value) || o.customerName.includes(searchText.value)
+      !searchText.value ||
+      o.id.toLowerCase().includes(searchLower) ||
+      o.customerName.toLowerCase().includes(searchLower)
     return matchStatus && matchSearch
   })
 })
@@ -100,7 +103,8 @@ onMounted(() => {
       }) => {
         let result = orderList.value as OrderItem[]
         if (orderId) result = result.filter((o) => o.id.toLowerCase().includes(orderId.toLowerCase()))
-        if (customerName) result = result.filter((o) => o.customerName.includes(customerName))
+        if (customerName)
+          result = result.filter((o) => o.customerName.toLowerCase().includes(customerName.toLowerCase()))
         if (status) result = result.filter((o) => o.status === status)
 
         // 同步更新页面筛选框
