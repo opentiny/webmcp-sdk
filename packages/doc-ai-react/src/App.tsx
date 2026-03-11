@@ -19,7 +19,7 @@ function RouterManager() {
     })
     // 启动 MCP Server（创建 MessageChannel 服务端并等待 iframe 连接）
     createMcpServer()
-  }, [navigate])
+  }, [])
 
   return null
 }
