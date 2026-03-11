@@ -1,10 +1,13 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { setNavigator } from '@opentiny/next-sdk'
 import HomePage from './components/HomePage'
 import ComprehensivePage from './components/ComprehensivePage'
 import PriceProtectionPage from './components/PriceProtectionPage'
 import './App.css'
 
 function App() {
+  const navigate = useNavigate()
+
   return (
     <BrowserRouter>
       <Routes>

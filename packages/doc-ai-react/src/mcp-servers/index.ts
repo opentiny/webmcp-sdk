@@ -6,7 +6,7 @@ const rawServer = new WebMcpServer()
 
 /**
  * 用 withPageTools 包装 server，使 registerTool 支持路由配置对象。
- * MCP Server 与 registerPageTool 均在 Angular 主窗口，page-tool-bridge 同窗口 postMessage 即可。
+ * MCP Server 与 registerPageTool 均在 react 主窗口，page-tool-bridge 同窗口 postMessage 即可。
  */
 export const server = withPageTools(rawServer)
 
