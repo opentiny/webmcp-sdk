@@ -168,7 +168,7 @@ const SKILL_INPUT_SCHEMA = z.object({
 export function createSkillTools(modules: Record<string, string>): SkillToolsSet {
   const normalizedModules = normalizeSkillModuleKeys(modules)
 
-  // @ts-ignore
+  // @ts-ignore ai package 的 tool() 函数类型推断存在"类型实例化过深"的已知限制，无法正确推断包含复杂 Zod 链的 schema
   const getSkillContent = tool({
     description:
       '根据技能名称或文档路径获取该技能的完整文档内容。如果你想根据相对路径查阅文件，请务必同时提供你当前所在的文件路径 currentPath。',
@@ -197,7 +197,7 @@ export function createSkillTools(modules: Record<string, string>): SkillToolsSet
         content = getSkillMdContent(normalizedModules, resolvedPath)
 
         // 尝试 2：如果大模型忘了传正确的 currentPath，或者是强行传错，做个智能根目录回退
-        if (content === undefined && pathArg.startsWith('./') && currentPathArg) {
+        if (content === undefined && (pathArg.startsWith('./') || pathArg.startsWith('../')) && currentPathArg) {
           const baseParts = currentPathArg.split('/')
           if (baseParts.length >= 2) {
             const skillRoot = baseParts[1]
