@@ -1,4 +1,4 @@
-import { streamText, stepCountIs, generateText, StreamTextResult } from 'ai'
+import { streamText, stepCountIs, generateText } from 'ai'
 import { MCPClientConfig, createMCPClient } from '@ai-sdk/mcp'
 import type { ToolSet } from 'ai'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
@@ -282,15 +282,22 @@ export class AgentModelProvider {
   }
 
   /** 创建临时允许调用的tools集合 */
-  private _tempMergeTools(extraTool = {}) {
+  private _tempMergeTools(extraTool = {}, deleteIgnored = true) {
     // 将对象的值转换为数组后再 reduce
     const toolsResult = Object.values(this.mcpTools).reduce((acc, curr) => ({ ...acc, ...curr }), {})
     Object.assign(toolsResult, extraTool)
 
-    this.ignoreToolnames.forEach((name) => {
-      delete toolsResult[name]
-    })
+    if (deleteIgnored) {
+      this.ignoreToolnames.forEach((name) => {
+        delete toolsResult[name]
+      })
+    }
     return toolsResult
+  }
+
+  /** 获取当前激活的 tools (过滤 ignoreToolnames) */
+  private _getActiveToolNames(tools: Record<string, any>) {
+    return Object.keys(tools).filter((name) => !this.ignoreToolnames.includes(name))
   }
 
   /** 生成 ReAct 模式的系统提示词（包含工具描述） */
@@ -810,12 +817,15 @@ export class AgentModelProvider {
 
     await this.initClientsAndTools()
 
+    const allTools = this._tempMergeTools(options.tools, false) as ToolSet
+
     const chatOptions = {
       // @ts-ignore  ProviderV2 是所有llm的父类， 在每一个具体的llm 类都有一个选择model的函数用法
       model: this.llm(model),
       stopWhen: stepCountIs(maxSteps),
       ...options,
-      tools: this._tempMergeTools(options.tools) as ToolSet
+      tools: allTools,
+      activeTools: this._getActiveToolNames(allTools),
     }
 
     // 保存最后一条 user 消息，用于后续缓存

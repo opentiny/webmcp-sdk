@@ -4,7 +4,7 @@ import type { StreamHandler } from '@opentiny/tiny-robot-kit'
 import { BaseModelProvider } from '@opentiny/tiny-robot-kit'
 import type { AIModelConfig } from '@opentiny/tiny-robot-kit'
 import { nextTick, watch, type Ref } from 'vue'
-import { AgentModelProvider, IAgentModelProviderOption } from '@opentiny/next-sdk'
+import { AgentModelProvider, IAgentModelProviderOption, getToolRouteMap, getActiveRoutes } from '@opentiny/next-sdk'
 import { getToday } from './tools'
 import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import { createDeepSeek } from '@ai-sdk/deepseek'
@@ -393,9 +393,45 @@ export class CustomAgentModelProvider extends BaseModelProvider {
 
         // 2.在步骤开始前清理旧的快照消息
         const cleanedMessages = this.cleanupOldSnapshotsInMessages(messages)
+
+        // 3. 动态获取当前激活的 tools 供模型使用
+        const allToolNames: string[] = ['get-today', ...Object.keys(this.llmConfig.extraTools || {})]
+        Object.values(this.agent.mcpTools || {}).forEach((toolObj) => {
+          allToolNames.push(...Object.keys(toolObj || {}))
+        })
+        
+        // 当开启了 pageToolsOnDemand 时，使用 routeMap 来控制 activeTools
+        const toolRouteMap = getToolRouteMap()
+        const activeRoutes = getActiveRoutes()
+        
+        const normalizeRoute = (r: string) => r.replace(/\/+$/, '') || '/'
+
+        const activeTools = Array.from(new Set(allToolNames)).filter(
+          (name) => {
+            // 基本的 disable 规则（UI 上手动关闭的，通过 ignoreToolnames 控制）
+            if (this.agent.ignoreToolnames.includes(name)) {
+               // 我们在 useRouteBasedTools 中移除了针对路由的隐式 ignore，
+               // 但如果它是 true，则代表用户从面板手动禁用了它。
+               return false;
+            }
+
+            // 根据路由按需显示 (pageToolsOnDemand)
+            // 通过判断当前工具是否存在于路由绑定中，如果绑定了但当前未处于该路由下，则不暴露给大模型
+            // 为了完全适配，只要 getToolRouteMap 里有这个 tool，并且当前路由没激活，就隐藏。
+            const boundRoute = toolRouteMap.get(name)
+            if (boundRoute) {
+               const norm = normalizeRoute(boundRoute)
+               return activeRoutes.has(norm) || activeRoutes.has(boundRoute)
+            }
+
+            return true;
+          }
+        )
+
         return {
           system: this.promptManager.getSystemPrompt(),
-          messages: cleanedMessages
+          messages: cleanedMessages,
+          activeTools
         }
       },
       onStepFinish: (result) => {

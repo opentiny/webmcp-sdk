@@ -75,14 +75,9 @@ export function useRouteBasedTools(options: {
       }
     })
 
-    // 2. 更新 ignoreToolnames：仅针对路由绑定工具做过滤
-    const ignore = new Set<string>(agent.ignoreToolnames as string[])
-    // 将所有路由工具先加入忽略集合，然后移除当前激活的
-    routeMap.forEach((_route, toolName) => {
-      ignore.add(toolName)
-    })
-    activeToolIds.forEach((id) => ignore.delete(id))
-    agent.ignoreToolnames = Array.from(ignore)
+    // 2. 更新 ignoreToolnames 的逻辑被移除
+    // 现在仅针对 UI 面板中的工具做按需展示，不进行底层大模型工具列表的强制剔除，
+    // 因为 AI 会利用 page-tool-bridge 隐式导航目标页面执行工具，或者我们在 prepareStep 中接管。
 
     // 3. 更新插件面板中的工具列表：
     //    - 首次同步时为每个插件缓存完整工具列表
