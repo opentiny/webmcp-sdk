@@ -64,6 +64,8 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   /** 生成式UI启用状态 */
   isGenuiEnabled?: Ref<boolean>
   debugStream: boolean = false
+  /** 开启页面工具按需加载 */
+  pageToolsOnDemand: boolean = false
 
   constructor(config: AIModelConfig, systemPrompt: string, llmConfig?: ICustomAgentModelProviderLlmConfig) {
     super(config)
@@ -399,34 +401,36 @@ export class CustomAgentModelProvider extends BaseModelProvider {
         Object.values(this.agent.mcpTools || {}).forEach((toolObj) => {
           allToolNames.push(...Object.keys(toolObj || {}))
         })
-        
-        // 当开启了 pageToolsOnDemand 时，使用 routeMap 来控制 activeTools
-        const toolRouteMap = getToolRouteMap()
-        const activeRoutes = getActiveRoutes()
-        
-        const normalizeRoute = (r: string) => r.replace(/\/+$/, '') || '/'
 
-        const activeTools = Array.from(new Set(allToolNames)).filter(
-          (name) => {
-            // 基本的 disable 规则（UI 上手动关闭的，通过 ignoreToolnames 控制）
-            if (this.agent.ignoreToolnames.includes(name)) {
-               // 我们在 useRouteBasedTools 中移除了针对路由的隐式 ignore，
-               // 但如果它是 true，则代表用户从面板手动禁用了它。
-               return false;
-            }
-
-            // 根据路由按需显示 (pageToolsOnDemand)
-            // 通过判断当前工具是否存在于路由绑定中，如果绑定了但当前未处于该路由下，则不暴露给大模型
-            // 为了完全适配，只要 getToolRouteMap 里有这个 tool，并且当前路由没激活，就隐藏。
-            const boundRoute = toolRouteMap.get(name)
-            if (boundRoute) {
-               const norm = normalizeRoute(boundRoute)
-               return activeRoutes.has(norm) || activeRoutes.has(boundRoute)
-            }
-
-            return true;
+        const activeTools = Array.from(new Set(allToolNames)).filter((name) => {
+          // 基本的 disable 规则（UI 上手动关闭的，通过 ignoreToolnames 控制）
+          if (this.agent.ignoreToolnames.includes(name)) {
+            // 我们在 useRouteBasedTools 中移除了针对路由的隐式 ignore，
+            // 但如果它是 true，则代表用户从面板手动禁用了它。
+            return false
           }
-        )
+
+          // 如果关闭了按需加载，则直接通过 ignoreToolnames 过滤即可
+          if (!this.pageToolsOnDemand) {
+            return true
+          }
+
+          // 当开启了 pageToolsOnDemand 时，使用 routeMap 来控制 activeTools
+          const toolRouteMap = getToolRouteMap()
+          const activeRoutes = getActiveRoutes()
+          const normalizeRoute = (r: string) => r.replace(/\/+$/, '') || '/'
+
+          // 根据路由按需显示 (pageToolsOnDemand)
+          // 通过判断当前工具是否存在于路由绑定中，如果绑定了但当前未处于该路由下，则不暴露给大模型
+          // 为了完全适配，只要 getToolRouteMap 里有这个 tool，并且当前路由没激活，就隐藏。
+          const boundRoute = toolRouteMap.get(name)
+          if (boundRoute) {
+            const norm = normalizeRoute(boundRoute)
+            return activeRoutes.has(norm) || activeRoutes.has(boundRoute)
+          }
+
+          return true
+        })
 
         return {
           system: this.promptManager.getSystemPrompt(),

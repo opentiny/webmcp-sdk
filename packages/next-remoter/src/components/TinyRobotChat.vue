@@ -386,6 +386,13 @@ watch(
 
 customAgentProvider.isGenuiEnabled = genUiAble
 customAgentProvider.debugStream = props.debugStream
+customAgentProvider.pageToolsOnDemand = props.pageToolsOnDemand
+watch(
+  () => props.pageToolsOnDemand,
+  (val) => {
+    customAgentProvider.pageToolsOnDemand = val
+  }
+)
 
 // ===== 2. 使用 useSkillWithTools composable（仅 skills + next-sdk，无 @ 提及）=====
 const skillsRef = toRef(props, 'skills')
