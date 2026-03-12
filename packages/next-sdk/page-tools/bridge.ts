@@ -1,5 +1,5 @@
 /**
- * page-tool-bridge - Web MCP 页面工具桥接模块（框架无关）
+ * page-tools/bridge - Web MCP 页面工具桥接模块（框架无关）
  *
  * 解决 Web-MCP 工具动态加载问题：工具定义（mcp-servers/）不直接写业务逻辑，
  * 而是通过 window.postMessage 将调用转发给目标页面，页面处理后返回结果。
@@ -10,61 +10,15 @@
  *                         包装 WebMcpServer，让 registerTool 第三个参数
  *                         同时支持原始回调函数和路由配置对象（RouteConfig）
  *   - registerPageTool()  在目标页面激活工具处理器，返回 cleanup 函数
- *
- * 使用方式：
- *   // mcp-servers/index.ts
- *   const server = withPageTools(new WebMcpServer())
- *
- *   // mcp-servers/product-guide/tools.ts
- *   server.registerTool('product-guide', { title, description, inputSchema },
- *     { route: '/comprehensive', timeout: 15000 }  // ← 路由配置：route 必填，timeout 可选（ms，默认 30000）
- *   )
- *   // 或仍然使用普通回调（完全兼容）
- *   server.registerTool('simple-tool', { ... }, async (input) => { ... })
- *
- *   // 目标页面（Vue）— route 可省略，默认取 window.location.pathname
- *   onMounted(() => { cleanup = registerPageTool({ handlers }) })
- *   onUnmounted(() => cleanup())
- *
- *   // 目标页面（Vue）— 当页面路由与 pathname 不一致时，手动指定 route
- *   onMounted(() => { cleanup = registerPageTool({ route: '/my-page', handlers }) })
- *   onUnmounted(() => cleanup())
- *
- *   // 目标页面（React）
- *   useEffect(() => registerPageTool({ handlers }), [])
- *
- *   // 目标页面（Angular）
- *   export class MyComponent implements OnInit, OnDestroy {
- *     private cleanupPageTool!: () => void
- *     ngOnInit() { this.cleanupPageTool = registerPageTool({ handlers }) }
- *     ngOnDestroy() { this.cleanupPageTool() }
- *   }
- *
- * setNavigator 在不同框架中的注册方式：
- *   // Vue（main.ts）
- *   const router = createRouter(...)
- *   app.use(router)
- *   setNavigator((route) => router.push(route))
- *
- *   // React（App.tsx，使用 react-router-dom）
- *   function AppNavigator() {
- *     const navigate = useNavigate()
- *     useEffect(() => { setNavigator((route) => navigate(route)) }, [navigate])
- *     return null
- *   }
- *
- *   // Angular（AppComponent，使用 @angular/router）
- *   export class AppComponent {
- *     constructor(private router: Router) {
- *       setNavigator((route) => this.router.navigateByUrl(route))
- *     }
- *   }
  */
+
 import type { ZodRawShape } from 'zod'
 import type { RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
-import type { WebMcpServer } from './WebMcpServer'
-import { randomUUID } from './utils/uuid'
+import type { WebMcpServer } from '../WebMcpServer'
+import { randomUUID } from '../utils/uuid'
+import type { ToolInvokeEffectConfig } from './effects'
+import { hideToolInvokeEffect, resolveRuntimeEffectConfig, showToolInvokeEffect } from './effects'
 
 // 消息类型常量，使用命名空间前缀避免冲突
 const MSG_TOOL_CALL = 'next-sdk:tool-call'
@@ -168,6 +122,14 @@ export type RouteConfig = {
   route: string
   /** 等待页面响应的超时时间（ms），默认 30000 */
   timeout?: number
+  /**
+   * 是否在调用该工具时启用页面级调用提示效果。
+   *
+   * - false / 未配置：不启用任何额外效果（保持现有行为）
+   * - true：使用默认提示文案（优先取工具标题，其次为工具名）
+   * - 对象：可自定义提示文案
+   */
+  invokeEffect?: boolean | ToolInvokeEffectConfig
 }
 
 /**
@@ -205,7 +167,12 @@ export type PageAwareServer = Omit<WebMcpServer, 'registerTool'> & {
  * 2. 若未激活 → 调用导航函数跳转，等待 page-ready 信号后再发送
  * 3. 页面处理后回传结果，Promise resolve
  */
-function buildPageHandler(name: string, route: string, timeout = 30000) {
+function buildPageHandler(
+  name: string,
+  route: string,
+  timeout = 30000,
+  effectConfig?: ReturnType<typeof resolveRuntimeEffectConfig>
+) {
   return (input: any): Promise<any> => {
     const callId = randomUUID()
 
@@ -219,6 +186,10 @@ function buildPageHandler(name: string, route: string, timeout = 30000) {
         window.removeEventListener('message', responseHandler)
         if (readyHandler) {
           window.removeEventListener('message', readyHandler)
+        }
+        // 工具调用完成（成功 / 失败 / 超时 / 导航异常）后，无论结果如何都需要关闭调用提示效果
+        if (effectConfig) {
+          hideToolInvokeEffect()
         }
       }
 
@@ -255,6 +226,11 @@ function buildPageHandler(name: string, route: string, timeout = 30000) {
       // 导航失败时显式 reject，防止外层 Promise 永远挂起。
       const run = async () => {
         try {
+          // 一旦真正发起工具调用（无论页面是否已激活），优先开启页面调用提示效果
+          if (effectConfig) {
+            showToolInvokeEffect(effectConfig)
+          }
+
           if (activePages.get(route)) {
             // 页面已激活，直接发送
             sendCallOnce()
@@ -302,15 +278,6 @@ function buildPageHandler(name: string, route: string, timeout = 30000) {
  * - 第三个参数为**回调函数**：与原始 registerTool 完全一致，直接透传
  * - 第三个参数为 **RouteConfig 对象**：自动生成转发 handler，工具调用时
  *   先导航到目标路由，再通过 postMessage 与页面通信
- *
- * @example
- * const server = withPageTools(new WebMcpServer())
- *
- * // 路由模式：第三个参数传路由配置（route 必填，timeout 可选，单位 ms，默认 30000）
- * server.registerTool('product-guide', { title, inputSchema }, { route: '/comprehensive', timeout: 15000 })
- *
- * // 普通模式：第三个参数传回调（兼容原有写法）
- * server.registerTool('simple-tool', { title }, async (input) => ({ content: [...] }))
  */
 export function withPageTools(server: WebMcpServer): PageAwareServer {
   return new Proxy(server, {
@@ -325,9 +292,10 @@ export function withPageTools(server: WebMcpServer): PageAwareServer {
             return rawRegister(name, config, handlerOrRoute)
           }
           // 第三个参数是路由配置对象 → 自动生成转发 handler，并记录 tool → route 映射
-          const { route, timeout } = handlerOrRoute
+          const { route, timeout, invokeEffect } = handlerOrRoute
           toolRouteMap.set(name, route)
-          return rawRegister(name, config, buildPageHandler(name, route, timeout))
+          const effectConfig = resolveRuntimeEffectConfig(name, config?.title, invokeEffect)
+          return rawRegister(name, config, buildPageHandler(name, route, timeout, effectConfig))
         }
       }
       return Reflect.get(target, prop, receiver)
@@ -344,37 +312,6 @@ export function withPageTools(server: WebMcpServer): PageAwareServer {
  * - 广播 page-ready 信号，通知正在等待导航完成的工具
  *
  * 返回 cleanup 函数，页面销毁时调用。
- *
- * @example
- * // Vue（Composition API）— 省略 route，默认读 window.location.pathname
- * let cleanup: () => void
- * onMounted(() => { cleanup = registerPageTool({ handlers: { ... } }) })
- * onUnmounted(() => cleanup())
- *
- * // Vue — 当页面路由与 pathname 不一致时，手动指定 route
- * onMounted(() => { cleanup = registerPageTool({ route: '/comprehensive', handlers: { ... } }) })
- * onUnmounted(() => cleanup())
- *
- * // React（Hooks）
- * useEffect(() => registerPageTool({ handlers: { ... } }), [])
- * // useEffect 直接返回 cleanup 函数，React 会在组件卸载时自动调用
- *
- * // Angular（实现 OnInit / OnDestroy 接口）
- * export class PriceProtectionComponent implements OnInit, OnDestroy {
- *   private cleanupPageTool!: () => void
- *
- *   ngOnInit(): void {
- *     this.cleanupPageTool = registerPageTool({
- *       handlers: {
- *         'price-protection-query': async ({ status }) => { ... },
- *       }
- *     })
- *   }
- *
- *   ngOnDestroy(): void {
- *     this.cleanupPageTool()
- *   }
- * }
  */
 export function registerPageTool(options: {
   /**
@@ -439,3 +376,4 @@ export function registerPageTool(options: {
     broadcastRouteChange(MSG_PAGE_LEAVE, route)
   }
 }
+
