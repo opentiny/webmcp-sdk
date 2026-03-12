@@ -494,7 +494,50 @@ const mcpServers = {
 />
 ```
 
-> 前提：业务侧的 WebMCP Server 使用 `withPageTools` 注册工具，并在对应页面中调用 `registerPageTool`。详见 [Vue WebMCP 最佳实践](./vue-webmcp-best-practice.md)。
+> 前提：
+> - 业务侧的 WebMCP Server 使用 `withPageTools` 注册工具，并在对应页面中调用 `registerPageTool`；
+> - 对于 TinyRemoter 运行在 iframe 中的场景，需确保宿主页面已按文档接入 Page Tool Bridge（包括 `setNavigator`、`withPageTools` 与 `registerPageTool`），以便路由状态能通过 MessageChannel 同步到 Remoter；
+> - 更多关于页面工具路由映射与激活状态的说明，见 [Vue WebMCP 最佳实践](./vue-webmcp-best-practice.md) 与 [Angular WebMCP 最佳实践](./angular-webmcp-best-practice.md)。
+
+## 页面工具调用提示效果（invokeEffect）
+
+`invokeEffect` 不是 TinyRemoter 的属性，而是 `withPageTools` 的 `RouteConfig` 中的可选配置，用于在调用页面工具时在业务页面左下角展示一个轻量的调用提示效果。
+
+典型注册方式如下：
+
+```ts
+// 业务侧 mcp-servers/orders/tools.ts
+server.registerTool(
+  'order_query',
+  {
+    title: '查询订单',
+    description: '【订单管理工具】查询电商订单列表，可按订单号、客户姓名或状态筛选。'
+  },
+  {
+    route: '/orders',
+    // 开启页面工具调用提示效果，并自定义展示文案
+    invokeEffect: {
+      label: '正在为你查询订单列表…'
+    }
+  }
+)
+```
+
+配置说明：
+
+- `invokeEffect?: boolean | { label?: string }`
+  - 不配置 / `false`：不展示任何额外提示；
+  - `true`：使用默认文案（优先取工具标题 `config.title`，否则回退到工具名）；
+  - 对象：可通过 `label` 自定义提示文案，例如「正在为你整理库存数据…」。
+- 提示效果渲染在**业务页面所在的 window** 中，因此：
+  - 当 TinyRemoter 与业务页面处于同一窗口时，效果直接展示在当前页面左下角；
+  - 当 TinyRemoter 运行在 iframe 中时，效果展示在宿主页面左下角，Remoter 内部无须额外配置。
+
+结合 `pageToolsOnDemand` 使用时，推荐做法是：
+
+- 通过 `withPageTools + RouteConfig` 精准绑定工具与页面路由，并按需开启 `invokeEffect`；
+- 在 TinyRemoter 侧打开 `:pageToolsOnDemand="true"`，让 LLM 只看到当前激活页面的工具；
+- 对于远程调用型工具（如订单、库存等跨页面能力），可在各自的 RouteConfig 中配置不同的 `invokeEffect.label`，帮助最终用户理解当前 AI 正在操作哪类页面能力。
 
 ## 使用示例
 

@@ -228,9 +228,37 @@ export default registerPriceProtectionTools
 > | 方式     | 第三个参数                                       | 适用场景                                             |
 > | -------- | ------------------------------------------------ | ---------------------------------------------------- |
 > | 回调函数 | `async (input) => { return { content: [...] } }` | 工具逻辑简单，不需要访问页面状态或 Vue 响应式数据    |
-> | 路由配置 | `{ route: '/some-path', timeout?: number }`      | 工具需要读写页面状态，或需要在特定页面内执行业务逻辑 |
+> | 路由配置 | `{ route: '/some-path', timeout?: number, invokeEffect?: boolean | ToolInvokeEffectConfig }` | 工具需要读写页面状态，或需要在特定页面内执行业务逻辑 |
 >
-> 路由配置对象（RouteConfig）支持字段：**route**（必填，目标路由路径）、**timeout**（可选，等待页面响应的超时时间，单位 ms，默认 30000）。
+> 路由配置对象（RouteConfig）支持字段：**route**（必填，目标路由路径）、**timeout**（可选，等待页面响应的超时时间，单位 ms，默认 30000）、**invokeEffect**（可选，是否在调用该工具时在页面左下角展示调用提示效果，支持 `boolean` 或 `{ label?: string }`）。
+
+### 页面工具调用提示效果（invokeEffect）
+
+当通过 `withPageTools` 注册工具时，可以在第三个参数的 `RouteConfig` 中配置 `invokeEffect`，为用户提供清晰的「页面工具正在执行」提示：
+
+```ts
+server.registerTool(
+  'order_query',
+  {
+    title: '查询订单',
+    description: '【订单管理工具】查询电商订单列表，可按订单号、客户姓名或状态筛选。'
+  },
+  {
+    route: '/orders',
+    // true：使用默认文案（优先取 title，其次为工具名）
+    // 也可以传对象自定义 label 文案
+    invokeEffect: {
+      label: '正在为你查询订单列表…'
+    }
+  }
+)
+```
+
+`invokeEffect` 的行为说明：
+
+- 仅对通过 `RouteConfig` 注册的页面工具生效，不影响直接传回调函数的工具；
+- 传 `true` 时使用默认文案（`config.title || toolName`），传对象时可自定义展示文案（`label`）；
+- 工具调用开始时在页面左下角展示一个小提示卡片，调用结束（成功 / 失败 / 超时）后自动淡出；支持业务页面与 TinyRemoter 同窗口或 TinyRemoter 在 iframe 中的场景。
 
 ---
 
