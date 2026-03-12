@@ -6,6 +6,7 @@ import type { AIModelConfig } from '@opentiny/tiny-robot-kit'
 import { nextTick, watch, type Ref } from 'vue'
 import { AgentModelProvider, IAgentModelProviderOption, getToolRouteMap, getActiveRoutes } from '@opentiny/next-sdk'
 import { getToday } from './tools'
+import { getRemoteRouteState } from './useRouteBasedTools'
 import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import { createDeepSeek } from '@ai-sdk/deepseek'
 import { createOpenAI } from '@ai-sdk/openai'
@@ -416,8 +417,10 @@ export class CustomAgentModelProvider extends BaseModelProvider {
           }
 
           // 当开启了 pageToolsOnDemand 时，使用 routeMap 来控制 activeTools
-          const toolRouteMap = getToolRouteMap()
-          const activeRoutes = getActiveRoutes()
+          // 优先从 useRouteBasedTools 获取跨窗口同步后的状态（iframe 兼容），兜底使用本地 bridge
+          const remoteState = getRemoteRouteState()
+          const toolRouteMap = remoteState?.toolRouteMap ?? getToolRouteMap()
+          const activeRoutes = remoteState?.activeRoutes ?? getActiveRoutes()
           const normalizeRoute = (r: string) => r.replace(/\/+$/, '') || '/'
 
           // 根据路由按需显示 (pageToolsOnDemand)

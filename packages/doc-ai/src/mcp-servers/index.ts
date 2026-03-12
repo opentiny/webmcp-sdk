@@ -7,6 +7,7 @@ import registerFinanceTools from './finance/tools'
 import registerOrdersTools from './orders/tools'
 import { z } from 'zod'
 import router from '../router'
+import { isNavigationFailure } from 'vue-router'
 
 const rawServer = new WebMcpServer()
 const [serverTransport, clientTransport] = createMessageChannelPairTransport()
@@ -21,27 +22,6 @@ let isConnected = false
 export const createMcpServer = async () => {
   if (isConnected) return
   isConnected = true
-
-  // 注册基础工具
-  server.registerTool(
-    'navigate_to_page',
-    {
-      title: '页面跳转',
-      description:
-        '当需要的工具在当前页面不可用，或技能说明文档要求切换到特定页面时，使用此工具进行路由跳转。例如：要查询订单时，根据提示跳转到 "/orders"。',
-      inputSchema: {
-        path: z.string().describe('目标页面的路由地址，例如 "/orders", "/inventory", "/price-protection" 等。')
-      }
-    },
-    async ({ path }) => {
-      await router.push(path)
-      return {
-        content: [
-          { type: 'text', text: `已成功跳转至页面：${path}，该页面的专属工具现在已经可用。请继续你的下一步操作。` }
-        ]
-      }
-    }
-  )
 
   // 注册所有模块的工具
   registerInventoryTools(server)

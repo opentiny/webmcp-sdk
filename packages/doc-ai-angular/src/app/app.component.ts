@@ -2,7 +2,7 @@ import { Component, OnInit, inject } from '@angular/core'
 import { Router } from '@angular/router'
 import { RouterOutlet } from '@angular/router'
 import { setNavigator } from '@opentiny/next-sdk'
-import { createMcpServer } from '../mcp-servers'
+import { createMcpServer, setAngularNavigator } from '../mcp-servers'
 
 @Component({
   selector: 'app-root',
@@ -15,11 +15,17 @@ export class AppComponent implements OnInit {
   private router = inject(Router)
 
   async ngOnInit(): Promise<void> {
-    // 注册路由导航器，工具触发跳转时使用 Angular Router
+    // 1. 注册基础 SDK 导航器（供 page-tool-bridge 内部自动跳转使用）
     setNavigator(async (route) => {
       await this.router.navigateByUrl(route)
     })
-    // 启动 MCP Server（创建 MessageChannel 服务端并等待 iframe 连接）
+
+    // 2. 注册 Angular 专属导航器（供 navigate_to_page 工具手动跳转使用）
+    setAngularNavigator(async (path) => {
+      await this.router.navigateByUrl(path)
+    })
+
+    // 3. 启动 MCP Server
     await createMcpServer()
   }
 }

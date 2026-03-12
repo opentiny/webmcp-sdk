@@ -11,6 +11,15 @@ import type { PluginInfo, PluginTool } from '@opentiny/tiny-robot'
 // 与 page-tool-bridge.ts 中保持一致
 const MSG_PAGE_READY = 'next-sdk:page-ready'
 
+/** 路由状态（供外部 Provider 同步使用） */
+let remoteRouteState: {
+  toolRouteMap: Map<string, string>
+  activeRoutes: Set<string>
+} | null = null
+
+/** 获取跨窗口同步后的路由状态 */
+export const getRemoteRouteState = () => remoteRouteState
+
 /**
  * 路由感知工具过滤 composable
  *
@@ -34,10 +43,10 @@ export function useRouteBasedTools(options: {
   const isInIframe = typeof window !== 'undefined' && window !== window.top
 
   // iframe 场景：父窗口回传的 toolRouteMap、activeRoutes，用于替代本窗口空的 getToolRouteMap
-  let routeStateFromParent: {
-    toolRouteMap: Map<string, string>
-    activeRoutes: Set<string>
-  } | null = null
+  // 注意：这里使用闭包变量引用，方便同步给外部
+  const setRouteState = (state: typeof remoteRouteState) => {
+    remoteRouteState = state
+  }
 
   // 缓存每个插件的完整工具列表，用于根据当前路由动态筛选显示哪些工具
   const fullToolsByPluginId = new Map<string, PluginTool[]>()
@@ -47,7 +56,7 @@ export function useRouteBasedTools(options: {
 
   /** 获取工具路由映射：同窗口用模块 API，iframe 用父窗口回传的数据 */
   const getRouteMap = () =>
-    routeStateFromParent?.toolRouteMap ?? (getToolRouteMap() as Map<string, string>)
+    remoteRouteState?.toolRouteMap ?? (getToolRouteMap() as Map<string, string>)
 
   /**
    * 根据当前全部激活路由，对所有已注册 withPageTools 工具进行一次全量同步：
@@ -60,7 +69,7 @@ export function useRouteBasedTools(options: {
       return
     }
 
-    const activeRoutes = routeStateFromParent?.activeRoutes ?? getActiveRoutes()
+    const activeRoutes = remoteRouteState?.activeRoutes ?? getActiveRoutes()
     const routeMap = getRouteMap()
 
     // 1. 计算当前应当激活的「路由绑定工具」ID 集合
@@ -75,9 +84,14 @@ export function useRouteBasedTools(options: {
       }
     })
 
-    // 2. 更新 ignoreToolnames 的逻辑被移除
-    // 现在仅针对 UI 面板中的工具做按需展示，不进行底层大模型工具列表的强制剔除，
-    // 因为 AI 会利用 page-tool-bridge 隐式导航目标页面执行工具，或者我们在 prepareStep 中接管。
+    // 2. 更新 ignoreToolnames：仅针对路由绑定工具做过滤
+    // 注意：虽然 CustomAgentModelProvider 会在 prepareStep 中覆盖 activeTools，
+    // 但保留此处的 ignoreToolnames 同步可以确保在基础场景下也有正确的工具屏蔽兜底。
+    const ignore = new Set<string>(agent.ignoreToolnames as string[])
+    // 将所有路由工具先加入忽略集合，然后移除当前激活的
+    routeToolIds.forEach((id) => ignore.add(id))
+    activeToolIds.forEach((id) => ignore.delete(id))
+    agent.ignoreToolnames = Array.from(ignore)
 
     // 3. 更新插件面板中的工具列表：
     //    - 首次同步时为每个插件缓存完整工具列表
@@ -106,8 +120,8 @@ export function useRouteBasedTools(options: {
   const handlePageReady = (event: MessageEvent) => {
     if (!isTrustedSource(event.source) || event.data?.type !== MSG_PAGE_READY) return
     // iframe 场景：更新本地 activeRoutes 缓存，供后续 sync 使用
-    if (routeStateFromParent) {
-      routeStateFromParent.activeRoutes.add(normalizeRoute(event.data.route))
+    if (remoteRouteState) {
+      remoteRouteState.activeRoutes.add(normalizeRoute(event.data.route))
     }
     syncAllRoutes()
   }
@@ -115,8 +129,8 @@ export function useRouteBasedTools(options: {
   // 监听 page-leave 消息：某个路由页面卸载，屏蔽该路由的工具
   const handlePageLeave = (event: MessageEvent) => {
     if (!isTrustedSource(event.source) || event.data?.type !== MSG_PAGE_LEAVE) return
-    if (routeStateFromParent) {
-      routeStateFromParent.activeRoutes.delete(normalizeRoute(event.data.route))
+    if (remoteRouteState) {
+      remoteRouteState.activeRoutes.delete(normalizeRoute(event.data.route))
     }
     syncAllRoutes()
   }
@@ -125,10 +139,10 @@ export function useRouteBasedTools(options: {
   const handleRouteStateInitial = (event: MessageEvent) => {
     if (!isTrustedSource(event.source) || event.data?.type !== MSG_ROUTE_STATE_INITIAL) return
     const { toolRouteMap: mapArr, activeRoutes: routesArr } = event.data
-    routeStateFromParent = {
+    setRouteState({
       toolRouteMap: new Map(mapArr as [string, string][]),
       activeRoutes: new Set((routesArr as string[]).map(normalizeRoute))
-    }
+    })
     syncAllRoutes()
   }
 
@@ -138,7 +152,7 @@ export function useRouteBasedTools(options: {
     (key, oldKey) => {
       if (key === oldKey) return
       // 在 iframe 场景下，若此时仍未拿到父窗口的初始路由状态，再主动发送一次 remoter-ready
-      if (isInIframe && !routeStateFromParent && window.parent) {
+      if (isInIframe && !remoteRouteState && window.parent) {
         window.parent.postMessage({ type: MSG_REMOTER_READY }, '*')
       }
       syncAllRoutes()
