@@ -281,10 +281,12 @@ export class AgentModelProvider {
     this.onUpdatedTools?.()
   }
 
-  /** 创建临时允许调用的tools集合 */
-  private _tempMergeTools(extraTool = {}, deleteIgnored = true) {
-    // 将对象的值转换为数组后再 reduce
-    const toolsResult = Object.values(this.mcpTools).reduce((acc, curr) => ({ ...acc, ...curr }), {})
+  /** 创建临时允许调用的 tools 集合，合并 mcpTools 与 extraTool */
+  private _tempMergeTools(extraTool: ToolSet = {} as ToolSet, deleteIgnored = true): ToolSet {
+    const toolsResult: ToolSet = Object.values(this.mcpTools).reduce(
+      (acc, curr) => ({ ...acc, ...curr } as ToolSet),
+      {} as ToolSet
+    )
     Object.assign(toolsResult, extraTool)
 
     if (deleteIgnored) {
@@ -295,8 +297,8 @@ export class AgentModelProvider {
     return toolsResult
   }
 
-  /** 获取当前激活的 tools (过滤 ignoreToolnames) */
-  private _getActiveToolNames(tools: Record<string, any>) {
+  /** 获取当前激活的 tools 名称列表（过滤 ignoreToolnames） */
+  private _getActiveToolNames(tools: ToolSet): string[] {
     return Object.keys(tools).filter((name) => !this.ignoreToolnames.includes(name))
   }
 
@@ -349,7 +351,7 @@ export class AgentModelProvider {
     await this.initClientsAndTools()
 
     // 合并所有可用工具
-    const allTools = this._tempMergeTools(options.tools) as ToolSet
+    const allTools = this._tempMergeTools(options.tools)
     const toolNames = Object.keys(allTools)
 
     // 如果没有工具，回退到普通模式
@@ -817,7 +819,7 @@ export class AgentModelProvider {
 
     await this.initClientsAndTools()
 
-    const allTools = this._tempMergeTools(options.tools, false) as ToolSet
+    const allTools = this._tempMergeTools(options.tools, false)
 
     const chatOptions = {
       // @ts-ignore  ProviderV2 是所有llm的父类， 在每一个具体的llm 类都有一个选择model的函数用法

@@ -11,14 +11,26 @@ import type { PluginInfo, PluginTool } from '@opentiny/tiny-robot'
 // 与 page-tool-bridge.ts 中保持一致
 const MSG_PAGE_READY = 'next-sdk:page-ready'
 
-/** 路由状态（供外部 Provider 同步使用） */
-let remoteRouteState: {
+/** 路由状态结构 */
+type RemoteRouteState = {
   toolRouteMap: Map<string, string>
   activeRoutes: Set<string>
-} | null = null
+} | null
 
-/** 获取跨窗口同步后的路由状态 */
-export const getRemoteRouteState = () => remoteRouteState
+/** 按 remoter 实例隔离的路由状态 Map，避免多实例互相覆盖 */
+const remoteRouteStateByInstance = new Map<symbol, RemoteRouteState>()
+
+/** 默认单例 key，兼容未显式传入 customAgentProvider 的旧用法 */
+const DEFAULT_INSTANCE_KEY = Symbol('default')
+
+/**
+ * 获取跨窗口同步后的路由状态（兼容旧 API，返回默认实例的状态）
+ * @param instanceKey 可选，指定 remoter 实例 key；不传则返回默认实例（单例模式）
+ */
+export const getRemoteRouteState = (instanceKey?: symbol): RemoteRouteState => {
+  const key = instanceKey ?? DEFAULT_INSTANCE_KEY
+  return remoteRouteStateByInstance.get(key) ?? null
+}
 
 /**
  * 路由感知工具过滤 composable
@@ -37,15 +49,28 @@ export function useRouteBasedTools(options: {
   agent: { ignoreToolnames: string[] }
   /** 已安装插件列表的响应式引用，用于同步 UI 开关状态 */
   installedPlugins: Ref<PluginInfo[]>
+  /** 可选，CustomAgentModelProvider 实例，用于注入实例级 getRemoteRouteState，实现多实例隔离 */
+  customAgentProvider?: { setRouteStateGetter: (fn: () => RemoteRouteState) => void }
 }) {
-  const { enabled, agent, installedPlugins } = options
+  const { enabled, agent, installedPlugins, customAgentProvider } = options
+
+  // 每个 composable 实例使用独立 key，实现多 remoter 隔离
+  const instanceKey = Symbol('remoter-route-state')
 
   const isInIframe = typeof window !== 'undefined' && window !== window.top
 
-  // iframe 场景：父窗口回传的 toolRouteMap、activeRoutes，用于替代本窗口空的 getToolRouteMap
-  // 注意：这里使用闭包变量引用，方便同步给外部
-  const setRouteState = (state: typeof remoteRouteState) => {
-    remoteRouteState = state
+  // iframe 场景：父窗口回传的 toolRouteMap、activeRoutes，写入当前实例的 state
+  const setRouteState = (state: RemoteRouteState) => {
+    remoteRouteStateByInstance.set(instanceKey, state)
+  }
+
+  /** 当前实例的路由状态 getter，供 CustomAgentModelProvider 使用 */
+  const getInstanceRouteState = (): RemoteRouteState =>
+    remoteRouteStateByInstance.get(instanceKey) ?? null
+
+  // 注入到 CustomAgentModelProvider，使 prepareStep 使用本实例的状态
+  if (customAgentProvider?.setRouteStateGetter) {
+    customAgentProvider.setRouteStateGetter(getInstanceRouteState)
   }
 
   // 缓存每个插件的完整工具列表，用于根据当前路由动态筛选显示哪些工具
@@ -56,7 +81,24 @@ export function useRouteBasedTools(options: {
 
   /** 获取工具路由映射：同窗口用模块 API，iframe 用父窗口回传的数据 */
   const getRouteMap = () =>
-    remoteRouteState?.toolRouteMap ?? (getToolRouteMap() as Map<string, string>)
+    getInstanceRouteState()?.toolRouteMap ?? (getToolRouteMap() as Map<string, string>)
+
+  /**
+   * 关闭 route-based 时恢复被隐藏的工具：清除路由导致的 ignore、恢复插件完整工具列表
+   */
+  const restoreToolsWhenDisabled = () => {
+    const routeMap = getToolRouteMap() as Map<string, string>
+    const routeToolIds = new Set(routeMap.keys())
+    // 从 ignoreToolnames 中移除路由工具，恢复为「不忽略」
+    agent.ignoreToolnames = agent.ignoreToolnames.filter((id) => !routeToolIds.has(id))
+    // 恢复插件面板的完整工具列表
+    installedPlugins.value.forEach((plugin) => {
+      const fullList = fullToolsByPluginId.get(plugin.id)
+      if (fullList) {
+        plugin.tools = fullList.slice()
+      }
+    })
+  }
 
   /**
    * 根据当前全部激活路由，对所有已注册 withPageTools 工具进行一次全量同步：
@@ -64,12 +106,13 @@ export function useRouteBasedTools(options: {
    * - 仅激活路由的工具会出现在插件面板，其他路由的工具会从面板中隐藏
    */
   const syncAllRoutes = () => {
-    // 功能关闭时不做任何同步，保持原有「所有工具可用」行为
+    // 功能关闭时：恢复之前被隐藏的工具，然后退出
     if (!enabled.value) {
+      restoreToolsWhenDisabled()
       return
     }
 
-    const activeRoutes = remoteRouteState?.activeRoutes ?? getActiveRoutes()
+    const activeRoutes = getInstanceRouteState()?.activeRoutes ?? getActiveRoutes()
     const routeMap = getRouteMap()
 
     // 1. 计算当前应当激活的「路由绑定工具」ID 集合
@@ -119,9 +162,10 @@ export function useRouteBasedTools(options: {
   // 监听 page-ready 消息：某个路由页面挂载，开放该路由的工具
   const handlePageReady = (event: MessageEvent) => {
     if (!isTrustedSource(event.source) || event.data?.type !== MSG_PAGE_READY) return
-    // iframe 场景：更新本地 activeRoutes 缓存，供后续 sync 使用
-    if (remoteRouteState) {
-      remoteRouteState.activeRoutes.add(normalizeRoute(event.data.route))
+    // iframe 场景：更新当前实例的 activeRoutes 缓存，供后续 sync 使用
+    const state = getInstanceRouteState()
+    if (state) {
+      state.activeRoutes.add(normalizeRoute(event.data.route))
     }
     syncAllRoutes()
   }
@@ -129,8 +173,9 @@ export function useRouteBasedTools(options: {
   // 监听 page-leave 消息：某个路由页面卸载，屏蔽该路由的工具
   const handlePageLeave = (event: MessageEvent) => {
     if (!isTrustedSource(event.source) || event.data?.type !== MSG_PAGE_LEAVE) return
-    if (remoteRouteState) {
-      remoteRouteState.activeRoutes.delete(normalizeRoute(event.data.route))
+    const state = getInstanceRouteState()
+    if (state) {
+      state.activeRoutes.delete(normalizeRoute(event.data.route))
     }
     syncAllRoutes()
   }
@@ -152,7 +197,7 @@ export function useRouteBasedTools(options: {
     (key, oldKey) => {
       if (key === oldKey) return
       // 在 iframe 场景下，若此时仍未拿到父窗口的初始路由状态，再主动发送一次 remoter-ready
-      if (isInIframe && !remoteRouteState && window.parent) {
+      if (isInIframe && !getInstanceRouteState() && window.parent) {
         window.parent.postMessage({ type: MSG_REMOTER_READY }, '*')
       }
       syncAllRoutes()
@@ -178,6 +223,9 @@ export function useRouteBasedTools(options: {
     window.removeEventListener('message', handlePageReady)
     window.removeEventListener('message', handlePageLeave)
     window.removeEventListener('message', handleRouteStateInitial)
+    // 关闭时恢复被隐藏的工具，并清理当前实例的 state 避免内存泄漏
+    restoreToolsWhenDisabled()
+    remoteRouteStateByInstance.delete(instanceKey)
   }
 
   onMounted(() => {
@@ -194,5 +242,6 @@ export function useRouteBasedTools(options: {
   onUnmounted(() => {
     stop()
     stopWatch()
+    remoteRouteStateByInstance.delete(instanceKey)
   })
 }

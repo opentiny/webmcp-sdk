@@ -1,11 +1,12 @@
 ---
 name: product-guide
-description: 商品管理指南技能包。提供商品管理相关的搜索和查询功能。商品的详细信息。
+description: 商品管理指南技能包，提供商品管理相关的搜索、查询和商品详情获取功能。
 ---
 
 # Product Guide Skills
 
-这是一个商品管理指南技能包，包含多个子技能。需要跳转到 `/comprehensive` 页面，使用 navigate_to_page 工具。
+这是一个商品管理指南技能包，包含多个子技能。
+当用户需要查询商品详情或综合信息时，再使用 `navigate_to_page` 工具跳转到 `/comprehensive` 页面。
 
 ## 子技能
 

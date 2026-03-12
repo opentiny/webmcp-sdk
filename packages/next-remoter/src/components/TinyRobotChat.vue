@@ -386,12 +386,13 @@ watch(
 
 customAgentProvider.isGenuiEnabled = genUiAble
 customAgentProvider.debugStream = props.debugStream
-customAgentProvider.pageToolsOnDemand = props.pageToolsOnDemand
+// 使用 watch immediate 合并初始化与监听，避免重复赋值
 watch(
   () => props.pageToolsOnDemand,
   (val) => {
     customAgentProvider.pageToolsOnDemand = val
-  }
+  },
+  { immediate: true }
 )
 
 // ===== 2. 使用 useSkillWithTools composable（仅 skills + next-sdk，无 @ 提及）=====
@@ -505,10 +506,12 @@ const {
 
 // ===== 页面工具按需加载（pageToolsOnDemand 开关控制，默认关闭）=====
 // 启用后仅当前激活路由对应的 withPageTools 工具对 LLM 可见并在面板展示
+// 传入 customAgentProvider 实现多 remoter 实例的路由状态隔离
 useRouteBasedTools({
   enabled: toRef(props, 'pageToolsOnDemand'),
   agent,
-  installedPlugins
+  installedPlugins,
+  customAgentProvider
 })
 
 // 初始化市场插件数据

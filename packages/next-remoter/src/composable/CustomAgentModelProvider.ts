@@ -68,6 +68,14 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   /** 开启页面工具按需加载 */
   pageToolsOnDemand: boolean = false
 
+  /** 实例级路由状态 getter，由 useRouteBasedTools 注入，实现多 remoter 隔离 */
+  private _getRouteState: (() => ReturnType<typeof getRemoteRouteState>) | null = null
+
+  /** 由 useRouteBasedTools 注入实例级 getRemoteRouteState，实现多实例隔离 */
+  setRouteStateGetter(fn: () => ReturnType<typeof getRemoteRouteState>) {
+    this._getRouteState = fn
+  }
+
   constructor(config: AIModelConfig, systemPrompt: string, llmConfig?: ICustomAgentModelProviderLlmConfig) {
     super(config)
 
@@ -417,15 +425,14 @@ export class CustomAgentModelProvider extends BaseModelProvider {
           }
 
           // 当开启了 pageToolsOnDemand 时，使用 routeMap 来控制 activeTools
-          // 优先从 useRouteBasedTools 获取跨窗口同步后的状态（iframe 兼容），兜底使用本地 bridge
-          const remoteState = getRemoteRouteState()
+          // 优先从 useRouteBasedTools 获取跨窗口同步后的状态（iframe 兼容），兜底使用全局 getRemoteRouteState
+          const remoteState = this._getRouteState?.() ?? getRemoteRouteState()
           const toolRouteMap = remoteState?.toolRouteMap ?? getToolRouteMap()
           const activeRoutes = remoteState?.activeRoutes ?? getActiveRoutes()
           const normalizeRoute = (r: string) => r.replace(/\/+$/, '') || '/'
 
           // 根据路由按需显示 (pageToolsOnDemand)
           // 通过判断当前工具是否存在于路由绑定中，如果绑定了但当前未处于该路由下，则不暴露给大模型
-          // 为了完全适配，只要 getToolRouteMap 里有这个 tool，并且当前路由没激活，就隐藏。
           const boundRoute = toolRouteMap.get(name)
           if (boundRoute) {
             const norm = normalizeRoute(boundRoute)
