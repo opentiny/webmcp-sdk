@@ -9,9 +9,7 @@ import importPlugin from '@opentiny/vue-vite-import'
 import { resolve } from 'path'
 
 /**
- * doc-ai-angular 的 Remoter 子包：独立 Vite 工程，仅负责 iframe 内的 Vue TinyRemoter。
- * 与 Angular 主应用完全解耦：Angular 用 ng serve，本包用 pnpm dev 单独起在 5179。
- * base: '/remoter/' 使所有资源路径带前缀，避免与 Angular 主应用的 /src 冲突（主应用 /src 不能被代理到 5179）。
+ * doc-ai-react 的 Remoter 子包：独立 Vite 工程，仅负责 iframe 内的 Vue TinyRemoter。
  */
 export default defineConfig({
   root: __dirname,

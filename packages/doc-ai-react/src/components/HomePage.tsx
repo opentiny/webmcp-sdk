@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import productsData from './data/products.json'
 import priceData from './data/priceProtection.json'

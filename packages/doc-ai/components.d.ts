@@ -7,7 +7,6 @@ export {}
 
 declare module 'vue' {
   export interface GlobalComponents {
-    AntDesignX: typeof import('./src/components/ant-design-x.vue')['default']
     InventoryModal: typeof import('./src/components/InventoryModal.vue')['default']
     PriceProtectionModal: typeof import('./src/components/PriceProtectionModal.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
@@ -22,7 +21,6 @@ declare module 'vue' {
     TinyNumeric: typeof import('@opentiny/vue-numeric')['default']
     TinyOption: typeof import('@opentiny/vue-option')['default']
     TinySelect: typeof import('@opentiny/vue-select')['default']
-    TinyTag: typeof import('@opentiny/vue-tag')['default']
     VanIcon: typeof import('vant/es')['Icon']
   }
 }

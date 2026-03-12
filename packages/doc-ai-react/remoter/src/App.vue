@@ -1,10 +1,10 @@
 <template>
   <tiny-remoter
-    :skills="skillMdModules"
     :show="show"
     :fullscreen="true"
     :menuItems="menuItems"
     :mcpServers="mcpServers"
+    :skills="skillMdModules"
   />
 </template>
 
@@ -24,7 +24,7 @@ const skillMdModules = import.meta.glob('./skills/**/*', {
   eager: true
 }) as Record<string, string>
 
-/** MessageChannel 客户端：与 Angular 主窗口中的 MCP Server 通信 */
+/** MessageChannel 客户端：与主窗口中的 MCP Server 通信 */
 const clientTransport = createMessageChannelClientTransport('local-mcp', window.parent)
 
 const mcpServers = {
