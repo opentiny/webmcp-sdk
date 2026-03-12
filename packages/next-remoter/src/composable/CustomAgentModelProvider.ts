@@ -407,7 +407,9 @@ export class CustomAgentModelProvider extends BaseModelProvider {
 
         // 3. 动态获取当前激活的 tools 供模型使用
         const allToolNames: string[] = ['get-today', ...Object.keys(this.llmConfig.extraTools || {})]
+        const mcpToolNames = new Set<string>()
         Object.values(this.agent.mcpTools || {}).forEach((toolObj) => {
+          Object.keys(toolObj || {}).forEach((n) => mcpToolNames.add(n))
           allToolNames.push(...Object.keys(toolObj || {}))
         })
 
@@ -430,6 +432,12 @@ export class CustomAgentModelProvider extends BaseModelProvider {
           const toolRouteMap = remoteState?.toolRouteMap ?? getToolRouteMap()
           const activeRoutes = remoteState?.activeRoutes ?? getActiveRoutes()
           const normalizeRoute = (r: string) => r.replace(/\/+$/, '') || '/'
+
+          // Fail closed：iframe 内尚未收到 MSG_ROUTE_STATE_INITIAL 时，remoteState 为空且本地 toolRouteMap 为空，
+          // 此时无法得知哪些工具绑定路由，保守隐藏所有 MCP 工具（get-today、extraTools 等非 MCP 仍暴露）
+          if (remoteState === null && toolRouteMap.size === 0) {
+            return !mcpToolNames.has(name)
+          }
 
           // 根据路由按需显示 (pageToolsOnDemand)
           // 通过判断当前工具是否存在于路由绑定中，如果绑定了但当前未处于该路由下，则不暴露给大模型
