@@ -4,8 +4,9 @@ import type { StreamHandler } from '@opentiny/tiny-robot-kit'
 import { BaseModelProvider } from '@opentiny/tiny-robot-kit'
 import type { AIModelConfig } from '@opentiny/tiny-robot-kit'
 import { nextTick, watch, type Ref } from 'vue'
-import { AgentModelProvider, IAgentModelProviderOption } from '@opentiny/next-sdk'
+import { AgentModelProvider, IAgentModelProviderOption, getToolRouteMap, getActiveRoutes } from '@opentiny/next-sdk'
 import { getToday } from './tools'
+import { getRemoteRouteState } from './useRouteBasedTools'
 import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import { createDeepSeek } from '@ai-sdk/deepseek'
 import { createOpenAI } from '@ai-sdk/openai'
@@ -64,6 +65,16 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   /** 生成式UI启用状态 */
   isGenuiEnabled?: Ref<boolean>
   debugStream: boolean = false
+  /** 开启页面工具按需加载 */
+  pageToolsOnDemand: boolean = false
+
+  /** 实例级路由状态 getter，由 useRouteBasedTools 注入，实现多 remoter 隔离 */
+  private _getRouteState: (() => ReturnType<typeof getRemoteRouteState>) | null = null
+
+  /** 由 useRouteBasedTools 注入实例级 getRemoteRouteState，实现多实例隔离 */
+  setRouteStateGetter(fn: () => ReturnType<typeof getRemoteRouteState>) {
+    this._getRouteState = fn
+  }
 
   constructor(config: AIModelConfig, systemPrompt: string, llmConfig?: ICustomAgentModelProviderLlmConfig) {
     super(config)
@@ -393,9 +404,56 @@ export class CustomAgentModelProvider extends BaseModelProvider {
 
         // 2.在步骤开始前清理旧的快照消息
         const cleanedMessages = this.cleanupOldSnapshotsInMessages(messages)
+
+        // 3. 动态获取当前激活的 tools 供模型使用
+        const allToolNames: string[] = ['get-today', ...Object.keys(this.llmConfig.extraTools || {})]
+        const mcpToolNames = new Set<string>()
+        Object.values(this.agent.mcpTools || {}).forEach((toolObj) => {
+          Object.keys(toolObj || {}).forEach((n) => mcpToolNames.add(n))
+          allToolNames.push(...Object.keys(toolObj || {}))
+        })
+
+        const activeTools = Array.from(new Set(allToolNames)).filter((name) => {
+          // 基本的 disable 规则（UI 上手动关闭的，通过 ignoreToolnames 控制）
+          if (this.agent.ignoreToolnames.includes(name)) {
+            // 我们在 useRouteBasedTools 中移除了针对路由的隐式 ignore，
+            // 但如果它是 true，则代表用户从面板手动禁用了它。
+            return false
+          }
+
+          // 如果关闭了按需加载，则直接通过 ignoreToolnames 过滤即可
+          if (!this.pageToolsOnDemand) {
+            return true
+          }
+
+          // 当开启了 pageToolsOnDemand 时，使用 routeMap 来控制 activeTools
+          // 优先从 useRouteBasedTools 获取跨窗口同步后的状态（iframe 兼容），兜底使用全局 getRemoteRouteState
+          const remoteState = this._getRouteState?.() ?? getRemoteRouteState()
+          const toolRouteMap = remoteState?.toolRouteMap ?? getToolRouteMap()
+          const activeRoutes = remoteState?.activeRoutes ?? getActiveRoutes()
+          const normalizeRoute = (r: string) => r.replace(/\/+$/, '') || '/'
+
+          // Fail closed：使用显式 initialized 标志，iframe 内尚未收到 MSG_ROUTE_STATE_INITIAL 时 initialized 为 false，
+          // 此时不暴露任何 MCP 工具，直到收到父窗口快照后再按路由过滤
+          if (remoteState && remoteState.initialized === false) {
+            return !mcpToolNames.has(name)
+          }
+
+          // 根据路由按需显示 (pageToolsOnDemand)
+          // 通过判断当前工具是否存在于路由绑定中，如果绑定了但当前未处于该路由下，则不暴露给大模型
+          const boundRoute = toolRouteMap.get(name)
+          if (boundRoute) {
+            const norm = normalizeRoute(boundRoute)
+            return activeRoutes.has(norm) || activeRoutes.has(boundRoute)
+          }
+
+          return true
+        })
+
         return {
           system: this.promptManager.getSystemPrompt(),
-          messages: cleanedMessages
+          messages: cleanedMessages,
+          activeTools
         }
       },
       onStepFinish: (result) => {
