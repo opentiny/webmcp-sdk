@@ -2,7 +2,7 @@ import { Component, OnInit, inject } from '@angular/core'
 import { Router } from '@angular/router'
 import { RouterOutlet } from '@angular/router'
 import { setNavigator } from '@opentiny/next-sdk'
-import { createMcpServer } from '../mcp-servers'
+import { createMcpServer, setAngularNavigator } from '../mcp-servers'
 
 @Component({
   selector: 'app-root',
@@ -15,11 +15,25 @@ export class AppComponent implements OnInit {
   private router = inject(Router)
 
   async ngOnInit(): Promise<void> {
-    // 注册路由导航器，工具触发跳转时使用 Angular Router
+    // 1. 注册基础 SDK 导航器（供 page-tool-bridge 内部自动跳转使用）
+    // 与 setAngularNavigator 一致：navigateByUrl 返回 false 时表示被取消或拦截，需抛出错误
     setNavigator(async (route) => {
-      await this.router.navigateByUrl(route)
+      const navigated = await this.router.navigateByUrl(route)
+      if (!navigated) {
+        throw new Error(`页面跳转失败：导航至 "${route}" 被取消或拦截`)
+      }
     })
-    // 启动 MCP Server（创建 MessageChannel 服务端并等待 iframe 连接）
+
+    // 2. 注册 Angular 专属导航器（供 navigate_to_page 工具手动跳转使用）
+    // navigateByUrl 返回 Promise<boolean>：成功为 true，被 guard 拦截/取消等为 false，需透传失败状态
+    setAngularNavigator(async (path) => {
+      const navigated = await this.router.navigateByUrl(path)
+      if (!navigated) {
+        throw new Error(`页面跳转失败：导航至 "${path}" 被取消或拦截`)
+      }
+    })
+
+    // 3. 启动 MCP Server
     await createMcpServer()
   }
 }
