@@ -132,6 +132,9 @@ export type RouteConfig = {
   invokeEffect?: boolean | ToolInvokeEffectConfig
 }
 
+// 对外暴露调用提示配置类型，便于业务方在 RouteConfig 外单独复用
+export type { ToolInvokeEffectConfig }
+
 /**
  * PageAwareServer 的 registerTool 配置对象类型，与 WebMcpServer.registerTool 保持一致。
  */

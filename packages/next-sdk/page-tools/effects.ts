@@ -35,7 +35,6 @@ function ensureStyleElement() {
   if (styleElement) return
 
   const style = document.createElement('style')
-  style.type = 'text/css'
   style.textContent = `
   .${BODY_GLOW_CLASS} {
     position: relative;
@@ -276,7 +275,15 @@ function removeOverlayWithAnimation() {
   if (!overlayElement) return
   overlayElement.classList.add('next-sdk-tool-overlay--exit')
   const localOverlay = overlayElement
+  let handled = false
+  let timerId: ReturnType<typeof setTimeout> | undefined
   const handle = () => {
+    if (handled) return
+    handled = true
+    if (timerId !== undefined) {
+      clearTimeout(timerId)
+      timerId = undefined
+    }
     if (localOverlay.parentNode) {
       localOverlay.parentNode.removeChild(localOverlay)
     }
@@ -287,6 +294,8 @@ function removeOverlayWithAnimation() {
     localOverlay.removeEventListener('animationend', handle)
   }
   localOverlay.addEventListener('animationend', handle)
+  // 兜底：若 animationend 未触发（如 prefers-reduced-motion 或样式被覆盖），确保清理
+  timerId = setTimeout(handle, 500)
 }
 
 /**
