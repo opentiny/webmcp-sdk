@@ -12,7 +12,12 @@ export default function registerInventoryTools(server: PageAwareServer) {
         warehouse: z.string().describe('入库存放的仓库名称，如：北京一号仓')
       }
     },
-    { route: '/inventory' }
+    {
+      route: '/inventory',
+      invokeEffect: {
+        label: '正在为你新增入库记录…'
+      }
+    }
   )
 
   // 可以预留其他库存相关工具，如 inventory_query 等

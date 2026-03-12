@@ -17,7 +17,12 @@ export default function registerOrdersTools(server: PageAwareServer) {
           .describe('按订单状态筛选')
       }
     },
-    { route: '/orders' }
+    {
+      route: '/orders',
+      invokeEffect: {
+        label: '正在为你查询订单列表…'
+      }
+    }
   )
 
   // 获取单条订单详情
@@ -30,6 +35,11 @@ export default function registerOrdersTools(server: PageAwareServer) {
         orderId: z.string().describe('要查询的订单号，如 ORD-5X9A2B')
       }
     },
-    { route: '/orders' }
+    {
+      route: '/orders',
+      invokeEffect: {
+        label: '正在为你获取订单详情…'
+      }
+    }
   )
 }
