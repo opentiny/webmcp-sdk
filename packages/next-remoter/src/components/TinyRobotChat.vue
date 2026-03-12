@@ -157,10 +157,10 @@ import {
   TrMcpServerPicker,
   TrHistory,
   TrAttachments,
-  TrUploadButton,
-  type PluginInfo,
-  type MarketCategoryOption
+  TrUploadButton
 } from '@opentiny/tiny-robot'
+
+import type { PluginInfo, MarketCategoryOption } from '@opentiny/tiny-robot'
 
 import { GenuiRenderer } from '@opentiny/genui-sdk-vue'
 import { GeneratingStatus, STATUS } from '@opentiny/tiny-robot-kit'
