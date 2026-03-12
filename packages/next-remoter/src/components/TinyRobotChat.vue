@@ -773,6 +773,8 @@ defineExpose({
 }
 
 .drawer-container {
+  display: flex;
+  flex-direction: column;
   position: absolute;
   top: 0;
   left: 0;
@@ -814,17 +816,9 @@ defineExpose({
 }
 
 .tr-history-demo {
-  height: 100%;
-  width: 100%;
-
-  :deep(.tr-history__group) {
-    height: calc(100% - 64px);
-    overflow-y: scroll;
-
-    .tr-history__group-items {
-      padding-bottom: 40px;
-    }
-  }
+  flex:1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* 助手消息操作按钮样式 */
