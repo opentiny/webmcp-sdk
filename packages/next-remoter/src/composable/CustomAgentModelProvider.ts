@@ -433,9 +433,9 @@ export class CustomAgentModelProvider extends BaseModelProvider {
           const activeRoutes = remoteState?.activeRoutes ?? getActiveRoutes()
           const normalizeRoute = (r: string) => r.replace(/\/+$/, '') || '/'
 
-          // Fail closed：iframe 内尚未收到 MSG_ROUTE_STATE_INITIAL 时，remoteState 为空且本地 toolRouteMap 为空，
-          // 此时无法得知哪些工具绑定路由，保守隐藏所有 MCP 工具（get-today、extraTools 等非 MCP 仍暴露）
-          if (remoteState === null && toolRouteMap.size === 0) {
+          // Fail closed：使用显式 initialized 标志，iframe 内尚未收到 MSG_ROUTE_STATE_INITIAL 时 initialized 为 false，
+          // 此时不暴露任何 MCP 工具，直到收到父窗口快照后再按路由过滤
+          if (remoteState && remoteState.initialized === false) {
             return !mcpToolNames.has(name)
           }
 

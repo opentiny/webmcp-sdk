@@ -11,10 +11,12 @@ import type { PluginInfo, PluginTool } from '@opentiny/tiny-robot'
 // 与 page-tool-bridge.ts 中保持一致
 const MSG_PAGE_READY = 'next-sdk:page-ready'
 
-/** 路由状态结构 */
-type RemoteRouteState = {
+/** 路由状态结构；initialized 为 true 表示已收到有效快照（如同窗口本地 map 或 iframe 收到 MSG_ROUTE_STATE_INITIAL） */
+export type RemoteRouteState = {
   toolRouteMap: Map<string, string>
   activeRoutes: Set<string>
+  /** 是否已就绪：iframe 下收到父窗口快照后为 true，未收到前为 false，用于 fail closed */
+  initialized: boolean
 } | null
 
 /** 按 remoter 实例隔离的路由状态 Map，避免多实例互相覆盖 */
@@ -73,6 +75,15 @@ export function useRouteBasedTools(options: {
     customAgentProvider.setRouteStateGetter(getInstanceRouteState)
   }
 
+  // iframe 下在收到 MSG_ROUTE_STATE_INITIAL 前先设未初始化状态，便于 prepareStep 做 fail closed
+  if (isInIframe) {
+    setRouteState({
+      toolRouteMap: new Map(),
+      activeRoutes: new Set(),
+      initialized: false
+    })
+  }
+
   // 缓存每个插件的完整工具列表，用于根据当前路由动态筛选显示哪些工具
   const fullToolsByPluginId = new Map<string, PluginTool[]>()
 
@@ -85,9 +96,10 @@ export function useRouteBasedTools(options: {
 
   /**
    * 关闭 route-based 时恢复被隐藏的工具：清除路由导致的 ignore、恢复插件完整工具列表
+   * 使用与 syncAllRoutes 一致的 getRouteMap()（含实例级 iframe 快照），避免 iframe 下 routeToolIds 为空导致 ignore 无法恢复
    */
   const restoreToolsWhenDisabled = () => {
-    const routeMap = getToolRouteMap() as Map<string, string>
+    const routeMap = getRouteMap()
     const routeToolIds = new Set(routeMap.keys())
     // 从 ignoreToolnames 中移除路由工具，恢复为「不忽略」
     agent.ignoreToolnames = agent.ignoreToolnames.filter((id) => !routeToolIds.has(id))
@@ -131,9 +143,13 @@ export function useRouteBasedTools(options: {
     // 注意：虽然 CustomAgentModelProvider 会在 prepareStep 中覆盖 activeTools，
     // 但保留此处的 ignoreToolnames 同步可以确保在基础场景下也有正确的工具屏蔽兜底。
     const ignore = new Set<string>(agent.ignoreToolnames as string[])
-    // 将所有路由工具先加入忽略集合，然后移除当前激活的
-    routeToolIds.forEach((id) => ignore.add(id))
-    activeToolIds.forEach((id) => ignore.delete(id))
+    // 将所有路由工具先加入忽略集合，然后移除当前激活的（块级 body 避免 forEach 返回值触发 lint）
+    routeToolIds.forEach((id) => {
+      ignore.add(id)
+    })
+    activeToolIds.forEach((id) => {
+      ignore.delete(id)
+    })
     agent.ignoreToolnames = Array.from(ignore)
 
     // 3. 更新插件面板中的工具列表：
@@ -180,13 +196,14 @@ export function useRouteBasedTools(options: {
     syncAllRoutes()
   }
 
-  // 监听父窗口回传的初始路由状态（仅 iframe 场景）
+  // 监听父窗口回传的初始路由状态（仅 iframe 场景），收到后标记为已初始化
   const handleRouteStateInitial = (event: MessageEvent) => {
     if (!isTrustedSource(event.source) || event.data?.type !== MSG_ROUTE_STATE_INITIAL) return
     const { toolRouteMap: mapArr, activeRoutes: routesArr } = event.data
     setRouteState({
       toolRouteMap: new Map(mapArr as [string, string][]),
-      activeRoutes: new Set((routesArr as string[]).map(normalizeRoute))
+      activeRoutes: new Set((routesArr as string[]).map(normalizeRoute)),
+      initialized: true
     })
     syncAllRoutes()
   }
@@ -196,8 +213,9 @@ export function useRouteBasedTools(options: {
     () => installedPlugins.value.map((p) => `${p.id}:${p.tools?.length ?? 0}`).join('|'),
     (key, oldKey) => {
       if (key === oldKey) return
-      // 在 iframe 场景下，若此时仍未拿到父窗口的初始路由状态，再主动发送一次 remoter-ready
-      if (isInIframe && !getInstanceRouteState() && window.parent) {
+      // 在 iframe 场景下，若尚未收到父窗口的初始路由状态，再主动发送一次 remoter-ready
+      const state = getInstanceRouteState()
+      if (isInIframe && (!state || !state.initialized) && window.parent) {
         window.parent.postMessage({ type: MSG_REMOTER_READY }, '*')
       }
       syncAllRoutes()

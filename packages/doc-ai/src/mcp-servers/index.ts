@@ -6,7 +6,7 @@ import registerSalesTools from './sales/tools'
 import registerFinanceTools from './finance/tools'
 import registerOrdersTools from './orders/tools'
 import router from '../router'
-import { isNavigationFailure } from 'vue-router'
+import { isNavigationFailure, NavigationFailureType } from 'vue-router'
 
 const rawServer = new WebMcpServer()
 const [serverTransport, clientTransport] = createMessageChannelPairTransport()
@@ -29,8 +29,23 @@ server.registerTool(
   },
   async ({ path }) => {
     try {
-      const failure = await router.push(path)
-      if (isNavigationFailure(failure)) {
+      // 预解析目标路由，避免无效路径被 catch-all 当成成功
+      const resolved = router.resolve(path)
+      if (resolved.name === 'NotFound') {
+        return {
+          content: [{ type: 'text', text: `跳转失败：未找到页面 ${path}。` }]
+        }
+      }
+      // 已在目标页则直接返回成功，无需 push（避免 duplicated 被误判为失败）
+      if (router.currentRoute.value.fullPath === resolved.fullPath) {
+        return {
+          content: [{ type: 'text', text: `当前已在页面：${resolved.fullPath}。请继续你的下一步操作。` }]
+        }
+      }
+
+      const failure = await router.push(resolved)
+      // duplicated 表示已在同位置，视为成功；其余 NavigationFailure 返回失败
+      if (isNavigationFailure(failure) && !isNavigationFailure(failure, NavigationFailureType.duplicated)) {
         return {
           content: [{ type: 'text', text: '页面跳转失败，可能是路径无效或导航被取消。' }]
         }

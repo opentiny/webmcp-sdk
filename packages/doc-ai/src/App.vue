@@ -86,7 +86,7 @@
         :mcpServers="mcpServers"
         layoutMode="relative"
         :systemPrompt="systemPrompt"
-        :pageToolsOnDemand="false"
+        :pageToolsOnDemand="true"
       />
     </div>
   </div>

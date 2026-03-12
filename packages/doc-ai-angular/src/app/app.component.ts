@@ -16,8 +16,12 @@ export class AppComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     // 1. 注册基础 SDK 导航器（供 page-tool-bridge 内部自动跳转使用）
+    // 与 setAngularNavigator 一致：navigateByUrl 返回 false 时表示被取消或拦截，需抛出错误
     setNavigator(async (route) => {
-      await this.router.navigateByUrl(route)
+      const navigated = await this.router.navigateByUrl(route)
+      if (!navigated) {
+        throw new Error(`页面跳转失败：导航至 "${route}" 被取消或拦截`)
+      }
     })
 
     // 2. 注册 Angular 专属导航器（供 navigate_to_page 工具手动跳转使用）
