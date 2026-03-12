@@ -4,7 +4,7 @@ doc-ai-react 的 **Remoter 子包**：独立 Vite 工程，仅负责 iframe 内�
 
 ## 与主应用的关系
 
-- **react 主应用**（`packages/doc-ai-react`）：用 `ng serve` 独立启动，不负责 remoter 的构建或代理逻辑。
+- **react 主应用**（`packages/doc-ai-react`）：用 `dev:react` 独立启动，不负责 remoter 的构建或代理逻辑。
 - **本包**：用 `pnpm dev` 独立启动 Vite，默认端口 5179。主应用通过 proxy 将 `/remoter.html`、`/src` 等请求转发到本服务。
 
 ## 常用命令

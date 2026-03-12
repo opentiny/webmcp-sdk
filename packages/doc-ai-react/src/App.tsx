@@ -14,7 +14,6 @@ function RouterManager() {
   useEffect(() => {
     // 设置导航器
     setNavigator(async (route) => {
-      debugger
       await navigate(route)
     })
     // 启动 MCP Server（创建 MessageChannel 服务端并等待 iframe 连接）
