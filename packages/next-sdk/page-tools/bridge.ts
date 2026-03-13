@@ -13,6 +13,7 @@
  */
 
 import type { ZodRawShape } from 'zod'
+import { z } from 'zod'
 import type { RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
 import type { WebMcpServer } from '../WebMcpServer'
@@ -33,6 +34,9 @@ export const MSG_ROUTE_STATE_INITIAL = 'next-sdk:route-state-initial'
 
 // 已激活页面注册表：路由路径 → 是否已挂载
 const activePages = new Map<string, boolean>()
+
+// 路由路径规范化：去除尾部斜杠，空路径兜底为 '/'
+const normalizeRoute = (value: string) => value.replace(/\/+$/, '') || '/'
 
 type BroadcastTarget = { win: Window; origin: string }
 
@@ -114,6 +118,42 @@ export function setNavigator(fn: (route: string) => void | Promise<void>) {
 }
 
 /**
+ * 等待指定路由页面完成挂载并广播 page-ready。
+ * - 仅在浏览器环境下生效（window 存在时）
+ * - 使用与 registerPageTool 相同的路由规范化规则
+ * - 内置兜底超时，防止 Promise 永远不 resolve
+ */
+function waitForPageReady(path: string, timeoutMs = 1500): Promise<void> {
+  if (typeof window === 'undefined') {
+    return Promise.resolve()
+  }
+
+  const target = normalizeRoute(path)
+
+  return new Promise<void>((resolve) => {
+    let done = false
+
+    const cleanup = () => {
+      if (done) return
+      done = true
+      window.removeEventListener('message', handleMessage)
+      resolve()
+    }
+
+    const handleMessage = (event: MessageEvent) => {
+      if (event.source !== window || event.data?.type !== MSG_PAGE_READY) return
+      const route = normalizeRoute(String(event.data.route ?? ''))
+      if (route === target) {
+        cleanup()
+      }
+    }
+
+    window.addEventListener('message', handleMessage)
+    setTimeout(cleanup, timeoutMs)
+  })
+}
+
+/**
  * registerTool 第三个参数的路由配置对象类型。
  * 当传入此类型时，工具调用会自动跳转到 route 对应的页面并通过消息通信执行。
  */
@@ -161,6 +201,94 @@ export type PageAwareServer = Omit<WebMcpServer, 'registerTool'> & {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handlerOrRoute: ((...args: any[]) => any) | RouteConfig
   ): RegisteredTool
+}
+
+/**
+ * 注册一个通用的页面跳转工具（navigate_to_page），供大模型在需要时主动跳转到指定路由。
+ *
+ * 要求：
+ * - 业务侧在应用入口通过 setNavigator 注册导航函数（如 router.push 或 navigateByUrl）
+ * - 前端页面在目标路由下调用 registerPageTool，确保 page-ready 能正确广播
+ *
+ * 工具行为：
+ * - 输入 path（如 "/orders"、"/price-protection"），调用 setNavigator 注册的函数执行跳转
+ * - 等待目标页面完成挂载并广播 page-ready（或在超时时间到达时兜底返回）
+ * - 返回简单的文本说明，提示跳转结果
+ */
+export type NavigateToolOptions = {
+  /** 工具名称，默认 'navigate_to_page' */
+  name?: string
+  /** 工具标题，默认 '页面跳转' */
+  title?: string
+  /** 工具描述 */
+  description?: string
+  /** 等待 page-ready 的超时时间（ms），默认 1500 */
+  timeoutMs?: number
+}
+
+export function registerNavigateTool(server: WebMcpServer, options?: NavigateToolOptions): RegisteredTool {
+  const name = options?.name ?? 'navigate_to_page'
+  const title = options?.title ?? '页面跳转'
+  const description =
+    options?.description ??
+    '当需要的工具在当前页面不可用时，使用此工具跳转到特定页面。例如：要查询订单时跳转到 "/orders"，要创建价保时跳转到 "/price-protection"。'
+  const timeoutMs = options?.timeoutMs ?? 1500
+
+  return server.registerTool(
+    name,
+    {
+      title,
+      description,
+      inputSchema: {
+        path: z.string().describe('目标页面的路由地址，例如 "/orders"、"/inventory"、"/price-protection" 等。')
+      }
+    },
+    async ({ path }: { path: string }) => {
+      if (typeof window === 'undefined') {
+        return {
+          content: [{ type: 'text', text: '当前环境不支持页面跳转（window 不存在）。' }]
+        }
+      }
+
+      if (!_navigator) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: '页面跳转失败：尚未在应用入口调用 setNavigator 注册导航函数，无法执行路由跳转。'
+            }
+          ]
+        }
+      }
+
+      try {
+        const target = normalizeRoute(path)
+        // 若当前已在目标路由上，直接返回成功，避免不必要的跳转
+        if (normalizeRoute(window.location.pathname) === target) {
+          return {
+            content: [{ type: 'text', text: `当前已在页面：${path}。请继续你的下一步操作。` }]
+          }
+        }
+
+        await _navigator(path)
+        // 等待目标页面完成挂载并触发 page-ready，确保 pageToolsOnDemand 已完成工具同步
+        await waitForPageReady(path, timeoutMs)
+
+        return {
+          content: [{ type: 'text', text: `已成功跳转至页面：${path}。请继续你的下一步操作。` }]
+        }
+      } catch (err) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `页面跳转失败：${err instanceof Error ? err.message : String(err)}。`
+            }
+          ]
+        }
+      }
+    }
+  )
 }
 
 /**

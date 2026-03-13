@@ -142,6 +142,8 @@ let cleanupPageTool: (() => void) | undefined
 
 onMounted(() => {
   cleanupPageTool = registerPageTool({
+    // 显式指定路由，需与 mcp-servers 中 RouteConfig.route '/price-protection' 保持一致
+    route: '/price-protection',
     handlers: {
       // 查询价保列表（可按状态筛选）
       'price-protection-query': async ({ status }: { status?: string }) => {

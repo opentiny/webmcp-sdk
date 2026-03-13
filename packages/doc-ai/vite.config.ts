@@ -14,6 +14,7 @@ export default defineConfig(() => {
   dotenv.config({ path: '.env' })
 
   return {
+    base: '/ai-vue/',
     // 注入环境变量到前端代码
     define: {
       'process.env': {
