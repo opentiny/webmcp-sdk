@@ -209,7 +209,34 @@ export const createMcpServer = async () => {
 }
 ```
 
-工具定义（`product-guide/tools.ts`、`price-protection/tools.ts`）与 Vue 版一致：`server.registerTool(name, schema, { route: '/path', timeout?: number })`。其中 `timeout` 为可选，表示等待页面响应的超时时间（ms），默认 30000。此处不再重复。
+工具定义（`product-guide/tools.ts`、`price-protection/tools.ts`）与 Vue 版一致：`server.registerTool(name, schema, { route: '/path', timeout?: number, invokeEffect?: boolean | ToolInvokeEffectConfig })`。
+
+- `route`：必选，目标路由路径；
+- `timeout`：可选，等待页面响应的超时时间（ms），默认 30000；
+- `invokeEffect`：可选，是否在调用该页面工具时在**主窗口左下角**展示调用提示效果，类型为 `boolean | { label?: string }`。
+
+示例（以订单查询为例）：
+
+```ts
+server.registerTool(
+  'order_query',
+  {
+    title: '查询订单',
+    description: '【订单管理工具】查询电商订单列表，可按订单号、客户姓名或状态筛选。'
+  },
+  {
+    route: '/orders',
+    invokeEffect: {
+      label: '正在为你查询订单列表…'
+    }
+  }
+)
+```
+
+> 说明：
+> - `invokeEffect: true` 使用默认文案（`config.title || toolName`）；
+> - 传对象时可自定义 `label`，如「正在为你整理订单数据…」；
+> - 调用开始时展示提示卡片，结束后自动淡出；Remoter 在 iframe 中时同样生效，因为效果直接渲染在 Angular 主窗口。
 
 ---
 
