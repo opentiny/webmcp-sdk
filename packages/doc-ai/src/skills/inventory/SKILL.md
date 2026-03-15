@@ -12,7 +12,8 @@ metadata:
 
 ## 可用工具
 
-- `add_inventory`：创建入库单，需提供商品名称、入库数量、存放仓库。
+- `navigate_to_page`：页面跳转工具，入库场景先跳转到 `/inventory`。
+- `add_inventory`：创建入库单。调用时参数必须使用：`productName`（商品名称）、`quantity`（入库数量）、`warehouse`（存放仓库）。
 
 ## 入库业务规范
 
@@ -30,7 +31,7 @@ metadata:
 
 ## 你的工作流
 
-- 当用户表达入库意图时（例如：“帮我把200个MacBook放到上海仓”）时：
+- 当用户表达入库意图时（例如：“帮我把200个MacBook放到上海仓”）：
   1. 首先在心中核对商品名称、数量、仓库是否满足上述要求。
   2. 若信息完整，先调用 `navigate_to_page` 工具跳转到 `/inventory`。
   3. 跳转成功后，立即调用 `add_inventory` 工具。
