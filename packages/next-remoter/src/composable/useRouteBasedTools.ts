@@ -114,7 +114,6 @@ export function useRouteBasedTools(options: {
    */
   const syncAllRoutes = () => {
     // 功能关闭时：恢复之前被隐藏的工具，然后退出
-    debugger
     if (!enabled.value) {
       restoreToolsWhenDisabled()
       return

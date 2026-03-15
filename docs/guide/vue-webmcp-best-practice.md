@@ -84,7 +84,7 @@ app.mount('#app')
 setNavigator((route) => router.push(route))
 ```
 
-> **注意**：`setNavigator` 只需在应用入口调用一次，全局生效。
+> **注意**：`setNavigator` 只需在应用入口调用一次，全局生效。该导航函数会被 SDK 用于：① withPageTools 在调用页面工具时自动跳转；② 内置的 `navigate_to_page` 工具（通过 `registerNavigateTool` 注册）在大模型主动请求跳转时使用。
 
 ---
 
@@ -125,7 +125,12 @@ export default router
 
 ```ts
 // src/mcp-servers/index.ts
-import { WebMcpServer, createMessageChannelPairTransport, withPageTools } from '@opentiny/next-sdk'
+import {
+  WebMcpServer,
+  createMessageChannelPairTransport,
+  withPageTools,
+  registerNavigateTool
+} from '@opentiny/next-sdk'
 import registerProductGuideTools from './product-guide/tools'
 import registerPriceProtectionTools from './price-protection/tools'
 
@@ -139,12 +144,16 @@ export const server = withPageTools(rawServer)
 export { clientTransport }
 
 export const createMcpServer = async () => {
+  // 注册通用页面跳转工具 navigate_to_page（内部使用 setNavigator + 等待 page-ready，与 pageToolsOnDemand 时序一致）
+  registerNavigateTool(rawServer)
   registerProductGuideTools(server)
   registerPriceProtectionTools(server)
   // 最后建立连接，确保所有工具已注册完毕
   await rawServer.connect(serverTransport)
 }
 ```
+
+> **页面跳转工具（navigate_to_page）**：SDK 提供 `registerNavigateTool(server)`，会注册一个名为 `navigate_to_page` 的工具。大模型在需要时可通过该工具主动跳转到指定路由（如 `/orders`、`/price-protection`）。工具内部会调用你通过 `setNavigator` 注册的导航函数，并**等待目标页面挂载并广播 page-ready 后再返回**，从而保证开启 `pageToolsOnDemand` 时，下一步能正确看到新页面的工具列表。无需在业务代码中手写跳转逻辑或超时等待。
 
 ### 3.2 注册产品查询工具
 
@@ -562,6 +571,10 @@ TinyRemoter 展示最终回复给用户
 ### 多个工具共用一个路由
 
 只需将多个 `server.registerTool` 都传 `{ route: '/same-path' }`，页面内的 `registerPageTool` 在 handlers 中列出所有工具名即可。
+
+### 如何让 AI 先跳转再使用页面工具？
+
+使用 `registerNavigateTool(rawServer)` 注册内置的 `navigate_to_page` 工具后，大模型在需要时会先调用该工具跳转到目标路由（如 `/orders`）。SDK 内部会等待目标页面挂载并广播 page-ready 后再返回，因此若开启了 `pageToolsOnDemand`，下一步即可正确看到该页面的工具列表，无需在业务中手写等待或超时逻辑。
 
 ### 如何在不跳转的情况下使用工具？
 

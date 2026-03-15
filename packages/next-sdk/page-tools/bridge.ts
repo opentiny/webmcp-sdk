@@ -263,16 +263,22 @@ export function registerNavigateTool(server: WebMcpServer, options?: NavigateToo
 
       try {
         const target = normalizeRoute(path)
-        // 若当前已在目标路由上，直接返回成功，避免不必要的跳转
-        if (normalizeRoute(window.location.pathname) === target) {
+        // 若当前已在目标路由上，直接返回成功，避免不必要的跳转。
+        // 兼容子路径部署（如 base: '/ai-vue/'）：pathname 可能为 /ai-vue/orders，而 path 为 /orders，需判断 pathname 是否“以目标路由结尾”
+        const current = normalizeRoute(window.location.pathname)
+        const isAlreadyOnTarget =
+          current === target ||
+          (current.endsWith(target) && (current.length === target.length || current[current.lastIndexOf(target) - 1] === '/'))
+        if (isAlreadyOnTarget) {
           return {
             content: [{ type: 'text', text: `当前已在页面：${path}。请继续你的下一步操作。` }]
           }
         }
 
+        // 先注册 page-ready 监听再触发导航，避免极快导航下事件先于监听器触发而漏收（与 buildPageHandler 中的顺序一致）
+        const readyPromise = waitForPageReady(path, timeoutMs)
         await _navigator(path)
-        // 等待目标页面完成挂载并触发 page-ready，确保 pageToolsOnDemand 已完成工具同步
-        await waitForPageReady(path, timeoutMs)
+        await readyPromise
 
         return {
           content: [{ type: 'text', text: `已成功跳转至页面：${path}。请继续你的下一步操作。` }]

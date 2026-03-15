@@ -131,9 +131,12 @@ export class AppComponent implements OnInit {
   private router = inject(Router)
 
   async ngOnInit(): Promise<void> {
-    // 注册路由导航器，工具触发跳转时使用 Angular Router
+    // 注册路由导航器，供 Page Tool Bridge 与内置 navigate_to_page 工具使用（仅此一处即可，无需再注入其他导航器）
     setNavigator(async (route) => {
-      await this.router.navigateByUrl(route)
+      const navigated = await this.router.navigateByUrl(route)
+      if (!navigated) {
+        throw new Error(`页面跳转失败：导航至 "${route}" 被取消或拦截`)
+      }
     })
     // 启动 MCP Server（创建 MessageChannel 服务端并等待 iframe 连接）
     await createMcpServer()
@@ -141,7 +144,7 @@ export class AppComponent implements OnInit {
 }
 ```
 
-> **注意**：`setNavigator` 只需在应用入口（根组件）调用一次，全局生效。
+> **注意**：`setNavigator` 只需在应用入口（根组件）调用一次，全局生效。该导航函数会被 SDK 用于：① withPageTools 在调用页面工具时自动跳转；② 内置的 `navigate_to_page` 工具（通过 `registerNavigateTool` 注册）在大模型主动请求跳转时使用。无需再单独注入 Angular 专属的导航器。
 
 ---
 
@@ -183,7 +186,12 @@ export class AppComponent implements OnInit {
 
 ```ts
 // src/mcp-servers/index.ts
-import { WebMcpServer, createMessageChannelServerTransport, withPageTools } from '@opentiny/next-sdk'
+import {
+  WebMcpServer,
+  createMessageChannelServerTransport,
+  withPageTools,
+  registerNavigateTool
+} from '@opentiny/next-sdk'
 import registerProductGuideTools from './product-guide/tools'
 import registerPriceProtectionTools from './price-protection/tools'
 
@@ -201,6 +209,8 @@ export const server = withPageTools(rawServer)
  * 对应 iframe 侧：createMessageChannelClientTransport('local-mcp', window.parent)
  */
 export const createMcpServer = async () => {
+  // 注册通用页面跳转工具 navigate_to_page（内部使用 setNavigator + 等待 page-ready，与 pageToolsOnDemand 时序一致）
+  registerNavigateTool(rawServer)
   registerProductGuideTools(server)
   registerPriceProtectionTools(server)
   const serverTransport = createMessageChannelServerTransport('local-mcp')
@@ -208,6 +218,8 @@ export const createMcpServer = async () => {
   await rawServer.connect(serverTransport)
 }
 ```
+
+> **页面跳转工具（navigate_to_page）**：与 Vue 版相同，使用 SDK 提供的 `registerNavigateTool(rawServer)` 即可。工具运行在**主窗口**，会调用你通过 `setNavigator` 注册的导航函数，并等待目标页面广播 page-ready 后再返回，因此 Remoter 在 iframe 内时，路由状态与工具列表的同步不受影响，无需在主窗口再手写一套跳转或 setAngularNavigator。
 
 工具定义（`product-guide/tools.ts`、`price-protection/tools.ts`）与 Vue 版一致：`server.registerTool(name, schema, { route: '/path', timeout?: number, invokeEffect?: boolean | ToolInvokeEffectConfig })`。
 
@@ -522,6 +534,10 @@ SDK 收到 page-ready，在主窗口内 postMessage 发送
 ### 多个工具共用一个路由
 
 与 Vue 版相同：多个 `server.registerTool(..., { route: '/same-path' })`，同一页面的 `registerPageTool` 的 handlers 中列出所有工具名即可。
+
+### 如何让 AI 先跳转再使用页面工具？
+
+与 Vue 版相同：在 `createMcpServer` 中调用 `registerNavigateTool(rawServer)` 即可注册内置的 `navigate_to_page` 工具。工具运行在主窗口，会使用 `setNavigator` 执行跳转并等待 page-ready，Remoter 在 iframe 内时也会通过既有桥接协议收到路由状态更新，无需主窗口再手写 setAngularNavigator 或等待逻辑。
 
 ### 如何在不跳转的情况下使用工具？
 
