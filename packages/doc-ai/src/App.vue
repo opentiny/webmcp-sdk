@@ -87,6 +87,8 @@
         layoutMode="relative"
         :systemPrompt="systemPrompt"
         :pageToolsOnDemand="true"
+        :promptItems="ecommercePromptItems"
+        :pillItems="ecommercePillItems"
       />
     </div>
   </div>
@@ -94,9 +96,58 @@
 
 <script setup lang="ts">
 import { TinyRemoter } from '@opentiny/next-remoter'
-import { onMounted, ref } from 'vue'
+import { onMounted, ref, h } from 'vue'
 import { createMcpServer, clientTransport } from './mcp-servers'
 import { iconDesktopView, iconBoxSolid, iconLock, iconLineChart, iconCoin, iconShoppingCard } from '@opentiny/vue-icon'
+
+// 电商管理平台：欢迎区建议卡片（上方大卡片）
+const ecommercePromptItems = [
+  {
+    label: '订单与物流',
+    description: '需要查订单状态、物流信息，还是根据客户姓名找订单？',
+    icon: h('span', { style: { fontSize: '18px' } }, '📦'),
+    badge: 'NEW'
+  },
+  {
+    label: '价保与售后',
+    description: '要创建价保申请、补差价，还是查看价保单审核状态？',
+    icon: h('span', { style: { fontSize: '18px' } }, '🛡️')
+  },
+  {
+    label: '库存与销售',
+    description: '需要商品入库、查销售趋势，还是看财务对账？',
+    icon: h('span', { style: { fontSize: '18px' } }, '📊')
+  }
+]
+
+// 电商管理平台：输入框上方快捷操作按钮（小药丸按钮 + 下拉菜单）
+const ecommercePillItems = [
+  {
+    id: 'orders',
+    text: '订单物流',
+    menus: [
+      { id: 0, text: '查订单状态', inputMessage: '帮我查一下订单 ORD-5X9A2B 的当前状态和物流信息。' },
+      { id: 1, text: '按客户查单', inputMessage: '请根据客户姓名「张三」查询他的订单列表。' }
+    ]
+  },
+  {
+    id: 'price-protection',
+    text: '价保售后',
+    menus: [
+      { id: 0, text: '创建价保', inputMessage: '我要为客户李四创建价保申请，订单号 ORD-123456，补偿 50 元，事由是双十一大促降价。' },
+      { id: 1, text: '查价保单', inputMessage: '帮我查看当前待审核的价保申请列表。' }
+    ]
+  },
+  {
+    id: 'inventory-sales',
+    text: '库存与销售',
+    menus: [
+      { id: 0, text: '商品入库', inputMessage: '请把 200 台 MacBook Pro 入库到上海二号仓。' },
+      { id: 1, text: '销售趋势', inputMessage: '帮我看看最近 30 天的商品销售趋势。' },
+      { id: 2, text: '财务对账', inputMessage: '打开财务管理看板，看一下本月支出和可用余额。' }
+    ]
+  }
+]
 
 const show = ref(true)
 const systemPrompt = `你是「电商智能管理系统」的内置助理，必须严格遵守以下工具调用规则：

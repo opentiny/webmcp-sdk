@@ -313,6 +313,16 @@ const props = defineProps({
   pageToolsOnDemand: {
     type: Boolean,
     default: false
+  },
+  /** 自定义欢迎区建议卡片（与 tr-prompts 的 items 格式一致）。不传则使用内置默认文案 */
+  promptItems: {
+    type: Array,
+    default: undefined
+  },
+  /** 自定义输入框上方快捷操作按钮（与 pill 下拉菜单格式一致）。不传则使用内置默认文案 */
+  pillItems: {
+    type: Array,
+    default: undefined
   }
 })
 
@@ -526,7 +536,11 @@ const marketCategoryOptions = ref<MarketCategoryOption[]>([
   { value: 'ai', label: 'AI 助手' }
 ])
 
-const { lang, pillItems, promptItems } = getLang(props)
+const langResult = getLang(props)
+// 优先使用父组件传入的电商/业务定制文案，未传则使用内置默认
+const pillItems = computed(() => props.pillItems ?? langResult.pillItems)
+const promptItems = computed(() => props.promptItems ?? langResult.promptItems)
+const lang = langResult.lang
 
 // ===== 6. 使用 usePluginSession composable（sessionId 相关逻辑）=====
 const {
