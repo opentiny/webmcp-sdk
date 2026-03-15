@@ -200,6 +200,8 @@ const salesSummary = {
 let cleanupPageTool: (() => void) | undefined
 onMounted(() => {
   cleanupPageTool = registerPageTool({
+    // 显式指定路由，需与 mcp-servers 中 RouteConfig.route '/sales' 保持一致
+    route: '/sales',
     handlers: {
       sales_record_query: async ({ timeRange }: { timeRange?: '7days' | '30days' | 'year' }) => {
         const range = timeRange ?? '30days'

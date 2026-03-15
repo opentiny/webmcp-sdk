@@ -103,6 +103,8 @@ let cleanupPageTool: () => void
 
 onMounted(() => {
   cleanupPageTool = registerPageTool({
+    // 显式指定路由，需与 mcp-servers 中 RouteConfig.route '/comprehensive' 保持一致
+    route: '/comprehensive',
     handlers: {
       // 处理 product-guide 工具的实际业务逻辑
       'product-guide': async ({ productId }: { productId: string }) => {

@@ -67,8 +67,7 @@ export function useRouteBasedTools(options: {
   }
 
   /** 当前实例的路由状态 getter，供 CustomAgentModelProvider 使用 */
-  const getInstanceRouteState = (): RemoteRouteState =>
-    remoteRouteStateByInstance.get(instanceKey) ?? null
+  const getInstanceRouteState = (): RemoteRouteState => remoteRouteStateByInstance.get(instanceKey) ?? null
 
   // 注入到 CustomAgentModelProvider，使 prepareStep 使用本实例的状态
   if (customAgentProvider?.setRouteStateGetter) {
@@ -91,19 +90,15 @@ export function useRouteBasedTools(options: {
   const normalizeRoute = (r: string) => r.replace(/\/+$/, '') || '/'
 
   /** 获取工具路由映射：同窗口用模块 API，iframe 用父窗口回传的数据 */
-  const getRouteMap = () =>
-    getInstanceRouteState()?.toolRouteMap ?? (getToolRouteMap() as Map<string, string>)
+  const getRouteMap = () => getInstanceRouteState()?.toolRouteMap ?? (getToolRouteMap() as Map<string, string>)
 
   /**
-   * 关闭 route-based 时恢复被隐藏的工具：清除路由导致的 ignore、恢复插件完整工具列表
-   * 使用与 syncAllRoutes 一致的 getRouteMap()（含实例级 iframe 快照），避免 iframe 下 routeToolIds 为空导致 ignore 无法恢复
+   * 关闭 route-based 时恢复被隐藏的工具：恢复插件完整工具列表
+   * 注意：ignoreToolnames 仅用于「用户从面板手动禁用」的场景，不再在此处做路由级别的写入/清理，
+   * 以避免与 CustomAgentModelProvider.prepareStep 中的按路由过滤产生时序竞态。
    */
   const restoreToolsWhenDisabled = () => {
-    const routeMap = getRouteMap()
-    const routeToolIds = new Set(routeMap.keys())
-    // 从 ignoreToolnames 中移除路由工具，恢复为「不忽略」
-    agent.ignoreToolnames = agent.ignoreToolnames.filter((id) => !routeToolIds.has(id))
-    // 恢复插件面板的完整工具列表
+    // 仅恢复插件面板的完整工具列表，不触碰 agent.ignoreToolnames（交由用户手动开关控制）
     installedPlugins.value.forEach((plugin) => {
       const fullList = fullToolsByPluginId.get(plugin.id)
       if (fullList) {
@@ -139,20 +134,7 @@ export function useRouteBasedTools(options: {
       }
     })
 
-    // 2. 更新 ignoreToolnames：仅针对路由绑定工具做过滤
-    // 注意：虽然 CustomAgentModelProvider 会在 prepareStep 中覆盖 activeTools，
-    // 但保留此处的 ignoreToolnames 同步可以确保在基础场景下也有正确的工具屏蔽兜底。
-    const ignore = new Set<string>(agent.ignoreToolnames as string[])
-    // 将所有路由工具先加入忽略集合，然后移除当前激活的（块级 body 避免 forEach 返回值触发 lint）
-    routeToolIds.forEach((id) => {
-      ignore.add(id)
-    })
-    activeToolIds.forEach((id) => {
-      ignore.delete(id)
-    })
-    agent.ignoreToolnames = Array.from(ignore)
-
-    // 3. 更新插件面板中的工具列表：
+    // 2. 更新插件面板中的工具列表：
     //    - 首次同步时为每个插件缓存完整工具列表
     //    - 仅对路由绑定工具做「按需展示」，非路由工具保持原状
     installedPlugins.value.forEach((plugin) => {
@@ -172,8 +154,7 @@ export function useRouteBasedTools(options: {
   }
 
   /** 消息来源合法：同窗口为 window，iframe 内为 window.parent */
-  const isTrustedSource = (src: MessageEvent['source']) =>
-    src === window || (isInIframe && src === window.parent)
+  const isTrustedSource = (src: MessageEvent['source']) => src === window || (isInIframe && src === window.parent)
 
   // 监听 page-ready 消息：某个路由页面挂载，开放该路由的工具
   const handlePageReady = (event: MessageEvent) => {

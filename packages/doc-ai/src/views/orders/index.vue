@@ -90,6 +90,8 @@ let cleanupPageTool: (() => void) | undefined
 
 onMounted(() => {
   cleanupPageTool = registerPageTool({
+    // 显式指定路由，需与 mcp-servers 中 RouteConfig.route '/orders' 保持一致
+    route: '/orders',
     handlers: {
       // 查询订单列表（支持按订单号、客户姓名、状态筛选）
       order_query: async ({
