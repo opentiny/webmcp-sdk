@@ -181,20 +181,24 @@ export const useExtraTools = (server: WebMcpServer) => {
 每个节点的 UID 格式为 "snapshotId_counter"，例如 "1_5"。
 可用操作：
 - snapshot: 获取页面的完整无障碍树结构快照，包含每个节点的唯一 UID。返回的快照可以用于后续的页面操作。
-- click: 通过快照中的 UID 点击页面元素。需提供 uid。可选 button（left/right/middle）和 dblClick（是否双击）。
-- fill: 通过快照中的 UID 在输入框中输入文本。需提供 uid 和 text。可选 clearFirst（是否先清空输入框）。
-- scroll: 滚动页面或元素。如果不提供 uid 则滚动整个页面；提供 uid 但不提供 x/y 则将元素滚动到视图中；提供 uid 和 x/y 则在元素内滚动到指定位置。可选 behavior（滚动行为：auto/smooth）。
+- click: 通过快照中的 UID 点击页面元素。需提供 uid。可选 button（left/right/middle）和 dblClick（是否双击）。点击前无需先 scroll，直接使用 click 即可。
+- fill: 通过快照中的 UID 在输入框中输入文本。需提供 uid 和 text。可选 clearFirst（是否先清空输入框）。输入前无需先 scroll，直接使用 fill 即可。
+- scroll: 【低优先级】仅在用户明确要求滚动时使用。例如用户说「向下滚动」「滚到页面底部」「把某区域滚入视图」等。若不提供 uid 则滚动整个页面；提供 uid 但不提供 x/y 则将元素滚动到视图中；提供 uid 和 x/y 则在元素内滚动到指定位置。可选 behavior（auto/smooth）。注意：不要为「方便点击/输入」而先调用 scroll，直接对目标元素使用 click 或 fill。
 - copy: 从指定节点复制文本内容。需提供 uid。返回复制的文本内容（输入框返回 value，其他元素返回 textContent）。
 - paste: 将文本粘贴到指定节点。需提供 uid 和 text。会自动聚焦并全选后输入文本。`,
       inputSchema: {
         tabId: z.number().optional().describe('目标标签页 ID，如果不提供则使用当前活动标签页'),
         action: z
           .enum(['snapshot', 'click', 'fill', 'scroll', 'copy', 'paste'])
-          .describe('操作类型：snapshot（获取快照）、click（点击）、fill（输入文本）、scroll（滚动）、copy（复制文本）、paste（粘贴文本）'),
+          .describe(
+            '操作类型：snapshot（获取快照）、click（点击）、fill（输入文本）、scroll（仅当用户明确要求滚动时使用）、copy（复制文本）、paste（粘贴文本）'
+          ),
         uid: z
           .string()
           .optional()
-          .describe('快照中节点的 UID（格式：snapshotId_counter，如 "1_5"）。click、fill、copy、paste 操作必填；scroll 操作可选（不提供则滚动页面）'),
+          .describe(
+            '快照中节点的 UID（格式：snapshotId_counter，如 "1_5"）。click、fill、copy、paste 操作必填；scroll 操作可选（不提供则滚动整个页面，且仅在用户明确要求滚动时使用 scroll）'
+          ),
         button: z
           .enum(['left', 'right', 'middle'])
           .optional()
