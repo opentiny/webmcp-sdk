@@ -406,12 +406,11 @@ onUnmounted(() => cleanupPageTool?.())
     <!-- 页面路由内容 -->
     <router-view />
 
-    <!-- AI 对话面板 -->
+    <!-- AI 对话面板（本地 WebMCP 场景推荐不依赖 sessionId，直接使用本地 mcpServers） -->
     <TinyRemoter
       :show="true"
       :skills="skillMdModules"
       :mcpServers="mcpServers"
-      sessionId="my-app-session"
       title="智能助手"
       :llmConfig="llmConfig"
     />
