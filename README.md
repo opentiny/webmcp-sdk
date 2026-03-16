@@ -1,7 +1,7 @@
 # OpenTiny NEXT-SDKs
 
 <p align="center">
-  <strong>一套前端智能应用开发工具包，让你的应用瞬间拥有 AI 能力</strong>
+  <strong>一套前端智能应用开发工具包，让你的应用瞬间拥有 AI 能力。用 WebMCP + WebSkills，几行代码让「现有业务应用」秒变智能应用</strong>
 </p>
 
 <p align="center">
@@ -13,7 +13,7 @@
 
 ---
 
-**OpenTiny NEXT-SDKs** 是一套前端智能应用开发工具包，旨在简化 WebAgent 的集成与使用，支持多种编程语言和前端框架，帮助开发者快速实现智能化功能。
+**OpenTiny NEXT-SDKs** 是一套前端智能应用开发工具包，基于 Web 版 MCP 协议，通过「WebMCP + WebSkills」的模式，把你现有前端/业务系统中的页面操作、数据查询、业务流程等封装成可被 AI 调用的工具，让存量应用在**几乎零改造**的前提下快速接入智能化能力。
 
 ## 📑 目录
 
@@ -30,10 +30,11 @@
 
 ## ✨ 主要特性
 
-- 🎯 **简化集成**：提供简洁的 API 封装，简化与 WebAgent 服务的连接、认证等逻辑
-- 🔌 **MCP 协议**：完整实现 Model Context Protocol（MCP）的 Web 版本，支持浏览器端工具调用
-- 🤖 **AI 对话组件**：提供开箱即用的 AI 对话框组件（`@opentiny/next-remoter`）
-- 🔄 **适配器层**：可将任意前端 AI 对话框组件快速接入 WebAgent 服务
+- 🎯 **存量应用智能化改造优先**：面向「已有系统」，通过 WebMCP + WebSkills 将现有 API、页面操作、业务流程暴露给 AI，无需大规模重构
+- 🔌 **WebMCP 协议实现**：完整实现 Model Context Protocol（MCP）的浏览器版本，让前端也能像「后端工具服务」一样被 AI 调用
+- 🧩 **WebSkills 抽象**：以「业务技能 WebSkills」的方式组织和注册工具，一套能力既可服务 AI 对话，也可复用在自动化流程中
+- 🤖 **AI 对话组件**：提供开箱即用的 AI 对话框组件（`@opentiny/next-remoter`），对话即远程操控你的业务系统
+- 🔄 **适配器层**：可将任意前端 AI 对话组件快速接入 WebAgent / WebMCP 服务
 - 🌐 **多模态支持**：支持文字、语音等多模态输入，抹平不同 LLM 之间的差异
 - 📱 **二维码功能**：动态生成二维码，让企业应用的 MCP 服务快速接入 AI 对话框
 - 🎪 **遥控器模式**：提供 PC 端和移动端遥控器，通过对话方式操控前端应用
@@ -44,7 +45,7 @@
 
 核心 SDK 包，提供：
 
-- **WebMcpServer**：MCP 服务端实现，将前端功能声明为 MCP 工具
+- **WebMcpServer**：MCP 服务端实现，将前端功能声明为 MCP 工具（WebSkills 的承载容器）
 - **WebMcpClient**：MCP 客户端实现，连接 WebAgent 和其他 MCP 服务
 - **WebAgent**：前端智能代理核心逻辑
 - **McpSdk**：MCP SDK 封装
@@ -61,11 +62,16 @@
 - 多模型切换支持
 - 生成式 UI 渲染
 
+与 WebSkills 的关系可以理解为一种**渐进式披露业务能力**：
+
+- WebSkills 的设计初衷，是把「所有可用工具」拆分成若干可按需激活的业务技能，避免一次性把过多上下文和工具暴露给大模型导致「思考空间」被撑爆
+- `TinyRemoter` 这一类对话组件，在对接 WebMCP 时推荐配合 skills 使用：先让模型理解当前所处的业务角色/场景，再按需逐步暴露对应的一小撮工具，而不是一开始就把全部能力丢给模型
+
 详见：[@opentiny/next-remoter 文档](../next-remoter/README.md)
 
 ## 🚀 快速开始
 
-使用 OpenTiny NEXT-SDKs，只需要以下四步，就可以把你的前端应用变成智能应用。
+使用 OpenTiny NEXT-SDKs，只需要以下四步，就可以把你的前端/业务应用通过 WebMCP + WebSkills 变成可被 AI 操控的智能应用：
 
 ### 第一步：安装依赖
 
@@ -145,20 +151,42 @@ console.log('获取到的 sessionId:', sessionId)
 npm install @opentiny/next-remoter
 ```
 
-#### 在 Vue 项目中使用
+#### 在 Vue 项目中使用并接入 WebSkills 文档
+
+下面示例以仓库中的 `packages/doc-ai/src/App.vue` 为蓝本，演示 TinyRemoter 如何通过 `skills` 属性接入 WebSkills 文档，实现对业务能力的**渐进式披露**：
 
 ```vue
 <script setup lang="ts">
 import { TinyRemoter } from '@opentiny/next-remoter'
-import '@opentiny/next-remoter/dist/style.css'
+import { createMcpServer, clientTransport } from './mcp-servers'
 
-// 使用上一步获取的 sessionId
-const sessionId = 'your-session-id'
+// 1. 通过 Vite 的 import.meta.glob 一次性加载本地 skill 文档（Markdown）
+//    每个 skill.md 对应一块业务能力说明 + 工具使用规范
+const skillMdModules = import.meta.glob('./skills/**/*.md', {
+  query: '?raw',
+  import: 'default',
+  eager: true
+}) as Record<string, string>
+
+// 2. 声明本地 WebMCP Server，提供业务工具（WebSkills 的基础工具集合）
+const mcpServers = {
+  'ecommerce-mcp-server': {
+    type: 'local' as const,
+    transport: clientTransport
+  }
+}
+
+// 3. 挂载组件时启动本地 WebMCP Server
+onMounted(async () => {
+  await createMcpServer()
+})
 </script>
 
 <template>
-  <tiny-remoter 
-    :session-id="sessionId" 
+  <tiny-remoter
+    class="remoter-pane"
+    :skills="skillMdModules"   <!-- 通过 skills 传入 WebSkills 文档，实现渐进式披露 -->
+    :mcpServers="mcpServers"   <!-- 绑定本地 WebMCP Server，暴露业务工具 -->
     title="我的智能助手"
   />
 </template>
