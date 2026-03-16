@@ -46,6 +46,8 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 - `skills` 设置技能的配置对象（`Record<string, string>` 类型）。通常配合 Vite 的 `import.meta.glob` 导入标准 `SKILL.md` 文件。AI 助手会自动识别用户意图并调用相应的技能，无需手动触发。
 - `layout-mode` 布局模式，支持所有 CSS position 属性值：`'static' | 'relative' | 'absolute' | 'fixed' | 'sticky'`，默认值为 `'fixed'`。用于控制组件的定位方式
 - `role-avatar` 设置角色user/assistant的头像, 值为 {user: VNode, assistant: VNode }, VNode 可以通过h函数创建，比如： h(IconUser, { style: { fontSize: '32px' } })
+- `promptItems` 自定义欢迎区建议卡片数据，类型为 `PromptProps[]`。用于覆盖默认的三张欢迎卡片（标题 + 描述 + 图标 + badge），常用于根据业务场景（如电商、办公、运维）改写欢迎区的快捷入口文案。
+- `pillItems` 自定义输入框上方的快捷操作按钮数据，类型为 `{ id: string; text: string; menus: { id: string | number; text: string; inputMessage: string }[] }[]`。用于覆盖默认的三个药丸按钮组（如「办公助手」「开发支持」等），可以将其改成「订单管理」「库存与销售」等业务快捷操作；点击菜单项会自动把 `inputMessage` 填入输入框。
 
 ### customMarketMcpServers 与 mcpServers 的区别
 
