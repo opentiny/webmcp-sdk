@@ -1,5 +1,9 @@
 # webMCP+webSkills 最佳实践：告别页面操作痛点，解锁前端高效新姿势
 
+> **内容摘要**：本文深度解析了 **webMCP + WebSkills** 这套专为前端页面驱动设计的“组合拳”方案。通过解决现有自动化方案（无障碍适配、视觉模型）在**安全性、成本及适配难度**上的核心痛点，提供了 Vue、Angular 及 React 三大主流技术栈的工程级最佳实践，助力开发者在不改变现有业务系统的架构下，实现极简、高效、安全的 AI 驱动页面操作。
+
+![三大框架大合影：Vue, React, Angular 共享 webMCP 成果](../assets/images/guide/framework_friends.png)
+
 ## 1. 背景与痛点
 
 ### 1.1 场景引子：为什么页面自动化这么难？
@@ -162,9 +166,7 @@ export default registerProductGuideTools
 <!-- src/views/product-list/index.vue -->
 <template>
   <div class="products-page">
-    <div v-for="product in products" :key="product.id">
-      {{ product.name }} - ¥{{ product.price }}
-    </div>
+    <div v-for="product in products" :key="product.id">{{ product.name }} - ¥{{ product.price }}</div>
   </div>
 </template>
 
@@ -189,9 +191,7 @@ onMounted(() => {
     handlers: {
       'product-guide': async ({ productId }: { productId: string }) => {
         const product = products.value.find((p) => String(p.id) === productId)
-        const text = product
-          ? `产品信息：${JSON.stringify(product, null, 2)}`
-          : `未找到产品 ID 为 ${productId} 的商品`
+        const text = product ? `产品信息：${JSON.stringify(product, null, 2)}` : `未找到产品 ID 为 ${productId} 的商品`
         return { content: [{ type: 'text', text }] }
       }
     }
@@ -311,13 +311,7 @@ export class AppComponent implements OnInit {
     <router-outlet />
   </div>
   <aside class="remoter-sidebar">
-    <iframe
-      class="remoter-frame"
-      src="/remoter.html"
-      frameborder="0"
-      allow="clipboard-write"
-      title="AI 助手"
-    ></iframe>
+    <iframe class="remoter-frame" src="/remoter.html" frameborder="0" allow="clipboard-write" title="AI 助手"></iframe>
   </aside>
 </div>
 ```
@@ -394,12 +388,7 @@ export class ComprehensiveComponent implements OnInit, OnDestroy {
 ```vue
 <!-- remoter/src/App.vue（节选） -->
 <template>
-  <tiny-remoter
-    :skills="skillMdModules"
-    :show="true"
-    :fullscreen="true"
-    :mcpServers="mcpServers"
-  />
+  <tiny-remoter :skills="skillMdModules" :show="true" :fullscreen="true" :mcpServers="mcpServers" />
 </template>
 
 <script setup lang="ts">
@@ -432,8 +421,8 @@ const mcpServers = {
 
 React 工程的整体架构与 Angular 工程高度一致，同样是：
 
-- **主应用（React SPA）**：直接对接 `@opentiny/next-sdk`，在浏览器中创建 WebMCP Server、注册业务工具，结合路由和 `registerPageTool` 在各业务页面内挂载页面工具处理器；  
-- **Remoter 子应用（Vue）**：作为一个独立的前端子工程，通过 iframe 嵌入到 React 主应用中，内部渲染 TinyRemoter 组件并加载 WebSkills 文档；  
+- **主应用（React SPA）**：直接对接 `@opentiny/next-sdk`，在浏览器中创建 WebMCP Server、注册业务工具，结合路由和 `registerPageTool` 在各业务页面内挂载页面工具处理器；
+- **Remoter 子应用（Vue）**：作为一个独立的前端子工程，通过 iframe 嵌入到 React 主应用中，内部渲染 TinyRemoter 组件并加载 WebSkills 文档；
 - **通信方式**：主应用和 iframe 之间通过 `MessageChannel` 建立连接，主应用侧暴露服务端 Transport，Remoter 侧创建客户端 Transport，最终由 TinyRemoter 将对话中的工具调用透传到 React 主应用，再由 Page Tool Bridge 负责路由跳转和页面内业务逻辑执行。
 
 > 简单理解：**React 主应用负责“工具和页面”，Remoter 子应用负责“对话 UI 和技能文档”，两者通过 iframe + MessageChannel 打通，整体模式与 Angular 版本完全一致**。示例工程可参考 `packages/doc-ai-react`，根据你的 React 路由和对话组件做适配即可。
@@ -457,5 +446,3 @@ React 工程的整体架构与 Angular 工程高度一致，同样是：
 未来，webMCP+webSkills还会持续迭代优化，进一步简化接入流程、增强功能适配，覆盖更多复杂业务场景，让前端页面操作自动化变得更简单、更智能、更高效。
 
 如果你也正在被页面操作自动化的痛点困扰，不妨试试webMCP+webSkills这套组合方案，直接去GitHub下载对应技术栈的最佳实践代码，跟着操作，分分钟解锁前端高效新姿势！
-
-![三大框架大合影：Vue, React, Angular 共享 webMCP 成果](../assets/images/guide/framework_friends.png)
