@@ -34,6 +34,7 @@ export default defineConfig({
         {
           text: 'webMCP&WebSkills 最佳实践',
           items: [
+            { text: '总览：webMCP+WebSkills', link: '/guide/webmcp-webskills' },
             { text: 'Vue 工程最佳实践', link: '/guide/vue-webmcp-best-practice' },
             { text: 'Angular 工程最佳实践', link: '/guide/angular-webmcp-best-practice' }
           ]

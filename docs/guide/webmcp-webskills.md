@@ -1,251 +1,440 @@
-webMCP+webSkills最佳实践：告别页面操作痛点，解锁前端高效新姿势
+# webMCP+webSkills 最佳实践：告别页面操作痛点，解锁前端高效新姿势
 
-做前端工程、AI业务接入的小伙伴，是不是都有过这样的崩溃时刻？想实现页面自动化操作，要么被各种方案的坑绊住脚，要么配置复杂到让人头大，好不容易跑通还面临安全隐患……别慌！今天就给大家安利一套“组合拳”——webMCP+webSkills，手把手教你避开所有雷区，轻松实现前端页面操作的高效、安全落地，看完直接上手不踩坑！
+## 1. 背景与痛点
+
+### 1.1 场景引子：为什么页面自动化这么难？
+
+做前端工程、AI业务接入的小伙伴，是不是都有过这样的崩溃时刻？想实现页面自动化操作，要么被各种方案的坑绊住脚，要么配置复杂到让人头大，好不容易跑通还面临安全隐患……别慌！这篇文档要介绍的“组合拳”——webMCP+WebSkills，就是帮你在**不大改现有系统**的前提下，把页面操作做得又稳又安全。
+
+### 1.2 业界主流方案与痛点
 
 先吐个槽：业界现有方案，坑是真的多！
 
-在webMCP出现之前，咱们做页面操作自动化，主流就两种方案，但说句实在话，用起来都让人一言难尽，痛点直接拉满：
+在 webMCP 出现之前，咱们做页面操作自动化，主流就两种方案，但说句实在话，用起来都让人一言难尽，痛点直接拉满：
 
-方案一：基于无障碍信息（如chrome-devtools-mcp）
+**方案一：基于无障碍信息（如 chrome-devtools-mcp）**
 
-听着挺专业，但实际用起来全是“门槛”：首先得要求业务系统页面做好完美的无障碍信息适配，可现实里很多老项目、复杂业务页面，根本达不到这个要求；其次，业务逻辑一旦复杂，基于无障碍信息的操作就会出现各种不确定性，时而正常时而报错，排查起来比找bug还难；更麻烦的是，想用它还得额外装浏览器扩展插件，或者依赖playwright等工具，步骤繁琐，兼容性还参差不齐。
+听着挺专业，但实际用起来全是“门槛”：首先得要求业务系统页面做好完美的无障碍信息适配，可现实里很多老项目、复杂业务页面，根本达不到这个要求；其次，业务逻辑一旦复杂，基于无障碍信息的操作就会出现各种不确定性，时而正常时而报错，排查起来比找 bug 还难；更麻烦的是，想用它还得额外装浏览器扩展插件，或者依赖 playwright 等工具，步骤繁琐，兼容性还参差不齐。
 
-方案二：基于视觉模型截图操作
+**方案二：基于视觉模型截图操作**
 
-这个方案看似不用适配页面，实则“费钱又费时间”：视觉模型运行起来特别消耗token，长期用下来成本蹭蹭涨；而且执行速度慢得让人着急，复杂业务操作能卡到你怀疑人生；最关键的是，它根本扛不住复杂业务系统的考验，稍微多几个交互步骤就直接“罢工”。
+这个方案看似不用适配页面，实则“费钱又费时间”：视觉模型运行起来特别消耗 token，长期用下来成本蹭蹭涨；而且执行速度慢得让人着急，复杂业务操作能卡到你怀疑人生；最关键的是，它根本扛不住复杂业务系统的考验，稍微多几个交互步骤就直接“罢工”。
 
-共同致命伤：安全不可控
+**共同致命伤：安全不可控**
 
 不管是无障碍信息方案，还是视觉模型方案，都存在一个核心隐患——安全性。两种方案都需要一定程度上获取页面敏感信息，且缺乏有效的安全管控机制，一不小心就可能造成数据泄露，给业务带来不可挽回的损失。
 
-就在大家被这些痛点折磨得焦头烂额时，webMCP+webSkills横空出世，直接精准戳中所有痛点，给前端页面操作自动化带来了新希望！
+### 1.3 webMCP + WebSkills 的定位
 
-划重点：webMCP不是“替代者”，而是“最强补充”
+就在大家被这些痛点折磨得焦头烂额时，webMCP+WebSkills 横空出世，直接精准戳中所有痛点，给前端页面操作自动化带来了新希望！
 
-很多小伙伴会误以为webMCP是要取代业界现有的MCP协议，其实不然！webMCP是基于业界MCP协议打造的前端优化方案，核心定位是“补充和增强”——它保留了MCP协议的核心优势，同时针对前端页面操作的痛点做了针对性优化，让页面操作更简单、更高效、更安全。
+**webMCP 不是“替代者”，而是“最强补充”**
 
-而webSkills则是webMCP的“神助攻”，它能进一步增强AI对业务的理解能力，让页面操作自动化更智能，哪怕是复杂的业务场景，也能轻松应对，两者搭配使用，直接实现“1+1>2”的效果！
+很多小伙伴会误以为 webMCP 是要取代业界现有的 MCP 协议，其实不然！webMCP 是基于业界 MCP 协议打造的前端优化方案，核心定位是“补充和增强”——它保留了 MCP 协议的核心优势，同时针对前端页面操作的痛点做了针对性优化，让页面操作更简单、更高效、更安全。
+
+**WebSkills：让 AI 真的“懂你的业务”**
+
+而 WebSkills 则是 webMCP 的“神助攻”，它能进一步增强 AI 对业务的理解能力，让页面操作自动化更智能，哪怕是复杂的业务场景，也能轻松应对，两者搭配使用，直接实现“1+1>2”的效果。
+
+## 2. 三大技术栈最佳实践总览
 
 干货来袭：三大技术栈最佳实践，直接抄作业！
 
-不管你是用Vue、React还是Angular，webMCP+webSkills都能完美适配，而且实现方式高度统一——核心都是通过对应技术栈的路由，搭配iframe承载tiny-remoter，无需复杂配置，跟着步骤来，分分钟搞定！下面直接上干货，附官方GitHub地址，可直接下载参考～
+不管你是用 Vue、React 还是 Angular，webMCP+WebSkills 都能完美适配，而且实现方式高度统一：**核心是通过前端路由 + 页面工具（Page Tool Bridge）把业务页面和 MCP 工具打通，再通过 WebSkills 和 TinyRemoter 做“知识与对话入口”**。下面分别给出 Vue / Angular 的摘要示例，并附上工程级最佳实践链接。
 
-1. Vue工程最佳实践
+### 2.1 Vue 工程最佳实践（摘要）
 
-Vue项目接入next-sdk和next-remoter，可按照以下具体步骤操作，全程简单易懂，跟着走就能完成接入，适配Vue2、Vue3所有主流版本：
+> 源码工程：[`packages/doc-ai`](https://github.com/opentiny/next-sdk/tree/dev/packages/doc-ai)  
+> 完整工程路径：`packages/doc-ai`  
+> 详细文档：`docs/guide/vue-webmcp-best-practice.md`
 
-步骤1：安装依赖（核心第一步）
+**步骤 1：安装依赖**
 
-首先在Vue项目根目录，通过npm或yarn安装next-sdk和next-remoter依赖，这是接入的基础，执行以下命令即可：
+```bash
+pnpm add @opentiny/next-sdk @opentiny/next-remoter
+```
 
-npm install next-sdk next-remoter --save
+> 说明：这里直接引入 WebMCP 核心 SDK 与 TinyRemoter 组件包，为后续“页面工具 + 对话框 UI”打基础。
 
-# 若使用yarn，执行：
+**步骤 2：在 `main.ts` 中注册路由导航器**
 
-yarn add next-sdk next-remoter
+```ts
+// src/main.ts
+import { createApp } from 'vue'
+import router from './router'
+import App from './App.vue'
+import { setNavigator } from '@opentiny/next-sdk'
 
-步骤2：配置路由（关键一步，承载remoter）
+const app = createApp(App)
+app.use(router)
+app.mount('#app')
 
-在Vue路由配置文件（通常是router/index.js）中，新增一个路由，用于承载next-remoter，路由路径可自定义（建议命名清晰，如/webmcp-remoter），配置如下：
+// 告诉 SDK：需要跳转页面时统一走 router.push
+setNavigator((route) => router.push(route))
+```
 
-import Vue from 'vue'
-import Router from 'vue-router'
-// 引入承载remoter的组件（可新建，也可复用现有组件）
-import RemoterContainer from '@/components/RemoterContainer'
+> 中文小结：`setNavigator` 是 Page Tool Bridge 的前提，只需在入口调用一次，之后所有“与页面绑定的工具”在执行时都会通过这里完成路由跳转。
 
-Vue.use(Router)
+**步骤 3：配置业务路由**
 
-export default new Router({
-routes: [
-// 其他原有路由...
-{
-path: '/webmcp-remoter', // 自定义路由路径
-name: 'RemoterContainer',
-component: RemoterContainer, // 承载iframe的容器组件
-meta: {
-title: 'webMCP Remoter 承载页' // 页面标题，可自定义
-}
-}
-]
+```ts
+// src/router/index.ts
+import { createRouter, createWebHistory } from 'vue-router'
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes: [
+    { path: '/', component: () => import('../views/home/index.vue') },
+    { path: '/product-list', component: () => import('../views/product-list/index.vue') },
+    { path: '/price-protection', component: () => import('../views/price-protection/index.vue') }
+  ]
 })
 
-步骤3：创建容器组件，嵌入iframe
+export default router
+```
 
-新建RemoterContainer组件（对应步骤2中引入的组件），在组件中通过iframe嵌入next-remoter，代码如下（可直接复制使用，按需调整iframe尺寸）：
+> 中文小结：后面在 `registerTool` 和 `registerPageTool` 里会引用这些 path，请保持一致，避免因为路由不对导致工具调用超时。
 
+**步骤 4：创建 MCP Server，并通过 `withPageTools` 绑定路由**
+
+```ts
+// src/mcp-servers/index.ts
+import {
+  WebMcpServer,
+  createMessageChannelPairTransport,
+  withPageTools,
+  registerNavigateTool
+} from '@opentiny/next-sdk'
+import registerProductGuideTools from './product-guide/tools'
+import registerPriceProtectionTools from './price-protection/tools'
+
+const rawServer = new WebMcpServer()
+const [serverTransport, clientTransport] = createMessageChannelPairTransport()
+
+export const server = withPageTools(rawServer)
+export { clientTransport }
+
+export const createMcpServer = async () => {
+  registerNavigateTool(rawServer)
+  registerProductGuideTools(server)
+  registerPriceProtectionTools(server)
+  await rawServer.connect(serverTransport)
+}
+```
+
+> 中文小结：`withPageTools` 让工具可以和路由产生映射；`registerNavigateTool` 注册了一个通用的 `navigate_to_page` 工具，供大模型主动发起“先跳转再用页面工具”的链路。
+
+**步骤 5：注册与页面绑定的业务工具**
+
+```ts
+// src/mcp-servers/product-guide/tools.ts
+import { z } from '@opentiny/next-sdk'
+import type { PageAwareServer } from '@opentiny/next-sdk'
+
+const registerProductGuideTools = (server: PageAwareServer) => {
+  server.registerTool(
+    'product-guide',
+    {
+      title: '产品指南',
+      description: '根据产品 ID 获取产品详细信息',
+      inputSchema: {
+        productId: z.string().describe('产品 ID')
+      }
+    },
+    { route: '/product-list' } // 工具执行时自动导航到该路由
+  )
+}
+
+export default registerProductGuideTools
+```
+
+> 中文小结：第三个参数 `{ route: '/product-list' }` 是关键，它告诉 SDK“这个工具需要在哪个页面内执行”，从而触发 Page Tool Bridge 的自动跳转与消息投递。
+
+**步骤 6：在页面内通过 `registerPageTool` 注册工具处理器**
+
+```vue
+<!-- src/views/product-list/index.vue -->
 <template>
-  &lt;div class="remoter-container"&gt;
-    <!-- 嵌入next-remoter，src地址可参考官方文档调整 -->
-    <iframe
-      src="https://your-remoter-url"  <!-- 替换为实际的remoter地址，可参考官方文档获取 -->
-      width="100%"
-      height="800px"
-      frameborder="0"
-      id="webmcp-remoter-iframe"
-    ></iframe>
+  <div class="products-page">
+    <div v-for="product in products" :key="product.id">
+      {{ product.name }} - ¥{{ product.price }}
+    </div>
   </div>
 </template>
 
-<script>
-export default {
-  name: 'RemoterContainer',
-  mounted() {
-    // 组件挂载后，可执行后续sdk初始化操作
-    this.initNextSdk()
-  },
-  methods: {
-    // 步骤4：初始化next-sdk，建立通信
-    initNextSdk() {
-      import('next-sdk').then(({ NextSdk }) => {
-        // 初始化sdk，配置参数参考官方文档
-        const sdk = new NextSdk({
-          container: document.getElementById('webmcp-remoter-iframe'), // 绑定iframe元素
-          // 其他配置参数（如token、业务标识等），按需从官方文档获取并补充
-        })
-        // 初始化成功后，可监听通信事件，实现页面操作交互
-        sdk.on('ready', () => {
-          console.log('next-sdk 初始化成功，可开始操作')
-        })
-      })
+<script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue'
+import { registerPageTool } from '@opentiny/next-sdk'
+import productsData from './products.json'
+
+type Product = {
+  id: number
+  name: string
+  price: number
+  stock: number
+  status: 'on' | 'off' | string
+}
+
+const products = ref<Product[]>(productsData as Product[])
+let cleanupPageTool: () => void
+
+onMounted(() => {
+  cleanupPageTool = registerPageTool({
+    handlers: {
+      'product-guide': async ({ productId }: { productId: string }) => {
+        const product = products.value.find((p) => String(p.id) === productId)
+        const text = product
+          ? `产品信息：${JSON.stringify(product, null, 2)}`
+          : `未找到产品 ID 为 ${productId} 的商品`
+        return { content: [{ type: 'text', text }] }
+      }
     }
+  })
+})
+
+onUnmounted(() => cleanupPageTool?.())
+</script>
+```
+
+> 中文小结：页面挂载时把 handler 注册进去，卸载时清理；handler 中可以直接访问 Vue 响应式数据，实现“AI 调工具 → 工具调页面逻辑”的完整闭环。
+
+**步骤 7：在 App.vue 中挂载 TinyRemoter + Skills**
+
+```vue
+<!-- src/App.vue -->
+<template>
+  <div class="app-container">
+    <router-view />
+    <TinyRemoter
+      :show="true"
+      :skills="skillMdModules"
+      :mcpServers="mcpServers"
+      title="智能助手"
+      :llmConfig="llmConfig"
+    />
+  </div>
+</template>
+
+<script setup lang="ts">
+import { onMounted } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
+import { createMcpServer, clientTransport } from './mcp-servers'
+
+const llmConfig = {
+  apiKey: 'your-api-key',
+  baseURL: 'https://api.openai.com/v1',
+  providerType: 'openai',
+  model: 'gpt-4o',
+  maxSteps: 10
+}
+
+const skillMdModules = import.meta.glob('./skills/**/*', {
+  query: '?raw',
+  import: 'default',
+  eager: true
+}) as Record<string, string>
+
+const mcpServers = {
+  'my-mcp-server': {
+    type: 'local',
+    transport: clientTransport
+  }
+}
+
+onMounted(async () => {
+  await createMcpServer()
+})
+</script>
+```
+
+> 中文小结：通过 `skills + mcpServers`，TinyRemoter 就能在一个对话面板里同时掌握“业务知识 + 业务工具”，真正做到“对话即页面操作”。
+
+### 2.2 Angular 工程最佳实践（摘要）
+
+> 源码工程：[`packages/doc-ai-angular`](https://github.com/opentiny/next-sdk/tree/dev/packages/doc-ai-angular)  
+> 完整工程路径：`packages/doc-ai-angular`  
+> 详细文档：`docs/guide/angular-webmcp-best-practice.md`
+
+Angular 与 Vue 最大的差异在于：**TinyRemoter 是 Vue 组件，Angular 不能直接引入，需要通过 iframe + MessageChannel 与主应用通讯**。
+
+整体架构：
+
+- Angular 主应用：负责路由、业务页面、WebMCP Server、`registerPageTool`
+- Vue Remoter 子应用（iframe 内）：负责 TinyRemoter UI + Skills，使用 `createMessageChannelClientTransport` 连接主应用
+
+**步骤 1：在根组件中注册 `setNavigator` 并启动 MCP Server**
+
+```ts
+// src/app/app.component.ts
+import { Component, OnInit, inject } from '@angular/core'
+import { Router, RouterOutlet } from '@angular/router'
+import { setNavigator } from '@opentiny/next-sdk'
+import { createMcpServer } from '../mcp-servers'
+
+@Component({
+  selector: 'app-root',
+  standalone: true,
+  imports: [RouterOutlet],
+  templateUrl: './app.component.html',
+  styleUrl: './app.component.scss'
+})
+export class AppComponent implements OnInit {
+  private router = inject(Router)
+
+  async ngOnInit(): Promise<void> {
+    setNavigator(async (route) => {
+      const navigated = await this.router.navigateByUrl(route)
+      if (!navigated) {
+        throw new Error(`页面跳转失败：导航至 "${route}" 被取消或拦截`)
+      }
+    })
+
+    await createMcpServer()
+  }
+}
+```
+
+> 中文小结：和 Vue 版类似，这里统一封装“页面跳转策略”，同时在应用入口启动 MCP Server，确保后续 iframe 连接时已有可用的工具服务。
+
+**步骤 2：在根模板中通过 iframe 嵌入 Remoter**
+
+```html
+<!-- src/app/app.component.html -->
+<div class="app-container">
+  <div class="main-content">
+    <router-outlet />
+  </div>
+  <aside class="remoter-sidebar">
+    <iframe
+      class="remoter-frame"
+      src="/remoter.html"
+      frameborder="0"
+      allow="clipboard-write"
+      title="AI 助手"
+    ></iframe>
+  </aside>
+</div>
+```
+
+> 中文小结：`/remoter.html` 会通过代理指向 Remoter 子应用入口（例如 Vite dev server 的 `/remoter/`），两端同源后即可使用 MessageChannel 互通。
+
+**步骤 3：在主窗口创建 MCP Server，并暴露 MessageChannel 服务端**
+
+```ts
+// src/mcp-servers/index.ts
+import {
+  WebMcpServer,
+  createMessageChannelServerTransport,
+  withPageTools,
+  registerNavigateTool
+} from '@opentiny/next-sdk'
+import registerProductGuideTools from './product-guide/tools'
+import registerPriceProtectionTools from './price-protection/tools'
+
+const rawServer = new WebMcpServer()
+export const server = withPageTools(rawServer)
+
+export const createMcpServer = async () => {
+  registerNavigateTool(rawServer)
+  registerProductGuideTools(server)
+  registerPriceProtectionTools(server)
+
+  const serverTransport = createMessageChannelServerTransport('local-mcp')
+  await serverTransport.listen()
+  await rawServer.connect(serverTransport)
+}
+```
+
+> 中文小结：这里不再使用“同窗口内存对”的 `createMessageChannelPairTransport`，而是用 `createMessageChannelServerTransport('local-mcp')` 等待 iframe 侧主动连入。
+
+**步骤 4：在 Angular 页面中注册页面工具处理器**
+
+```ts
+// src/app/pages/comprehensive/comprehensive.component.ts（节选）
+import { Component, OnInit, OnDestroy } from '@angular/core'
+import { registerPageTool } from '@opentiny/next-sdk'
+
+@Component({
+  /* 模板与样式省略 */
+})
+export class ComprehensiveComponent implements OnInit, OnDestroy {
+  products: Product[] = productsData as Product[]
+  private cleanupPageTool!: () => void
+
+  ngOnInit(): void {
+    this.cleanupPageTool = registerPageTool({
+      handlers: {
+        'product-guide': async ({ productId }: { productId: string }) => {
+          const product = this.products.find((p) => String(p.id) === productId)
+          const text = product
+            ? `产品信息：${JSON.stringify(product, null, 2)}`
+            : `未找到产品 ID 为 ${productId} 的商品`
+          return { content: [{ type: 'text', text }] }
+        }
+      }
+    })
+  }
+
+  ngOnDestroy(): void {
+    this.cleanupPageTool?.()
+  }
+}
+```
+
+> 中文小结：写法和 Vue 版高度类似，只是生命周期钩子由 `onMounted/onUnmounted` 换成了 `ngOnInit/ngOnDestroy`，其余 Page Tool Bridge 行为完全一致。
+
+**步骤 5：在 Remoter 子应用中，通过 `createMessageChannelClientTransport` 连接主窗口**
+
+```vue
+<!-- remoter/src/App.vue（节选） -->
+<template>
+  <tiny-remoter
+    :skills="skillMdModules"
+    :show="true"
+    :fullscreen="true"
+    :mcpServers="mcpServers"
+  />
+</template>
+
+<script setup lang="ts">
+import { TinyRemoter } from '@opentiny/next-remoter'
+import { createMessageChannelClientTransport } from '@opentiny/next-sdk'
+
+const skillMdModules = import.meta.glob('./skills/**/*', {
+  query: '?raw',
+  import: 'default',
+  eager: true
+}) as Record<string, string>
+
+const clientTransport = createMessageChannelClientTransport('local-mcp', window.parent)
+
+const mcpServers = {
+  'local-mcp-server': {
+    type: 'local',
+    transport: clientTransport
   }
 }
 </script>
+```
 
-<style scoped>
-.remoter-container {
-  width: 100%;
-  height: 100%;
-  padding: 0;
-  margin: 0;
-}
-</style>
+> 中文小结：endpoint `'local-mcp'` 和主窗口必须一致，通过这一对 Transport，TinyRemoter 就可以把所有工具调用发送到 Angular 主应用，再由 Page Tool Bridge 转发到具体页面。
 
-步骤5：测试验证
+### 2.3 React 工程最佳实践（工程入口）
 
-启动Vue项目（npm run serve），访问配置的路由（如http://localhost:8080/webmcp-remoter），若iframe能正常加载，控制台输出“next-sdk 初始化成功”，则说明接入成功，可进一步结合webSkills实现业务操作。
+> 源码工程：[`packages/doc-ai-react`](https://github.com/opentiny/next-sdk/tree/dev/packages/doc-ai-react)  
+> 完整工程路径：`packages/doc-ai-react`
 
-✅ 官方最佳实践文档：Vue webMCP最佳实践
+React 工程的整体架构与 Angular 工程高度一致，同样是：
 
-✅ GitHub仓库地址（可直接抄代码）：https://github.com/opentiny/next-sdk/tree/dev/packages/doc-ai
+- **主应用（React SPA）**：直接对接 `@opentiny/next-sdk`，在浏览器中创建 WebMCP Server、注册业务工具，结合路由和 `registerPageTool` 在各业务页面内挂载页面工具处理器；  
+- **Remoter 子应用（Vue）**：作为一个独立的前端子工程，通过 iframe 嵌入到 React 主应用中，内部渲染 TinyRemoter 组件并加载 WebSkills 文档；  
+- **通信方式**：主应用和 iframe 之间通过 `MessageChannel` 建立连接，主应用侧暴露服务端 Transport，Remoter 侧创建客户端 Transport，最终由 TinyRemoter 将对话中的工具调用透传到 React 主应用，再由 Page Tool Bridge 负责路由跳转和页面内业务逻辑执行。
 
-2. Angular工程最佳实践
+> 简单理解：**React 主应用负责“工具和页面”，Remoter 子应用负责“对话 UI 和技能文档”，两者通过 iframe + MessageChannel 打通，整体模式与 Angular 版本完全一致**。示例工程可参考 `packages/doc-ai-react`，根据你的 React 路由和对话组件做适配即可。
 
-Angular项目接入next-sdk和next-remoter，步骤与Vue类似，核心仍是“路由+iframe”，结合Angular语法规范，具体分步教程如下，参考官方文档编写，确保可直接落地：
+## 3. 总结
 
-步骤1：安装依赖
-
-在Angular项目根目录，执行以下命令，安装next-sdk和next-remoter依赖，兼容Angular 10及以上版本：
-
-npm install next-sdk next-remoter --save
-
-# 若使用yarn，执行：
-
-yarn add next-sdk next-remoter
-
-步骤2：配置路由，创建承载页
-
-首先通过Angular CLI创建承载remoter的组件，执行命令：
-
-ng generate component remoter-container
-
-然后在路由配置文件（app-routing.module.ts）中，新增路由，指向该组件：
-
-import { NgModule } from '@angular/core';
-import { RouterModule, Routes } from '@angular/router';
-import { RemoterContainerComponent } from './remoter-container/remoter-container.component';
-
-const routes: Routes = [
-// 其他原有路由...
-{
-path: 'webmcp-remoter', // 自定义路由路径，可修改
-component: RemoterContainerComponent,
-data: { title: 'webMCP Remoter 承载页' } // 自定义页面标题
-}
-];
-
-@NgModule({
-imports: [RouterModule.forRoot(routes)],
-exports: [RouterModule]
-})
-export class AppRoutingModule { }
-
-步骤3：在组件中嵌入iframe，初始化sdk
-
-打开remoter-container.component.html，嵌入iframe，并在组件中初始化next-sdk，代码如下：
-
-<!-- remoter-container.component.html -->
-<div class="remoter-container">
-  <iframe
-    #remoterIframe
-    src="https://your-remoter-url"  <!-- 替换为实际的remoter地址，参考官方文档获取 -->
-    width="100%"
-    height="800px"
-    frameborder="0"
-  ></iframe>
-</div>
-
-// remoter-container.component.ts
-import { Component, ViewChild, ElementRef, AfterViewInit } from '@angular/core';
-import { NextSdk } from 'next-sdk';
-
-@Component({
-selector: 'app-remoter-container',
-templateUrl: './remoter-container.component.html',
-styleUrls: ['./remoter-container.component.css']
-})
-export class RemoterContainerComponent implements AfterViewInit {
-// 获取iframe元素
-@ViewChild('remoterIframe') remoterIframe!: ElementRef<HTMLIFrameElement>;
-private sdk!: NextSdk;
-
-// 组件视图初始化完成后，初始化sdk
-ngAfterViewInit(): void {
-this.initNextSdk();
-}
-
-// 初始化next-sdk，建立与remoter的通信
-private initNextSdk(): void {
-// 初始化sdk，配置参数参考官方文档
-this.sdk = new NextSdk({
-container: this.remoterIframe.nativeElement, // 绑定iframe元素
-// 其他配置参数（如token、业务标识等），按需从官方文档获取并补充
-});
-
-    // 监听sdk就绪事件，确认接入成功
-    this.sdk.on('ready', () => {
-      console.log('next-sdk 初始化成功，可进行页面操作交互');
-    });
-
-}
-}
-
-步骤4：配置样式（可选）
-
-打开remoter-container.component.css，添加简单样式，确保iframe适配页面：
-
-.remoter-container {
-width: 100%;
-height: 100vh;
-padding: 0;
-margin: 0;
-}
-
-步骤5：测试验证
-
-启动Angular项目（ng serve），访问路由http://localhost:4200/webmcp-remoter，若iframe正常加载，控制台输出初始化成功信息，即说明接入完成，可结合webSkills实现复杂业务操作。
-
-✅ GitHub仓库地址（可直接下载参考）：https://github.com/opentiny/next-sdk/tree/dev/packages/doc-ai-angular
-
-3. React工程最佳实践
-
-React项目接入同样简单，核心思路还是“路由+iframe”：通过React路由管理页面跳转，利用iframe承载tiny-remoter，轻松实现webMCP+webSkills的集成，完美适配React生态。
-
-✅ GitHub仓库地址（可直接复用代码）：https://github.com/opentiny/next-sdk/tree/dev/packages/doc-ai-react
-
-划重点：三个技术栈的最佳实践，都没有用到微前端技术，核心就是“路由+iframe”，配置简单、兼容性强，新手也能快速上手，再也不用为复杂的集成方案头疼！
-
-总结：webMCP+webSkills，前端页面操作的“最优解”
+总结：webMCP+WebSkills，前端页面操作的“最优解”
 
 对比业界现有方案，webMCP+webSkills的优势简直一目了然：
 
