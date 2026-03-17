@@ -32,9 +32,9 @@ export default defineConfig({
           ]
         },
         {
-          text: 'webMCP&WebSkills 最佳实践',
+          text: 'WebMCP&WebSkills 最佳实践',
           items: [
-            { text: '总览：webMCP+WebSkills', link: '/guide/webmcp-webskills' },
+            { text: '总览', link: '/guide/webmcp-webskills' },
             { text: 'Vue 工程最佳实践', link: '/guide/vue-webmcp-best-practice' },
             { text: 'Angular 工程最佳实践', link: '/guide/angular-webmcp-best-practice' }
           ]
@@ -54,18 +54,18 @@ export default defineConfig({
           items: [
             { text: 'TinyRobot 版本', link: '/guide/tiny-robot-remoter' },
             { text: 'Skills 技能配置指南', link: '/guide/tiny-remoter-skills' },
-            { text: 'custom llm 自定义大模型', link: '/guide/custom-llm' },
+            { text: 'Custom llm 自定义大模型', link: '/guide/custom-llm' },
             { text: '自定义AI对话框组件', link: '/guide/use-next-agent' }
           ]
         },
         {
           text: 'AI Extension',
           items: [
-            { text: 'architecture 技术架构', link: '/guide/ai-extension-architecture' },
-            { text: 'mcp-servers 工具开发指南', link: '/guide/ai-extension-next-wxt' },
-            { text: 'skills 技能开发指南', link: '/guide/ai-extension-skills' },
+            { text: '技术架构', link: '/guide/ai-extension-architecture' },
+            { text: 'MCP Servers 工具开发指南', link: '/guide/ai-extension-next-wxt' },
+            { text: 'Skills 技能开发指南', link: '/guide/ai-extension-skills' },
             { text: 'AI Extension 插件安装指南', link: '/guide/ai-extension-install' },
-            { text: '大模型配置', link: '/guide/ai-extension-model-config' }
+            { text: '配置大模型', link: '/guide/ai-extension-model-config' }
           ]
         }
       ]
