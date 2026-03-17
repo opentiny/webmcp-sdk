@@ -20,7 +20,7 @@
 
 **方案一：基于无障碍信息（如 chrome-devtools-mcp）**
 
-听着挺专业，但实际用起来全是“门槛”：首先得要求业务系统页面做好完美的无障碍信息适配，可现实里很多老项目、复杂业务页面，根本达不到这个要求；其次，业务逻辑一旦复杂，基于无障碍信息的操作就会出现各种不确定性，时而正常时而报错，排查起来比找 bug 还难；更麻烦的是，想用它还得额外装浏览器扩展插件，或者依赖 playwright 等工具，步骤繁琐，兼容性还参差不齐。
+听着挺专业，但实际用起来全是“门槛”：首先得要求业务系统页面做好完善的无障碍信息适配，可现实里很多老项目、复杂业务页面，根本达不到这个要求；其次，业务逻辑一旦复杂，基于无障碍信息的操作就会出现各种不确定性，时而正常时而报错，排查起来比找 bug 还难；更麻烦的是，想用它还得额外装浏览器扩展插件，或者依赖 playwright 等工具，步骤繁琐，兼容性还参齐不齐。
 
 **方案二：基于视觉模型截图操作**
 
@@ -226,9 +226,10 @@ import { onMounted } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
 import { createMcpServer, clientTransport } from './mcp-servers'
 
+// 建议通过服务端中转 API 请求，或使用临时 Token，避免在前端明文暴露 API Key
 const llmConfig = {
-  apiKey: 'your-api-key',
-  baseURL: 'https://api.openai.com/v1',
+  apiKey: import.meta.env.VITE_LLM_API_KEY || 'your-api-key-placeholder',
+  baseURL: import.meta.env.VITE_LLM_BASE_URL || 'https://api.openai.com/v1',
   providerType: 'openai',
   model: 'gpt-4o',
   maxSteps: 10
