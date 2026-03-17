@@ -25,6 +25,7 @@
 - [📖 使用场景](#-使用场景)
 - [🛠️ 参与开发](#️-参与开发)
 - [📚 相关资源](#-相关资源)
+- [WebMCP + WebSkills 最佳实践工程](#webmcp--webskills-最佳实践工程)
 - [❓ 常见问题](#-常见问题)
 - [📄 许可证](#-许可证)
 
@@ -148,10 +149,11 @@ npm install @opentiny/next-remoter
 
 #### 在 Vue 项目中使用并接入 WebSkills 文档
 
-下面示例以仓库中的 `packages/doc-ai/src/App.vue` 为蓝本，演示 TinyRemoter 如何通过 `skills` 属性接入 WebSkills 文档，实现对业务能力的**渐进式披露**：
+下面示例演示 TinyRemoter 如何通过 `skills` 属性接入 WebSkills 文档，实现对业务能力的**渐进式披露**。**完整工程与各框架最佳实践请直接参考仓库中的示例项目**（见下方 [WebMCP + WebSkills 最佳实践工程](#webmcp--webskills-最佳实践工程)）。
 
 ```vue
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
 import { createMcpServer, clientTransport } from './mcp-servers'
 
@@ -178,10 +180,11 @@ onMounted(async () => {
 </script>
 
 <template>
+  <!-- 通过 skills 传入 WebSkills 文档实现渐进式披露；通过 mcpServers 绑定本地 WebMCP 暴露业务工具 -->
   <tiny-remoter
     class="remoter-pane"
-    :skills="skillMdModules"   <!-- 通过 skills 传入 WebSkills 文档，实现渐进式披露 -->
-    :mcpServers="mcpServers"   <!-- 绑定本地 WebMCP Server，暴露业务工具 -->
+    :skills="skillMdModules"
+    :mcpServers="mcpServers"
     title="我的智能助手"
   />
 </template>
@@ -576,10 +579,24 @@ npm publish
 - [TinyEngine](https://github.com/opentiny/tiny-engine) - 低代码引擎
 - [TinyRobot](https://github.com/opentiny/tiny-robot) - AI 对话组件
 
-### 示例项目
+### WebMCP + WebSkills 最佳实践工程
 
-- [doc-ai](../doc-ai) - 文档 AI 助手示例
-- [next-wxt](https://github.com/opentiny/next-sdk/tree/main/packages/next-wxt) - 浏览器扩展示例
+推荐直接参考以下示例项目，按你使用的技术栈克隆或对照实现：
+
+| 技术栈   | 示例工程 | 说明 |
+|----------|----------|------|
+| **Vue**  | [doc-ai](packages/doc-ai) | Vue3 + Vite，本地 WebMCP Server、skills 文档（Markdown）与 TinyRemoter 集成 |
+| **Angular** | [doc-ai-angular](packages/doc-ai-angular) | Angular 主应用 + iframe Remoter，通过 MessageChannel 与 WebMCP 打通 |
+| **React** | [doc-ai-react](packages/doc-ai-react) | React 主应用 + iframe Remoter，与 Vue 版类似的 WebMCP + WebSkills 架构 |
+
+配套文档：
+
+- [Vue 集成 WebMCP 最佳实践](docs/guide/vue-webmcp-best-practice.md)
+- [Angular 集成 WebMCP 最佳实践](docs/guide/angular-webmcp-best-practice.md)
+
+### 其他示例项目
+
+- [next-wxt](packages/next-wxt) - 浏览器扩展示例（WXT 框架）
 
 ### MCP 协议
 
