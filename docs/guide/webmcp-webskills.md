@@ -6,13 +6,13 @@
 
 ## 1. 背景与痛点
 
-### 1.1 场景引子：为什么页面自动化这么难？
+## 1.1 场景引子：为什么页面自动化这么难？
 
 做前端工程、AI业务接入的小伙伴，是不是都有过这样的崩溃时刻？想实现页面自动化操作，要么被各种方案的坑绊住脚，要么配置复杂到让人头大，好不容易跑通还面临安全隐患……别慌！这篇文档要介绍的“组合拳”——WebMCP+WebSkills，就是帮你在**不大改现有系统**的前提下，把页面操作做得又稳又安全。
 
 ![崩溃的前端开发：被 BUG 和超时淹没](../assets/images/guide/programmer_meltdown.png)
 
-### 1.2 业界主流方案与痛点
+## 1.2 业界主流方案与痛点
 
 先吐个槽：业界现有方案，坑是真的多！
 
@@ -32,7 +32,7 @@
 
 ![安全风险与高成本：数据泄露隐患与 Token 账单](../assets/images/guide/security_risk.png)
 
-### 1.3 WebMCP + WebSkills 的定位
+## 1.3 WebMCP + WebSkills 的定位
 
 就在大家被这些痛点折磨得焦头烂额时，WebMCP+WebSkills 横空出世，直接精准戳中所有痛点，给前端页面操作自动化带来了新希望！
 
@@ -56,7 +56,7 @@ WebMCP + WebSkills 还有一个杀手级亮点——**远程遥控**。通过 `u
 
 不管你是用 Vue、React 还是 Angular，WebMCP+WebSkills 都能完美适配，而且实现方式高度统一：**核心是通过前端路由 + 页面工具（Page Tool Bridge）把业务页面和 MCP 工具打通，再通过 WebSkills 和 TinyRemoter 做“知识与对话入口”**。下面分别给出 Vue / Angular 的摘要示例，并附上工程级最佳实践链接。
 
-### 2.1 Vue 工程最佳实践（摘要）
+## 2.1 Vue 工程最佳实践（摘要）
 
 > 源码工程：[`packages/doc-ai`](https://github.com/opentiny/next-sdk/tree/dev/packages/doc-ai)  
 > 完整工程路径：`packages/doc-ai`  
@@ -278,7 +278,7 @@ onMounted(async () => {
 
 > 中文小结：`menuItems` 在 WebAgent 连接成功后填充，TinyRemoter 会自动在悬浮菜单中显示"遥控器链接"和"识别码"。本地 MCP 与远程遥控**必须分开 try/catch 处理**，避免网络问题导致本地对话功能也一起失效。详细接入方式见 [远程遥控亮点章节](#24-远程遥控跨设备遥控桌面的杀手级亮点)。
 
-### 2.2 Angular 工程最佳实践（摘要）
+## 2.2 Angular 工程最佳实践（摘要）
 
 > 源码工程：[`packages/doc-ai-angular`](https://github.com/opentiny/next-sdk/tree/dev/packages/doc-ai-angular)  
 > 完整工程路径：`packages/doc-ai-angular`  
@@ -437,7 +437,7 @@ const mcpServers = {
 
 > 中文小结：endpoint `'local-mcp'` 和主窗口必须一致，通过这一对 Transport，TinyRemoter 就可以把所有工具调用发送到 Angular 主应用，再由 Page Tool Bridge 转发到具体页面。
 
-### 2.3 React 工程最佳实践（工程入口）
+## 2.3 React 工程最佳实践（工程入口）
 
 > 源码工程：[`packages/doc-ai-react`](https://github.com/opentiny/next-sdk/tree/dev/packages/doc-ai-react)  
 > 完整工程路径：`packages/doc-ai-react`
@@ -452,11 +452,11 @@ React 工程的整体架构与 Angular 工程高度一致，同样是：
 
 ---
 
-### 2.4 远程遥控：跨设备遥控桌面的杀手级亮点 🎮
+## 2.4 远程遥控：跨设备遥控桌面的杀手级亮点 🎮
 
 > 这是 WebMCP 区别于所有现有方案的**独家能力**：无需任何额外硬件或客户端，用手机扫一扫，就能用自然语言遥控桌面浏览器上的业务系统。
 
-### 原理一句话
+#### 原理一句话
 
 ```text
 桌面浏览器（WebMCP Server）
@@ -470,7 +470,7 @@ AI 解析意图 → 调用 MCP 工具 → 桌面页面执行 → 结果回显到
 
 本地 MCP Server 通过 `useWebAgentServer` 向远端 Agent 平台注册，获得唯一 `sessionId`。手机端打开遥控页面并输入识别码（sessionId 后 6 位）或扫描二维码，即与桌面建立会话。
 
-### 核心 API：useWebAgentServer
+#### 核心 API：useWebAgentServer
 
 ```ts
 // src/mcp-servers/useWebAgentServer.ts
@@ -501,7 +501,7 @@ export const useWebAgentServer = async () => {
 }
 ```
 
-### 三步快速接入
+#### 三步快速接入
 
 **① 创建 `useWebAgentServer.ts`**（如上）
 
@@ -534,7 +534,7 @@ onMounted(async () => {
 <TinyRemoter :menuItems="menuItems" :mcpServers="mcpServers" :skills="skillMdModules" />
 ```
 
-### ⚠️ 关键细节：`desc` 必须存完整 URL
+#### ⚠️ 关键细节：`desc` 必须存完整 URL
 
 ```ts
 // ✅ 正确：desc 存带 sessionId 的完整链接
@@ -546,7 +546,7 @@ onMounted(async () => {
 
 TinyRemoter 的复制按钮优先读取 `desc` 字段，若只是裸域名则复制内容缺少 `sessionId`，手机端无法建立遥控会话。
 
-### 完整交互时序
+#### 完整交互时序
 
 ```text
 ① 桌面打开页面
@@ -563,7 +563,7 @@ TinyRemoter 的复制按钮优先读取 `desc` 字段，若只是裸域名则复
     → 页面内处理器执行业务逻辑 → 结果返回给 AI → 回复用户
 ```
 
-### sessionId 持久化，刷新不丢会话
+#### sessionId 持久化，刷新不丢会话
 
 `useWebAgentServer` 内部将 sessionId 存入 `localStorage`（key：`web-agent-session-id`），刷新页面后自动复用，无需重新扫码。若 session 过期，Agent 平台会分配新 sessionId 并写回。
 
