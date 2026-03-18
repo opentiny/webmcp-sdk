@@ -146,30 +146,33 @@ class FloatingBlock {
 
   /**
    * 合并菜单项配置。
-   * - 有 sessionId：使用默认菜单 + 用户配置（可定制每一项的 show/text/icon 等）
-   * - 无 sessionId：不渲染任何下拉菜单，仅保留点击浮标打开对话框的能力
+   * - 用户明确传入 menuItems：直接使用用户配置，不受 sessionId 限制；未传 icon 时自动补充默认图标
+   * - 有 sessionId 且未传 menuItems：使用默认菜单
+   * - 无 sessionId 且未传 menuItems：不渲染任何下拉菜单，仅保留点击浮标打开对话框的能力
    */
   private mergeMenuItems(userMenuItems?: MenuItemConfig[]): MenuItemConfig[] {
-    // 无 sessionId：完全关闭下拉菜单（包括 ai-chat 项），只保留点击浮标触发 onShowAIChat
+    // 各 action 对应的默认图标映射
+    const defaultIcons: Partial<Record<ActionType, string>> = {
+      'qr-code': qrCode,
+      'ai-chat': chat,
+      'remote-url': link,
+      'remote-control': scan
+    }
+
+    // 用户明确传入了 menuItems，直接使用，并补充缺失的图标
+    if (userMenuItems) {
+      return userMenuItems.map((item) => ({
+        ...item,
+        icon: item.icon ?? defaultIcons[item.action]
+      }))
+    }
+
+    // 无 sessionId 且无用户菜单：完全关闭下拉菜单，只保留点击浮标触发 onShowAIChat
     if (!this.options.sessionId) {
       return []
     }
 
-    if (!userMenuItems) {
-      return getDefaultMenuItems(this.options)
-    }
-
-    return getDefaultMenuItems(this.options).map((defaultItem) => {
-      const userItem = userMenuItems.find((item) => item.action === defaultItem.action)
-      if (userItem) {
-        return {
-          ...defaultItem,
-          ...userItem,
-          show: userItem.show !== undefined ? userItem.show : defaultItem.show
-        }
-      }
-      return defaultItem
-    })
+    return getDefaultMenuItems(this.options)
   }
 
   private init(): void {
@@ -220,7 +223,7 @@ class FloatingBlock {
           <div class="tiny-remoter-dropdown-item__content">
             <div title="${item.tip}">${item.text}</div>
             <div class="tiny-remoter-dropdown-item__desc-wrapper">
-              <div class="tiny-remoter-dropdown-item__desc ${item.active ? 'tiny-remoter-dropdown-item__desc--active' : ''} ${item.know ? 'tiny-remoter-dropdown-item__desc--know' : ''}">${item.desc}</div>
+              <div class="tiny-remoter-dropdown-item__desc ${item.active ? 'tiny-remoter-dropdown-item__desc--active' : ''} ${item.know ? 'tiny-remoter-dropdown-item__desc--know' : ''}">${item.desc ?? ''}</div>
               <div>
                 ${
                   item.showCopyIcon
@@ -357,13 +360,25 @@ class FloatingBlock {
   }
 
   private copyRemoteControl(): void {
-    if (!this.options.sessionId) return
-    this.copyToClipboard(this.options.sessionId.slice(-6))
+    // 优先使用用户菜单项中的 desc/text（支持自定义识别码），回退到 sessionId 末 6 位
+    const menuItem = this.menuItems.find((item) => item.action === 'remote-control')
+    const codeToCopy =
+      menuItem?.desc || menuItem?.text || (this.options.sessionId ? this.options.sessionId.slice(-6) : '')
+    if (codeToCopy) {
+      this.copyToClipboard(codeToCopy)
+    }
   }
 
   private copyRemoteURL(): void {
-    if (!this.options.sessionId) return
-    this.copyToClipboard(this.options.remoteUrl + this.sessionPrefix + this.options.sessionId)
+    // 优先使用用户菜单项中的 text（支持自定义 URL），回退到默认构造方式
+    const menuItem = this.menuItems.find((item) => item.action === 'remote-url')
+    const urlToCopy =
+      menuItem?.desc ||
+      menuItem?.text ||
+      (this.options.sessionId ? this.options.remoteUrl + this.sessionPrefix + this.options.sessionId : '')
+    if (urlToCopy) {
+      this.copyToClipboard(urlToCopy)
+    }
   }
 
   // 实现复制到剪贴板功能
