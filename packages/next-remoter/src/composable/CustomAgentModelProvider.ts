@@ -5,7 +5,6 @@ import { BaseModelProvider } from '@opentiny/tiny-robot-kit'
 import type { AIModelConfig } from '@opentiny/tiny-robot-kit'
 import { nextTick, watch, type Ref } from 'vue'
 import { AgentModelProvider, IAgentModelProviderOption, getToolRouteMap, getActiveRoutes } from '@opentiny/next-sdk'
-import { getToday } from './tools'
 import { getRemoteRouteState } from './useRouteBasedTools'
 import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import { createDeepSeek } from '@ai-sdk/deepseek'
@@ -394,7 +393,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       abortSignal: request.options?.signal,
       // toolChoice: 'auto' | 'none' | 'required'
       toolChoice: 'auto',
-      tools: { ['get-today']: getToday, ...(this.llmConfig.extraTools || {}) },
+      tools: this.llmConfig.extraTools || {},
       maxSteps: this.llmConfig.maxSteps,
       // 合并用户传递的 providerOptions 与默认 GENUI_CONFIG，用户配置优先
       providerOptions: mergeProviderOptions(this.llmConfig.providerOptions, GENUI_CONFIG),
@@ -406,7 +405,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
         const cleanedMessages = this.cleanupOldSnapshotsInMessages(messages)
 
         // 3. 动态获取当前激活的 tools 供模型使用
-        const allToolNames: string[] = ['get-today', ...Object.keys(this.llmConfig.extraTools || {})]
+        const allToolNames: string[] = Object.keys(this.llmConfig.extraTools || {})
         const mcpToolNames = new Set<string>()
         Object.values(this.agent.mcpTools || {}).forEach((toolObj) => {
           Object.keys(toolObj || {}).forEach((n) => mcpToolNames.add(n))
