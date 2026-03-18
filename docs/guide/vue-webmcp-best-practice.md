@@ -235,9 +235,9 @@ export default registerPriceProtectionTools
 
 > **两种工具注册方式对比：**
 >
-> | 方式     | 第三个参数                                       | 适用场景                                             |
-> | -------- | ------------------------------------------------ | ---------------------------------------------------- |
-> | 回调函数 | `async (input) => { return { content: [...] } }` | 工具逻辑简单，不需要访问页面状态或 Vue 响应式数据    |
+> | 方式     | 第三个参数                                                                                    | 适用场景                                             |
+> | -------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+> | 回调函数 | `async (input) => { return { content: [...] } }`                                              | 工具逻辑简单，不需要访问页面状态或 Vue 响应式数据    |
 > | 路由配置 | `{ route: '/some-path', timeout?: number, invokeEffect?: boolean \| ToolInvokeEffectConfig }` | 工具需要读写页面状态，或需要在特定页面内执行业务逻辑 |
 >
 > 路由配置对象（RouteConfig）支持字段：**route**（必填，目标路由路径）、**timeout**（可选，等待页面响应的超时时间，单位 ms，默认 30000）、**invokeEffect**（可选，是否在调用该工具时在页面左下角展示调用提示效果，支持 `boolean` 或 `{ label?: string }`）。
@@ -516,6 +516,7 @@ export const useWebAgentServer = async () => {
 <!-- src/App.vue（片段）-->
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
+import type { MenuItemConfig } from '@opentiny/next-remoter'
 import { TinyRemoter } from '@opentiny/next-remoter'
 import { createMcpServer, clientTransport } from './mcp-servers'
 import { useWebAgentServer } from './mcp-servers/useWebAgentServer'
@@ -526,7 +527,7 @@ const mcpServers = {
 }
 
 // 远程遥控菜单项（会在 WebAgent 初始化成功后填充）
-const menuItems = ref<any[]>([])
+const menuItems = ref<MenuItemConfig[]>([])
 
 onMounted(async () => {
   // ① 本地 MCP 核心功能：失败直接抛出，不容忽视
@@ -541,7 +542,7 @@ onMounted(async () => {
         {
           action: 'remote-url',
           text: '遥控器链接',
-          desc: remoteUrl,   // 存完整 URL（含 sessionId），复制时不会丢失会话
+          desc: remoteUrl, // 存完整 URL（含 sessionId），复制时不会丢失会话
           tip: remoteUrl,
           active: true,
           showCopyIcon: true
@@ -566,15 +567,15 @@ onMounted(async () => {
 
 ### 6.3 menuItems 字段说明
 
-| 字段           | 类型      | 说明                                                         |
-| -------------- | --------- | ------------------------------------------------------------ |
+| 字段           | 类型      | 说明                                                                                                       |
+| -------------- | --------- | ---------------------------------------------------------------------------------------------------------- |
 | `action`       | `string`  | 菜单标识：`remote-url`（遥控链接）/ `remote-control`（识别码）/ `qr-code`（二维码）/ `ai-chat`（打开对话） |
-| `text`         | `string`  | 菜单项标题                                                    |
-| `desc`         | `string`  | 副标题/描述，`remote-url` 场景下应存完整链接（含 sessionId） |
-| `tip`          | `string`  | hover tooltip 文字                                           |
-| `active`       | `boolean` | 描述文字高亮为蓝色                                           |
-| `know`         | `boolean` | 描述文字高亮为深色（用于识别码）                              |
-| `showCopyIcon` | `boolean` | 是否显示复制图标按钮                                         |
+| `text`         | `string`  | 菜单项标题                                                                                                 |
+| `desc`         | `string`  | 副标题/描述，`remote-url` 场景下应存完整链接（含 sessionId）                                               |
+| `tip`          | `string`  | hover tooltip 文字                                                                                         |
+| `active`       | `boolean` | 描述文字高亮为蓝色                                                                                         |
+| `know`         | `boolean` | 描述文字高亮为深色（用于识别码）                                                                           |
+| `showCopyIcon` | `boolean` | 是否显示复制图标按钮                                                                                       |
 
 ---
 
