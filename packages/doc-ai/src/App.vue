@@ -239,27 +239,34 @@ const mcpServers = {
 const menuItems = ref<any[]>([])
 
 onMounted(async () => {
+  // 本地 MCP Server 启动：失败则直接抛出（核心功能）
   await createMcpServer()
-  const result = await useWebAgentServer()
-  if (result?.sessionId) {
-    const remoteUrl = `${AGENT_ROOT}/mcp?sessionId=${result.sessionId}`
-    menuItems.value = [
-      {
-        action: 'remote-url',
-        text: '遥控器链接',
-        desc: remoteUrl,
-        tip: remoteUrl,
-        active: true,
-        showCopyIcon: true
-      },
-      {
-        action: 'remote-control',
-        text: '识别码',
-        desc: result.sessionId.slice(-6),
-        know: true,
-        showCopyIcon: true
-      }
-    ]
+
+  // 远程 WebAgent 初始化：失败时只打印警告，不影响本地功能
+  try {
+    const result = await useWebAgentServer()
+    if (result?.sessionId) {
+      const remoteUrl = `${AGENT_ROOT}/mcp?sessionId=${result.sessionId}`
+      menuItems.value = [
+        {
+          action: 'remote-url',
+          text: '遥控器链接',
+          desc: remoteUrl,
+          tip: remoteUrl,
+          active: true,
+          showCopyIcon: true
+        },
+        {
+          action: 'remote-control',
+          text: '识别码',
+          desc: result.sessionId.slice(-6),
+          know: true,
+          showCopyIcon: true
+        }
+      ]
+    }
+  } catch (err) {
+    console.warn('[WebAgent] 远程遥控初始化失败，本地功能不受影响：', err)
   }
 })
 </script>

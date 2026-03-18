@@ -370,12 +370,18 @@ class FloatingBlock {
   }
 
   private copyRemoteURL(): void {
-    // 优先使用用户菜单项中的 text（支持自定义 URL），回退到默认构造方式
     const menuItem = this.menuItems.find((item) => item.action === 'remote-url')
-    const urlToCopy =
-      menuItem?.desc ||
-      menuItem?.text ||
-      (this.options.sessionId ? this.options.remoteUrl + this.sessionPrefix + this.options.sessionId : '')
+
+    // 构造带 sessionId 的完整遥控链接（默认行为）
+    const sessionUrl = this.options.sessionId
+      ? this.options.remoteUrl + this.sessionPrefix + this.options.sessionId
+      : ''
+
+    // 仅当 desc 是用户真正自定义的值（不同于裸 remoteUrl）时才优先使用，
+    // 否则回退到带 sessionId 的完整链接，避免默认菜单场景复制裸域名
+    const customDesc = menuItem?.desc && menuItem.desc !== this.options.remoteUrl ? menuItem.desc : undefined
+    const urlToCopy = customDesc || sessionUrl || menuItem?.text || ''
+
     if (urlToCopy) {
       this.copyToClipboard(urlToCopy)
     }
