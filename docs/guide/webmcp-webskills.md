@@ -19,7 +19,7 @@
 ---
 
 > [!TIP]
-> **以下是模拟小明操作的视频演示：**
+> **以下是模拟小明操作的视频演示（欢迎访问 [在线演示地址](https://ai.opentiny.design/ai-vue/) 亲自体验）：**
 > <video src="../assets/video/WebMCP+WebSkills.mov" controls width="100%" style="max-height: 500px;"></video>
 
 ---

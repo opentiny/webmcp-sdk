@@ -2,7 +2,9 @@
 
 本文将以一个完整的**商品管理后台**为示例，带你一步步把普通 Angular 工程升级为 AI 驱动的智能应用。完成后，用户可以通过自然语言对话查询数据、触发业务操作，AI 还能自动跳转到对应页面并在页面内执行逻辑。
 
-与 Vue 版本的核心差异在于：**TinyRemoter 是 Vue 的 AI 对话组件**，Angular 无法直接引用，需通过 **iframe + MessageChannel 跨窗口连接** 将主应用与 Remoter 打通。具体实现可参考仓库中的 `packages/doc-ai-angular` 示例。
+与 Vue 版本的核心差异在于：**TinyRemoter 是 Vue 的 AI 对话组件**，Angular 无法直接引用，需通过 **iframe + MessageChannel 跨窗口连接** 将主应用与 Remoter 打通。
+ 
+> **示例工程仓库**：[`packages/doc-ai-angular`](https://github.com/opentiny/next-sdk/tree/dev/packages/doc-ai-angular)
 
 ## 核心概念
 
