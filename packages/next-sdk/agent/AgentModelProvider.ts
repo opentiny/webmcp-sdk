@@ -2,6 +2,7 @@ import { streamText, stepCountIs, generateText } from 'ai'
 import { MCPClientConfig, createMCPClient } from '@ai-sdk/mcp'
 import type { ToolSet } from 'ai'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
 import type { IAgentModelProviderOption, McpServerConfig } from './type'
 import { ProviderV2 } from '@ai-sdk/provider'
@@ -81,15 +82,21 @@ export class AgentModelProvider {
   private async _createOneClient(serverConfig: McpServerConfig) {
     try {
       let transport: MCPClientConfig['transport']
-      // transport 一定是 streamableHttp 或者就是： ai-sdk允许的 transport
+      // transport 一定是 streamableHttp/sse 或者就是： ai-sdk允许的 transport
       if ('type' in serverConfig && serverConfig.type.toLocaleLowerCase() === 'streamablehttp') {
-        transport = new StreamableHTTPClientTransport(new URL((serverConfig as { url: string }).url))
+        const configWithHeaders = serverConfig as { url: string; headers?: Record<string, string> }
+        const requestInit = configWithHeaders.headers ? { headers: configWithHeaders.headers } : undefined
+        transport = new StreamableHTTPClientTransport(new URL(configWithHeaders.url), { requestInit })
+      } else if ('type' in serverConfig && serverConfig.type === 'sse') {
+        const configWithHeaders = serverConfig as { url: string; headers?: Record<string, string> }
+        const requestInit = configWithHeaders.headers ? { headers: configWithHeaders.headers } : undefined
+        transport = new SSEClientTransport(new URL(configWithHeaders.url), { requestInit })
       } else if ('type' in serverConfig && serverConfig.type === 'extension') {
         transport = new ExtensionClientTransport(serverConfig.sessionId)
       } else if ('transport' in serverConfig) {
         transport = serverConfig.transport
       } else {
-        transport = serverConfig as MCPClientConfig['transport']
+        transport = serverConfig as unknown as MCPClientConfig['transport']
       }
 
       // 根据 useAISdkClient 配置决定使用哪种 client 创建方式

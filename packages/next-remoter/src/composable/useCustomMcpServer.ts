@@ -39,7 +39,7 @@ const normalizeMcpConfig = (config: any): McpServerConfig | null => {
     return null
   }
 
-  const { type, url, sessionId } = config
+  const { type, url, sessionId, headers } = config
 
   // extension 类型需要 sessionId
   if (type === 'extension') {
@@ -50,6 +50,7 @@ const normalizeMcpConfig = (config: any): McpServerConfig | null => {
       type: 'extension',
       url,
       sessionId,
+      headers,
       useAISdkClient: true
     } as McpServerConfig
   }
@@ -59,6 +60,7 @@ const normalizeMcpConfig = (config: any): McpServerConfig | null => {
     return {
       type,
       url,
+      headers,
       useAISdkClient: true
     } as McpServerConfig
   }
@@ -67,6 +69,7 @@ const normalizeMcpConfig = (config: any): McpServerConfig | null => {
   return {
     type: 'streamableHttp',
     url,
+    headers,
     useAISdkClient: true
   } as McpServerConfig
 }
@@ -226,9 +229,22 @@ export const useCustomMcpServer = (
       const pluginId = `custom-${name}-${Date.now()}`
       const serverName = `mcp-server-${pluginId}`
 
+      // 解析 headers
+      let headers: Record<string, string> | undefined = undefined
+      if (typeof _headers === 'string' && _headers.trim()) {
+        try {
+          headers = JSON.parse(_headers)
+        } catch (e) {
+          console.warn('Failed to parse headers JSON:', e)
+        }
+      } else if (typeof _headers === 'object') {
+        headers = _headers as Record<string, string>
+      }
+
       const mcpServer: McpServerConfig = {
         type: mcpType as 'streamableHttp' | 'sse',
         url,
+        headers,
         useAISdkClient: true
       } as McpServerConfig
 
