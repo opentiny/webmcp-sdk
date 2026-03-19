@@ -17,7 +17,7 @@ export function usePluginSession(options: {
   mode: string
   qrCodeUrl?: string
   remoteUrl?: string
-  menuItems?: MenuItemConfig[]
+  menuItems?: Ref<MenuItemConfig[] | undefined>
   AILogoUrl?: string
   show: Ref<boolean>
   addPluginFromScan: (sessionId: string, agentRoot: string) => Promise<boolean>
@@ -106,6 +106,25 @@ export function usePluginSession(options: {
    * - 后续 sessionId 变为非空字符串：销毁旧实例并重建，展示完整菜单（扫码、识别码、遥控器链接）
    */
   const initializeRemoter = () => {
+    const createOrRecreateRemoter = (sessionValue?: string) => {
+      if (remoterInstance) {
+        remoterInstance.destroy()
+        remoterInstance = null
+      }
+
+      remoterInstance = createRemoter({
+        sessionId: sessionValue || undefined,
+        qrCodeUrl,
+        remoteUrl,
+        menuItems: menuItems?.value,
+        logoUrl: AILogoUrl,
+        onShowAIChat: () => (show.value = true)
+      })
+      if (show.value) {
+        remoterInstance.hide()
+      }
+    }
+
     watch(
       sessionId,
       (value) => {
@@ -114,37 +133,31 @@ export function usePluginSession(options: {
         const hasSession = !!value
 
         if (!remoterInstance) {
-          // 首次创建：sessionId 可能为空串 / undefined，此时只展示「打开对话框」
-          remoterInstance = createRemoter({
-            sessionId: value || undefined,
-            qrCodeUrl,
-            remoteUrl,
-            menuItems,
-            logoUrl: AILogoUrl,
-            onShowAIChat: () => (show.value = true)
-          })
+          // 首次创建
+          createOrRecreateRemoter(value)
           createdWithSessionId = hasSession
         } else if (!createdWithSessionId && hasSession) {
-          // 之前以「无 sessionId」创建，现在拿到真正 sessionId：重建以展示完整菜单
-          remoterInstance.destroy()
-          remoterInstance = createRemoter({
-            sessionId: value,
-            qrCodeUrl,
-            remoteUrl,
-            menuItems,
-            logoUrl: AILogoUrl,
-            onShowAIChat: () => (show.value = true)
-          })
+          // 状态升级：从未登录到登录
+          createOrRecreateRemoter(value)
           createdWithSessionId = true
-        }
-
-        // 重建实例后，若对话框已打开则隐藏该图标（避免遮挡）
-        if (remoterInstance && show.value) {
-          remoterInstance.hide()
         }
       },
       { immediate: true }
     )
+
+    // 监听 menuItems 变化，动态同步菜单内容
+    if (menuItems) {
+      watch(
+        menuItems,
+        () => {
+          if (mode === 'remoter' && remoterInstance) {
+            // 重新创建以应用新的菜单项
+            createOrRecreateRemoter(sessionId.value)
+          }
+        },
+        { deep: true }
+      )
+    }
 
     // 监听 AI 对话框显示状态，动态隐藏/显示 remoter 图标
     watch(

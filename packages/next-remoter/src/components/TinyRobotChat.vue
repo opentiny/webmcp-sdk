@@ -568,7 +568,7 @@ const {
   mode: props.mode,
   qrCodeUrl: props.qrCodeUrl,
   remoteUrl: props.remoteUrl,
-  menuItems: props.menuItems,
+  menuItems: toRef(props, 'menuItems'),
   AILogoUrl: props.AILogoUrl,
   show,
   addPluginFromScan,
@@ -857,7 +857,7 @@ defineExpose({
 }
 
 .tr-history-demo {
-  flex:1;
+  flex: 1;
   min-height: 0;
   overflow-y: auto;
 }
