@@ -441,7 +441,7 @@ const customMarketMcpServers = [
 
 组件初始化时会把上述数组与 `DEFAULT_SERVERS` 合并，因此你可以通过简单传参扩展默认市场。
 
-#### 自定义 MCP 请求 Header (headers)
+### 自定义 MCP 请求 Header (headers)
 
 `customMarketMcpServers` 中的每个配置项也支持 `headers` 字段，用于向该 MCP 服务器发起请求时携带自定义 Header：
 
