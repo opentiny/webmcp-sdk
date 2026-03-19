@@ -1105,7 +1105,7 @@ function beforeAiRender(currMessage: any) {
 }
 
 onMounted(()=>{
-  remoterRef.value?.registerContentRenderer('heart', (content: any) => {
+  myRemoter.value?.registerContentRenderer('heart', (content: any) => {
     return h('span', {}, content)
   })
 })
