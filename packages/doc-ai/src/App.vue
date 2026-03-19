@@ -89,6 +89,8 @@
         :pageToolsOnDemand="true"
         :promptItems="ecommercePromptItems"
         :pillItems="ecommercePillItems"
+        ref="remoterRef"
+        @before-ai-render="beforeAiRender"
       />
     </div>
   </div>
@@ -99,7 +101,7 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 import { onMounted, ref, h } from 'vue'
 import { createMcpServer, clientTransport } from './mcp-servers'
 import { iconDesktopView, iconBoxSolid, iconLock, iconLineChart, iconCoin, iconShoppingCard } from '@opentiny/vue-icon'
-
+const remoterRef=ref()
 // 电商管理平台：欢迎区建议卡片（上方大卡片）
 const ecommercePromptItems = [
   {
