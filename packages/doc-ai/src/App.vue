@@ -73,18 +73,19 @@
     </div>
 
     <!-- 拖拽分隔条 — 仅 AI 面板显示时出现 -->
-    <div v-if="show" class="app-divider" @mousedown="startDrag">
+    <div v-show="show" class="app-divider" @mousedown="startDrag">
       <div class="divider-handle"></div>
     </div>
 
     <!-- Right AI Assistant — 宽度由 rightWidth 控制 -->
-    <div v-if="show" class="app-right" :style="{ width: rightWidth + 'px' }">
+    <div v-show="show" class="app-right" :style="{ width: rightWidth + 'px' }">
       <tiny-remoter
         class="remoter-pane"
         :skills="skillMdModules"
-        :show="show"
+        v-model:show="show"
         :mcpServers="mcpServers"
         layoutMode="relative"
+        :menuItems="menuItems"
         :systemPrompt="systemPrompt"
         :pageToolsOnDemand="true"
         :promptItems="ecommercePromptItems"
@@ -97,8 +98,9 @@
 <script setup lang="ts">
 import { TinyRemoter } from '@opentiny/next-remoter'
 import { onMounted, ref, h } from 'vue'
-import { createMcpServer, clientTransport } from './mcp-servers'
+import { createMcpServer, clientTransport, useWebAgentServer } from './mcp-servers'
 import { iconDesktopView, iconBoxSolid, iconLock, iconLineChart, iconCoin, iconShoppingCard } from '@opentiny/vue-icon'
+import { AGENT_ROOT } from './const'
 
 // 电商管理平台：欢迎区建议卡片（上方大卡片）
 const ecommercePromptItems = [
@@ -134,7 +136,11 @@ const ecommercePillItems = [
     id: 'price-protection',
     text: '价保售后',
     menus: [
-      { id: 0, text: '创建价保', inputMessage: '我要为客户李四创建价保申请，订单号 ORD-123456，补偿 50 元，事由是双十一大促降价。' },
+      {
+        id: 0,
+        text: '创建价保',
+        inputMessage: '我要为客户李四创建价保申请，订单号 ORD-123456，补偿 50 元，事由是双十一大促降价。'
+      },
       { id: 1, text: '查价保单', inputMessage: '帮我查看当前待审核的价保申请列表。' }
     ]
   },
@@ -230,8 +236,38 @@ const mcpServers = {
   }
 }
 
+const menuItems = ref<any[]>([])
+
 onMounted(async () => {
+  // 本地 MCP Server 启动：失败则直接抛出（核心功能）
   await createMcpServer()
+
+  // 远程 WebAgent 初始化：失败时只打印警告，不影响本地功能
+  try {
+    const result = await useWebAgentServer()
+    if (result?.sessionId) {
+      const remoteUrl = `${AGENT_ROOT}/mcp?sessionId=${result.sessionId}`
+      menuItems.value = [
+        {
+          action: 'remote-url',
+          text: '遥控器链接',
+          desc: remoteUrl,
+          tip: remoteUrl,
+          active: true,
+          showCopyIcon: true
+        },
+        {
+          action: 'remote-control',
+          text: '识别码',
+          desc: result.sessionId.slice(-6),
+          know: true,
+          showCopyIcon: true
+        }
+      ]
+    }
+  } catch (err) {
+    console.warn('[WebAgent] 远程遥控初始化失败，本地功能不受影响：', err)
+  }
 })
 </script>
 

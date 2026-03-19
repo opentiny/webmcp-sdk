@@ -12,6 +12,7 @@
 | **Page Tool Bridge** | `@opentiny/next-sdk`                            | 工具调用时自动导航到目标页面，并通过消息通信执行页面内逻辑 |
 | **WebSkills**        | `@opentiny/next-sdk` + `@opentiny/next-remoter` | 结构化知识包，让 AI 获得特定领域的角色和文档知识           |
 | **TinyRemoter**      | `@opentiny/next-remoter`                        | AI 对话面板组件，集成 LLM + MCP + Skills                   |
+| **WebAgent**         | `@opentiny/next-sdk`                            | 将本地 MCP Server 桥接到远端 Agent 平台，支持手机遥控      |
 
 ### 为什么需要 Page Tool Bridge？
 
@@ -234,10 +235,10 @@ export default registerPriceProtectionTools
 
 > **两种工具注册方式对比：**
 >
-> | 方式     | 第三个参数                                       | 适用场景                                             |
-> | -------- | ------------------------------------------------ | ---------------------------------------------------- |
-> | 回调函数 | `async (input) => { return { content: [...] } }` | 工具逻辑简单，不需要访问页面状态或 Vue 响应式数据    |
-> | 路由配置 | `{ route: '/some-path', timeout?: number, invokeEffect?: boolean | ToolInvokeEffectConfig }` | 工具需要读写页面状态，或需要在特定页面内执行业务逻辑 |
+> | 方式     | 第三个参数                                                                                    | 适用场景                                             |
+> | -------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+> | 回调函数 | `async (input) => { return { content: [...] } }`                                              | 工具逻辑简单，不需要访问页面状态或 Vue 响应式数据    |
+> | 路由配置 | `{ route: '/some-path', timeout?: number, invokeEffect?: boolean \| ToolInvokeEffectConfig }` | 工具需要读写页面状态，或需要在特定页面内执行业务逻辑 |
 >
 > 路由配置对象（RouteConfig）支持字段：**route**（必填，目标路由路径）、**timeout**（可选，等待页面响应的超时时间，单位 ms，默认 30000）、**invokeEffect**（可选，是否在调用该工具时在页面左下角展示调用提示效果，支持 `boolean` 或 `{ label?: string }`）。
 
@@ -406,7 +407,7 @@ onUnmounted(() => cleanupPageTool?.())
     <!-- 页面路由内容 -->
     <router-view />
 
-    <!-- AI 对话面板（本地 WebMCP 场景推荐不依赖 sessionId，直接使用本地 mcpServers） -->
+    <!-- AI 对话面板 -->
     <TinyRemoter
       :show="true"
       :skills="skillMdModules"
@@ -436,7 +437,6 @@ const llmConfig = {
 }
 
 // 加载 skills 目录下所有文件（SKILL.md + 所有参考资料）
-// import.meta.glob 是 Vite 特性，eager: true 表示同步加载
 const skillMdModules = import.meta.glob('./skills/**/*', {
   query: '?raw',
   import: 'default',
@@ -444,24 +444,142 @@ const skillMdModules = import.meta.glob('./skills/**/*', {
 }) as Record<string, string>
 
 // 将本地 MCP Server 注册到 TinyRemoter
-// key 为服务器名称（自定义），type: 'local' 表示浏览器本地运行
 const mcpServers = {
   'my-mcp-server': {
-    type: 'local',
+    type: 'local' as const,
     transport: clientTransport
   }
 }
 
-// 启动 MCP Server（注册工具 + 建立通信通道）
+// ⚠️ 最佳实践：本地 MCP 与远程初始化必须分开处理
+// createMcpServer() 是核心功能，失败则抛出，让开发者及时发现问题
+// useWebAgentServer() 是增强功能（远程遥控），失败只打印警告，不阻塞页面
 onMounted(async () => {
   await createMcpServer()
+
+  // 如果不需要远程遥控功能，到这里即可
 })
 </script>
 ```
 
+> **为什么要分开处理？**
+> 如果把本地 MCP 启动和远程 WebAgent 初始化放在同一个 `await` 链中，一旦网络抖动导致远程连接失败，整个 `onMounted` 都会 reject，本地 AI 对话功能也会随之失效。分开处理后，远程功能降级不影响本地体验。
+
 ---
 
-## 第六步：配置 WebSkills（可选但推荐）
+## 第六步：接入远程遥控（WebAgent，可选）
+
+通过 `useWebAgentServer`，可以将本地 MCP Server 桥接到远端 Agent 平台，获取一个 `sessionId`，之后使用手机扫码或输入识别码即可实现跨设备遥控。
+
+### 6.1 创建 useWebAgentServer.ts
+
+```ts
+// src/mcp-servers/useWebAgentServer.ts
+import { WebMcpServer, WebMcpClient, createMessageChannelPairTransport, withPageTools } from '@opentiny/next-sdk'
+import { registerAllTools } from './common' // 与本地 MCP 共用的工具注册函数
+
+const rawServer = new WebMcpServer()
+const client = new WebMcpClient()
+const [serverTransport, clientTransport] = createMessageChannelPairTransport()
+
+export const server = withPageTools(rawServer)
+
+const SESSION_ID_KEY = 'web-agent-session-id'
+
+export const useWebAgentServer = async () => {
+  registerAllTools(server)
+
+  await rawServer.connect(serverTransport)
+  await client.connect(clientTransport)
+
+  // 从 localStorage 读取上次的 sessionId（刷新后可复用同一遥控会话）
+  const cachedSessionId = localStorage.getItem(SESSION_ID_KEY) ?? undefined
+
+  const { sessionId } = await client.connect({
+    sessionId: cachedSessionId,
+    agent: true,
+    url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp'
+  })
+
+  if (sessionId) {
+    localStorage.setItem(SESSION_ID_KEY, sessionId)
+  }
+  return { sessionId }
+}
+```
+
+> **注意**：`rawServer`、`client`、`transport` 均为模块级单例，该文件**只应在应用生命周期内被调用一次**（通过 `onMounted` 中的 `try/catch` 保障，详见下方）。若需要支持热重载或多次调用场景，可在函数顶部加 `initialized` 标志做幂等保护。
+
+### 6.2 在 App.vue 中集成（含错误隔离）
+
+```vue
+<!-- src/App.vue（片段）-->
+<script setup lang="ts">
+import { onMounted, ref } from 'vue'
+import type { MenuItemConfig } from '@opentiny/next-remoter'
+import { TinyRemoter } from '@opentiny/next-remoter'
+import { createMcpServer, clientTransport } from './mcp-servers'
+import { useWebAgentServer } from './mcp-servers/useWebAgentServer'
+import { AGENT_ROOT } from './const'
+
+const mcpServers = {
+  'my-mcp-server': { type: 'local' as const, transport: clientTransport }
+}
+
+// 远程遥控菜单项（会在 WebAgent 初始化成功后填充）
+const menuItems = ref<MenuItemConfig[]>([])
+
+onMounted(async () => {
+  // ① 本地 MCP 核心功能：失败直接抛出，不容忽视
+  await createMcpServer()
+
+  // ② 远程遥控增强功能：失败只打印警告，不影响本地对话
+  try {
+    const result = await useWebAgentServer()
+    if (result?.sessionId) {
+      const remoteUrl = `${AGENT_ROOT}/mcp?sessionId=${result.sessionId}`
+      menuItems.value = [
+        {
+          action: 'remote-url',
+          text: '遥控器链接',
+          desc: remoteUrl, // 存完整 URL（含 sessionId），复制时不会丢失会话
+          tip: remoteUrl,
+          active: true,
+          showCopyIcon: true
+        },
+        {
+          action: 'remote-control',
+          text: '识别码',
+          desc: result.sessionId.slice(-6),
+          know: true,
+          showCopyIcon: true
+        }
+      ]
+    }
+  } catch (err) {
+    console.warn('[WebAgent] 远程遥控初始化失败，本地功能不受影响：', err)
+  }
+})
+</script>
+```
+
+> **`desc` 字段的重要性**：为 `remote-url` 菜单项设置 `desc` 时，请务必传入**完整的带 `sessionId` 的 URL**，而不是裸域名。`TinyRemoter` 的复制按钮会优先读取 `desc` 字段，若 `desc` 只是域名，用户复制到的链接将无法建立遥控会话。
+
+### 6.3 menuItems 字段说明
+
+| 字段           | 类型      | 说明                                                                                                       |
+| -------------- | --------- | ---------------------------------------------------------------------------------------------------------- |
+| `action`       | `string`  | 菜单标识：`remote-url`（遥控链接）/ `remote-control`（识别码）/ `qr-code`（二维码）/ `ai-chat`（打开对话） |
+| `text`         | `string`  | 菜单项标题                                                                                                 |
+| `desc`         | `string`  | 副标题/描述，`remote-url` 场景下应存完整链接（含 sessionId）                                               |
+| `tip`          | `string`  | hover tooltip 文字                                                                                         |
+| `active`       | `boolean` | 描述文字高亮为蓝色                                                                                         |
+| `know`         | `boolean` | 描述文字高亮为深色（用于识别码）                                                                           |
+| `showCopyIcon` | `boolean` | 是否显示复制图标按钮                                                                                       |
+
+---
+
+## 第七步：配置 WebSkills（可选但推荐）
 
 Skills 让 AI 获得特定领域的角色和文档知识。当用户提问时，AI 会自动识别意图并读取对应技能的参考资料。
 
@@ -590,3 +708,25 @@ server.registerTool('get-time', { title: '获取当前时间', description: '...
 - 检查 `SKILL.md` 文件名大小写（必须完全为 `SKILL.md`）
 - 确认 YAML Front Matter 中 `description` 字段内容详细，包含使用场景关键词
 - 在控制台打印 `Object.keys(skillMdModules)` 确认文件已被正确加载
+
+### 远程遥控报错但本地对话没有问题？
+
+这是预期行为。`useWebAgentServer` 依赖网络请求连接远端 Agent 平台，在网络受限或服务不可用时会失败。只要 `onMounted` 中用 `try/catch` 单独包裹了远程初始化（见第六步），本地 MCP 和对话功能不受任何影响。
+
+### 刷新页面后遥控会话失效？
+
+`useWebAgentServer` 内部会把 `sessionId` 持久化到 `localStorage`（key 为 `web-agent-session-id`），下次加载时自动读取并复用，正常情况下无需重新扫码。若 sessionId 确实失效（服务端过期），Agent 平台会分配新 sessionId 并自动写回。
+
+### 复制「遥控器链接」只复制到了域名？
+
+请检查 `menuItems` 中 `remote-url` 项的 `desc` 字段是否包含完整的 `sessionId` 参数：
+
+```ts
+// ✅ 正确：desc 存完整链接
+{ action: 'remote-url', desc: `${AGENT_ROOT}/mcp?sessionId=${result.sessionId}`, ... }
+
+// ❌ 错误：desc 只存了裸域名，复制后无法建立遥控会话
+{ action: 'remote-url', desc: AGENT_ROOT, ... }
+```
+
+`TinyRemoter` 的复制按钮会优先使用 `desc` 字段，只有当 `desc` 不存在或与 `remoteUrl` 选项相同时才会自动拼接 `sessionId`。
