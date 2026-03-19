@@ -271,6 +271,7 @@ export function usePlugin(
     const mcpServer = {
       type: (plugin as any).type,
       url: (plugin as any).url,
+      headers: (plugin as any).headers,
       useAISdkClient: true
     } as McpServerConfig
 

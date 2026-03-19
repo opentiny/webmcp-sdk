@@ -441,6 +441,26 @@ const customMarketMcpServers = [
 
 组件初始化时会把上述数组与 `DEFAULT_SERVERS` 合并，因此你可以通过简单传参扩展默认市场。
 
+#### 自定义 MCP 请求 Header (headers)
+
+`customMarketMcpServers` 中的每个配置项也支持 `headers` 字段，用于向该 MCP 服务器发起请求时携带自定义 Header：
+
+```ts
+const customMarketMcpServers = [
+  {
+    id: 'ppt-mcp',
+    name: 'PPT文档MCP服务器',
+    // ... 其他配置
+    url: 'https://your-mcp-server-url.com/mcp',
+    type: 'streamableHttp',
+    // 自定义请求 Header
+    headers: {
+      'Authorization': 'Bearer your-mcp-token'
+    }
+  }
+]
+```
+
 ## 预置 MCP 服务器（mcpServers）
 
 `mcpServers` 属性用于在组件初始化时预置一批 MCP 服务器，采用业界通用的对象格式：**键为服务器名称，值为 `McpServerConfig`**。**一般用于接入前端的 MCP 服务，生命周期与页面一致，页面关闭后连接即断开。** 这些服务器会在启动时自动加载并出现在「已添加MCP服务」中，无需用户从市场手动添加。
@@ -452,7 +472,11 @@ const customMarketMcpServers = [
 const mcpServers = {
   'my-app-mcp-server': {
     type: 'streamableHttp',
-    url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp?sessionId=stream06-1921-4f09-af63-51de410e9e09'
+    url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp?sessionId=xxx',
+    // 支持配置自定义 Header
+    headers: {
+      'X-Project-Id': 'project-456'
+    }
   },
   'local-mcp-server': {
     type: 'local',
@@ -463,8 +487,8 @@ const mcpServers = {
 
 `McpServerConfig` 支持以下类型（与 next-sdk 一致）：
 
-- `type: 'streamableHttp'` 或 `type: 'sse'`：需提供 `url`，可选 `useAISdkClient`
-- `type: 'extension'`：需提供 `url`、`sessionId`，可选 `useAISdkClient`
+- `type: 'streamableHttp'` 或 `type: 'sse'`：需提供 `url`，可选 `useAISdkClient` 和 `headers`
+- `type: 'extension'`：需提供 `url`、`sessionId`，可选 `useAISdkClient` 和 `headers`
 - `type: 'local'`：需提供 `transport`（MCP 传输层），可选 `useAISdkClient`
 
 ## 页面工具按需加载（pageToolsOnDemand）

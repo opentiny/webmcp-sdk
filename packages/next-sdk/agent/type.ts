@@ -35,9 +35,9 @@ export type IAgentModelProviderLlmConfig = LlmFactoryConfig | LlmInstanceConfig
 
 /** Mcp Server的配置对象 */
 export type McpServerConfig =
-  | { type: 'streamableHttp'; url: string; useAISdkClient?: boolean }
-  | { type: 'sse'; url: string; useAISdkClient?: boolean }
-  | { type: 'extension'; url: string; sessionId: string; useAISdkClient?: boolean }
+  | { type: 'streamableHttp'; url: string; useAISdkClient?: boolean; headers?: Record<string, string> }
+  | { type: 'sse'; url: string; useAISdkClient?: boolean; headers?: Record<string, string> }
+  | { type: 'extension'; url: string; sessionId: string; useAISdkClient?: boolean; headers?: Record<string, string> }
   | { type: 'local'; transport: MCPTransport; useAISdkClient?: boolean }
 
 /** */
