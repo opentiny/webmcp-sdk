@@ -929,6 +929,7 @@ import { ref, h } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
 import { createOpenAI } from '@ai-sdk/openai'
 
+const show = ref(false)
 const llmConfig = {
   apiKey: 'your-api-key',
   baseURL: 'https://api.openai.com/v1',
@@ -964,6 +965,7 @@ import { ref, useTemplateRef } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
 import { createOpenAI } from '@ai-sdk/openai'
 
+const show = ref(false)
 const llmConfig = {
   apiKey: 'your-api-key',
   baseURL: 'https://api.openai.com/v1',
@@ -1044,6 +1046,7 @@ import { onMounted, ref, h, useTemplateRef } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
 import { createOpenAI } from '@ai-sdk/openai'
 
+const show = ref(false)
 const llmConfig = {
   apiKey: 'your-api-key',
   baseURL: 'https://api.openai.com/v1',
