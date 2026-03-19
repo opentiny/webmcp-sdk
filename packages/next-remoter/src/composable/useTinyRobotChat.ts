@@ -7,6 +7,7 @@ import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
 interface useTinyRobotOption {
   systemPrompt: string
   llmConfig?: ICustomAgentModelProviderLlmConfig
+  emit: (e: string, ...args: any[]) => void
 }
 
 /**
@@ -23,7 +24,7 @@ interface UIMessage {
   uiContent?: Array<{ type: 'text'; text: string } | { type: 'image'; url: string }>
 }
 
-export const useTinyRobotChat = ({ systemPrompt, llmConfig }: useTinyRobotOption) => {
+export const useTinyRobotChat = ({ systemPrompt, llmConfig, emit }: useTinyRobotOption) => {
   const customAgentProvider = new CustomAgentModelProvider({ provider: 'custom' }, systemPrompt, llmConfig)
 
   const client = new AIClient({
@@ -52,6 +53,7 @@ export const useTinyRobotChat = ({ systemPrompt, llmConfig }: useTinyRobotOption
         if (messages.value[messages.value.length - 1].role === 'assistant') {
           messages.value.pop()
         }
+        emit('before-ai-render', data)
         messages.value.push(data)
       }
     }

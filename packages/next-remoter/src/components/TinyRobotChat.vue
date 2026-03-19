@@ -326,6 +326,16 @@ const props = defineProps({
   }
 })
 
+// 定义事件
+const emit = defineEmits<{
+  /** 在 AI 消息渲染之前触发，用户此时可以修改消息内容
+   *  uiContent包含当前流返回的消息类型：markdown, reasoning,tool,或其它自定义的消息。
+   * 
+   * @param currMessage - 当前消息对象，包含 role , content, uiContent 字段。
+   */
+  (e: 'before-ai-render', currMessage: { role: string; content: string ,uiContent:any[]}): void
+}>()
+
 const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })
 const show = defineModel('show', { type: Boolean, default: false })
 
@@ -385,7 +395,8 @@ const {
   getCurrentConversation
 } = useTinyRobotChat({
   systemPrompt: props.systemPrompt || '',
-  llmConfig: props.llmConfig
+  llmConfig: props.llmConfig,
+  emit: emit as (e: string, ...args: any[]) => void
 })
 watch(
   () => props.systemPrompt,
@@ -496,6 +507,10 @@ const contentRenderer = {
     }),
   // 图片渲染器：使用独立的 BubbleImageRenderer 组件
   image: BubbleImageRenderer
+}
+
+function registerContentRenderer(key: string, renderer: (content: any) => VNode) {
+  contentRenderer[key] = renderer
 }
 
 // 使用插件管理 composable（统一管理插件的增删改查）
@@ -669,7 +684,9 @@ defineExpose({
   /** 添加插件核心方法 */
   addPluginCore,
   /** 删除插件核心方法 */
-  deletePlugin
+  deletePlugin,
+  /** 注册内容渲染器 */
+  registerContentRenderer
 })
 </script>
 

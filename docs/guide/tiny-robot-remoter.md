@@ -49,6 +49,10 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 - `promptItems` 自定义欢迎区建议卡片数据，类型为 `PromptProps[]`。用于覆盖默认的三张欢迎卡片（标题 + 描述 + 图标 + badge），常用于根据业务场景（如电商、办公、运维）改写欢迎区的快捷入口文案。
 - `pillItems` 自定义输入框上方的快捷操作按钮数据，类型为 `{ id: string; text: string; menus: { id: string | number; text: string; inputMessage: string }[] }[]`。用于覆盖默认的三个药丸按钮组（如「办公助手」「开发支持」等），可以将其改成「订单管理」「库存与销售」等业务快捷操作；点击菜单项会自动把 `inputMessage` 填入输入框。
 
+## 事件
+
+- `before-ai-render` 在 AI 消息渲染之前触发，用户此时可以修改消息内容。 参数的`uiContent`属性中，包含当前流返回的消息类型：markdown, reasoning,tool,或其它自定义的消息，用户可以自由编排`uiContent`属性。 它配合组件暴露的`registerContentRenderer`方法，可以实现自定义流消息的渲染。
+
 ### customMarketMcpServers 与 mcpServers 的区别
 
 | 属性                     | 典型场景                                    | 生命周期                                   |
@@ -512,15 +516,11 @@ const mcpServers = {
 ### 使用示例
 
 ```vue
-<TinyRemoter
-  :show="true"
-  :skills="skillMdModules"
-  :mcpServers="mcpServers"
-  :pageToolsOnDemand="true"
-/>
+<TinyRemoter :show="true" :skills="skillMdModules" :mcpServers="mcpServers" :pageToolsOnDemand="true" />
 ```
 
 > 前提：
+>
 > - 业务侧的 WebMCP Server 使用 `withPageTools` 注册工具，并在对应页面中调用 `registerPageTool`；
 > - 对于 TinyRemoter 运行在 iframe 中的场景，需确保宿主页面已按文档接入 Page Tool Bridge（包括 `setNavigator`、`withPageTools` 与 `registerPageTool`），以便路由状态能通过 MessageChannel 同步到 Remoter；
 > - 更多关于页面工具路由映射与激活状态的说明，见 [Vue WebMCP 最佳实践](./vue-webmcp-best-practice.md) 与 [Angular WebMCP 最佳实践](./angular-webmcp-best-practice.md)。
@@ -953,6 +953,7 @@ import { ref, h } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
 import { createOpenAI } from '@ai-sdk/openai'
 
+const show = ref(false)
 const llmConfig = {
   apiKey: 'your-api-key',
   baseURL: 'https://api.openai.com/v1',
@@ -988,6 +989,7 @@ import { ref, useTemplateRef } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
 import { createOpenAI } from '@ai-sdk/openai'
 
+const show = ref(false)
 const llmConfig = {
   apiKey: 'your-api-key',
   baseURL: 'https://api.openai.com/v1',
@@ -1021,5 +1023,115 @@ async function setMyMcpTool() {
     }
   }
 }
+</script>
+```
+
+### 自定义流消息的渲染
+
+有的场景是让大模型返回指定格式的文本内容，对这些内容进行特别渲染,适用于生成式UI 等。 下面举一个简单的例子说明如何使用自定义流消息的渲染。
+
+当大模型返回的文本中包含 `HEART` 时，将它渲染为 emoji ❤️ 。我们分2步来实现：
+
+1. 监听所有流消息中，包含`HEART`的文本，并分隔成多个消息段。 比如：
+
+```javascript
+// 拆分前
+{
+  uiContent: [{ type: 'markdown', content: '你好，我的中国HEART ！' }]
+}
+
+// 拆分后
+{
+  uiContent: [
+    { type: 'markdown', content: '你好，我的中国' },
+    { type: 'heart', content: '❤️' },
+    { type: 'markdown', content: ' ！' }
+  ]
+}
+```
+
+2. 注册一个 heart 类型的渲染器,渲染所有的heart消息。
+
+```javascript
+  remoterRef.value?.registerContentRenderer('heart', (content: any) => {
+    return h('span', {}, content)
+  })
+```
+
+完整示例如下：
+
+```vue
+<template>
+  <TinyRemoter ref="myRemoter" v-model:show="show" sessionId="your-session-id" @before-ai-render="beforeAiRender" />
+</template>
+
+<script setup>
+import { onMounted, ref, h, useTemplateRef } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
+import { createOpenAI } from '@ai-sdk/openai'
+
+const show = ref(false)
+const llmConfig = {
+  apiKey: 'your-api-key',
+  baseURL: 'https://api.openai.com/v1',
+  providerType: 'openai',
+  model: 'gpt-4o'
+}
+
+const myRemoter = useTemplateRef('myRemoter')
+
+function beforeAiRender(currMessage: any) {
+  if (!currMessage?.uiContent || !Array.isArray(currMessage.uiContent)) {
+    return
+  }
+
+  const newUiContent: any[] = []
+
+  for (const item of currMessage.uiContent) {
+    if (item.type === 'markdown' && typeof item.content === 'string') {
+      const heartIndex = item.content.indexOf('HEART')
+
+      if (heartIndex !== -1) {
+        // 找到 HEART 关键字，进行分割
+        const parts = item.content.split('HEART')
+
+        // 遍历分割后的部分
+        for (let i = 0; i < parts.length; i++) {
+          // 添加 markdown 类型的内容（如果该部分不为空）
+          if (parts[i].trim()) {
+            newUiContent.push({
+              type: 'markdown',
+              content: parts[i]
+            })
+          }
+
+          // 如果不是最后一部分，在中间插入 heart 类型
+          if (i < parts.length - 1) {
+            newUiContent.push({
+              type: 'heart',
+              content: '❤️'
+            })
+          }
+        }
+      } else {
+        // 没有找到 HEART，保持原样
+        newUiContent.push(item)
+      }
+    } else {
+      // 非 markdown 类型，保持原样
+      newUiContent.push(item)
+    }
+  }
+
+  // 更新 currMessage.uiContent
+  currMessage.uiContent = newUiContent
+
+}
+
+onMounted(()=>{
+  myRemoter.value?.registerContentRenderer('heart', (content: any) => {
+    return h('span', {}, content)
+  })
+})
 </script>
 ```
