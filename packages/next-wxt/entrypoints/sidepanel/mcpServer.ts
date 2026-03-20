@@ -1,4 +1,4 @@
-import { WebMcpServer, z, createMessageChannelPairTransport } from '@opentiny/next-sdk'
+import { WebMcpServer, z, createMessageChannelPairTransport } from '@opentiny/next-sdk/core'
 import { getAllMcpServersByIsAlwaysEnabled } from '@/mcp-servers'
 import { useExtraTools } from './extraTools'
 

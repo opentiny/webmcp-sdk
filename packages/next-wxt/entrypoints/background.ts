@@ -1,4 +1,19 @@
+import { useWebAgentServer } from './sidepanel/composable/useWebAgentServer'
+import { initHostManager } from './background/hostManager'
+
 export default defineBackground(() => {
+  // 初始化全局 Host 缓存管理器，提供给 background 的 mcpServer 实例
+  initHostManager()
+
+  // 启动 MCP 服务端（常驻或随 Service Worker 唤醒）
+  useWebAgentServer()
+    .then((sessionId) => {
+      console.log('【Background】MCP 服务端启动成功，可用于远程控制的 sessionId:', sessionId)
+    })
+    .catch((error: any) => {
+      console.error('【Background】初始化 useWebAgentServer 失败:', error)
+    })
+
   // 未整改该事件，因为此处需要返回值
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'inject-mcp-scripts') {
@@ -25,6 +40,17 @@ export default defineBackground(() => {
         console.error('脚本注入失败:', error)
         sendResponse({ success: false, hostname, tabId, error })
       }
+      return true
+    }
+
+    if (message.type === 'get-mcp-session-id') {
+      // 异步获取 session ID 从 local storage 中
+      browser.storage.local.get('MCP_SESSION_ID').then((res) => {
+        sendResponse({ sessionId: res['MCP_SESSION_ID'] || '' })
+      }).catch((err) => {
+        console.error('获取 session ID 失败:', err)
+        sendResponse({ sessionId: '' })
+      })
       return true
     }
   })

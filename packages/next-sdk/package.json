@@ -22,6 +22,16 @@
   "main": "index.ts",
   "module": "index.ts",
   "types": "index.ts",
+  "exports": {
+    ".": {
+      "import": "./index.ts",
+      "types": "./index.ts"
+    },
+    "./core": {
+      "import": "./core.ts",
+      "types": "./core.ts"
+    }
+  },
   "description": "A frontend intelligent application development toolkit designed to simplify WebAgent integration and usage, supporting multiple programming languages and frontend frameworks to help developers rapidly implement intelligent features",
   "scripts": {
     "build:all": "pnpm build:cdn && pnpm build:cdn:dev && pnpm build",
@@ -62,6 +72,16 @@
     "access": "public",
     "module": "dist/index.js",
     "main": "dist/index.js",
-    "types": "dist/index.d.ts"
+    "types": "dist/index.d.ts",
+    "exports": {
+      ".": {
+        "import": "./dist/index.js",
+        "types": "./dist/index.d.ts"
+      },
+      "./core": {
+        "import": "./dist/core.js",
+        "types": "./dist/core.d.ts"
+      }
+    }
   }
 }

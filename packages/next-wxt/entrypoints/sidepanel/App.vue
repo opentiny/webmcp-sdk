@@ -2,7 +2,7 @@
 import { ref, type Ref, shallowReactive, computed, watch, onMounted } from 'vue'
 import { TinyRemoter, type UnifiedModelConfig } from '@opentiny/next-remoter'
 import { useBrowserExtensions } from './composable/useBrowserExtensions'
-import { useWebAgentServer } from './composable/useWebAgentServer'
+
 import TinyUser from '@opentiny/vue-user'
 import { useCustomMarketMcpServers } from './composable/useCustomMarketMcpServers'
 import { TrSuggestionPillButton, TrDropdownMenu } from '@opentiny/tiny-robot'
@@ -42,14 +42,24 @@ provide(RENDERER_SETTINGS_KEY, {
 // 通过 Web Agent 服务获取实时 sessionId（中文注释：供短码/URL 使用）
 const sessionId = ref('')
 
-useWebAgentServer()
-  .then((id) => {
-    sessionId.value = id
+// 通过向 Background 询问获取 sessionId，并监听 storage 变化
+browser.runtime.sendMessage({ type: 'get-mcp-session-id' })
+  .then((res) => {
+    if (res && res.sessionId) {
+      sessionId.value = res.sessionId
+    }
   })
   .catch((error) => {
-    console.error('useWebAgentServer 初始化失败', error)
+    console.error('获取 sessionId 失败', error)
     sessionId.value = ''
   })
+
+// 监听 storage 变化以保持最新
+browser.storage.local.onChanged.addListener((changes) => {
+  if (changes[StorageKeys.MCP_SESSION_ID]) {
+    sessionId.value = (changes[StorageKeys.MCP_SESSION_ID].newValue as string) || ''
+  }
+})
 
 const genUiComponents = shallowReactive({ TinyUser })
 // 汇总自定义 MCP Server 配置（中文注释：用于传给 TinyRemoter 的插件市场）

@@ -1,5 +1,4 @@
-import { WebMcpClient } from '@opentiny/next-sdk'
-import { getStorageItem, setStorageItem } from '../utils/local-storage'
+import { WebMcpClient } from '@opentiny/next-sdk/core'
 import { StorageKeys } from '../utils/storage-keys'
 import { createMcpServer } from '../mcpServer'
 import { AGENT_ROOT } from '../const'
@@ -19,8 +18,9 @@ export const useWebAgentServer = async (): Promise<string> => {
   const connectType = import.meta.env.VITE_WEB_AGENT_CONNECT_TYPE
   let retryCount = 0
   let isReconnecting = false
-  // 从存储加载 sessionId（使用 localStorage 同步存储，可以直接获取）
-  let latestSessionId: string | null = getStorageItem<string>(StorageKeys.MCP_SESSION_ID)
+  // 从存储加载 sessionId（使用 browser.storage.local）
+  const storageResult = await browser.storage.local.get(StorageKeys.MCP_SESSION_ID)
+  let latestSessionId: string | null = (storageResult[StorageKeys.MCP_SESSION_ID] as string) || null
 
   // 获取连接类型
   const getConnectType = (): 'sse' | 'socket' | 'stream' => {
@@ -38,10 +38,10 @@ export const useWebAgentServer = async (): Promise<string> => {
     onError
   })
 
-  // 处理连接成功（使用 localStorage 同步存储）
+  // 处理连接成功（使用 browser.storage.local 同步存储）
   const handleConnectSuccess = async (sessionId: string, isRetry: boolean = false) => {
     console.log(`【useWebAgentServer】${isRetry ? '重连' : '连接'}成功，sessionId:`, sessionId)
-    setStorageItem(StorageKeys.MCP_SESSION_ID, sessionId)
+    await browser.storage.local.set({ [StorageKeys.MCP_SESSION_ID]: sessionId })
     latestSessionId = sessionId
     retryCount = 0
     isReconnecting = false
