@@ -30,7 +30,7 @@ export class ExtensionPageServerTransport implements Transport {
   readonly sessionId: string
 
   // 内部状态
-  private _messageListener1: () => void
+
   private _messageListener2: () => void
   private _isStarted: boolean = false
   private _isClosed: boolean = false
@@ -50,17 +50,7 @@ export class ExtensionPageServerTransport implements Transport {
     // 如果提供了 sessionId，使用提供的；否则随机生成
     this.sessionId = sessionId || randomUUID()
 
-    this._messageListener1 = onWindowMessage(
-      'sidepanel-ready-to-page',
-      () => {
-        if (this._lastRegistration && this._isStarted) {
-          this.notifyRegistration(this._lastRegistration).catch((error) => {
-            console.error('【Page Svr Transport】 notifyRegistration失败:', error)
-          })
-        }
-      },
-      'content->page'
-    )
+    // 移除了对 sidepanel-ready-to-page 的监听，因为信息直接发往常驻的 background
 
     this._messageListener2 = onWindowMessage(
       'mcp-client-to-server-to-page',
@@ -146,7 +136,7 @@ export class ExtensionPageServerTransport implements Transport {
     if (this._isClosed) return
 
     try {
-      this._messageListener1 && this._messageListener1()
+
       this._messageListener2 && this._messageListener2()
 
       this._isClosed = true

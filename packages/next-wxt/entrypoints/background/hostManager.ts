@@ -44,9 +44,9 @@ export const waitForHostInit = (url: string): Promise<number> => {
 }
 
 // 为了向下兼容原有基于 (browser as any) 的代码，暂时保留挂载
-;(browser as any).hostNameMap = hostNameMap;
-;(browser as any).sessionRegistry = sessionRegistry;
-;(browser as any).waitForHostInit = waitForHostInit;
+;(browser as any).hostNameMap = hostNameMap
+;(browser as any).sessionRegistry = sessionRegistry
+;(browser as any).waitForHostInit = waitForHostInit
 
 export const initHostManager = () => {
   // 监听 tab 关闭事件，清理映射
@@ -116,7 +116,7 @@ export const initHostManager = () => {
       }
 
       console.log('【HostManager】hostNameMap', hostNameMap)
-      
+
       const normalizedUrl = normalizeUrlKey(url)
       const waitingPromises = normalizedUrl ? hostInitPromises.get(normalizedUrl) : undefined
       if (waitingPromises && waitingPromises.length > 0) {
@@ -148,13 +148,27 @@ export const initHostManager = () => {
           timestamp: Date.now()
         })
       }
-      
+
       // 转发给 sidepanel 以加载到 Remoter (如果 sidepanel 开启的话)
-      browser.runtime.sendMessage({ 
-        type: 'bg-mcp-server-register-forward', 
-        data: { sessionId, serverInfo, tabId } 
-      }).catch(() => {})
+      browser.runtime
+        .sendMessage({
+          type: 'bg-mcp-server-register-forward',
+          data: { sessionId, serverInfo, tabId }
+        })
+        .catch(() => {})
     },
     'content->bg'
   )
+
+  // 处理直接发到 background 的普通消息，比如 UI 获取快照
+  browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'get-session-registry') {
+      // sessionRegistry 是 Map，转换为数组返回
+      const sessions = Array.from(sessionRegistry.entries()).map(([sessionId, info]) => ({
+        sessionId,
+        ...info
+      }))
+      sendResponse(sessions)
+    }
+  })
 }

@@ -54,18 +54,7 @@ export class ContentScriptServerTransport implements Transport {
     this.sessionId = sessionId || randomUUID()
     this.tabId = tabId
 
-    onRuntimeMessage(
-      'sidepanel-ready',
-      () => {
-        if (this._lastRegistration && this._isStarted) {
-          this.notifyRegistration(this._lastRegistration).catch((error) => {
-            console.log('【Content Svr Transport】 notifyRegistration 失败', error)
-          })
-        }
-      },
-      'side->content',
-      this.tabId
-    )
+    // 移除对 sidepanel-ready 的监听，因为现在的注册信息将直接发送给长期驻留的 background，不丢失状态
   }
 
   /** 启动 transport，开始监听MCP client 消息   */
@@ -99,7 +88,7 @@ export class ContentScriptServerTransport implements Transport {
           console.log('【Content Svr Transport】 处理消息时发生错误:', error)
         }
       },
-      'side->content',
+      'bg->content',
       this.tabId
     )
 
@@ -120,7 +109,7 @@ export class ContentScriptServerTransport implements Transport {
           sessionId: this.sessionId,
           mcpMessage: message
         },
-        'content->side'
+        'content->bg'
       )
 
       // 判断是否为工具调用成功了!
@@ -153,7 +142,7 @@ export class ContentScriptServerTransport implements Transport {
           title: document.title
         }
       },
-      'content->side'
+      'content->bg'
     )
   }
 
