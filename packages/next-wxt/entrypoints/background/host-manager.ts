@@ -20,15 +20,47 @@ const saveState = () => {
   }).catch(() => {})
 }
 
-// 初始化时从 Storage 恢复状态
+// 验证 tabId 是否依然有效
+const validateTabIds = async (tabIds: number[]): Promise<number[]> => {
+  const validTabIds: number[] = []
+  for (const tid of tabIds) {
+    try {
+      const tab = await browser.tabs.get(tid)
+      if (tab && tab.id) validTabIds.push(tab.id)
+    } catch {
+      // tab 不存在时忽略
+    }
+  }
+  return validTabIds
+}
+
+// 初始化时从 Storage 恢复状态，小心不要覆盖运行中刚收到的活跃数据
 const restoreState = async () => {
   try {
     const res = await browser.storage.local.get([STORAGE_KEY_SESSION, STORAGE_KEY_HOST])
+    
     if (Array.isArray(res[STORAGE_KEY_SESSION])) {
-      res[STORAGE_KEY_SESSION].forEach(([k, v]: [string, any]) => sessionRegistry.set(k, v))
+      for (const [k, v] of res[STORAGE_KEY_SESSION] as [string, any][]) {
+        // 如果当前内存里已经有这个 session 的新数据，保留最新的
+        if (!sessionRegistry.has(k)) {
+          const validTabs = await validateTabIds(v.tabIds || [])
+          if (validTabs.length > 0) {
+            v.tabIds = validTabs
+            sessionRegistry.set(k, v)
+          }
+        }
+      }
     }
+    
     if (Array.isArray(res[STORAGE_KEY_HOST])) {
-      res[STORAGE_KEY_HOST].forEach(([k, v]: [string, any]) => hostNameMap.set(k, v))
+      for (const [k, v] of res[STORAGE_KEY_HOST] as [string, number[]][]) {
+        if (!hostNameMap.has(k)) {
+          const validTabs = await validateTabIds(v || [])
+          if (validTabs.length > 0) {
+            hostNameMap.set(k, validTabs)
+          }
+        }
+      }
     }
   } catch (err) {
     console.warn('【HostManager】恢复状态失败', err)
@@ -196,6 +228,9 @@ export const initHostManager = () => {
           if (index !== -1) {
             tabIds.splice(index, 1)
             changed = true
+            if (tabIds.length === 0) {
+              hostNameMap.delete(existingHost)
+            }
           }
         }
       }
@@ -248,6 +283,10 @@ export const initHostManager = () => {
           if (index !== -1) {
             info.tabIds.splice(index, 1)
             changed = true
+            if (info.tabIds.length === 0) {
+              sessionRegistry.delete(existingSessionId)
+              browser.runtime.sendMessage({ type: 'bg-mcp-server-removed', sessionId: existingSessionId }).catch(() => {})
+            }
           }
         }
       }
