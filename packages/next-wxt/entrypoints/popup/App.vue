@@ -61,9 +61,13 @@ const openSidePanel = async () => {
   // 获取当前窗口然后打开其 SidePanel
   const windowInfo = await browser.windows.getCurrent()
   if (windowInfo && windowInfo.id) {
-    browser.sidePanel.setOptions({ tabId: undefined, path: 'sidepanel.html', enabled: true })
-    if ((browser.sidePanel as any).open) {
-       (browser.sidePanel as any).open({ windowId: windowInfo.id })
+    if ((browser.sidePanel as any)?.setOptions) {
+      browser.sidePanel.setOptions({ tabId: undefined, path: 'sidepanel.html', enabled: true })
+      if ((browser.sidePanel as any).open) {
+         (browser.sidePanel as any).open({ windowId: windowInfo.id })
+      }
+    } else {
+      console.warn('SidePanel API is not supported in this browser environment.')
     }
   }
 }

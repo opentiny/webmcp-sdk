@@ -1,8 +1,9 @@
 import { browser } from 'wxt/browser'
+import type { ServerInfo } from '@opentiny/next-sdk'
 
 // Session 注册表：sessionId → {tabIds, serverInfo, timestamp}
 // 用于 Port 连接时查找 Server 所在的 tabs（支持同域名多页签）
-export const sessionRegistry = new Map<string, { tabIds: number[]; serverInfo: any; timestamp: number }>()
+export const sessionRegistry = new Map<string, { tabIds: number[]; serverInfo: ServerInfo; timestamp: number }>()
 
 // 主机名映射表：host → tabIds[]（支持同域名多页签）
 export const hostNameMap = new Map<string, number[]>()
@@ -32,20 +33,31 @@ export const waitForHostInit = (url: string): Promise<number> => {
       return
     }
 
+    const waiter = { resolve, reject }
     if (!hostInitPromises.has(normalizedUrl)) {
       hostInitPromises.set(normalizedUrl, [])
     }
-    hostInitPromises.get(normalizedUrl)!.push({ resolve, reject })
+    hostInitPromises.get(normalizedUrl)!.push(waiter)
 
     setTimeout(() => {
+      const waiters = hostInitPromises.get(normalizedUrl)
+      if (waiters) {
+        const index = waiters.indexOf(waiter)
+        if (index !== -1) {
+          waiters.splice(index, 1)
+        }
+      }
       reject(new Error(`等待 ${normalizedUrl} 初始化超时`))
     }, 30000)
   })
 }
 
 // 为了向下兼容原有基于 (browser as any) 的代码，暂时保留挂载
+// @ts-ignore
 ;(browser as any).hostNameMap = hostNameMap
+// @ts-ignore
 ;(browser as any).sessionRegistry = sessionRegistry
+// @ts-ignore
 ;(browser as any).waitForHostInit = waitForHostInit
 
 export const initHostManager = () => {
@@ -98,10 +110,20 @@ export const initHostManager = () => {
 
   onRuntimeMessage(
     'define-tool-from-content-to-sidepanel',
-    (data: any, sender: any) => {
+    (data: { host: string }, sender: Browser.runtime.MessageSender) => {
       const { host } = data
       const { url } = sender
       const tabId: number = sender.tab!.id!
+
+      // 从旧的 host 分组中移除该 tabId，保证其在一个时间内只属于一个 host
+      for (const [existingHost, tabIds] of hostNameMap.entries()) {
+        if (existingHost !== host) {
+          const index = tabIds.indexOf(tabId)
+          if (index !== -1) {
+            tabIds.splice(index, 1)
+          }
+        }
+      }
 
       const existingHost = hostNameMap.get(host)
 
@@ -130,9 +152,19 @@ export const initHostManager = () => {
 
   onRuntimeMessage(
     'mcp-server-register',
-    (data: any, sender: any) => {
+    (data: { sessionId: string; serverInfo: ServerInfo }, sender: Browser.runtime.MessageSender) => {
       const { sessionId, serverInfo } = data
       const tabId: number = sender.tab!.id!
+
+      // 从其他 session 中移除该 tabId
+      for (const [existingSessionId, info] of sessionRegistry.entries()) {
+        if (existingSessionId !== sessionId) {
+          const index = info.tabIds.indexOf(tabId)
+          if (index !== -1) {
+            info.tabIds.splice(index, 1)
+          }
+        }
+      }
 
       const existingSession = sessionRegistry.get(sessionId)
 

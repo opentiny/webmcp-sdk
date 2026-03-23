@@ -69,11 +69,13 @@ export class ExtensionClientTransport implements Transport {
       if (sessionInfo && sessionInfo.tabIds.length > 0) {
         tabId = sessionInfo.tabIds[sessionInfo.tabIds.length - 1]
       }
-    } else {
+    }
+    
+    if (tabId == null) {
       tabId = await chrome.runtime.sendMessage({ type: 'get-session-tab-id', sessionId: this.targetSessionId })
     }
 
-    this._throwError(() => !tabId, `【Client Transport】后台未找到活动的tabId用于${this.targetSessionId}`)
+    this._throwError(() => tabId == null, `【Client Transport】后台未找到活动的tabId用于${this.targetSessionId}`)
 
     sendRuntimeMessage(
       'mcp-client-to-server',
