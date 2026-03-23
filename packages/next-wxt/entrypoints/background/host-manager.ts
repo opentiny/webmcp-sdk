@@ -1,5 +1,6 @@
 import { browser } from 'wxt/browser'
 import type { ServerInfo } from '@opentiny/next-sdk'
+import { onRuntimeMessage } from '../../utils/messages'
 
 // Session 注册表：sessionId → {tabIds, serverInfo, timestamp}
 // 用于 Port 连接时查找 Server 所在的 tabs（支持同域名多页签）
@@ -113,7 +114,12 @@ export const initHostManager = () => {
     (data: { host: string }, sender: Browser.runtime.MessageSender) => {
       const { host } = data
       const { url } = sender
-      const tabId: number = sender.tab!.id!
+      
+      const tabId = sender.tab?.id
+      if (tabId === undefined) {
+        console.warn('【HostManager】define-tool: 无法获取 sender.tab.id，忽略该消息')
+        return
+      }
 
       // 从旧的 host 分组中移除该 tabId，保证其在一个时间内只属于一个 host
       for (const [existingHost, tabIds] of hostNameMap.entries()) {
@@ -154,7 +160,12 @@ export const initHostManager = () => {
     'mcp-server-register',
     (data: { sessionId: string; serverInfo: ServerInfo }, sender: Browser.runtime.MessageSender) => {
       const { sessionId, serverInfo } = data
-      const tabId: number = sender.tab!.id!
+      
+      const tabId = sender.tab?.id
+      if (tabId === undefined) {
+        console.warn('【HostManager】register: 无法获取 sender.tab.id，忽略该消息')
+        return
+      }
 
       // 从其他 session 中移除该 tabId
       for (const [existingSessionId, info] of sessionRegistry.entries()) {
