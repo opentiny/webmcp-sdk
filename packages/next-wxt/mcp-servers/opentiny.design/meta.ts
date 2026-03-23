@@ -1,6 +1,6 @@
 export default {
   name: 'opentiny.design',
-  type: 'contentScriptMcpServer',
+  type: 'pageMcpServer',
   url: 'https://opentiny.design',
   isAlwaysEnabled: false,
   version: '1.0.0'

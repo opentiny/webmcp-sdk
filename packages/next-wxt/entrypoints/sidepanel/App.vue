@@ -5,11 +5,8 @@ import { useBrowserExtensions } from './composable/useBrowserExtensions'
 
 import TinyUser from '@opentiny/vue-user'
 import { useCustomMarketMcpServers } from './composable/useCustomMarketMcpServers'
-import { TrSuggestionPillButton, TrDropdownMenu } from '@opentiny/tiny-robot'
-import { AGENT_ROOT, ROBOT_URL } from './const'
 import { useGenerateCode } from './composable/useGenerateCode'
 import RecordModal from './components/RecordModal.vue'
-import QrCodeDialog from './components/QrCodeDialog.vue'
 import { getUnifiedSkills } from '@/utils/skills-unified'
 import { RENDERER_SETTINGS_KEY } from '@opentiny/genui-sdk-vue'
 import { CustomFunction } from '@/utils/customFunction'
@@ -39,27 +36,7 @@ provide(RENDERER_SETTINGS_KEY, {
   Function: CustomFunction
 })
 
-// 通过 Web Agent 服务获取实时 sessionId（中文注释：供短码/URL 使用）
-const sessionId = ref('')
 
-// 通过向 Background 询问获取 sessionId，并监听 storage 变化
-browser.runtime.sendMessage({ type: 'get-mcp-session-id' })
-  .then((res) => {
-    if (res && res.sessionId) {
-      sessionId.value = res.sessionId
-    }
-  })
-  .catch((error) => {
-    console.error('获取 sessionId 失败', error)
-    sessionId.value = ''
-  })
-
-// 监听 storage 变化以保持最新
-browser.storage.local.onChanged.addListener((changes) => {
-  if (changes[StorageKeys.MCP_SESSION_ID]) {
-    sessionId.value = (changes[StorageKeys.MCP_SESSION_ID].newValue as string) || ''
-  }
-})
 
 const genUiComponents = shallowReactive({ TinyUser })
 // 汇总自定义 MCP Server 配置（中文注释：用于传给 TinyRemoter 的插件市场）
@@ -120,20 +97,6 @@ const closeRecordModal = () => {
   isRecordModalVisible.value = false
 }
 
-// 二维码对话框状态管理
-const isQrCodeDialogVisible = ref(false)
-const qrCodeUrl = ref('')
-const qrCodeTitle = ref('')
-
-const openQrCodeDialog = (url: string, title: string = '扫码访问') => {
-  qrCodeUrl.value = url
-  qrCodeTitle.value = title
-  isQrCodeDialogVisible.value = true
-}
-
-const closeQrCodeDialog = () => {
-  isQrCodeDialogVisible.value = false
-}
 
 const handleStartRecording = async () => {
   try {
@@ -155,76 +118,6 @@ const handleStopRecording = async () => {
   }
 }
 
-// pillItems 依赖 sessionId 动态生成识别码与分享链接
-const pillItems = computed(() => {
-  const fallbackText = '会话尚未建立'
-  // 确保 sessionId.value 是字符串类型，避免类型错误（使用 @wxt-dev/storage 后可能返回其他类型）
-  const sessionIdStr = typeof sessionId.value === 'string' ? sessionId.value : ''
-  const shortCode = sessionIdStr ? sessionIdStr.slice(-6) : fallbackText
-  const shareUrl = sessionIdStr ? `${ROBOT_URL}?sessionId=${sessionIdStr}` : fallbackText
-  const connectType = import.meta.env.VITE_WEB_AGENT_CONNECT_TYPE
-  const agentRoot = connectType === 'sse' ? AGENT_ROOT + 'sse' : AGENT_ROOT + 'mcp'
-
-  return [
-    {
-      id: 'copy-session-id',
-      text: '复制会话信息',
-      menus: [
-        {
-          id: 'copy-session-id-sort-code',
-          text: `识别码：${shortCode}`
-        },
-        {
-          id: 'copy-session-id-mcp-url',
-          text: `Agent连接地址：${agentRoot}/?sessionId=${sessionIdStr}`
-        },
-        {
-          id: 'copy-session-id-url',
-          text: `遥控器地址：${shareUrl}`
-        },
-        {
-          id: 'show-qrcode',
-          text: '展示遥控器二维码'
-        }
-      ]
-    }
-  ]
-})
-
-// 处理药丸按钮菜单项点击事件，复制文本到剪贴板或展示二维码（中文注释：点击识别码或URL时自动复制到剪贴板，点击展示二维码时弹出对话框）
-async function handlePillItemClick(item: any) {
-  if (!item?.text) {
-    console.warn('handlePillItemClick: item.text 不存在')
-    return
-  }
-
-  // 如果是展示二维码菜单项，则打开二维码对话框
-  if (item.id === 'show-qrcode') {
-    const sessionIdStr = typeof sessionId.value === 'string' ? sessionId.value : ''
-    const shareUrl = sessionIdStr ? `${ROBOT_URL}?sessionId=${sessionIdStr}` : ''
-    if (shareUrl && shareUrl !== '会话尚未建立') {
-      openQrCodeDialog(shareUrl, '遥控器地址二维码')
-    } else {
-      showToast('会话尚未建立，无法生成二维码')
-    }
-    return
-  }
-
-  // 提取冒号后面的字符串（中文注释：如果文本包含冒号，只复制冒号后面的部分；否则复制整个文本）
-  const textToCopy = item.text.includes('：')
-    ? item.text.split('：')[1]?.trim() || item.text
-    : item.text.includes(':')
-      ? item.text.split(':')[1]?.trim() || item.text
-      : item.text
-
-  try {
-    // 使用 Clipboard API 复制文本到剪贴板
-    await navigator.clipboard.writeText(textToCopy)
-    showToast('已复制到剪贴板')
-  } catch (error) {
-    showToast('复制到剪贴板失败')
-  }
-}
 
 browser.runtime.onMessage.addListener((message) => {
   if (message.type === 'reload-sidepanel') {
@@ -257,21 +150,6 @@ browser.runtime.onMessage.addListener((message) => {
           自定义添加
         </button>
       </template>
-      <template #suggestions>
-        <div class="chat-input-pills">
-          <tr-dropdown-menu
-            v-for="pill in pillItems"
-            :key="pill.id"
-            :items="pill.menus"
-            @item-click="handlePillItemClick"
-            trigger="click"
-          >
-            <template #trigger>
-              <TrSuggestionPillButton>{{ pill.text }}</TrSuggestionPillButton>
-            </template>
-          </tr-dropdown-menu>
-        </div>
-      </template>
     </TinyRemoter>
     <RecordModal
       :visible="isRecordModalVisible"
@@ -280,7 +158,6 @@ browser.runtime.onMessage.addListener((message) => {
       @start-recording="handleStartRecording"
       @stop-recording="handleStopRecording"
     />
-    <QrCodeDialog :visible="isQrCodeDialogVisible" :url="qrCodeUrl" :title="qrCodeTitle" @close="closeQrCodeDialog" />
   </div>
 </template>
 

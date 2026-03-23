@@ -45,8 +45,8 @@ export default defineBackground(() => {
 
     if (message.type === 'get-mcp-session-id') {
       // 异步获取 session ID 从 local storage 中
-      browser.storage.local.get('MCP_SESSION_ID').then((res) => {
-        sendResponse({ sessionId: res['MCP_SESSION_ID'] || '' })
+      browser.storage.local.get('mcp-sessionId').then((res) => {
+        sendResponse({ sessionId: res['mcp-sessionId'] || '' })
       }).catch((err) => {
         console.error('获取 session ID 失败:', err)
         sendResponse({ sessionId: '' })
@@ -64,6 +64,6 @@ export default defineBackground(() => {
   // 自动返回sender 给 content-script
   onRuntimeMessage('who-am-i', () => {}, 'content->bg')
 
-  // 点击图标自动打开侧边栏
-  browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch((error) => console.log(error))
+  // 让 extension 图标点击显示 popup，不再直接打开侧边栏
+  // 因为现在将连接信息移至了 Popup 界面
 })
