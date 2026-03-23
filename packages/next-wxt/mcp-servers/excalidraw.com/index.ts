@@ -1,6 +1,6 @@
 export default ({ server, z }) => {
   const SCRIPT_ID = 'excalidraw-control-script'
-  if (window[SCRIPT_ID]) {
+  if (typeof window !== 'undefined' && window[SCRIPT_ID]) {
     return
   }
   function getExcalidrawAPIFromDOM(domElement) {
@@ -155,10 +155,14 @@ export default ({ server, z }) => {
     }
     return fullElement
   }
-  let targetElementForAPI = document.querySelector('.excalidraw-app')
-  if (targetElementForAPI) {
-    getExcalidrawAPIFromDOM(targetElementForAPI)
+  
+  if (typeof window !== 'undefined') {
+    let targetElementForAPI = document.querySelector('.excalidraw-app')
+    if (targetElementForAPI) {
+      getExcalidrawAPIFromDOM(targetElementForAPI)
+    }
   }
+  
   const eventHandler = {
     getSceneElements: () => {
       try {
@@ -227,6 +231,9 @@ export default ({ server, z }) => {
     }
   }
   const handleExecution = (event) => {
+    if (typeof window === 'undefined') {
+      return { success: false, error: 'Environment does not support DOM execution' }
+    }
     const { action, payload } = event.detail
     const param = JSON.parse(payload || '{}')
     let data, error
@@ -244,11 +251,11 @@ export default ({ server, z }) => {
   }
 
   server.registerTool(
-    'chrome_send_command_to_inject_script',
+    'excalidraw_execute_command',
     {
       title: 'https://excalidraw.com 网站画布操作工具',
       description:
-        'if the script injected using chrome_inject_script listens for user-defined events, this tool can be used to trigger those events',
+        'Execute commands to interact with the Excalidraw canvas, allowing manipulation of elements (e.g., add, update, delete).',
       inputSchema: {
         eventName: z
           .string()

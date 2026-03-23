@@ -35,10 +35,13 @@ export default defineConfig(() => {
     build: {
       emptyOutDir: false,
       lib: {
-        entry: 'index.ts',
+        entry: {
+          index: 'index.ts',
+          core: 'core.ts'
+        },
         name: 'NEXT-SDK',
         formats: ['es'],
-        fileName: () => 'index.js'
+        fileName: (format, entryName) => `${entryName}.js`
       },
       rollupOptions: {
         // 排除第三方依赖，保留本地文件

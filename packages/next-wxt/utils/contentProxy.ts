@@ -31,19 +31,19 @@ export const createContentProxy = (tabId: number) => {
 
   window.addEventListener('message', (event) => {
     if (event.data.type === 'define-tool-from-page-to-content') {
-      sendRuntimeMessage('define-tool-from-content-to-sidepanel', event.data.data, 'content->side')
+      sendRuntimeMessage('define-tool-from-content-to-sidepanel', event.data.data, 'content->bg')
     }
   })
   // 页面 ===》 content
   onWindowMessage(
     'mcp-server-to-client-from-page',
-    (data) => sendRuntimeMessage('mcp-server-to-client', data, 'content->side'),
+    (data) => sendRuntimeMessage('mcp-server-to-client', data, 'content->bg'),
     'page->content'
   )
 
   onWindowMessage(
     'mcp-server-register-from-page',
-    (data) => sendRuntimeMessage('mcp-server-register', data, 'content->side'),
+    (data) => sendRuntimeMessage('mcp-server-register', data, 'content->bg'),
     'page->content'
   )
 
@@ -51,16 +51,11 @@ export const createContentProxy = (tabId: number) => {
   onRuntimeMessage(
     'mcp-client-to-server',
     (data) => sendWindowMessage('mcp-client-to-server-to-page', data, 'content->page'),
-    'side->content',
+    'bg->content',
     tabId
   )
 
-  onRuntimeMessage(
-    'sidepanel-ready',
-    () => sendWindowMessage('sidepanel-ready-to-page', {}, 'content->page'),
-    'side->content',
-    tabId
-  )
+
 
   // 回复Main Page 当前的tabId
   onWindowMessage(

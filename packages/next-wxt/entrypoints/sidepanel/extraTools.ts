@@ -1,4 +1,4 @@
-import { z, type WebMcpServer } from '@opentiny/next-sdk'
+import { z, type WebMcpServer } from '@opentiny/next-sdk/core'
 import { extractTextFromTree } from './utils/accessibilityTree'
 import { snapshotManagerPool } from './utils/snapshotManagerPool'
 import { getCurrentTabId, waitForTabLoad } from './utils/utils'
