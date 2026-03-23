@@ -1,5 +1,5 @@
 import { useWebAgentServer } from './sidepanel/composable/useWebAgentServer'
-import { initHostManager } from './background/hostManager'
+import { initHostManager } from './background/host-manager'
 
 export default defineBackground(() => {
   // 初始化全局 Host 缓存管理器，提供给 background 的 mcpServer 实例
