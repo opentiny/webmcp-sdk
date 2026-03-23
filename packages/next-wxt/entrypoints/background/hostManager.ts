@@ -141,6 +141,7 @@ export const initHostManager = () => {
           existingSession.tabIds.push(tabId)
         }
         console.log('【HostManager】tabId 已记录在sessionRegistry ')
+        return
       } else {
         sessionRegistry.set(sessionId, {
           tabIds: [tabId],
