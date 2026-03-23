@@ -25,7 +25,7 @@ watch(
       if (canvasRef.value) {
         try {
           console.log('开始生成二维码，URL:', url)
-          const qrCode = new QrCode(url, { size: 280, margin: 2 })
+          const qrCode = new QrCode(url, { size: 200, margin: 2 })
           await qrCode.toCanvas(canvasRef.value)
           console.log('二维码生成成功')
         } catch (error) {
@@ -56,14 +56,12 @@ const handleMaskClick = (e: MouseEvent) => {
     <Transition name="fade">
       <div v-if="visible" class="qrcode-dialog-mask" @click="handleMaskClick">
         <div class="qrcode-dialog">
-          <div class="qrcode-dialog__header">
-            <h3 class="qrcode-dialog__title">{{ title || '扫码访问' }}</h3>
-            <button class="qrcode-dialog__close" @click="handleClose">
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-              </svg>
-            </button>
-          </div>
+          <!-- 绝对定位的关闭按钮 -->
+          <button class="qrcode-dialog__close" @click="handleClose">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 4L4 12M4 4L12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+            </svg>
+          </button>
           <div class="qrcode-dialog__body">
             <div class="qrcode-container">
               <canvas ref="canvasRef"></canvas>
@@ -94,47 +92,37 @@ const handleMaskClick = (e: MouseEvent) => {
   background: #fff;
   border-radius: 12px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  width: 90%;
-  max-width: 400px;
+  width: 280px;
+  max-width: 90%;
   overflow: hidden;
-}
-
-.qrcode-dialog__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20px 24px;
-  border-bottom: 1px solid #eee;
-}
-
-.qrcode-dialog__title {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #333;
+  position: relative;
 }
 
 .qrcode-dialog__close {
-  width: 32px;
-  height: 32px;
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 28px;
+  height: 28px;
   border: none;
   background: transparent;
-  color: #666;
+  color: #999;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 6px;
+  border-radius: 4px;
   transition: all 0.2s ease;
+  z-index: 10;
 }
 
 .qrcode-dialog__close:hover {
-  background: #f5f5f5;
+  background: #f0f0f0;
   color: #333;
 }
 
 .qrcode-dialog__body {
-  padding: 32px 24px;
+  padding: 32px 24px 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -142,10 +130,13 @@ const handleMaskClick = (e: MouseEvent) => {
 
 .qrcode-container {
   background: #fff;
-  padding: 16px;
+  padding: 12px;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   margin-bottom: 16px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 .qrcode-container canvas {
