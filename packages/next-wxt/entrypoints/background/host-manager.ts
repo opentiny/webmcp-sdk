@@ -2,12 +2,38 @@ import { browser } from 'wxt/browser'
 import type { ServerInfo } from '@opentiny/next-sdk'
 import { onRuntimeMessage } from '../../utils/messages'
 
+const STORAGE_KEY_SESSION = 'hostManager:sessionRegistry'
+const STORAGE_KEY_HOST = 'hostManager:hostNameMap'
+
 // Session 注册表：sessionId → {tabIds, serverInfo, timestamp}
 // 用于 Port 连接时查找 Server 所在的 tabs（支持同域名多页签）
 export const sessionRegistry = new Map<string, { tabIds: number[]; serverInfo: ServerInfo; timestamp: number }>()
 
 // 主机名映射表：host → tabIds[]（支持同域名多页签）
 export const hostNameMap = new Map<string, number[]>()
+
+// 持久化保存状态到 Storage
+const saveState = () => {
+  browser.storage.local.set({
+    [STORAGE_KEY_SESSION]: Array.from(sessionRegistry.entries()),
+    [STORAGE_KEY_HOST]: Array.from(hostNameMap.entries())
+  }).catch(() => {})
+}
+
+// 初始化时从 Storage 恢复状态
+const restoreState = async () => {
+  try {
+    const res = await browser.storage.local.get([STORAGE_KEY_SESSION, STORAGE_KEY_HOST])
+    if (Array.isArray(res[STORAGE_KEY_SESSION])) {
+      res[STORAGE_KEY_SESSION].forEach(([k, v]: [string, any]) => sessionRegistry.set(k, v))
+    }
+    if (Array.isArray(res[STORAGE_KEY_HOST])) {
+      res[STORAGE_KEY_HOST].forEach(([k, v]: [string, any]) => hostNameMap.set(k, v))
+    }
+  } catch (err) {
+    console.warn('【HostManager】恢复状态失败', err)
+  }
+}
 
 // 等待特定 host 初始化完成的 Promise Map
 const hostInitPromises = new Map<string, { resolve: (tabId: number) => void; reject: (err: Error) => void }[]>()
@@ -34,22 +60,45 @@ export const waitForHostInit = (url: string): Promise<number> => {
       return
     }
 
-    const waiter = { resolve, reject }
+    let isDone = false
+    const cleanup = () => {
+      isDone = true
+      const waiters = hostInitPromises.get(normalizedUrl!)
+      if (waiters) {
+        const index = waiters.findIndex(w => (w as any)._id === waiterId)
+        if (index !== -1) waiters.splice(index, 1)
+        if (waiters.length === 0) hostInitPromises.delete(normalizedUrl!)
+      }
+    }
+
+    const waiterId = Date.now() + Math.random()
+
+    const timerId = setTimeout(() => {
+      if (isDone) return
+      cleanup()
+      reject(new Error(`等待 ${normalizedUrl} 初始化超时`))
+    }, 30000)
+
+    const waiter = {
+      _id: waiterId,
+      resolve: (tabId: number) => {
+        if (isDone) return
+        clearTimeout(timerId)
+        cleanup()
+        resolve(tabId)
+      },
+      reject: (err: Error) => {
+        if (isDone) return
+        clearTimeout(timerId)
+        cleanup()
+        reject(err)
+      }
+    }
+
     if (!hostInitPromises.has(normalizedUrl)) {
       hostInitPromises.set(normalizedUrl, [])
     }
-    hostInitPromises.get(normalizedUrl)!.push(waiter)
-
-    setTimeout(() => {
-      const waiters = hostInitPromises.get(normalizedUrl)
-      if (waiters) {
-        const index = waiters.indexOf(waiter)
-        if (index !== -1) {
-          waiters.splice(index, 1)
-        }
-      }
-      reject(new Error(`等待 ${normalizedUrl} 初始化超时`))
-    }, 30000)
+    hostInitPromises.get(normalizedUrl)!.push(waiter as any)
   })
 }
 
@@ -62,8 +111,12 @@ export const waitForHostInit = (url: string): Promise<number> => {
 ;(browser as any).waitForHostInit = waitForHostInit
 
 export const initHostManager = () => {
+  // 异步恢复状态
+  restoreState()
+
   // 监听 tab 关闭事件，清理映射
   browser.tabs.onRemoved.addListener(async (tabId) => {
+    let changed = false
     for (const [sessionId, info] of sessionRegistry.entries()) {
       const index = info.tabIds.indexOf(tabId)
       if (index !== -1) {
@@ -73,6 +126,7 @@ export const initHostManager = () => {
           // 通知 sidepanel 删除对应插件（交由 sidepanel 的 runtime 消息或已有逻辑处理）
           browser.runtime.sendMessage({ type: 'bg-mcp-server-removed', sessionId }).catch(() => {})
         }
+        changed = true
         break
       }
     }
@@ -82,18 +136,23 @@ export const initHostManager = () => {
       if (index !== -1) {
         tabIds.splice(index, 1)
         console.log(`【HostManager】从 hostNameMap 移除 tabId: ${tabId}, host: ${host}`)
+        changed = true
         break
       }
     }
+    
+    if (changed) saveState()
   })
 
   // 每次只调用最后激活的页面
   browser.tabs.onActivated.addListener(async ({ tabId }) => {
+    let changed = false
     for (const [sessionId, info] of sessionRegistry.entries()) {
       const index = info.tabIds.indexOf(tabId)
       if (index !== -1) {
         info.tabIds.splice(index, 1)
         info.tabIds.push(tabId)
+        changed = true
         break
       }
     }
@@ -104,9 +163,12 @@ export const initHostManager = () => {
         tabIds.splice(index, 1)
         tabIds.push(tabId)
         console.log(`【HostManager】hostNameMap 更新激活顺序, host: ${host}, tabId: ${tabId}`)
+        changed = true
         break
       }
     }
+    
+    if (changed) saveState()
   })
 
   onRuntimeMessage(
@@ -122,11 +184,13 @@ export const initHostManager = () => {
       }
 
       // 从旧的 host 分组中移除该 tabId，保证其在一个时间内只属于一个 host
+      let changed = false
       for (const [existingHost, tabIds] of hostNameMap.entries()) {
         if (existingHost !== host) {
           const index = tabIds.indexOf(tabId)
           if (index !== -1) {
             tabIds.splice(index, 1)
+            changed = true
           }
         }
       }
@@ -136,21 +200,26 @@ export const initHostManager = () => {
       if (existingHost) {
         if (!existingHost.includes(tabId)) {
           existingHost.push(tabId)
+          changed = true
         }
         console.log('【HostManager】tabId 已记录在 hostNameMap')
       } else {
         hostNameMap.set(host, [tabId])
+        changed = true
         console.log('【HostManager】新 host 已添加到 hostNameMap')
       }
+
+      if (changed) saveState()
 
       console.log('【HostManager】hostNameMap', hostNameMap)
 
       const normalizedUrl = normalizeUrlKey(url)
       const waitingPromises = normalizedUrl ? hostInitPromises.get(normalizedUrl) : undefined
       if (waitingPromises && waitingPromises.length > 0) {
-        waitingPromises.forEach(({ resolve }) => resolve(tabId))
+        const toResolve = [...waitingPromises]
+        toResolve.forEach(({ resolve }) => resolve(tabId))
         hostInitPromises.delete(normalizedUrl!)
-        console.log(`【HostManager】触发 ${normalizedUrl} 的等待队列，共 ${waitingPromises.length} 个`)
+        console.log(`【HostManager】触发 ${normalizedUrl} 的等待队列，共 ${toResolve.length} 个`)
       }
     },
     'content->bg'
@@ -167,12 +236,14 @@ export const initHostManager = () => {
         return
       }
 
+      let changed = false
       // 从其他 session 中移除该 tabId
       for (const [existingSessionId, info] of sessionRegistry.entries()) {
         if (existingSessionId !== sessionId) {
           const index = info.tabIds.indexOf(tabId)
           if (index !== -1) {
             info.tabIds.splice(index, 1)
+            changed = true
           }
         }
       }
@@ -182,8 +253,10 @@ export const initHostManager = () => {
       if (existingSession) {
         if (!existingSession.tabIds.includes(tabId)) {
           existingSession.tabIds.push(tabId)
+          changed = true
         }
         console.log('【HostManager】tabId 已记录在sessionRegistry ')
+        if (changed) saveState()
         return
       } else {
         sessionRegistry.set(sessionId, {
@@ -191,7 +264,10 @@ export const initHostManager = () => {
           serverInfo,
           timestamp: Date.now()
         })
+        changed = true
       }
+      
+      if (changed) saveState()
 
       // 转发给 sidepanel 以加载到 Remoter (如果 sidepanel 开启的话)
       browser.runtime
