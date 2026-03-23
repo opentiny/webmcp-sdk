@@ -20,7 +20,7 @@ description: 擅长绘制各种图表、流程图、架构图等，能够提供�
    - `updateElement`: 修改画布的一个或多个元素
    - `deleteElement`: 根据元素ID删除元素
    - `cleanup`: 清空重置画布
-3. **发送指令**: 通过 `chrome_send_command_to_inject_script` 工具与注入的脚本通信，触发上述事件。指令格式如下：
+3. **发送指令**: 通过 `excalidraw_execute_command` 工具与注入的脚本通信，触发上述事件。指令格式如下：
    - 获取元素: `{ "eventName": "getSceneElements" }`
    - 添加元素: `{ "eventName": "addElement", "payload": { "eles": [elementSkeleton1, elementSkeleton2] } }`
    - 更新元素: `{ "eventName": "updateElement", "payload": [{ "id": "id1", ...其他要更新的属性 }] }`

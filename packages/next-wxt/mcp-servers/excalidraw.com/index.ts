@@ -251,11 +251,11 @@ export default ({ server, z }) => {
   }
 
   server.registerTool(
-    'chrome_send_command_to_inject_script',
+    'excalidraw_execute_command',
     {
       title: 'https://excalidraw.com 网站画布操作工具',
       description:
-        'if the script injected using chrome_inject_script listens for user-defined events, this tool can be used to trigger those events',
+        'Execute commands to interact with the Excalidraw canvas, allowing manipulation of elements (e.g., add, update, delete).',
       inputSchema: {
         eventName: z
           .string()
