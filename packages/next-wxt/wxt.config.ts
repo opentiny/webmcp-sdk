@@ -30,7 +30,8 @@ export default defineConfig({
       'userScripts',
       'notifications',
       'debugger',
-      'downloads'
+      'downloads',
+      'sidePanel'
     ],
     host_permissions: ['*://*/*'], //  bg 发出 fecth, bg注入content脚本，访问 tab详情，cookie..
     action: {},
