@@ -6,6 +6,7 @@
 import { ref } from 'vue'
 import SkillsTab from './SkillsTab.vue'
 import TokenTab from './TokenTab.vue'
+import ModelConfigTab from './ModelConfigTab.vue'
 
 // 当前激活的标签
 const activeTab = ref('skills')
@@ -23,6 +24,9 @@ const activeTab = ref('skills')
       </TinyTabItem>
       <TinyTabItem name="token" title="Token 生成">
         <TokenTab />
+      </TinyTabItem>
+      <TinyTabItem name="model" title="模型及接口配置">
+        <ModelConfigTab />
       </TinyTabItem>
     </TinyTabs>
   </div>

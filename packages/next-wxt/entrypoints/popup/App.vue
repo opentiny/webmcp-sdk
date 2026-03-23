@@ -3,34 +3,69 @@ import { ref, computed } from 'vue'
 import QrCodeDialog from '@/entrypoints/sidepanel/components/QrCodeDialog.vue'
 import { AGENT_ROOT, ROBOT_URL } from '@/entrypoints/sidepanel/const'
 import { StorageKeys } from '@/entrypoints/sidepanel/utils/storage-keys'
-import showToast from '@opentiny/vue' // import from auto-imported or use the vant syntax? Let's assume vant
 import { showToast as vantToast } from 'vant' // actually unplugin-auto-import usually exposes showToast globally, we don't necessarily need to import it if it's auto imported, but explicit import is safer. Let's use standard API. Oh wait, user used `import { showToast } from 'vant'` in sidepanel! I will do the same:
+import { storage } from '@wxt-dev/storage'
+import { WEB_AGENT_URL_KEY } from '@/entrypoints/sidepanel/model-manage/model-storage'
 
-// 通过向 Background 询问获取 sessionId
+// 通过向 Background 询问获取 sessionId 与连接状态
 const sessionId = ref('')
-browser.runtime.sendMessage({ type: 'get-mcp-session-id' })
+const connectionStatus = ref('connecting')
+browser.runtime
+  .sendMessage({ type: 'get-mcp-session-id' })
   .then((res) => {
-    if (res && res.sessionId) {
-      sessionId.value = res.sessionId
+    if (res) {
+      if (res.sessionId) sessionId.value = res.sessionId
+      if (res.status) connectionStatus.value = res.status
     }
   })
   .catch((error) => {
     console.error('获取 sessionId 失败', error)
+    connectionStatus.value = 'error'
   })
 
-// 监听 storage 变化以保持最新
-browser.storage.local.onChanged.addListener((changes) => {
+const sessionChangesHandler = (changes: any) => {
   if (changes[StorageKeys.MCP_SESSION_ID]) {
     sessionId.value = (changes[StorageKeys.MCP_SESSION_ID].newValue as string) || ''
   }
+  if (changes[StorageKeys.MCP_STATUS]) {
+    connectionStatus.value = (changes[StorageKeys.MCP_STATUS].newValue as string) || 'connecting'
+  }
+}
+
+// 监听 storage 变化以保持最新
+browser.storage.local.onChanged.addListener(sessionChangesHandler)
+
+const customAgentRoot = ref('')
+storage.getItem<string>(WEB_AGENT_URL_KEY).then((url) => {
+  customAgentRoot.value = url || ''
+})
+storage.watch<string>(WEB_AGENT_URL_KEY, (newVal) => {
+  customAgentRoot.value = newVal || ''
 })
 
 const sessionIdStr = computed(() => (typeof sessionId.value === 'string' ? sessionId.value : ''))
 const shortCode = computed(() => (sessionIdStr.value ? sessionIdStr.value.slice(-6) : '-'))
 const shareUrl = computed(() => (sessionIdStr.value ? `${ROBOT_URL}?sessionId=${sessionIdStr.value}` : '-'))
 const agentRoot = computed(() => {
+  let root = AGENT_ROOT
+  if (customAgentRoot.value && customAgentRoot.value.trim() !== '') {
+    try {
+      const customUrl = new URL(customAgentRoot.value)
+      // 如果用户输入了完整路径（不只是域名），以用户的为准
+      if (customUrl.pathname && customUrl.pathname.length > 1) {
+        root = customAgentRoot.value.trim()
+        if (!root.endsWith('/')) {
+          root += '/'
+        }
+      } else {
+        root = root.replace(/^https?:\/\/[^\/]+/, customUrl.origin)
+      }
+    } catch {
+      // 忽略无效的 URL
+    }
+  }
   const connectType = import.meta.env.VITE_WEB_AGENT_CONNECT_TYPE
-  return connectType === 'sse' ? AGENT_ROOT + 'sse' : AGENT_ROOT + 'mcp'
+  return connectType === 'sse' ? root + 'sse' : root + 'mcp'
 })
 const agentUrl = computed(() => (sessionIdStr.value ? `${agentRoot.value}/?sessionId=${sessionIdStr.value}` : '-'))
 
@@ -64,7 +99,7 @@ const openSidePanel = async () => {
     if ((browser.sidePanel as any).setOptions) {
       browser.sidePanel.setOptions({ tabId: undefined, path: 'sidepanel.html', enabled: true })
       if ((browser.sidePanel as any).open) {
-        (browser.sidePanel as any).open({ windowId: windowInfo.id })
+        ;(browser.sidePanel as any).open({ windowId: windowInfo.id })
       }
     }
   }
@@ -77,8 +112,16 @@ const openSidePanel = async () => {
       <h2>Web Agent 会话信息</h2>
     </div>
 
+    <!-- 连接状态提示 -->
+    <div v-if="connectionStatus === 'error'" class="status-alert error">
+      连接 Web Agent 失败，请检查服务地址或网络。
+    </div>
+    <div v-else-if="connectionStatus === 'connecting'" class="status-alert warning">
+      正在连接 Web Agent...
+    </div>
+
     <div class="info-section">
-      <div class="info-item">
+      <div v-if="connectionStatus === 'connected'" class="info-item">
         <span class="label">识别码</span>
         <div class="value-group">
           <span class="value">{{ shortCode }}</span>
@@ -94,7 +137,7 @@ const openSidePanel = async () => {
         </div>
       </div>
 
-      <div class="info-item">
+      <div v-if="connectionStatus === 'connected'" class="info-item">
         <span class="label">遥控器地址</span>
         <div class="value-group">
           <span class="value truncate" :title="shareUrl">{{ shareUrl }}</span>
@@ -104,12 +147,8 @@ const openSidePanel = async () => {
     </div>
 
     <div class="actions">
-      <button class="primary-btn" @click="openQrCodeDialog" :disabled="!sessionIdStr">
-        展示遥控器二维码
-      </button>
-      <button class="secondary-btn" @click="openSidePanel">
-        打开控制面板
-      </button>
+      <button class="primary-btn" @click="openQrCodeDialog" :disabled="!sessionIdStr">展示遥控器二维码</button>
+      <button class="secondary-btn" @click="openSidePanel">打开控制面板</button>
     </div>
 
     <QrCodeDialog
@@ -145,6 +184,23 @@ const openSidePanel = async () => {
   height: 16px;
   background-color: #2b5bd9;
   border-radius: 2px;
+}
+.status-alert {
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.status-alert.error {
+  background: #fff0f0;
+  color: #ff4d4f;
+  border: 1px solid #ffccc7;
+}
+.status-alert.warning {
+  background: #f0f5ff;
+  color: #2b5bd9;
+  border: 1px solid #d6e4ff;
 }
 
 .info-section {

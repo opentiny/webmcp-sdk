@@ -1,4 +1,4 @@
-import { useWebAgentServer } from './sidepanel/composable/useWebAgentServer'
+import { useWebAgentServer, forceWebAgentReconnect } from './sidepanel/composable/useWebAgentServer'
 import { initHostManager } from './background/host-manager'
 
 export default defineBackground(() => {
@@ -45,13 +45,26 @@ export default defineBackground(() => {
 
     if (message.type === 'get-mcp-session-id') {
       // 异步获取 session ID 从 local storage 中
-      browser.storage.local.get('mcp-sessionId').then((res) => {
-        sendResponse({ sessionId: res['mcp-sessionId'] || '' })
+      browser.storage.local.get(['mcp-sessionId', 'mcp-connection-status']).then((res) => {
+        sendResponse({ 
+          sessionId: res['mcp-sessionId'] || '',
+          status: res['mcp-connection-status'] || 'connecting'
+        })
       }).catch((err) => {
         console.error('获取 session ID 失败:', err)
-        sendResponse({ sessionId: '' })
+        sendResponse({ sessionId: '', status: 'error' })
       })
       return true
+    }
+
+    if (message.type === 'reconnect-web-agent') {
+       forceWebAgentReconnect().then((sessionId) => {
+         sendResponse({ success: true, sessionId })
+       }).catch((error) => {
+         console.error('手动重连 Web Agent 失败:', error)
+         sendResponse({ success: false, error: error.message })
+       })
+       return true
     }
   })
 
