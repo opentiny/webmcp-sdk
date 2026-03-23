@@ -169,6 +169,16 @@ export const initHostManager = () => {
         ...info
       }))
       sendResponse(sessions)
+    } else if (message.type === 'get-host-tab-ids') {
+      sendResponse(hostNameMap.get(message.host) || [])
+    } else if (message.type === 'get-session-tab-id') {
+      const session = sessionRegistry.get(message.sessionId)
+      sendResponse(session && session.tabIds.length > 0 ? session.tabIds[session.tabIds.length - 1] : null)
+    } else if (message.type === 'wait-for-host-init') {
+      waitForHostInit(message.url)
+        .then((tabId) => sendResponse(tabId))
+        .catch((err) => sendResponse({ error: err.message }))
+      return true
     }
   })
 }

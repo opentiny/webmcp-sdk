@@ -29,7 +29,12 @@ export const createMcpServer = async () => {
     }
 
     const findMatchedTabId = async (targetUrl: string, toolName: string) => {
-      const tabIds: number[] | undefined = (browser as any).hostNameMap.get(meta.name)
+      let tabIds: number[] | undefined
+      if ((browser as any).hostNameMap) {
+        tabIds = (browser as any).hostNameMap.get(meta.name)
+      } else {
+        tabIds = await browser.runtime.sendMessage({ type: 'get-host-tab-ids', host: meta.name })
+      }
 
       // 如果 hostNameMap 中没有记录,尝试查询所有页签
       if (!tabIds || tabIds.length === 0) {
@@ -83,7 +88,15 @@ export const createMcpServer = async () => {
                   const createdTab = await browser.tabs.create({ url: targetUrl, active: true })
 
                   // 等待 content script 初始化完成并注册到 hostNameMap
-                  tabId = await (browser as any).waitForHostInit(targetUrl)
+                  if ((browser as any).waitForHostInit) {
+                    tabId = await (browser as any).waitForHostInit(targetUrl)
+                  } else {
+                    const waitResult = await browser.runtime.sendMessage({ type: 'wait-for-host-init', url: targetUrl })
+                    if (waitResult && typeof waitResult === 'object' && waitResult.error) {
+                      throw new Error(waitResult.error)
+                    }
+                    tabId = waitResult
+                  }
 
                   if (tabId === undefined || tabId === null) {
                     tabId = createdTab.id

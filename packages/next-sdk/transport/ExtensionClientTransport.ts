@@ -47,7 +47,7 @@ export class ExtensionClientTransport implements Transport {
           console.log('【Client Transport】处理server消息错误：', error)
         }
       },
-      'content->side'
+      'content->bg'
     )
   }
 
@@ -63,14 +63,22 @@ export class ExtensionClientTransport implements Transport {
     this._throwError(() => this._isClosed, '【Client Transport】 已关闭，无法发送消息')
 
     // 查询 当前sessionId的最后一个tabid
-    const sessionInfo = chrome.sessionRegistry.get(this.targetSessionId)
-    this._throwError(() => !sessionInfo, `【Client Transport】sessionRegistry中未找到${this.targetSessionId}`)
+    let tabId: number | undefined
+    if (chrome.sessionRegistry) {
+      const sessionInfo = chrome.sessionRegistry.get(this.targetSessionId)
+      if (sessionInfo && sessionInfo.tabIds.length > 0) {
+        tabId = sessionInfo.tabIds[sessionInfo.tabIds.length - 1]
+      }
+    } else {
+      tabId = await chrome.runtime.sendMessage({ type: 'get-session-tab-id', sessionId: this.targetSessionId })
+    }
 
-    const tabId = sessionInfo.tabIds[sessionInfo.tabIds.length - 1]
+    this._throwError(() => !tabId, `【Client Transport】后台未找到活动的tabId用于${this.targetSessionId}`)
+
     sendRuntimeMessage(
       'mcp-client-to-server',
       { sessionId: this.targetSessionId, tabId, mcpMessage: message },
-      'side->content'
+      'bg->content'
     )
   }
 

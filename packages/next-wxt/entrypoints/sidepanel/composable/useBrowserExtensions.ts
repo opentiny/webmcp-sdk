@@ -2,7 +2,7 @@ import { type McpServerConfig } from '@opentiny/next-sdk'
 import { onMounted } from 'vue'
 import { createMcpServer } from '../mcpServer'
 import { TinyRemoter } from '@opentiny/next-remoter'
-import showToast from '@opentiny/vue'
+import { showToast } from 'vant'
 
 export const useBrowserExtensions = async (remoterRef: Ref<InstanceType<typeof TinyRemoter>>) => {
   onMounted(async () => {
