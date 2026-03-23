@@ -51,7 +51,7 @@ export const useWebAgentServer = async (): Promise<string> => {
   const connectToAgent = async (isRetry: boolean = false): Promise<string> => {
     try {
       const { sessionId } = await client.connect(createConnectOptions(handleError))
-      handleConnectSuccess(sessionId, isRetry)
+      await handleConnectSuccess(sessionId, isRetry)
       return sessionId
     } catch (error) {
       console.error(`【useWebAgentServer】${isRetry ? '重连' : '连接'}失败:`, error)

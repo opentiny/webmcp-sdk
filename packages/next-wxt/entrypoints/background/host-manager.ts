@@ -38,10 +38,15 @@ const restoreState = async () => {
 // 等待特定 host 初始化完成的 Promise Map
 const hostInitPromises = new Map<string, { resolve: (tabId: number) => void; reject: (err: Error) => void }[]>()
 
-// 统一处理地址匹配键
+// 统一处理地址匹配键：提取主机名 (hostname) 作为唯一 key
 export const normalizeUrlKey = (value?: string): string | undefined => {
   if (!value) return value
-  return value.endsWith('/') ? value.slice(0, -1) : value
+  try {
+    const urlObj = new URL(value.startsWith('http') ? value : `https://${value}`)
+    return urlObj.hostname || value
+  } catch {
+    return value.endsWith('/') ? value.slice(0, -1) : value
+  }
 }
 
 // 暴露给外部使用的等待函数
@@ -174,19 +179,19 @@ export const initHostManager = () => {
   onRuntimeMessage(
     'define-tool-from-content-to-sidepanel',
     (data: { host: string }, sender: Browser.runtime.MessageSender) => {
-      const { host } = data
       const { url } = sender
+      const canonicalHost = normalizeUrlKey(url)
       
       const tabId = sender.tab?.id
-      if (tabId === undefined) {
-        console.warn('【HostManager】define-tool: 无法获取 sender.tab.id，忽略该消息')
+      if (tabId === undefined || !canonicalHost) {
+        console.warn('【HostManager】define-tool: 无法获取 sender.tab.id 或非法 URL，忽略该消息')
         return
       }
 
       // 从旧的 host 分组中移除该 tabId，保证其在一个时间内只属于一个 host
       let changed = false
       for (const [existingHost, tabIds] of hostNameMap.entries()) {
-        if (existingHost !== host) {
+        if (existingHost !== canonicalHost) {
           const index = tabIds.indexOf(tabId)
           if (index !== -1) {
             tabIds.splice(index, 1)
@@ -195,7 +200,7 @@ export const initHostManager = () => {
         }
       }
 
-      const existingHost = hostNameMap.get(host)
+      const existingHost = hostNameMap.get(canonicalHost)
 
       if (existingHost) {
         if (!existingHost.includes(tabId)) {
@@ -204,7 +209,7 @@ export const initHostManager = () => {
         }
         console.log('【HostManager】tabId 已记录在 hostNameMap')
       } else {
-        hostNameMap.set(host, [tabId])
+        hostNameMap.set(canonicalHost, [tabId])
         changed = true
         console.log('【HostManager】新 host 已添加到 hostNameMap')
       }
@@ -213,13 +218,12 @@ export const initHostManager = () => {
 
       console.log('【HostManager】hostNameMap', hostNameMap)
 
-      const normalizedUrl = normalizeUrlKey(url)
-      const waitingPromises = normalizedUrl ? hostInitPromises.get(normalizedUrl) : undefined
+      const waitingPromises = hostInitPromises.get(canonicalHost)
       if (waitingPromises && waitingPromises.length > 0) {
         const toResolve = [...waitingPromises]
         toResolve.forEach(({ resolve }) => resolve(tabId))
-        hostInitPromises.delete(normalizedUrl!)
-        console.log(`【HostManager】触发 ${normalizedUrl} 的等待队列，共 ${toResolve.length} 个`)
+        hostInitPromises.delete(canonicalHost)
+        console.log(`【HostManager】触发 ${canonicalHost} 的等待队列，共 ${toResolve.length} 个`)
       }
     },
     'content->bg'
@@ -290,7 +294,8 @@ export const initHostManager = () => {
       }))
       sendResponse(sessions)
     } else if (message.type === 'get-host-tab-ids') {
-      sendResponse(hostNameMap.get(message.host) || [])
+      const canonicalHost = normalizeUrlKey(message.host)
+      sendResponse(canonicalHost ? hostNameMap.get(canonicalHost) || [] : [])
     } else if (message.type === 'get-session-tab-id') {
       const session = sessionRegistry.get(message.sessionId)
       sendResponse(session && session.tabIds.length > 0 ? session.tabIds[session.tabIds.length - 1] : null)
