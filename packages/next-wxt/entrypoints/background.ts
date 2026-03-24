@@ -6,16 +6,33 @@ export default defineBackground(() => {
   initHostManager()
 
   // 启动 MCP 服务端（常驻或随 Service Worker 唤醒）
-  useWebAgentServer()
+  const initPromise = useWebAgentServer()
     .then((sessionId) => {
       console.log('【Background】MCP 服务端启动成功，可用于远程控制的 sessionId:', sessionId)
+      return sessionId
     })
     .catch((error: any) => {
       console.error('【Background】初始化 useWebAgentServer 失败:', error)
+      throw error
     })
 
   // 未整改该事件，因为此处需要返回值
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    // 处理需要等待初始化的消息
+    if (message.type === 'reconnect-web-agent') {
+      initPromise.then(() => {
+        forceWebAgentReconnect().then((sessionId) => {
+           sendResponse({ success: true, sessionId })
+        }).catch((error) => {
+           console.error('手动重连 Web Agent 失败:', error)
+           sendResponse({ success: false, error: error.message })
+        })
+      }).catch((err) => {
+        sendResponse({ success: false, error: `初始化失败，无法重连: ${err.message}` })
+      })
+      return true
+    }
+
     if (message.type === 'inject-mcp-scripts') {
       const { hostname, tabId } = message
       try {
@@ -55,16 +72,6 @@ export default defineBackground(() => {
         sendResponse({ sessionId: '', status: 'error' })
       })
       return true
-    }
-
-    if (message.type === 'reconnect-web-agent') {
-       forceWebAgentReconnect().then((sessionId) => {
-         sendResponse({ success: true, sessionId })
-       }).catch((error) => {
-         console.error('手动重连 Web Agent 失败:', error)
-         sendResponse({ success: false, error: error.message })
-       })
-       return true
     }
   })
 
