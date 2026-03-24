@@ -4,8 +4,10 @@ import {
   setCustomModels,
   getWebAgentUrl,
   setWebAgentUrl,
+  CONNECT_TYPE_KEY,
   type CustomModelConfig
 } from '../sidepanel/model-manage/model-storage'
+import { storage } from '@wxt-dev/storage'
 import { DEFAULT_WEB_AGENT_URL, initializeDefaultModelsIfNeeded } from '../sidepanel/model-manage'
 import { iconEdit, iconDel, iconAdd } from '@opentiny/vue-icon'
 import { TinyForm, Modal, TinyOption } from '@opentiny/vue'
@@ -15,6 +17,7 @@ const IconDelComp = iconDel()
 const IconAddComp = iconAdd()
 
 const webAgentUrl = ref('')
+const connectType = ref('')
 const customModels = ref<CustomModelConfig[]>([])
 const isSavingUrl = ref(false)
 
@@ -22,6 +25,9 @@ const isSavingUrl = ref(false)
 async function loadData() {
   const storedUrl = await getWebAgentUrl()
   webAgentUrl.value = storedUrl || DEFAULT_WEB_AGENT_URL
+
+  const storedType = await storage.getItem<string>(CONNECT_TYPE_KEY)
+  connectType.value = storedType || import.meta.env.VITE_WEB_AGENT_CONNECT_TYPE || 'sse'
 
   const models = await initializeDefaultModelsIfNeeded()
   customModels.value = models || []
@@ -38,6 +44,7 @@ async function saveWebAgentUrl() {
 
   try {
     await setWebAgentUrl(webAgentUrl.value.trim())
+    await storage.setItem(CONNECT_TYPE_KEY, connectType.value)
 
     const res = await browser.runtime.sendMessage({ type: 'reconnect-web-agent' })
     if (res?.success) {
@@ -190,15 +197,25 @@ function notifyReload() {
         <code class="default-val">{{ DEFAULT_WEB_AGENT_URL }}</code>
       </p>
       <div class="agent-url-form">
-        <TinyInput
-          v-model="webAgentUrl"
-          :placeholder="`例如: ${DEFAULT_WEB_AGENT_URL}`"
-          clearable
-          style="width: 400px"
-        />
-        <TinyButton :loading="isSavingUrl" type="primary" @click="saveWebAgentUrl" style="margin-left: 12px"
-          >保存地址</TinyButton
-        >
+        <TinyForm label-width="120px" label-position="left">
+          <TinyFormItem label="接口地址">
+            <TinyInput
+              v-model="webAgentUrl"
+              :placeholder="`例如: ${DEFAULT_WEB_AGENT_URL}`"
+              clearable
+              style="width: 400px"
+            />
+          </TinyFormItem>
+          <TinyFormItem label="连接类型">
+            <TinySelect v-model="connectType" style="width: 200px">
+              <TinyOption label="sse" value="sse" />
+              <TinyOption label="stream (MCP)" value="stream" />
+            </TinySelect>
+            <TinyButton :loading="isSavingUrl" type="primary" @click="saveWebAgentUrl" style="margin-left: 12px"
+              >保存全局配置</TinyButton
+            >
+          </TinyFormItem>
+        </TinyForm>
       </div>
     </div>
 

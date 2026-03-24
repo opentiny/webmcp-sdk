@@ -16,6 +16,7 @@ export interface CustomModelConfig {
 
 export const CUSTOM_MODELS_KEY = 'local:NEXT_WXT_CUSTOM_MODELS'
 export const WEB_AGENT_URL_KEY = 'local:NEXT_WXT_WEB_AGENT_URL'
+export const CONNECT_TYPE_KEY = 'local:NEXT_WXT_CONNECT_TYPE'
 
 export async function getCustomModels(): Promise<CustomModelConfig[] | null> {
   try {

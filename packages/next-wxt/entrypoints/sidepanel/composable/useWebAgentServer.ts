@@ -55,20 +55,32 @@ export const useWebAgentServer = async (): Promise<string> => {
   let latestSessionId: string | null = (storageResult[StorageKeys.MCP_SESSION_ID] as string) || null
 
   // 获取连接类型
-  const getConnectType = (): 'sse' | 'socket' | 'stream' => {
-    if (connectType === 'sse') return 'sse'
-    if (connectType === 'socket') return 'socket'
+  const getConnectType = async (): Promise<'sse' | 'socket' | 'stream'> => {
+    const { storage } = await import('@wxt-dev/storage')
+    const { CONNECT_TYPE_KEY } = await import('../model-manage/model-storage')
+    const storedType = await storage.getItem<string>(CONNECT_TYPE_KEY)
+    const envType = import.meta.env.VITE_WEB_AGENT_CONNECT_TYPE
+    const finalType = storedType || envType || 'stream'
+
+    if (finalType === 'sse') return 'sse'
+    if (finalType === 'mcp' || finalType === 'stream') return 'stream'
+    if (finalType === 'socket') return 'socket'
     return 'stream'
   }
 
   // 创建连接配置
-  const createConnectOptions = (url: string, onError: (error: Error) => void) => ({
-    url: url + connectType,
-    sessionId: latestSessionId || undefined,
-    agent: true,
-    type: getConnectType(),
-    onError
-  })
+  const createConnectOptions = (url: string, type: 'sse' | 'socket' | 'stream', onError: (error: Error) => void) => {
+    const baseUrl = url.endsWith('/') ? url : url + '/'
+    const suffix = type === 'sse' ? 'sse' : 'mcp'
+    
+    return {
+      url: baseUrl + suffix,
+      sessionId: latestSessionId || undefined,
+      agent: true,
+      type,
+      onError
+    }
+  }
 
   // 处理连接成功（使用 browser.storage.local 同步存储）
   const handleConnectSuccess = async (sessionId: string, isRetry: boolean = false) => {
@@ -91,7 +103,8 @@ export const useWebAgentServer = async (): Promise<string> => {
         latestSessionId = null
       }
       const finalUrl = await getDynamicFinalAgentRoot()
-      const { sessionId } = await client.connect(createConnectOptions(finalUrl, handleError))
+      const type = await getConnectType()
+      const { sessionId } = await client.connect(createConnectOptions(finalUrl, type, handleError))
       await handleConnectSuccess(sessionId, isRetry)
       setStatus('connected')
       return sessionId

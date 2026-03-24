@@ -5,7 +5,7 @@ import { AGENT_ROOT, ROBOT_URL } from '@/entrypoints/sidepanel/const'
 import { StorageKeys } from '@/entrypoints/sidepanel/utils/storage-keys'
 import { showToast as vantToast } from 'vant' // actually unplugin-auto-import usually exposes showToast globally, we don't necessarily need to import it if it's auto imported, but explicit import is safer. Let's use standard API. Oh wait, user used `import { showToast } from 'vant'` in sidepanel! I will do the same:
 import { storage } from '@wxt-dev/storage'
-import { WEB_AGENT_URL_KEY } from '@/entrypoints/sidepanel/model-manage/model-storage'
+import { WEB_AGENT_URL_KEY, CONNECT_TYPE_KEY } from '@/entrypoints/sidepanel/model-manage/model-storage'
 
 // 通过向 Background 询问获取 sessionId 与连接状态
 const sessionId = ref('')
@@ -34,6 +34,13 @@ const sessionChangesHandler = (changes: any) => {
 
 // 监听 storage 变化以保持最新
 browser.storage.local.onChanged.addListener(sessionChangesHandler)
+
+const isInnerMode = import.meta.env.VITE_MODEL_CONFIG === 'inner' || String(import.meta.env.MODE).includes('inner')
+
+const connectType = ref(import.meta.env.VITE_WEB_AGENT_CONNECT_TYPE || 'sse')
+storage.getItem<string>(CONNECT_TYPE_KEY).then((val) => {
+  if (val) connectType.value = val
+})
 
 const customAgentRoot = ref('')
 storage.getItem<any>(WEB_AGENT_URL_KEY).then((url) => {
@@ -70,8 +77,7 @@ const agentRoot = computed(() => {
       // 忽略无效的 URL
     }
   }
-  const connectType = import.meta.env.VITE_WEB_AGENT_CONNECT_TYPE
-  return connectType === 'sse' ? root + 'sse' : root + 'mcp'
+  return connectType.value === 'sse' ? root + 'sse' : root + 'mcp'
 })
 const agentUrl = computed(() => (sessionIdStr.value ? `${agentRoot.value}/?sessionId=${sessionIdStr.value}` : '-'))
 
@@ -122,12 +128,10 @@ const openSidePanel = async () => {
     <div v-if="connectionStatus === 'error'" class="status-alert error">
       连接 Web Agent 失败，请检查服务地址或网络。
     </div>
-    <div v-else-if="connectionStatus === 'connecting'" class="status-alert warning">
-      正在连接 Web Agent...
-    </div>
+    <div v-else-if="connectionStatus === 'connecting'" class="status-alert warning">正在连接 Web Agent...</div>
 
     <div class="info-section">
-      <div v-if="connectionStatus === 'connected'" class="info-item">
+      <div v-if="!isInnerMode && connectionStatus === 'connected'" class="info-item">
         <span class="label">识别码</span>
         <div class="value-group">
           <span class="value">{{ shortCode }}</span>
@@ -143,7 +147,21 @@ const openSidePanel = async () => {
         </div>
       </div>
 
-      <div v-if="connectionStatus === 'connected'" class="info-item">
+      <div class="info-item">
+        <span class="label">连接类型</span>
+        <div class="type-selector">
+          <label class="radio-label">
+            <input type="radio" value="sse" v-model="connectType" disabled />
+            <span>SSE</span>
+          </label>
+          <label class="radio-label">
+            <input type="radio" value="stream" v-model="connectType" disabled />
+            <span>Stream (MCP)</span>
+          </label>
+        </div>
+      </div>
+
+      <div v-if="!isInnerMode && connectionStatus === 'connected'" class="info-item">
         <span class="label">遥控器地址</span>
         <div class="value-group">
           <span class="value truncate" :title="shareUrl">{{ shareUrl }}</span>
@@ -153,11 +171,14 @@ const openSidePanel = async () => {
     </div>
 
     <div class="actions">
-      <button class="primary-btn" @click="openQrCodeDialog" :disabled="!sessionIdStr">展示遥控器二维码</button>
+      <button v-if="!isInnerMode" class="primary-btn" @click="openQrCodeDialog" :disabled="!sessionIdStr">
+        展示遥控器二维码
+      </button>
       <button class="secondary-btn" @click="openSidePanel">打开控制面板</button>
     </div>
 
     <QrCodeDialog
+      v-if="!isInnerMode"
       :visible="isQrCodeDialogVisible"
       :url="shareUrl"
       title="遥控器地址二维码"
@@ -248,6 +269,24 @@ const openSidePanel = async () => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+.type-selector {
+  display: flex;
+  gap: 12px;
+  background: #f7f8fa;
+  border-radius: 8px;
+  padding: 8px 12px;
+}
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #333;
+}
+.radio-label input {
+  margin: 0;
 }
 .action-btn {
   background: transparent;

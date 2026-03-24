@@ -11,7 +11,8 @@ import { getCustomModels, getWebAgentUrl, setCustomModels } from './model-storag
 import type { Component } from 'vue'
 import { markRaw } from 'vue'
 
-export const DEFAULT_WEB_AGENT_URL = 'https://agent.opentiny.design/api/v1/webmcp-trial'
+import { AGENT_ROOT } from '../const'
+export const DEFAULT_WEB_AGENT_URL = (AGENT_ROOT || 'https://agent.opentiny.design/api/v1/webmcp-trial').replace(/\/$/, '')
 
 import IconModelDeepseek from '../icons/icon-model-deepseek.svg'
 import IconModelAliyunBailian from '../icons/icon-model-aliyun-bailian.svg'

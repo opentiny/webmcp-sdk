@@ -10,6 +10,9 @@ import ModelConfigTab from './ModelConfigTab.vue'
 
 // 当前激活的标签
 const activeTab = ref('skills')
+
+// 判断是否为内部模式
+const isInnerMode = import.meta.env.VITE_MODEL_CONFIG === 'inner'
 </script>
 
 <template>
@@ -22,7 +25,7 @@ const activeTab = ref('skills')
       <TinyTabItem name="skills" title="Skills 管理">
         <SkillsTab />
       </TinyTabItem>
-      <TinyTabItem name="token" title="Token 生成">
+      <TinyTabItem v-if="isInnerMode" name="token" title="Token 生成">
         <TokenTab />
       </TinyTabItem>
       <TinyTabItem name="model" title="模型及接口配置">
