@@ -30,8 +30,7 @@ AI Extension 是一个基于 WXT 框架开发的浏览器扩展插件，它提�
 
 访问扩展下载地址，下载扩展 ZIP 文件：
 
-- **v0.0.5** 下载地址：<https://docs.opentiny.design/download/extension-0.0.5.zip>
-- **v0.0.6** 下载地址：<https://docs.opentiny.design/download/extension-0.0.6.zip>
+- **v0.0.7** 下载地址：<https://docs.opentiny.design/download/extension-0.0.7.zip>
 
 #### 方式二：本地构建（推荐开发者）
 
