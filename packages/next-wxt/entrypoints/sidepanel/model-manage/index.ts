@@ -39,7 +39,7 @@ export const DEFAULT_MODEL_CONFIGS: UnifiedModelConfig[] = BASE_MODEL_CONFIGS
  */
 export async function initializeDefaultModelsIfNeeded(): Promise<any[]> {
   const customModelsParams = await getCustomModels()
-  console.log('[initializeDefaultModelsIfNeeded] customModelsParams from storage:', customModelsParams)
+  console.log('[initializeDefaultModelsIfNeeded] customModels IDs from storage:', customModelsParams?.map(m => m.id))
   if (customModelsParams !== null) {
     return customModelsParams
   }
@@ -105,11 +105,26 @@ export async function getModelConfigsWithToken(): Promise<UnifiedModelConfig[]> 
     }
 
     if (customWebAgentUrl && customWebAgentUrl.trim() !== '') {
-      if (finalConfig.baseURL?.includes(DEFAULT_WEB_AGENT_URL)) {
-        finalConfig.baseURL = finalConfig.baseURL.replace(DEFAULT_WEB_AGENT_URL, customWebAgentUrl)
-      }
-      if (finalConfig.genuiUrl?.includes(DEFAULT_WEB_AGENT_URL)) {
-        finalConfig.genuiUrl = finalConfig.genuiUrl.replace(DEFAULT_WEB_AGENT_URL, customWebAgentUrl)
+      try {
+        const customUrl = new URL(customWebAgentUrl)
+        const hasPath = customUrl.pathname && customUrl.pathname.length > 1
+        
+        const replaceUrl = (originalUrl?: string) => {
+          if (!originalUrl?.includes(DEFAULT_WEB_AGENT_URL)) return originalUrl
+          
+          if (hasPath) {
+            // 如果用户输入了完整路径，则全量替换
+            return originalUrl.replace(DEFAULT_WEB_AGENT_URL, customWebAgentUrl.trim().replace(/\/$/, ''))
+          } else {
+            // 如果只有域名，则只替换域名部分，保留后缀路径
+            return originalUrl.replace(/^https?:\/\/[^\/]+/, customUrl.origin)
+          }
+        }
+
+        finalConfig.baseURL = replaceUrl(finalConfig.baseURL)
+        finalConfig.genuiUrl = replaceUrl(finalConfig.genuiUrl)
+      } catch (e) {
+        // 无效 URL 则不替换
       }
     }
 

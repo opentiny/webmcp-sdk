@@ -36,11 +36,17 @@ const sessionChangesHandler = (changes: any) => {
 browser.storage.local.onChanged.addListener(sessionChangesHandler)
 
 const customAgentRoot = ref('')
-storage.getItem<string>(WEB_AGENT_URL_KEY).then((url) => {
-  customAgentRoot.value = url || ''
+storage.getItem<any>(WEB_AGENT_URL_KEY).then((url) => {
+  if (typeof url === 'string') {
+    customAgentRoot.value = url
+  }
 })
-storage.watch<string>(WEB_AGENT_URL_KEY, (newVal) => {
-  customAgentRoot.value = newVal || ''
+storage.watch<any>(WEB_AGENT_URL_KEY, (newVal) => {
+  if (typeof newVal === 'string') {
+    customAgentRoot.value = newVal
+  } else if (newVal === null) {
+    customAgentRoot.value = ''
+  }
 })
 
 const sessionIdStr = computed(() => (typeof sessionId.value === 'string' ? sessionId.value : ''))

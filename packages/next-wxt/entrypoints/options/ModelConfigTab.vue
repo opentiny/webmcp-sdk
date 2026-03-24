@@ -20,16 +20,11 @@ const isSavingUrl = ref(false)
 
 // Load data
 async function loadData() {
-  console.log('[ModelConfigTab] Loading data...')
   const storedUrl = await getWebAgentUrl()
-  console.log('[ModelConfigTab] Stored URL:', storedUrl)
   webAgentUrl.value = storedUrl || DEFAULT_WEB_AGENT_URL
-  console.log('[ModelConfigTab] Effective URL:', webAgentUrl.value)
 
   const models = await initializeDefaultModelsIfNeeded()
-  console.log('[ModelConfigTab] Models from init:', models)
   customModels.value = models || []
-  console.log('[ModelConfigTab] customModels.value count:', customModels.value.length)
 }
 
 onMounted(() => {
@@ -137,17 +132,21 @@ async function saveModel() {
   const newModel = JSON.parse(JSON.stringify(formData))
 
   // 若设为默认，则清除其他的默认状态
-  if (newModel.isDefault) {
-    customModels.value.forEach((m) => (m.isDefault = false))
-  }
-
   if (isEditing.value && editingIndex.value >= 0) {
+    // 若设为默认，则清除其他的默认状态
+    if (newModel.isDefault) {
+      customModels.value.forEach((m) => (m.isDefault = false))
+    }
     customModels.value[editingIndex.value] = newModel
   } else {
     // Check duplicate ID
     if (customModels.value.some((m) => m.id === newModel.id)) {
       Modal.message({ message: '模型 ID 已存在', status: 'warning' })
       return
+    }
+    // 若设为默认，则清除其他的默认状态
+    if (newModel.isDefault) {
+      customModels.value.forEach((m) => (m.isDefault = false))
     }
     customModels.value.push(newModel)
   }
@@ -245,12 +244,12 @@ function notifyReload() {
             <td>{{ row.isDefault ? '是' : '-' }}</td>
             <td align="center">
               <div class="ops-cell">
-                <span class="icon-btn" title="编辑" @click="openEdit(index, row)">
+                <button class="icon-btn-action" title="编辑" aria-label="编辑模型配置" @click="openEdit(index, row)">
                   <component :is="IconEditComp" />
-                </span>
-                <span class="icon-btn icon-btn-danger" title="删除" @click="openDelete(index)">
+                </button>
+                <button class="icon-btn-action icon-btn-danger" title="删除" aria-label="删除模型配置" @click="openDelete(index)">
                   <component :is="IconDelComp" />
-                </span>
+                </button>
               </div>
             </td>
           </tr>
@@ -474,7 +473,7 @@ function notifyReload() {
   padding: 32px 0 !important;
 }
 
-.icon-btn {
+.icon-btn-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -485,16 +484,22 @@ function notifyReload() {
   color: #606266;
   transition: all 0.2s;
   margin: 0 4px;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 0;
 }
 
-.icon-btn:hover {
+.icon-btn-action:hover, .icon-btn-action:focus {
   background: #ecf5ff;
   color: #409eff;
+  border-color: #d1e9ff;
+  outline: none;
 }
 
-.icon-btn-danger:hover {
-  background: #fef0f0;
-  color: #f56c6c;
+.icon-btn-danger:hover, .icon-btn-danger:focus {
+  background: #fef0f0 !important;
+  color: #f56c6c !important;
+  border-color: #ffdbdb !important;
 }
 
 .dialog-body {

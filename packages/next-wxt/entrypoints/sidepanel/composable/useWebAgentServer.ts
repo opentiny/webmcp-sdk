@@ -31,8 +31,9 @@ export const useWebAgentServer = async (): Promise<string> => {
         } else {
           finalAgentRoot = finalAgentRoot.replace(/^https?:\/\/[^\/]+/, customUrl.origin)
         }
-      } catch {
-        // 忽略无效的 URL
+      } catch (err) {
+        console.error('【useWebAgentServer】无效的自定义 URL 配置:', customWebAgentUrl)
+        throw new Error(`无效的 Web-Agent 地址: ${customWebAgentUrl}`)
       }
     }
     return finalAgentRoot
