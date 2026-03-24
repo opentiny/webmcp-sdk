@@ -34,7 +34,7 @@
 <script setup lang="ts">
 import useModel from '../composable/useModel'
 import { onClickOutside } from '@vueuse/core'
-import { ref, shallowRef, type Ref } from 'vue'
+import { ref, computed, type Ref } from 'vue'
 import Button from './Button.vue'
 import IconModel from './icons/icon-model.svg'
 import type { UnifiedModelConfig } from '../types/model-config'
@@ -47,12 +47,12 @@ const props = defineProps<{
 // 使用 defineModel 定义 selectedModelId，实现双向绑定（简化逻辑）
 const selectedModelId = defineModel<string>('selectedModelId', { type: String, default: undefined, required: false })
 
-// 处理 modelConfigs：如果是数组，使用 shallowRef 避免组件被深度响应式化
-const modelConfigsRef = props.modelConfigs
-  ? Array.isArray(props.modelConfigs)
-    ? shallowRef(props.modelConfigs) // 使用 shallowRef 避免深度响应式化
-    : props.modelConfigs
-  : undefined
+// 处理 modelConfigs：使用 computed 保持对 props 的响应式追踪
+const modelConfigsRef = computed(() => {
+  const configs = props.modelConfigs
+  if (!configs) return []
+  return Array.isArray(configs) ? configs : (configs as Ref<UnifiedModelConfig[]>).value
+})
 
 // 使用 defineModel 返回的 ref 直接传递给 useModel，defineModel 会自动处理双向绑定
 // 注意：当使用 defineModel 时，不需要在 onModelChange 回调中更新 selectedModelId，

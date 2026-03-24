@@ -13,7 +13,6 @@ declare module 'vue' {
     TinyFormItem: typeof import('@opentiny/vue-form-item')['default']
     TinyInput: typeof import('@opentiny/vue-input')['default']
     TinyModal: typeof import('@opentiny/vue-modal')['default']
-    TinyOption: typeof import('@opentiny/vue-option')['default']
     TinyRadio: typeof import('@opentiny/vue-radio')['default']
     TinySelect: typeof import('@opentiny/vue-select')['default']
     TinySwitch: typeof import('@opentiny/vue-switch')['default']

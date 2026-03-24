@@ -7,9 +7,11 @@ import type { UnifiedModelConfig } from '@opentiny/next-remoter'
 import { INTERNET_BASE_MODEL_CONFIGS } from './internet-model-config'
 import { INTRANET_BASE_MODEL_CONFIGS } from './intranet-model-config'
 import { getStoredToken } from '../utils/token-storage'
-import { getCustomModels, getWebAgentUrl } from './model-storage'
+import { getCustomModels, getWebAgentUrl, setCustomModels } from './model-storage'
 import type { Component } from 'vue'
 import { markRaw } from 'vue'
+
+export const DEFAULT_WEB_AGENT_URL = 'https://agent.opentiny.design/api/v1/webmcp-trial'
 
 import IconModelDeepseek from '../icons/icon-model-deepseek.svg'
 import IconModelAliyunBailian from '../icons/icon-model-aliyun-bailian.svg'
@@ -33,6 +35,43 @@ export const BASE_MODEL_CONFIGS: UnifiedModelConfig[] = isInnerMode
 export const DEFAULT_MODEL_CONFIGS: UnifiedModelConfig[] = BASE_MODEL_CONFIGS
 
 /**
+ * 初始化默认模型到本地缓存（如果尚未初始化）
+ */
+export async function initializeDefaultModelsIfNeeded(): Promise<any[]> {
+  const customModelsParams = await getCustomModels()
+  console.log('[initializeDefaultModelsIfNeeded] customModelsParams from storage:', customModelsParams)
+  if (customModelsParams !== null) {
+    return customModelsParams
+  }
+
+  console.log('[initializeDefaultModelsIfNeeded] Initializing with BASE_MODEL_CONFIGS...')
+  const initialModels = BASE_MODEL_CONFIGS.map(b => {
+    let iconType: 'builtin' | 'url' = 'builtin'
+    let iconValue = 'builtin-ai'
+    
+    if (b.providerType === 'deepseek') iconValue = 'deepseek'
+    else if (b.label?.toLowerCase().includes('qwen') || b.label?.includes('bailian')) iconValue = 'aliyun'
+    else if (b.id === 'built-in-ai') iconValue = 'builtin-ai'
+
+    return {
+      id: b.id,
+      label: b.label || b.id,
+      model: b.model || '',
+      providerType: b.providerType as string,
+      apiKey: b.apiKey || '',
+      baseURL: b.baseURL || '',
+      genuiUrl: b.genuiUrl || '',
+      useReActMode: b.useReActMode || false,
+      iconType,
+      iconValue,
+      isDefault: b.isDefault || false
+    }
+  })
+  await setCustomModels(initialModels)
+  return initialModels
+}
+
+/**
  * 异步获取合并后的模型配置
  * inner 模式：为 agent.opentiny.design 的配置注入 TokenTab 缓存的 x-auth-token
  * open 模式：不注入 token
@@ -40,35 +79,19 @@ export const DEFAULT_MODEL_CONFIGS: UnifiedModelConfig[] = BASE_MODEL_CONFIGS
 export async function getModelConfigsWithToken(): Promise<UnifiedModelConfig[]> {
   const needToken = isInnerMode
   const token = needToken ? await getStoredToken() : ''
-  const customModelsParams = await getCustomModels()
+  const customModelsParams = await initializeDefaultModelsIfNeeded()
   const customWebAgentUrl = await getWebAgentUrl()
 
-  const defaultModels = BASE_MODEL_CONFIGS.map((config) => {
-    const finalConfig = { ...config }
-
-    if (customWebAgentUrl && customWebAgentUrl.trim() !== '') {
-      if (finalConfig.baseURL?.includes('https://agent.opentiny.design')) {
-        finalConfig.baseURL = finalConfig.baseURL.replace('https://agent.opentiny.design', customWebAgentUrl)
-      }
-      if (finalConfig.genuiUrl?.includes('https://agent.opentiny.design')) {
-        finalConfig.genuiUrl = finalConfig.genuiUrl.replace('https://agent.opentiny.design', customWebAgentUrl)
-      }
-    }
-
-    if (!needToken) return finalConfig
-    if (!token) return finalConfig
-    const headers = { ...finalConfig.headers, 'x-auth-token': token }
-    finalConfig.headers = headers
-    return finalConfig
-  })
-
   const customConfigs: UnifiedModelConfig[] = customModelsParams.map((c) => {
+    const baseModel = BASE_MODEL_CONFIGS.find(b => b.id === c.id)
+
     let icon: any = c.iconValue
     if (c.iconType === 'builtin') {
       icon = BUILTIN_ICONS[c.iconValue] || null
     }
 
-    return {
+    const finalConfig: UnifiedModelConfig = {
+      ...(baseModel || {}),
       id: c.id,
       label: c.label,
       model: c.model,
@@ -77,9 +100,25 @@ export async function getModelConfigsWithToken(): Promise<UnifiedModelConfig[]> 
       baseURL: c.baseURL || '',
       genuiUrl: c.genuiUrl || '',
       useReActMode: c.useReActMode || false,
-      icon
+      icon,
+      isDefault: c.isDefault || false
     }
+
+    if (customWebAgentUrl && customWebAgentUrl.trim() !== '') {
+      if (finalConfig.baseURL?.includes(DEFAULT_WEB_AGENT_URL)) {
+        finalConfig.baseURL = finalConfig.baseURL.replace(DEFAULT_WEB_AGENT_URL, customWebAgentUrl)
+      }
+      if (finalConfig.genuiUrl?.includes(DEFAULT_WEB_AGENT_URL)) {
+        finalConfig.genuiUrl = finalConfig.genuiUrl.replace(DEFAULT_WEB_AGENT_URL, customWebAgentUrl)
+      }
+    }
+
+    if (needToken && token) {
+      finalConfig.headers = { ...finalConfig.headers, 'x-auth-token': token }
+    }
+
+    return finalConfig
   })
 
-  return [...customConfigs, ...defaultModels]
+  return customConfigs
 }

@@ -1,19 +1,14 @@
 <script setup lang="ts">
 import { ref, onMounted, reactive, nextTick } from 'vue'
 import {
-  getCustomModels,
   setCustomModels,
   getWebAgentUrl,
   setWebAgentUrl,
   type CustomModelConfig
 } from '../sidepanel/model-manage/model-storage'
-import {
-  iconEdit,
-  iconDel,
-  iconAdd
-} from '@opentiny/vue-icon'
+import { DEFAULT_WEB_AGENT_URL, initializeDefaultModelsIfNeeded } from '../sidepanel/model-manage'
+import { iconEdit, iconDel, iconAdd } from '@opentiny/vue-icon'
 import { TinyForm, Modal, TinyOption } from '@opentiny/vue'
-import { BASE_MODEL_CONFIGS } from '../sidepanel/model-manage'
 
 const IconEditComp = iconEdit()
 const IconDelComp = iconDel()
@@ -22,12 +17,19 @@ const IconAddComp = iconAdd()
 const webAgentUrl = ref('')
 const customModels = ref<CustomModelConfig[]>([])
 const isSavingUrl = ref(false)
-const baseModels = ref(BASE_MODEL_CONFIGS)
 
 // Load data
 async function loadData() {
-  webAgentUrl.value = await getWebAgentUrl()
-  customModels.value = await getCustomModels()
+  console.log('[ModelConfigTab] Loading data...')
+  const storedUrl = await getWebAgentUrl()
+  console.log('[ModelConfigTab] Stored URL:', storedUrl)
+  webAgentUrl.value = storedUrl || DEFAULT_WEB_AGENT_URL
+  console.log('[ModelConfigTab] Effective URL:', webAgentUrl.value)
+
+  const models = await initializeDefaultModelsIfNeeded()
+  console.log('[ModelConfigTab] Models from init:', models)
+  customModels.value = models || []
+  console.log('[ModelConfigTab] customModels.value count:', customModels.value.length)
 }
 
 onMounted(() => {
@@ -38,7 +40,7 @@ onMounted(() => {
 async function saveWebAgentUrl() {
   if (isSavingUrl.value) return
   isSavingUrl.value = true
-  
+
   try {
     await setWebAgentUrl(webAgentUrl.value.trim())
 
@@ -70,6 +72,7 @@ const formData = reactive<CustomModelConfig>({
   genuiUrl: '',
   apiKey: '',
   useReActMode: false,
+  isDefault: false,
   iconType: 'builtin',
   iconValue: 'builtin-ai'
 })
@@ -107,9 +110,10 @@ function openAdd() {
   formData.genuiUrl = ''
   formData.apiKey = ''
   formData.useReActMode = false
+  formData.isDefault = false
   formData.iconType = 'builtin'
   formData.iconValue = 'deepseek'
-  
+
   editDialogVisible.value = true
   nextTick(() => formRef.value?.clearValidate?.())
 }
@@ -118,7 +122,7 @@ function openEdit(index: number, row: CustomModelConfig) {
   isEditing.value = true
   editingIndex.value = index
   Object.assign(formData, JSON.parse(JSON.stringify(row)))
-  
+
   editDialogVisible.value = true
   nextTick(() => formRef.value?.clearValidate?.())
 }
@@ -129,19 +133,25 @@ async function saveModel() {
   } catch {
     return
   }
-  
+
   const newModel = JSON.parse(JSON.stringify(formData))
+
+  // 若设为默认，则清除其他的默认状态
+  if (newModel.isDefault) {
+    customModels.value.forEach((m) => (m.isDefault = false))
+  }
+
   if (isEditing.value && editingIndex.value >= 0) {
     customModels.value[editingIndex.value] = newModel
   } else {
     // Check duplicate ID
-    if (customModels.value.some(m => m.id === newModel.id)) {
+    if (customModels.value.some((m) => m.id === newModel.id)) {
       Modal.message({ message: '模型 ID 已存在', status: 'warning' })
       return
     }
     customModels.value.push(newModel)
   }
-  
+
   await setCustomModels(customModels.value)
   editDialogVisible.value = false
   Modal.message({ message: isEditing.value ? '修改成功' : '添加成功', status: 'success' })
@@ -170,7 +180,6 @@ async function confirmDelete() {
 function notifyReload() {
   void browser.runtime.sendMessage({ type: 'reload-sidepanel' }).catch(() => {})
 }
-
 </script>
 
 <template>
@@ -179,18 +188,25 @@ function notifyReload() {
       <div class="section-title">全局配置</div>
       <p class="section-desc">
         修改全局 Web-Agent 服务地址。留空则使用内置默认地址:
-        <code class="default-val">https://agent.opentiny.design</code>
+        <code class="default-val">{{ DEFAULT_WEB_AGENT_URL }}</code>
       </p>
       <div class="agent-url-form">
-        <TinyInput v-model="webAgentUrl" placeholder="例如: https://agent.opentiny.design" clearable style="width: 400px;" />
-        <TinyButton :loading="isSavingUrl" type="primary" @click="saveWebAgentUrl" style="margin-left: 12px;">保存地址</TinyButton>
+        <TinyInput
+          v-model="webAgentUrl"
+          :placeholder="`例如: ${DEFAULT_WEB_AGENT_URL}`"
+          clearable
+          style="width: 400px"
+        />
+        <TinyButton :loading="isSavingUrl" type="primary" @click="saveWebAgentUrl" style="margin-left: 12px"
+          >保存地址</TinyButton
+        >
       </div>
     </div>
 
     <div class="section-block">
-      <div class="section-title">自定义模型配置</div>
-      <p class="section-desc">添加或管理自定义的模型配置，您可以指定 providerType 及相关 API 接口信息。</p>
-      
+      <div class="section-title">模型接口与界面配置</div>
+      <p class="section-desc">统一管理您的本地大语言模型与系统内置模型，对任何配置的修改/删除均可立即在侧边栏生效。</p>
+
       <div class="toolbar">
         <TinyButton class="toolbar-btn" @click="openAdd">
           <span class="toolbar-btn-inner">
@@ -203,55 +219,43 @@ function notifyReload() {
       <table class="simple-table">
         <thead>
           <tr>
-            <th width="60">序号</th>
-            <th>模型 ID</th>
+            <th width="50">序号</th>
             <th>显示名称</th>
-            <th>Provider</th>
-            <th width="120" style="text-align: center;">操作</th>
+            <th width="100">Provider</th>
+            <th>Base URL</th>
+            <th>GenUI URL</th>
+            <th width="80">ReAct</th>
+            <th width="50">默认</th>
+            <th width="100" style="text-align: center">操作</th>
           </tr>
         </thead>
         <tbody>
           <tr v-for="(row, index) in customModels" :key="row.id">
             <td>{{ index + 1 }}</td>
-            <td :title="row.id" class="truncate">{{ row.id }}</td>
-            <td>{{ row.label }}</td>
+            <td :title="row.id">
+              <div class="model-label-cell">
+                <span class="main-label">{{ row.label }}</span>
+                <span class="sub-id">{{ row.id }}</span>
+              </div>
+            </td>
             <td>{{ row.providerType }}</td>
+            <td :title="row.baseURL" class="truncate">{{ row.baseURL || '-' }}</td>
+            <td :title="row.genuiUrl" class="truncate">{{ row.genuiUrl || '-' }}</td>
+            <td>{{ row.useReActMode ? '是' : '-' }}</td>
+            <td>{{ row.isDefault ? '是' : '-' }}</td>
             <td align="center">
-              <span class="icon-btn" title="编辑" @click="openEdit(index, row)">
-                <component :is="IconEditComp" />
-              </span>
-              <span class="icon-btn icon-btn-danger" title="删除" @click="openDelete(index)">
-                <component :is="IconDelComp" />
-              </span>
+              <div class="ops-cell">
+                <span class="icon-btn" title="编辑" @click="openEdit(index, row)">
+                  <component :is="IconEditComp" />
+                </span>
+                <span class="icon-btn icon-btn-danger" title="删除" @click="openDelete(index)">
+                  <component :is="IconDelComp" />
+                </span>
+              </div>
             </td>
           </tr>
           <tr v-if="customModels.length === 0">
-            <td colspan="5" class="empty-text">暂无自定义模型</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="section-block">
-      <div class="section-title">系统内置模型 (只读)</div>
-      <p class="section-desc">以下是扩展内置的模型配置，不可直接修改，但您可以通过添加相同 ID 的自定义模型来覆盖它们。</p>
-      <table class="simple-table readonly-table">
-        <thead>
-          <tr>
-            <th width="60">序号</th>
-            <th>模型 ID</th>
-            <th>显示名称</th>
-            <th>Provider</th>
-            <th>默认模型</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr v-for="(row, index) in baseModels" :key="row.id">
-            <td>{{ index + 1 }}</td>
-            <td :title="row.id" class="truncate">{{ row.id }}</td>
-            <td>{{ row.label }}</td>
-            <td>{{ row.providerType }}</td>
-            <td>{{ row.isDefault ? '是' : '-' }}</td>
+            <td colspan="8" class="empty-text">暂无模型配置</td>
           </tr>
         </tbody>
       </table>
@@ -292,6 +296,9 @@ function notifyReload() {
           </TinyFormItem>
           <TinyFormItem label="ReAct Mode">
             <TinySwitch v-model="formData.useReActMode" />
+          </TinyFormItem>
+          <TinyFormItem label="设为默认选中">
+            <TinySwitch v-model="formData.isDefault" />
           </TinyFormItem>
           <TinyFormItem label="图标类型">
             <TinyRadio v-model="formData.iconType" label="builtin">内置图标</TinyRadio>
@@ -415,7 +422,8 @@ function notifyReload() {
   border: 1px solid #ebedf0;
 }
 
-.simple-table th, .simple-table td {
+.simple-table th,
+.simple-table td {
   padding: 12px 16px;
   border-bottom: 1px solid #ebedf0;
   text-align: left;
@@ -432,10 +440,32 @@ function notifyReload() {
 }
 
 .truncate {
-  max-width: 200px;
+  max-width: 150px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.model-label-cell {
+  display: flex;
+  flex-direction: column;
+}
+
+.main-label {
+  font-weight: 600;
+  color: #303133;
+}
+
+.sub-id {
+  font-size: 11px;
+  color: #909399;
+  line-height: 1.2;
+}
+
+.ops-cell {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
 }
 
 .empty-text {
