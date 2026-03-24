@@ -19,7 +19,9 @@ export const StorageKeys = {
   /** 本地工具存储 Local tool storage */
   LOCAL_TOOL_STORAGE: 'local-tool-storage',
   /** MCP Session ID */
-  MCP_SESSION_ID: 'mcp-sessionId'
+  MCP_SESSION_ID: 'mcp-sessionId',
+  /** MCP 连接状态 MCP Connection Status */
+  MCP_STATUS: 'mcp-connection-status'
 } as const
 
 /**
