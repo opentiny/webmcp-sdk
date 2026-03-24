@@ -86,4 +86,7 @@ export default defineBackground(() => {
 
   // 让 extension 图标点击显示 popup，不再直接打开侧边栏
   // 因为现在将连接信息移至了 Popup 界面
+  if ((browser.sidePanel as any).setPanelBehavior) {
+    ;(browser.sidePanel as any).setPanelBehavior({ openPanelOnActionClick: false }).catch(() => {})
+  }
 })

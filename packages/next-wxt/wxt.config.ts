@@ -34,11 +34,17 @@ export default defineConfig({
       'sidePanel'
     ],
     host_permissions: ['*://*/*'], //  bg 发出 fecth, bg注入content脚本，访问 tab详情，cookie..
-    action: {},
+    action: {
+      default_popup: 'popup.html',
+      default_title: 'Web Agent 遥控器'
+    },
     // 配置 options 页面在新标签页中打开，而不是弹窗
     options_ui: {
       page: 'options.html',
       open_in_tab: true
+    },
+    side_panel: {
+      default_path: 'sidepanel.html'
     },
     web_accessible_resources: [
       {
