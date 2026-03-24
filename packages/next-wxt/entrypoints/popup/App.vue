@@ -5,7 +5,7 @@ import { AGENT_ROOT, ROBOT_URL } from '@/entrypoints/sidepanel/const'
 import { StorageKeys } from '@/entrypoints/sidepanel/utils/storage-keys'
 import { showToast as vantToast } from 'vant' // actually unplugin-auto-import usually exposes showToast globally, we don't necessarily need to import it if it's auto imported, but explicit import is safer. Let's use standard API. Oh wait, user used `import { showToast } from 'vant'` in sidepanel! I will do the same:
 import { storage } from '@wxt-dev/storage'
-import { WEB_AGENT_URL_KEY, CONNECT_TYPE_KEY } from '@/entrypoints/sidepanel/model-manage/model-storage'
+import { WEB_AGENT_URL_KEY, getWebAgentUrl, getConnectType, CONNECT_TYPE_KEY } from '@/entrypoints/sidepanel/model-manage/model-storage'
 
 // 通过向 Background 询问获取 sessionId 与连接状态
 const sessionId = ref('')
@@ -37,9 +37,9 @@ browser.storage.local.onChanged.addListener(sessionChangesHandler)
 
 const isInnerMode = import.meta.env.VITE_MODEL_CONFIG === 'inner' || String(import.meta.env.MODE).includes('inner')
 
-const connectType = ref(import.meta.env.VITE_WEB_AGENT_CONNECT_TYPE || 'sse')
-storage.getItem<string>(CONNECT_TYPE_KEY).then((val) => {
-  if (val) connectType.value = val
+const connectType = ref('')
+getConnectType().then((val) => {
+  connectType.value = val
 })
 
 const customAgentRoot = ref('')

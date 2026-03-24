@@ -4,6 +4,7 @@ import {
   setCustomModels,
   getWebAgentUrl,
   setWebAgentUrl,
+  getConnectType,
   CONNECT_TYPE_KEY,
   type CustomModelConfig
 } from '../sidepanel/model-manage/model-storage'
@@ -23,11 +24,12 @@ const isSavingUrl = ref(false)
 
 // Load data
 async function loadData() {
-  const storedUrl = await getWebAgentUrl()
+  const [storedUrl, storedType] = await Promise.all([
+    getWebAgentUrl(),
+    getConnectType()
+  ])
   webAgentUrl.value = storedUrl || DEFAULT_WEB_AGENT_URL
-
-  const storedType = await storage.getItem<string>(CONNECT_TYPE_KEY)
-  connectType.value = storedType || import.meta.env.VITE_WEB_AGENT_CONNECT_TYPE || 'sse'
+  connectType.value = storedType
 
   const models = await initializeDefaultModelsIfNeeded()
   customModels.value = models || []
@@ -40,10 +42,20 @@ onMounted(() => {
 // Save Web-Agent URL
 async function saveWebAgentUrl() {
   if (isSavingUrl.value) return
-  isSavingUrl.value = true
 
+  const trimmedUrl = webAgentUrl.value.trim()
+  if (trimmedUrl) {
+    try {
+      new URL(trimmedUrl)
+    } catch (e) {
+      Modal.alert('无效的 Web-Agent 地址，请检查格式（需包含协议，如 http:// 或 https://）')
+      return
+    }
+  }
+
+  isSavingUrl.value = true
   try {
-    await setWebAgentUrl(webAgentUrl.value.trim())
+    await setWebAgentUrl(trimmedUrl)
     await storage.setItem(CONNECT_TYPE_KEY, connectType.value)
 
     const res = await browser.runtime.sendMessage({ type: 'reconnect-web-agent' })

@@ -2,7 +2,7 @@ import { WebMcpClient } from '@opentiny/next-sdk/core'
 import { StorageKeys } from '../utils/storage-keys'
 import { createMcpServer } from '../mcpServer'
 import { AGENT_ROOT } from '../const'
-import { getWebAgentUrl } from '../model-manage/model-storage'
+import { getWebAgentUrl, getConnectType } from '../model-manage/model-storage'
 
 const MAX_RETRY_COUNT = 5
 const RETRY_DELAY = 3000
@@ -54,19 +54,6 @@ export const useWebAgentServer = async (): Promise<string> => {
   const storageResult = await browser.storage.local.get(StorageKeys.MCP_SESSION_ID)
   let latestSessionId: string | null = (storageResult[StorageKeys.MCP_SESSION_ID] as string) || null
 
-  // 获取连接类型
-  const getConnectType = async (): Promise<'sse' | 'socket' | 'stream'> => {
-    const { storage } = await import('@wxt-dev/storage')
-    const { CONNECT_TYPE_KEY } = await import('../model-manage/model-storage')
-    const storedType = await storage.getItem<string>(CONNECT_TYPE_KEY)
-    const envType = import.meta.env.VITE_WEB_AGENT_CONNECT_TYPE
-    const finalType = storedType || envType || 'stream'
-
-    if (finalType === 'sse') return 'sse'
-    if (finalType === 'mcp' || finalType === 'stream') return 'stream'
-    if (finalType === 'socket') return 'socket'
-    return 'stream'
-  }
 
   // 创建连接配置
   const createConnectOptions = (url: string, type: 'sse' | 'socket' | 'stream', onError: (error: Error) => void) => {
