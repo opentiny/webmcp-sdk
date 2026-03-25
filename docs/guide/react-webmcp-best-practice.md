@@ -71,7 +71,7 @@ packages/doc-ai-react/
 │               ├── SKILL.md
 │               └── reference/
 │                   └── product-listing.md
-├── vite.config.ts                         # 配置 proxyConfig
+├── vite.config.ts                         # 配置主应用的proxy代理
 └── package.json                         # dev 脚本同时启动 ng serve 与 remoter
 ```
 
