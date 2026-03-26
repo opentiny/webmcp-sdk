@@ -297,4 +297,22 @@ export const useExtraTools = (server: WebMcpServer) => {
       }
     })
   )
+
+  // 激活上一个标签页
+  server.registerTool(
+    'active-pre-tab',
+    {
+      title: 'Active Pre Tab',
+      description: `激活上一个标签页`,
+      inputSchema: {}
+    },
+    withToolAnimation('active-pre-tab', async () => {
+      try {
+        await sendRuntimeMessage('active-pre-tab', {}, 'side->bg')
+        return { content: [{ type: 'text' as const, text: '已激活上一个标签页' }] }
+      } catch (error: any) {
+        return { content: [{ type: 'text' as const, text: `激活上一个标签页工具错误: ${error.message}` }] }
+      }
+    })
+  )
 }

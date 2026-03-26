@@ -1,5 +1,6 @@
 import { useWebAgentServer, forceWebAgentReconnect } from './sidepanel/composable/useWebAgentServer'
 import { initHostManager } from './background/host-manager'
+import { tabHistory } from './background/tab-history'
 
 export default defineBackground(() => {
   // 初始化全局 Host 缓存管理器，提供给 background 的 mcpServer 实例
@@ -20,16 +21,20 @@ export default defineBackground(() => {
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // 处理需要等待初始化的消息
     if (message.type === 'reconnect-web-agent') {
-      initPromise.then(() => {
-        forceWebAgentReconnect().then((sessionId) => {
-           sendResponse({ success: true, sessionId })
-        }).catch((error) => {
-           console.error('手动重连 Web Agent 失败:', error)
-           sendResponse({ success: false, error: error.message })
+      initPromise
+        .then(() => {
+          forceWebAgentReconnect()
+            .then((sessionId) => {
+              sendResponse({ success: true, sessionId })
+            })
+            .catch((error) => {
+              console.error('手动重连 Web Agent 失败:', error)
+              sendResponse({ success: false, error: error.message })
+            })
         })
-      }).catch((err) => {
-        sendResponse({ success: false, error: `初始化失败，无法重连: ${err.message}` })
-      })
+        .catch((err) => {
+          sendResponse({ success: false, error: `初始化失败，无法重连: ${err.message}` })
+        })
       return true
     }
 
@@ -62,15 +67,18 @@ export default defineBackground(() => {
 
     if (message.type === 'get-mcp-session-id') {
       // 异步获取 session ID 从 local storage 中
-      browser.storage.local.get(['mcp-sessionId', 'mcp-connection-status']).then((res) => {
-        sendResponse({ 
-          sessionId: res['mcp-sessionId'] || '',
-          status: res['mcp-connection-status'] || 'connecting'
+      browser.storage.local
+        .get(['mcp-sessionId', 'mcp-connection-status'])
+        .then((res) => {
+          sendResponse({
+            sessionId: res['mcp-sessionId'] || '',
+            status: res['mcp-connection-status'] || 'connecting'
+          })
         })
-      }).catch((err) => {
-        console.error('获取 session ID 失败:', err)
-        sendResponse({ sessionId: '', status: 'error' })
-      })
+        .catch((err) => {
+          console.error('获取 session ID 失败:', err)
+          sendResponse({ sessionId: '', status: 'error' })
+        })
       return true
     }
   })
@@ -83,6 +91,8 @@ export default defineBackground(() => {
 
   // 自动返回sender 给 content-script
   onRuntimeMessage('who-am-i', () => {}, 'content->bg')
+
+  onRuntimeMessage('active-pre-tab', async () => await tabHistory.activePreTab(), 'side->bg')
 
   // 让 extension 图标点击显示 popup，不再直接打开侧边栏
   // 因为现在将连接信息移至了 Popup 界面
