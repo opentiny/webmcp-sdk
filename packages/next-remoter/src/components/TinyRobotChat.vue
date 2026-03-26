@@ -526,7 +526,8 @@ const {
   addPluginFromMarket,
   addPluginFromScan, // 从扫码添加插件（统一接口）
   handleClientDisconnected, // 处理客户端断开连接
-  searchPlugin
+  searchPlugin,
+  syncInstalledPluginTools
 } = usePlugin(agent, enabledTools, defaultPluginSrc)
 
 // ===== 页面工具按需加载（pageToolsOnDemand 开关控制，默认关闭）=====
@@ -536,7 +537,11 @@ useRouteBasedTools({
   enabled: toRef(props, 'pageToolsOnDemand'),
   agent,
   installedPlugins,
-  customAgentProvider
+  customAgentProvider,
+  onToolCatalogChanged: async () => {
+    await agent.refreshTools()
+    syncInstalledPluginTools()
+  }
 })
 
 // 初始化市场插件数据

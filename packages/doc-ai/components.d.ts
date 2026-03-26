@@ -21,6 +21,7 @@ declare module 'vue' {
     TinyNumeric: typeof import('@opentiny/vue-numeric')['default']
     TinyOption: typeof import('@opentiny/vue-option')['default']
     TinySelect: typeof import('@opentiny/vue-select')['default']
+    TinyTag: typeof import('@opentiny/vue-tag')['default']
     VanIcon: typeof import('vant/es')['Icon']
   }
 }

@@ -8,7 +8,8 @@
  *   - setNavigator(fn)    在应用入口注册导航函数
  *   - withPageTools(server)
  *                         包装 WebMcpServer，让 registerTool 第三个参数
- *                         同时支持原始回调函数和路由配置对象（RouteConfig）
+ *                         同时支持原始回调函数和路由配置对象（RouteConfig），
+ *                         并提供 server.unregisterTool / 工具状态查询能力
  *   - registerPageTool()  在目标页面激活工具处理器，返回 cleanup 函数
  */
 
@@ -29,8 +30,10 @@ const MSG_PAGE_READY = 'next-sdk:page-ready'
 export const MSG_PAGE_LEAVE = 'next-sdk:page-leave'
 /** iframe 内 Remoter 就绪后向父窗口发送，父窗口回传 route-state-initial */
 export const MSG_REMOTER_READY = 'next-sdk:remoter-ready'
-/** 父窗口向 iframe Remoter 回传的初始路由状态（toolRouteMap + activeRoutes + activePageTools） */
+/** 父窗口向 iframe Remoter 回传的初始状态（保留兼容消息类型） */
 export const MSG_ROUTE_STATE_INITIAL = 'next-sdk:route-state-initial'
+/** 工具目录发生变更（新增/删除/路由重绑定） */
+export const MSG_TOOL_CATALOG_CHANGED = 'next-sdk:tool-catalog-changed'
 
 // 已激活页面注册表：路由路径 → 当前页面已挂载的工具名集合
 const activePages = new Map<string, Set<string>>()
@@ -73,7 +76,6 @@ function setupIframeRemoterBridge() {
     broadcastTargets.add({ win: target, origin: event.origin || '*' })
     const payload = {
       type: MSG_ROUTE_STATE_INITIAL,
-      toolRouteMap: Array.from(toolRouteMap.entries()),
       activeRoutes: Array.from(activePages.keys()),
       activePageTools: Array.from(activePages.entries()).map(([route, tools]) => [route, Array.from(tools)])
     }
@@ -86,16 +88,38 @@ function setupIframeRemoterBridge() {
 }
 setupIframeRemoterBridge()
 
-// withPageTools 注册的工具路由映射表：工具名 → 目标路由
-const toolRouteMap = new Map<string, string>()
+// runtime 一体化注册的工具（用于引用计数管理）
+const runtimeRegisteredTools = new Map<string, { tool: RegisteredTool; route: string; refCount: number }>()
+
+function broadcastToolCatalogChanged() {
+  if (typeof window === 'undefined') return
+  const payload = {
+    type: MSG_TOOL_CATALOG_CHANGED
+  }
+  broadcastTargets.forEach(({ win, origin }) => {
+    try {
+      win.postMessage(payload, origin)
+    } catch {
+      // ignore
+    }
+  })
+}
+
+function notifyServerToolListChanged(server: unknown) {
+  const maybeServer = server as { sendToolListChanged?: () => void }
+  try {
+    maybeServer.sendToolListChanged?.()
+  } catch {
+    // ignore
+  }
+}
 
 /**
  * 获取通过 withPageTools + RouteConfig 注册的全部工具路由映射。
- * 返回的是内部 Map 的只读快照，可安全遍历。
- * @returns toolName → route 的只读 Map
+ * 为保持向后兼容，仍保留该 API；简化模式下不再维护此映射，始终返回空 Map。
  */
 export function getToolRouteMap(): ReadonlyMap<string, string> {
-  return new Map(toolRouteMap)
+  return new Map()
 }
 
 /**
@@ -145,10 +169,14 @@ type BrowserBuiltinModelContextTool = {
 
 type BrowserBuiltinModelContext = {
   registerTool: (tool: BrowserBuiltinModelContextTool) => unknown | Promise<unknown>
+  unregisterTool?: (arg: unknown) => unknown | Promise<unknown>
 }
 
 type BrowserBuiltinModelContextTesting = {
   listTools?: () => unknown[] | Promise<unknown[]>
+  getTools?: () => unknown[] | Promise<unknown[]>
+  provideContext?: (init: unknown) => unknown | Promise<unknown>
+  clearContext?: () => unknown | Promise<unknown>
   executeTool?: (name: string, input: string) => unknown | Promise<unknown>
 }
 
@@ -158,6 +186,30 @@ type NavigatorWithBuiltinMcp = Navigator & {
 }
 
 const nativeRegisteredTools = new Set<string>()
+const nativeToolDisposers = new Map<string, () => unknown | Promise<unknown>>()
+const nativeRegisteredToolDefs = new Map<string, BrowserBuiltinModelContextTool>()
+const nativeRegisterTasks = new Map<string, Promise<void>>()
+const BUILTIN_REMOVE_PATCH_SYMBOL = Symbol('builtin-remove-patched')
+
+function attachBuiltinUnregisterOnRemove(name: string, tool: RegisteredTool): RegisteredTool {
+  const mutableTool = tool as RegisteredTool & {
+    remove?: () => void
+    [BUILTIN_REMOVE_PATCH_SYMBOL]?: boolean
+  }
+  if (mutableTool[BUILTIN_REMOVE_PATCH_SYMBOL]) return tool
+  if (typeof mutableTool.remove !== 'function') return tool
+
+  const originalRemove = mutableTool.remove.bind(mutableTool)
+  mutableTool.remove = () => {
+    try {
+      originalRemove()
+    } finally {
+      void unregisterBuiltinWebMcpTool(name)
+    }
+  }
+  mutableTool[BUILTIN_REMOVE_PATCH_SYMBOL] = true
+  return mutableTool
+}
 
 function getBuiltinModelContext(): BrowserBuiltinModelContext | null {
   if (typeof navigator === 'undefined') return null
@@ -170,6 +222,100 @@ function getBuiltinModelContextTesting(): BrowserBuiltinModelContextTesting | nu
   if (typeof navigator === 'undefined') return null
   const nav = navigator as NavigatorWithBuiltinMcp
   return nav.modelContextTesting ?? null
+}
+
+function isWebMcpDebugEnabled(): boolean {
+  if (typeof window === 'undefined') return false
+  const w = window as Window & { __NEXT_SDK_WEBMCP_DEBUG__?: boolean }
+  if (w.__NEXT_SDK_WEBMCP_DEBUG__ === true) return true
+  try {
+    return window.localStorage?.getItem('next-sdk:webmcp-debug') === '1'
+  } catch {
+    return false
+  }
+}
+
+function debugWebMcpLog(event: string, payload: Record<string, unknown> = {}) {
+  if (!isWebMcpDebugEnabled()) return
+  try {
+    console.info('[next-sdk/webmcp]', event, payload)
+  } catch {
+    // ignore
+  }
+}
+
+async function debugBuiltinToolSnapshot(event: string) {
+  if (!isWebMcpDebugEnabled()) return
+  const testingApi = getBuiltinModelContextTesting()
+  if (!testingApi) {
+    debugWebMcpLog(`${event}:snapshot`, { available: false })
+    return
+  }
+  try {
+    const list = testingApi.listTools ?? testingApi.getTools
+    if (!list) {
+      debugWebMcpLog(`${event}:snapshot`, { available: false, reason: 'no-list-method' })
+      return
+    }
+    const result = await list()
+    const tools = Array.isArray(result) ? result : []
+    const names = tools
+      .map((item) => {
+        if (!item || typeof item !== 'object') return ''
+        return String((item as { name?: unknown }).name ?? '')
+      })
+      .filter(Boolean)
+    debugWebMcpLog(`${event}:snapshot`, { count: names.length, names })
+  } catch (error) {
+    debugWebMcpLog(`${event}:snapshot-error`, { error: error instanceof Error ? error.message : String(error) })
+  }
+}
+
+function tryDirectBuiltinUnregisterByName(name: string) {
+  const modelContext = getBuiltinModelContext()
+  if (!modelContext?.unregisterTool) {
+    debugWebMcpLog('direct-unregister-skip', { name, reason: 'missing-unregister' })
+    return
+  }
+  debugWebMcpLog('direct-unregister-start', { name })
+  try {
+    const result = modelContext.unregisterTool.call(modelContext, name)
+    if (result && typeof result === 'object' && 'then' in result) {
+      void (result as Promise<unknown>)
+        .then(() => {
+          debugWebMcpLog('direct-unregister-done', { name, async: true })
+          void debugBuiltinToolSnapshot(`direct-unregister-done:${name}`)
+        })
+        .catch((error) => {
+          debugWebMcpLog('direct-unregister-error', { name, async: true, error: error instanceof Error ? error.message : String(error) })
+        })
+      return
+    }
+    debugWebMcpLog('direct-unregister-done', { name, async: false })
+    void debugBuiltinToolSnapshot(`direct-unregister-done:${name}`)
+  } catch {
+    debugWebMcpLog('direct-unregister-error', { name, async: false })
+  }
+}
+
+function resolveBuiltinToolDisposer(result: unknown): (() => unknown | Promise<unknown>) | null {
+  if (typeof result === 'function') {
+    return result as () => unknown | Promise<unknown>
+  }
+  if (!result || typeof result !== 'object') {
+    return null
+  }
+  const value = result as {
+    unregister?: () => unknown | Promise<unknown>
+    remove?: () => unknown | Promise<unknown>
+    dispose?: () => unknown | Promise<unknown>
+    close?: () => unknown | Promise<unknown>
+  }
+  if (typeof value.unregister === 'function') return value.unregister.bind(value)
+  if (typeof value.remove === 'function') return value.remove.bind(value)
+  if (typeof value.dispose === 'function') return value.dispose.bind(value)
+  if (typeof value.close === 'function') return value.close.bind(value)
+  return null
 }
 
 export function isBuiltinWebMcpSupported(): boolean {
@@ -298,24 +444,134 @@ export async function registerBuiltinWebMcpTool(options: {
   execute: (params: Record<string, unknown>) => unknown | Promise<unknown>
 }): Promise<boolean> {
   const modelContext = getBuiltinModelContext()
-  if (!modelContext) return false
+  if (!modelContext) {
+    debugWebMcpLog('register-builtin-skip', { name: options.name, reason: 'unsupported' })
+    return false
+  }
 
   if (nativeRegisteredTools.has(options.name)) {
+    debugWebMcpLog('register-builtin-skip', { name: options.name, reason: 'already-registered' })
     return true
   }
 
-  try {
-    debugger
-    await modelContext.registerTool({
+  debugWebMcpLog('register-builtin-start', { name: options.name })
+  const task = (async () => {
+    const toolDefinition: BrowserBuiltinModelContextTool = {
       name: options.name,
       description: options.description,
       inputSchema: zodShapeToJsonSchema(options.inputSchema ?? {}),
       execute: options.execute
-    })
+    }
+    const result = await modelContext.registerTool(toolDefinition)
+    const disposer = resolveBuiltinToolDisposer(result)
+    if (disposer) {
+      nativeToolDisposers.set(options.name, disposer)
+    }
+    nativeRegisteredToolDefs.set(options.name, toolDefinition)
     nativeRegisteredTools.add(options.name)
+    debugWebMcpLog('register-builtin-success', { name: options.name, hasDisposer: !!disposer })
+    void debugBuiltinToolSnapshot(`register-success:${options.name}`)
+  })()
+  nativeRegisterTasks.set(options.name, task)
+
+  try {
+    await task
     return true
-  } catch {
+  } catch (error) {
+    debugWebMcpLog('register-builtin-error', {
+      name: options.name,
+      error: error instanceof Error ? error.message : String(error)
+    })
     return false
+  } finally {
+    nativeRegisterTasks.delete(options.name)
+  }
+}
+
+export async function unregisterBuiltinWebMcpTool(name: string): Promise<boolean> {
+  debugWebMcpLog('unregister-builtin-start', { name })
+  const cleanup = () => {
+    nativeToolDisposers.delete(name)
+    nativeRegisteredToolDefs.delete(name)
+    nativeRegisteredTools.delete(name)
+  }
+
+  const pendingRegister = nativeRegisterTasks.get(name)
+  if (pendingRegister) {
+    try {
+      await pendingRegister
+    } catch {
+      // ignore
+    }
+  }
+
+  const disposer = nativeToolDisposers.get(name)
+  if (disposer) {
+    try {
+      await disposer()
+      cleanup()
+      debugWebMcpLog('unregister-builtin-success', { name, method: 'disposer' })
+      void debugBuiltinToolSnapshot(`unregister-success:${name}`)
+      return true
+    } catch (error) {
+      debugWebMcpLog('unregister-builtin-disposer-error', {
+        name,
+        error: error instanceof Error ? error.message : String(error)
+      })
+      // 继续尝试 modelContext.unregisterTool 的多签名兜底
+    }
+  }
+
+  const modelContext = getBuiltinModelContext()
+  if (!modelContext) {
+    cleanup()
+    debugWebMcpLog('unregister-builtin-skip', { name, reason: 'unsupported' })
+    return false
+  }
+  if (!modelContext.unregisterTool) {
+    cleanup()
+    debugWebMcpLog('unregister-builtin-skip', { name, reason: 'missing-unregister' })
+    return false
+  }
+
+  const definition = nativeRegisteredToolDefs.get(name)
+  const candidates: unknown[] = [name, { name }, { toolName: name }, { tool: { name } }, definition].filter(Boolean)
+  for (const candidate of candidates) {
+    try {
+      debugWebMcpLog('unregister-builtin-try', { name, candidate })
+      const result = await modelContext.unregisterTool.call(modelContext, candidate)
+      if (result === false) continue
+      cleanup()
+      debugWebMcpLog('unregister-builtin-success', { name, method: 'unregisterTool', candidate })
+      void debugBuiltinToolSnapshot(`unregister-success:${name}`)
+      return true
+    } catch (error) {
+      debugWebMcpLog('unregister-builtin-try-error', {
+        name,
+        candidate,
+        error: error instanceof Error ? error.message : String(error)
+      })
+    }
+  }
+
+  cleanup()
+  debugWebMcpLog('unregister-builtin-failed', { name })
+  void debugBuiltinToolSnapshot(`unregister-failed:${name}`)
+  return false
+}
+
+export function hasBuiltinWebMcpTool(name: string): boolean {
+  return nativeRegisteredTools.has(name)
+}
+
+export async function forceResetBuiltinWebMcpTools(): Promise<void> {
+  const names = Array.from(nativeRegisteredTools)
+  for (const name of names) {
+    try {
+      await unregisterBuiltinWebMcpTool(name)
+    } catch {
+      // ignore
+    }
   }
 }
 
@@ -444,6 +700,7 @@ export type PageAwareServer = Omit<WebMcpServer, 'registerTool'> & {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handlerOrRoute: ((...args: any[]) => any) | RouteConfig
   ): RegisteredTool
+  unregisterTool(name: string): boolean
 }
 
 export type PageToolDefinition<
@@ -491,6 +748,84 @@ export function registerPageTools(server: PageAwareServer, definitions: PageTool
  */
 export function mountPageTools(options: MountPageToolsOptions): () => void {
   return registerPageTool(options)
+}
+
+export type RegisterRuntimePageToolsOptions = MountPageToolsOptions & {
+  /**
+   * 是否在页面卸载时自动移除工具声明。
+   * - true（默认）：页面即工具，离开页面后从 MCP 工具目录移除
+   * - false：只卸载 handler，工具声明保留（适合希望工具常驻目录的场景）
+   */
+  removeOnUnmount?: boolean
+}
+
+/**
+ * 在业务页面内“一处定义 + 一处生效”：
+ * 1) 注册工具声明（name/description/schema/route）
+ * 2) 同时挂载工具 handler（页面生命周期内生效）
+ *
+ * 该能力与“分离式 mcp-servers + registerPageTool”并存，不会破坏原有写法。
+ */
+export function registerRuntimePageTools(server: PageAwareServer, options: RegisterRuntimePageToolsOptions): () => void {
+  const allTools = options.tools ?? []
+  if (!allTools.length) {
+    throw new Error('registerRuntimePageTools: tools 不能为空。')
+  }
+
+  const explicitRoute = options.route ? normalizeRoute(options.route) : null
+  const routes = new Set(allTools.map((tool) => normalizeRoute(tool.route)))
+  if (!explicitRoute && routes.size > 1) {
+    throw new Error('registerRuntimePageTools: tools 包含多个 route，请显式传入 route。')
+  }
+
+  const mountRoute = explicitRoute ?? Array.from(routes)[0]
+  const routeTools = allTools.filter((tool) => normalizeRoute(tool.route) === mountRoute)
+  if (!routeTools.length) {
+    throw new Error(`registerRuntimePageTools: route "${mountRoute}" 下未找到工具定义。`)
+  }
+
+  routeTools.forEach((definition) => {
+    const route = normalizeRoute(definition.route)
+    const existing = runtimeRegisteredTools.get(definition.name)
+    if (existing) {
+      if (existing.route !== route) {
+        throw new Error(
+          `registerRuntimePageTools: 工具 "${definition.name}" 已绑定路由 "${existing.route}"，不能重复绑定到 "${route}"。`
+        )
+      }
+      existing.refCount += 1
+      return
+    }
+
+    const tool = server.registerTool(definition.name, definition.config, {
+      route,
+      timeout: definition.timeout,
+      invokeEffect: definition.invokeEffect
+    })
+    runtimeRegisteredTools.set(definition.name, { tool, route, refCount: 1 })
+  })
+
+  const cleanupHandlers = registerPageTool({
+    route: mountRoute,
+    tools: routeTools,
+    context: options.context
+  })
+
+  return () => {
+    cleanupHandlers()
+
+    if (options.removeOnUnmount === false) return
+
+    routeTools.forEach((definition) => {
+      const existing = runtimeRegisteredTools.get(definition.name)
+      if (!existing) return
+      existing.refCount -= 1
+      if (existing.refCount > 0) return
+
+      runtimeRegisteredTools.delete(definition.name)
+      server.unregisterTool(definition.name)
+    })
+  }
 }
 
 /**
@@ -595,14 +930,18 @@ export function registerNavigateTool(server: WebMcpServer, options?: NavigateToo
     handler
   )
 
-  void registerBuiltinWebMcpTool({
-    name,
-    description,
-    inputSchema,
-    execute: async (input) => {
-      return await handler(input as { path: string })
-    }
-  })
+  const managedByPageTools = typeof (server as Partial<PageAwareServer>).unregisterTool === 'function'
+  if (!managedByPageTools) {
+    void registerBuiltinWebMcpTool({
+      name,
+      description,
+      inputSchema,
+      execute: async (input) => {
+        return await handler(input as { path: string })
+      }
+    })
+    return attachBuiltinUnregisterOnRemove(name, registeredTool)
+  }
 
   return registeredTool
 }
@@ -739,17 +1078,63 @@ export function withPageTools(server: WebMcpServer, options: WithPageToolsOption
 export function withPageTools(server: WebMcpServer, options?: WithPageToolsOptions): PageAwareServer {
   const nativeMode = options?.nativeWebMcp?.mode ?? 'auto'
   const shouldRegisterBuiltin = nativeMode !== 'disabled'
+  const proxyRegisteredTools = new Map<string, RegisteredTool>()
+
+  const unregisterByName = (target: WebMcpServer, name: string, silent = false): boolean => {
+    const existing = proxyRegisteredTools.get(name)
+    const hadTrackedState = !!existing
+
+    debugWebMcpLog('proxy-unregister-start', { name, hasExisting: !!existing, silent })
+
+    // 优先命中浏览器内置 WebMCP 的最常见签名：unregisterTool('tool_name')
+    // 可覆盖部分实现差异场景下的反注册遗漏。
+    tryDirectBuiltinUnregisterByName(name)
+
+    proxyRegisteredTools.delete(name)
+    runtimeRegisteredTools.delete(name)
+
+    if (existing) {
+      try {
+        existing.remove()
+      } catch {
+        // ignore
+      }
+    }
+    void unregisterBuiltinWebMcpTool(name)
+
+    if (!silent && hadTrackedState) {
+      notifyServerToolListChanged(target)
+      broadcastToolCatalogChanged()
+    }
+    debugWebMcpLog('proxy-unregister-done', { name, removed: !!existing, silent })
+    return !!existing
+  }
 
   return new Proxy(server, {
     get(target, prop, receiver) {
+      if (prop === 'unregisterTool') {
+        return (name: string) => unregisterByName(target, name, false)
+      }
       if (prop === 'registerTool') {
         return (name: string, config: any, handlerOrRoute: ((...args: any[]) => any) | RouteConfig) => {
+          debugWebMcpLog('proxy-register-start', {
+            name,
+            mode: typeof handlerOrRoute === 'function' ? 'callback' : 'route',
+            shouldRegisterBuiltin
+          })
+          // 同名工具热更新：先移除旧工具，再注册新工具，保证 remoter 始终拿到最新定义
+          unregisterByName(target, name, true)
+
           // 第三个参数是函数 → 直接透传，行为与原始 registerTool 完全相同
           // 通过 (target as any) 避免 WebMcpServer.registerTool 深层泛型触发"类型实例化过深"
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const rawRegister = (target as any).registerTool.bind(target)
           if (typeof handlerOrRoute === 'function') {
             const registeredTool = rawRegister(name, config, handlerOrRoute)
+            const wrapped = shouldRegisterBuiltin ? attachBuiltinUnregisterOnRemove(name, registeredTool) : registeredTool
+            proxyRegisteredTools.set(name, wrapped)
+            notifyServerToolListChanged(target)
+            broadcastToolCatalogChanged()
             if (shouldRegisterBuiltin) {
               void registerBuiltinWebMcpTool({
                 name,
@@ -760,15 +1145,19 @@ export function withPageTools(server: WebMcpServer, options?: WithPageToolsOptio
                 }
               })
             }
-            return registeredTool
+            debugWebMcpLog('proxy-register-done', { name, mode: 'callback' })
+            return wrapped
           }
           // 第三个参数是路由配置对象 → 自动生成转发 handler，并记录 tool → route 映射
           const { route, timeout, invokeEffect } = handlerOrRoute
           const normalizedRoute = normalizeRoute(route)
-          toolRouteMap.set(name, normalizedRoute)
           const effectConfig = resolveRuntimeEffectConfig(name, config?.title, invokeEffect)
           const pageHandler = buildPageHandler(name, normalizedRoute, timeout, effectConfig)
           const registeredTool = rawRegister(name, config, pageHandler)
+          const wrapped = shouldRegisterBuiltin ? attachBuiltinUnregisterOnRemove(name, registeredTool) : registeredTool
+          proxyRegisteredTools.set(name, wrapped)
+          notifyServerToolListChanged(target)
+          broadcastToolCatalogChanged()
           if (shouldRegisterBuiltin) {
             void registerBuiltinWebMcpTool({
               name,
@@ -779,7 +1168,8 @@ export function withPageTools(server: WebMcpServer, options?: WithPageToolsOptio
               }
             })
           }
-          return registeredTool
+          debugWebMcpLog('proxy-register-done', { name, mode: 'route' })
+          return wrapped
         }
       }
       return Reflect.get(target, prop, receiver)

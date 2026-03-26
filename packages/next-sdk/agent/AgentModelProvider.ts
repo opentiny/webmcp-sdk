@@ -229,6 +229,12 @@ export class AgentModelProvider {
     this.onUpdatedTools?.()
   }
 
+  /** 仅刷新已连接 clients 的 tools（不重建 client，适合工具目录动态变化场景） */
+  async refreshTools() {
+    await this._createMpcTools()
+    this.onUpdatedTools?.()
+  }
+
   /** 全量更新所有的 mcpServers */
   async updateMcpServers(mcpServers?: Record<string, McpServerConfig>) {
     await this.closeAll()

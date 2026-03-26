@@ -39,6 +39,11 @@ const router = createRouter({
       component: () => import('../views/finance/index.vue')
     },
     {
+      path: '/runtime-tools-demo',
+      name: 'RuntimeToolsDemo',
+      component: () => import('../views/runtime-tools-demo/index.vue')
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'NotFound',
       component: () => import('../views/404/NotFound.vue')
