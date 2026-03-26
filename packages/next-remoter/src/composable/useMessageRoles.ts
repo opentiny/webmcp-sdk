@@ -52,7 +52,6 @@ export function useMessageRoles(options: {
    * @param index 消息索引
    */
   const copyMessageToClipboard = async (index: number) => {
-    debugger
     const message = messages.value[index]
     const textContent = typeof message.content === 'string' ? message.content : JSON.stringify(message.content)
 
