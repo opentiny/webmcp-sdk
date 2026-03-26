@@ -92,7 +92,7 @@ export default defineBackground(() => {
   // 自动返回sender 给 content-script
   onRuntimeMessage('who-am-i', () => {}, 'content->bg')
 
-  onRuntimeMessage('active-pre-tab', async () => await tabHistory.activePreTab(), 'side->bg')
+  onRuntimeMessage('active-pre-tab', async () => tabHistory.activePreTab(), 'side->bg')
 
   // 让 extension 图标点击显示 popup，不再直接打开侧边栏
   // 因为现在将连接信息移至了 Popup 界面
