@@ -53,8 +53,8 @@ AI 调用工具 → 检测目标页面是否已加载
 packages/doc-ai-react/
 │── index.html                       # 主应用 HTML
 ├── src/
-│   ├── main.txs                          # React 入口
-│   ├── App.tsx                                    # 应用配置（含路由）
+│   ├── main.tsx                         # React 入口
+│   ├── App.tsx                           # 应用配置（含路由）
 │   ├── mcp-servers/                     # ④ MCP 工具定义（主窗口，与 app 平级）
 │   │   ├── index.ts                     # MCP Server + createMessageChannelServerTransport
 │   │   ├── product-guide/tools.ts
@@ -72,7 +72,7 @@ packages/doc-ai-react/
 │               └── reference/
 │                   └── product-listing.md
 ├── vite.config.ts                         # 配置主应用的proxy代理
-└── package.json                         # dev 脚本同时启动 ng serve 与 remoter
+└── package.json                         # dev 脚本同时启动主应用 与 remoter
 ```
 
 ---
@@ -157,7 +157,7 @@ export default App
 
 ## 第二步：主窗口布局中嵌入 iframe（Remoter）
 
-主应用布局中预留一块区域，用 **iframe** 加载 Remoter 的入口页面。Remoter 以独立开发服务运行（如 Vite 端口 5179），为防止跨域，通过代理将 `/remoter.html` 转发到该服务。
+主应用布局中预留一块区域，用 **iframe** 加载 Remoter 的入口页面。Remoter 以独立开发服务运行（如 Vite 端口 5179），为防止跨域，通过代理将 `/remoter` 转发到该服务。
 
 ```html
 <!-- index.html -->
@@ -211,7 +211,12 @@ export default defineConfig({
 
 ```ts
 // src/mcp-servers/index.ts
-import { WebMcpServer, createMessageChannelServerTransport, withPageTools } from '@opentiny/next-sdk'
+import {
+  WebMcpServer,
+  createMessageChannelServerTransport,
+  withPageTools,
+  registerNavigateTool
+} from '@opentiny/next-sdk'
 import registerProductGuideTools from './product-guide/tools'
 import registerPriceProtectionTools from './price-protection/tools'
 
@@ -229,6 +234,7 @@ export const server = withPageTools(rawServer)
  * 对应 iframe 侧：createMessageChannelClientTransport('local-mcp', window.parent)
  */
 export const createMcpServer = async () => {
+  registerNavigateTool(rawServer)
   registerProductGuideTools(server)
   registerPriceProtectionTools(server)
   const serverTransport = createMessageChannelServerTransport('local-mcp')
@@ -332,7 +338,7 @@ const mcpServers = {
 
 ## 第五步：在 React 页面内注册工具处理器（registerPageTool）
 
-与 Vue 版一致，在**目标页面对应的 React 组件**中，在 `ngOnInit` 里调用 `registerPageTool`，在 `ngOnDestroy` 里调用返回的 cleanup 函数。handlers 的 key 与 `mcp-servers` 中注册的工具名一致。
+与 Vue 版一致，在**目标页面对应的 React 组件**中，在 `useEffect` 里调用 `registerPageTool`，在 `cleanup` 中注销。handlers 的 key 与 `mcp-servers` 中注册的工具名一致。
 
 ### 5.1 单工具示例（商品指南）
 
@@ -369,7 +375,7 @@ export default function ComprehensivePage() {
 ```ts
 // src/components/PriceProtectionPage.ts（节选）
 // registerPageTool 的 options 类型为 { route?: string; handlers: Record<string, (input) => Promise<...>> }
-this.cleanupPageTool = registerPageTool({
+const cleanupPageTool = registerPageTool({
   route: '/price-protection',
   handlers: {
     'price-protection-query': async ({ status }: { status?: string }) => {
@@ -452,7 +458,7 @@ pnpm run dev
 }
 ```
 
-访问主应用地址（如 <http://localhost:5173>），页面中的 iframe 会加载 `/remoter.html`，经代理得到 Remoter 页面；Remoter 内通过 `createMessageChannelClientTransport('local-mcp', window.parent)` 与主窗口 MCP Server 建立连接。
+访问主应用地址（如 <http://localhost:5173>），页面中的 iframe 会加载 `/remoter`，经代理得到 Remoter 页面；Remoter 内通过 `createMessageChannelClientTransport('local-mcp', window.parent)` 与主窗口 MCP Server 建立连接。
 
 ---
 
@@ -515,11 +521,11 @@ SDK 收到 page-ready，在主窗口内 postMessage 发送
 | --------------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | TinyRemoter 使用方式  | 直接在主应用内引用 Vue 组件                               | **iframe 嵌入独立 Vue 应用**，主应用不直接引用 Remoter                                                                                       |
 | MCP 连接方式          | `createMessageChannelPairTransport()` 同窗口内存对        | **主窗口** `createMessageChannelServerTransport('local-mcp')` + **iframe** `createMessageChannelClientTransport('local-mcp', window.parent)` |
-| setNavigator          | 在 `App.tsx` 中 `setNavigator(router.push)`               | 在根组件中 `setNavigator(router.navigateByUrl)`                                                                                              |
+| setNavigator          | 在 `App.tsx` 中 `setNavigator()`                          | 在根组件中 `setNavigator()`                                                                                                                  |
 | MCP Server 与工具注册 | 在 App.vue 或独立模块，同窗口                             | 在 `mcp-servers/index.ts`，**主窗口**                                                                                                        |
 | 页面工具注册          | `onMounted` + `registerPageTool`，`onUnmounted` + cleanup | `加载时 registerPageTool`，`卸载时cleanup`                                                                                                   |
 | WebSkills 位置        | 主应用 `src/skills/`                                      | **Remoter 工程** `remoter/src/skills/`（Vue 侧）                                                                                             |
-| 开发与代理            | 单应用，无需代理                                          | **双入口**：主应用 + Remoter 子包，主应用代理 `/remoter.html`、`/remoter` 到 Remoter 开发服务                                                |
+| 开发与代理            | 单应用，无需代理                                          | **双入口**：主应用 + Remoter 子包，主应用代理 `/remoter`、`/remoter` 到 Remoter 开发服务                                                     |
 
 ---
 
@@ -535,7 +541,7 @@ SDK 收到 page-ready，在主窗口内 postMessage 发送
 ### iframe 空白或无法加载 Remoter？
 
 - 开发时是否**同时启动了** React 主应用 和 Remoter（`pnpm dev`）。
-- Remoter 的 `vite.config.ts` 中 `base: '/remoter/'` 与代理路径重写是否匹配（如 `/remoter.html` → `/remoter/`）。
+- Remoter 的 `vite.config.ts` 中 `base: '/remoter/'` 与代理路径重写是否匹配。
 
 ### 工具名大小写
 
