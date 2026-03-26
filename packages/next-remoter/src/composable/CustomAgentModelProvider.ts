@@ -64,8 +64,6 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   /** 生成式UI启用状态 */
   isGenuiEnabled?: Ref<boolean>
   debugStream: boolean = false
-  /** 开启页面工具按需加载 */
-  pageToolsOnDemand: boolean = false
 
   /** 兼容旧接口：简化模式下不再依赖路由状态过滤 */
   setRouteStateGetter(_fn: () => RemoteRouteState) {

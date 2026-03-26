@@ -91,7 +91,6 @@
         layoutMode="relative"
         :menuItems="menuItems"
         :systemPrompt="systemPrompt"
-        :pageToolsOnDemand="true"
         :promptItems="ecommercePromptItems"
         :pillItems="ecommercePillItems"
       />

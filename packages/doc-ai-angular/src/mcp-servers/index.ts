@@ -13,7 +13,7 @@ export const server = withPageTools(rawServer)
  * 初始化 MCP Server
  */
 export const createMcpServer = async () => {
-  // 注册通用页面跳转工具：navigate_to_page（内部使用 setNavigator + page-ready，同步 pageToolsOnDemand 状态）
+  // 注册通用页面跳转工具：navigate_to_page（内部使用 setNavigator + page-ready）
   registerNavigateTool(rawServer)
   registerProductGuideTools(server)
   registerPriceProtectionTools(server)

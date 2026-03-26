@@ -26,7 +26,7 @@ import { hideToolInvokeEffect, resolveRuntimeEffectConfig, showToolInvokeEffect 
 const MSG_TOOL_CALL = 'next-sdk:tool-call'
 const MSG_TOOL_RESPONSE = 'next-sdk:tool-response'
 const MSG_PAGE_READY = 'next-sdk:page-ready'
-/** 页面卸载广播，供 pageToolsOnDemand 模式监听 */
+/** 页面卸载广播消息 */
 export const MSG_PAGE_LEAVE = 'next-sdk:page-leave'
 /** iframe 内 Remoter 就绪后向父窗口发送，父窗口回传 route-state-initial */
 export const MSG_REMOTER_READY = 'next-sdk:remoter-ready'

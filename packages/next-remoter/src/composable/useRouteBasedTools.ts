@@ -1,6 +1,5 @@
-import { onMounted, onUnmounted, watch, type Ref } from 'vue'
+import { onMounted, onUnmounted } from 'vue'
 import { MSG_REMOTER_READY, MSG_TOOL_CATALOG_CHANGED } from '@opentiny/next-sdk'
-import type { PluginInfo } from '@opentiny/tiny-robot'
 
 /**
  * 路由状态在简化模式下不再参与工具筛选，保留类型仅做兼容。
@@ -18,13 +17,10 @@ export const getRemoteRouteState = (): RemoteRouteState => null
  * - 仅监听工具目录变化并触发 remoter 侧 refresh
  */
 export function useRouteBasedTools(options: {
-  enabled: Ref<boolean>
-  agent: { ignoreToolnames: string[] }
-  installedPlugins: Ref<PluginInfo[]>
   customAgentProvider?: { setRouteStateGetter: (fn: () => RemoteRouteState) => void }
   onToolCatalogChanged?: () => void | Promise<void>
 }) {
-  const { enabled, customAgentProvider, onToolCatalogChanged } = options
+  const { customAgentProvider, onToolCatalogChanged } = options
 
   if (customAgentProvider?.setRouteStateGetter) {
     customAgentProvider.setRouteStateGetter(() => null)
@@ -56,20 +52,11 @@ export function useRouteBasedTools(options: {
     window.removeEventListener('message', handleToolCatalogChanged)
   }
 
-  let stopWatch: (() => void) | undefined
   onMounted(() => {
-    stopWatch = watch(
-      enabled,
-      (val) => {
-        if (val) start()
-        else stop()
-      },
-      { immediate: true }
-    )
+    start()
   })
 
   onUnmounted(() => {
     stop()
-    stopWatch?.()
   })
 }

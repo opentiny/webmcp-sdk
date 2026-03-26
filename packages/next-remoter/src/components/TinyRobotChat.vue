@@ -305,15 +305,6 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
-  /**
-   * 开启页面工具按需加载：仅当前激活路由对应的 withPageTools 工具对 LLM 可见，
-   * 并在插件面板中展示；未加载页面的工具不会暴露给模型，也不显示在面板上。
-   * 默认 false（关闭），需显式传入 :pageToolsOnDemand="true" 开启。
-   */
-  pageToolsOnDemand: {
-    type: Boolean,
-    default: false
-  },
   /** 自定义欢迎区建议卡片（与 tr-prompts 的 items 格式一致）。不传则使用内置默认文案 */
   promptItems: {
     type: Array,
@@ -407,14 +398,6 @@ watch(
 
 customAgentProvider.isGenuiEnabled = genUiAble
 customAgentProvider.debugStream = props.debugStream
-// 使用 watch immediate 合并初始化与监听，避免重复赋值
-watch(
-  () => props.pageToolsOnDemand,
-  (val) => {
-    customAgentProvider.pageToolsOnDemand = val
-  },
-  { immediate: true }
-)
 
 // ===== 2. 使用 useSkillWithTools composable（仅 skills + next-sdk，无 @ 提及）=====
 const skillsRef = toRef(props, 'skills')
@@ -530,13 +513,8 @@ const {
   syncInstalledPluginTools
 } = usePlugin(agent, enabledTools, defaultPluginSrc)
 
-// ===== 页面工具按需加载（pageToolsOnDemand 开关控制，默认关闭）=====
-// 启用后仅当前激活路由对应的 withPageTools 工具对 LLM 可见并在面板展示
-// 传入 customAgentProvider 实现多 remoter 实例的路由状态隔离
+// ===== 页面工具目录变化监听（用于同步刷新 remoter 工具面板）=====
 useRouteBasedTools({
-  enabled: toRef(props, 'pageToolsOnDemand'),
-  agent,
-  installedPlugins,
   customAgentProvider,
   onToolCatalogChanged: async () => {
     await agent.refreshTools()
