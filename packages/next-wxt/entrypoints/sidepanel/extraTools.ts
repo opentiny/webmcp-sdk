@@ -306,13 +306,13 @@ export const useExtraTools = (server: WebMcpServer) => {
       description: `激活上一个标签页`,
       inputSchema: {}
     },
-    withToolAnimation('active-pre-tab', async () => {
+    async () => {
       try {
         await sendRuntimeMessage('active-pre-tab', {}, 'side->bg')
         return { content: [{ type: 'text' as const, text: '已激活上一个标签页' }] }
       } catch (error: any) {
         return { content: [{ type: 'text' as const, text: `激活上一个标签页工具错误: ${error.message}` }] }
       }
-    })
+    }
   )
 }

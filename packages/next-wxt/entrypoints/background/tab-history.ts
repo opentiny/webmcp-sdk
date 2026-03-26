@@ -19,7 +19,6 @@ export const tabHistory = {
     try {
       await browser.windows.update(preTab.windowId, { focused: true })
       await browser.tabs.update(preTab.id, { active: true })
-      console.log('已经激活了上一个标签页', this.history, preTab)
     } catch (error) {}
   }
 }
@@ -31,9 +30,9 @@ browser.tabs.query({ currentWindow: true }).then((tabs) => {
 
 // 以下监听窗口的标签事件
 browser.tabs.onActivated.addListener((activeInfo) => {
-  setTimeout(() => {
-    browser.tabs.get(activeInfo.tabId).then((tab) => tabHistory.add(tab))
-  }, 1000)
+  browser.tabs.get(activeInfo.tabId).then((tab) => {
+    tabHistory.add(tab)
+  })
 })
 
 browser.tabs.onCreated.addListener((tab) => tabHistory.add(tab))
