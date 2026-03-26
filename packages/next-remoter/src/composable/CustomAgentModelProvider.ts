@@ -4,7 +4,7 @@ import type { StreamHandler } from '@opentiny/tiny-robot-kit'
 import { BaseModelProvider } from '@opentiny/tiny-robot-kit'
 import type { AIModelConfig } from '@opentiny/tiny-robot-kit'
 import { nextTick, watch, type Ref } from 'vue'
-import { AgentModelProvider, IAgentModelProviderOption, getToolRouteMap, getActiveRoutes } from '@opentiny/next-sdk'
+import { AgentModelProvider, IAgentModelProviderOption, getToolRouteMap, getActiveRoutes, getActivePageTools } from '@opentiny/next-sdk'
 import { getRemoteRouteState } from './useRouteBasedTools'
 import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import { createDeepSeek } from '@ai-sdk/deepseek'
@@ -412,6 +412,20 @@ export class CustomAgentModelProvider extends BaseModelProvider {
           allToolNames.push(...Object.keys(toolObj || {}))
         })
 
+        const normalizeRoute = (r: string) => r.replace(/\/+$/, '') || '/'
+        const remoteState = this._getRouteState?.() ?? getRemoteRouteState()
+        const toolRouteMap = remoteState?.toolRouteMap ?? getToolRouteMap()
+        const activeRoutes = remoteState?.activeRoutes ?? getActiveRoutes()
+        const activePageTools =
+          remoteState?.activePageTools ??
+          (() => {
+            const snapshot = new Map<string, Set<string>>()
+            getActivePageTools().forEach((toolNames, route) => {
+              snapshot.set(normalizeRoute(route), new Set((toolNames || []).map((item) => String(item))))
+            })
+            return snapshot
+          })()
+
         const activeTools = Array.from(new Set(allToolNames)).filter((name) => {
           // 基本的 disable 规则（UI 上手动关闭的，通过 ignoreToolnames 控制）
           if (this.agent.ignoreToolnames.includes(name)) {
@@ -425,13 +439,6 @@ export class CustomAgentModelProvider extends BaseModelProvider {
             return true
           }
 
-          // 当开启了 pageToolsOnDemand 时，使用 routeMap 来控制 activeTools
-          // 优先从 useRouteBasedTools 获取跨窗口同步后的状态（iframe 兼容），兜底使用全局 getRemoteRouteState
-          const remoteState = this._getRouteState?.() ?? getRemoteRouteState()
-          const toolRouteMap = remoteState?.toolRouteMap ?? getToolRouteMap()
-          const activeRoutes = remoteState?.activeRoutes ?? getActiveRoutes()
-          const normalizeRoute = (r: string) => r.replace(/\/+$/, '') || '/'
-
           // Fail closed：使用显式 initialized 标志，iframe 内尚未收到 MSG_ROUTE_STATE_INITIAL 时 initialized 为 false，
           // 此时不暴露任何 MCP 工具，直到收到父窗口快照后再按路由过滤
           if (remoteState && remoteState.initialized === false) {
@@ -443,7 +450,15 @@ export class CustomAgentModelProvider extends BaseModelProvider {
           const boundRoute = toolRouteMap.get(name)
           if (boundRoute) {
             const norm = normalizeRoute(boundRoute)
-            return activeRoutes.has(norm) || activeRoutes.has(boundRoute)
+            const isRouteActive = activeRoutes.has(norm) || activeRoutes.has(boundRoute)
+            if (!isRouteActive) return false
+
+            const activeToolsOnRoute = activePageTools.get(norm) ?? activePageTools.get(boundRoute)
+            if (!activeToolsOnRoute || activeToolsOnRoute.size === 0) {
+              // 兼容旧链路：若未收到 page-ready.toolNames，则仅按 route 过滤
+              return true
+            }
+            return activeToolsOnRoute.has(name)
           }
 
           return true

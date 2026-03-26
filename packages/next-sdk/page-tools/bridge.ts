@@ -12,7 +12,7 @@
  *   - registerPageTool()  在目标页面激活工具处理器，返回 cleanup 函数
  */
 
-import type { ZodRawShape } from 'zod'
+import type { ZodRawShape, ZodTypeAny } from 'zod'
 import { z } from 'zod'
 import type { RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
@@ -29,11 +29,11 @@ const MSG_PAGE_READY = 'next-sdk:page-ready'
 export const MSG_PAGE_LEAVE = 'next-sdk:page-leave'
 /** iframe 内 Remoter 就绪后向父窗口发送，父窗口回传 route-state-initial */
 export const MSG_REMOTER_READY = 'next-sdk:remoter-ready'
-/** 父窗口向 iframe Remoter 回传的初始路由状态（toolRouteMap + activeRoutes） */
+/** 父窗口向 iframe Remoter 回传的初始路由状态（toolRouteMap + activeRoutes + activePageTools） */
 export const MSG_ROUTE_STATE_INITIAL = 'next-sdk:route-state-initial'
 
-// 已激活页面注册表：路由路径 → 是否已挂载
-const activePages = new Map<string, boolean>()
+// 已激活页面注册表：路由路径 → 当前页面已挂载的工具名集合
+const activePages = new Map<string, Set<string>>()
 
 // 路由路径规范化：去除尾部斜杠，空路径兜底为 '/'
 const normalizeRoute = (value: string) => value.replace(/\/+$/, '') || '/'
@@ -51,8 +51,8 @@ function initBroadcastTargets() {
 initBroadcastTargets()
 
 /** 向所有广播目标发送路由变更消息（同窗口 + iframe 均能收到） */
-function broadcastRouteChange(type: string, route: string) {
-  const msg = { type, route }
+function broadcastRouteChange(type: string, route: string, extra: Record<string, unknown> = {}) {
+  const msg = { type, route, ...extra }
   broadcastTargets.forEach(({ win, origin }) => {
     try {
       win.postMessage(msg, origin)
@@ -74,7 +74,8 @@ function setupIframeRemoterBridge() {
     const payload = {
       type: MSG_ROUTE_STATE_INITIAL,
       toolRouteMap: Array.from(toolRouteMap.entries()),
-      activeRoutes: Array.from(activePages.keys())
+      activeRoutes: Array.from(activePages.keys()),
+      activePageTools: Array.from(activePages.entries()).map(([route, tools]) => [route, Array.from(tools)])
     }
     try {
       target.postMessage(payload, event.origin || '*')
@@ -104,6 +105,237 @@ export function getToolRouteMap(): ReadonlyMap<string, string> {
  */
 export function getActiveRoutes(): Set<string> {
   return new Set(activePages.keys())
+}
+
+/**
+ * 获取当前已激活页面上的工具清单快照。
+ * key 为 route，value 为该页面当前可执行的工具名数组。
+ */
+export function getActivePageTools(): ReadonlyMap<string, string[]> {
+  const snapshot = new Map<string, string[]>()
+  activePages.forEach((toolNames, route) => {
+    snapshot.set(route, Array.from(toolNames))
+  })
+  return snapshot
+}
+
+function isToolReadyOnRoute(route: string, toolName: string): boolean {
+  const toolNames = activePages.get(route)
+  return !!toolNames && toolNames.has(toolName)
+}
+
+type JsonSchema = {
+  type?: 'string' | 'number' | 'integer' | 'boolean' | 'object' | 'array' | 'null'
+  description?: string
+  properties?: Record<string, JsonSchema>
+  required?: string[]
+  items?: JsonSchema
+  enum?: Array<string | number | boolean | null>
+  const?: string | number | boolean | null
+  anyOf?: JsonSchema[]
+  additionalProperties?: boolean
+}
+
+type BrowserBuiltinModelContextTool = {
+  name: string
+  description?: string
+  inputSchema?: JsonSchema
+  execute: (params: Record<string, unknown>) => unknown | Promise<unknown>
+}
+
+type BrowserBuiltinModelContext = {
+  registerTool: (tool: BrowserBuiltinModelContextTool) => unknown | Promise<unknown>
+}
+
+type BrowserBuiltinModelContextTesting = {
+  listTools?: () => unknown[] | Promise<unknown[]>
+  executeTool?: (name: string, input: string) => unknown | Promise<unknown>
+}
+
+type NavigatorWithBuiltinMcp = Navigator & {
+  modelContext?: BrowserBuiltinModelContext
+  modelContextTesting?: BrowserBuiltinModelContextTesting
+}
+
+const nativeRegisteredTools = new Set<string>()
+
+function getBuiltinModelContext(): BrowserBuiltinModelContext | null {
+  if (typeof navigator === 'undefined') return null
+  const nav = navigator as NavigatorWithBuiltinMcp
+  if (!nav.modelContext?.registerTool) return null
+  return nav.modelContext
+}
+
+function getBuiltinModelContextTesting(): BrowserBuiltinModelContextTesting | null {
+  if (typeof navigator === 'undefined') return null
+  const nav = navigator as NavigatorWithBuiltinMcp
+  return nav.modelContextTesting ?? null
+}
+
+export function isBuiltinWebMcpSupported(): boolean {
+  return !!getBuiltinModelContext()
+}
+
+function getSchemaTypeName(schema: ZodTypeAny): string | undefined {
+  return (schema as { _def?: { typeName?: string } })._def?.typeName
+}
+
+function getSchemaDescription(schema: ZodTypeAny): string | undefined {
+  return (schema as { description?: string }).description
+}
+
+function withSchemaDescription(schema: ZodTypeAny, base: JsonSchema): JsonSchema {
+  const description = getSchemaDescription(schema)
+  return description ? { ...base, description } : base
+}
+
+function isOptionalSchema(schema: ZodTypeAny): boolean {
+  const typeName = getSchemaTypeName(schema)
+  if (typeName === z.ZodFirstPartyTypeKind.ZodOptional || typeName === z.ZodFirstPartyTypeKind.ZodDefault) {
+    return true
+  }
+  if (typeName === z.ZodFirstPartyTypeKind.ZodEffects) {
+    const inner = (schema as { _def: { schema: ZodTypeAny } })._def.schema
+    return isOptionalSchema(inner)
+  }
+  return false
+}
+
+function toPrimitiveJsonType(value: unknown): JsonSchema['type'] {
+  if (typeof value === 'string') return 'string'
+  if (typeof value === 'number') return 'number'
+  if (typeof value === 'boolean') return 'boolean'
+  if (value === null) return 'null'
+  return undefined
+}
+
+function zodTypeToJsonSchema(schema: ZodTypeAny): JsonSchema {
+  const typeName = getSchemaTypeName(schema)
+
+  switch (typeName) {
+    case z.ZodFirstPartyTypeKind.ZodString:
+      return withSchemaDescription(schema, { type: 'string' })
+    case z.ZodFirstPartyTypeKind.ZodNumber:
+      return withSchemaDescription(schema, { type: 'number' })
+    case z.ZodFirstPartyTypeKind.ZodBoolean:
+      return withSchemaDescription(schema, { type: 'boolean' })
+    case z.ZodFirstPartyTypeKind.ZodArray: {
+      const itemSchema = (schema as { _def: { type: ZodTypeAny } })._def.type
+      return withSchemaDescription(schema, { type: 'array', items: zodTypeToJsonSchema(itemSchema) })
+    }
+    case z.ZodFirstPartyTypeKind.ZodEnum: {
+      const values = (schema as unknown as { options: string[] }).options ?? []
+      return withSchemaDescription(schema, { type: 'string', enum: values })
+    }
+    case z.ZodFirstPartyTypeKind.ZodNativeEnum: {
+      const rawValues = Object.values((schema as { _def: { values: Record<string, unknown> } })._def.values)
+      const enumValues = rawValues.filter(
+        (value): value is string | number => typeof value === 'string' || typeof value === 'number'
+      )
+      return withSchemaDescription(schema, { enum: enumValues })
+    }
+    case z.ZodFirstPartyTypeKind.ZodLiteral: {
+      const literalValue = (schema as { _def: { value: unknown } })._def.value
+      const primitiveType = toPrimitiveJsonType(literalValue)
+      return withSchemaDescription(schema, {
+        ...(primitiveType ? { type: primitiveType } : {}),
+        const: (literalValue as string | number | boolean | null) ?? null
+      })
+    }
+    case z.ZodFirstPartyTypeKind.ZodUnion: {
+      const options = (schema as { _def: { options: ZodTypeAny[] } })._def.options ?? []
+      return withSchemaDescription(schema, { anyOf: options.map((item) => zodTypeToJsonSchema(item)) })
+    }
+    case z.ZodFirstPartyTypeKind.ZodNullable: {
+      const inner = (schema as { _def: { innerType: ZodTypeAny } })._def.innerType
+      return withSchemaDescription(schema, { anyOf: [zodTypeToJsonSchema(inner), { type: 'null' }] })
+    }
+    case z.ZodFirstPartyTypeKind.ZodObject: {
+      const schemaDef = schema as { shape?: ZodRawShape; _def?: { shape?: ZodRawShape | (() => ZodRawShape) } }
+      const shape =
+        schemaDef.shape ??
+        (typeof schemaDef._def?.shape === 'function' ? schemaDef._def.shape() : schemaDef._def?.shape) ??
+        {}
+      return withSchemaDescription(schema, zodShapeToJsonSchema(shape))
+    }
+    case z.ZodFirstPartyTypeKind.ZodEffects: {
+      const inner = (schema as { _def: { schema: ZodTypeAny } })._def.schema
+      return withSchemaDescription(schema, zodTypeToJsonSchema(inner))
+    }
+    case z.ZodFirstPartyTypeKind.ZodOptional:
+    case z.ZodFirstPartyTypeKind.ZodDefault: {
+      const inner = (schema as { _def: { innerType: ZodTypeAny } })._def.innerType
+      return withSchemaDescription(schema, zodTypeToJsonSchema(inner))
+    }
+    default:
+      return withSchemaDescription(schema, {})
+  }
+}
+
+function zodShapeToJsonSchema(shape: ZodRawShape = {}): JsonSchema {
+  const properties: Record<string, JsonSchema> = {}
+  const required: string[] = []
+
+  Object.entries(shape).forEach(([key, schema]) => {
+    properties[key] = zodTypeToJsonSchema(schema as ZodTypeAny)
+    if (!isOptionalSchema(schema as ZodTypeAny)) {
+      required.push(key)
+    }
+  })
+
+  return {
+    type: 'object',
+    properties,
+    ...(required.length ? { required } : {}),
+    additionalProperties: false
+  }
+}
+
+export async function registerBuiltinWebMcpTool(options: {
+  name: string
+  description?: string
+  inputSchema?: ZodRawShape
+  execute: (params: Record<string, unknown>) => unknown | Promise<unknown>
+}): Promise<boolean> {
+  const modelContext = getBuiltinModelContext()
+  if (!modelContext) return false
+
+  if (nativeRegisteredTools.has(options.name)) {
+    return true
+  }
+
+  try {
+    debugger
+    await modelContext.registerTool({
+      name: options.name,
+      description: options.description,
+      inputSchema: zodShapeToJsonSchema(options.inputSchema ?? {}),
+      execute: options.execute
+    })
+    nativeRegisteredTools.add(options.name)
+    return true
+  } catch {
+    return false
+  }
+}
+
+export async function listBuiltinWebMcpTools(): Promise<unknown[]> {
+  const testingApi = getBuiltinModelContextTesting()
+  if (!testingApi?.listTools) return []
+  try {
+    const result = await testingApi.listTools()
+    return Array.isArray(result) ? result : []
+  } catch {
+    return []
+  }
+}
+
+export async function executeBuiltinWebMcpTool(name: string, input: Record<string, unknown>): Promise<unknown> {
+  const testingApi = getBuiltinModelContextTesting()
+  if (!testingApi?.executeTool) {
+    throw new Error('当前浏览器不支持 navigator.modelContextTesting.executeTool。')
+  }
+  return await testingApi.executeTool(name, JSON.stringify(input ?? {}))
 }
 
 // 应用注册的导航函数，由 setNavigator 设置
@@ -172,6 +404,17 @@ export type RouteConfig = {
   invokeEffect?: boolean | ToolInvokeEffectConfig
 }
 
+export type WithPageToolsOptions = {
+  /**
+   * Chrome 内置 WebMCP 兼容模式。
+   * - auto（默认）：检测到 navigator.modelContext 时，同步注册内置工具（同时保留 next-sdk 现有链路）
+   * - disabled：关闭内置兼容，仅使用 next-sdk 现有链路
+   */
+  nativeWebMcp?: {
+    mode?: 'auto' | 'disabled'
+  }
+}
+
 // 对外暴露调用提示配置类型，便于业务方在 RouteConfig 外单独复用
 export type { ToolInvokeEffectConfig }
 
@@ -201,6 +444,53 @@ export type PageAwareServer = Omit<WebMcpServer, 'registerTool'> & {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handlerOrRoute: ((...args: any[]) => any) | RouteConfig
   ): RegisteredTool
+}
+
+export type PageToolDefinition<
+  InputArgs extends ZodRawShape = ZodRawShape,
+  OutputArgs extends ZodRawShape = ZodRawShape
+> = {
+  /** 工具名称 */
+  name: string
+  /** 工具声明配置（title/description/schema/annotations） */
+  config: RegisterToolConfig<InputArgs, OutputArgs>
+  /** 工具绑定路由 */
+  route: string
+  /** 页面响应超时（ms） */
+  timeout?: number
+  /** 页面调用特效 */
+  invokeEffect?: boolean | ToolInvokeEffectConfig
+  /** 工具执行回调（可选 context，便于页面注入运行时依赖） */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  handler: (input: any, context?: unknown) => any | Promise<any>
+}
+
+export function definePageTool<InputArgs extends ZodRawShape, OutputArgs extends ZodRawShape>(
+  definition: PageToolDefinition<InputArgs, OutputArgs>
+): PageToolDefinition<InputArgs, OutputArgs> {
+  return definition
+}
+
+/**
+ * 批量注册页面工具声明（schema/route）到 MCP Server。
+ * 可与 mountPageTools 配套使用，实现“声明与执行回调在同一工具定义对象内”。
+ */
+export function registerPageTools(server: PageAwareServer, definitions: PageToolDefinition[]): RegisteredTool[] {
+  return definitions.map((definition) =>
+    server.registerTool(definition.name, definition.config, {
+      route: definition.route,
+      timeout: definition.timeout,
+      invokeEffect: definition.invokeEffect
+    })
+  )
+}
+
+/**
+ * 使用 PageToolDefinition 快速在页面侧挂载 handlers（声明与执行同源）。
+ * 等价于 registerPageTool({ tools, route?, context? })
+ */
+export function mountPageTools(options: MountPageToolsOptions): () => void {
+  return registerPageTool(options)
 }
 
 /**
@@ -234,67 +524,87 @@ export function registerNavigateTool(server: WebMcpServer, options?: NavigateToo
     '当需要的工具在当前页面不可用时，使用此工具跳转到特定页面。例如：要查询订单时跳转到 "/orders"，要创建价保时跳转到 "/price-protection"。'
   const timeoutMs = options?.timeoutMs ?? 1500
 
-  return server.registerTool(
+  const inputSchema = {
+    path: z.string().describe('目标页面的路由地址，例如 "/orders"、"/inventory"、"/price-protection" 等。')
+  }
+
+  const handler: ({ path }: { path: string }) => Promise<{ content: Array<{ type: 'text'; text: string }> }> = async ({
+    path
+  }: {
+    path: string
+  }) => {
+    if (typeof window === 'undefined') {
+      return {
+        content: [{ type: 'text', text: '当前环境不支持页面跳转（window 不存在）。' }]
+      }
+    }
+
+    if (!_navigator) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: '页面跳转失败：尚未在应用入口调用 setNavigator 注册导航函数，无法执行路由跳转。'
+          }
+        ]
+      }
+    }
+
+    try {
+      const target = normalizeRoute(path)
+      // 若当前已在目标路由上，直接返回成功，避免不必要的跳转。
+      // 兼容子路径部署（如 base: '/ai-vue/'）：pathname 可能为 /ai-vue/orders，而 path 为 /orders，需判断 pathname 是否“以目标路由结尾”
+      const current = normalizeRoute(window.location.pathname)
+      const isAlreadyOnTarget =
+        current === target ||
+        (current.endsWith(target) &&
+          (current.length === target.length || current[current.lastIndexOf(target) - 1] === '/'))
+      if (isAlreadyOnTarget) {
+        return {
+          content: [{ type: 'text', text: `当前已在页面：${path}。请继续你的下一步操作。` }]
+        }
+      }
+
+      // 先注册 page-ready 监听再触发导航，避免极快导航下事件先于监听器触发而漏收（与 buildPageHandler 中的顺序一致）
+      const readyPromise = waitForPageReady(path, timeoutMs)
+      await _navigator(path)
+      await readyPromise
+
+      return {
+        content: [{ type: 'text', text: `已成功跳转至页面：${path}。请继续你的下一步操作。` }]
+      }
+    } catch (err) {
+      return {
+        content: [
+          {
+            type: 'text',
+            text: `页面跳转失败：${err instanceof Error ? err.message : String(err)}。`
+          }
+        ]
+      }
+    }
+  }
+
+  const registeredTool = server.registerTool(
     name,
     {
       title,
       description,
-      inputSchema: {
-        path: z.string().describe('目标页面的路由地址，例如 "/orders"、"/inventory"、"/price-protection" 等。')
-      }
+      inputSchema
     },
-    async ({ path }: { path: string }) => {
-      if (typeof window === 'undefined') {
-        return {
-          content: [{ type: 'text', text: '当前环境不支持页面跳转（window 不存在）。' }]
-        }
-      }
-
-      if (!_navigator) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: '页面跳转失败：尚未在应用入口调用 setNavigator 注册导航函数，无法执行路由跳转。'
-            }
-          ]
-        }
-      }
-
-      try {
-        const target = normalizeRoute(path)
-        // 若当前已在目标路由上，直接返回成功，避免不必要的跳转。
-        // 兼容子路径部署（如 base: '/ai-vue/'）：pathname 可能为 /ai-vue/orders，而 path 为 /orders，需判断 pathname 是否“以目标路由结尾”
-        const current = normalizeRoute(window.location.pathname)
-        const isAlreadyOnTarget =
-          current === target ||
-          (current.endsWith(target) && (current.length === target.length || current[current.lastIndexOf(target) - 1] === '/'))
-        if (isAlreadyOnTarget) {
-          return {
-            content: [{ type: 'text', text: `当前已在页面：${path}。请继续你的下一步操作。` }]
-          }
-        }
-
-        // 先注册 page-ready 监听再触发导航，避免极快导航下事件先于监听器触发而漏收（与 buildPageHandler 中的顺序一致）
-        const readyPromise = waitForPageReady(path, timeoutMs)
-        await _navigator(path)
-        await readyPromise
-
-        return {
-          content: [{ type: 'text', text: `已成功跳转至页面：${path}。请继续你的下一步操作。` }]
-        }
-      } catch (err) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: `页面跳转失败：${err instanceof Error ? err.message : String(err)}。`
-            }
-          ]
-        }
-      }
-    }
+    handler
   )
+
+  void registerBuiltinWebMcpTool({
+    name,
+    description,
+    inputSchema,
+    execute: async (input) => {
+      return await handler(input as { path: string })
+    }
+  })
+
+  return registeredTool
 }
 
 /**
@@ -368,7 +678,7 @@ function buildPageHandler(
             showToolInvokeEffect(effectConfig)
           }
 
-          if (activePages.get(route)) {
+          if (isToolReadyOnRoute(route, name)) {
             // 页面已激活，直接发送
             sendCallOnce()
             return
@@ -378,10 +688,18 @@ function buildPageHandler(
           // 若先导航再注册，极快的导航（同步或微任务）可能导致
           // 目标页面已广播 page-ready 而监听器尚未挂载，从而错过信号。
           readyHandler = (event: MessageEvent) => {
-            if (event.source === window && event.data?.type === MSG_PAGE_READY && event.data.route === route) {
-              window.removeEventListener('message', readyHandler!)
-              sendCallOnce()
-            }
+            if (event.source !== window || event.data?.type !== MSG_PAGE_READY) return
+            const readyRoute = normalizeRoute(String(event.data.route ?? ''))
+            if (readyRoute !== route) return
+            const readyTools = Array.isArray(event.data.toolNames)
+              ? new Set((event.data.toolNames as unknown[]).map((item) => String(item)))
+              : null
+            // 兼容旧版 page-ready（未携带 toolNames）：
+            // 若 toolNames 缺失，则按“路由已就绪”处理；若存在则必须包含目标工具名。
+            if (readyTools && !readyTools.has(name)) return
+
+            window.removeEventListener('message', readyHandler!)
+            sendCallOnce()
           }
           window.addEventListener('message', readyHandler)
 
@@ -394,7 +712,7 @@ function buildPageHandler(
           // message 事件已被 handleMessage 消费但 readyHandler 未执行，
           // 此处补充检查确保不会永久等待。
           // sendCallOnce 保证即使两条路径都触发，消息也只发送一次。
-          if (activePages.get(route)) {
+          if (isToolReadyOnRoute(route, name)) {
             window.removeEventListener('message', readyHandler)
             sendCallOnce()
           }
@@ -416,7 +734,12 @@ function buildPageHandler(
  * - 第三个参数为 **RouteConfig 对象**：自动生成转发 handler，工具调用时
  *   先导航到目标路由，再通过 postMessage 与页面通信
  */
-export function withPageTools(server: WebMcpServer): PageAwareServer {
+export function withPageTools(server: WebMcpServer): PageAwareServer
+export function withPageTools(server: WebMcpServer, options: WithPageToolsOptions): PageAwareServer
+export function withPageTools(server: WebMcpServer, options?: WithPageToolsOptions): PageAwareServer {
+  const nativeMode = options?.nativeWebMcp?.mode ?? 'auto'
+  const shouldRegisterBuiltin = nativeMode !== 'disabled'
+
   return new Proxy(server, {
     get(target, prop, receiver) {
       if (prop === 'registerTool') {
@@ -426,13 +749,37 @@ export function withPageTools(server: WebMcpServer): PageAwareServer {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const rawRegister = (target as any).registerTool.bind(target)
           if (typeof handlerOrRoute === 'function') {
-            return rawRegister(name, config, handlerOrRoute)
+            const registeredTool = rawRegister(name, config, handlerOrRoute)
+            if (shouldRegisterBuiltin) {
+              void registerBuiltinWebMcpTool({
+                name,
+                description: config?.description,
+                inputSchema: config?.inputSchema,
+                execute: async (input) => {
+                  return await handlerOrRoute(input)
+                }
+              })
+            }
+            return registeredTool
           }
           // 第三个参数是路由配置对象 → 自动生成转发 handler，并记录 tool → route 映射
           const { route, timeout, invokeEffect } = handlerOrRoute
-          toolRouteMap.set(name, route)
+          const normalizedRoute = normalizeRoute(route)
+          toolRouteMap.set(name, normalizedRoute)
           const effectConfig = resolveRuntimeEffectConfig(name, config?.title, invokeEffect)
-          return rawRegister(name, config, buildPageHandler(name, route, timeout, effectConfig))
+          const pageHandler = buildPageHandler(name, normalizedRoute, timeout, effectConfig)
+          const registeredTool = rawRegister(name, config, pageHandler)
+          if (shouldRegisterBuiltin) {
+            void registerBuiltinWebMcpTool({
+              name,
+              description: config?.description,
+              inputSchema: config?.inputSchema,
+              execute: async (input) => {
+                return await pageHandler(input)
+              }
+            })
+          }
+          return registeredTool
         }
       }
       return Reflect.get(target, prop, receiver)
@@ -450,7 +797,12 @@ export function withPageTools(server: WebMcpServer): PageAwareServer {
  *
  * 返回 cleanup 函数，页面销毁时调用。
  */
-export function registerPageTool(options: {
+type PageToolHandlers = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  [toolName: string]: (input: any) => Promise<any> | any
+}
+
+export type RegisterPageToolByHandlersOptions = {
   /**
    * 目标路由路径，与 RouteConfig.route 保持一致。
    * 省略时自动读取 window.location.pathname。
@@ -465,14 +817,66 @@ export function registerPageTool(options: {
    *（如 `async ({ productId }: { productId: string }) => ...`）无法通过类型检查，
    * 破坏现有调用方代码的开发体验。运行时输入由 MCP inputSchema 保证类型安全。
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  handlers: Record<string, (input: any) => Promise<any>>
-}): () => void {
-  const { route: routeOption, handlers } = options
-  // 规范化路由：去除尾部斜杠，空路径兜底为 '/'，确保与 buildPageHandler 侧一致
-  // 优先使用用户传入的 route，否则回退到 window.location.pathname
-  const normalizeRoute = (value: string) => value.replace(/\/+$/, '') || '/'
-  const route = normalizeRoute(routeOption ?? window.location.pathname)
+  handlers: PageToolHandlers
+}
+
+export type MountPageToolsOptions = {
+  /**
+   * 待激活的工具定义（定义中同时包含 schema + handler）。
+   * 若 route 省略且 tools 包含多个路由，将抛出错误提示显式指定 route。
+   */
+  tools: PageToolDefinition[]
+  /** 可选：覆盖 route（只激活该路由下的工具定义） */
+  route?: string
+  /** 运行时上下文，会作为第二参数透传给 definition.handler */
+  context?: unknown
+}
+
+function resolveRouteAndHandlers(options: RegisterPageToolByHandlersOptions | MountPageToolsOptions): {
+  route: string
+  handlers: PageToolHandlers
+} {
+  if ('handlers' in options) {
+    return {
+      route: normalizeRoute(options.route ?? window.location.pathname),
+      handlers: options.handlers
+    }
+  }
+
+  const tools = options.tools ?? []
+  if (!tools.length) {
+    throw new Error('registerPageTool: tools 不能为空。')
+  }
+
+  const targetRoute = options.route ? normalizeRoute(options.route) : null
+  const uniqueRoutes = new Set(tools.map((item) => normalizeRoute(item.route)))
+  if (!targetRoute && uniqueRoutes.size > 1) {
+    throw new Error('registerPageTool: tools 包含多个 route，请显式传入 route 参数。')
+  }
+
+  const route = targetRoute ?? Array.from(uniqueRoutes)[0]
+  const handlers: PageToolHandlers = {}
+  tools
+    .filter((item) => normalizeRoute(item.route) === route)
+    .forEach((item) => {
+      if (handlers[item.name]) {
+        throw new Error(`registerPageTool: 工具 "${item.name}" 在 route "${route}" 上重复定义。`)
+      }
+      handlers[item.name] = (input) => item.handler(input, options.context)
+    })
+
+  if (!Object.keys(handlers).length) {
+    throw new Error(`registerPageTool: route "${route}" 下未找到可激活的工具定义。`)
+  }
+
+  return { route, handlers }
+}
+
+export function registerPageTool(options: RegisterPageToolByHandlersOptions): () => void
+export function registerPageTool(options: MountPageToolsOptions): () => void
+export function registerPageTool(options: RegisterPageToolByHandlersOptions | MountPageToolsOptions): () => void {
+  const { route, handlers } = resolveRouteAndHandlers(options)
+  const toolNames = Object.keys(handlers)
 
   const handleMessage = async (event: MessageEvent) => {
     // 同时校验 route 字段，防止多页面注册同名工具时发生跨路由串扰
@@ -502,9 +906,9 @@ export function registerPageTool(options: {
   }
 
   // 注册页面为已激活状态并广播就绪信号（同窗口 + iframe Remoter 均能收到）
-  activePages.set(route, true)
+  activePages.set(route, new Set(toolNames))
   window.addEventListener('message', handleMessage)
-  broadcastRouteChange(MSG_PAGE_READY, route)
+  broadcastRouteChange(MSG_PAGE_READY, route, { toolNames })
 
   // 返回 cleanup，由各框架在页面销毁时调用
   return () => {
@@ -513,4 +917,3 @@ export function registerPageTool(options: {
     broadcastRouteChange(MSG_PAGE_LEAVE, route)
   }
 }
-

@@ -2,6 +2,7 @@ import { onMounted, onUnmounted, watch, type Ref } from 'vue'
 import {
   getToolRouteMap,
   getActiveRoutes,
+  getActivePageTools,
   MSG_PAGE_LEAVE,
   MSG_REMOTER_READY,
   MSG_ROUTE_STATE_INITIAL
@@ -15,6 +16,8 @@ const MSG_PAGE_READY = 'next-sdk:page-ready'
 export type RemoteRouteState = {
   toolRouteMap: Map<string, string>
   activeRoutes: Set<string>
+  /** route -> 已就绪工具集合（可用于更精细的按需过滤） */
+  activePageTools: Map<string, Set<string>>
   /** 是否已就绪：iframe 下收到父窗口快照后为 true，未收到前为 false，用于 fail closed */
   initialized: boolean
 } | null
@@ -54,7 +57,7 @@ export function useRouteBasedTools(options: {
   /** 可选，CustomAgentModelProvider 实例，用于注入实例级 getRemoteRouteState，实现多实例隔离 */
   customAgentProvider?: { setRouteStateGetter: (fn: () => RemoteRouteState) => void }
 }) {
-  const { enabled, agent, installedPlugins, customAgentProvider } = options
+  const { enabled, installedPlugins, customAgentProvider } = options
 
   // 每个 composable 实例使用独立 key，实现多 remoter 隔离
   const instanceKey = Symbol('remoter-route-state')
@@ -79,6 +82,7 @@ export function useRouteBasedTools(options: {
     setRouteState({
       toolRouteMap: new Map(),
       activeRoutes: new Set(),
+      activePageTools: new Map(),
       initialized: false
     })
   }
@@ -91,6 +95,19 @@ export function useRouteBasedTools(options: {
 
   /** 获取工具路由映射：同窗口用模块 API，iframe 用父窗口回传的数据 */
   const getRouteMap = () => getInstanceRouteState()?.toolRouteMap ?? (getToolRouteMap() as Map<string, string>)
+
+  /** 获取 route -> active toolNames 映射：同窗口读 SDK 快照，iframe 读父窗口同步状态 */
+  const getActivePageToolMap = () => {
+    const state = getInstanceRouteState()
+    if (state?.activePageTools) {
+      return state.activePageTools
+    }
+    const snapshot = new Map<string, Set<string>>()
+    getActivePageTools().forEach((toolNames, route) => {
+      snapshot.set(normalizeRoute(route), new Set((toolNames || []).map((name) => String(name))))
+    })
+    return snapshot
+  }
 
   /**
    * 关闭 route-based 时恢复被隐藏的工具：恢复插件完整工具列表
@@ -121,6 +138,7 @@ export function useRouteBasedTools(options: {
 
     const activeRoutes = getInstanceRouteState()?.activeRoutes ?? getActiveRoutes()
     const routeMap = getRouteMap()
+    const activePageToolMap = getActivePageToolMap()
 
     // 1. 计算当前应当激活的「路由绑定工具」ID 集合
     const activeToolIds = new Set<string>()
@@ -129,7 +147,10 @@ export function useRouteBasedTools(options: {
       routeToolIds.add(toolName)
       const norm = normalizeRoute(toolRoute)
       const isActiveRoute = activeRoutes.has(norm) || activeRoutes.has(toolRoute)
-      if (isActiveRoute) {
+      const activeToolsOnRoute = activePageToolMap.get(norm) ?? activePageToolMap.get(toolRoute)
+      const isToolReady =
+        !activeToolsOnRoute || activeToolsOnRoute.size === 0 ? true : activeToolsOnRoute.has(toolName)
+      if (isActiveRoute && isToolReady) {
         activeToolIds.add(toolName)
       }
     })
@@ -162,7 +183,11 @@ export function useRouteBasedTools(options: {
     // iframe 场景：更新当前实例的 activeRoutes 缓存，供后续 sync 使用
     const state = getInstanceRouteState()
     if (state) {
-      state.activeRoutes.add(normalizeRoute(event.data.route))
+      const route = normalizeRoute(event.data.route)
+      state.activeRoutes.add(route)
+      if (Array.isArray(event.data.toolNames)) {
+        state.activePageTools.set(route, new Set((event.data.toolNames as unknown[]).map((item) => String(item))))
+      }
     }
     syncAllRoutes()
   }
@@ -172,7 +197,9 @@ export function useRouteBasedTools(options: {
     if (!isTrustedSource(event.source) || event.data?.type !== MSG_PAGE_LEAVE) return
     const state = getInstanceRouteState()
     if (state) {
-      state.activeRoutes.delete(normalizeRoute(event.data.route))
+      const route = normalizeRoute(event.data.route)
+      state.activeRoutes.delete(route)
+      state.activePageTools.delete(route)
     }
     syncAllRoutes()
   }
@@ -180,10 +207,21 @@ export function useRouteBasedTools(options: {
   // 监听父窗口回传的初始路由状态（仅 iframe 场景），收到后标记为已初始化
   const handleRouteStateInitial = (event: MessageEvent) => {
     if (!isTrustedSource(event.source) || event.data?.type !== MSG_ROUTE_STATE_INITIAL) return
-    const { toolRouteMap: mapArr, activeRoutes: routesArr } = event.data
+    const { toolRouteMap: mapArr, activeRoutes: routesArr, activePageTools: activePageToolsArr } = event.data
+    const normalizedActivePageTools = new Map<string, Set<string>>()
+    if (Array.isArray(activePageToolsArr)) {
+      const tuples = activePageToolsArr as [string, string[]][]
+      tuples.forEach(([route, tools]) => {
+        normalizedActivePageTools.set(
+          normalizeRoute(route),
+          new Set((Array.isArray(tools) ? tools : []).map((item) => String(item)))
+        )
+      })
+    }
     setRouteState({
       toolRouteMap: new Map(mapArr as [string, string][]),
       activeRoutes: new Set((routesArr as string[]).map(normalizeRoute)),
+      activePageTools: normalizedActivePageTools,
       initialized: true
     })
     syncAllRoutes()
