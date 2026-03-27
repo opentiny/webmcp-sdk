@@ -110,6 +110,25 @@ export function usePlugin(
   }
 
   /**
+   * 根据 agent.mcpTools 的最新快照，刷新已安装插件的工具列表。
+   * 适用于 MCP Server 运行时增删工具后的 UI 同步。
+   */
+  const syncInstalledPluginTools = () => {
+    installedPlugins.value.forEach((plugin) => {
+      const prevEnabledMap = new Map(plugin.tools.map((tool) => [tool.id, tool.enabled]))
+      const latestTools = buildPluginTools(plugin.id).map((tool) => {
+        const enabled = prevEnabledMap.has(tool.id) ? Boolean(prevEnabledMap.get(tool.id)) : tool.enabled
+        updateIgnoreToolnames(tool.id, enabled)
+        return { ...tool, enabled }
+      })
+      plugin.tools = latestTools
+    })
+
+    const allToolIds = new Set(installedPlugins.value.flatMap((plugin) => plugin.tools.map((tool) => tool.id)))
+    agent.ignoreToolnames = agent.ignoreToolnames.filter((toolName: string) => allToolIds.has(toolName))
+  }
+
+  /**
    * 统一的插件添加核心函数
    * 处理所有来源的插件添加：市场、扫码、已存在的MCP服务器
    * @param config 插件配置
@@ -362,6 +381,7 @@ export function usePlugin(
     addPluginFromMarket, // 从市场添加插件（明确的方法名）
     addPluginFromScan, // 从扫码添加插件（新增）
     handleClientDisconnected,
-    searchPlugin
+    searchPlugin,
+    syncInstalledPluginTools
   }
 }

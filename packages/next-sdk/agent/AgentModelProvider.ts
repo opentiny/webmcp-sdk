@@ -229,6 +229,12 @@ export class AgentModelProvider {
     this.onUpdatedTools?.()
   }
 
+  /** 仅刷新已连接 clients 的 tools（不重建 client，适合工具目录动态变化场景） */
+  async refreshTools() {
+    await this._createMpcTools()
+    this.onUpdatedTools?.()
+  }
+
   /** 全量更新所有的 mcpServers */
   async updateMcpServers(mcpServers?: Record<string, McpServerConfig>) {
     await this.closeAll()
@@ -826,7 +832,45 @@ export class AgentModelProvider {
 
     await this.initClientsAndTools()
 
-    const allTools = this._tempMergeTools(options.tools, false)
+    const extraTools = (options.tools || {}) as ToolSet
+    const allTools = this._tempMergeTools(extraTools, false)
+
+    // 让 tools 保持“同一个对象引用”并在每个 step 前同步：
+    // - prepareStep 只能控制 activeTools，不能直接返回 tools
+    // - 因此需要在进入每个 step 前，把最新 mcpTools 合并回当前 tools 对象
+    // - 这样 activeTools 新增的工具名在当步就能命中真实工具定义
+    const syncToolsForStep = () => {
+      const latestTools = this._tempMergeTools(extraTools, false)
+
+      // upsert
+      Object.entries(latestTools).forEach(([name, tool]) => {
+        ;(allTools as any)[name] = tool
+      })
+
+      // remove stale
+      Object.keys(allTools).forEach((name) => {
+        if (!(name in latestTools)) {
+          delete (allTools as any)[name]
+        }
+      })
+    }
+
+    const userPrepareStep = (options as any).prepareStep
+    const wrappedPrepareStep = async (stepOptions: any) => {
+      syncToolsForStep()
+
+      const latestActiveTools = this._getActiveToolNames(allTools)
+      const userStepPatch = typeof userPrepareStep === 'function' ? await userPrepareStep(stepOptions) : undefined
+      const safeUserStepPatch =
+        userStepPatch && typeof userStepPatch === 'object' ? userStepPatch : ({} as Record<string, any>)
+
+      return {
+        ...safeUserStepPatch,
+        activeTools: Array.isArray(safeUserStepPatch.activeTools)
+          ? safeUserStepPatch.activeTools.filter((name: string) => latestActiveTools.includes(name))
+          : latestActiveTools
+      }
+    }
 
     const chatOptions = {
       // @ts-ignore  ProviderV2 是所有llm的父类， 在每一个具体的llm 类都有一个选择model的函数用法
@@ -834,7 +878,8 @@ export class AgentModelProvider {
       stopWhen: stepCountIs(maxSteps),
       ...options,
       tools: allTools,
-      activeTools: this._getActiveToolNames(allTools),
+      prepareStep: wrappedPrepareStep,
+      activeTools: this._getActiveToolNames(allTools)
     }
 
     // 保存最后一条 user 消息，用于后续缓存

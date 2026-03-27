@@ -20,6 +20,20 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 
 总之，已安装插件中的所有Tool都可以在与 `LLM` 对话时被调用。
 
+## 破坏性变更（Breaking Change）
+
+> 自 `@opentiny/next-remoter` / `@opentiny/next-sdk` 新版本起，`pageToolsOnDemand` 属性已移除。
+
+- 旧写法 `:pageToolsOnDemand="true"` 不再生效，需从业务代码中删除；
+- TinyRemoter 统一基于 MCP 的 `listTools` 实时获取工具列表，不再提供“按路由过滤工具可见性”的开关；
+- 页面工具调用链路不变：`withPageTools + RouteConfig.route` 仍会自动跳转目标路由并等待页面就绪。
+
+迁移建议：
+
+1. 删除所有 `:pageToolsOnDemand="..."` 配置。
+2. 若使用“分离式工具定义”（`mcp-servers`）：保持 `withPageTools + registerPageTool` 即可。
+3. 若使用“页面内一体化定义”：在页面 `mounted/onMounted` 调用 `server.registerTool`，在 `unmounted/onUnmounted` 调用 `server.unregisterTool`。
+
 ## 属性
 
 - `v-model:show` 双向绑定是否显示，内部关闭是 emit('update:show',false)
@@ -43,6 +57,7 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 - `genUiComponents` 生成式 UI 内置了一批组件，如果需要引入新组件，需要通过这里导入。参考示例：`shallowReactive({ TinyUser, TinyAlert })`
 - `customMarketMcpServers` 追加自定义 MCP 市场服务列表（`PluginInfo[]`），传入后会与组件内置的 `DEFAULT_SERVERS` 合并，用于扩展市场内容。**一般对应后台的 MCP 服务，可常驻存在。**
 - `mcpServers` 预置 MCP 服务器配置（业界格式 `Record<string, McpServerConfig>`）。键为服务器名称，值为单台服务器配置；组件初始化时会自动加载并出现在「已添加MCP服务」中。**一般对应前端的 MCP 服务，页面关闭后即不存在。** 配置说明见 [预置 MCP 服务器（mcpServers）](#预置-mcp-服务器mcpservers)
+- `pageToolsOnDemand` 已移除（破坏性变更），请勿继续传该属性
 - `skills` 设置技能的配置对象（`Record<string, string>` 类型）。通常配合 Vite 的 `import.meta.glob` 导入标准 `SKILL.md` 文件。AI 助手会自动识别用户意图并调用相应的技能，无需手动触发。
 - `layout-mode` 布局模式，支持所有 CSS position 属性值：`'static' | 'relative' | 'absolute' | 'fixed' | 'sticky'`，默认值为 `'fixed'`。用于控制组件的定位方式
 - `role-avatar` 设置角色user/assistant的头像, 值为 {user: VNode, assistant: VNode }, VNode 可以通过h函数创建，比如： h(IconUser, { style: { fontSize: '32px' } })
@@ -495,35 +510,31 @@ const mcpServers = {
 - `type: 'extension'`：需提供 `url`、`sessionId`，可选 `useAISdkClient` 和 `headers`
 - `type: 'local'`：需提供 `transport`（MCP 传输层），可选 `useAISdkClient`
 
-## 页面工具按需加载（pageToolsOnDemand）
+## 工具接入模式（两条路径）
 
-> **默认情况下无需配置此属性。** 在大多数场景中，将所有工具同时暴露给大模型是合理的，且配置更简单。
+当前推荐按业务选择以下两种模式之一：
 
-`pageToolsOnDemand` 是一个**可选的高级属性**，适合工具数量较多、不同页面的工具互相独立、希望大模型只关注当前页面能力的场景。
+### 模式一：分离式定义（mcp-servers）
 
-开启后的效果：
+- 在 `mcp-servers` 中集中声明工具（`server.registerTool(..., { route })`）；
+- 页面中使用 `registerPageTool` 提供实际 handler；
+- 工具调用时由 `withPageTools` 自动跳转到 `route` 并等待页面就绪后执行。
 
-- 仅**当前激活路由**（调用了 `registerPageTool` 的页面）对应的 `withPageTools` 工具会对 LLM 可见；
-- 插件面板中也只展示当前路由的工具，**未加载页面的工具不会出现**，用户无法手动打开；
-- 同时支持业务页面与 TinyRemoter 在**同一个 window**，以及 TinyRemoter 运行在 **iframe 中**（见 [Angular WebMCP 最佳实践](./angular-webmcp-best-practice.md)）。
+该模式适合工具治理要求高、希望工具定义集中管理的项目。
 
-### 适合开启的场景
+### 模式二：页面内一体化定义
 
-- 注册了较多跨页面工具，担心 LLM 因工具过多而混淆；
-- 不同页面的工具职责完全独立，在其他页面没有意义（如价保审批工具只在价保页面有效）；
-- 需要精确控制每个页面能调用哪些工具。
+- 在业务页面中直接 `server.registerTool(name, config, callback)`；
+- 页面销毁时调用 `server.unregisterTool(name)` 取消注册；
+- Remoter 通过 `listTools` 实时感知工具增删变化。
 
-### 使用示例
+该模式适合工具与页面状态强耦合、希望“声明和回调在同文件”维护的项目。
 
-```vue
-<TinyRemoter :show="true" :skills="skillMdModules" :mcpServers="mcpServers" :pageToolsOnDemand="true" />
-```
+### 选择建议
 
-> 前提：
->
-> - 业务侧的 WebMCP Server 使用 `withPageTools` 注册工具，并在对应页面中调用 `registerPageTool`；
-> - 对于 TinyRemoter 运行在 iframe 中的场景，需确保宿主页面已按文档接入 Page Tool Bridge（包括 `setNavigator`、`withPageTools` 与 `registerPageTool`），以便路由状态能通过 MessageChannel 同步到 Remoter；
-> - 更多关于页面工具路由映射与激活状态的说明，见 [Vue WebMCP 最佳实践](./vue-webmcp-best-practice.md) 与 [Angular WebMCP 最佳实践](./angular-webmcp-best-practice.md)。
+- 团队协作、规范优先：选“分离式定义”；
+- 页面自治、开发效率优先：选“页面内一体化定义”；
+- 两种模式可以并存，但建议按模块统一风格，避免维护复杂度上升。
 
 ## 页面工具调用提示效果（invokeEffect）
 
@@ -559,10 +570,9 @@ server.registerTool(
   - 当 TinyRemoter 与业务页面处于同一窗口时，效果直接展示在当前页面左下角；
   - 当 TinyRemoter 运行在 iframe 中时，效果展示在宿主页面左下角，Remoter 内部无须额外配置。
 
-结合 `pageToolsOnDemand` 使用时，推荐做法是：
+推荐做法是：
 
 - 通过 `withPageTools + RouteConfig` 精准绑定工具与页面路由，并按需开启 `invokeEffect`；
-- 在 TinyRemoter 侧打开 `:pageToolsOnDemand="true"`，让 LLM 只看到当前激活页面的工具；
 - 对于远程调用型工具（如订单、库存等跨页面能力），可在各自的 RouteConfig 中配置不同的 `invokeEffect.label`，帮助最终用户理解当前 AI 正在操作哪类页面能力。
 
 ## 使用示例

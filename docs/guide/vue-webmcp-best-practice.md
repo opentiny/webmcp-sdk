@@ -4,6 +4,19 @@
  
 > **示例工程仓库**：[`packages/doc-ai`](https://github.com/opentiny/next-sdk/tree/dev/packages/doc-ai)
 
+## 破坏性变更（Breaking Change）
+
+> 新版本已移除 `TinyRemoter` 的 `pageToolsOnDemand` 属性。
+
+- 旧配置 `:pageToolsOnDemand="true"` 需要删除；
+- Remoter 统一通过 `listTools` 实时感知工具目录变化；
+- 页面工具调用与路由跳转机制不变，推荐由 `withPageTools` / `registerNavigateTool` / 页面内 `registerTool` 协作完成。
+
+迁移建议：
+
+1. 推荐改为页面内一体化定义：在业务页面内 `server.registerTool`，并在页面卸载时 `server.unregisterTool`。
+2. 若继续使用“分离式定义”（`mcp-servers`），也只需删除 `pageToolsOnDemand` 配置。
+
 ## 核心概念
 
 在开始之前，先理解三个模块的职责：
@@ -42,17 +55,13 @@ src/
 ├── App.vue                          # ⑤ 接入 TinyRemoter
 ├── router/
 │   └── index.ts                     # ② 配置路由
-├── mcp-servers/                     # ③ MCP 工具定义
-│   ├── index.ts                     # MCP Server 入口
-│   ├── product-guide/
-│   │   └── tools.ts                 # 产品查询工具
-│   └── price-protection/
-│       └── tools.ts                 # 价保管理工具
+├── mcp-servers/
+│   └── index.ts                     # ③ MCP Server 入口（推荐仅放全局工具）
 ├── views/
 │   ├── product-list/
-│   │   └── index.vue                # ④ 页面内注册工具处理器
+│   │   └── index.vue                # ④ 页面内一体化定义工具（register/unregister）
 │   └── price-protection/
-│       └── index.vue                # ④ 页面内注册工具处理器
+│       └── index.vue                # ④ 页面内一体化定义工具（register/unregister）
 └── skills/                          # ⑥ AI 技能知识库
     └── product-guide/
         ├── SKILL.md
@@ -93,7 +102,7 @@ setNavigator((route) => router.push(route))
 
 ## 第二步：配置路由
 
-确保每个有 MCP 工具处理器的页面都有对应路由，路由路径与后续工具注册的 `route` 字段保持一致。
+确保每个有页面工具的页面都有对应路由，并与 `navigate_to_page` 的目标路径保持一致。
 
 ```ts
 // src/router/index.ts
@@ -122,9 +131,9 @@ export default router
 
 ---
 
-## 第三步：定义 MCP 工具
+## 第三步：创建 MCP Server（推荐：仅保留全局工具）
 
-### 3.1 创建 MCP Server 入口
+推荐把 `mcp-servers/index.ts` 保持精简，只注册全局能力（如 `navigate_to_page`），业务工具放到页面内定义。
 
 ```ts
 // src/mcp-servers/index.ts
@@ -134,166 +143,42 @@ import {
   withPageTools,
   registerNavigateTool
 } from '@opentiny/next-sdk'
-import registerProductGuideTools from './product-guide/tools'
-import registerPriceProtectionTools from './price-protection/tools'
 
 const rawServer = new WebMcpServer()
 const [serverTransport, clientTransport] = createMessageChannelPairTransport()
 
-// withPageTools 包装后，registerTool 第三个参数支持路由配置对象
+// 保留 withPageTools：兼容路由型工具链路 + 浏览器内置 MCP 能力
 export const server = withPageTools(rawServer)
-
-// clientTransport 导出给 TinyRemoter 使用
 export { clientTransport }
 
 export const createMcpServer = async () => {
-  // 注册通用页面跳转工具 navigate_to_page（内部使用 setNavigator + 等待 page-ready，与 pageToolsOnDemand 时序一致）
+  // 注册通用页面跳转工具（推荐保留）
   registerNavigateTool(rawServer)
-  registerProductGuideTools(server)
-  registerPriceProtectionTools(server)
-  // 最后建立连接，确保所有工具已注册完毕
   await rawServer.connect(serverTransport)
 }
 ```
 
-> **页面跳转工具（navigate_to_page）**：SDK 提供 `registerNavigateTool(server)`，会注册一个名为 `navigate_to_page` 的工具。大模型在需要时可通过该工具主动跳转到指定路由（如 `/orders`、`/price-protection`）。工具内部会调用你通过 `setNavigator` 注册的导航函数，并**等待目标页面挂载并广播 page-ready 后再返回**，从而保证开启 `pageToolsOnDemand` 时，下一步能正确看到新页面的工具列表。无需在业务代码中手写跳转逻辑或超时等待。
-
-### 3.2 注册产品查询工具
-
-```ts
-// src/mcp-servers/product-guide/tools.ts
-import { z } from '@opentiny/next-sdk'
-import type { PageAwareServer } from '@opentiny/next-sdk'
-
-const registerProductGuideTools = (server: PageAwareServer) => {
-  server.registerTool(
-    'product-guide',
-    {
-      title: '产品指南',
-      description: '根据产品 ID 获取产品详细信息，包含名称、价格、库存、状态等字段',
-      inputSchema: {
-        productId: z.string().describe('产品 ID')
-      }
-    },
-    // 第三个参数传路由配置：工具被调用时自动跳转到 /product-list
-    // 页面加载完成后，通过 postMessage 把 input 转发给页面内的处理器
-    { route: '/product-list' }
-  )
-}
-
-export default registerProductGuideTools
-```
-
-### 3.3 注册价保管理工具（多工具绑定同一路由）
-
-```ts
-// src/mcp-servers/price-protection/tools.ts
-import { z } from '@opentiny/next-sdk'
-import type { PageAwareServer } from '@opentiny/next-sdk'
-
-const registerPriceProtectionTools = (server: PageAwareServer) => {
-  // 多个工具可以绑定同一个路由，工具名全局唯一即可
-  server.registerTool(
-    'price-protection-query',
-    {
-      title: '查询价保申请',
-      description: '查询价保申请列表，可按状态筛选（pending/approved/rejected/expired），不传则返回全部',
-      inputSchema: {
-        status: z.enum(['pending', 'approved', 'rejected', 'expired']).optional().describe('申请状态，不传则查询全部')
-      }
-    },
-    { route: '/price-protection' }
-  )
-
-  server.registerTool(
-    'price-protection-review',
-    {
-      title: '审批价保申请',
-      description: '对待审核的价保申请进行审批，支持通过（approve）或拒绝（reject），可附加备注',
-      inputSchema: {
-        id: z.union([z.string(), z.number()]).describe('价保申请 ID'),
-        action: z.enum(['approve', 'reject']).describe('审批动作：approve=通过，reject=拒绝'),
-        remark: z.string().optional().describe('审批备注（可选）')
-      }
-    },
-    { route: '/price-protection' }
-  )
-
-  server.registerTool(
-    'price-protection-detail',
-    {
-      title: '价保申请详情',
-      description: '根据申请 ID 获取单条价保申请的完整详情',
-      inputSchema: {
-        id: z.union([z.string(), z.number()]).describe('价保申请 ID')
-      }
-    },
-    { route: '/price-protection' }
-  )
-}
-
-export default registerPriceProtectionTools
-```
-
-> **两种工具注册方式对比：**
->
-> | 方式     | 第三个参数                                                                                    | 适用场景                                             |
-> | -------- | --------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-> | 回调函数 | `async (input) => { return { content: [...] } }`                                              | 工具逻辑简单，不需要访问页面状态或 Vue 响应式数据    |
-> | 路由配置 | `{ route: '/some-path', timeout?: number, invokeEffect?: boolean \| ToolInvokeEffectConfig }` | 工具需要读写页面状态，或需要在特定页面内执行业务逻辑 |
->
-> 路由配置对象（RouteConfig）支持字段：**route**（必填，目标路由路径）、**timeout**（可选，等待页面响应的超时时间，单位 ms，默认 30000）、**invokeEffect**（可选，是否在调用该工具时在页面左下角展示调用提示效果，支持 `boolean` 或 `{ label?: string }`）。
-
-### 页面工具调用提示效果（invokeEffect）
-
-当通过 `withPageTools` 注册工具时，可以在第三个参数的 `RouteConfig` 中配置 `invokeEffect`，为用户提供清晰的「页面工具正在执行」提示：
-
-```ts
-server.registerTool(
-  'order_query',
-  {
-    title: '查询订单',
-    description: '【订单管理工具】查询电商订单列表，可按订单号、客户姓名或状态筛选。'
-  },
-  {
-    route: '/orders',
-    // true：使用默认文案（优先取 title，其次为工具名）
-    // 也可以传对象自定义 label 文案
-    invokeEffect: {
-      label: '正在为你查询订单列表…'
-    }
-  }
-)
-```
-
-`invokeEffect` 的行为说明：
-
-- 仅对通过 `RouteConfig` 注册的页面工具生效，不影响直接传回调函数的工具；
-- 传 `true` 时使用默认文案（`config.title || toolName`），传对象时可自定义展示文案（`label`）；
-- 工具调用开始时在页面左下角展示一个小提示卡片，调用结束（成功 / 失败 / 超时）后自动淡出；支持业务页面与 TinyRemoter 同窗口或 TinyRemoter 在 iframe 中的场景。
+> **页面跳转工具（navigate_to_page）**：大模型需要跨页面操作时，会先调用该工具跳转到目标路由。SDK 内部会等待页面完成就绪握手（`page-ready` / 工具目录变更）后再返回。
 
 ---
 
-## 第四步：在页面内注册工具处理器
+## 第四步：在业务页面内一体化定义工具（推荐）
 
-这是 Page Tool Bridge 的核心——在页面挂载时注册处理器，卸载时清除。
+这是当前推荐模式：工具声明（参数 schema）和回调（业务逻辑）写在同一个页面文件中。
 
-`registerPageTool` 的 `route` 参数为**可选**：省略时 SDK 自动读取 `window.location.pathname`；当页面路由与 `pathname` 不一致时（如使用 hash 路由、子路径前缀、或路由 `path` 与实际 URL 存在差异的场景），需手动传入 `route`，并与 `server.registerTool` 中 `RouteConfig.route` 保持一致。
+- 页面进入：`server.registerTool(...)`
+- 页面离开：`server.unregisterTool(...)`
+
+这种方式天然实现“按需加载”：只有当前页面激活时，该页面工具才会出现在 `listTools` 中。
 
 ### 4.1 产品查询页面
 
 ```vue
 <!-- src/views/product-list/index.vue -->
-<template>
-  <div class="products-page">
-    <!-- 你的页面内容 -->
-    <div v-for="product in products" :key="product.id">{{ product.name }} - ¥{{ product.price }}</div>
-  </div>
-</template>
-
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { registerPageTool } from '@opentiny/next-sdk'
+import { z } from '@opentiny/next-sdk'
+import { server } from '@/mcp-servers'
 import productsData from './products.json'
 
 type Product = {
@@ -305,96 +190,87 @@ type Product = {
 }
 
 const products = ref<Product[]>(productsData as Product[])
-
-// registerPageTool 返回 cleanup 函数，在 onUnmounted 中调用
-let cleanupPageTool: () => void
+const TOOL_NAME = 'product-guide'
 
 onMounted(() => {
-  cleanupPageTool = registerPageTool({
-    handlers: {
-      // key 必须与 mcp-servers 中注册的工具名一致
-      'product-guide': async ({ productId }: { productId: string }) => {
-        const product = products.value.find((p) => String(p.id) === productId)
-        const text = product ? `产品信息：${JSON.stringify(product, null, 2)}` : `未找到产品 ID 为 ${productId} 的商品`
-        // 返回格式遵循 MCP 协议：content 数组，每项包含 type 和内容
-        return { content: [{ type: 'text', text }] }
+  server.registerTool(
+    TOOL_NAME,
+    {
+      title: '产品指南',
+      description: '根据产品 ID 获取产品详细信息',
+      inputSchema: {
+        productId: z.string().describe('产品 ID')
       }
+    },
+    async ({ productId }: { productId: string }) => {
+      const product = products.value.find((p) => String(p.id) === productId)
+      const text = product ? `产品信息：${JSON.stringify(product, null, 2)}` : `未找到产品 ID 为 ${productId} 的商品`
+      return { content: [{ type: 'text', text }] }
     }
-  })
+  )
 })
 
-// 页面卸载时取消注册，避免内存泄漏和消息串扰
-onUnmounted(() => cleanupPageTool?.())
+onUnmounted(() => {
+  server.unregisterTool(TOOL_NAME)
+})
 </script>
 ```
 
-### 4.2 价保管理页面（多工具处理器）
+### 4.2 价保管理页面（单页多工具）
 
 ```vue
 <!-- src/views/price-protection/index.vue -->
-<template>
-  <!-- 你的页面内容 -->
-</template>
-
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { registerPageTool } from '@opentiny/next-sdk'
+import { z } from '@opentiny/next-sdk'
+import { server } from '@/mcp-servers'
 import rawData from './price-protection.json'
 
 const records = ref(rawData as any[])
-
-let cleanupPageTool: () => void
+const TOOL_NAMES = ['price-protection-query', 'price-protection-review', 'price-protection-detail']
 
 onMounted(() => {
-  cleanupPageTool = registerPageTool({
-    handlers: {
-      // 一个页面可以注册多个工具的处理器
-      'price-protection-query': async ({ status }: { status?: string }) => {
-        const result = status ? records.value.filter((r) => r.status === status) : records.value
-        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
-      },
-
-      'price-protection-review': async ({
-        id,
-        action,
-        remark
-      }: {
-        id: string | number
-        action: 'approve' | 'reject'
-        remark?: string
-      }) => {
-        const record = records.value.find((r) => r.id === id)
-        if (!record) {
-          return { content: [{ type: 'text', text: `未找到 ID 为 ${id} 的申请` }] }
-        }
-        record.status = action === 'approve' ? 'approved' : 'rejected'
-        record.remark = remark ?? (action === 'approve' ? '审核通过' : '不符合条件')
-        return {
-          content: [{ type: 'text', text: `申请 ${id} 已${action === 'approve' ? '通过' : '拒绝'}` }]
-        }
-      },
-
-      'price-protection-detail': async ({ id }: { id: string | number }) => {
-        const record = records.value.find((r) => r.id === id)
-        if (!record) {
-          return { content: [{ type: 'text', text: `未找到 ID 为 ${id} 的申请` }] }
-        }
-        return { content: [{ type: 'text', text: JSON.stringify(record, null, 2) }] }
+  server.registerTool(
+    'price-protection-query',
+    {
+      title: '查询价保申请',
+      inputSchema: {
+        status: z.enum(['pending', 'approved', 'rejected', 'expired']).optional()
       }
+    },
+    async ({ status }: { status?: string }) => {
+      const result = status ? records.value.filter((r) => r.status === status) : records.value
+      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
     }
-  })
+  )
+
+  server.registerTool(
+    'price-protection-review',
+    {
+      title: '审批价保申请',
+      inputSchema: {
+        id: z.union([z.string(), z.number()]),
+        action: z.enum(['approve', 'reject']),
+        remark: z.string().optional()
+      }
+    },
+    async ({ id, action, remark }: { id: string | number; action: 'approve' | 'reject'; remark?: string }) => {
+      const record = records.value.find((r) => r.id === id)
+      if (!record) return { content: [{ type: 'text', text: `未找到 ID 为 ${id} 的申请` }] }
+      record.status = action === 'approve' ? 'approved' : 'rejected'
+      record.remark = remark ?? (action === 'approve' ? '审核通过' : '不符合条件')
+      return { content: [{ type: 'text', text: `申请 ${id} 已${action === 'approve' ? '通过' : '拒绝'}` }] }
+    }
+  )
 })
 
-onUnmounted(() => cleanupPageTool?.())
+onUnmounted(() => {
+  TOOL_NAMES.forEach((name) => server.unregisterTool(name))
+})
 </script>
 ```
 
-> **处理器编写规范：**
->
-> - handler 的参数类型由对应工具的 `inputSchema` 决定，命名完全对应
-> - 返回值必须是 `{ content: Array<{ type: 'text', text: string }> }` 格式
-> - handler 内部可以访问任何 Vue 响应式数据（`ref`、`reactive`、`computed`、Pinia Store 等）
-> - 抛出异常会被 SDK 捕获并以错误信息返回给 AI
+> **可选（仅补充）**：若你的团队需要“统一治理工具声明”，也可继续使用分离式写法（`mcp-servers` 声明 + `registerPageTool` 处理），但不作为本文主推荐路径。
 
 ---
 
@@ -417,10 +293,6 @@ onUnmounted(() => cleanupPageTool?.())
       title="智能助手"
       :llmConfig="llmConfig"
     />
-    <!--
-      可选：如果注册了较多跨页面工具，希望大模型只看到当前页面的工具，
-      可以添加 :pageToolsOnDemand="true"，详见 TinyRemoter 文档。
-    -->
   </div>
 </template>
 
@@ -645,22 +517,20 @@ tags: [商品管理, 上架, 库存]
     ↓
 TinyRemoter 将消息发给 LLM
     ↓
-LLM 识别意图，决定调用 product-guide 工具，参数 { productId: "123" }
+LLM 先调用 navigate_to_page，参数 { path: "/product-list" }
     ↓
-MCP Client 通过 MessageChannel 发送工具调用请求
+MCP Client 通过 MessageChannel 发送页面跳转请求
     ↓
-MCP Server（withPageTools）拦截，发现绑定路由 /product-list
+MCP Server 调用 setNavigator 跳转到 /product-list
     ↓
-检查 /product-list 是否已激活？
-    ↓ 未激活                     ↓ 已激活
-调用 setNavigator 跳转      直接通过 postMessage 发送
-路由跳转到 /product-list         工具调用消息
-页面挂载，执行 registerPageTool
-广播 page-ready 信号
+页面挂载，执行 server.registerTool
+工具目录更新并完成 page-ready 握手
     ↓
-SDK 收到 page-ready，发送工具调用消息 { toolName: 'product-guide', input: { productId: '123' } }
+LLM 重新读取 listTools，发现 product-guide 工具已激活
     ↓
-页面内 handleMessage 匹配到 product-guide 处理器
+SDK 发送工具调用消息 { toolName: 'product-guide', input: { productId: '123' } }
+    ↓
+MCP Server 执行 product-guide 回调
     ↓
 执行业务逻辑：从 products.value 中查找 id === '123' 的商品
     ↓
@@ -679,31 +549,25 @@ TinyRemoter 展示最终回复给用户
 
 默认超时 30 秒。常见原因：
 
-- 页面未调用 `registerPageTool`，或 handler 中对应的工具名拼写有误
-- 路由配置的 `route` 与 `registerPageTool` 侧实际匹配的路径不一致
-- `registerPageTool` 未传 `route` 且在 `onMounted` 之外调用，导致 `window.location.pathname` 取到了错误路径；此时应手动传入 `route` 字段以明确指定路径
+- 页面未执行 `server.registerTool`（或执行时机过晚），导致工具未进入目录
+- 页面卸载时未正确 `server.unregisterTool`，造成旧工具残留或状态错乱
+- 工具名拼写不一致（注册名与调用名不一致）
 
 ### 工具名大小写要注意
 
-`server.registerTool('product-guide', ...)` 中的工具名必须与 `registerPageTool` handlers 中的 key **完全一致**（大小写敏感）。
+`server.registerTool('product-guide', ...)` 中的工具名是全局唯一标识，调用时必须**完全一致**（大小写敏感）。
 
-### 多个工具共用一个路由
+### 一个页面定义多个工具
 
-只需将多个 `server.registerTool` 都传 `{ route: '/same-path' }`，页面内的 `registerPageTool` 在 handlers 中列出所有工具名即可。
+在同一页面内多次调用 `server.registerTool` 即可；建议统一维护一个 `TOOL_NAMES` 数组，并在 `onUnmounted` 里批量 `unregisterTool`。
 
 ### 如何让 AI 先跳转再使用页面工具？
 
-使用 `registerNavigateTool(rawServer)` 注册内置的 `navigate_to_page` 工具后，大模型在需要时会先调用该工具跳转到目标路由（如 `/orders`）。SDK 内部会等待目标页面挂载并广播 page-ready 后再返回，因此若开启了 `pageToolsOnDemand`，下一步即可正确看到该页面的工具列表，无需在业务中手写等待或超时逻辑。
+使用 `registerNavigateTool(rawServer)` 注册内置的 `navigate_to_page` 工具后，大模型在需要时会先调用该工具跳转到目标路由（如 `/orders`）。SDK 内部会等待目标页面完成就绪握手后再返回，下一步即可正确调用目标页面工具，无需在业务中手写等待或超时逻辑。
 
-### 如何在不跳转的情况下使用工具？
+### 还可以用分离式定义吗？
 
-若工具逻辑不依赖页面状态，直接传回调函数作为第三个参数：
-
-```ts
-server.registerTool('get-time', { title: '获取当前时间', description: '...' }, async () => {
-  return { content: [{ type: 'text', text: new Date().toLocaleString() }] }
-})
-```
+可以。分离式（`mcp-servers` + `registerPageTool`）仍兼容，但本文推荐默认采用页面内一体化定义，降低认知和维护成本。
 
 ### Skills 未被 AI 识别？
 

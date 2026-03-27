@@ -89,7 +89,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { TinyHuichartsLine as TinyChartLine, TinyHuichartsPie as TinyChartPie } from '@opentiny/vue-huicharts'
-import { registerPageTool } from '@opentiny/next-sdk'
+import { z } from '@opentiny/next-sdk'
+import { server } from '../../mcp-servers'
 
 const activeRange = ref('30days')
 
@@ -197,24 +198,30 @@ const salesSummary = {
   year: { totalSales: 1542600, orders: 16080, returnRate: '2.1%' }
 }
 
-let cleanupPageTool: (() => void) | undefined
+const SALES_RECORD_QUERY_TOOL = 'sales_record_query'
 onMounted(() => {
-  cleanupPageTool = registerPageTool({
-    // 显式指定路由，需与 mcp-servers 中 RouteConfig.route '/sales' 保持一致
-    route: '/sales',
-    handlers: {
-      sales_record_query: async ({ timeRange }: { timeRange?: '7days' | '30days' | 'year' }) => {
-        const range = timeRange ?? '30days'
-        activeRange.value = range
-        const s = salesSummary[range]
-        const label = range === '7days' ? '近7天' : range === '30days' ? '近30天' : '过去一年'
-        const text = `${label}销售数据：\n- 总销售额：¥${s.totalSales.toLocaleString()}\n- 总订单数：${s.orders}\n- 退货率：${s.returnRate}\n\n详细图表已更新，可在左侧查看。`
-        return { content: [{ type: 'text', text }] }
+  server.registerTool(
+    SALES_RECORD_QUERY_TOOL,
+    {
+      title: '查询商品销售记录',
+      description: '【销售数据展示工具】帮助管理员查询最近一段时间的商品销售趋势、统计图表数据',
+      inputSchema: {
+        timeRange: z.enum(['7days', '30days', 'year']).optional().describe('查询时间范围')
       }
+    },
+    async ({ timeRange }: { timeRange?: '7days' | '30days' | 'year' }) => {
+      const range = timeRange ?? '30days'
+      activeRange.value = range
+      const s = salesSummary[range]
+      const label = range === '7days' ? '近7天' : range === '30days' ? '近30天' : '过去一年'
+      const text = `${label}销售数据：\n- 总销售额：¥${s.totalSales.toLocaleString()}\n- 总订单数：${s.orders}\n- 退货率：${s.returnRate}\n\n详细图表已更新，可在左侧查看。`
+      return { content: [{ type: 'text', text }] }
     }
-  })
+  )
 })
-onUnmounted(() => cleanupPageTool?.())
+onUnmounted(() => {
+  server.unregisterTool(SALES_RECORD_QUERY_TOOL)
+})
 </script>
 
 <style scoped>
