@@ -53,7 +53,7 @@ export function useMessageRoles(options: {
    */
   const copyMessageToClipboard = async (index: number) => {
     const message = messages.value[index]
-    const textContent = typeof message.content === 'string' ? message.content : JSON.stringify(message.content)
+    const textContent = message.uiContent.map((item: any) => item.content).join('\n')
 
     // 添加错误处理：剪贴板 API 可能因权限、安全上下文或浏览器支持而失败
     try {
