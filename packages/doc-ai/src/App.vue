@@ -49,10 +49,6 @@
               <component :is="IconCoin" class="icon" />
               财务管理
             </router-link>
-            <router-link to="/runtime-tools-demo" class="nav-item" active-class="active">
-              <component :is="IconBoxSolid" class="icon" />
-              一体化工具示例
-            </router-link>
           </nav>
 
           <div class="sidebar-footer">
