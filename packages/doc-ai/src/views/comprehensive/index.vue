@@ -72,7 +72,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { registerPageTool } from '@opentiny/next-sdk'
+import { z } from '@opentiny/next-sdk'
+import { server } from '../../mcp-servers'
 import productsData from './products.json'
 
 // 根据 products.json 结构定义类型，避免使用 any
@@ -97,26 +98,29 @@ const categoryLabels: Record<string, string> = {
   tablets: '平板'
 }
 
-// 在 onMounted 中激活工具处理器，onUnmounted 时通过 cleanup 取消注册
-// registerPageTool 是框架无关的纯 JS 函数，Vue/React/Angular 均可使用
-let cleanupPageTool: () => void
+const PRODUCT_GUIDE_TOOL = 'product-guide'
 
 onMounted(() => {
-  cleanupPageTool = registerPageTool({
-    // 显式指定路由，需与 mcp-servers 中 RouteConfig.route '/comprehensive' 保持一致
-    route: '/comprehensive',
-    handlers: {
-      // 处理 product-guide 工具的实际业务逻辑
-      'product-guide': async ({ productId }: { productId: string }) => {
-        const product = products.value.find((p) => String(p.id) === productId)
-        const text = product ? `产品信息：${JSON.stringify(product, null, 2)}` : `未找到产品 ID 为 ${productId} 的商品`
-        return { content: [{ type: 'text', text }] }
+  server.registerTool(
+    PRODUCT_GUIDE_TOOL,
+    {
+      title: '产品指南',
+      description: '根据产品ID获取产品详细信息',
+      inputSchema: {
+        productId: z.string().describe('产品ID')
       }
+    },
+    async ({ productId }: { productId: string }) => {
+      const product = products.value.find((p) => String(p.id) === productId)
+      const text = product ? `产品信息：${JSON.stringify(product, null, 2)}` : `未找到产品 ID 为 ${productId} 的商品`
+      return { content: [{ type: 'text', text }] }
     }
-  })
+  )
 })
 
-onUnmounted(() => cleanupPageTool?.())
+onUnmounted(() => {
+  server.unregisterTool(PRODUCT_GUIDE_TOOL)
+})
 </script>
 
 <style scoped lang="less">

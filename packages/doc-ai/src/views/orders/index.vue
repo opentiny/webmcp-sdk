@@ -53,7 +53,8 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { orderList, type OrderItem } from '../../mock'
-import { registerPageTool } from '@opentiny/next-sdk'
+import { z } from '@opentiny/next-sdk'
+import { server } from '../../mcp-servers'
 
 const searchText = ref('')
 const filterStatus = ref('')
@@ -86,68 +87,83 @@ const filteredOrders = computed(() => {
   })
 })
 
-let cleanupPageTool: (() => void) | undefined
+const ORDER_QUERY_TOOL = 'order_query'
+const ORDER_DETAIL_TOOL = 'order_detail'
 
 onMounted(() => {
-  cleanupPageTool = registerPageTool({
-    // 显式指定路由，需与 mcp-servers 中 RouteConfig.route '/orders' 保持一致
-    route: '/orders',
-    handlers: {
-      // 查询订单列表（支持按订单号、客户姓名、状态筛选）
-      order_query: async ({
-        orderId,
-        customerName,
-        status
-      }: {
-        orderId?: string
-        customerName?: string
-        status?: string
-      }) => {
-        let result = orderList.value as OrderItem[]
-        if (orderId) result = result.filter((o) => o.id.toLowerCase().includes(orderId.toLowerCase()))
-        if (customerName)
-          result = result.filter((o) => o.customerName.toLowerCase().includes(customerName.toLowerCase()))
-        if (status) result = result.filter((o) => o.status === status)
-
-        // 同步更新页面筛选框
-        if (status) filterStatus.value = status
-        if (orderId || customerName) searchText.value = orderId ?? customerName ?? ''
-
-        const text =
-          result.length === 0
-            ? '未找到符合条件的订单。'
-            : `找到 ${result.length} 条订单：\n${result
-                .map(
-                  (o) =>
-                    `- ${o.id}｜${o.customerName}｜${o.productName}｜¥${o.totalAmount}｜${statusLabelMap[o.status]}`
-                )
-                .join('\n')}`
-        return { content: [{ type: 'text', text }] }
+  server.registerTool(
+    ORDER_QUERY_TOOL,
+    {
+      title: '查询订单',
+      description: '【订单管理工具】查询电商订单列表，可按订单号、客户姓名或状态筛选，不传参数则返回全部订单。',
+      inputSchema: {
+        orderId: z.string().optional().describe('按订单号精确查询，如 ORD-5X9A2B'),
+        customerName: z.string().optional().describe('按客户姓名模糊查询'),
+        status: z
+          .enum(['Pending', 'Shipped', 'Delivered', 'Refunded', 'Cancelled'])
+          .optional()
+          .describe('按订单状态筛选')
       },
+    },
+    async ({
+      orderId,
+      customerName,
+      status
+    }: {
+      orderId?: string
+      customerName?: string
+      status?: string
+    }) => {
+      let result = orderList.value as OrderItem[]
+      if (orderId) result = result.filter((o) => o.id.toLowerCase().includes(orderId.toLowerCase()))
+      if (customerName) result = result.filter((o) => o.customerName.toLowerCase().includes(customerName.toLowerCase()))
+      if (status) result = result.filter((o) => o.status === status)
 
-      // 查询单条订单详情
-      order_detail: async ({ orderId }: { orderId: string }) => {
-        const order = orderList.value.find((o) => o.id === orderId)
-        if (!order) {
-          return { content: [{ type: 'text', text: `未找到订单号为 ${orderId} 的订单。` }] }
-        }
-        // 高亮该订单
-        searchText.value = orderId
-        const text = `订单详情（${orderId}）：
+      // 同步更新页面筛选框
+      if (status) filterStatus.value = status
+      if (orderId || customerName) searchText.value = orderId ?? customerName ?? ''
+
+      const text =
+        result.length === 0
+          ? '未找到符合条件的订单。'
+          : `找到 ${result.length} 条订单：\n${result
+              .map((o) => `- ${o.id}｜${o.customerName}｜${o.productName}｜¥${o.totalAmount}｜${statusLabelMap[o.status]}`)
+              .join('\n')}`
+      return { content: [{ type: 'text', text }] }
+    }
+  )
+
+  server.registerTool(
+    ORDER_DETAIL_TOOL,
+    {
+      title: '订单详情',
+      description: '【订单管理工具】根据订单号获取完整的订单详情，包括商品、金额、物流、收货人信息等。',
+      inputSchema: {
+        orderId: z.string().describe('要查询的订单号，如 ORD-5X9A2B')
+      }
+    },
+    async ({ orderId }: { orderId: string }) => {
+      const order = orderList.value.find((o) => o.id === orderId)
+      if (!order) {
+        return { content: [{ type: 'text', text: `未找到订单号为 ${orderId} 的订单。` }] }
+      }
+      // 高亮该订单
+      searchText.value = orderId
+      const text = `订单详情（${orderId}）：
 - 客户：${order.customerName}（${order.customerPhone}）
 - 商品：${order.productName} × ${order.quantity}
 - 金额：¥${order.totalAmount.toLocaleString()}
 - 支付：${order.paymentMethod}
 - 状态：${statusLabelMap[order.status]}
 - 下单时间：${order.createdAt}${order.shippedAt ? `\n- 发货时间：${order.shippedAt}` : ''}`
-        return { content: [{ type: 'text', text }] }
-      }
+      return { content: [{ type: 'text', text }] }
     }
-  })
+  )
 })
 
 onUnmounted(() => {
-  cleanupPageTool?.()
+  server.unregisterTool(ORDER_QUERY_TOOL)
+  server.unregisterTool(ORDER_DETAIL_TOOL)
 })
 </script>
 

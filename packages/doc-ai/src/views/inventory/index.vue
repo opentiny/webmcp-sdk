@@ -42,7 +42,8 @@
 import { inventoryList } from '../../mock'
 import { ref, onMounted, onUnmounted } from 'vue'
 import InventoryModal from '../../components/InventoryModal.vue'
-import { registerPageTool } from '@opentiny/next-sdk'
+import { z } from '@opentiny/next-sdk'
+import { server } from '../../mcp-servers'
 
 const modalRef = ref()
 
@@ -53,23 +54,28 @@ const handleManualAdd = () => {
   })
 }
 
-let cleanupPageTool: (() => void) | undefined
+const ADD_INVENTORY_TOOL = 'add_inventory'
 
 onMounted(() => {
-  cleanupPageTool = registerPageTool({
-    // 显式指定路由，需与 mcp-servers 中 RouteConfig.route '/inventory' 保持一致
-    route: '/inventory',
-    handlers: {
-      'add_inventory': async (params: any) => {
-        const result = await modalRef.value.openModal(params)
-        return { content: [{ type: 'text', text: result }] }
+  server.registerTool(
+    ADD_INVENTORY_TOOL,
+    {
+      description: '【入库管理工具】帮助电商管理员将采购的商品新增入库存系统中',
+      inputSchema: {
+        productName: z.string().describe('商品名称或型号，如：iPhone 15 Pro Max'),
+        quantity: z.number().describe('要入库的数量，必须大于0'),
+        warehouse: z.string().describe('入库存放的仓库名称，如：北京一号仓')
       }
+    },
+    async (params: any) => {
+      const result = await modalRef.value.openModal(params)
+      return { content: [{ type: 'text', text: result }] }
     }
-  })
+  )
 })
 
 onUnmounted(() => {
-  cleanupPageTool?.()
+  server.unregisterTool(ADD_INVENTORY_TOOL)
 })
 </script>
 
