@@ -4,6 +4,19 @@
  
 > **示例工程仓库**：[`packages/doc-ai`](https://github.com/opentiny/next-sdk/tree/dev/packages/doc-ai)
 
+## 破坏性变更（Breaking Change）
+
+> 新版本已移除 `TinyRemoter` 的 `pageToolsOnDemand` 属性。
+
+- 旧配置 `:pageToolsOnDemand="true"` 需要删除；
+- Remoter 统一通过 `listTools` 实时感知工具目录变化；
+- 页面工具调用与路由跳转机制不变，仍由 `withPageTools` / `registerNavigateTool` / `registerPageTool` 协作完成。
+
+迁移建议：
+
+1. 继续使用“分离式定义”（`mcp-servers`）时，无需改工具调用链路，只需删除 `pageToolsOnDemand` 配置。
+2. 若希望“工具声明 + 回调在同文件”，可改为在业务页面内 `server.registerTool`，并在页面卸载时 `server.unregisterTool`。
+
 ## 核心概念
 
 在开始之前，先理解三个模块的职责：
@@ -147,7 +160,7 @@ export const server = withPageTools(rawServer)
 export { clientTransport }
 
 export const createMcpServer = async () => {
-  // 注册通用页面跳转工具 navigate_to_page（内部使用 setNavigator + 等待 page-ready，与 pageToolsOnDemand 时序一致）
+  // 注册通用页面跳转工具 navigate_to_page（内部使用 setNavigator + 等待页面就绪握手）
   registerNavigateTool(rawServer)
   registerProductGuideTools(server)
   registerPriceProtectionTools(server)
@@ -156,7 +169,18 @@ export const createMcpServer = async () => {
 }
 ```
 
-> **页面跳转工具（navigate_to_page）**：SDK 提供 `registerNavigateTool(server)`，会注册一个名为 `navigate_to_page` 的工具。大模型在需要时可通过该工具主动跳转到指定路由（如 `/orders`、`/price-protection`）。工具内部会调用你通过 `setNavigator` 注册的导航函数，并**等待目标页面挂载并广播 page-ready 后再返回**，从而保证开启 `pageToolsOnDemand` 时，下一步能正确看到新页面的工具列表。无需在业务代码中手写跳转逻辑或超时等待。
+> **页面跳转工具（navigate_to_page）**：SDK 提供 `registerNavigateTool(server)`，会注册一个名为 `navigate_to_page` 的工具。大模型在需要时可通过该工具主动跳转到指定路由（如 `/orders`、`/price-protection`）。工具内部会调用你通过 `setNavigator` 注册的导航函数，并等待目标页面完成就绪握手（`page-ready` / 工具目录变更）后再返回，无需在业务代码中手写跳转逻辑或超时等待。
+
+### 3.1.1 工具定义模式选择（新架构）
+
+你可以按模块选择以下两种模式：
+
+- 分离式定义（`mcp-servers`）：
+  在 `mcp-servers` 里声明 `server.registerTool(..., { route })`，页面里使用 `registerPageTool` 编写 handler。
+- 页面内一体化定义：
+  在业务页面 `onMounted` 里 `server.registerTool(name, config, callback)`，在 `onUnmounted` 里 `server.unregisterTool(name)`。
+
+两种模式都支持 `registerNavigateTool` 自动跳转与就绪握手。Remoter 统一通过 `listTools` 感知工具实时变化。
 
 ### 3.2 注册产品查询工具
 
@@ -417,10 +441,6 @@ onUnmounted(() => cleanupPageTool?.())
       title="智能助手"
       :llmConfig="llmConfig"
     />
-    <!--
-      可选：如果注册了较多跨页面工具，希望大模型只看到当前页面的工具，
-      可以添加 :pageToolsOnDemand="true"，详见 TinyRemoter 文档。
-    -->
   </div>
 </template>
 
@@ -693,7 +713,7 @@ TinyRemoter 展示最终回复给用户
 
 ### 如何让 AI 先跳转再使用页面工具？
 
-使用 `registerNavigateTool(rawServer)` 注册内置的 `navigate_to_page` 工具后，大模型在需要时会先调用该工具跳转到目标路由（如 `/orders`）。SDK 内部会等待目标页面挂载并广播 page-ready 后再返回，因此若开启了 `pageToolsOnDemand`，下一步即可正确看到该页面的工具列表，无需在业务中手写等待或超时逻辑。
+使用 `registerNavigateTool(rawServer)` 注册内置的 `navigate_to_page` 工具后，大模型在需要时会先调用该工具跳转到目标路由（如 `/orders`）。SDK 内部会等待目标页面完成就绪握手后再返回，下一步即可正确调用目标页面工具，无需在业务中手写等待或超时逻辑。
 
 ### 如何在不跳转的情况下使用工具？
 

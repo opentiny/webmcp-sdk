@@ -6,6 +6,19 @@
  
 > **示例工程仓库**：[`packages/doc-ai-angular`](https://github.com/opentiny/next-sdk/tree/dev/packages/doc-ai-angular)
 
+## 破坏性变更（Breaking Change）
+
+> 新版本已移除 `TinyRemoter` 的 `pageToolsOnDemand` 属性。
+
+- 旧配置 `:pageToolsOnDemand="true"` 需要删除；
+- Remoter 统一通过 `listTools` 实时感知工具目录变化；
+- Page Tool Bridge 调用链路不变，仍由 `withPageTools` + `registerPageTool`（或页面内 `registerTool/unregisterTool`）完成执行。
+
+迁移建议：
+
+1. 仍用 `mcp-servers` 分离式定义时，只删 `pageToolsOnDemand` 配置即可。
+2. 若要工具声明与回调同文件，可在 Angular 页面组件生命周期中直接 `server.registerTool` / `server.unregisterTool`。
+
 ## 核心概念
 
 在开始之前，先理解各模块的职责及 Angular 的接入方式：
@@ -211,7 +224,7 @@ export const server = withPageTools(rawServer)
  * 对应 iframe 侧：createMessageChannelClientTransport('local-mcp', window.parent)
  */
 export const createMcpServer = async () => {
-  // 注册通用页面跳转工具 navigate_to_page（内部使用 setNavigator + 等待 page-ready，与 pageToolsOnDemand 时序一致）
+  // 注册通用页面跳转工具 navigate_to_page（内部使用 setNavigator + 等待页面就绪握手）
   registerNavigateTool(rawServer)
   registerProductGuideTools(server)
   registerPriceProtectionTools(server)
@@ -221,7 +234,18 @@ export const createMcpServer = async () => {
 }
 ```
 
-> **页面跳转工具（navigate_to_page）**：与 Vue 版相同，使用 SDK 提供的 `registerNavigateTool(rawServer)` 即可。工具运行在**主窗口**，会调用你通过 `setNavigator` 注册的导航函数，并等待目标页面广播 page-ready 后再返回，因此 Remoter 在 iframe 内时，路由状态与工具列表的同步不受影响，无需在主窗口再手写一套跳转或 setAngularNavigator。
+> **页面跳转工具（navigate_to_page）**：与 Vue 版相同，使用 SDK 提供的 `registerNavigateTool(rawServer)` 即可。工具运行在**主窗口**，会调用你通过 `setNavigator` 注册的导航函数，并等待目标页面完成就绪握手（`page-ready` / 工具目录变更）后再返回，因此 Remoter 在 iframe 内时，路由状态与工具列表的同步不受影响，无需在主窗口再手写一套跳转或 setAngularNavigator。
+
+### 3.1.1 工具定义模式选择（新架构）
+
+你可以按模块选择以下两种模式：
+
+- 分离式定义（`mcp-servers`）：
+  在主窗口 `mcp-servers` 中声明 `server.registerTool(..., { route })`，页面组件中用 `registerPageTool` 实现 handler。
+- 页面内一体化定义：
+  在 Angular 页面组件生命周期里直接 `server.registerTool` / `server.unregisterTool`，让工具与页面状态同生命周期。
+
+两种模式都支持 `registerNavigateTool` 自动跳转与就绪握手；Remoter 统一通过 `listTools` 感知工具变化。
 
 工具定义（`product-guide/tools.ts`、`price-protection/tools.ts`）与 Vue 版一致：`server.registerTool(name, schema, { route: '/path', timeout?: number, invokeEffect?: boolean | ToolInvokeEffectConfig })`。
 
@@ -272,10 +296,6 @@ Remoter 是独立 Vue 应用，入口为 `remoter/index.html`，挂载 `remoter/
     :menuItems="menuItems"
     :mcpServers="mcpServers"
   />
-  <!--
-    可选：工具较多且各页面工具职责独立时，可添加 :pageToolsOnDemand="true"，
-    仅展示当前路由对应的工具，详见 TinyRemoter 文档。
-  -->
 </template>
 
 <script setup lang="ts">
