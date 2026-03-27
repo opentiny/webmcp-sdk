@@ -3,7 +3,7 @@
 本文将以一个完整的**商品管理后台**为示例，带你一步步把普通 Angular 工程升级为 AI 驱动的智能应用。完成后，用户可以通过自然语言对话查询数据、触发业务操作，AI 还能自动跳转到对应页面并在页面内执行逻辑。
 
 与 Vue 版本的核心差异在于：**TinyRemoter 是 Vue 的 AI 对话组件**，Angular 无法直接引用，需通过 **iframe + MessageChannel 跨窗口连接** 将主应用与 Remoter 打通。
- 
+
 > **示例工程仓库**：[`packages/doc-ai-angular`](https://github.com/opentiny/next-sdk/tree/dev/packages/doc-ai-angular)
 
 ## 破坏性变更（Breaking Change）
@@ -23,12 +23,12 @@
 
 在开始之前，先理解各模块的职责及 Angular 的接入方式：
 
-| 模块                 | 包名                            | 职责                                                       | Angular 中的位置                            |
-| -------------------- | ------------------------------- | ---------------------------------------------------------- | ------------------------------------------- |
-| **WebMCP Server**    | `@opentiny/next-sdk`            | 在浏览器中运行的 MCP 工具服务器，注册可供 AI 调用的工具    | Angular 主窗口（如 `mcp-servers/index.ts`） |
+| 模块                 | 包名                            | 职责                                                       | Angular 中的位置                                      |
+| -------------------- | ------------------------------- | ---------------------------------------------------------- | ----------------------------------------------------- |
+| **WebMCP Server**    | `@opentiny/next-sdk`            | 在浏览器中运行的 MCP 工具服务器，注册可供 AI 调用的工具    | Angular 主窗口（如 `mcp-servers/index.ts`）           |
 | **Page Tool Bridge** | `@opentiny/next-sdk`            | 工具调用时自动导航到目标页面，并通过消息通信执行页面内逻辑 | 同主窗口，与页面内 `registerTool/unregisterTool` 配合 |
-| **WebSkills**        | `@opentiny/next-sdk` + 技能文档 | 结构化知识包，让 AI 获得特定领域的角色和文档知识           | Remoter 侧（Vue iframe 内）                 |
-| **TinyRemoter**      | `@opentiny/next-remoter`        | Vue 实现的 AI 对话面板组件，集成 LLM + MCP + Skills        | **独立 Vue 应用，通过 iframe 嵌入**         |
+| **WebSkills**        | `@opentiny/next-sdk` + 技能文档 | 结构化知识包，让 AI 获得特定领域的角色和文档知识           | Remoter 侧（Vue iframe 内）                           |
+| **TinyRemoter**      | `@opentiny/next-remoter`        | Vue 实现的 AI 对话面板组件，集成 LLM + MCP + Skills        | **独立 Vue 应用，通过 iframe 嵌入**                   |
 
 ### 为什么 Angular 需要 iframe + createMessageChannelClientTransport？
 
@@ -157,7 +157,7 @@ export class AppComponent implements OnInit {
 }
 ```
 
-> **注意**：`setNavigator` 只需在应用入口（根组件）调用一次，全局生效。该导航函数会被 SDK 用于：① withPageTools 在调用页面工具时自动跳转；② 内置的 `navigate_to_page` 工具（通过 `registerNavigateTool` 注册）在大模型主动请求跳转时使用。无需再单独注入 Angular 专属的导航器。
+> **注意**：`setNavigator` 只需在应用入口（根组件）调用一次，全局生效。该导航函数会被 SDK 用于：① withPageTools 在调用页面工具时自动跳转；② 内置的 `navigate_to_page` 工具（通过 `registerNavigateTool` 注册）在大模型主动请求跳转时使用, 无需再单独注入 Angular 专属的导航器。
 
 ---
 
@@ -330,9 +330,7 @@ export class ComprehensiveComponent implements OnInit, OnDestroy {
       },
       async ({ productId }: { productId: string }) => {
         const product = this.products.find((p) => String(p.id) === productId)
-        const text = product
-          ? `产品信息：${JSON.stringify(product, null, 2)}`
-          : `未找到产品 ID 为 ${productId} 的商品`
+        const text = product ? `产品信息：${JSON.stringify(product, null, 2)}` : `未找到产品 ID 为 ${productId} 的商品`
         return { content: [{ type: 'text', text }] }
       }
     )
@@ -381,15 +379,7 @@ export class PriceProtectionComponent implements OnInit, OnDestroy {
           remark: z.string().optional()
         }
       },
-      async ({
-        id,
-        action,
-        remark
-      }: {
-        id: string | number
-        action: 'approve' | 'reject'
-        remark?: string
-      }) => {
+      async ({ id, action, remark }: { id: string | number; action: 'approve' | 'reject'; remark?: string }) => {
         const record = this.records.find((item) => item.id === id)
         if (!record) {
           return { content: [{ type: 'text', text: `未找到 ID 为 ${id} 的申请` }] }
@@ -528,15 +518,15 @@ SDK 在主窗口内 postMessage 发送
 
 ## 与 Vue 版本的对照
 
-| 项目                  | Vue 版本                                                  | Angular 版本                                                                                                                                 |
-| --------------------- | --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
-| TinyRemoter 使用方式  | 直接在主应用内引用 Vue 组件                               | **iframe 嵌入独立 Vue 应用**，主应用不直接引用 Remoter                                                                                       |
-| MCP 连接方式          | `createMessageChannelPairTransport()` 同窗口内存对        | **主窗口** `createMessageChannelServerTransport('local-mcp')` + **iframe** `createMessageChannelClientTransport('local-mcp', window.parent)` |
-| setNavigator          | 在 `main.ts` 中 `setNavigator(router.push)`               | 在根组件 `ngOnInit` 中 `setNavigator(router.navigateByUrl)`                                                                                  |
-| MCP Server 与工具注册 | 在 App.vue 或独立模块，同窗口                             | 在 `mcp-servers/index.ts`，**主窗口**                                                                                                        |
-| 页面工具注册（推荐）  | `onMounted` + `server.registerTool`，`onUnmounted` + `server.unregisterTool` | `ngOnInit` + `server.registerTool`，`ngOnDestroy` + `server.unregisterTool` |
-| WebSkills 位置        | 主应用 `src/skills/`                                      | **Remoter 工程** `remoter/src/skills/`（Vue 侧）                                                                                             |
-| 开发与代理            | 单应用，无需代理                                          | **双入口**：主应用 + Remoter 子包，主应用代理 `/remoter.html`、`/remoter` 到 Remoter 开发服务                                                |
+| 项目                  | Vue 版本                                                                     | Angular 版本                                                                                                                                 |
+| --------------------- | ---------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| TinyRemoter 使用方式  | 直接在主应用内引用 Vue 组件                                                  | **iframe 嵌入独立 Vue 应用**，主应用不直接引用 Remoter                                                                                       |
+| MCP 连接方式          | `createMessageChannelPairTransport()` 同窗口内存对                           | **主窗口** `createMessageChannelServerTransport('local-mcp')` + **iframe** `createMessageChannelClientTransport('local-mcp', window.parent)` |
+| setNavigator          | 在 `main.ts` 中 `setNavigator(router.push)`                                  | 在根组件 `ngOnInit` 中 `setNavigator(router.navigateByUrl)`                                                                                  |
+| MCP Server 与工具注册 | 在 App.vue 或独立模块，同窗口                                                | 在 `mcp-servers/index.ts`，**主窗口**                                                                                                        |
+| 页面工具注册（推荐）  | `onMounted` + `server.registerTool`，`onUnmounted` + `server.unregisterTool` | `ngOnInit` + `server.registerTool`，`ngOnDestroy` + `server.unregisterTool`                                                                  |
+| WebSkills 位置        | 主应用 `src/skills/`                                                         | **Remoter 工程** `remoter/src/skills/`（Vue 侧）                                                                                             |
+| 开发与代理            | 单应用，无需代理                                                             | **双入口**：主应用 + Remoter 子包，主应用代理 `/remoter.html`、`/remoter` 到 Remoter 开发服务                                                |
 
 ---
 
@@ -551,7 +541,7 @@ SDK 在主窗口内 postMessage 发送
 
 ### iframe 空白或无法加载 Remoter？
 
-- 开发时是否**同时启动了** Angular 和 Remoter（`pnpm dev`），且 `proxy.conf.json` 中 target 端口（如 5179）与 Remoter 的 Vite 端口一致。
+- 开发时是否**同时启动了** Angular 主应用 和 Remoter（`pnpm dev`），且 `proxy.conf.json` 中 target 端口（如 5179）与 Remoter 的 Vite 端口一致。
 - Remoter 的 `vite.config.ts` 中 `base: '/remoter/'` 与代理路径重写是否匹配（如 `/remoter.html` → `/remoter/`）。
 
 ### 工具名大小写

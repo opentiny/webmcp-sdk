@@ -1,4 +1,9 @@
-import { WebMcpServer, createMessageChannelServerTransport, withPageTools } from '@opentiny/next-sdk'
+import {
+  WebMcpServer,
+  createMessageChannelServerTransport,
+  withPageTools,
+  registerNavigateTool
+} from '@opentiny/next-sdk'
 import registerProductGuideTools from './product-guide/tools'
 import registerPriceProtectionTools from './price-protection/tools'
 
@@ -16,6 +21,7 @@ export const server = withPageTools(rawServer)
  * 对应 iframe 侧：createMessageChannelClientTransport('local-mcp', window.parent)
  */
 export const createMcpServer = async () => {
+  registerNavigateTool(rawServer)
   registerProductGuideTools(server)
   registerPriceProtectionTools(server)
   const serverTransport = createMessageChannelServerTransport('local-mcp')
