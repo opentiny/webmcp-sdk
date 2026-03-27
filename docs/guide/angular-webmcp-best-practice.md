@@ -12,12 +12,12 @@
 
 - 旧配置 `:pageToolsOnDemand="true"` 需要删除；
 - Remoter 统一通过 `listTools` 实时感知工具目录变化；
-- Page Tool Bridge 调用链路不变，仍由 `withPageTools` + `registerPageTool`（或页面内 `registerTool/unregisterTool`）完成执行。
+- Page Tool Bridge 调用链路不变，推荐使用页面内 `registerTool/unregisterTool` 按需注册工具。
 
 迁移建议：
 
-1. 仍用 `mcp-servers` 分离式定义时，只删 `pageToolsOnDemand` 配置即可。
-2. 若要工具声明与回调同文件，可在 Angular 页面组件生命周期中直接 `server.registerTool` / `server.unregisterTool`。
+1. 推荐改为页面内一体化定义：在 Angular 页面组件生命周期中直接 `server.registerTool` / `server.unregisterTool`。
+2. 若仍使用 `mcp-servers` 分离式定义，也只需删除 `pageToolsOnDemand` 配置即可。
 
 ## 核心概念
 
@@ -26,7 +26,7 @@
 | 模块                 | 包名                            | 职责                                                       | Angular 中的位置                            |
 | -------------------- | ------------------------------- | ---------------------------------------------------------- | ------------------------------------------- |
 | **WebMCP Server**    | `@opentiny/next-sdk`            | 在浏览器中运行的 MCP 工具服务器，注册可供 AI 调用的工具    | Angular 主窗口（如 `mcp-servers/index.ts`） |
-| **Page Tool Bridge** | `@opentiny/next-sdk`            | 工具调用时自动导航到目标页面，并通过消息通信执行页面内逻辑 | 同主窗口，与 `registerPageTool` 配合        |
+| **Page Tool Bridge** | `@opentiny/next-sdk`            | 工具调用时自动导航到目标页面，并通过消息通信执行页面内逻辑 | 同主窗口，与页面内 `registerTool/unregisterTool` 配合 |
 | **WebSkills**        | `@opentiny/next-sdk` + 技能文档 | 结构化知识包，让 AI 获得特定领域的角色和文档知识           | Remoter 侧（Vue iframe 内）                 |
 | **TinyRemoter**      | `@opentiny/next-remoter`        | Vue 实现的 AI 对话面板组件，集成 LLM + MCP + Skills        | **独立 Vue 应用，通过 iframe 嵌入**         |
 
@@ -34,7 +34,7 @@
 
 - **TinyRemoter 是 Vue 组件**，依赖 Vue 运行时，无法在 Angular 中直接使用。
 - 采用 **双 HTML 入口** 方案：
-  - **主窗口**：Angular 应用（`index.html`），负责路由、MCP Server、页面内 `registerPageTool`。
+  - **主窗口**：Angular 应用（`index.html`），负责路由、MCP Server、页面内工具注册与卸载。
   - **子窗口**：独立 Vue 迷你应用（如 `remoter.html`），仅渲染 TinyRemoter UI，运行在 iframe 中。
 - 两者通过 **MessageChannel** 跨窗口通信：
   - **主窗口**：`createMessageChannelServerTransport('local-mcp')` 创建服务端传输，监听 iframe 的连接。
@@ -73,12 +73,10 @@ packages/doc-ai-angular/
 │   │   ├── app.component.ts             # ② 根组件：setNavigator + 启动 MCP Server
 │   │   ├── app.component.html           # ③ 布局：主内容 + iframe 嵌入 remoter
 │   │   └── pages/
-│   │       ├── comprehensive/          # ⑤ 页面内 registerPageTool
-│   │       └── price-protection/       # ⑤ 页面内 registerPageTool
-│   ├── mcp-servers/                     # ④ MCP 工具定义（主窗口，与 app 平级）
-│   │   ├── index.ts                     # MCP Server + createMessageChannelServerTransport
-│   │   ├── product-guide/tools.ts
-│   │   └── price-protection/tools.ts
+│   │       ├── comprehensive/          # ⑤ 页面内一体化定义工具（register/unregister）
+│   │       └── price-protection/       # ⑤ 页面内一体化定义工具（register/unregister）
+│   ├── mcp-servers/
+│   │   └── index.ts                     # ④ MCP Server 入口（推荐仅放全局工具）
 │   └── proxy.conf.json                  # ⑥ 将 /remoter.html、/remoter 代理到 Remoter 开发服务
 ├── remoter/                             # 独立 Vue 子工程（iframe 内容）
 │   ├── package.json
@@ -207,14 +205,12 @@ import {
   withPageTools,
   registerNavigateTool
 } from '@opentiny/next-sdk'
-import registerProductGuideTools from './product-guide/tools'
-import registerPriceProtectionTools from './price-protection/tools'
 
 const rawServer = new WebMcpServer()
 
 /**
- * withPageTools 包装后，registerTool 第三个参数支持路由配置对象。
- * MCP Server 与 registerPageTool 均在 Angular 主窗口，page-tool-bridge 同窗口 postMessage 即可。
+ * withPageTools 包装后，支持页面工具桥接能力（导航、握手、消息分发）。
+ * 推荐把业务工具放在页面组件内按需 register/unregister。
  */
 export const server = withPageTools(rawServer)
 
@@ -226,8 +222,6 @@ export const server = withPageTools(rawServer)
 export const createMcpServer = async () => {
   // 注册通用页面跳转工具 navigate_to_page（内部使用 setNavigator + 等待页面就绪握手）
   registerNavigateTool(rawServer)
-  registerProductGuideTools(server)
-  registerPriceProtectionTools(server)
   const serverTransport = createMessageChannelServerTransport('local-mcp')
   await serverTransport.listen()
   await rawServer.connect(serverTransport)
@@ -238,43 +232,13 @@ export const createMcpServer = async () => {
 
 ### 3.1.1 工具定义模式选择（新架构）
 
-你可以按模块选择以下两种模式：
+推荐优先使用页面内一体化定义：
 
-- 分离式定义（`mcp-servers`）：
-  在主窗口 `mcp-servers` 中声明 `server.registerTool(..., { route })`，页面组件中用 `registerPageTool` 实现 handler。
-- 页面内一体化定义：
-  在 Angular 页面组件生命周期里直接 `server.registerTool` / `server.unregisterTool`，让工具与页面状态同生命周期。
+- 在页面组件生命周期里直接 `server.registerTool` / `server.unregisterTool`；
+- 工具随页面挂载/卸载自动增删，Remoter 通过 `listTools` 实时感知变化；
+- 与 `registerNavigateTool` 配合后，大模型可先跳转再调用目标页面工具。
 
-两种模式都支持 `registerNavigateTool` 自动跳转与就绪握手；Remoter 统一通过 `listTools` 感知工具变化。
-
-工具定义（`product-guide/tools.ts`、`price-protection/tools.ts`）与 Vue 版一致：`server.registerTool(name, schema, { route: '/path', timeout?: number, invokeEffect?: boolean | ToolInvokeEffectConfig })`。
-
-- `route`：必选，目标路由路径；
-- `timeout`：可选，等待页面响应的超时时间（ms），默认 30000；
-- `invokeEffect`：可选，是否在调用该页面工具时在**主窗口左下角**展示调用提示效果，类型为 `boolean | { label?: string }`。
-
-示例（以订单查询为例）：
-
-```ts
-server.registerTool(
-  'order_query',
-  {
-    title: '查询订单',
-    description: '【订单管理工具】查询电商订单列表，可按订单号、客户姓名或状态筛选。'
-  },
-  {
-    route: '/orders',
-    invokeEffect: {
-      label: '正在为你查询订单列表…'
-    }
-  }
-)
-```
-
-> 说明：
-> - `invokeEffect: true` 使用默认文案（`config.title || toolName`）；
-> - 传对象时可自定义 `label`，如「正在为你整理订单数据…」；
-> - 调用开始时展示提示卡片，结束后自动淡出；Remoter 在 iframe 中时同样生效，因为效果直接渲染在 Angular 主窗口。
+分离式定义（`mcp-servers` 声明 + `registerPageTool` 处理）仍兼容，但作为可选方案，不作为本文主路径。
 
 ---
 
@@ -333,79 +297,121 @@ const mcpServers = {
 
 ---
 
-## 第五步：在 Angular 页面内注册工具处理器（registerPageTool）
+## 第五步：在 Angular 页面内一体化定义工具（推荐）
 
-与 Vue 版一致，在**目标页面对应的 Angular 组件**中，在 `ngOnInit` 里调用 `registerPageTool`，在 `ngOnDestroy` 里调用返回的 cleanup 函数。handlers 的 key 与 `mcp-servers` 中注册的工具名一致。
+推荐模式是把工具声明（参数 schema）和回调（业务逻辑）写在同一个页面组件里。
+
+- 页面进入（`ngOnInit`）：`server.registerTool(...)`
+- 页面离开（`ngOnDestroy`）：`server.unregisterTool(...)`
+
+这样工具会随页面生命周期自动增删，Remoter 通过 `listTools` 实时看到最新工具目录。
 
 ### 5.1 单工具示例（商品指南）
 
 ```ts
 // src/app/pages/comprehensive/comprehensive.component.ts（节选）
 import { Component, OnInit, OnDestroy } from '@angular/core'
-import { registerPageTool } from '@opentiny/next-sdk'
+import { z } from '@opentiny/next-sdk'
+import { server } from '../../../mcp-servers'
 
 export class ComprehensiveComponent implements OnInit, OnDestroy {
   products: Product[] = productsData as Product[]
-  private cleanupPageTool!: () => void
+  private readonly toolName = 'product-guide'
 
   ngOnInit(): void {
-    this.cleanupPageTool = registerPageTool({
-      handlers: {
-        'product-guide': async ({ productId }: { productId: string }) => {
-          const product = this.products.find((p) => String(p.id) === productId)
-          const text = product
-            ? `产品信息：${JSON.stringify(product, null, 2)}`
-            : `未找到产品 ID 为 ${productId} 的商品`
-          return { content: [{ type: 'text', text }] }
+    server.registerTool(
+      this.toolName,
+      {
+        title: '产品指南',
+        description: '根据产品 ID 获取产品详细信息',
+        inputSchema: {
+          productId: z.string().describe('产品 ID')
         }
+      },
+      async ({ productId }: { productId: string }) => {
+        const product = this.products.find((p) => String(p.id) === productId)
+        const text = product
+          ? `产品信息：${JSON.stringify(product, null, 2)}`
+          : `未找到产品 ID 为 ${productId} 的商品`
+        return { content: [{ type: 'text', text }] }
       }
-    })
+    )
   }
 
   ngOnDestroy(): void {
-    this.cleanupPageTool?.()
+    server.unregisterTool(this.toolName)
   }
 }
 ```
 
-`route` 省略时，SDK 使用 `window.location.pathname`（即当前 Angular 路由路径）。若路径与工具注册时的 `route` 不一致（如 hash 路由、子路径前缀），需在 `registerPageTool` 中显式传 `route`。
-
-### 5.2 多工具同一路由（价保管理）
+### 5.2 单页面多工具示例（价保管理）
 
 ```ts
 // src/app/pages/price-protection/price-protection.component.ts（节选）
-// registerPageTool 的 options 类型为 { route?: string; handlers: Record<string, (input) => Promise<...>> }
-this.cleanupPageTool = registerPageTool({
-  route: '/price-protection',
-  handlers: {
-    'price-protection-query': async ({ status }: { status?: string }) => {
-      /* ... */
-    },
-    'price-protection-review': async ({
-      id,
-      action,
-      remark
-    }: {
-      id: string | number
-      action: 'approve' | 'reject'
-      remark?: string
-    }) => {
-      /* ... */
-    },
-    'price-protection-detail': async ({ id }: { id: string | number }) => {
-      /* ... */
-    }
+import { Component, OnInit, OnDestroy } from '@angular/core'
+import { z } from '@opentiny/next-sdk'
+import { server } from '../../../mcp-servers'
+
+export class PriceProtectionComponent implements OnInit, OnDestroy {
+  records: any[] = []
+  private readonly toolNames = ['price-protection-query', 'price-protection-review', 'price-protection-detail']
+
+  ngOnInit(): void {
+    server.registerTool(
+      'price-protection-query',
+      {
+        title: '查询价保申请',
+        inputSchema: {
+          status: z.enum(['pending', 'approved', 'rejected', 'expired']).optional()
+        }
+      },
+      async ({ status }: { status?: string }) => {
+        const result = status ? this.records.filter((r) => r.status === status) : this.records
+        return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
+      }
+    )
+
+    server.registerTool(
+      'price-protection-review',
+      {
+        title: '审批价保申请',
+        inputSchema: {
+          id: z.union([z.string(), z.number()]),
+          action: z.enum(['approve', 'reject']),
+          remark: z.string().optional()
+        }
+      },
+      async ({
+        id,
+        action,
+        remark
+      }: {
+        id: string | number
+        action: 'approve' | 'reject'
+        remark?: string
+      }) => {
+        const record = this.records.find((item) => item.id === id)
+        if (!record) {
+          return { content: [{ type: 'text', text: `未找到 ID 为 ${id} 的申请` }] }
+        }
+        record.status = action === 'approve' ? 'approved' : 'rejected'
+        record.remark = remark ?? (action === 'approve' ? '审核通过' : '不符合条件')
+        return { content: [{ type: 'text', text: `申请 ${id} 已${action === 'approve' ? '通过' : '拒绝'}` }] }
+      }
+    )
   }
-})
+
+  ngOnDestroy(): void {
+    this.toolNames.forEach((name) => server.unregisterTool(name))
+  }
+}
 ```
 
-> **说明**：若使用的 next-sdk 版本类型声明中未包含 `route` 字段，可暂时使用 `as Parameters<typeof registerPageTool>[0]` 或升级 SDK。
+> **处理器编写规范**：
 >
-> **处理器编写规范**（与 Vue 版相同）：
->
-> - handler 参数类型由工具的 `inputSchema` 决定。
-> - 返回值格式：`{ content: Array<{ type: 'text', text: string }> }`。
-> - 组件销毁时必须调用 cleanup，避免内存泄漏和消息串扰。
+> - 回调参数类型由工具 `inputSchema` 决定。
+> - 返回格式统一为：`{ content: Array<{ type: 'text', text: string }> }`。
+> - 组件销毁时必须 `unregisterTool`，避免旧工具残留在目录中。
 
 ---
 
@@ -494,22 +500,21 @@ SKILL.md 的 YAML Front Matter 中 `description` 要写清使用场景，便于 
     ↓
 TinyRemoter（iframe）将消息发给 LLM
     ↓
-LLM 决定调用 product-guide 工具，参数 { productId: "123" }
+LLM 先调用 navigate_to_page，参数 { path: "/comprehensive" }
     ↓
 TinyRemoter 的 MCP Client 通过 createMessageChannelClientTransport
-    向 window.parent（主窗口）发送工具调用
+    向 window.parent（主窗口）发送跳转请求
     ↓
 主窗口的 MCP Server（createMessageChannelServerTransport）收到请求，
-    withPageTools 发现工具绑定路由 /comprehensive
+    调用 setNavigator 跳转到 /comprehensive
     ↓
-检查 /comprehensive 是否已激活？
-    ↓ 未激活                     ↓ 已激活
-setNavigator 跳转到 /comprehensive  直接通过 postMessage 在主窗口内发送
-Angular 路由切换，页面挂载          工具调用消息
+页面组件 ngOnInit 执行 registerTool，工具目录更新并完成 page-ready 握手
     ↓
-页面组件 ngOnInit 执行 registerPageTool，广播 page-ready
+LLM 重新读取 listTools，发现 product-guide 工具已激活
     ↓
-SDK 收到 page-ready，在主窗口内 postMessage 发送
+TinyRemoter 再次发起工具调用
+    ↓
+SDK 在主窗口内 postMessage 发送
     { toolName: 'product-guide', input: { productId: '123' } }
     ↓
 页面内 handler 执行，返回 { content: [{ type: 'text', text: '...' }] }
@@ -529,7 +534,7 @@ SDK 收到 page-ready，在主窗口内 postMessage 发送
 | MCP 连接方式          | `createMessageChannelPairTransport()` 同窗口内存对        | **主窗口** `createMessageChannelServerTransport('local-mcp')` + **iframe** `createMessageChannelClientTransport('local-mcp', window.parent)` |
 | setNavigator          | 在 `main.ts` 中 `setNavigator(router.push)`               | 在根组件 `ngOnInit` 中 `setNavigator(router.navigateByUrl)`                                                                                  |
 | MCP Server 与工具注册 | 在 App.vue 或独立模块，同窗口                             | 在 `mcp-servers/index.ts`，**主窗口**                                                                                                        |
-| 页面工具注册          | `onMounted` + `registerPageTool`，`onUnmounted` + cleanup | `ngOnInit` + `registerPageTool`，`ngOnDestroy` + cleanup                                                                                     |
+| 页面工具注册（推荐）  | `onMounted` + `server.registerTool`，`onUnmounted` + `server.unregisterTool` | `ngOnInit` + `server.registerTool`，`ngOnDestroy` + `server.unregisterTool` |
 | WebSkills 位置        | 主应用 `src/skills/`                                      | **Remoter 工程** `remoter/src/skills/`（Vue 侧）                                                                                             |
 | 开发与代理            | 单应用，无需代理                                          | **双入口**：主应用 + Remoter 子包，主应用代理 `/remoter.html`、`/remoter` 到 Remoter 开发服务                                                |
 
@@ -541,8 +546,8 @@ SDK 收到 page-ready，在主窗口内 postMessage 发送
 
 - 确认 **Remoter iframe 已加载**，且主窗口已执行 `createMcpServer()`（含 `serverTransport.listen()`）。
 - **endpoint 一致**：主窗口 `createMessageChannelServerTransport('local-mcp')` 与 iframe 内 `createMessageChannelClientTransport('local-mcp', window.parent)` 的 `'local-mcp'` 必须相同。
-- 页面是否在 `ngOnInit` 中调用了 `registerPageTool`，且 handlers 的 key 与 `server.registerTool` 的工具名一致。
-- 若使用 hash 或特殊 base 路径，`registerPageTool` 需显式传 `route`，与工具定义的 `route` 一致。
+- 页面是否在 `ngOnInit` 中调用了 `server.registerTool`，并在 `ngOnDestroy` 中调用了 `server.unregisterTool`。
+- 若工具依赖特定页面状态，先通过 `navigate_to_page` 跳转到对应路由，再调用页面工具。
 
 ### iframe 空白或无法加载 Remoter？
 
@@ -551,11 +556,11 @@ SDK 收到 page-ready，在主窗口内 postMessage 发送
 
 ### 工具名大小写
 
-`server.registerTool('product-guide', ...)` 与 `registerPageTool({ handlers: { 'product-guide': ... } })` 中的工具名必须**完全一致**（大小写敏感）。
+`server.registerTool('product-guide', ...)` 中的工具名是全局唯一标识，调用时必须**完全一致**（大小写敏感）。
 
 ### 多个工具共用一个路由
 
-与 Vue 版相同：多个 `server.registerTool(..., { route: '/same-path' })`，同一页面的 `registerPageTool` 的 handlers 中列出所有工具名即可。
+与 Vue 版相同：在同一页面中多次 `server.registerTool` 即可。建议维护 `toolNames` 数组，并在 `ngOnDestroy` 中批量 `unregisterTool`。
 
 ### 如何让 AI 先跳转再使用页面工具？
 
@@ -570,6 +575,10 @@ server.registerTool('get-time', { title: '获取当前时间', description: '...
   return { content: [{ type: 'text', text: new Date().toLocaleString() }] }
 })
 ```
+
+### 还可以用分离式定义吗？
+
+可以。分离式（`mcp-servers` + `registerPageTool`）仍兼容，但不作为默认推荐路径。本文推荐优先采用页面内一体化定义，降低接入和维护复杂度。
 
 ---
 
