@@ -29,7 +29,6 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
-import { onBeforeRouteLeave } from 'vue-router'
 import { z } from '@opentiny/next-sdk'
 import { server } from '../../mcp-servers'
 
@@ -47,35 +46,9 @@ const ticketList = ref<TicketItem[]>([
   { id: 'RT-1004', title: '退款审批流程卡住', owner: '赵敏', status: 'open' }
 ])
 
-const runtimeToolNames = ['runtime_ticket_query', 'runtime_ticket_close']
 
-async function printBuiltinToolSnapshot(tag: string) {
-  const modelContextTesting = (navigator as any)?.modelContextTesting
-  if (!modelContextTesting) {
-    console.info('[runtime-tools-demo]', tag, 'modelContextTesting unavailable')
-    return
-  }
-  try {
-    const listFn =
-      typeof modelContextTesting.listTools === 'function'
-        ? modelContextTesting.listTools.bind(modelContextTesting)
-        : typeof modelContextTesting.getTools === 'function'
-          ? modelContextTesting.getTools.bind(modelContextTesting)
-          : null
-    if (!listFn) {
-      console.info('[runtime-tools-demo]', tag, 'no listTools/getTools')
-      return
-    }
-    const tools = await listFn()
-    const names = Array.isArray(tools) ? tools.map((item: any) => item?.name).filter(Boolean) : []
-    console.info('[runtime-tools-demo]', tag, { count: names.length, names })
-  } catch (error) {
-    console.info('[runtime-tools-demo]', tag, 'snapshot error', error)
-  }
-}
 
 function registerRuntimeTools() {
-  console.info('[runtime-tools-demo]', 'registerRuntimeTools:start')
   server.registerTool(
     'runtime_ticket_query',
     {
@@ -129,17 +102,7 @@ function registerRuntimeTools() {
       item.status = 'closed'
       return { content: [{ type: 'text', text: `工单 ${id} 已成功关闭。` }] }
     }
-  )
-  void printBuiltinToolSnapshot('after-register')
-}
-
-function disposeRuntimeTools() {
-  console.info('[runtime-tools-demo]', 'disposeRuntimeTools:start')
-  runtimeToolNames.forEach((toolName) => {
-    const removed = server.unregisterTool(toolName)
-    console.info('[runtime-tools-demo]', 'disposeRuntimeTools:unregister', { toolName, removed })
   })
-  void printBuiltinToolSnapshot('after-unregister')
 }
 
 onMounted(() => {
@@ -147,11 +110,10 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  disposeRuntimeTools()
-})
-
-onBeforeRouteLeave(() => {
-  disposeRuntimeTools()
+  const runtimeToolNames = ['runtime_ticket_query', 'runtime_ticket_close']
+  runtimeToolNames.forEach((toolName) => {
+    server.unregisterTool(toolName)
+  })
 })
 </script>
 
