@@ -30,7 +30,7 @@ const MSG_PAGE_READY = 'next-sdk:page-ready'
 export const MSG_PAGE_LEAVE = 'next-sdk:page-leave'
 /** iframe 内 Remoter 就绪后向父窗口发送，父窗口回传 route-state-initial */
 export const MSG_REMOTER_READY = 'next-sdk:remoter-ready'
-/** 父窗口向 iframe Remoter 回传的初始状态（保留兼容消息类型） */
+/** 历史兼容消息类型（当前简化方案不再使用） */
 export const MSG_ROUTE_STATE_INITIAL = 'next-sdk:route-state-initial'
 /** 工具目录发生变更（新增/删除/路由重绑定） */
 export const MSG_TOOL_CATALOG_CHANGED = 'next-sdk:tool-catalog-changed'
@@ -65,7 +65,7 @@ function broadcastRouteChange(type: string, route: string, extra: Record<string,
   })
 }
 
-/** 监听 iframe 内 Remoter 的 remoter-ready，回传初始路由状态并加入广播目标 */
+/** 监听 iframe 内 Remoter 的 remoter-ready，并加入广播目标 */
 function setupIframeRemoterBridge() {
   if (typeof window === 'undefined') return
   window.addEventListener('message', (event: MessageEvent) => {
@@ -74,16 +74,6 @@ function setupIframeRemoterBridge() {
     if (event.origin !== window.location.origin) return
     const target = event.source as Window
     broadcastTargets.add({ win: target, origin: event.origin || '*' })
-    const payload = {
-      type: MSG_ROUTE_STATE_INITIAL,
-      activeRoutes: Array.from(activePages.keys()),
-      activePageTools: Array.from(activePages.entries()).map(([route, tools]) => [route, Array.from(tools)])
-    }
-    try {
-      target.postMessage(payload, event.origin || '*')
-    } catch {
-      // 忽略跨域错误
-    }
   })
 }
 setupIframeRemoterBridge()
@@ -606,12 +596,26 @@ export function setNavigator(fn: (route: string) => void | Promise<void>) {
 }
 
 /**
- * 等待指定路由页面完成挂载并广播 page-ready。
- * - 仅在浏览器环境下生效（window 存在时）
- * - 使用与 registerPageTool 相同的路由规范化规则
- * - 内置兜底超时，防止 Promise 永远不 resolve
+ * 当前 pathname 是否已匹配目标路由。
+ * 兼容子路径部署（例如 current=/ai/orders, target=/orders）。
  */
-function waitForPageReady(path: string, timeoutMs = 1500): Promise<void> {
+function isCurrentPathMatched(path: string): boolean {
+  if (typeof window === 'undefined') return false
+  const target = normalizeRoute(path)
+  const current = normalizeRoute(window.location.pathname)
+  return (
+    current === target ||
+    (current.endsWith(target) && (current.length === target.length || current[current.lastIndexOf(target) - 1] === '/'))
+  )
+}
+
+/**
+ * 跳转握手等待：
+ * - 分离式路由工具：等待目标路由 page-ready
+ * - 一体化动态注册：等待 tool-catalog-changed（且当前已在目标路由）
+ * - 兜底超时，防止 Promise 永远不 resolve
+ */
+function waitForNavigationReady(path: string, timeoutMs = 1500): Promise<void> {
   if (typeof window === 'undefined') {
     return Promise.resolve()
   }
@@ -629,9 +633,17 @@ function waitForPageReady(path: string, timeoutMs = 1500): Promise<void> {
     }
 
     const handleMessage = (event: MessageEvent) => {
-      if (event.source !== window || event.data?.type !== MSG_PAGE_READY) return
-      const route = normalizeRoute(String(event.data.route ?? ''))
-      if (route === target) {
+      if (event.source !== window) return
+
+      if (event.data?.type === MSG_PAGE_READY) {
+        const route = normalizeRoute(String(event.data.route ?? ''))
+        if (route === target) {
+          cleanup()
+        }
+        return
+      }
+
+      if (event.data?.type === MSG_TOOL_CATALOG_CHANGED && isCurrentPathMatched(target)) {
         cleanup()
       }
     }
@@ -886,22 +898,15 @@ export function registerNavigateTool(server: WebMcpServer, options?: NavigateToo
     }
 
     try {
-      const target = normalizeRoute(path)
       // 若当前已在目标路由上，直接返回成功，避免不必要的跳转。
-      // 兼容子路径部署（如 base: '/ai-vue/'）：pathname 可能为 /ai-vue/orders，而 path 为 /orders，需判断 pathname 是否“以目标路由结尾”
-      const current = normalizeRoute(window.location.pathname)
-      const isAlreadyOnTarget =
-        current === target ||
-        (current.endsWith(target) &&
-          (current.length === target.length || current[current.lastIndexOf(target) - 1] === '/'))
-      if (isAlreadyOnTarget) {
+      if (isCurrentPathMatched(path)) {
         return {
           content: [{ type: 'text', text: `当前已在页面：${path}。请继续你的下一步操作。` }]
         }
       }
 
-      // 先注册 page-ready 监听再触发导航，避免极快导航下事件先于监听器触发而漏收（与 buildPageHandler 中的顺序一致）
-      const readyPromise = waitForPageReady(path, timeoutMs)
+      // 先注册握手监听再触发导航，避免极快导航下事件先于监听器触发而漏收。
+      const readyPromise = waitForNavigationReady(path, timeoutMs)
       await _navigator(path)
       await readyPromise
 

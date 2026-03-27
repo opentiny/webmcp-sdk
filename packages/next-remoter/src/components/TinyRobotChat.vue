@@ -515,7 +515,6 @@ const {
 
 // ===== 页面工具目录变化监听（用于同步刷新 remoter 工具面板）=====
 useRouteBasedTools({
-  customAgentProvider,
   onToolCatalogChanged: async () => {
     await agent.refreshTools()
     syncInstalledPluginTools()

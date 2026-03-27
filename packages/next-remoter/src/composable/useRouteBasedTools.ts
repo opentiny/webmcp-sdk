@@ -2,29 +2,13 @@ import { onMounted, onUnmounted } from 'vue'
 import { MSG_REMOTER_READY, MSG_TOOL_CATALOG_CHANGED } from '@opentiny/next-sdk'
 
 /**
- * 路由状态在简化模式下不再参与工具筛选，保留类型仅做兼容。
- */
-export type RemoteRouteState = null
-
-/**
- * 兼容旧调用：始终返回 null。
- */
-export const getRemoteRouteState = (): RemoteRouteState => null
-
-/**
  * 简化后的工具同步：
- * - 不再基于路由维护工具可见性
  * - 仅监听工具目录变化并触发 remoter 侧 refresh
  */
 export function useRouteBasedTools(options: {
-  customAgentProvider?: { setRouteStateGetter: (fn: () => RemoteRouteState) => void }
   onToolCatalogChanged?: () => void | Promise<void>
 }) {
-  const { customAgentProvider, onToolCatalogChanged } = options
-
-  if (customAgentProvider?.setRouteStateGetter) {
-    customAgentProvider.setRouteStateGetter(() => null)
-  }
+  const { onToolCatalogChanged } = options
 
   const isInIframe = typeof window !== 'undefined' && window !== window.top
   const isTrustedSource = (src: MessageEvent['source']) => src === window || (isInIframe && src === window.parent)

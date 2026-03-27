@@ -5,7 +5,6 @@ import { BaseModelProvider } from '@opentiny/tiny-robot-kit'
 import type { AIModelConfig } from '@opentiny/tiny-robot-kit'
 import { nextTick, watch, type Ref } from 'vue'
 import { AgentModelProvider, IAgentModelProviderOption } from '@opentiny/next-sdk'
-import type { RemoteRouteState } from './useRouteBasedTools'
 import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import { createDeepSeek } from '@ai-sdk/deepseek'
 import { createOpenAI } from '@ai-sdk/openai'
@@ -64,11 +63,6 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   /** 生成式UI启用状态 */
   isGenuiEnabled?: Ref<boolean>
   debugStream: boolean = false
-
-  /** 兼容旧接口：简化模式下不再依赖路由状态过滤 */
-  setRouteStateGetter(_fn: () => RemoteRouteState) {
-    // no-op
-  }
 
   constructor(config: AIModelConfig, systemPrompt: string, llmConfig?: ICustomAgentModelProviderLlmConfig) {
     super(config)
