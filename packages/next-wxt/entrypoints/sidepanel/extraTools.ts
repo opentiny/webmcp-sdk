@@ -25,6 +25,7 @@ export const useExtraTools = (server: WebMcpServer) => {
     },
     async ({ action, url, tabId }) => {
       if (action === 'open') {
+        if (!url) return { content: [{ type: 'text', text: '打开新网址工具错误: 缺少网址参数' }] }
         // 判断 URL 是否匹配
         const isUrlMatch = (tabUrl: string | undefined, targetUrl: string): boolean => {
           if (!tabUrl) return false
@@ -97,6 +98,8 @@ export const useExtraTools = (server: WebMcpServer) => {
           }
         }
       } else if (action === 'switch') {
+        if (!tabId) return { content: [{ type: 'text', text: '切换标签页工具错误: 缺少标签页 ID 参数' }] }
+
         try {
           await browser.tabs.update(tabId!, { active: true })
           return { content: [{ type: 'text', text: `已切换到标签页 ${tabId}` }] }
@@ -104,6 +107,8 @@ export const useExtraTools = (server: WebMcpServer) => {
           return { content: [{ type: 'text', text: `切换标签页工具错误: ${error.message}` }] }
         }
       } else if (action === 'close') {
+        if (!tabId) return { content: [{ type: 'text', text: '关闭标签页工具错误: 缺少标签页 ID 参数' }] }
+
         try {
           await browser.tabs.remove(tabId!)
           return { content: [{ type: 'text', text: `已关闭标签页 ${tabId}` }] }
