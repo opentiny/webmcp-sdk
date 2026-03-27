@@ -13,16 +13,41 @@ export function useRouteBasedTools(options: {
   const isInIframe = typeof window !== 'undefined' && window !== window.top
   const isTrustedSource = (src: MessageEvent['source']) => src === window || (isInIframe && src === window.parent)
 
+  let disposed = false
+  let refreshingCatalog = false
+  let refreshQueued = false
+
+  const flushToolCatalogChange = async () => {
+    if (!onToolCatalogChanged || disposed) return
+    if (refreshingCatalog) {
+      refreshQueued = true
+      return
+    }
+
+    refreshingCatalog = true
+    try {
+      do {
+        refreshQueued = false
+        try {
+          await onToolCatalogChanged()
+        } catch (error) {
+          console.warn('[useRouteBasedTools] refresh tool catalog failed:', error)
+        }
+      } while (refreshQueued && !disposed)
+    } finally {
+      refreshingCatalog = false
+    }
+  }
+
   const handleToolCatalogChanged = (event: MessageEvent) => {
     if (!isTrustedSource(event.source) || event.data?.type !== MSG_TOOL_CATALOG_CHANGED) return
-    if (onToolCatalogChanged) {
-      void Promise.resolve(onToolCatalogChanged())
-    }
+    void flushToolCatalogChange()
   }
 
   let listenersActive = false
   const start = () => {
     if (listenersActive) return
+    disposed = false
     listenersActive = true
     window.addEventListener('message', handleToolCatalogChanged)
     if (isInIframe && window.parent) {
@@ -32,6 +57,8 @@ export function useRouteBasedTools(options: {
 
   const stop = () => {
     if (!listenersActive) return
+    disposed = true
+    refreshQueued = false
     listenersActive = false
     window.removeEventListener('message', handleToolCatalogChanged)
   }

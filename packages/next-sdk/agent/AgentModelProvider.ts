@@ -858,10 +858,18 @@ export class AgentModelProvider {
     const userPrepareStep = (options as any).prepareStep
     const wrappedPrepareStep = async (stepOptions: any) => {
       syncToolsForStep()
-      if (typeof userPrepareStep === 'function') {
-        return await userPrepareStep(stepOptions)
+
+      const latestActiveTools = this._getActiveToolNames(allTools)
+      const userStepPatch = typeof userPrepareStep === 'function' ? await userPrepareStep(stepOptions) : undefined
+      const safeUserStepPatch =
+        userStepPatch && typeof userStepPatch === 'object' ? userStepPatch : ({} as Record<string, any>)
+
+      return {
+        ...safeUserStepPatch,
+        activeTools: Array.isArray(safeUserStepPatch.activeTools)
+          ? safeUserStepPatch.activeTools.filter((name: string) => latestActiveTools.includes(name))
+          : latestActiveTools
       }
-      return undefined
     }
 
     const chatOptions = {
@@ -871,7 +879,7 @@ export class AgentModelProvider {
       ...options,
       tools: allTools,
       prepareStep: wrappedPrepareStep,
-      activeTools: this._getActiveToolNames(allTools),
+      activeTools: this._getActiveToolNames(allTools)
     }
 
     // 保存最后一条 user 消息，用于后续缓存

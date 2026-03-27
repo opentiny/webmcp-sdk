@@ -444,6 +444,12 @@ export async function registerBuiltinWebMcpTool(options: {
     return true
   }
 
+  const cleanupLocalRegisterState = () => {
+    nativeToolDisposers.delete(options.name)
+    nativeRegisteredToolDefs.delete(options.name)
+    nativeRegisteredTools.delete(options.name)
+  }
+
   debugWebMcpLog('register-builtin-start', { name: options.name })
   const task = (async () => {
     const toolDefinition: BrowserBuiltinModelContextTool = {
@@ -468,6 +474,7 @@ export async function registerBuiltinWebMcpTool(options: {
     await task
     return true
   } catch (error) {
+    cleanupLocalRegisterState()
     debugWebMcpLog('register-builtin-error', {
       name: options.name,
       error: error instanceof Error ? error.message : String(error)
