@@ -9,82 +9,131 @@ import { executeSnapshotAction } from './accessibility'
 export const useExtraTools = (server: WebMcpServer) => {
   // 打开新网址
   server.registerTool(
-    'openUrl',
+    'tabs-manager',
     {
-      title: '打开新网址',
-      description: '打开新网址，如果该网址已经在标签页中打开，则切换到该标签页；否则创建新标签页',
+      title: '标签页管理',
+      description: '可以在当前环境中，打开新网址，切换标签页，关闭标签页,查询全部标签页等操作',
       inputSchema: {
-        url: z.string().describe('要打开的网址')
+        action: z
+          .enum(['open', 'switch', 'close', 'switch-pre-tab', 'list-tabs'])
+          .describe(
+            '操作类型：open（打开新网址）、switch（切换标签页）、close（关闭标签页）、switch-pre-tab（切换上一个标签页）、list-tabs（查询全部标签页）'
+          ),
+        url: z.string().optional().describe('要打开的网址。在打开新网址时必须传入该参数。'),
+        tabId: z.number().optional().describe('待操作的标签页 ID。在切换标签页时或关闭标签页时，必须传入该参数。')
       }
     },
-    async ({ url }) => {
-      // 判断 URL 是否匹配
-      const isUrlMatch = (tabUrl: string | undefined, targetUrl: string): boolean => {
-        if (!tabUrl) return false
-        try {
-          const current = new URL(tabUrl)
-          const expected = new URL(targetUrl)
-          // 完全匹配
-          if (current.href === expected.href) {
-            return true
+    async ({ action, url, tabId }) => {
+      if (action === 'open') {
+        if (!url) return { content: [{ type: 'text', text: '打开新网址工具错误: 缺少网址参数' }] }
+        // 判断 URL 是否匹配
+        const isUrlMatch = (tabUrl: string | undefined, targetUrl: string): boolean => {
+          if (!tabUrl) return false
+          try {
+            const current = new URL(tabUrl)
+            const expected = new URL(targetUrl)
+            // 完全匹配
+            if (current.href === expected.href) {
+              return true
+            }
+            // 匹配 origin 和 pathname（忽略 query 和 hash）
+            return current.origin === expected.origin && current.pathname === expected.pathname
+          } catch (error) {
+            // 如果 URL 解析失败，使用字符串匹配
+            return tabUrl.startsWith(targetUrl) || targetUrl.startsWith(tabUrl)
           }
-          // 匹配 origin 和 pathname（忽略 query 和 hash）
-          return current.origin === expected.origin && current.pathname === expected.pathname
-        } catch (error) {
-          // 如果 URL 解析失败，使用字符串匹配
-          return tabUrl.startsWith(targetUrl) || targetUrl.startsWith(tabUrl)
         }
-      }
 
-      // 查询所有标签页，查找是否已有匹配的 URL
-      const allTabs = await browser.tabs.query({})
-      const matchedTab = allTabs.find((tab) => isUrlMatch(tab.url, url))
+        // 查询所有标签页，查找是否已有匹配的 URL
+        const allTabs = await browser.tabs.query({})
+        const matchedTab = allTabs.find((tab) => isUrlMatch(tab.url, url))
 
-      let tabId: number
+        let openTabId: number
 
-      if (matchedTab && matchedTab.id) {
-        // 如果找到匹配的标签页，切换到该标签页
-        tabId = matchedTab.id
-        try {
-          await browser.tabs.update(tabId, { active: true })
-          // 如果标签页还在加载中，等待加载完成
-          if (matchedTab.status !== 'complete') {
-            await waitForTabLoad(tabId)
+        if (matchedTab && matchedTab.id) {
+          // 如果找到匹配的标签页，切换到该标签页
+          openTabId = matchedTab.id
+          try {
+            await browser.tabs.update(openTabId, { active: true })
+            // 如果标签页还在加载中，等待加载完成
+            if (matchedTab.status !== 'complete') {
+              await waitForTabLoad(openTabId)
+            }
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `网址已在标签页中打开，已切换到该标签页, tabId: ${openTabId}`
+                }
+              ]
+            }
+          } catch (error: any) {
+            // 如果切换失败，尝试创建新标签页
+            console.warn(`切换到已存在的标签页失败: ${error.message}`)
+            const createdTab = await browser.tabs.create({ url, active: true })
+            openTabId = createdTab.id!
+            await waitForTabLoad(openTabId)
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: `已打开新网址, tabId: ${openTabId}`
+                }
+              ]
+            }
           }
-          return {
-            content: [
-              {
-                type: 'text',
-                text: `网址已在标签页中打开，已切换到该标签页, tabId: ${tabId}`
-              }
-            ]
-          }
-        } catch (error: any) {
-          // 如果切换失败，尝试创建新标签页
-          console.warn(`切换到已存在的标签页失败: ${error.message}`)
+        } else {
+          // 如果没有找到匹配的标签页，创建新标签页
           const createdTab = await browser.tabs.create({ url, active: true })
-          tabId = createdTab.id!
-          await waitForTabLoad(tabId)
+          openTabId = createdTab.id!
+          // 等待页面加载完成
+          await waitForTabLoad(openTabId)
           return {
             content: [
               {
                 type: 'text',
-                text: `已打开新网址, tabId: ${tabId}`
+                text: `已打开新网址, tabId: ${openTabId}`
               }
             ]
           }
         }
-      } else {
-        // 如果没有找到匹配的标签页，创建新标签页
-        const createdTab = await browser.tabs.create({ url, active: true })
-        tabId = createdTab.id!
-        // 等待页面加载完成
-        await waitForTabLoad(tabId)
+      } else if (action === 'switch') {
+        if (!tabId) return { content: [{ type: 'text', text: '切换标签页工具错误: 缺少标签页 ID 参数' }] }
+
+        try {
+          await browser.tabs.update(tabId!, { active: true })
+          return { content: [{ type: 'text', text: `已切换到标签页 ${tabId}` }] }
+        } catch (error: any) {
+          return { content: [{ type: 'text', text: `切换标签页工具错误: ${error.message}` }] }
+        }
+      } else if (action === 'close') {
+        if (!tabId) return { content: [{ type: 'text', text: '关闭标签页工具错误: 缺少标签页 ID 参数' }] }
+
+        try {
+          await browser.tabs.remove(tabId!)
+          return { content: [{ type: 'text', text: `已关闭标签页 ${tabId}` }] }
+        } catch (error: any) {
+          return { content: [{ type: 'text', text: `关闭标签页工具错误: ${error.message}` }] }
+        }
+      } else if (action === 'switch-pre-tab') {
+        try {
+          await sendRuntimeMessage('active-pre-tab', {}, 'side->bg')
+          return { content: [{ type: 'text' as const, text: '已激活上一个标签页' }] }
+        } catch (error: any) {
+          return { content: [{ type: 'text' as const, text: `激活上一个标签页工具错误: ${error.message}` }] }
+        }
+      } else if (action === 'list-tabs') {
+        // 列出所有标签页
+        const allTabs = await browser.tabs.query({})
         return {
           content: [
             {
               type: 'text',
-              text: `已打开新网址, tabId: ${tabId}`
+              text: `所有标签页为： ${JSON.stringify(
+                allTabs.map((tab) => {
+                  return { tabId: tab.id, url: tab.url, title: tab.title }
+                })
+              )}`
             }
           ]
         }
