@@ -91,21 +91,27 @@ const server = new WebMcpServer({
 })
 
 // 注册工具
-server.registerTool('demo-tool', {
-  title: '演示工具',
-  description: '这是一个演示工具',
-  inputSchema: { 
-    foo: z.string().describe('输入参数') 
+server.registerTool(
+  'demo-tool',
+  {
+    title: '演示工具',
+    description: '这是一个演示工具',
+    inputSchema: {
+      foo: z.string().describe('输入参数')
+    }
   },
-}, async (params) => {
-  console.log('接收到参数:', params)
-  return { 
-    content: [{ 
-      type: 'text', 
-      text: `已处理: ${params.foo}` 
-    }] 
+  async (params) => {
+    console.log('接收到参数:', params)
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `已处理: ${params.foo}`
+        }
+      ]
+    }
   }
-})
+)
 
 // 连接 Server Transport
 await server.connect(serverTransport)
@@ -160,10 +166,7 @@ const sessionId = 'your-session-id'
 </script>
 
 <template>
-  <tiny-remoter 
-    :session-id="sessionId" 
-    title="我的智能助手"
-  />
+  <tiny-remoter :session-id="sessionId" title="我的智能助手" />
 </template>
 ```
 
@@ -188,33 +191,33 @@ const sessionId = 'your-session-id'
   </head>
   <body>
     <script>
-      (async () => {
-        const { WebMcpServer, createMessageChannelPairTransport, z, WebMcpClient } = WebMCP;
-        const [serverTransport, clientTransport] = createMessageChannelPairTransport();
+      ;(async () => {
+        const { WebMcpServer, createMessageChannelPairTransport, z, WebMcpClient } = WebMCP
+        const [serverTransport, clientTransport] = createMessageChannelPairTransport()
 
-        const client = new WebMcpClient();
-        await client.connect(clientTransport);
+        const client = new WebMcpClient()
+        await client.connect(clientTransport)
         const { sessionId } = await client.connect({
           agent: true,
-          url: "https://agent.opentiny.design/api/v1/webmcp-trial/mcp",
-        });
+          url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp'
+        })
 
-        const server = new WebMcpServer();
+        const server = new WebMcpServer()
         server.registerTool(
-          "demo-tool",
+          'demo-tool',
           {
-            title: "演示工具",
-            description: "一个简单工具",
-            inputSchema: { foo: z.string() },
+            title: '演示工具',
+            description: '一个简单工具',
+            inputSchema: { foo: z.string() }
           },
           async (params) => {
-            console.log("params:", params);
-            return { content: [{ type: "text", text: `收到: ${params.foo}` }] };
+            console.log('params:', params)
+            return { content: [{ type: 'text', text: `收到: ${params.foo}` }] }
           }
-        );
+        )
 
-        await server.connect(serverTransport);
-      })();
+        await server.connect(serverTransport)
+      })()
     </script>
   </body>
 </html>
@@ -268,14 +271,20 @@ const server = new WebMcpServer({
 })
 
 // 注册工具
-server.registerTool('tool-name', {
-  title: '工具标题',
-  description: '工具描述',
-  inputSchema: { /* Zod schema */ }
-}, async (params) => {
-  // 工具处理逻辑
-  return { content: [{ type: 'text', text: '结果' }] }
-})
+server.registerTool(
+  'tool-name',
+  {
+    title: '工具标题',
+    description: '工具描述',
+    inputSchema: {
+      /* Zod schema */
+    }
+  },
+  async (params) => {
+    // 工具处理逻辑
+    return { content: [{ type: 'text', text: '结果' }] }
+  }
+)
 ```
 
 ### WebMcpClient
@@ -593,17 +602,21 @@ const { sessionId } = await client.connect({
 使用 `server.registerTool()` 注册自定义工具：
 
 ```typescript
-server.registerTool('my-tool', {
-  title: '我的工具',
-  description: '工具描述',
-  inputSchema: { 
-    param1: z.string(),
-    param2: z.number()
+server.registerTool(
+  'my-tool',
+  {
+    title: '我的工具',
+    description: '工具描述',
+    inputSchema: {
+      param1: z.string(),
+      param2: z.number()
+    }
+  },
+  async (params) => {
+    // 实现工具逻辑
+    return { content: [{ type: 'text', text: '执行结果' }] }
   }
-}, async (params) => {
-  // 实现工具逻辑
-  return { content: [{ type: 'text', text: '执行结果' }] }
-})
+)
 ```
 
 ### 3. 支持哪些大语言模型？

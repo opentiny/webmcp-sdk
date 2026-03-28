@@ -70,7 +70,7 @@ Vue3 AI chat component based on `@opentiny/tiny-robot`, providing:
 - Multi-model switching support
 - Generative UI rendering
 
-See: [@opentiny/next-remoter Docs](../next-remoter/README.md)
+See: [@opentiny/next-remoter Docs](packages/next-remoter/README.md)
 
 ## 🚀 Quick Start
 
@@ -97,21 +97,27 @@ const server = new WebMcpServer({
 })
 
 // Register tool
-server.registerTool('demo-tool', {
-  title: 'Demo Tool',
-  description: 'This is a demo tool',
-  inputSchema: { 
-    foo: z.string().describe('Input parameter') 
+server.registerTool(
+  'demo-tool',
+  {
+    title: 'Demo Tool',
+    description: 'This is a demo tool',
+    inputSchema: {
+      foo: z.string().describe('Input parameter')
+    }
   },
-}, async (params) => {
-  console.log('Received parameters:', params)
-  return { 
-    content: [{ 
-      type: 'text', 
-      text: `Processed: ${params.foo}` 
-    }] 
+  async (params) => {
+    console.log('Received parameters:', params)
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Processed: ${params.foo}`
+        }
+      ]
+    }
   }
-})
+)
 
 // Connect Server Transport
 await server.connect(serverTransport)
@@ -188,12 +194,7 @@ onMounted(async () => {
 
 <template>
   <!-- Pass WebSkills docs via skills for progressive disclosure; bind local WebMCP via mcpServers to expose business tools -->
-  <tiny-remoter
-    class="remoter-pane"
-    :skills="skillMdModules"
-    :mcpServers="mcpServers"
-    title="My AI Assistant"
-  />
+  <tiny-remoter class="remoter-pane" :skills="skillMdModules" :mcpServers="mcpServers" title="My AI Assistant" />
 </template>
 ```
 
@@ -201,7 +202,7 @@ onMounted(async () => {
 
 The remote controller will display an icon in the bottom right corner of your application. Hover over it to select:
 
-- 💬 **Pop up AI Chat Box**: Open the AI chat interface on the side of the application.
+- 💬 **Pop-up AI Chat Box**: Open the AI chat interface on the side of the application.
 - 📱 **Show QR Code**: Open the mobile remote controller after scanning with a phone.
 
 Whether on PC or mobile, you can use natural language to let AI help you operate the application, greatly improving work efficiency!
@@ -218,33 +219,33 @@ You can also import NEXT-SDKs directly through browser HTML tags, allowing you t
   </head>
   <body>
     <script>
-      (async () => {
-        const { WebMcpServer, createMessageChannelPairTransport, z, WebMcpClient } = WebMCP;
-        const [serverTransport, clientTransport] = createMessageChannelPairTransport();
+      ;(async () => {
+        const { WebMcpServer, createMessageChannelPairTransport, z, WebMcpClient } = WebMCP
+        const [serverTransport, clientTransport] = createMessageChannelPairTransport()
 
-        const client = new WebMcpClient();
-        await client.connect(clientTransport);
+        const client = new WebMcpClient()
+        await client.connect(clientTransport)
         const { sessionId } = await client.connect({
           agent: true,
-          url: "https://agent.opentiny.design/api/v1/webmcp-trial/mcp",
-        });
+          url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp'
+        })
 
-        const server = new WebMcpServer();
+        const server = new WebMcpServer()
         server.registerTool(
-          "demo-tool",
+          'demo-tool',
           {
-            title: "Demo Tool",
-            description: "A simple tool",
-            inputSchema: { foo: z.string() },
+            title: 'Demo Tool',
+            description: 'A simple tool',
+            inputSchema: { foo: z.string() }
           },
           async (params) => {
-            console.log("params:", params);
-            return { content: [{ type: "text", text: `Received: ${params.foo}` }] };
+            console.log('params:', params)
+            return { content: [{ type: 'text', text: `Received: ${params.foo}` }] }
           }
-        );
+        )
 
-        await server.connect(serverTransport);
-      })();
+        await server.connect(serverTransport)
+      })()
     </script>
   </body>
 </html>
@@ -254,7 +255,7 @@ You can also import NEXT-SDKs directly through browser HTML tags, allowing you t
 
 ### Architecture Overview
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                       Front-end App                         │
 │  ┌──────────────────┐              ┌───────────────────┐   │
@@ -298,14 +299,20 @@ const server = new WebMcpServer({
 })
 
 // Register tool
-server.registerTool('tool-name', {
-  title: 'Tool Title',
-  description: 'Tool Description',
-  inputSchema: { /* Zod schema */ }
-}, async (params) => {
-  // Tool logic
-  return { content: [{ type: 'text', text: 'Result' }] }
-})
+server.registerTool(
+  'tool-name',
+  {
+    title: 'Tool Title',
+    description: 'Tool Description',
+    inputSchema: {
+      /* Zod schema */
+    }
+  },
+  async (params) => {
+    // Tool logic
+    return { content: [{ type: 'text', text: 'Result' }] }
+  }
+)
 ```
 
 ### WebMcpClient
@@ -377,7 +384,7 @@ pnpm install
 
 ### Project Structure
 
-```
+```text
 next-sdk/
 ├── packages/
 │   ├── next-sdk/              # Core SDK package
@@ -590,11 +597,11 @@ If you find a Bug or have feature suggestions, please feedback through:
 
 It is recommended to refer directly to the following example projects, clone or implement them according to your tech stack:
 
-| Tech Stack   | Example Project | Description |
-|--------------|-----------------|-------------|
-| **Vue**      | [doc-ai](packages/doc-ai) | Vue3 + Vite, local WebMCP Server, skills docs (Markdown) and TinyRemoter integration |
-| **Angular**  | [doc-ai-angular](packages/doc-ai-angular) | Angular main app + iframe Remoter, connected to WebMCP via MessageChannel |
-| **React**    | [doc-ai-react](packages/doc-ai-react) | React main app + iframe Remoter, similar WebMCP + WebSkills architecture to Vue version |
+| Tech Stack  | Example Project                           | Description                                                                             |
+| ----------- | ----------------------------------------- | --------------------------------------------------------------------------------------- |
+| **Vue**     | [doc-ai](packages/doc-ai)                 | Vue3 + Vite, local WebMCP Server, skills docs (Markdown) and TinyRemoter integration    |
+| **Angular** | [doc-ai-angular](packages/doc-ai-angular) | Angular main app + iframe Remoter, connected to WebMCP via MessageChannel               |
+| **React**   | [doc-ai-react](packages/doc-ai-react)     | React main app + iframe Remoter, similar WebMCP + WebSkills architecture to Vue version |
 
 Accompanying Documentation:
 
@@ -637,17 +644,21 @@ const { sessionId } = await client.connect({
 Use `server.registerTool()` to register custom tools:
 
 ```typescript
-server.registerTool('my-tool', {
-  title: 'My Tool',
-  description: 'Tool description',
-  inputSchema: { 
-    param1: z.string(),
-    param2: z.number()
+server.registerTool(
+  'my-tool',
+  {
+    title: 'My Tool',
+    description: 'Tool description',
+    inputSchema: {
+      param1: z.string(),
+      param2: z.number()
+    }
+  },
+  async (params) => {
+    // Implement tool logic
+    return { content: [{ type: 'text', text: 'Execution result' }] }
   }
-}, async (params) => {
-  // Implement tool logic
-  return { content: [{ type: 'text', text: 'Execution result' }] }
-})
+)
 ```
 
 ### 3. Which LLMs are supported?

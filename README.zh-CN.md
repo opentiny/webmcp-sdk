@@ -70,7 +70,7 @@
 - 多模型切换支持
 - 生成式 UI 渲染
 
-详见：[@opentiny/next-remoter 文档](../next-remoter/README.md)
+详见：[@opentiny/next-remoter 文档](packages/next-remoter/README.md)
 
 ## 🚀 快速开始
 
@@ -97,21 +97,27 @@ const server = new WebMcpServer({
 })
 
 // 注册工具
-server.registerTool('demo-tool', {
-  title: '演示工具',
-  description: '这是一个演示工具',
-  inputSchema: { 
-    foo: z.string().describe('输入参数') 
+server.registerTool(
+  'demo-tool',
+  {
+    title: '演示工具',
+    description: '这是一个演示工具',
+    inputSchema: {
+      foo: z.string().describe('输入参数')
+    }
   },
-}, async (params) => {
-  console.log('接收到参数:', params)
-  return { 
-    content: [{ 
-      type: 'text', 
-      text: `已处理: ${params.foo}` 
-    }] 
+  async (params) => {
+    console.log('接收到参数:', params)
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `已处理: ${params.foo}`
+        }
+      ]
+    }
   }
-})
+)
 
 // 连接 Server Transport
 await server.connect(serverTransport)
@@ -188,12 +194,7 @@ onMounted(async () => {
 
 <template>
   <!-- 通过 skills 传入 WebSkills 文档实现渐进式披露；通过 mcpServers 绑定本地 WebMCP 暴露业务工具 -->
-  <tiny-remoter
-    class="remoter-pane"
-    :skills="skillMdModules"
-    :mcpServers="mcpServers"
-    title="我的智能助手"
-  />
+  <tiny-remoter class="remoter-pane" :skills="skillMdModules" :mcpServers="mcpServers" title="我的智能助手" />
 </template>
 ```
 
@@ -218,33 +219,33 @@ onMounted(async () => {
   </head>
   <body>
     <script>
-      (async () => {
-        const { WebMcpServer, createMessageChannelPairTransport, z, WebMcpClient } = WebMCP;
-        const [serverTransport, clientTransport] = createMessageChannelPairTransport();
+      ;(async () => {
+        const { WebMcpServer, createMessageChannelPairTransport, z, WebMcpClient } = WebMCP
+        const [serverTransport, clientTransport] = createMessageChannelPairTransport()
 
-        const client = new WebMcpClient();
-        await client.connect(clientTransport);
+        const client = new WebMcpClient()
+        await client.connect(clientTransport)
         const { sessionId } = await client.connect({
           agent: true,
-          url: "https://agent.opentiny.design/api/v1/webmcp-trial/mcp",
-        });
+          url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp'
+        })
 
-        const server = new WebMcpServer();
+        const server = new WebMcpServer()
         server.registerTool(
-          "demo-tool",
+          'demo-tool',
           {
-            title: "演示工具",
-            description: "一个简单工具",
-            inputSchema: { foo: z.string() },
+            title: '演示工具',
+            description: '一个简单工具',
+            inputSchema: { foo: z.string() }
           },
           async (params) => {
-            console.log("params:", params);
-            return { content: [{ type: "text", text: `收到: ${params.foo}` }] };
+            console.log('params:', params)
+            return { content: [{ type: 'text', text: `收到: ${params.foo}` }] }
           }
-        );
+        )
 
-        await server.connect(serverTransport);
-      })();
+        await server.connect(serverTransport)
+      })()
     </script>
   </body>
 </html>
@@ -254,7 +255,7 @@ onMounted(async () => {
 
 ### 架构概览
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────┐
 │                       前端应用                                │
 │  ┌──────────────────┐              ┌───────────────────┐   │
@@ -298,14 +299,20 @@ const server = new WebMcpServer({
 })
 
 // 注册工具
-server.registerTool('tool-name', {
-  title: '工具标题',
-  description: '工具描述',
-  inputSchema: { /* Zod schema */ }
-}, async (params) => {
-  // 工具处理逻辑
-  return { content: [{ type: 'text', text: '结果' }] }
-})
+server.registerTool(
+  'tool-name',
+  {
+    title: '工具标题',
+    description: '工具描述',
+    inputSchema: {
+      /* Zod schema */
+    }
+  },
+  async (params) => {
+    // 工具处理逻辑
+    return { content: [{ type: 'text', text: '结果' }] }
+  }
+)
 ```
 
 ### WebMcpClient
@@ -377,7 +384,7 @@ pnpm install
 
 ### 项目结构
 
-```
+```text
 next-sdk/
 ├── packages/
 │   ├── next-sdk/              # 核心 SDK 包
@@ -591,11 +598,11 @@ npm publish
 
 推荐直接参考以下示例项目，按你使用的技术栈克隆或对照实现：
 
-| 技术栈   | 示例工程 | 说明 |
-|----------|----------|------|
-| **Vue**  | [doc-ai](packages/doc-ai) | Vue3 + Vite，本地 WebMCP Server、skills 文档（Markdown）与 TinyRemoter 集成 |
-| **Angular** | [doc-ai-angular](packages/doc-ai-angular) | Angular 主应用 + iframe Remoter，通过 MessageChannel 与 WebMCP 打通 |
-| **React** | [doc-ai-react](packages/doc-ai-react) | React 主应用 + iframe Remoter，与 Vue 版类似的 WebMCP + WebSkills 架构 |
+| 技术栈      | 示例工程                                  | 说明                                                                        |
+| ----------- | ----------------------------------------- | --------------------------------------------------------------------------- |
+| **Vue**     | [doc-ai](packages/doc-ai)                 | Vue3 + Vite，本地 WebMCP Server、skills 文档（Markdown）与 TinyRemoter 集成 |
+| **Angular** | [doc-ai-angular](packages/doc-ai-angular) | Angular 主应用 + iframe Remoter，通过 MessageChannel 与 WebMCP 打通         |
+| **React**   | [doc-ai-react](packages/doc-ai-react)     | React 主应用 + iframe Remoter，与 Vue 版类似的 WebMCP + WebSkills 架构      |
 
 配套文档：
 
@@ -638,17 +645,21 @@ const { sessionId } = await client.connect({
 使用 `server.registerTool()` 注册自定义工具：
 
 ```typescript
-server.registerTool('my-tool', {
-  title: '我的工具',
-  description: '工具描述',
-  inputSchema: { 
-    param1: z.string(),
-    param2: z.number()
+server.registerTool(
+  'my-tool',
+  {
+    title: '我的工具',
+    description: '工具描述',
+    inputSchema: {
+      param1: z.string(),
+      param2: z.number()
+    }
+  },
+  async (params) => {
+    // 实现工具逻辑
+    return { content: [{ type: 'text', text: '执行结果' }] }
   }
-}, async (params) => {
-  // 实现工具逻辑
-  return { content: [{ type: 'text', text: '执行结果' }] }
-})
+)
 ```
 
 ### 3. 支持哪些大语言模型？
