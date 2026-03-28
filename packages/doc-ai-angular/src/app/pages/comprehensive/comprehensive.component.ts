@@ -17,12 +17,10 @@ type Product = {
   image?: string
 }
 
-import { ChatRemoterComponent } from '../../components/chat-remoter/chat-remoter.component'
-
 @Component({
   selector: 'app-comprehensive',
   standalone: true,
-  imports: [NgFor, NgIf, FormsModule, ChatRemoterComponent],
+  imports: [NgFor, NgIf, FormsModule],
   templateUrl: './comprehensive.component.html',
   styleUrl: './comprehensive.component.scss'
 })
@@ -39,14 +37,14 @@ export class ComprehensiveComponent implements OnInit, OnDestroy {
   editingCell: { id: number; field: string } | null = null
   editingValue = ''
 
-  // 用于存储 registerPageTool 返回的 cleanup 函数
-  private cleanupPageTool!: () => void
+  // 用于存储工具注册的 cleanup 函数
+  private toolCleanups: Array<() => void> = []
 
   ngOnInit(): void {
     /**
      * 注册 MCP 工具：声明与执行逻辑合一
      */
-    server.registerTool(
+    const registered = server.registerTool(
       'product-guide',
       {
         title: '产品指南',
@@ -57,17 +55,17 @@ export class ComprehensiveComponent implements OnInit, OnDestroy {
       },
       async ({ productId }: { productId: string }) => {
         const product = this.products.find((p) => String(p.id) === productId)
-        const text = product
-          ? `产品信息：${JSON.stringify(product, null, 2)}`
-          : `未找到产品 ID 为 ${productId} 的商品`
+        const text = product ? `产品信息：${JSON.stringify(product, null, 2)}` : `未找到产品 ID 为 ${productId} 的商品`
         return { content: [{ type: 'text', text }] }
       }
     )
+    this.toolCleanups.push(registered.remove)
   }
 
   ngOnDestroy(): void {
-    // 组件销毁时取消注册
-    server.unregisterTool('product-guide')
+    // 依次执行所有已注册工具的清理句柄，解决实例竞态问题
+    this.toolCleanups.forEach((cleanup) => cleanup())
+    this.toolCleanups = []
   }
 
   // 开始行内编辑

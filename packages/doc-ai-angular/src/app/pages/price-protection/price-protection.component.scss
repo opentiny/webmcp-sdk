@@ -108,15 +108,15 @@
   margin-right: 8px;
 
   &.btn-success {
-    background-color: #3b82f6;
+    background-color: #2563eb;
     color: white;
-    &:hover { background-color: #2563eb; }
+    &:hover { background-color: #1d4ed8; }
   }
 
   &.btn-danger {
-    background-color: #ef4444;
+    background-color: #dc2626;
     color: white;
-    &:hover { background-color: #dc2626; }
+    &:hover { background-color: #b91c1c; }
   }
 }
 

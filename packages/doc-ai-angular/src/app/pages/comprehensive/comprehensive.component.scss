@@ -91,7 +91,8 @@
 
 .product-id {
   font-size: 11px;
-  color: #94a3b8;
+  color: #64748b;
+  font-weight: 500;
   margin-top: 2px;
 }
 
@@ -151,14 +152,14 @@
   border: 1px solid transparent;
 
   &.btn-success {
-    background-color: #3b82f6;
+    background-color: #2563eb;
     color: white;
-    &:hover { background-color: #2563eb; }
+    &:hover { background-color: #1d4ed8; }
   }
 
   &.btn-danger {
-    background-color: #ef4444;
+    background-color: #dc2626;
     color: white;
-    &:hover { background-color: #dc2626; }
+    &:hover { background-color: #b91c1c; }
   }
 }
