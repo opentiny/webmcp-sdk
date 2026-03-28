@@ -3,11 +3,12 @@ import { Router } from '@angular/router'
 import { RouterOutlet } from '@angular/router'
 import { setNavigator } from '@opentiny/next-sdk'
 import { createMcpServer } from '../mcp-servers'
+import { ChatRemoterComponent } from './components/chat-remoter/chat-remoter.component'
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, ChatRemoterComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })

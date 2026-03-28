@@ -159,9 +159,46 @@ export class AppComponent implements OnInit {
 
 ---
 
-## 第二步：主窗口布局中嵌入 iframe（Remoter）
+## 第二步：主窗口布局中嵌入 AI 助手组件
 
-主应用布局中预留一块区域，用 **iframe** 加载 Remoter 的入口页面。Remoter 以独立开发服务运行（如 Vite 端口 5179），通过代理将 `/remoter.html` 转发到该服务。
+为了提高代码的可维护性和一致性，**强烈建议**将 iframe 聊天容器抽象为一个独立的 Angular 组件（例如 `ChatRemoterComponent`）。
+
+### 2.1 创建 ChatRemoter 组件
+
+在主应用中创建一个独立组件来封装 iframe：
+
+```ts
+// src/app/components/chat-remoter/chat-remoter.component.ts
+import { Component, Input } from '@angular/core';
+
+@Component({
+  selector: 'app-chat-remoter',
+  standalone: true,
+  template: `
+    <aside class="remoter-sidebar">
+      <iframe
+        class="remoter-frame"
+        [src]="src"
+        frameborder="0"
+        allow="clipboard-write"
+        [title]="title"
+      ></iframe>
+    </aside>
+  `,
+  styles: [`
+    .remoter-sidebar { width: 400px; height: 100%; border-left: 1px solid #e5e7eb; }
+    .remoter-frame { width: 100%; height: 100%; border: none; }
+  `]
+})
+export class ChatRemoterComponent {
+  @Input() src = '/remoter.html';
+  @Input() title = 'AI 助手';
+}
+```
+
+### 2.2 在布局中使用组件
+
+在 `AppComponent` 中引入并使用该组件：
 
 ```html
 <!-- src/app/app.component.html -->
@@ -169,16 +206,8 @@ export class AppComponent implements OnInit {
   <div class="main-content">
     <router-outlet />
   </div>
-  <aside class="remoter-sidebar">
-    <iframe
-      #remoterFrame
-      class="remoter-frame"
-      src="/remoter.html"
-      frameborder="0"
-      allow="clipboard-write"
-      title="AI 助手"
-    ></iframe>
-  </aside>
+  <!-- 使用封装后的 AI 助手组件 -->
+  <app-chat-remoter />
 </div>
 ```
 

@@ -17,10 +17,12 @@ type Product = {
   image?: string
 }
 
+import { ChatRemoterComponent } from '../../components/chat-remoter/chat-remoter.component'
+
 @Component({
   selector: 'app-comprehensive',
   standalone: true,
-  imports: [NgFor, NgIf, FormsModule],
+  imports: [NgFor, NgIf, FormsModule, ChatRemoterComponent],
   templateUrl: './comprehensive.component.html',
   styleUrl: './comprehensive.component.scss'
 })
