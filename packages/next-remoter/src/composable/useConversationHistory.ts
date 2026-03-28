@@ -55,6 +55,7 @@ export function useConversationHistory(options: {
     const aiSdkMessages: any[] = []
     customAgentProvider.agent.responseMessages = aiSdkMessages
 
+    debugger
     // 创建新会话
     createConversation()
 

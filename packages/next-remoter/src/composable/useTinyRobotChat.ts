@@ -42,7 +42,7 @@ export const useTinyRobotChat = ({ systemPrompt, llmConfig, emit }: useTinyRobot
     state: conversationState // 记录着所有的会话和 currentId
   } = useConversation({
     client,
-    autoSave: false,
+    autoSave: true,
     events: {
       onLoaded() {
         // 会话加载完成（初始化将在组件的 onMounted 中调用）
@@ -83,6 +83,7 @@ export const useTinyRobotChat = ({ systemPrompt, llmConfig, emit }: useTinyRobot
 
     // 第一次发送时，修改会话标题
     const conv = getCurrentConversation()
+    debugger
     if (conv && conv.title === '新会话') {
       updateTitle(conv.id, inputMessage.value.slice(0, 15))
     }
