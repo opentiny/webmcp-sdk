@@ -138,7 +138,7 @@ const ecommercePillItems = [
       {
         id: 0,
         text: '创建价保',
-        inputMessage: '帮我给用户王五创建一个价保申请单，金额 1000 元，原因为百亿补贴。。'
+        inputMessage: '帮我给用户王五创建一个价保申请单，金额 1000 元，原因为百亿补贴。'
       },
       { id: 1, text: '查价保单', inputMessage: '帮我查看当前待审核的价保申请列表。' }
     ]

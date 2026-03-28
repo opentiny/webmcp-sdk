@@ -1,8 +1,6 @@
 # OpenTiny NEXT-SDKs
 
-<p align="center">
-  [English](README.md) | 简体中文
-</p>
+[English](README.md) | 简体中文
 
 <p align="center">
   <strong>一套前端智能应用开发工具包，让你的应用瞬间拥有 AI 能力。用 WebMCP + WebSkills，几行代码让「现有业务应用」秒变智能应用</strong>

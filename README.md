@@ -1,8 +1,6 @@
 # OpenTiny NEXT-SDKs
 
-<p align="center">
-  English | [简体中文](README.zh-CN.md)
-</p>
+English | [简体中文](README.zh-CN.md)
 
 <p align="center">
   <strong>A toolkit for front-end intelligent application development, making your applications AI-capable instantly. With WebMCP + WebSkills, transform "existing business applications" into intelligent ones in just a few lines of code.</strong>
