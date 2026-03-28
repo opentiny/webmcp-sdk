@@ -1,11 +1,14 @@
 <div class="products-page">
-  <div class="page-header"><h3>商品管理</h3></div>
+  <div class="page-header">
+    <h3>商品管理</h3>
+    <div class="header-badge">实时库存监控已开启</div>
+  </div>
   <div class="page-content">
     <table class="data-table">
       <thead>
         <tr>
           <th style="width: 50px">#</th>
-          <th>商品名称</th>
+          <th>商品信息</th>
           <th>价格</th>
           <th>库存</th>
           <th>分类</th>
@@ -17,25 +20,31 @@
         <tr *ngFor="let product of products; let i = index">
           <td>{{ i + 1 }}</td>
           <td>
-            <ng-container *ngIf="isEditing(product.id, 'name'); else nameView">
-              <input
-                class="cell-input"
-                [(ngModel)]="editingValue"
-                (blur)="saveEdit(product)"
-                (keyup.enter)="saveEdit(product)"
-                (keyup.escape)="cancelEdit()"
-                autofocus
-              />
-            </ng-container>
-            <ng-template #nameView>
-              <button
-                type="button"
-                class="editable-cell"
-                (click)="startEdit(product.id, 'name', product.name)"
-              >
-                {{ product.name }}
-              </button>
-            </ng-template>
+            <div class="product-info-cell">
+              <div class="product-icon">📦</div>
+              <div class="product-name-wrap">
+                <ng-container *ngIf="isEditing(product.id, 'name'); else nameView">
+                  <input
+                    class="cell-input"
+                    [(ngModel)]="editingValue"
+                    (blur)="saveEdit(product)"
+                    (keyup.enter)="saveEdit(product)"
+                    (keyup.escape)="cancelEdit()"
+                    autofocus
+                  />
+                </ng-container>
+                <ng-template #nameView>
+                  <button
+                    type="button"
+                    class="editable-cell"
+                    (click)="startEdit(product.id, 'name', product.name)"
+                  >
+                    {{ product.name }}
+                  </button>
+                </ng-template>
+                <div class="product-id">ID: {{ product.id }}</div>
+              </div>
+            </div>
           </td>
           <td>
             <ng-container *ngIf="isEditing(product.id, 'price'); else priceView">
@@ -69,7 +78,7 @@
                 (keyup.escape)="cancelEdit()"
               />
             </ng-container>
-            <ng-template #stockView>
+            <ng-template #priceView>
               <button
                 type="button"
                 class="editable-cell"

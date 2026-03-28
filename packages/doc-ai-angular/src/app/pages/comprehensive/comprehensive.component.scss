@@ -1,107 +1,164 @@
 .products-page {
   padding: 24px;
-  background: #f5f7fa;
+  background-color: #f7f8fc;
   min-height: 100vh;
-  box-sizing: border-box;
 }
-.products-page .page-header {
+
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
+  h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #1e1b4b;
+    margin: 0;
+  }
 }
-.products-page .page-header h3 {
-  margin: 0;
-  font-size: 18px;
+
+.header-badge {
+  background: #e0e7ff;
+  color: #4338ca;
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 12px;
   font-weight: 600;
-  color: #1a1a1a;
 }
+
 .page-content {
-  padding: 20px;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.03);
-  overflow: auto;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+  padding: 24px;
+  overflow: hidden;
 }
+
 .data-table {
   width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
+  border-collapse: separate;
+  border-spacing: 0;
+  
+  th {
+    background-color: #f8fafc;
+    padding: 14px 16px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #64748b;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+    border-bottom: 1px solid #edf2f7;
+    text-align: left;
+  }
+
+  td {
+    padding: 16px;
+    border-bottom: 1px solid #edf2f7;
+    color: #334155;
+    vertical-align: middle;
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+
+  tr:hover td {
+    background-color: #f9fafb;
+  }
 }
-.data-table th,
-.data-table td {
-  padding: 12px 14px;
-  text-align: left;
-  border-bottom: 1px solid #f0f0f0;
+
+.product-info-cell {
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
-.data-table th {
-  background: #fafafa;
-  color: #595959;
-  font-weight: 500;
-  font-size: 13px;
+
+.product-icon {
+  width: 40px;
+  height: 40px;
+  background: #f1f5f9;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
 }
-.data-table tr:hover td {
-  background: #fafafa;
+
+.product-name-wrap {
+  display: flex;
+  flex-direction: column;
 }
-/* 可编辑单元格：用 button 以支持键盘聚焦与 Enter/Space 触发，样式与原文一致 */
+
+.product-id {
+  font-size: 11px;
+  color: #94a3b8;
+  margin-top: 2px;
+}
+
 .editable-cell {
+  background: transparent;
+  border: 1px dashed transparent;
+  padding: 4px 8px;
+  border-radius: 4px;
   cursor: pointer;
-  padding: 2px 4px;
-  border-radius: 3px;
-  border: none;
-  background: none;
-  font: inherit;
-  color: inherit;
-  text-align: left;
   width: 100%;
+  text-align: left;
+  transition: all 0.2s;
+  
+  &:hover {
+    background-color: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #2563eb;
+  }
 }
-.editable-cell:hover {
-  background: #e6f4ff;
-  color: #1677ff;
-}
+
 .cell-input {
   width: 100%;
-  padding: 4px 8px;
-  border: 1px solid #1677ff;
-  border-radius: 4px;
-  font-size: 14px;
+  padding: 6px 10px;
+  border: 2px solid #3b82f6;
+  border-radius: 6px;
   outline: none;
-  box-sizing: border-box;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  font-size: 14px;
 }
+
 .tag {
-  display: inline-block;
-  padding: 2px 10px;
-  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 9999px;
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 600;
+  
+  &.tag-success {
+    background-color: #f0fdf4;
+    color: #166534;
+  }
+  
+  &.tag-warning {
+    background-color: #fffbeb;
+    color: #92400e;
+  }
 }
-.tag.tag-success {
-  background: #f6ffed;
-  color: #52c41a;
-  border: 1px solid #b7eb8f;
-}
-.tag.tag-warning {
-  background: #fff7e6;
-  color: #fa8c16;
-  border: 1px solid #ffd591;
-}
+
 .action-btn {
-  padding: 4px 12px;
-  font-size: 12px;
-  border: none;
-  border-radius: 4px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-}
-.action-btn:hover {
-  opacity: 0.8;
-}
-.action-btn.btn-danger {
-  background: #fff1f0;
-  color: #ff4d4f;
-  border: 1px solid #ffccc7;
-}
-.action-btn.btn-success {
-  background: #f6ffed;
-  color: #52c41a;
-  border: 1px solid #b7eb8f;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+
+  &.btn-success {
+    background-color: #3b82f6;
+    color: white;
+    &:hover { background-color: #2563eb; }
+  }
+
+  &.btn-danger {
+    background-color: #ef4444;
+    color: white;
+    &:hover { background-color: #dc2626; }
+  }
 }

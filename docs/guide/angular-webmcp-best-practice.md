@@ -8,11 +8,9 @@
 
 ## 破坏性变更（Breaking Change）
 
-> 新版本已移除 `TinyRemoter` 的 `pageToolsOnDemand` 属性。
-
-- 旧配置 `:pageToolsOnDemand="true"` 需要删除；
+- 旧配置 `:pageToolsOnDemand="true"` 需要删除 (新版本默认为按需感知)；
 - Remoter 统一通过 `listTools` 实时感知工具目录变化；
-- Page Tool Bridge 调用链路不变，推荐使用页面内 `registerTool/unregisterTool` 按需注册工具。
+- Page Tool Bridge 调用链路已简化，**强烈推荐**使用组件内 `server.registerTool/server.unregisterTool` 一体化注册。
 
 迁移建议：
 
@@ -111,8 +109,8 @@ pnpm add @opentiny/next-sdk
 ```json
 {
   "dependencies": {
-    "@opentiny/next-sdk": "0.2.6-beta.0",
-    "@opentiny/next-remoter": "workspace:*"
+    "@opentiny/next-sdk": "0.3.0-alpha.0",
+    "@opentiny/next-remoter": "0.3.0-alpha.0"
   }
 }
 ```
@@ -210,18 +208,16 @@ const rawServer = new WebMcpServer()
 
 /**
  * withPageTools 包装后，支持页面工具桥接能力（导航、握手、消息分发）。
- * 推荐把业务工具放在页面组件内按需 register/unregister。
  */
 export const server = withPageTools(rawServer)
 
 /**
- * 初始化 MCP Server：创建 MessageChannel 服务端传输层，
- * 监听 iframe（remoter.html）中 TinyRemoter 的 MCP 连接。
- * 对应 iframe 侧：createMessageChannelClientTransport('local-mcp', window.parent)
+ * 初始化 MCP Server：创建 MessageChannel 服务端传输层
  */
 export const createMcpServer = async () => {
-  // 注册通用页面跳转工具 navigate_to_page（内部使用 setNavigator + 等待页面就绪握手）
+  // 注册通用页面跳转工具 navigate_to_page
   registerNavigateTool(rawServer)
+  
   const serverTransport = createMessageChannelServerTransport('local-mcp')
   await serverTransport.listen()
   await rawServer.connect(serverTransport)
@@ -309,18 +305,19 @@ const mcpServers = {
 ### 5.1 单工具示例（商品指南）
 
 ```ts
-// src/app/pages/comprehensive/comprehensive.component.ts（节选）
+// src/app/pages/comprehensive/comprehensive.component.ts
 import { Component, OnInit, OnDestroy } from '@angular/core'
 import { z } from '@opentiny/next-sdk'
 import { server } from '../../../mcp-servers'
 
+@Component({ ... })
 export class ComprehensiveComponent implements OnInit, OnDestroy {
-  products: Product[] = productsData as Product[]
-  private readonly toolName = 'product-guide'
+  products: Product[] = []
 
   ngOnInit(): void {
+    // 声明与逻辑合体注册
     server.registerTool(
-      this.toolName,
+      'product-guide',
       {
         title: '产品指南',
         description: '根据产品 ID 获取产品详细信息',
@@ -330,14 +327,17 @@ export class ComprehensiveComponent implements OnInit, OnDestroy {
       },
       async ({ productId }: { productId: string }) => {
         const product = this.products.find((p) => String(p.id) === productId)
-        const text = product ? `产品信息：${JSON.stringify(product, null, 2)}` : `未找到产品 ID 为 ${productId} 的商品`
+        const text = product 
+          ? `产品信息：${JSON.stringify(product, null, 2)}` 
+          : `未找到 ID 为 ${productId} 的商品`
         return { content: [{ type: 'text', text }] }
       }
     )
   }
 
   ngOnDestroy(): void {
-    server.unregisterTool(this.toolName)
+    // 离场时必须取消注册，确保工具目录实时更新
+    server.unregisterTool('product-guide')
   }
 }
 ```

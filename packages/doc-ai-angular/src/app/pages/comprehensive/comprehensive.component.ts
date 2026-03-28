@@ -1,7 +1,8 @@
 import { Component, OnInit, OnDestroy } from '@angular/core'
 import { NgFor, NgIf } from '@angular/common'
 import { FormsModule } from '@angular/forms'
-import { registerPageTool } from '@opentiny/next-sdk'
+import { z } from '@opentiny/next-sdk'
+import { server } from '../../../mcp-servers'
 import productsData from './products.json'
 
 // 商品类型定义
@@ -41,25 +42,30 @@ export class ComprehensiveComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     /**
-     * 注册 MCP 工具处理器（框架无关的纯 JS 函数）
-     * route 省略时默认读 window.location.pathname（即 /comprehensive）
+     * 注册 MCP 工具：声明与执行逻辑合一
      */
-    this.cleanupPageTool = registerPageTool({
-      handlers: {
-        'product-guide': async ({ productId }: { productId: string }) => {
-          const product = this.products.find((p) => String(p.id) === productId)
-          const text = product
-            ? `产品信息：${JSON.stringify(product, null, 2)}`
-            : `未找到产品 ID 为 ${productId} 的商品`
-          return { content: [{ type: 'text', text }] }
+    server.registerTool(
+      'product-guide',
+      {
+        title: '产品指南',
+        description: '根据产品ID获取产品详细信息',
+        inputSchema: {
+          productId: z.string().describe('产品ID')
         }
+      },
+      async ({ productId }: { productId: string }) => {
+        const product = this.products.find((p) => String(p.id) === productId)
+        const text = product
+          ? `产品信息：${JSON.stringify(product, null, 2)}`
+          : `未找到产品 ID 为 ${productId} 的商品`
+        return { content: [{ type: 'text', text }] }
       }
-    })
+    )
   }
 
   ngOnDestroy(): void {
-    // 组件销毁时取消注册，对应 Vue 版本 onUnmounted 中的 cleanupPageTool()
-    this.cleanupPageTool?.()
+    // 组件销毁时取消注册
+    server.unregisterTool('product-guide')
   }
 
   // 开始行内编辑
