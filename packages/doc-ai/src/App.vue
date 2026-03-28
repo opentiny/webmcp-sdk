@@ -86,7 +86,6 @@
         :mcpServers="mcpServers"
         layoutMode="relative"
         :menuItems="menuItems"
-        :llm-config="llmConfig"
         :systemPrompt="systemPrompt"
         :promptItems="ecommercePromptItems"
         :pillItems="ecommercePillItems"
@@ -101,10 +100,6 @@ import { onMounted, ref, h } from 'vue'
 import { createMcpServer, clientTransport, useWebAgentServer } from './mcp-servers'
 import { iconDesktopView, iconBoxSolid, iconLock, iconLineChart, iconCoin, iconShoppingCard } from '@opentiny/vue-icon'
 import { AGENT_ROOT } from './const'
-
-const llmConfig = {
-  model: 'deepseek/deepseek-chat'
-}
 
 // 电商管理平台：欢迎区建议卡片（上方大卡片）
 const ecommercePromptItems = [
@@ -143,7 +138,7 @@ const ecommercePillItems = [
       {
         id: 0,
         text: '创建价保',
-        inputMessage: '我要为客户李四创建价保申请，订单号 ORD-123456，补偿 50 元，事由是双十一大促降价。'
+        inputMessage: '帮我给用户王五创建一个价保申请单，金额 1000 元，原因为百亿补贴。。'
       },
       { id: 1, text: '查价保单', inputMessage: '帮我查看当前待审核的价保申请列表。' }
     ]
