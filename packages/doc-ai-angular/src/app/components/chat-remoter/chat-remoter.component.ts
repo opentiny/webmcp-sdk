@@ -1,5 +1,6 @@
-import { Component, Input, ViewChild, ElementRef } from '@angular/core';
+import { Component, Input, ViewChild, ElementRef, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 
 @Component({
   selector: 'app-chat-remoter',
@@ -10,7 +11,7 @@ import { CommonModule } from '@angular/common';
       <iframe
         #remoterFrame
         class="remoter-frame"
-        [src]="src"
+        [src]="safeSrc"
         frameborder="0"
         allow="clipboard-write"
         [title]="title"
@@ -40,9 +41,15 @@ import { CommonModule } from '@angular/common';
   `]
 })
 export class ChatRemoterComponent {
+  private sanitizer = inject(DomSanitizer);
+
   @Input() src: string = '/remoter.html';
   @Input() title: string = 'AI 助手';
   @Input() fullscreen: boolean = false;
 
   @ViewChild('remoterFrame') remoterFrame!: ElementRef<HTMLIFrameElement>;
+
+  get safeSrc(): SafeResourceUrl {
+    return this.sanitizer.bypassSecurityTrustResourceUrl(this.src);
+  }
 }
