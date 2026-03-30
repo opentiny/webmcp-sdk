@@ -21,17 +21,21 @@ type BuiltinModelContextTesting = {
 }
 
 /**
- * 将浏览器内置 WebMCP 的 `navigator.modelContextTesting` 适配为 ai-sdk 的 ToolSet。
+ * 将浏览器内置 WebMCP 的 `navigator.modelContext` 适配为 ai-sdk 的 ToolSet。
  *
  * 类似 getAISDKTools，但数据源是浏览器原生 API 而非 MCP client。
  * 工具执行时通过 `executeTool(name, JSON.stringify(args))` 代理给浏览器。
  *
- * @param client - `navigator.modelContextTesting` 对象
+ * @param client - `navigator.modelContext` 对象
  * @returns ai-sdk 格式的 ToolSet，可直接传入 streamText/generateText 的 tools 参数
  */
-export const getBuiltinMcpTools = async (client: object): Promise<ToolSet> => {
-  const testing = client as BuiltinModelContextTesting
+export const getBuiltinMcpTools = async (client: object | undefined | null): Promise<ToolSet> => {
   const tools: Record<string, Tool> = {}
+  if (!client) {
+    return tools
+  }
+
+  const testing = client as BuiltinModelContextTesting
 
   // 优先使用 listTools，降级到 getTools
   const listFn = testing.listTools ?? testing.getTools
