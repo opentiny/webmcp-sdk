@@ -713,3 +713,66 @@ export function registerPageTool(options: RegisterPageToolByHandlersOptions | Mo
     broadcastRouteChange(MSG_PAGE_LEAVE, route)
   }
 }
+
+/**
+ * 为了兼容浏览器内置的 WebMCP 命令式 API，并且让它能复用 next-sdk 的握手机制（MSG_PAGE_READY），
+ * 我们在此维护一个被代理的全局对象 modelContext。页面端只需要像原生那样调用
+ * `window.modelContext.registerTool(...)` 即可产生带有握手机制的工具注册动作。
+ */
+const _modelContextCleanupMap = new Map<string, () => void>()
+
+// 在覆盖 navigator.modelContext 之前，预先捕获可能存在的原生上下文
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let _nativeCtx: any = null
+if (typeof navigator !== 'undefined') {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  _nativeCtx = (navigator as any).modelContext || (navigator as any).modelContextTesting
+}
+
+// 维护当前页面通过 modelContext 命令式注册的工具完整定义
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const _modelContextToolsMap = new Map<string, any>()
+
+export const modelContext = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  registerTool: (config: any) => {
+    const name = config.name
+    const execute = config.execute
+
+    _modelContextToolsMap.set(name, config)
+
+    // 若原生的 navigator.modelContextTesting (或其他标准名) 存在，向上透传调用使其能被原生 AI 感知
+    if (_nativeCtx && typeof _nativeCtx.registerTool === 'function') {
+      _nativeCtx.registerTool(config)
+    }
+
+    // 这里复用 registerPageTool 来利用其内部自动发的 MSG_PAGE_READY 握手广播，
+    // 以便 navigate_to_page 的 await 能够成功通过，并真正将当前模块工具推向目标路由。
+    const route = normalizeRoute(window.location.pathname)
+    const cleanup = registerPageTool({
+      route,
+      handlers: {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        [name]: (input: any) => execute(input)
+      }
+    })
+
+    _modelContextCleanupMap.set(name, cleanup)
+    broadcastToolCatalogChanged()
+  },
+
+  unregisterTool: (name: string) => {
+    _modelContextToolsMap.delete(name)
+
+    if (_nativeCtx && typeof _nativeCtx.unregisterTool === 'function') {
+      _nativeCtx.unregisterTool(name)
+    }
+
+    const cleanup = _modelContextCleanupMap.get(name)
+    if (cleanup) {
+      cleanup()
+      _modelContextCleanupMap.delete(name)
+    }
+    broadcastToolCatalogChanged()
+  }
+}

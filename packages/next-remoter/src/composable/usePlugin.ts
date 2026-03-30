@@ -157,8 +157,10 @@ export function usePlugin(
 
     // 构建工具列表
     const tools = buildPluginTools(serverName)
-    // 如果没有工具，清理已注册的MCP服务器并返回
-    if (tools.length === 0) {
+    // 如果没有工具，并且不是内置服务器，清理已注册的MCP服务器并返回
+    // 这是因为内置 WebMCP 服务器 (mcp-server-builtin-webmcp) 在首次加载根路由时，可能由于业务页面未 Mount 而没有任何工具，
+    // 我们必须保留它并安装，以便后续页面切换动态注册工具时能够被 sync 到 UI。
+    if (tools.length === 0 && config.mcpServer?.type !== 'builtin') {
       await agent.removeMcpServer(serverName)
       return false
     }

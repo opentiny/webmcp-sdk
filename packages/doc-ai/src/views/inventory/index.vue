@@ -42,8 +42,7 @@
 import { inventoryList } from '../../mock'
 import { ref, onMounted, onUnmounted } from 'vue'
 import InventoryModal from '../../components/InventoryModal.vue'
-import { z } from '@opentiny/next-sdk'
-import { server } from '../../mcp-servers'
+import { modelContext } from '@opentiny/next-sdk'
 
 const modalRef = ref()
 
@@ -57,25 +56,27 @@ const handleManualAdd = () => {
 const ADD_INVENTORY_TOOL = 'add_inventory'
 
 onMounted(() => {
-  server.registerTool(
-    ADD_INVENTORY_TOOL,
-    {
-      description: '【入库管理工具】帮助电商管理员将采购的商品新增入库存系统中',
-      inputSchema: {
-        productName: z.string().describe('商品名称或型号，如：iPhone 15 Pro Max'),
-        quantity: z.number().describe('要入库的数量，必须大于0'),
-        warehouse: z.string().describe('入库存放的仓库名称，如：北京一号仓')
-      }
+  modelContext.registerTool({
+    name: ADD_INVENTORY_TOOL,
+    description: '【入库管理工具】帮助电商管理员将采购的商品新增入库存系统中',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        productName: { type: 'string', description: '商品名称或型号，如：iPhone 15 Pro Max' },
+        quantity: { type: 'number', description: '要入库的数量，必须大于0' },
+        warehouse: { type: 'string', description: '入库存放的仓库名称，如：北京一号仓' }
+      },
+      required: ['productName', 'quantity', 'warehouse']
     },
-    async (params: any) => {
+    execute: async (params: any) => {
       const result = await modalRef.value.openModal(params)
       return { content: [{ type: 'text', text: result }] }
     }
-  )
+  })
 })
 
 onUnmounted(() => {
-  server.unregisterTool(ADD_INVENTORY_TOOL)
+  modelContext.unregisterTool(ADD_INVENTORY_TOOL)
 })
 </script>
 
