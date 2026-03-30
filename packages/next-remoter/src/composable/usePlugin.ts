@@ -94,9 +94,10 @@ export function usePlugin(
     const enabledToolsState = enabledTools.value || {}
 
     return Object.keys(currTool).map((key) => {
-      // 本地工具：从 enabledTools 读取配置，默认关闭（false）
-      // 域名工具：默认打开（true），不受 enabledTools 影响
-      const enabled = isLocal ? Boolean(enabledToolsState[key]) : true
+      // 本地工具：优先从已持久化的 enabledTools 读取，新工具默认开启 (true)
+      // 域名工具：始终默认打开 (true)
+      const isDefined = Object.prototype.hasOwnProperty.call(enabledToolsState, key)
+      const enabled = isLocal ? (isDefined ? enabledToolsState[key] : true) : true
 
       // 同步更新 ignoreToolnames
       updateIgnoreToolnames(key, enabled)
