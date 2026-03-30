@@ -39,6 +39,16 @@ export type McpServerConfig =
   | { type: 'sse'; url: string; useAISdkClient?: boolean; headers?: Record<string, string> }
   | { type: 'extension'; url: string; sessionId: string; useAISdkClient?: boolean; headers?: Record<string, string> }
   | { type: 'local'; transport: MCPTransport; useAISdkClient?: boolean }
+  | {
+      /**
+       * 浏览器内置 WebMCP 类型。
+       * 将 `navigator.modelContextTesting` 作为 MCP 工具数据源，
+       * 通过 `getBuiltinMcpTools` 适配为 ai-sdk 可调用的 ToolSet。
+       */
+      type: 'builtin'
+      /** 传入 `navigator.modelContextTesting` 对象 */
+      client: object
+    }
 
 /** */
 export interface IAgentModelProviderOption {

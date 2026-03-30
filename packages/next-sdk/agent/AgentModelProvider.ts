@@ -13,6 +13,7 @@ import { ExtensionClientTransport } from '../transport/ExtensionClientTransport'
 import { MessageChannelTransport } from '@opentiny/next'
 import { WebMcpClient } from '../WebMcpClient'
 import { getAISDKTools } from './utils/getAISDKTools'
+import { getBuiltinMcpTools } from './utils/getBuiltinMcpTools'
 import { generateReActToolsPrompt } from './utils/generateReActPrompt'
 import { parseReActAction } from './utils/parseReActAction'
 
@@ -82,6 +83,15 @@ export class AgentModelProvider {
   private async _createOneClient(serverConfig: McpServerConfig) {
     try {
       let transport: MCPClientConfig['transport']
+      // builtin 类型：使用 navigator.modelContextTesting 作为工具数据源
+      if ('type' in serverConfig && serverConfig.type === 'builtin') {
+        const builtinClient = serverConfig.client
+        // 包装成与 ai-sdk MCPClient 相同接口：提供 tools() 方法
+        return {
+          tools: () => getBuiltinMcpTools(builtinClient),
+          close: async () => {}
+        }
+      }
       // transport 一定是 streamableHttp/sse 或者就是： ai-sdk允许的 transport
       if ('type' in serverConfig && serverConfig.type.toLocaleLowerCase() === 'streamablehttp') {
         const configWithHeaders = serverConfig as { url: string; headers?: Record<string, string> }
