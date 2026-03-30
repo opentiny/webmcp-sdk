@@ -170,11 +170,9 @@ export const createMcpServer = async () => {
 
 这种方式天然实现“按需加载”：只有当前页面激活时，该页面工具才会出现在 `listTools` 中。
 
-### 4.0 浏览器内置 WebMCP (Native) 兼容说明
-
 目前 Chrome 等浏览器（146+）已开始实验性支持原生 WebMCP 协议。`@opentiny/next-sdk` 完全兼容该标准。
 
-虽然你可以直接使用原生的 `navigator.modelContext.registerTool`，但在 Angular 等重路由的单页应用中，我们**强烈推荐**使用 SDK 导出的 `modelContext` 对象（见下文 5.1 示例）：
+我们**强烈推荐**使用 SDK 导出的 `modelContext` 对象进行注册，而不是原生的 `navigator.modelContext.registerTool`：
 
 - **双向同步 (Hybrid Path)**：这是 SDK 的核心优势。使用 `modelContext.registerTool` 注册的工具会同时走两条路径：
   1. **原生路径**：自动向 `navigator.modelContext` 同步，供浏览器原生 AI（如 Chrome Sidebar AI）调用。

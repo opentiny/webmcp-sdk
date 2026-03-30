@@ -1,6 +1,6 @@
 {
   "name": "@opentiny/next-remoter",
-  "version": "0.3.0-alpha.0",
+  "version": "0.3.0",
   "type": "module",
   "homepage": "https://docs.opentiny.design/next-sdk/guide/tiny-robot-remoter.html",
   "repository": {

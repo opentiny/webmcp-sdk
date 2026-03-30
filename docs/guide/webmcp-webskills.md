@@ -72,15 +72,11 @@
 
 WebMCP + WebSkills 还有一个杀手级亮点——**远程遥控**。通过 `useWebAgentServer` 将本地 MCP Server 桥接到远端 Agent 平台，用户扫描二维码或输入 6 位识别码，即可在手机上通过自然语言指令遥控桌面浏览器页面。真正实现"移动端说一句话，桌面页面帮你干活"。
 
-## 1.4 兼容浏览器内置原生 WebMCP 标准
+虽然 WebMCP 已进入 W3C 协议草案，但原生浏览器支持（如 `navigator.modelContext`）对版本要求极高（Chrome 130+）。为了确保在当前主流开发环境下的稳定性，**OpenTiny Next-SDK 强烈推荐使用 SDK 导出的 `modelContext` 对象（或通过 `server.registerTool`）进行工具注册**。
 
-随着 WebMCP 协议进入 W3C 草案，Chrome 等现代浏览器（146+ 版本）已开始提供 `navigator.modelContext` 原生支持。
-
-**OpenTiny Next-SDK 的态度是：全面拥抱标准，同时解决工程落地最后一公里。**
-
-- **接口对齐**：SDK 导出的 `modelContext.registerTool` 接口已与原生浏览器标准完全一致，开发者可以像写原生代码一样编写工具配置。
-- **能力增强**：针对单页应用（SPA）中常见的“路由跳转后工具延迟挂载”导致的 AI 调用超时痛点，SDK 的兼容层提供了完善的“握手响应机制”，保证了在 Web 环境下工具调用的极高成功率。
-- **无感迁移**：推荐使用 `import { modelContext } from '@opentiny/next-sdk'` 代替全局 `navigator` 访问，这能让你的代码在低版本浏览器（通过 SDK 模拟）和高版本浏览器（原生透传）之间无缝切换。
+- **全版本支持**：SDK 兼容层屏蔽了浏览器引擎的差异，无论是 Chrome 高版本（原生代理）还是低版本，工具都能稳定挂载。
+- **双向同步**：SDK 导出的 `modelContext` 会自动将工具同步至原生 `navigator.modelContext`（如果存在），同时通过 SDK 链路同步给聊天组件。
+- **动态发现与路由握手**：针对单页应用（SPA）中常见的工具挂载时机问题，SDK 提供了“即插即用”的工具自动发现机制。
 
 ![WebMCP + WebSkills：拯救前端的超人组合](../assets/images/guide/webmcp_superheroes.png)
 
@@ -153,8 +149,6 @@ import {
   withPageTools,
   registerNavigateTool
 } from '@opentiny/next-sdk'
-import registerProductGuideTools from './product-guide/tools'
-import registerPriceProtectionTools from './price-protection/tools'
 
 const rawServer = new WebMcpServer()
 const [serverTransport, clientTransport] = createMessageChannelPairTransport()
@@ -163,42 +157,21 @@ export const server = withPageTools(rawServer)
 export { clientTransport }
 
 export const createMcpServer = async () => {
+  // 注册全局通用工具（如页面跳转）
   registerNavigateTool(rawServer)
-  registerProductGuideTools(server)
-  registerPriceProtectionTools(server)
+
+  // ℹ️ 业务工具推荐在具体页面中使用 server.registerTool 一体化声明
+  // 这样就不需要在这里手动 import 和 register 了
+
   await rawServer.connect(serverTransport)
 }
 ```
 
-> 中文小结：`withPageTools` 让工具可以和路由产生映射；`registerNavigateTool` 注册了一个通用的 `navigate_to_page` 工具，供大模型主动发起“先跳转再用页面工具”的链路。
+> 中文小结：`withPageTools` 让工具可以和路由产生映射；`registerNavigateTool` 注册了一个通用的 `navigate_to_page` 工具。**得益于“一体化声明”推荐实践，你不再需要在这里手动引入和注册各个页面的业务工具**。
 
-**步骤 5：注册与页面绑定的业务工具**
+**步骤 5：在业务页面中执行“一体化”工具声明（推荐方式）**
 
-```ts
-// src/mcp-servers/product-guide/tools.ts
-import { z } from '@opentiny/next-sdk'
-import type { PageAwareServer } from '@opentiny/next-sdk'
-
-const registerProductGuideTools = (server: PageAwareServer) => {
-  server.registerTool(
-    'product-guide',
-    {
-      title: '产品指南',
-      description: '根据产品 ID 获取产品详细信息',
-      inputSchema: {
-        productId: z.string().describe('产品 ID')
-      }
-    },
-    { route: '/product-list' } // 工具执行时自动导航到该路由
-  )
-}
-
-export default registerProductGuideTools
-```
-
-> 中文小结：第三个参数 `{ route: '/product-list' }` 是关键，它告诉 SDK“这个工具需要在哪个页面内执行”，从而触发 Page Tool Bridge 的自动跳转与消息投递。
-
-**步骤 6：在页面内通过 `registerPageTool` 注册工具处理器**
+我们强烈推荐在具体的业务页面（View/Page）中直接进行工具的完整声明，而不是将 Metadata 和 Handler 分离。这种一体化的声明方式不仅提高了代码的内聚性，还极大简化了生命周期的管理。
 
 ```vue
 <!-- src/views/product-list/index.vue -->
@@ -209,38 +182,39 @@ export default registerProductGuideTools
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-import { registerPageTool } from '@opentiny/next-sdk'
+import { onMounted, onUnmounted, ref } from 'vue'
+import { z } from '@opentiny/next-sdk'
+import { server } from '../../mcp-servers' // 从全局导出的 server 实例
 import productsData from './products.json'
 
-type Product = {
-  id: number
-  name: string
-  price: number
-  stock: number
-  status: 'on' | 'off' | string
-}
-
-const products = ref<Product[]>(productsData as Product[])
-let cleanupPageTool: () => void
+const products = ref(productsData)
 
 onMounted(() => {
-  cleanupPageTool = registerPageTool({
-    handlers: {
-      'product-guide': async ({ productId }: { productId: string }) => {
-        const product = products.value.find((p) => String(p.id) === productId)
-        const text = product ? `产品信息：${JSON.stringify(product, null, 2)}` : `未找到产品 ID 为 ${productId} 的商品`
-        return { content: [{ type: 'text', text }] }
-      }
+  // ✅ 推荐：在业务页面中执行“一体化”注册。
+  // Metadata、Schema 与 Handler 紧密内聚，极大提升了代码的可维护性。
+  server.registerTool(
+    name: 'product-guide',
+    title: '产品指南',
+    description: '根据产品 ID 获取产品详细信息',
+    inputSchema: {
+      productId: z.string().describe('产品 ID')
+    },
+    // 支持直接传入 execute 执行体，实现“所见即所得”的开发体验
+    execute: async ({ productId }: { productId: string }) => {
+      const product = products.value.find((p) => String(p.id) === productId)
+      const text = product ? `产品详情如下：\n${JSON.stringify(product, null, 2)}` : `未搜到产品 ID 为 ${productId} 的数据`
+      return { content: [{ type: 'text', text }] }
     }
   })
 })
-
-onUnmounted(() => cleanupPageTool?.())
 </script>
 ```
 
-> 中文小结：页面挂载时把 handler 注册进去，卸载时清理；handler 中可以直接访问 Vue 响应式数据，实现“AI 调工具 → 工具调页面逻辑”的完整闭环。
+> [!TIP]
+> **为什么要用一体化声明？**
+> 1. **代码更直观**：在同一段代码中阅读工具的属性、Schema 及具体业务逻辑。
+> 2. **自动目录感知**：通过一体化注册，SDK 会自动广播当前的工具目录变更，确保 AI 助手始终可见最新工具。
+> 3. **极简配置**：不再需要在全局 `mcp-servers/index.ts` 中针对每个页面重复配置路由映射，SDK 内部已完成握手与消息转发的自动化桥接。
 
 **步骤 7：在 App.vue 中挂载 TinyRemoter + Skills，并接入远程遥控（可选）**
 
@@ -385,16 +359,15 @@ import {
   withPageTools,
   registerNavigateTool
 } from '@opentiny/next-sdk'
-import registerProductGuideTools from './product-guide/tools'
-import registerPriceProtectionTools from './price-protection/tools'
 
 const rawServer = new WebMcpServer()
 export const server = withPageTools(rawServer)
 
 export const createMcpServer = async () => {
+  // 仅注册全局通用工具
   registerNavigateTool(rawServer)
-  registerProductGuideTools(server)
-  registerPriceProtectionTools(server)
+
+  // ℹ️ 同 Vue 推荐实践：业务工具将在各 Component 的 ngOnInit 中通过 server.registerTool 一体化注册
 
   const serverTransport = createMessageChannelServerTransport('local-mcp')
   await serverTransport.listen()
@@ -402,38 +375,47 @@ export const createMcpServer = async () => {
 }
 ```
 
-> 中文小结：这里不再使用“同窗口内存对”的 `createMessageChannelPairTransport`，而是用 `createMessageChannelServerTransport('local-mcp')` 等待 iframe 侧主动连入。
+> 中文小结：这里使用 `createMessageChannelServerTransport('local-mcp')` 等待 iframe 侧主动连入。**得益于“一体化声明”，主入口文件变得极其简洁，不再需要手动 import 页面的业务工具库**。
 
-**步骤 4：在 Angular 页面中注册页面工具处理器**
+### 步骤 4：在 Angular 页面中注册页面工具处理器
 
 ```ts
 // src/app/pages/comprehensive/comprehensive.component.ts（节选）
 import { Component, OnInit, OnDestroy } from '@angular/core'
-import { registerPageTool } from '@opentiny/next-sdk'
+import { z } from '@opentiny/next-sdk'
+import { server } from '../../mcp-servers' // 从全局导出的 server 实例
 
 @Component({
   /* 模板与样式省略 */
 })
 export class ComprehensiveComponent implements OnInit, OnDestroy {
   products: Product[] = productsData as Product[]
-  private cleanupPageTool!: () => void
 
   ngOnInit(): void {
-    this.cleanupPageTool = registerPageTool({
-      handlers: {
-        'product-guide': async ({ productId }: { productId: string }) => {
-          const product = this.products.find((p) => String(p.id) === productId)
-          const text = product
-            ? `产品信息：${JSON.stringify(product, null, 2)}`
-            : `未找到产品 ID 为 ${productId} 的商品`
-          return { content: [{ type: 'text', text }] }
+    // ✅ 推荐：在 Angular 组件中执行“一体化”工具注册
+    server.registerTool(
+      'product-guide',
+      {
+        title: '产品指南',
+        description: '根据产品 ID 获取产品详细信息',
+        inputSchema: {
+          productId: z.string().describe('产品 ID')
         }
+      },
+      // 直接在 ngOnInit 中编写业务逻辑 Handler
+      async ({ productId }: { productId: string }) => {
+        const product = this.products.find((p) => String(p.id) === productId)
+        const text = product
+          ? `产品信息：${JSON.stringify(product, null, 2)}`
+          : `未找到产品 ID 为 ${productId} 的商品`
+        return { content: [{ type: 'text', text }] }
       }
-    })
+    )
   }
 
   ngOnDestroy(): void {
-    this.cleanupPageTool?.()
+    // 页面销毁时务必手动注销工具
+    server.unregisterTool('product-guide')
   }
 }
 ```
