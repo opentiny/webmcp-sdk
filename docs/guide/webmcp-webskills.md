@@ -151,8 +151,6 @@ import {
   withPageTools,
   registerNavigateTool
 } from '@opentiny/next-sdk'
-import registerProductGuideTools from './product-guide/tools'
-import registerPriceProtectionTools from './price-protection/tools'
 
 const rawServer = new WebMcpServer()
 const [serverTransport, clientTransport] = createMessageChannelPairTransport()
@@ -161,14 +159,17 @@ export const server = withPageTools(rawServer)
 export { clientTransport }
 
 export const createMcpServer = async () => {
+  // 注册全局通用工具（如页面跳转）
   registerNavigateTool(rawServer)
-  registerProductGuideTools(server)
-  registerPriceProtectionTools(server)
+
+  // ℹ️ 业务工具推荐在具体页面中使用 server.registerTool 一体化声明
+  // 这样就不需要在这里手动 import 和 register 了
+
   await rawServer.connect(serverTransport)
 }
 ```
 
-> 中文小结：`withPageTools` 让工具可以和路由产生映射；`registerNavigateTool` 注册了一个通用的 `navigate_to_page` 工具，供大模型主动发起“先跳转再用页面工具”的链路。
+> 中文小结：`withPageTools` 让工具可以和路由产生映射；`registerNavigateTool` 注册了一个通用的 `navigate_to_page` 工具。**得益于“一体化声明”推荐实践，你不再需要在这里手动引入和注册各个页面的业务工具**。
 
 **步骤 5：在业务页面中执行“一体化”工具声明（推荐方式）**
 
@@ -360,16 +361,15 @@ import {
   withPageTools,
   registerNavigateTool
 } from '@opentiny/next-sdk'
-import registerProductGuideTools from './product-guide/tools'
-import registerPriceProtectionTools from './price-protection/tools'
 
 const rawServer = new WebMcpServer()
 export const server = withPageTools(rawServer)
 
 export const createMcpServer = async () => {
+  // 仅注册全局通用工具
   registerNavigateTool(rawServer)
-  registerProductGuideTools(server)
-  registerPriceProtectionTools(server)
+
+  // ℹ️ 同 Vue 推荐实践：业务工具将在各 Component 的 ngOnInit 中通过 server.registerTool 一体化注册
 
   const serverTransport = createMessageChannelServerTransport('local-mcp')
   await serverTransport.listen()
@@ -377,7 +377,7 @@ export const createMcpServer = async () => {
 }
 ```
 
-> 中文小结：这里不再使用“同窗口内存对”的 `createMessageChannelPairTransport`，而是用 `createMessageChannelServerTransport('local-mcp')` 等待 iframe 侧主动连入。
+> 中文小结：这里使用 `createMessageChannelServerTransport('local-mcp')` 等待 iframe 侧主动连入。**得益于“一体化声明”，主入口文件变得极其简洁，不再需要手动 import 页面的业务工具库**。
 
 ### 步骤 4：在 Angular 页面中注册页面工具处理器
 

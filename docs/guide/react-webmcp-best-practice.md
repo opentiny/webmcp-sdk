@@ -202,12 +202,7 @@ export default defineConfig({
 
 ## 第三步：主窗口创建 MCP Server 并监听 iframe（MessageChannel 服务端）
 
-在 React 主窗口中创建 WebMCP Server，使用 **createMessageChannelServerTransport** 建立**跨窗口**服务端传输层，供 iframe 内的 TinyRemoter 连接。与 Vue 版不同，这里**不再使用** `createMessageChannelPairTransport()`（同窗口内存对），而是：
-
-- **主窗口**：`createMessageChannelServerTransport('local-mcp')` + `listen()`，等待 iframe 连接。
-- **iframe**：使用 `createMessageChannelClientTransport('local-mcp', window.parent)` 连接主窗口（下一步）。
-
-`endpoint` 字符串（如 `'local-mcp'`）两端必须一致。
+在 React 主窗口中创建 WebMCP Server，使用 **createMessageChannelServerTransport** 建立**跨窗口**服务端传输层，供 iframe 内的 TinyRemoter 连接。
 
 ```ts
 // src/mcp-servers/index.ts
@@ -217,63 +212,31 @@ import {
   withPageTools,
   registerNavigateTool
 } from '@opentiny/next-sdk'
-import registerProductGuideTools from './product-guide/tools'
-import registerPriceProtectionTools from './price-protection/tools'
 
 const rawServer = new WebMcpServer()
 
 /**
- * 用 withPageTools 包装 server，使 registerTool 支持路由配置对象。
- * MCP Server 与 registerPageTool 均在 react 主窗口，page-tool-bridge 同窗口 postMessage 即可。
+ * 用 withPageTools 包装 server，使之具备 Page Tool Bridge 能力。
  */
 export const server = withPageTools(rawServer)
 
 /**
- * 初始化 MCP Server：创建 MessageChannel 服务端传输层，
- * 监听 iframe（remoter.html）中 TinyRemoter 的 MCP 连接。
- * 对应 iframe 侧：createMessageChannelClientTransport('local-mcp', window.parent)
+ * 初始化 MCP Server：创建 MessageChannel 服务端传输层。
  */
 export const createMcpServer = async () => {
+  // 注册全局通用工具
   registerNavigateTool(rawServer)
-  registerProductGuideTools(server)
-  registerPriceProtectionTools(server)
+
+  // ℹ️ 业务工具推荐在具体 React 组件中使用 server.registerTool 一体化注册
+  // 这样就不需要在这里手动 import 和 register 了
+
   const serverTransport = createMessageChannelServerTransport('local-mcp')
   await serverTransport.listen()
   await rawServer.connect(serverTransport)
 }
 ```
 
-> **页面跳转工具（navigate_to_page）**：与 Vue 版相同，使用 SDK 提供的 `registerNavigateTool(rawServer)` 即可。工具运行在**主窗口**，会调用你通过 `setNavigator` 注册的导航函数，并等待目标页面广播 page-ready 后再返回，因此 Remoter 在 iframe 内时，路由状态与工具列表的同步不受影响，无需在主窗口再手写一套跳转或 setReactNavigator。
-
-工具定义（`product-guide/tools.ts`、`price-protection/tools.ts`）与 Vue 版一致：`server.registerTool(name, schema, { route: '/path', timeout?: number, invokeEffect?: boolean | ToolInvokeEffectConfig })`。
-
-- `route`：必选，目标路由路径；
-- `timeout`：可选，等待页面响应的超时时间（ms），默认 30000；
-- `invokeEffect`：可选，是否在调用该页面工具时在**主窗口左下角**展示调用提示效果，类型为 `boolean | { label?: string }`。
-
-示例（以订单查询为例）：
-
-```ts
-server.registerTool(
-  'order_query',
-  {
-    title: '查询订单',
-    description: '【订单管理工具】查询电商订单列表，可按订单号、客户姓名或状态筛选。'
-  },
-  {
-    route: '/orders',
-    invokeEffect: {
-      label: '正在为你查询订单列表…'
-    }
-  }
-)
-```
-
-> 说明：
->
-> - `invokeEffect: true` 使用默认文案（`config.title || toolName`）；
-> - 传对象时可自定义 `label`，如「正在为你整理订单数据…」；
-> - 调用开始时展示提示卡片，结束后自动淡出；Remoter 在 iframe 中时同样生效，因为效果直接渲染在 React 主窗口。
+> **页面跳转工具（navigate_to_page）**：与 Vue 版相同，使用 SDK 提供的 `registerNavigateTool(rawServer)` 即可。工具运行在**主窗口**，会调用你通过 `setNavigator` 注册的导航函数。
 
 ---
 
@@ -336,35 +299,54 @@ const mcpServers = {
 
 ---
 
-## 第五步：在 React 页面内注册工具处理器（registerPageTool）
+## 第五步：在 React 页面内执行“一体化”工具声明（强烈推荐）
 
-与 Vue 版一致，在**目标页面对应的 React 组件**中，在 `useEffect` 里调用 `registerPageTool`，在 `cleanup` 中注销。handlers 的 key 与 `mcp-servers` 中注册的工具名一致。
+在新版 SDK 实践中，我们强烈建议在具体的业务页面组件（Component）中直接进行工具的**完整声明（Metadata + Handler）**。这种“一体化”注册方式不仅提高了代码内聚性，还极大简化了生命周期管理。
+
+> [!IMPORTANT]
+> **为什么要用一体化声明？**
+> 1. **所见即所得**：工具的描述、输入 Schema 与业务逻辑 Handler 紧密内聚，开发者无需在全局文件和页面文件间来回切换。
+> 2. **自动目录感知**：SDK 会自动感知当前活跃页面注册的工具，并实时同步给 AI 助手。
+> 3. **极简配置**：不再需要分离式的 `registerPageTool`，由 SDK 内部完成自动桥接。
 
 ### 5.1 单工具示例（商品指南）
 
-```ts
-// src/components/ComprehensivePage.tsx（节选）
-import { useState, useEffect } from 'react'
-import { registerPageTool } from '@opentiny/next-sdk'
+```tsx
+// src/components/ComprehensivePage.tsx
+import { useEffect } from 'react'
+import { z } from '@opentiny/next-sdk'
+import { server } from '../mcp-servers' // 从全局导出的 server 实例
+
 export default function ComprehensivePage() {
-  // 在页面加载生命周期注册页面工具，在页面卸载时，清除注册
   useEffect(() => {
-    const cleanupPageTool = registerPageTool({
-      handlers: {
-        'product-guide': async ({ productId }: { productId: string }) => {
-          const product = products.find((p) => String(p.id) === productId)
-          const text = product
-            ? `产品信息：${JSON.stringify(product, null, 2)}`
-            : `未找到产品 ID 为 ${productId} 的商品`
-          return { content: [{ type: 'text', text }] }
+    // ✅ 推荐：使用 server.registerTool 执行“一体化”注册。
+    // 不要将 Metadata（在全局注册）与 Handler（在页面注册）分离。
+    const unregister = server.registerTool(
+      'product-guide',
+      {
+        title: '产品指南',
+        description: '根据产品 ID 获取产品详细信息',
+        inputSchema: {
+          productId: z.string().describe('产品 ID')
         }
+      },
+      // 直接传入执行体 Handler
+      async ({ productId }: { productId: string }) => {
+        const product = products.find((p) => String(p.id) === productId)
+        const text = product
+          ? `产品信息：${JSON.stringify(product, null, 2)}`
+          : `未找到产品 ID 为 ${productId} 的商品`
+        return { content: [{ type: 'text', text }] }
       }
-    })
+    )
 
     return () => {
-      cleanupPageTool()
+      // 页面销毁时务必注销工具
+      unregister()
     }
   }, [])
+
+  return <div>{/* 业务 UI */}</div>
 }
 ```
 
@@ -372,38 +354,33 @@ export default function ComprehensivePage() {
 
 ### 5.2 多工具同一路由（价保管理）
 
-```ts
-// src/components/PriceProtectionPage.ts（节选）
-// registerPageTool 的 options 类型为 { route?: string; handlers: Record<string, (input) => Promise<...>> }
-const cleanupPageTool = registerPageTool({
-  route: '/price-protection',
-  handlers: {
-    'price-protection-query': async ({ status }: { status?: string }) => {
-      /* ... */
-    },
-    'price-protection-review': async ({
-      id,
-      action,
-      remark
-    }: {
-      id: string | number
-      action: 'approve' | 'reject'
-      remark?: string
-    }) => {
-      /* ... */
-    },
-    'price-protection-detail': async ({ id }: { id: string | number }) => {
-      /* ... */
+```tsx
+// src/components/PriceProtectionPage.tsx
+import { useEffect } from 'react'
+import { z } from '@opentiny/next-sdk'
+import { server } from '../mcp-servers'
+
+export default function PriceProtectionPage() {
+  useEffect(() => {
+    // 注册多个工具时，建议分别存储 unregister 函数
+    const unreg1 = server.registerTool('price-protection-query', { /* Metadata */ }, async (input) => { /* Handler */ })
+    const unreg2 = server.registerTool('price-protection-review', { /* Metadata */ }, async (input) => { /* Handler */ })
+
+    return () => {
+      unreg1()
+      unreg2()
     }
-  }
-})
+  }, [])
+
+  return <div>{/* 业务 UI */}</div>
+}
 ```
 
-> **处理器编写规范**（与 Vue 版相同）：
->
-> - handler 参数类型由工具的 `inputSchema` 决定。
-> - 返回值格式：`{ content: Array<{ type: 'text', text: string }> }`。
-> - 组件销毁时必须调用 cleanup，避免内存泄漏和消息串扰。
+> [!TIP]
+> **开发规范总结**：
+> - **拒绝分离**：不推荐在 `mcp-servers/index.ts` 中注册一次 Metadata，又在页面中调用 `registerPageTool` 关联一次 Handler。
+> - **Handler 编写**：返回值格式必须符合 MCP 规范：`{ content: Array<{ type: 'text', text: string }> }`。
+> - **生命周期销毁**：必须在 `useEffect` 的返回函数中执行注销，防止路由切换后的内存泄漏。
 
 ---
 
