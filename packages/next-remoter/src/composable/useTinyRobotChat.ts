@@ -83,7 +83,6 @@ export const useTinyRobotChat = ({ systemPrompt, llmConfig, emit }: useTinyRobot
 
     // 第一次发送时，修改会话标题
     const conv = getCurrentConversation()
-    debugger
     if (conv && conv.title === '新会话') {
       updateTitle(conv.id, inputMessage.value.slice(0, 15))
     }

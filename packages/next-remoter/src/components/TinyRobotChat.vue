@@ -321,10 +321,10 @@ const props = defineProps({
 const emit = defineEmits<{
   /** 在 AI 消息渲染之前触发，用户此时可以修改消息内容
    *  uiContent包含当前流返回的消息类型：markdown, reasoning,tool,或其它自定义的消息。
-   * 
+   *
    * @param currMessage - 当前消息对象，包含 role , content, uiContent 字段。
    */
-  (e: 'before-ai-render', currMessage: { role: string; content: string ,uiContent:any[]}): void
+  (e: 'before-ai-render', currMessage: { role: string; content: string; uiContent: any[] }): void
 }>()
 
 const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })
@@ -602,7 +602,9 @@ initializePluginSession()
 
 onMounted(async () => {
   // 初始化会话（每次刷新都是新会话）
-  handleCreateConversation()
+  setTimeout(() => {
+    handleCreateConversation()
+  }, 100)
 
   // 统一报错
   agent.onError = (msg: string) => {
