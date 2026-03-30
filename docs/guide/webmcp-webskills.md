@@ -71,6 +71,17 @@
 **WebAgent 远程遥控：移动端直接操控桌面页面**
 
 WebMCP + WebSkills 还有一个杀手级亮点——**远程遥控**。通过 `useWebAgentServer` 将本地 MCP Server 桥接到远端 Agent 平台，用户扫描二维码或输入 6 位识别码，即可在手机上通过自然语言指令遥控桌面浏览器页面。真正实现"移动端说一句话，桌面页面帮你干活"。
+
+## 1.4 兼容浏览器内置原生 WebMCP 标准
+
+随着 WebMCP 协议进入 W3C 草案，Chrome 等现代浏览器（146+ 版本）已开始提供 `navigator.modelContext` 原生支持。
+
+**OpenTiny Next-SDK 的态度是：全面拥抱标准，同时解决工程落地最后一公里。**
+
+- **接口对齐**：SDK 导出的 `modelContext.registerTool` 接口已与原生浏览器标准完全一致，开发者可以像写原生代码一样编写工具配置。
+- **能力增强**：针对单页应用（SPA）中常见的“路由跳转后工具延迟挂载”导致的 AI 调用超时痛点，SDK 的兼容层提供了完善的“握手响应机制”，保证了在 Web 环境下工具调用的极高成功率。
+- **无感迁移**：推荐使用 `import { modelContext } from '@opentiny/next-sdk'` 代替全局 `navigator` 访问，这能让你的代码在低版本浏览器（通过 SDK 模拟）和高版本浏览器（原生透传）之间无缝切换。
+
 ![WebMCP + WebSkills：拯救前端的超人组合](../assets/images/guide/webmcp_superheroes.png)
 
 ## 2. 三大技术栈最佳实践总览

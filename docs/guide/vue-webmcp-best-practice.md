@@ -1,7 +1,6 @@
 # Vue 工程接入 WebMCP + WebSkills 最佳实践
 
 本文将以一个完整的**商品管理后台**为示例，带你一步步把普通 Vue 工程升级为 AI 驱动的智能应用。完成后，用户可以通过自然语言对话查询数据、触发业务操作，AI 还能自动跳转到对应页面并在页面内执行逻辑。
- 
 > **示例工程仓库**：[`packages/doc-ai`](https://github.com/opentiny/next-sdk/tree/dev/packages/doc-ai)
 
 ## 破坏性变更（Breaking Change）
@@ -10,7 +9,7 @@
 
 - 旧配置 `:pageToolsOnDemand="true"` 需要删除；
 - Remoter 统一通过 `listTools` 实时感知工具目录变化；
-- 页面工具调用与路由跳转机制不变，推荐由 `withPageTools` / `registerNavigateTool` / 页面内 `registerTool` 协作完成。
+- 页面工具调用与路由跳转机制不变，推荐由 `withPageTools` / `registerNavigateTool` / 页面内 `registerTool`协作完成。
 
 迁移建议：
 
@@ -170,6 +169,80 @@ export const createMcpServer = async () => {
 - 页面离开：`server.unregisterTool(...)`
 
 这种方式天然实现“按需加载”：只有当前页面激活时，该页面工具才会出现在 `listTools` 中。
+
+### 4.0 浏览器内置 WebMCP (Native) 兼容说明
+
+目前 Chrome 等浏览器（146+）已开始实验性支持原生 WebMCP 协议。`@opentiny/next-sdk` 完全兼容该标准。
+
+虽然你可以直接使用原生的 `navigator.modelContext.registerTool`，但在 Angular 等重路由的单页应用中，我们**强烈推荐**使用 SDK 导出的 `modelContext` 对象（见下文 5.1 示例）：
+
+- **双向同步 (Hybrid Path)**：这是 SDK 的核心优势。使用 `modelContext.registerTool` 注册的工具会同时走两条路径：
+  1. **原生路径**：自动向 `navigator.modelContext` 同步，供浏览器原生 AI（如 Chrome Sidebar AI）调用。
+  2. **SDK 路径 (Iframe Bridge)**：通过 `MSG_PAGE_READY` 握手协议同步给以 iframe 形式嵌入应用的 `next-remoter` 聊天组件。
+- **路由就绪握手**：原生 API 无法感知 SPA 内部的异步路由挂载逻辑。SDK 封装了“就绪握手”，确保 AI 发起页面跳转后，能准确识别到组件代码注册的工具，彻底解决调用超时问题。
+- **统一接口**：开发者只需关注标准 WebMCP 接口，SDK 负责处理穿透 Iframe 的通信细节。
+
+#### 代码示例：命令式注册工具
+
+在业务组件中，你可以通过 SDK 提供的 `modelContext` 简单地注册工具：
+
+```vue
+<script setup lang="ts">
+import { onMounted, onUnmounted } from 'vue'
+import { modelContext } from '@opentiny/next-sdk' // 推荐从 SDK 导入，自带双向同步保障
+
+onMounted(() => {
+  // 遵循 WebMCP 标准接口
+  modelContext.registerTool({
+    name: 'get_coordinates',
+    description: '查询指定城市的经纬度坐标',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        city: { type: 'string', description: '城市名称，例如：北京、上海' }
+      },
+      required: ['city']
+    },
+    execute: async (params: { city: string }) => {
+      // 业务逻辑实现
+      return {
+        content: [{ 
+          type: 'text', 
+          text: `城市: ${params.city}, 坐标: ${Math.random()}, ${Math.random()}` 
+        }]
+      }
+    }
+  })
+})
+
+onUnmounted(() => {
+  modelContext.unregisterTool('get_coordinates')
+})
+</script>
+```
+
+**为什么不直接用原生 `navigator.modelContext`？**
+SDK 提供的 `modelContext` 封装了跨 Iframe 的通信逻辑。如果你的聊天组件（Remoter）在 iframe 中，仅调用原生的 `navigator.modelContext` 会导致工具对聊天组件不可见。使用 SDK 导出的对象可以确保工具同时同步到原生环境和 SDK 的 Iframe 链路。
+
+#### 如何在 Remoter 中启用内置工具感知？
+
+在 `App.vue` 中配置 `mcpServers` 时，将 `navigator.modelContextTesting`（当前浏览器的测试接口名）作为 Client 传入即可：
+
+```ts
+// src/App.vue
+const nav = navigator as any
+const mcpServers = {
+  // 接入浏览器内置 WebMCP 能力
+  ...(nav.modelContextTesting ? {
+    'builtin-webmcp': {
+      type: 'builtin' as const,
+      client: nav.modelContextTesting
+    }
+  } : {})
+}
+```
+
+---
 
 ### 4.1 产品查询页面
 

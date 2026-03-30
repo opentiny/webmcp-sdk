@@ -509,6 +509,22 @@ const mcpServers = {
 - `type: 'streamableHttp'` 或 `type: 'sse'`：需提供 `url`，可选 `useAISdkClient` 和 `headers`
 - `type: 'extension'`：需提供 `url`、`sessionId`，可选 `useAISdkClient` 和 `headers`
 - `type: 'local'`：需提供 `transport`（MCP 传输层），可选 `useAISdkClient`
+- `type: 'builtin'`：浏览器内置 WebMCP（如 Chrome 146+）。需提供 `client` 对象，通常设为 `navigator.modelContextTesting`。**建议配合 `@opentiny/next-sdk` 的 `modelContext` 使用，以获得完美的 SPA 路由握手支持。**
+
+#### 浏览器内置 WebMCP 配置示例
+
+```ts
+const nav = navigator as any
+const mcpServers = {
+  // 接入浏览器原生 WebMCP 能力（需浏览器支持或通过 SDK 模拟）
+  'builtin-mcp': {
+    type: 'builtin',
+    client: nav.modelContextTesting // 指向原生测试接口
+  }
+}
+```
+
+> **注意：** 即使使用了内置浏览器 MCP，我们也强烈建议在业务页面内通过 `import { modelContext } from '@opentiny/next-sdk'` 来注册工具。SDK 提供的 `modelContext` 封装层会自动透传给原生引擎，同时解决了原生 API 无法感知单页应用路由跳转导致的调用超时问题。
 
 ## 工具接入模式（两条路径）
 

@@ -4,6 +4,17 @@ import type { MCPClientConfig } from '@ai-sdk/mcp'
 // 从 MCPClientConfig 中提取 transport 类型
 export type MCPTransport = MCPClientConfig['transport']
 
+/**
+ * 浏览器内置 WebMCP 测试 API 接口 (如 navigator.modelContextTesting)
+ */
+export interface BuiltinMcpClient {
+  listTools?: () => Promise<any[]>
+  getTools?: () => Promise<any[]>
+  executeTool: (name: string, input: string) => Promise<any>
+  registerTool?: (config: { name: string; execute: (input: any) => Promise<any> | any; [key: string]: any }) => void
+  unregisterTool?: (name: string) => void
+}
+
 type ProviderFactory = 'openai' | 'deepseek' | ((options: any) => ProviderV2)
 
 type LlmFactoryConfig = {
@@ -39,6 +50,16 @@ export type McpServerConfig =
   | { type: 'sse'; url: string; useAISdkClient?: boolean; headers?: Record<string, string> }
   | { type: 'extension'; url: string; sessionId: string; useAISdkClient?: boolean; headers?: Record<string, string> }
   | { type: 'local'; transport: MCPTransport; useAISdkClient?: boolean }
+  | {
+      /**
+       * 浏览器内置 WebMCP 类型。
+       * 将 `navigator.modelContextTesting` 作为 MCP 工具数据源，
+       * 通过 `getBuiltinMcpTools` 适配为 ai-sdk 可调用的 ToolSet。
+       */
+      type: 'builtin'
+      /** 传入 `navigator.modelContextTesting` 对象 */
+      client: BuiltinMcpClient
+    }
 
 /** */
 export interface IAgentModelProviderOption {

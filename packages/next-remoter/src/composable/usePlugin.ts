@@ -24,7 +24,8 @@ export function usePlugin(
    * 工具函数：判断是否为本地工具（通过 serverName 判断）
    */
   const isLocalTool = (serverName: string): boolean => {
-    return serverName === 'mcp-server-localhost'
+    const config = agent.mcpServers[serverName]
+    return config?.type === 'local'
   }
 
   /**
@@ -93,9 +94,10 @@ export function usePlugin(
     const enabledToolsState = enabledTools.value || {}
 
     return Object.keys(currTool).map((key) => {
-      // 本地工具：从 enabledTools 读取配置，默认关闭（false）
-      // 域名工具：默认打开（true），不受 enabledTools 影响
-      const enabled = isLocal ? Boolean(enabledToolsState[key]) : true
+      // 本地工具：优先从已持久化的 enabledTools 读取，新工具默认开启 (true)
+      // 域名工具：始终默认打开 (true)
+      const isDefined = Object.prototype.hasOwnProperty.call(enabledToolsState, key)
+      const enabled = isLocal ? (isDefined ? enabledToolsState[key] : true) : true
 
       // 同步更新 ignoreToolnames
       updateIgnoreToolnames(key, enabled)
@@ -157,8 +159,10 @@ export function usePlugin(
 
     // 构建工具列表
     const tools = buildPluginTools(serverName)
-    // 如果没有工具，清理已注册的MCP服务器并返回
-    if (tools.length === 0) {
+    // 如果没有工具，并且不是内置服务器，清理已注册的MCP服务器并返回
+    // 这是因为内置 WebMCP 服务器 (mcp-server-builtin-webmcp) 在首次加载根路由时，可能由于业务页面未 Mount 而没有任何工具，
+    // 我们必须保留它并安装，以便后续页面切换动态注册工具时能够被 sync 到 UI。
+    if (tools.length === 0 && config.mcpServer?.type !== 'builtin') {
       await agent.removeMcpServer(serverName)
       return false
     }
@@ -203,6 +207,10 @@ export function usePlugin(
     if ('type' in mcpServer && mcpServer.type === 'local') {
       pluginName = '本地工具'
       description = '本地工具列表'
+    } else if ('type' in mcpServer && mcpServer.type === 'builtin') {
+      // 浏览器内置 WebMCP（Chrome 146+）：没有 url，使用固定名称标识
+      pluginName = '浏览器内置工具'
+      description = '通过 navigator.modelContextTesting 暴露的浏览器原生 MCP 工具'
     } else {
       const url = new URL(mcpServer.url)
       pluginName = url.origin
