@@ -24,7 +24,8 @@ export function usePlugin(
    * 工具函数：判断是否为本地工具（通过 serverName 判断）
    */
   const isLocalTool = (serverName: string): boolean => {
-    return serverName === 'mcp-server-localhost'
+    const config = agent.mcpServers[serverName]
+    return config?.type === 'local'
   }
 
   /**
