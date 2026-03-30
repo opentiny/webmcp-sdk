@@ -306,6 +306,18 @@ const mcpServers = {
 
 这样工具会随页面生命周期自动增删，Remoter 通过 `listTools` 实时看到最新工具目录。
 
+### 5.0 浏览器内置 WebMCP (Native) 兼容说明
+
+目前 Chrome 等浏览器（146+）已开始实验性支持原生 WebMCP 协议。`@opentiny/next-sdk` 完全兼容该标准。
+
+虽然你可以直接使用原生的 `navigator.modelContext.registerTool`，但在 Angular 等重路由的单页应用中，我们**强烈推荐**使用 SDK 导出的 `modelContext` 对象（见下文 5.1 示例）：
+
+*   **自动透传**：SDK 会自动检测并向原生 `navigator.modelContext` 同步注册。
+*   **路由握手**：原生 API 往往难以感知 SPA 内部的异步路由挂载。SDK 封装了“就绪握手”逻辑，确保 AI 发起页面跳转后，能准确识别到组件 `ngOnInit` 注册的工具，彻底解决调用超时问题。
+*   **标准对齐**：接口已与浏览器草案对齐，支持传入包含 `execute` 属性的配置对象。
+
+---
+
 ### 5.1 单工具示例（商品指南）
 
 ```ts

@@ -10,7 +10,7 @@
 
 - 旧配置 `:pageToolsOnDemand="true"` 需要删除；
 - Remoter 统一通过 `listTools` 实时感知工具目录变化；
-- 页面工具调用与路由跳转机制不变，推荐由 `withPageTools` / `registerNavigateTool` / 页面内 `registerTool` 协作完成。
+- 页面工具调用与路由跳转机制不变，推荐由 `withPageTools` / `registerNavigateTool` / 页面内 `registerTool`协作完成。
 
 迁移建议：
 
@@ -170,6 +170,75 @@ export const createMcpServer = async () => {
 - 页面离开：`server.unregisterTool(...)`
 
 这种方式天然实现“按需加载”：只有当前页面激活时，该页面工具才会出现在 `listTools` 中。
+
+### 4.0 浏览器内置 WebMCP (Native) 兼容说明
+
+目前 Chrome 等浏览器（146+）已开始实验性支持原生 WebMCP 协议。`@opentiny/next-sdk` 完全兼容该标准。
+
+虽然你可以直接使用原生的 `navigator.modelContext.registerTool`，但在企业级 SPA 应用中，我们**强烈推荐**使用 SDK 导出的 `modelContext` 对象（见下文 4.1 示例）：
+
+- **自动透传**：SDK 会自动检测并向原生 `navigator.modelContext` 同步注册工具。
+- **路由联动**：解决原生 API 无法感知单页应用路由变化的问题。SDK 内部集成了“握手机制”，确保在 `navigate_to_page` 跳转后，AI 能立即感知到新页面的工具已就绪。
+- **标准对齐**：SDK 的 `registerTool` 接口已与原生草案对齐，支持传入包含 `execute` 回调的单对象配置。
+
+#### 代码示例：命令式注册工具
+
+在业务组件中，你可以像使用原生 API 一样简单地注册工具：
+
+```vue
+<script setup lang="ts">
+import { onMounted, onUnmounted } from 'vue'
+import { modelContext } from '@opentiny/next-sdk' // 推荐从 SDK 导入，自带路由握手保障
+
+onMounted(() => {
+  // 像使用原生浏览器 API 一样注册
+  modelContext.registerTool({
+    name: 'get_coordinates',
+    description: '查询指定城市的经纬度坐标',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        city: { type: 'string', description: '城市名称，例如：北京、上海' }
+      },
+      required: ['city']
+    },
+    execute: async (params: { city: string }) => {
+      // 业务逻辑实现
+      return {
+        content: [{ 
+          type: 'text', 
+          text: `城市: ${params.city}, 坐标: ${Math.random()}, ${Math.random()}` 
+        }]
+      }
+    }
+  })
+})
+
+onUnmounted(() => {
+  modelContext.unregisterTool('get_coordinates')
+})
+</script>
+```
+
+#### 如何在 Remoter 中启用内置工具感知？
+
+在 `App.vue` 中配置 `mcpServers` 时，将 `navigator.modelContextTesting`（当前浏览器的测试接口名）作为 Client 传入即可：
+
+```ts
+// src/App.vue
+const nav = navigator as any
+const mcpServers = {
+  // 接入浏览器内置 WebMCP 能力
+  ...(nav.modelContextTesting ? {
+    'builtin-webmcp': {
+      type: 'builtin' as const,
+      client: nav.modelContextTesting
+    }
+  } : {})
+}
+```
+
+---
 
 ### 4.1 产品查询页面
 
