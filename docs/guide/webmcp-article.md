@@ -84,10 +84,12 @@ WebMCP 的核心创新在于它从“逆向推导”转向了**“正向显式�
 > - **开启标志位**：访问 `chrome://flags/#enable-webmcp-testing` 并设置为 Enabled
 > - **安全上下文**：必须在 HTTPS 协议或 localhost 环境下运行
 
-- **业务端注册示例**：使用原生 `navigator.modelContext`
+- **业务端注册示例**：推荐使用 SDK 导出的 `modelContext`（自带 Iframe 穿透与 SPA 握手支持）
 
   ```javascript
-  navigator.modelContext.registerTool({
+  import { modelContext } from '@opentiny/next-sdk'
+
+  modelContext.registerTool({
     name: 'get_coordinates',
     description: '查询指定城市的经纬度坐标',
     inputSchema: {
@@ -136,17 +138,17 @@ WebMCP 的核心创新在于它从“逆向推导”转向了**“正向显式�
 开发者不再需要手动编写 `navigator.modelContextTesting` 的发现和调用逻辑。在 `next-sdk` 中，你只需一行配置即可将浏览器内置工具注入 Agent：
 
 ```typescript
-import { AgentModelProvider } from '@opentiny/next-sdk'
+import { AgentModelProvider, modelContext } from '@opentiny/next-sdk'
 
 const agent = new AgentModelProvider({
   llmConfig: {
     /* ... */
   },
   mcpServers: {
-    // 声明为 builtin 类型，SDK 将自动接管 navigator.modelContext
+    // 声明为 builtin 类型，SDK 将自动接管原生 WebMCP 接口
     browserBuiltin: {
       type: 'builtin',
-      client: navigator.modelContext
+      client: modelContext // 推荐传递 SDK 导出的 modelContext
     }
   }
 })

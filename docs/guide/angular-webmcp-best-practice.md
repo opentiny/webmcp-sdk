@@ -306,15 +306,13 @@ const mcpServers = {
 
 这样工具会随页面生命周期自动增删，Remoter 通过 `listTools` 实时看到最新工具目录。
 
-### 5.0 浏览器内置 WebMCP (Native) 兼容说明
-
 目前 Chrome 等浏览器（146+）已开始实验性支持原生 WebMCP 协议。`@opentiny/next-sdk` 完全兼容该标准。
 
-虽然你可以直接使用原生的 `navigator.modelContext.registerTool`，但在 Angular 等重路由的单页应用中，我们**强烈推荐**使用 SDK 导出的 `modelContext` 对象（见下文 5.1 示例）：
+我们**强烈推荐**使用 SDK 导出的 `modelContext` 对象进行注册，而不是直接通过 `navigator.modelContext.registerTool`：
 
 - **能力增强**：针对单页应用（SPA）中常见的“路由跳转后工具延迟挂载”导致的 AI 调用超时痛点，SDK 的兼容层提供了完善的“握手响应机制”。
-- **双向桥接 (Hybrid Path)**：SDK 的 `modelContext` 不仅同步给浏览器原生 API，更重要的是通过 `MessageChannel` 将工具穿透 Iframe 边界投递给 `next-remoter`。这解决了原生 API 无法感知 Iframe 应用内部工具定义的局限。
-- **路由就绪握手**：原生 API 无法感知 SPA 内部的异步路由挂载逻辑。SDK 封装了“就绪握手”，确保 AI 发起页面跳转后，能准确识别到组件代码注册的工具，彻底解决调用超时问题。
+- **双向桥接 (Hybrid Path)**：SDK 的 `modelContext` 不仅同步给浏览器原生 API，更重要的是通过 `MessageChannel` 将工具穿透 Iframe 边界投递给 `next-remoter`。直接使用原生 API 无法感知 Iframe 应用内部定义的工具。
+- **路由就绪握手**：原生 API 无法感知 SPA 内部的异步路由挂载逻辑。SDK 封装了“就绪握手”，确保 AI 发起页面跳转后，能准确识别到组件代码注册的工具。
 - **统一接口**：开发者只需关注标准 WebMCP 接口，SDK 负责处理穿透 Iframe 的通信细节。
 
 ---
