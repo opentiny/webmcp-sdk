@@ -42,7 +42,7 @@ export const useTinyRobotChat = ({ systemPrompt, llmConfig, emit }: useTinyRobot
     state: conversationState // 记录着所有的会话和 currentId
   } = useConversation({
     client,
-    autoSave: false,
+    autoSave: true,
     events: {
       onLoaded() {
         // 会话加载完成（初始化将在组件的 onMounted 中调用）
