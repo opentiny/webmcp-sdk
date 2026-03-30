@@ -4,6 +4,17 @@ import type { MCPClientConfig } from '@ai-sdk/mcp'
 // 从 MCPClientConfig 中提取 transport 类型
 export type MCPTransport = MCPClientConfig['transport']
 
+/**
+ * 浏览器内置 WebMCP 测试 API 接口 (如 navigator.modelContextTesting)
+ */
+export interface BuiltinMcpClient {
+  listTools?: () => Promise<any[]>
+  getTools?: () => Promise<any[]>
+  executeTool: (name: string, input: string) => Promise<any>
+  registerTool?: (config: { name: string; execute: (input: any) => Promise<any> | any; [key: string]: any }) => void
+  unregisterTool?: (name: string) => void
+}
+
 type ProviderFactory = 'openai' | 'deepseek' | ((options: any) => ProviderV2)
 
 type LlmFactoryConfig = {
@@ -47,7 +58,7 @@ export type McpServerConfig =
        */
       type: 'builtin'
       /** 传入 `navigator.modelContextTesting` 对象 */
-      client: object
+      client: BuiltinMcpClient
     }
 
 /** */

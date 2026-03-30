@@ -17,6 +17,7 @@ import type { ZodRawShape } from 'zod'
 import { z } from 'zod'
 import type { RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
+import type { BuiltinMcpClient } from '../agent/type'
 import type { WebMcpServer } from '../WebMcpServer'
 import { randomUUID } from '../utils/uuid'
 import type { ToolInvokeEffectConfig } from './effects'
@@ -716,63 +717,87 @@ export function registerPageTool(options: RegisterPageToolByHandlersOptions | Mo
 
 /**
  * 为了兼容浏览器内置的 WebMCP 命令式 API，并且让它能复用 next-sdk 的握手机制（MSG_PAGE_READY），
- * 我们在此维护一个被代理的全局对象 modelContext。页面端只需要像原生那样调用
- * `window.modelContext.registerTool(...)` 即可产生带有握手机制的工具注册动作。
+ * 我们在此维护一个导出的对象 modelContext。页面端只需要调用
+ * `modelContext.registerTool(...)` 即可产生带有握手机制的工具注册动作。
  */
-const _modelContextCleanupMap = new Map<string, () => void>()
-
-// 在覆盖 navigator.modelContext 之前，预先捕获可能存在的原生上下文
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let _nativeCtx: any = null
-if (typeof navigator !== 'undefined') {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  _nativeCtx = (navigator as any).modelContext || (navigator as any).modelContextTesting
+/**
+ * 获取浏览器原生或测试环境的 WebMCP 上下文
+ */
+function getNativeModelContext(): BuiltinMcpClient | null {
+  if (typeof navigator === 'undefined') return null
+  const nav = navigator as any
+  return nav.modelContext || nav.modelContextTesting || null
 }
 
-// 维护当前页面通过 modelContext 命令式注册的工具完整定义
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const _modelContextToolsMap = new Map<string, any>()
+// 维护当前页面通过 modelContext 命令式注册的工具完整定义与处理器
+const _modelContextHandlers = new Map<string, (input: any) => Promise<any> | any>()
+let _modelContextCleanup: (() => void) | null = null
 
+/**
+ * 内部统一同步函数：将当前路由下通过 modelContext 注册的所有工具
+ * 统一通过一次 registerPageTool 挂载，确保握手广播包含完整的工具列表。
+ */
+function syncModelContextToPage() {
+  if (typeof window === 'undefined') return
+
+  // 先清理旧的注册
+  if (_modelContextCleanup) {
+    _modelContextCleanup()
+    _modelContextCleanup = null
+  }
+
+  if (_modelContextHandlers.size === 0) {
+    return
+  }
+
+  const route = normalizeRoute(window.location.pathname)
+  _modelContextCleanup = registerPageTool({
+    route,
+    handlers: Object.fromEntries(_modelContextHandlers)
+  })
+}
+
+/**
+ * 兼容浏览器内置的 WebMCP 命令式 API，并且让它能复用 next-sdk 的握手机制（MSG_PAGE_READY）。
+ * 页面端可以通过调用 `import { modelContext } from '@opentiny/next-sdk'` 进行工具注册。
+ */
 export const modelContext = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  registerTool: (config: any) => {
-    const name = config.name
-    const execute = config.execute
+  /**
+   * 注册一个 WebMCP 工具
+   */
+  registerTool: (config: { name: string; execute: (input: any) => Promise<any> | any; [key: string]: any }) => {
+    const { name, execute } = config
 
-    _modelContextToolsMap.set(name, config)
+    // 1. 更新本地处理器 Map
+    _modelContextHandlers.set(name, execute)
 
-    // 若原生的 navigator.modelContextTesting (或其他标准名) 存在，向上透传调用使其能被原生 AI 感知
-    if (_nativeCtx && typeof _nativeCtx.registerTool === 'function') {
-      _nativeCtx.registerTool(config)
+    // 2. 若原生的 WebMCP 存在，向上透传调用使其能被原生 AI 感知
+    const nativeCtx = getNativeModelContext()
+    if (nativeCtx && typeof (nativeCtx as any).registerTool === 'function') {
+      ;(nativeCtx as any).registerTool(config)
     }
 
-    // 这里复用 registerPageTool 来利用其内部自动发的 MSG_PAGE_READY 握手广播，
-    // 以便 navigate_to_page 的 await 能够成功通过，并真正将当前模块工具推向目标路由。
-    const route = normalizeRoute(window.location.pathname)
-    const cleanup = registerPageTool({
-      route,
-      handlers: {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        [name]: (input: any) => execute(input)
-      }
-    })
-
-    _modelContextCleanupMap.set(name, cleanup)
+    // 3. 同步到 Page Tool Bridge 链路
+    syncModelContextToPage()
     broadcastToolCatalogChanged()
   },
 
+  /**
+   * 注销一个 WebMCP 工具
+   */
   unregisterTool: (name: string) => {
-    _modelContextToolsMap.delete(name)
-
-    if (_nativeCtx && typeof _nativeCtx.unregisterTool === 'function') {
-      _nativeCtx.unregisterTool(name)
+    // 1. 从原生的 WebMCP 中注销
+    const nativeCtx = getNativeModelContext()
+    if (nativeCtx && typeof (nativeCtx as any).unregisterTool === 'function') {
+      ;(nativeCtx as any).unregisterTool(name)
     }
 
-    const cleanup = _modelContextCleanupMap.get(name)
-    if (cleanup) {
-      cleanup()
-      _modelContextCleanupMap.delete(name)
+    // 2. 从本地处理器 Map 中移除
+    if (_modelContextHandlers.has(name)) {
+      _modelContextHandlers.delete(name)
+      // 3. 重新同步（若 Map 为空，sync 会执行清理）
+      syncModelContextToPage()
+      broadcastToolCatalogChanged()
     }
-    broadcastToolCatalogChanged()
   }
 }
