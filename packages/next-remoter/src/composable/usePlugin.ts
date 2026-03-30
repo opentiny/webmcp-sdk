@@ -203,6 +203,10 @@ export function usePlugin(
     if ('type' in mcpServer && mcpServer.type === 'local') {
       pluginName = '本地工具'
       description = '本地工具列表'
+    } else if ('type' in mcpServer && mcpServer.type === 'builtin') {
+      // 浏览器内置 WebMCP（Chrome 146+）：没有 url，使用固定名称标识
+      pluginName = '浏览器内置工具'
+      description = '通过 navigator.modelContextTesting 暴露的浏览器原生 MCP 工具'
     } else {
       const url = new URL(mcpServer.url)
       pluginName = url.origin
