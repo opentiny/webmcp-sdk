@@ -45,16 +45,6 @@ export const getBuiltinMcpTools = async (client: object): Promise<ToolSet> => {
   for (const descriptor of list) {
     const { name, description, inputSchema = {} } = descriptor
 
-    const execute = async (args: Record<string, unknown>, options: ToolExecutionOptions): Promise<unknown> => {
-      if (!testing.executeTool) {
-        throw new Error(`navigator.modelContextTesting.executeTool is not available`)
-      }
-      const inputStr = JSON.stringify(args ?? {})
-      // executeTool 不接受 AbortSignal，无法直接传递；若需要取消支持，可在此处理
-      void options?.abortSignal
-      return testing.executeTool(name, inputStr)
-    }
-
     // 规范化 inputSchema：补全 properties/additionalProperties 字段
     const normalizedSchema = {
       type: 'object' as const,
@@ -67,7 +57,12 @@ export const getBuiltinMcpTools = async (client: object): Promise<ToolSet> => {
     tools[name] = dynamicTool({
       description: description ?? '',
       inputSchema: jsonSchema(normalizedSchema as Parameters<typeof jsonSchema>[0]),
-      execute
+      async execute(args) {
+        if (!testing.executeTool) {
+          throw new Error(`navigator.modelContextTesting.executeTool is not available`)
+        }
+        return testing.executeTool(name, JSON.stringify(args ?? {}))
+      }
     })
   }
 
