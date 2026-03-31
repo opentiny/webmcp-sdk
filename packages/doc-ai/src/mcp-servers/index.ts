@@ -8,6 +8,8 @@ const [serverTransport, clientTransport] = createMessageChannelPairTransport()
 // 用 withPageTools 包装后，registerTool 第三个参数支持路由配置对象
 export const server = withPageTools(rawServer)
 
+console.log('server', server)
+
 export { clientTransport }
 
 let isConnected = false
