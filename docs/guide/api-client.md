@@ -95,7 +95,7 @@ async connect(options: Transport | ClientConnectOptions):
 
 **示例**
 
-连接 clientTransport
+1. 直连示例
 
 ```typescript
 const [serverTransport, clientTransport] = createMessageChannelPairTransport()
@@ -103,7 +103,7 @@ const [serverTransport, clientTransport] = createMessageChannelPairTransport()
 client.connect(clientTransport)
 ```
 
-连接远程 WebAgent 服务
+2. 代理模式连接远程 WebAgent 服务
 
 ```typescript
 client.connect({
@@ -112,7 +112,7 @@ client.connect({
 })
 ```
 
-固定 sessionId
+3. 固定 sessionId示例
 
 ```typescript
 client.connect({
@@ -121,6 +121,8 @@ client.connect({
   sessionId: 'stream06-1921-4f09-af63-51de410e9e09'
 })
 ```
+
+4. sse 连接示例
 
 默认是通过 Streamable HTTP 方式与 WebAgent 进行连接，也可以通过配置 `type: 'sse'` 使用 SSE 方式进行连接
 
@@ -133,7 +135,7 @@ client.connect({
 })
 ```
 
-回调函数
+5. 错误回调函数示例
 
 ```typescript
 client.connect({
