@@ -26,13 +26,13 @@
 
 在 WebMCP 出现之前，业界主要通过以下三种方式实现 AI 对页面的操控。然而，这些技术在本质上都是从“非结构化数据”中逆向推导逻辑，存在难以突破的技术瓶颈：
 
-### 1. 基于 DOM 解析：结构与语义的脱节
+### 1. 基于 DOM 解析：昂贵的“结构重构”
 
-主流方案依靠爬取 HTML DOM 并将其输入给 LLM。
+主流方案（如阿里开源的 page-agent 等）通常依靠爬取 HTML DOM，通过精简算法（如去除非可视化元素、压缩属性等）提取关键信息后输入给 LLM。
 
-- **技术局限**：DOM 是为“渲染”设计的，而非“逻辑”。一个 `<div>` 标签在代码层面可能承载了核心业务逻辑，但在 AI 看来只是一个通用的容器。
-- **Token 溢出风险**：现代网页 DOM 树极其庞大，将完整的 HTML 发送给 AI 会占用大量的上下文窗口（Context Window），导致推理成本激增且响应延迟。
-- **不稳定性**：前端框架频繁生成的动态 Class 名及 ID 会导致 AI 的交互指令（如 CSS Selector）极其脆弱，任何 UI 的微调都可能引发“蝴蝶效应”。
+- **解析成本高**：即便经过精简，现代复杂单页应用（SPA）的“精简 DOM”依然包含海量节点。将这些结构化文本转换回页面逻辑，会消耗大模型极高的上下文空间（Token），导致成本激增且响应迟滞。
+- **语义严重缺失**：DOM 是为“渲染”设计的，而非“逻辑”。即便 AI 识别出了一个按钮，它也无法确切知道点击该按钮背后的复杂前置校验或级联业务逻辑。
+- **复杂业务应对难**：在面对多层嵌套、动态加载或自定义组件密布的复杂 B 端业务场景时，基于 DOM 的启发式提取往往会丢失关键元数据，导致 AI 陷入“看得见、摸不准、不敢动”的尴尬境地。
 
 ### 2. 基于无障碍 tree（AOM）：描述能力的缺失
 
@@ -84,12 +84,11 @@ WebMCP 的核心创新在于它从“逆向推导”转向了**“正向显式�
 > - **开启标志位**：访问 `chrome://flags/#enable-webmcp-testing` 并设置为 Enabled
 > - **安全上下文**：必须在 HTTPS 协议或 localhost 环境下运行
 
-- **业务端注册示例**：推荐使用 SDK 导出的 `modelContext`（自带 Iframe 穿透与 SPA 握手支持）
+- **业务端注册示例**：使用浏览器原生 `navigator.modelContext`
 
   ```javascript
-  import { modelContext } from '@opentiny/next-sdk'
-
-  modelContext.registerTool({
+  // 遵循 W3C WebMCP 草案接口
+  navigator.modelContext.registerTool({
     name: 'get_coordinates',
     description: '查询指定城市的经纬度坐标',
     inputSchema: {
@@ -100,7 +99,7 @@ WebMCP 的核心创新在于它从“逆向推导”转向了**“正向显式�
       required: ['city']
     },
     execute: async ({ city }) => {
-      // 调用真实的业务 API，确保数据的权威性
+      // 业务逻辑实现
       const data = await businessApi.fetchCity(city)
       return { content: [{ type: 'text', text: JSON.stringify(data) }] }
     }
@@ -135,31 +134,71 @@ WebMCP 的核心创新在于它从“逆向推导”转向了**“正向显式�
 
 ### 1. 内置工具的“零成本”集成
 
-开发者不再需要手动编写 `navigator.modelContextTesting` 的发现和调用逻辑。在 `next-sdk` 中，你只需一行配置即可将浏览器内置工具注入 Agent：
+在 `next-sdk` 中，业务侧注册工具与 AI 侧接入工具都变得极其简单：
+
+#### 业务侧：使用 `modelContext` 注册工具
+
+相比原生 API，SDK 导出的 `modelContext` 会自动处理 Iframe 穿透和 SPA 握手响应。
 
 ```typescript
-import { AgentModelProvider, modelContext } from '@opentiny/next-sdk'
+// 业务组件中注册
+import { modelContext } from '@opentiny/next-sdk'
 
-const agent = new AgentModelProvider({
-  llmConfig: {
-    /* ... */
-  },
-  mcpServers: {
-    // 声明为 builtin 类型，SDK 将自动接管原生 WebMCP 接口
-    browserBuiltin: {
-      type: 'builtin',
-      client: modelContext // 推荐传递 SDK 导出的 modelContext
-    }
+modelContext.registerTool({
+  name: 'get_user_info',
+  description: '获取当前登录用户信息',
+  execute: async () => {
+    return { content: [{ type: 'text', text: '当前用户：OpenTiny 开发者' }] }
   }
 })
 ```
+
+#### AI 侧：在 `next-remoter` 中接入
+
+在渲染 `TinyRemoter` 组件时，由于目前 WebMCP 处于实验阶段，建议在代码中通过环境检测，将浏览器原生的测试接口 `navigator.modelContextTesting` 作为内置工具系统的 Client 传入。
+
+```vue
+<!-- App.vue -->
+<script setup lang="ts">
+import { TinyRemoter } from '@opentiny/next-remoter'
+
+const nav = navigator as any
+const mcpServers = {
+  // 接入浏览器内置 WebMCP 能力 (需开启 chrome://flags 中的相关标志)
+  ...(nav.modelContextTesting
+    ? {
+        'builtin-mcp': {
+          type: 'builtin' as const,
+          client: nav.modelContextTesting // 💡 传入浏览器原生内置 Client
+        }
+      }
+    : {})
+}
+</script>
+
+<template>
+  <TinyRemoter :mcpServers="mcpServers" />
+</template>
+```
+
+> [!NOTE]
+> **关于 `modelContext` 的进阶使用**：
+> 在支持 WebMCP 的环境中，SDK 导出的 `modelContext` 对象实际上是浏览器原生接口的一个“智能代理”。当你在业务侧（如页面组件内）使用 `modelContext.registerTool` 时，它会：
+>
+> 1. **双向桥接 (Hybrid Path)**：自动将工具同步至原生 `navigator.modelContext`，并穿透 Iframe 边界同步给聊天组件。
+> 2. **屏蔽环境差异**：自动处理不同版本浏览器实验性 API 的命名变动。
+
+> [!TIP]
+> **为什么生产环境推荐使用 SDK 导出的 `modelContext`？**
+>
+> 1. **双向桥接 (Hybrid Path)**：SDK 会自动将工具同步至原生 `navigator.modelContext`，同时通过 `MessageChannel` 穿透 Iframe 边界投递给聊天组件。这解决了原生 API 无法感知 Iframe 内部工具定义的局限。
+> 2. **路由就绪握手**：原生 API 无法感知单页应用（SPA）内部的异步路由挂载逻辑。SDK 封装了“就绪握手”，确保 AI 发起页面跳转后，能准确识别到新路由组件注册的工具。
 
 ### 2. 标准化补强（Normalization & Hardening）
 
 `next-sdk` 针对目前浏览器原生实现的不确定性做了深度加固：
 
 - **API 差异抹平**：自动兼容 `listTools` 与 `getTools` 等实验性命名的变动，确保在各版本 Chrome 渠道下的稳定性。
-- **Schema 自动修复**：原生工具声明可能存在 `inputSchema` 结构不完整的情况（如缺失 `properties` 或 `type` 定义）。SDK 会在加载时自动进行规范化补全，确保 AI SDK（如 Vercel AI SDK）能精确解析工具参数。
 - **执行代理化**：通过 `getBuiltinMcpTools` 将原生回调包装为统一的 `dynamicTool`，使得内置工具可以与远程 MCP 服务（SSE/HTTP）在同一个 Agent 实例中无缝并排运行。
 
 ---
