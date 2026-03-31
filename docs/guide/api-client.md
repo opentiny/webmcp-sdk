@@ -39,25 +39,54 @@ const client = new WebMcpClient({ name: 'my-app-client', version: '1.0.0' }, { c
 
 ## connect()
 
-用于 Client 与各种类型的 Transport 的连接。
+`Client`初始化之后，需要连接一个`Transport`通讯，进行服务端的功能调用，比如 `listTool`, `listResources`等。
 
-**类型**
+`connect()` 方法支持以下三种连接模式：
+
+1. **直连 Transport 对象**
+   直接传入已实例化的 `Transport` 对象进行连接。
+
+2. **非代理模式（配置直连）**
+   传入 `WebMcpServer` 的配置信息。内部会自动辅助创建对应的 `Transport` 对象并完成连接。这是直连 `Transport` 对象的简化写法，免去了用户手动 `new Transport()` 的步骤。
+
+3. **代理模式**
+   传入 `WebMcpServer` 的配置信息并启用代理。这是 `WebMcpClient` 的核心创新功能，允许将当前连接的 `WebMcpServer` 端代理至 `Web Agent` 服务器。
+
+   代理成功后，当前的 `WebMcpServer` 网页将变为受控端，并作为一个标准的 `MCP Server` 部署在 `Web Agent` 服务上，供其他 `MCP Client` 进行远程连接和操控。
+
+**类型声明**
 
 ```typescript
-async connect(options: Transport | ClientConnectOptions): Promise<{ transport: Transport; sessionId: string }>
+// WebMcpServer的配置信息
+interface ClientConnectOptions {
+  /** 是否代理模式 */
+  agent?: boolean
+  /** Transport类型。*/
+  type?: 'channel' | 'sse' | 'stream' | 'socket'
+  /** 代理模式时，传入 Web Agent 服务地址。
+    非代理模式时，传入 MCP Server的url 地址。 */
+  url: string
+  /** 令牌*/
+  token?: string
+  /** 会话 ID*/
+  sessionId?: string
+  /** 连接错误的回调函数*/
+  onError?: (error: Error) => void
+}
+
+async connect(options: Transport | ClientConnectOptions):
+              Promise<{ transport: Transport; sessionId: string }>
+
 ```
 
-**参数**
-
-| 参数                                     | 描述                                                   |
-| ---------------------------------------- | ------------------------------------------------------ |
-| options                                  | options 可以直接传入一个 Transport，也可以传入一个对象 |
-| options.url: string                      | Agent 服务地址                                         |
-| options.token?: string                   | 令牌                                                   |
-| options.sessionId?: string               | 会话 ID                                                |
-| options.type?: 'channel' \| 'sse'        | 连接类型                                               |
-| options.agent?: boolean                  | 是否连接到 WebAgent                                    |
-| options.onError?: (error: Error) => void | 连接错误的回调函数                                     |
+> 非代理模式，`type`支持以下 4 种类型：
+>
+> - `'channel'`：创建 `MessageChannelClientTransport` 以支持在网页内通信。
+> - `'sse'`：创建 `SSEClientTransport` 以支持连接 SSE MCP Server 通信。
+> - `'stream'`：创建 `StreamableHTTPClientTransport` 以支持 httpstreamable MCP Server 通信。
+> - `'socket'`：创建 `WebSocketClientTransport` 以支持 Web-socket MCP Server 通信。
+>
+> 代理模式时，`type`仅支持 `'sse'` | `'stream'` | `'socket'` 选项，同时需要 `Web Agent` 服务端支持。
 
 **返回值**
 

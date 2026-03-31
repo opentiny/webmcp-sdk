@@ -111,6 +111,7 @@ export class WebMcpClient {
    * Connects the client to a transport via the specified option.
    */
   async connect(options: Transport | ClientConnectOptions): Promise<{ transport: Transport; sessionId: string }> {
+    // 1. 直连一个Transport时
     if (typeof (options as Transport)['start'] === 'function') {
       this.transport = options as Transport
       this.transport.onclose = undefined
@@ -121,31 +122,25 @@ export class WebMcpClient {
     }
 
     const { url, token, sessionId, type, agent, onError } = options as ClientConnectOptions
-
-    if (agent === true) {
+    // 2. 通过代理连接时
+    if (agent) {
       const proxyOptions: ProxyOptions = { client: this.client, url, token, sessionId }
 
-      let response
+      const response: { transport: Transport; sessionId: string } =
+        type === 'sse'
+          ? await createSseProxy(proxyOptions)
+          : type === 'socket'
+            ? await createSocketProxy(proxyOptions)
+            : await createStreamProxy(proxyOptions)
 
-      const connectProxy = async () => {
-        const { transport, sessionId } =
-          type === 'sse'
-            ? await createSseProxy(proxyOptions)
-            : type === 'socket'
-              ? await createSocketProxy(proxyOptions)
-              : await createStreamProxy(proxyOptions)
-
-        transport.onerror = async (error: Error) => {
-          onError?.(error)
-        }
-
-        response = { transport, sessionId }
+      response.transport.onerror = async (error: Error) => {
+        onError?.(error)
       }
 
-      await connectProxy()
-      return response as unknown as { transport: Transport; sessionId: string }
+      return response
     }
 
+    // 3. 非代理，通过 URL 连接时
     const endpoint = new URL(url)
     let transport: Transport | undefined
 
@@ -166,7 +161,7 @@ export class WebMcpClient {
       await this.client.connect(transport)
     }
 
-    if (typeof transport === 'undefined') {
+    if (type === 'stream' || typeof transport === 'undefined') {
       const opts = streamOptions(token, sessionId) as StreamableHTTPClientTransportOptions
       transport = new StreamableHTTPClientTransport(endpoint, opts)
       await this.client.connect(transport)
