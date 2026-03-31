@@ -68,7 +68,7 @@ interface ClientConnectOptions {
   url: string
   /** 令牌*/
   token?: string
-  /** 会话 ID*/
+  /** 会话 ID。 不传入则自动创建一个id, 传入则可以固定会话id 。*/
   sessionId?: string
   /** 连接错误的回调函数*/
   onError?: (error: Error) => void
