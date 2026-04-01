@@ -55,3 +55,5 @@ export {
   type SkillMeta,
   type SkillToolsSet
 } from './skills/index'
+
+export * from '@mcp-b/webmcp-polyfill'

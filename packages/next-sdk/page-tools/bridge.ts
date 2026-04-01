@@ -31,8 +31,6 @@ const MSG_PAGE_READY = 'next-sdk:page-ready'
 export const MSG_PAGE_LEAVE = 'next-sdk:page-leave'
 /** iframe 内 Remoter 就绪后向父窗口发送，父窗口回传 route-state-initial */
 export const MSG_REMOTER_READY = 'next-sdk:remoter-ready'
-/** 历史兼容消息类型（当前简化方案不再使用） */
-export const MSG_ROUTE_STATE_INITIAL = 'next-sdk:route-state-initial'
 /** 工具目录发生变更（新增/删除/路由重绑定） */
 export const MSG_TOOL_CATALOG_CHANGED = 'next-sdk:tool-catalog-changed'
 
@@ -52,6 +50,7 @@ function initBroadcastTargets() {
     broadcastTargets.add({ win: window, origin: window.location.origin || '*' })
   }
 }
+
 initBroadcastTargets()
 
 /** 向所有广播目标发送路由变更消息（同窗口 + iframe 均能收到） */
@@ -77,7 +76,9 @@ function setupIframeRemoterBridge() {
     broadcastTargets.add({ win: target, origin: event.origin || '*' })
   })
 }
+
 setupIframeRemoterBridge()
+
 function broadcastToolCatalogChanged() {
   if (typeof window === 'undefined') return
   const payload = {
@@ -92,6 +93,7 @@ function broadcastToolCatalogChanged() {
   })
 }
 
+/** 通过 MCP server 发送工具列表已更新消息 */
 function notifyServerToolListChanged(server: unknown) {
   const maybeServer = server as { sendToolListChanged?: () => void }
   try {
@@ -99,35 +101,6 @@ function notifyServerToolListChanged(server: unknown) {
   } catch {
     // ignore
   }
-}
-
-/**
- * 获取通过 withPageTools + RouteConfig 注册的全部工具路由映射。
- * 为保持向后兼容，仍保留该 API；简化模式下不再维护此映射，始终返回空 Map。
- */
-export function getToolRouteMap(): ReadonlyMap<string, string> {
-  return new Map()
-}
-
-/**
- * 获取当前已激活（已挂载）的路由集合。
- * 即调用了 registerPageTool 且尚未执行 cleanup 的页面路由。
- * @returns 当前激活路由的 Set 快照
- */
-export function getActiveRoutes(): Set<string> {
-  return new Set(activePages.keys())
-}
-
-/**
- * 获取当前已激活页面上的工具清单快照。
- * key 为 route，value 为该页面当前可执行的工具名数组。
- */
-export function getActivePageTools(): ReadonlyMap<string, string[]> {
-  const snapshot = new Map<string, string[]>()
-  activePages.forEach((toolNames, route) => {
-    snapshot.set(route, Array.from(toolNames))
-  })
-  return snapshot
 }
 
 function isToolReadyOnRoute(route: string, toolName: string): boolean {
@@ -277,26 +250,6 @@ export type PageToolDefinition<
   handler: (input: any, context?: unknown) => any | Promise<any>
 }
 
-export function definePageTool<InputArgs extends ZodRawShape, OutputArgs extends ZodRawShape>(
-  definition: PageToolDefinition<InputArgs, OutputArgs>
-): PageToolDefinition<InputArgs, OutputArgs> {
-  return definition
-}
-
-/**
- * 批量注册页面工具声明（schema/route）到 MCP Server。
- * 可与 mountPageTools 配套使用，实现“声明与执行回调在同一工具定义对象内”。
- */
-export function registerPageTools(server: PageAwareServer, definitions: PageToolDefinition[]): RegisteredTool[] {
-  return definitions.map((definition) =>
-    server.registerTool(definition.name, definition.config, {
-      route: definition.route,
-      timeout: definition.timeout,
-      invokeEffect: definition.invokeEffect
-    })
-  )
-}
-
 /**
  * 注册一个通用的页面跳转工具（navigate_to_page），供大模型在需要时主动跳转到指定路由。
  *
@@ -382,7 +335,9 @@ export function registerNavigateTool(server: WebMcpServer, options?: NavigateToo
     }
   }
 
-  return server.registerTool(
+  // 绕过 MCP SDK 深层泛型推断导致的"类型实例化过深"
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (server as any).registerTool(
     name,
     {
       title,
@@ -716,17 +671,12 @@ export function registerPageTool(options: RegisterPageToolByHandlersOptions | Mo
 }
 
 /**
- * 为了兼容浏览器内置的 WebMCP 命令式 API，并且让它能复用 next-sdk 的握手机制（MSG_PAGE_READY），
- * 我们在此维护一个导出的对象 modelContext。页面端只需要调用
- * `modelContext.registerTool(...)` 即可产生带有握手机制的工具注册动作。
- */
-/**
  * 获取浏览器原生或测试环境的 WebMCP 上下文
  */
 function getNativeModelContext(): BuiltinMcpClient | null {
   if (typeof navigator === 'undefined') return null
   const nav = navigator as any
-  return nav.modelContext || nav.modelContextTesting || null
+  return nav.modelContext || null
 }
 
 // 维护当前页面通过 modelContext 命令式注册的工具完整定义与处理器
