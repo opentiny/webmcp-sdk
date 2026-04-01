@@ -42,7 +42,6 @@
 import { inventoryList } from '../../mock'
 import { ref, onMounted, onUnmounted } from 'vue'
 import InventoryModal from '../../components/InventoryModal.vue'
-import { modelContext } from '@opentiny/next-sdk'
 
 const modalRef = ref()
 
@@ -55,8 +54,9 @@ const handleManualAdd = () => {
 
 const ADD_INVENTORY_TOOL = 'add_inventory'
 
-onMounted(() => {
-  modelContext.registerTool({
+onMounted(async () => {
+  await new Promise((resolve) => setTimeout(resolve, 2000))
+  ;(navigator as any).modelContext.registerTool({
     name: ADD_INVENTORY_TOOL,
     description: '【入库管理工具】帮助电商管理员将采购的商品新增入库存系统中',
     inputSchema: {
@@ -76,7 +76,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  modelContext.unregisterTool(ADD_INVENTORY_TOOL)
+  ;(navigator as any).modelContext.unregisterTool(ADD_INVENTORY_TOOL)
 })
 </script>
 

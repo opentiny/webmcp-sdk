@@ -140,7 +140,7 @@ function isCurrentPathMatched(path: string): boolean {
  * - 一体化动态注册：等待 tool-catalog-changed（且当前已在目标路由）
  * - 兜底超时，防止 Promise 永远不 resolve
  */
-function waitForNavigationReady(path: string, timeoutMs = 1500): Promise<void> {
+function waitForNavigationReady(path: string, timeoutMs: number): Promise<void> {
   if (!isBrowser()) {
     return Promise.resolve()
   }
@@ -280,7 +280,7 @@ export function registerNavigateTool(server: WebMcpServer, options?: NavigateToo
   const description =
     options?.description ??
     '当需要的工具在当前页面不可用时，使用此工具跳转到特定页面。例如：要查询订单时跳转到 "/orders"，要创建价保时跳转到 "/price-protection"。'
-  const timeoutMs = options?.timeoutMs ?? 1500
+  const timeoutMs = options?.timeoutMs ?? 10000
 
   const inputSchema = {
     path: z.string().describe('目标页面的路由地址，例如 "/orders"、"/inventory"、"/price-protection" 等。')
@@ -704,8 +704,15 @@ export function setupModelContextBridge() {
 
   if (typeof originalRegisterTool === 'function') {
     nativeCtx.registerTool = (config: any) => {
+      // 若已注册同名工具且 handler 没变，则跳过，防止 Vue HMR 等场景下的重复握手广播
+      if (_modelContextHandlers.get(config.name) === config.execute) return
+
       // 1. 调用底层的原生或者 polyfill
-      originalRegisterTool(config)
+      try {
+        originalRegisterTool(config)
+      } catch (err) {
+        // 忽略重复注册错误（例如底层抛出 Duplicate tool name）
+      }
 
       // 2. 同步一份给 next-sdk 内置的 Bridge，让其发起握手动作和广播
       _modelContextHandlers.set(config.name, config.execute)
@@ -716,12 +723,13 @@ export function setupModelContextBridge() {
 
   if (typeof originalUnregisterTool === 'function') {
     nativeCtx.unregisterTool = (name: string) => {
+      // 若列表中没有该工具名称，则跳过取消注册，避免 polyfill 抛出 InvalidStateError
+      if (!_modelContextHandlers.has(name)) return
+
       originalUnregisterTool(name)
-      if (_modelContextHandlers.has(name)) {
-        _modelContextHandlers.delete(name)
-        syncModelContextToPage()
-        broadcastToolCatalogChanged()
-      }
+      _modelContextHandlers.delete(name)
+      syncModelContextToPage()
+      broadcastToolCatalogChanged()
     }
   }
 
