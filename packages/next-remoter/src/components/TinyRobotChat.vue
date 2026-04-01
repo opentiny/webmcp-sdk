@@ -325,6 +325,7 @@ const emit = defineEmits<{
    * @param currMessage - 当前消息对象，包含 role , content, uiContent 字段。
    */
   (e: 'before-ai-render', currMessage: { role: string; content: string; uiContent: any[] }): void
+  (e: 'chat-stream-finish'): void
 }>()
 
 const fullscreen = defineModel('fullscreen', { type: Boolean, default: false })

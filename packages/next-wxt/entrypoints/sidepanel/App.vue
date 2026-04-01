@@ -13,6 +13,7 @@ import { CustomFunction } from '@/utils/customFunction'
 import { getModelConfigsWithToken } from './model-manage'
 import { getStorageItem, setStorageItem } from './utils/local-storage'
 import { StorageKeys } from './utils/storage-keys'
+import { getSnapshotManager } from './accessibility/utils'
 
 // 从统一入口读取 skills（built-in + 用户在 Options 中的覆盖）
 const skills = ref<Record<string, string>>({})
@@ -124,6 +125,14 @@ browser.runtime.onMessage.addListener((message) => {
     location.reload()
   }
 })
+
+// 每一轮对话，都要清除一下页面高亮
+const clearHighlightPage =async () => {
+  // remoterRef.value.clearHighlightPage()
+ const {manager}= await getSnapshotManager()
+  manager.highlightPage(false)
+}
+
 </script>
 
 <template>
@@ -143,6 +152,7 @@ browser.runtime.onMessage.addListener((message) => {
       :custom-market-mcp-servers="customMarketMcpServers"
       :gen-ui-components="genUiComponents"
       :skills="skills"
+      @chat-stream-finish="clearHighlightPage"
     >
       <template #header-actions>
         <button v-if="false" class="record-button" type="button" @click="openRecordModal">

@@ -63,8 +63,14 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   /** 生成式UI启用状态 */
   isGenuiEnabled?: Ref<boolean>
   debugStream: boolean = false
+  emit: ((event: string, data: any) => void) | undefined
 
-  constructor(config: AIModelConfig, systemPrompt: string, llmConfig?: ICustomAgentModelProviderLlmConfig) {
+  constructor(
+    config: AIModelConfig,
+    systemPrompt: string,
+    llmConfig?: ICustomAgentModelProviderLlmConfig,
+    emit?: (event: string, data: any) => void
+  ) {
     super(config)
 
     let mergedConfig: ICustomAgentModelProviderLlmConfig
@@ -92,6 +98,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     this.agent = new AgentModelProvider(options)
     this.promptManager = new PromptManager()
     this.promptManager.setStatic(systemPrompt)
+    this.emit = emit
   }
 
   /**
@@ -425,6 +432,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       onFinish: async () => {
         await this.agent.closeAll()
         this.promptManager.setTemp('') // 清除临时skillPrompt的提示词
+        this.emit?.('chat-stream-finish')
       }
     }
 

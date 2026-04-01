@@ -25,7 +25,7 @@ interface UIMessage {
 }
 
 export const useTinyRobotChat = ({ systemPrompt, llmConfig, emit }: useTinyRobotOption) => {
-  const customAgentProvider = new CustomAgentModelProvider({ provider: 'custom' }, systemPrompt, llmConfig)
+  const customAgentProvider = new CustomAgentModelProvider({ provider: 'custom' }, systemPrompt, llmConfig, emit)
 
   const client = new AIClient({
     providerImplementation: customAgentProvider,
