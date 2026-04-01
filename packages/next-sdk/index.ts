@@ -57,3 +57,19 @@ export {
 } from './skills/index'
 
 export * from '@mcp-b/webmcp-polyfill'
+
+import { initializeWebMCPPolyfill } from '@mcp-b/webmcp-polyfill'
+import { setupModelContextBridge } from './page-tools/bridge'
+import { isBrowser } from './utils/env'
+
+// 用户只需引入一次 next-sdk（例如在入口文件 main.ts 中）即可自动就绪：
+// 1. 初始化标准 Polyfill（若浏览器本身原生支持，它内部会自动跳过不覆盖）
+// 2. 建立浏览器原生或 polyfill 与 next-sdk 页面工具桥接的联系，并代理同步给 next-sdk 握手链路
+if (isBrowser()) {
+  try {
+    initializeWebMCPPolyfill()
+    setupModelContextBridge()
+  } catch (err) {
+    console.warn('[next-sdk] 自动注入 modelContext polyfill 和桥接同步失败:', err)
+  }
+}

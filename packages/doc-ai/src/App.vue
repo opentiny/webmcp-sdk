@@ -247,10 +247,6 @@ const mcpServers: Record<string, McpServerConfig> = {
     : {})
 }
 
-nav.modelContextTesting?.registerToolsChangedCallback((...args) => {
-  console.log('tools changed', args)
-})
-
 const menuItems = ref<any[]>([])
 
 onMounted(async () => {

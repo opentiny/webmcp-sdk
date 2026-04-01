@@ -22,6 +22,7 @@ import type { WebMcpServer } from '../WebMcpServer'
 import { randomUUID } from '../utils/uuid'
 import type { ToolInvokeEffectConfig } from './effects'
 import { hideToolInvokeEffect, resolveRuntimeEffectConfig, showToolInvokeEffect } from './effects'
+import { isBrowser } from '../utils/env'
 
 // 消息类型常量，使用命名空间前缀避免冲突
 const MSG_TOOL_CALL = 'next-sdk:tool-call'
@@ -46,7 +47,7 @@ type BroadcastTarget = { win: Window; origin: string }
 const broadcastTargets = new Set<BroadcastTarget>()
 
 function initBroadcastTargets() {
-  if (typeof window !== 'undefined') {
+  if (isBrowser()) {
     broadcastTargets.add({ win: window, origin: window.location.origin || '*' })
   }
 }
@@ -67,7 +68,7 @@ function broadcastRouteChange(type: string, route: string, extra: Record<string,
 
 /** 监听 iframe 内 Remoter 的 remoter-ready，并加入广播目标 */
 function setupIframeRemoterBridge() {
-  if (typeof window === 'undefined') return
+  if (!isBrowser()) return
   window.addEventListener('message', (event: MessageEvent) => {
     if (event.data?.type !== MSG_REMOTER_READY || !event.source) return
     // 仅接受与当前页面同源的 remoter，避免潜在的 XSS 风险
@@ -80,7 +81,7 @@ function setupIframeRemoterBridge() {
 setupIframeRemoterBridge()
 
 function broadcastToolCatalogChanged() {
-  if (typeof window === 'undefined') return
+  if (!isBrowser()) return
   const payload = {
     type: MSG_TOOL_CATALOG_CHANGED
   }
@@ -124,7 +125,7 @@ export function setNavigator(fn: (route: string) => void | Promise<void>) {
  * 兼容子路径部署（例如 current=/ai/orders, target=/orders）。
  */
 function isCurrentPathMatched(path: string): boolean {
-  if (typeof window === 'undefined') return false
+  if (!isBrowser()) return false
   const target = normalizeRoute(path)
   const current = normalizeRoute(window.location.pathname)
   return (
@@ -140,7 +141,7 @@ function isCurrentPathMatched(path: string): boolean {
  * - 兜底超时，防止 Promise 永远不 resolve
  */
 function waitForNavigationReady(path: string, timeoutMs = 1500): Promise<void> {
-  if (typeof window === 'undefined') {
+  if (!isBrowser()) {
     return Promise.resolve()
   }
 
@@ -290,7 +291,7 @@ export function registerNavigateTool(server: WebMcpServer, options?: NavigateToo
   }: {
     path: string
   }) => {
-    if (typeof window === 'undefined') {
+    if (!isBrowser()) {
       return {
         content: [{ type: 'text', text: '当前环境不支持页面跳转（window 不存在）。' }]
       }
@@ -676,6 +677,7 @@ export function registerPageTool(options: RegisterPageToolByHandlersOptions | Mo
 function getNativeModelContext(): BuiltinMcpClient | null {
   if (typeof navigator === 'undefined') return null
   const nav = navigator as any
+  // 返回通过 hijack 原始保存的方法或自带上下文
   return nav.modelContext || null
 }
 
@@ -684,11 +686,54 @@ const _modelContextHandlers = new Map<string, (input: any) => Promise<any> | any
 let _modelContextCleanup: (() => void) | null = null
 
 /**
+ * 建立浏览器原生或 polyfill 与 next-sdk 页面工具桥接的联系。
+ * 若用户或第三方库直接操作 navigator.modelContext 进行工具注册，
+ * 我们通过此函数进行拦截劫持，并同步到 next-sdk 的握手线路 (MSG_PAGE_READY)，
+ * 从而保证无论浏览器是否原生支持，均能正常完成 WebMCP 握手交互。
+ */
+export function setupModelContextBridge() {
+  if (typeof navigator === 'undefined') return
+  const nav = navigator as any
+  const nativeCtx = nav.modelContext
+
+  // 如果不存在或者已经被拦截过，则不处理
+  if (!nativeCtx || nativeCtx.__isNextSdkBridgeSetup) return
+
+  const originalRegisterTool = nativeCtx.registerTool?.bind(nativeCtx)
+  const originalUnregisterTool = nativeCtx.unregisterTool?.bind(nativeCtx)
+
+  if (typeof originalRegisterTool === 'function') {
+    nativeCtx.registerTool = (config: any) => {
+      // 1. 调用底层的原生或者 polyfill
+      originalRegisterTool(config)
+
+      // 2. 同步一份给 next-sdk 内置的 Bridge，让其发起握手动作和广播
+      _modelContextHandlers.set(config.name, config.execute)
+      syncModelContextToPage()
+      broadcastToolCatalogChanged()
+    }
+  }
+
+  if (typeof originalUnregisterTool === 'function') {
+    nativeCtx.unregisterTool = (name: string) => {
+      originalUnregisterTool(name)
+      if (_modelContextHandlers.has(name)) {
+        _modelContextHandlers.delete(name)
+        syncModelContextToPage()
+        broadcastToolCatalogChanged()
+      }
+    }
+  }
+
+  nativeCtx.__isNextSdkBridgeSetup = true
+}
+
+/**
  * 内部统一同步函数：将当前路由下通过 modelContext 注册的所有工具
  * 统一通过一次 registerPageTool 挂载，确保握手广播包含完整的工具列表。
  */
 function syncModelContextToPage() {
-  if (typeof window === 'undefined') return
+  if (!isBrowser()) return
 
   // 先清理旧的注册
   if (_modelContextCleanup) {

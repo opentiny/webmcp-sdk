@@ -2,10 +2,8 @@ import { createApp } from 'vue'
 import router from './router'
 import App from './App.vue'
 import './style.css'
-import { setNavigator, initializeWebMCPPolyfill } from '@opentiny/next-sdk'
+import { setNavigator } from '@opentiny/next-sdk'
 import { isNavigationFailure } from 'vue-router'
-
-initializeWebMCPPolyfill()
 
 const app = createApp(App)
 
