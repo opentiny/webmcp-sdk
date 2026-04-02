@@ -99,13 +99,14 @@ function isToolReadyOnRoute(route: string, toolName: string): boolean {
 }
 
 // 应用注册的导航函数，由 setNavigator 设置
-let _navigator: ((route: string) => void | Promise<void>) | null = null
+let _navigator: ((route: string) => void | boolean | Promise<void | boolean>) | null = null
 
 /**
  * 注册应用的导航函数，通常在应用入口（如 main.ts）调用一次。
- * @param fn 导航函数，接收路由路径并执行跳转（如 router.push）
+ * @param fn 导航函数，接收路由路径并执行跳转（如 router.push）。
+ *           若返回 true，视为目标页面已就绪（如同一路由忽略握手等待），将立即执行后续工具调用。
  */
-export function setNavigator(fn: (route: string) => void | Promise<void>) {
+export function setNavigator(fn: (route: string) => void | boolean | Promise<void | boolean>) {
   _navigator = fn
 }
 
@@ -294,9 +295,13 @@ export function registerNavigateTool(server: any, options?: NavigateToolOptions)
 
       // 先注册握手监听再触发导航，避免极快导航下事件先于监听器触发而漏收。
       const readyPromise = waitForNavigationReady(timeoutMs)
-      await _navigator(path)
-      await readyPromise
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      const isReady = await _navigator(path)
+
+      // 若导航函数返回 true（如同一路由），视为页面已就绪，跳过握手等待
+      if (isReady !== true) {
+        await readyPromise
+        await new Promise((resolve) => setTimeout(resolve, 500))
+      }
 
       return {
         content: [{ type: 'text', text: `已成功跳转至页面：${path}。请继续你的下一步操作。` }]
@@ -427,7 +432,15 @@ function buildPageHandler(
           window.addEventListener('message', readyHandler)
 
           if (_navigator) {
-            await _navigator(route)
+            const isReady = await _navigator(route)
+            // 若导航函数返回 true（如同一路由），视为页面已就绪，直接发送调用并跳过握手同步
+            if (isReady === true) {
+              if (readyHandler) {
+                window.removeEventListener('message', readyHandler)
+              }
+              sendCallOnce()
+              return
+            }
           }
           // sendCallOnce 保证即使两条路径都触发，消息也只发送一次。
           if (isToolReadyOnRoute(route, name)) {
