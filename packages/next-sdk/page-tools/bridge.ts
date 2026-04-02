@@ -17,7 +17,6 @@ import type { ZodRawShape } from 'zod'
 import { z } from 'zod'
 import type { RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
-import type { BuiltinMcpClient } from '../agent/type'
 import type { WebMcpServer } from '../WebMcpServer'
 import { randomUUID } from '../utils/uuid'
 import type { ToolInvokeEffectConfig } from './effects'
@@ -113,16 +112,12 @@ export function setNavigator(fn: (route: string) => void | Promise<void>) {
 
 /**
  * 当前 pathname 是否已匹配目标路由。
- * 兼容子路径部署（例如 current=/ai/orders, target=/orders）。
  */
 function isCurrentPathMatched(path: string): boolean {
   if (!isBrowser()) return false
   const target = normalizeRoute(path)
   const current = normalizeRoute(window.location.pathname)
-  return (
-    current === target ||
-    (current.endsWith(target) && (current.length === target.length || current[current.lastIndexOf(target) - 1] === '/'))
-  )
+  return current === target
 }
 
 function waitForNavigationReady(timeoutMs: number): Promise<void> {
@@ -639,19 +634,6 @@ export function registerPageTool(options: RegisterPageToolByHandlersOptions | Mo
     broadcastToolChange(MSG_TOOL_UNREGISTERED)
   }
 }
-
-/**
- * 获取浏览器原生或测试环境的 WebMCP 上下文
- */
-function getNativeModelContext(): BuiltinMcpClient | null {
-  if (typeof navigator === 'undefined') return null
-  const nav = navigator as any
-  // 返回通过 hijack 原始保存的方法或自带上下文
-  return nav.modelContext || null
-}
-
-// 维护当前页面通过 modelContext 命令式注册的工具完整定义与处理器
-const _modelContextHandlers = new Map<string, (input: any) => Promise<any> | any>()
 
 /**
  * 建立浏览器原生或 polyfill 与 next-sdk 页面工具桥接的联系。

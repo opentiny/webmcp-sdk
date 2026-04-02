@@ -11,6 +11,6 @@ export default function registerFinanceTools(server: PageAwareServer) {
         month: z.string().optional().describe('查询的月份，如"2023-10"')
       }
     },
-    { route: '/finance' }
+    { route: '/ai-vue/finance' }
   )
 }
