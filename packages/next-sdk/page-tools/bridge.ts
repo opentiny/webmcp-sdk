@@ -313,17 +313,30 @@ export function registerNavigateTool(server: any, options?: NavigateToolOptions)
     }
   }
 
-  // 绕过 MCP SDK 深层泛型推断导致的"类型实例化过深"
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (server as any).registerTool(
-    name,
-    {
-      title,
-      description,
-      inputSchema
-    },
-    handler
-  )
+  if (server && typeof server.registerTool === 'function') {
+    // 优先检查是否为被 SDK 拦截过的原生/Polyfill modelContext
+    // 我们在 setupModelContextBridge 中显式注入了该标识位
+    if (server.__isNextSdkBridgeSetup) {
+      return server.registerTool({
+        name,
+        title,
+        description,
+        inputSchema,
+        execute: handler
+      })
+    }
+
+    // 否则默认为 SDK WebMcpServer 格式 (三个参数)
+    return server.registerTool(
+      name,
+      {
+        title,
+        description,
+        inputSchema
+      },
+      handler
+    )
+  }
 }
 
 /**
