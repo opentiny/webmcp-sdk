@@ -12,12 +12,7 @@ TinyRemoter 组件支持自定义大模型接口和自定义 WebAgent 代理服�
 
 ```vue
 <template>
-  <TinyRemoter
-    v-model:show="show"
-    sessionId="your-session-id"
-    title="我的AI助手"
-    :llmConfig="llmConfig"
-  />
+  <TinyRemoter v-model:show="show" sessionId="your-session-id" title="我的AI助手" :llmConfig="llmConfig" />
 </template>
 
 <script setup>
@@ -28,7 +23,7 @@ const show = ref(false)
 
 // 使用 Provider 工厂配置
 const llmConfig = {
-  apiKey: 'your-api-key',
+  apiKey: '',
   baseURL: 'https://api.custom-llm.com/v1',
   providerType: 'openai', // 或 'deepseek'，或自定义 Provider 函数
   model: 'gpt-4o',
@@ -43,12 +38,7 @@ const llmConfig = {
 
 ```vue
 <template>
-  <TinyRemoter
-    v-model:show="show"
-    sessionId="your-session-id"
-    title="我的AI助手"
-    :llmConfig="llmConfig"
-  />
+  <TinyRemoter v-model:show="show" sessionId="your-session-id" title="我的AI助手" :llmConfig="llmConfig" />
 </template>
 
 <script setup>
@@ -81,12 +71,7 @@ const llmConfig = {
 
 ```vue
 <template>
-  <TinyRemoter
-    v-model:show="show"
-    sessionId="your-session-id"
-    title="我的AI助手"
-    :llmConfig="customConfig"
-  />
+  <TinyRemoter v-model:show="show" sessionId="your-session-id" title="我的AI助手" :llmConfig="customConfig" />
 </template>
 
 <script setup>
@@ -98,7 +83,7 @@ const show = ref(false)
 
 // 使用自定义 Provider 函数
 const customConfig = {
-  apiKey: 'your-custom-api-key',
+  apiKey: '',
   baseURL: 'https://api.custom-llm.com/v1',
   providerType: createCustomProvider, // 传入自定义 Provider 函数
   model: 'custom-model',
@@ -294,4 +279,3 @@ VITE_AGENT_ROOT=https://your-agent-server.com/api/v1/webmcp/
 - [TinyRemoter for Vue](./tiny-robot-remoter.md) - TinyRemoter 组件完整文档
 - [AgentModelProvider API](./api-agentModelProvider.md) - AgentModelProvider 类详细说明
 - [WebAgent 私有化部署](./web-agent-private-deployment.md) - WebAgent 私有化部署指南
-
