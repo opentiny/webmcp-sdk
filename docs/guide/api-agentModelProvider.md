@@ -60,7 +60,7 @@ const webAgent = new AgentModelProvider({
 ```typescript
 const webAgent = new AgentModelProvider({
   llmConfig: {
-    apiKey: 'sk-xxx',
+    apiKey: '',
     baseURL: 'https://xxxxx',
     providerType: 'deepseek'
   }
@@ -74,7 +74,7 @@ import { createAnthropic } from '@ai-sdk/anthropic'
 
 const webAgent = new AgentModelProvider({
   llmConfig: {
-    apiKey: 'sk-xxx',
+    apiKey: '',
     baseURL: 'https://xxxxx',
     providerType: createAnthropic
   }
@@ -92,7 +92,7 @@ export type McpServerConfig = { type: 'streamableHttp' | 'sse'; url: string } | 
 
 const webAgent = new AgentModelProvider({
   llmConfig: {
-    apiKey: 'sk-xxx',
+    apiKey: '',
     baseURL: 'https://xxxxx',
     providerType: createAnthropic
   },
@@ -115,7 +115,7 @@ const webAgent = new AgentModelProvider({
 ```typescript
 const webAgent = new AgentModelProvider({
   llmConfig: {
-    apiKey: 'sk-xxx',
+    apiKey: '',
     baseURL: 'https://xxxxx',
     providerType: 'deepseek'
   },
