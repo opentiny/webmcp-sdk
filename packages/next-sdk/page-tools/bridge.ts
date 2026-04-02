@@ -673,12 +673,34 @@ export function setupModelContextBridge() {
 
   if (typeof originalRegisterTool === 'function') {
     nativeCtx.registerTool = (config: any) => {
-      // 1. 调用底层的原生或者 polyfill
-      try {
-        originalRegisterTool(config)
-      } catch (err) {
-        // 忽略重复注册错误（例如底层抛出 Duplicate tool name）
+      const name = config.name
+      const toolConfig = { ...config } // 拷贝一份，避免修改用户原始对象
+
+      // 1. 识别路由配置核心件：原生格式下仅从 config.routeConfig 对象识别
+      const routeConfig: RouteConfig | null =
+        toolConfig.routeConfig && typeof toolConfig.routeConfig === 'object' && 'route' in toolConfig.routeConfig
+          ? (toolConfig.routeConfig as RouteConfig)
+          : null
+
+      // 2. 如果存在路由配置，且当前不在该目标页面，则包装为自动跳转的 handler
+      if (routeConfig) {
+        const normalizedRoute = normalizeRoute(routeConfig.route)
+        const effectConfig = resolveRuntimeEffectConfig(name, toolConfig.title, routeConfig.invokeEffect)
+        const pageHandler = buildPageHandler(name, normalizedRoute, routeConfig.timeout, effectConfig)
+
+        // 注入跳转处理器
+        toolConfig.execute = pageHandler
+        // 剥离 SDK 扩展配置，确保符合原生 ToolRegistrationParams 结构
+        delete toolConfig.routeConfig
       }
+
+      // 3. 执行底层的原生注册逻辑
+      try {
+        originalRegisterTool(toolConfig)
+      } catch (err) {
+        // 忽略重复注册错误
+      }
+
       broadcastToolChange(MSG_TOOL_REGISTERED)
     }
   }
@@ -688,7 +710,7 @@ export function setupModelContextBridge() {
       try {
         originalUnregisterTool(name)
       } catch (err) {
-        // 忽略重复注册错误（例如底层抛出 Duplicate tool name）
+        // 忽略注销错误
       }
       broadcastToolChange(MSG_TOOL_UNREGISTERED)
     }
