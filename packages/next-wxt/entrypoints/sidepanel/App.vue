@@ -131,6 +131,7 @@ const clearHighlightPage =async () => {
   // remoterRef.value.clearHighlightPage()
  const {manager}= await getSnapshotManager()
   manager.highlightPage(false)
+  // manager.clearCursorInPage()
 }
 
 </script>

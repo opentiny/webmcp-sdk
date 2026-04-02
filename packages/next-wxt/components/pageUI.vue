@@ -120,6 +120,7 @@ onUnmounted(() => {
 
 <template>
   <div class="wxt-ingt-breath"></div>
+  <div class="wxt-ingt-cursor"></div>
 
   <div
     v-show="visible"
@@ -138,6 +139,7 @@ onUnmounted(() => {
       <span class="wxt-message__text">{{ CALLING_TEXT }}</span>
       <span class="wxt-message__toolname"> {{ message }} </span>
     </div>
+
   </div>
 </template>
 
@@ -269,6 +271,20 @@ onUnmounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+/* 虚拟光标样式 */
+[data-wxt-integrated] .wxt-ingt-cursor.cursor-visible {
+  position: fixed;
+  width: 50px;
+  height: 50px;
+  border-top: 2px solid #1476ff;
+  border-left: 2px solid #1476ff;
+  pointer-events: none;
+  z-index: 99997;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(22deg);
 }
 
 /* 呼吸灯动画关键帧，控制内部阴影和透明度变化 */

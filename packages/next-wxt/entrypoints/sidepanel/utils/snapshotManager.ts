@@ -244,4 +244,74 @@ export class SnapshotManager {
       }
     }
   }
+
+  /**
+   * 重置光标
+   * @param uid 移到的目标元素
+   */
+  async resetCursorInPage() {
+    if (this.currentSnapshot) {
+      await this.createTextSnapshot()
+    }
+
+    const handle = await this.currentSnapshot?.root.elementHandle?.()
+    if (handle) {
+      await handle.evaluate((el: Element) => {
+        const cursor = el.querySelector('.wxt-ingt-cursor')
+        if (cursor) {
+          cursor.classList.add('cursor-visible')
+          cursor.style.top = '50%'
+          cursor.style.left = '50%'
+          cursor.style.transform = 'translate(-50%, -50%)'
+        }
+      })
+    }
+  }
+  /**
+   * 移动光标
+   * @param uid 移到的目标元素
+   */
+  async moveCursorInPage(uid: string) {
+    if (this.currentSnapshot) {
+      await this.createTextSnapshot()
+    }
+    const targetHandle = await this.getElementHandleByUid(uid)
+    if (!targetHandle) {
+      return
+    }
+
+    const box = await targetHandle?.boundingBox()
+
+    const handle = await this.currentSnapshot?.root.elementHandle?.()
+    if (handle) {
+      await handle.evaluate((el: Element) => {
+        const cursor = el.querySelector('.wxt-ingt-cursor')
+        if (cursor) {
+          cursor.classList.add('cursor-visible')
+          cursor.style.top = `${box.y + box?.height / 2}px`
+          cursor.style.left = `${box.x + box?.width / 2}px`
+          cursor.style.transform = 'translate(-50%, -50%)'
+        }
+      })
+    }
+  }
+
+  /**
+   * 清除光标
+   */
+  async clearCursorInPage() {
+    if (this.currentSnapshot) {
+      await this.createTextSnapshot()
+    }
+
+    const handle = await this.currentSnapshot?.root.elementHandle?.()
+    if (handle) {
+      await handle.evaluate((el: Element) => {
+        const cursor = el.querySelector('.wxt-ingt-cursor')
+        if (cursor) {
+          cursor.classList.remove('cursor-visible')
+        }
+      })
+    }
+  }
 }
