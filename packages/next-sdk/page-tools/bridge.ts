@@ -641,14 +641,13 @@ export function setupModelContextBridge() {
         delete toolConfig.routeConfig
       }
 
-      // 3. 执行底层的原生注册逻辑
+      // 3. 执行底层的原生注册逻辑并广播同步
       try {
         originalRegisterTool(toolConfig)
+        broadcastToolChange(MSG_TOOL_REGISTERED)
       } catch (err) {
         // 忽略重复注册错误
       }
-
-      broadcastToolChange(MSG_TOOL_REGISTERED)
     }
   }
 
@@ -656,10 +655,10 @@ export function setupModelContextBridge() {
     nativeCtx.unregisterTool = (name: string) => {
       try {
         originalUnregisterTool(name)
+        broadcastToolChange(MSG_TOOL_UNREGISTERED)
       } catch (err) {
         // 忽略注销错误
       }
-      broadcastToolChange(MSG_TOOL_UNREGISTERED)
     }
   }
 
