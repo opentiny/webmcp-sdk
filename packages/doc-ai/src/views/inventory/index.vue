@@ -54,8 +54,7 @@ const handleManualAdd = () => {
 
 const ADD_INVENTORY_TOOL = 'add_inventory'
 
-onMounted(async () => {
-  await new Promise((resolve) => setTimeout(resolve, 2000))
+onMounted(() => {
   ;(navigator as any).modelContext.registerTool({
     name: ADD_INVENTORY_TOOL,
     description: '【入库管理工具】帮助电商管理员将采购的商品新增入库存系统中',

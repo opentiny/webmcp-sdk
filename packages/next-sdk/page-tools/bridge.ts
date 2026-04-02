@@ -80,13 +80,16 @@ function setupIframeRemoterBridge() {
 
 setupIframeRemoterBridge()
 
-
-
 /** 通过 MCP server 发送工具列表已更新消息 */
 function notifyServerToolListChanged(server: unknown) {
-  const maybeServer = server as { sendToolListChanged?: () => void }
+  if (!server) return
+  const maybeServer = server as { sendToolListChanged?: () => void; server?: { sendToolListChanged?: () => void } }
   try {
-    maybeServer.sendToolListChanged?.()
+    if (typeof maybeServer.sendToolListChanged === 'function') {
+      maybeServer.sendToolListChanged()
+    } else if (maybeServer.server && typeof maybeServer.server.sendToolListChanged === 'function') {
+      maybeServer.server.sendToolListChanged()
+    }
   } catch {
     // ignore
   }
@@ -292,6 +295,7 @@ export function registerNavigateTool(server: WebMcpServer, options?: NavigateToo
       const readyPromise = waitForNavigationReady(timeoutMs)
       await _navigator(path)
       await readyPromise
+      await new Promise((resolve) => setTimeout(resolve, 500))
 
       return {
         content: [{ type: 'text', text: `已成功跳转至页面：${path}。请继续你的下一步操作。` }]
@@ -601,14 +605,13 @@ export function registerPageTool(options: RegisterPageToolByHandlersOptions | Mo
       event.source !== window ||
       event.data?.type !== MSG_TOOL_CALL ||
       normalizeRoute(String(event.data?.route ?? '')) !== route ||
-      !(event.data.toolName in handlers) &&
-      !_modelContextHandlers.has(event.data.toolName)
+      !(event.data.toolName in handlers)
     ) {
       return
     }
     const { callId, toolName, input } = event.data
     try {
-      const handler = handlers[toolName] || _modelContextHandlers.get(toolName)
+      const handler = handlers[toolName]
       if (!handler) throw new Error(`Tool "${toolName}" handler not found.`)
       const result = await handler(input)
       window.postMessage({ type: MSG_TOOL_RESPONSE, callId, result }, window.location.origin || '*')
@@ -649,7 +652,6 @@ function getNativeModelContext(): BuiltinMcpClient | null {
 
 // 维护当前页面通过 modelContext 命令式注册的工具完整定义与处理器
 const _modelContextHandlers = new Map<string, (input: any) => Promise<any> | any>()
-let _modelContextCleanup: (() => void) | null = null
 
 /**
  * 建立浏览器原生或 polyfill 与 next-sdk 页面工具桥接的联系。
@@ -670,81 +672,26 @@ export function setupModelContextBridge() {
 
   if (typeof originalRegisterTool === 'function') {
     nativeCtx.registerTool = (config: any) => {
-      // 若已注册同名工具且 handler 没变，则跳过，防止 Vue HMR 等场景下的重复握手广播
-      if (_modelContextHandlers.get(config.name) === config.execute) return
-
       // 1. 调用底层的原生或者 polyfill
       try {
         originalRegisterTool(config)
       } catch (err) {
         // 忽略重复注册错误（例如底层抛出 Duplicate tool name）
       }
-
-      // 2. 同步一份给 next-sdk 内置的 Bridge，让其发起握手动作和广播
-      _modelContextHandlers.set(config.name, config.execute)
       broadcastToolChange(MSG_TOOL_REGISTERED)
     }
   }
 
   if (typeof originalUnregisterTool === 'function') {
     nativeCtx.unregisterTool = (name: string) => {
-      // 若列表中没有该工具名称，则跳过取消注册，避免 polyfill 抛出 InvalidStateError
-      if (!_modelContextHandlers.has(name)) return
-
       try {
         originalUnregisterTool(name)
       } catch (err) {
         // 忽略重复注册错误（例如底层抛出 Duplicate tool name）
       }
-      _modelContextHandlers.delete(name)
       broadcastToolChange(MSG_TOOL_UNREGISTERED)
     }
   }
 
   nativeCtx.__isNextSdkBridgeSetup = true
-}
-
-
-
-/**
- * 兼容浏览器内置的 WebMCP 命令式 API，并且让它能复用 next-sdk 的握手机制（MSG_PAGE_READY）。
- * 页面端可以通过调用 `import { modelContext } from '@opentiny/next-sdk'` 进行工具注册。
- */
-export const modelContext = {
-  /**
-   * 注册一个 WebMCP 工具
-   */
-  registerTool: (config: { name: string; execute: (input: any) => Promise<any> | any; [key: string]: any }) => {
-    const { name, execute } = config
-
-    // 1. 更新本地处理器 Map
-    _modelContextHandlers.set(name, execute)
-
-    // 2. 若原生的 WebMCP 存在，向上透传调用使其能被原生 AI 感知
-    const nativeCtx = getNativeModelContext()
-    if (nativeCtx && typeof (nativeCtx as any).registerTool === 'function') {
-      ;(nativeCtx as any).registerTool(config)
-    }
-
-    // 3. 广播工具注册信号
-    broadcastToolChange(MSG_TOOL_REGISTERED)
-  },
-
-  /**
-   * 注销一个 WebMCP 工具
-   */
-  unregisterTool: (name: string) => {
-    // 1. 从原生的 WebMCP 中注销
-    const nativeCtx = getNativeModelContext()
-    if (nativeCtx && typeof (nativeCtx as any).unregisterTool === 'function') {
-      ;(nativeCtx as any).unregisterTool(name)
-    }
-
-    // 2. 从本地处理器 Map 中移除
-    if (_modelContextHandlers.has(name)) {
-      _modelContextHandlers.delete(name)
-      // 3. 广播工具注销信号
-      broadcastToolChange(MSG_TOOL_UNREGISTERED)
-    }
-  }
 }
