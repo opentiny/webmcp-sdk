@@ -10,7 +10,7 @@ export default function registerFinanceTools() {
       }
     },
     routeConfig: {
-      route: '/ai-vue/finance'
+      route: '/finance'
     }
   })
 }

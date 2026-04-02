@@ -429,11 +429,6 @@ function buildPageHandler(
           if (_navigator) {
             await _navigator(route)
           }
-
-          // 导航 await 完成后，再次检查 activePages：
-          // 若页面在注册监听器与导航之间极短间隙内已激活（极端竞态），
-          // message 事件已被 handleMessage 消费但 readyHandler 未执行，
-          // 此处补充检查确保不会永久等待。
           // sendCallOnce 保证即使两条路径都触发，消息也只发送一次。
           if (isToolReadyOnRoute(route, name)) {
             window.removeEventListener('message', readyHandler)
@@ -457,9 +452,7 @@ function buildPageHandler(
  * - 第三个参数为 **RouteConfig 对象**：自动生成转发 handler，工具调用时
  *   先导航到目标路由，再通过 postMessage 与页面通信
  */
-export function withPageTools(server: WebMcpServer): PageAwareServer
-export function withPageTools(server: WebMcpServer, options: WithPageToolsOptions): PageAwareServer
-export function withPageTools(server: WebMcpServer, options?: WithPageToolsOptions): PageAwareServer {
+export function withPageTools(server: WebMcpServer): PageAwareServer {
   const proxyRegisteredTools = new Map<string, RegisteredTool>()
 
   const unregisterByName = (target: WebMcpServer, name: string, silent = false): boolean => {
@@ -554,73 +547,14 @@ export type RegisterPageToolByHandlersOptions = {
   handlers: PageToolHandlers
 }
 
-export type MountPageToolsOptions = {
-  /**
-   * 待激活的工具定义（定义中同时包含 schema + handler）。
-   * 若 route 省略且 tools 包含多个路由，将抛出错误提示显式指定 route。
-   */
-  tools: PageToolDefinition[]
-  /** 可选：覆盖 route（只激活该路由下的工具定义） */
-  route?: string
-  /** 运行时上下文，会作为第二参数透传给 definition.handler */
-  context?: unknown
-}
-
-function resolveRouteAndHandlers(options: RegisterPageToolByHandlersOptions | MountPageToolsOptions): {
-  route: string
-  handlers: PageToolHandlers
-} {
-  if ('handlers' in options) {
-    return {
-      route: normalizeRoute(options.route ?? window.location.pathname),
-      handlers: options.handlers
-    }
-  }
-
-  const tools = options.tools ?? []
-  if (!tools.length) {
-    throw new Error('registerPageTool: tools 不能为空。')
-  }
-
-  const targetRoute = options.route ? normalizeRoute(options.route) : null
-  const uniqueRoutes = new Set(tools.map((item) => normalizeRoute(item.route)))
-  if (!targetRoute && uniqueRoutes.size > 1) {
-    throw new Error('registerPageTool: tools 包含多个 route，请显式传入 route 参数。')
-  }
-
-  const route = targetRoute ?? Array.from(uniqueRoutes)[0]
-  const handlers: PageToolHandlers = {}
-  tools
-    .filter((item) => normalizeRoute(item.route) === route)
-    .forEach((item) => {
-      if (handlers[item.name]) {
-        throw new Error(`registerPageTool: 工具 "${item.name}" 在 route "${route}" 上重复定义。`)
-      }
-      handlers[item.name] = (input) => item.handler(input, options.context)
-    })
-
-  if (!Object.keys(handlers).length) {
-    throw new Error(`registerPageTool: route "${route}" 下未找到可激活的工具定义。`)
-  }
-
-  return { route, handlers }
-}
-
-export function registerPageTool(options: RegisterPageToolByHandlersOptions): () => void
-export function registerPageTool(options: MountPageToolsOptions): () => void
-export function registerPageTool(options: RegisterPageToolByHandlersOptions | MountPageToolsOptions): () => void {
-  const { route, handlers } = resolveRouteAndHandlers(options)
+export function registerPageTool(options: RegisterPageToolByHandlersOptions): () => void {
+  const { route, handlers } = options
+  const resultRoute = normalizeRoute(route ?? window.location.pathname)
   const toolNames = Object.keys(handlers)
 
   const handleMessage = async (event: MessageEvent) => {
-    // 同时校验 route 字段，防止多页面注册同名工具时发生跨路由串扰
     // 对消息携带的 route 同样规范化，避免因尾部斜杠等差异导致匹配失败
-    if (
-      event.source !== window ||
-      event.data?.type !== MSG_TOOL_CALL ||
-      normalizeRoute(String(event.data?.route ?? '')) !== route ||
-      !(event.data.toolName in handlers)
-    ) {
+    if (event.source !== window || event.data?.type !== MSG_TOOL_CALL || !(event.data.toolName in handlers)) {
       return
     }
     const { callId, toolName, input } = event.data
@@ -642,13 +576,13 @@ export function registerPageTool(options: RegisterPageToolByHandlersOptions | Mo
   }
 
   // 注册页面为已激活状态并广播工具注册信号（同窗口 + iframe Remoter 均能收到）
-  activePages.set(route, new Set(toolNames))
+  activePages.set(resultRoute, new Set(toolNames))
   window.addEventListener('message', handleMessage)
   broadcastToolChange(MSG_TOOL_REGISTERED)
 
   // 返回 cleanup，由各框架在页面销毁时调用
   return () => {
-    activePages.delete(route)
+    activePages.delete(resultRoute)
     window.removeEventListener('message', handleMessage)
     broadcastToolChange(MSG_TOOL_UNREGISTERED)
   }

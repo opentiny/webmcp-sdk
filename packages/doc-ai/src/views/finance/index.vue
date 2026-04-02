@@ -81,7 +81,7 @@ let cleanupPageTool: (() => void) | undefined
 onMounted(() => {
   cleanupPageTool = registerPageTool({
     // 显式指定路由，需与 mcp-servers 中 RouteConfig.route '/finance' 保持一致
-    route: '/ai-vue/finance',
+    route: '/finance',
     handlers: {
       'finance_summary_query': async ({ month }: { month?: string }) => {
         const monthLabel = month ? `（${month}）` : '（当前）'
