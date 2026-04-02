@@ -5,6 +5,7 @@ export default defineConfig({
   title: 'OpenTiny NEXT-SDKs',
   description: 'OpenTiny NEXT-SDKs',
   base: '/webmcp-sdk/',
+  ignoreDeadLinks: [/^http:\/\/localhost:/],
   vite: {
     server: {
       port: 3000
