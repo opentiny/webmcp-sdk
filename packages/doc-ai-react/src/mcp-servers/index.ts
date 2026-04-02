@@ -1,30 +1,23 @@
-import {
-  WebMcpServer,
-  createMessageChannelServerTransport,
-  withPageTools,
-  registerNavigateTool
-} from '@opentiny/next-sdk'
-import registerProductGuideTools from './product-guide/tools'
-import registerPriceProtectionTools from './price-protection/tools'
+import { WebMcpServer, createMessageChannelPairTransport, withPageTools } from '@opentiny/next-sdk'
+import { registerAllTools } from './common'
+export { useWebAgentServer } from './useWebAgentServer'
 
 const rawServer = new WebMcpServer()
+const [serverTransport, clientTransport] = createMessageChannelPairTransport()
 
-/**
- * 用 withPageTools 包装 server，使 registerTool 支持路由配置对象。
- * MCP Server 与 registerPageTool 均在 react 主窗口，page-tool-bridge 同窗口 postMessage 即可。
- */
+// 用 withPageTools 包装后，registerTool 第三个参数支持路由配置对象
 export const server = withPageTools(rawServer)
 
-/**
- * 初始化 MCP Server：创建 MessageChannel 服务端传输层，
- * 监听 iframe（remoter.html）中 TinyRemoter 的 MCP 连接。
- * 对应 iframe 侧：createMessageChannelClientTransport('local-mcp', window.parent)
- */
+export { clientTransport }
+
+let isConnected = false
+
 export const createMcpServer = async () => {
-  registerNavigateTool(rawServer)
-  registerProductGuideTools(server)
-  registerPriceProtectionTools(server)
-  const serverTransport = createMessageChannelServerTransport('local-mcp')
-  await serverTransport.listen()
+  if (isConnected) return
+  isConnected = true
+
+  // 使用公共注册函数，统一传递代理后的 server
+  registerAllTools(server)
+
   await rawServer.connect(serverTransport)
 }
