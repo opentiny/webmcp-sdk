@@ -14,7 +14,6 @@
  */
 
 import type { ZodRawShape } from 'zod'
-import { z } from 'zod'
 import type { RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
 import type { WebMcpServer } from '../WebMcpServer'
@@ -244,7 +243,7 @@ export type NavigateToolOptions = {
   timeoutMs?: number
 }
 
-export function registerNavigateTool(server: WebMcpServer, options?: NavigateToolOptions): RegisteredTool {
+export function registerNavigateTool(server: any, options?: NavigateToolOptions): any {
   const name = options?.name ?? 'navigate_to_page'
   const title = options?.title ?? '页面跳转'
   const description =
@@ -253,7 +252,14 @@ export function registerNavigateTool(server: WebMcpServer, options?: NavigateToo
   const timeoutMs = options?.timeoutMs ?? 5000
 
   const inputSchema = {
-    path: z.string().describe('目标页面的路由地址，例如 "/orders"、"/inventory"、"/price-protection" 等。')
+    type: 'object',
+    properties: {
+      path: {
+        type: 'string',
+        description: '目标页面的路由地址，例如 "/orders"、"/inventory"、"/price-protection" 等。'
+      }
+    },
+    required: ['path']
   }
 
   const handler: ({ path }: { path: string }) => Promise<{ content: Array<{ type: 'text'; text: string }> }> = async ({

@@ -2,7 +2,7 @@ import { createApp } from 'vue'
 import router from './router'
 import App from './App.vue'
 import './style.css'
-import { setNavigator } from '@opentiny/next-sdk'
+import { setNavigator, initializeBuiltinMcpServer } from '@opentiny/next-sdk'
 import { isNavigationFailure } from 'vue-router'
 
 const app = createApp(App)
@@ -18,3 +18,5 @@ setNavigator(async (route) => {
     throw new Error('页面跳转失败')
   }
 })
+
+initializeBuiltinMcpServer()

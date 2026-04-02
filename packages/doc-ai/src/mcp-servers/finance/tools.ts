@@ -1,8 +1,7 @@
 import { z } from '@opentiny/next-sdk'
-import type { PageAwareServer } from '@opentiny/next-sdk'
 
-export default function registerFinanceTools(server: PageAwareServer) {
-  server.registerTool(
+export default function registerFinanceTools() {
+  ;(navigator as any).modelContext.registerTool(
     'finance_summary_query',
     {
       title: '查询财务数据',
