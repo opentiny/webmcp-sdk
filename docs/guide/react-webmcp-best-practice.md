@@ -31,7 +31,9 @@
 
 ### 为什么需要 Page Tool Bridge？
 
-与 Vue 版一致：Web MCP 工具是**随页面生命周期开启和关闭**的。用户不一定打开了工具对应的页面，Page Tool Bridge 负责在需要时自动跳转并在页面内执行：
+Web MCP 与传统 MCP（运行在服务器/进程中）的本质区别在于：**Web MCP 工具是动态的、随页面生命周期开启和关闭的**。
+
+用户不一定打开了工具对应的页面，Page Tool Bridge 解决了这个问题：
 
 ```text
 AI 调用工具 → 检测目标页面是否已加载
@@ -56,9 +58,9 @@ packages/doc-ai-react/
 │   ├── main.tsx                         # React 入口
 │   ├── App.tsx                           # 应用配置（含路由）
 │   ├── mcp-servers/                     # ④ MCP 工具定义（主窗口，与 app 平级）
-│   │   ├── index.ts                     # MCP Server + createMessageChannelServerTransport
-│   │   ├── product-guide/tools.ts
-│   │   └── price-protection/tools.ts
+├── vite.config.ts                       # 配置主应用的proxy代理
+└── package.json                         # dev 脚本同时启动主应用 与 remoter
+│
 ├── remoter/                             # 独立 Vue 子工程（iframe 内容）
 │   ├── package.json
 │   ├── vite.config.ts                   # base: '/remoter/'
@@ -67,12 +69,6 @@ packages/doc-ai-react/
 │       ├── main.ts                      # Vue 挂载到 #remoter-app
 │       ├── App.vue                      # ⑦ TinyRemoter + createMessageChannelClientTransport
 │       └── skills/                      # ⑧ WebSkills（保留在 Vue 侧）
-│           └── product-guide/
-│               ├── SKILL.md
-│               └── reference/
-│                   └── product-listing.md
-├── vite.config.ts                         # 配置主应用的proxy代理
-└── package.json                         # dev 脚本同时启动主应用 与 remoter
 ```
 
 ---
@@ -92,7 +88,7 @@ pnpm add @opentiny/next-sdk
 ```json
 {
   "dependencies": {
-    "@opentiny/next-sdk": "0.2.6-beta.0",
+    "@opentiny/next-sdk": "0.3.0",
     "@opentiny/next-remoter": "workspace:*"
   }
 }
@@ -102,53 +98,24 @@ pnpm add @opentiny/next-sdk
 
 ---
 
-## 第一步：配置路由并在根组件注册 setNavigator
+## 第一步：在 main.ts 注册路由导航器
 
-与 Vue 版类似，`setNavigator` 告诉 SDK 如何跳转页面。在 React 中,需要在App.tsx中，局部创建一个`RouterManager`组件来监听路由切换。
+与 Vue 版类似，`setNavigator` 告诉 SDK 如何跳转页面。当 AI 调用某个工具而对应页面未打开时，SDK 会调用此函数自动导航。
 
 ```ts
-// src/App.tsx
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
-import { useEffect } from 'react'
+// src/main.ts
 import { setNavigator } from '@opentiny/next-sdk'
-import HomePage from './components/HomePage'
-import ComprehensivePage from './components/ComprehensivePage'
-import PriceProtectionPage from './components/PriceProtectionPage'
-import { createMcpServer } from './mcp-servers'
-import './App.css'
+import { createRoot } from 'react-dom/client'
+import './index.css'
+import App from './App.tsx'
+import { router } from './router.ts'
 
-// 路由管理器组件 - 在 Router 上下文中设置导航器
-function RouterManager() {
-  const navigate = useNavigate()
+createRoot(document.getElementById('root')!).render(<App />)
 
-  useEffect(() => {
-    // 设置导航器
-    setNavigator(async (route) => {
-      await navigate(route)
-    })
-    // 启动 MCP Server（创建 MessageChannel 服务端并等待 iframe 连接）
-    createMcpServer()
-  }, [])
+setNavigator(async (route) => {
+  await router.navigate(route)
+})
 
-  return null
-}
-
-function App() {
-  return (
-    <BrowserRouter>
-      {/* 路由管理器 - 设置全局导航器 */}
-      <RouterManager />
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/comprehensive" element={<ComprehensivePage />} />
-        <Route path="/price-protection" element={<PriceProtectionPage />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </BrowserRouter>
-  )
-}
-
-export default App
 ```
 
 > **注意**：`setNavigator` 只需在应用入口（根组件）调用一次，全局生效。该导航函数会被 SDK 用于：① withPageTools 在调用页面工具时自动跳转；② 内置的 `navigate_to_page` 工具（通过 `registerNavigateTool` 注册）在大模型主动请求跳转时使用, 无需再单独注入 React 专属的导航器。
@@ -206,32 +173,27 @@ export default defineConfig({
 
 ```ts
 // src/mcp-servers/index.ts
-import {
-  WebMcpServer,
-  createMessageChannelServerTransport,
-  withPageTools,
-  registerNavigateTool
-} from '@opentiny/next-sdk'
+import { WebMcpServer, createMessageChannelPairTransport, withPageTools } from '@opentiny/next-sdk'
+import { registerAllTools } from './common'
+export { useWebAgentServer } from './useWebAgentServer'
 
 const rawServer = new WebMcpServer()
+const [serverTransport, clientTransport] = createMessageChannelPairTransport()
 
-/**
- * 用 withPageTools 包装 server，使之具备 Page Tool Bridge 能力。
- */
+// 用 withPageTools 包装后，registerTool 第三个参数支持路由配置对象
 export const server = withPageTools(rawServer)
 
-/**
- * 初始化 MCP Server：创建 MessageChannel 服务端传输层。
- */
+export { clientTransport }
+
+let isConnected = false
+
 export const createMcpServer = async () => {
-  // 注册全局通用工具
-  registerNavigateTool(rawServer)
+  if (isConnected) return
+  isConnected = true
 
-  // ℹ️ 业务工具推荐在具体 React 组件中使用 server.registerTool 一体化注册
-  // 这样就不需要在这里手动 import 和 register 了
+  // 使用公共注册函数，统一传递代理后的 server
+  registerAllTools(server)
 
-  const serverTransport = createMessageChannelServerTransport('local-mcp')
-  await serverTransport.listen()
   await rawServer.connect(serverTransport)
 }
 ```
@@ -287,6 +249,10 @@ const mcpServers = {
   'local-mcp-server': {
     type: 'local',
     transport: clientTransport
+  },
+  'builtin-webmcp': {
+    type: 'builtin' as const,
+    client: navigator.modelContextTesting
   }
 }
 </script>
@@ -305,6 +271,7 @@ const mcpServers = {
 
 > [!IMPORTANT]
 > **为什么要用一体化声明？**
+>
 > 1. **所见即所得**：工具的描述、输入 Schema 与业务逻辑 Handler 紧密内聚，开发者无需在全局文件和页面文件间来回切换。
 > 2. **自动目录感知**：SDK 会自动感知当前活跃页面注册的工具，并实时同步给 AI 助手。
 > 3. **极简配置**：不再需要分离式的 `registerPageTool`，由 SDK 内部完成自动桥接。
@@ -333,9 +300,7 @@ export default function ComprehensivePage() {
       // 直接传入执行体 Handler
       async ({ productId }: { productId: string }) => {
         const product = products.find((p) => String(p.id) === productId)
-        const text = product
-          ? `产品信息：${JSON.stringify(product, null, 2)}`
-          : `未找到产品 ID 为 ${productId} 的商品`
+        const text = product ? `产品信息：${JSON.stringify(product, null, 2)}` : `未找到产品 ID 为 ${productId} 的商品`
         return { content: [{ type: 'text', text }] }
       }
     )
@@ -363,8 +328,24 @@ import { server } from '../mcp-servers'
 export default function PriceProtectionPage() {
   useEffect(() => {
     // 注册多个工具时，建议分别存储 unregister 函数
-    const unreg1 = server.registerTool('price-protection-query', { /* Metadata */ }, async (input) => { /* Handler */ })
-    const unreg2 = server.registerTool('price-protection-review', { /* Metadata */ }, async (input) => { /* Handler */ })
+    const unreg1 = server.registerTool(
+      'price-protection-query',
+      {
+        /* Metadata */
+      },
+      async (input) => {
+        /* Handler */
+      }
+    )
+    const unreg2 = server.registerTool(
+      'price-protection-review',
+      {
+        /* Metadata */
+      },
+      async (input) => {
+        /* Handler */
+      }
+    )
 
     return () => {
       unreg1()
@@ -378,6 +359,7 @@ export default function PriceProtectionPage() {
 
 > [!TIP]
 > **开发规范总结**：
+>
 > - **拒绝分离**：不推荐在 `mcp-servers/index.ts` 中注册一次 Metadata，又在页面中调用 `registerPageTool` 关联一次 Handler。
 > - **Handler 编写**：返回值格式必须符合 MCP 规范：`{ content: Array<{ type: 'text', text: string }> }`。
 > - **生命周期销毁**：必须在 `useEffect` 的返回函数中执行注销，防止路由切换后的内存泄漏。

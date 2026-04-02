@@ -1,4 +1,42 @@
+import { registerPageTool } from '@opentiny/next-sdk'
+import { useEffect, useState } from 'react'
+import { server } from '../mcp-servers'
+
 export function Component() {
+  const [activeRange, setActiveRange] = useState('30days')
+
+  useEffect(() => {
+    const SALES_RECORD_QUERY_TOOL = 'sales_record_query'
+    // 按时间范围的模拟销售摘要数据
+    const salesSummary = {
+      '7days': { totalSales: 28400, orders: 312, returnRate: '1.8%' },
+      '30days': { totalSales: 128450, orders: 1342, returnRate: '2.4%' },
+      'year': { totalSales: 1542600, orders: 16080, returnRate: '2.1%' }
+    }
+
+    server.registerTool(
+      SALES_RECORD_QUERY_TOOL,
+      {
+        title: '查询商品销售记录',
+        description: '【销售数据展示工具】帮助管理员查询最近一段时间的商品销售趋势、统计图表数据',
+        inputSchema: {
+          timeRange: z.enum(['7days', '30days', 'year']).optional().describe('查询时间范围')
+        }
+      },
+      async ({ timeRange }: { timeRange?: '7days' | '30days' | 'year' }) => {
+        const range = timeRange ?? '30days'
+        setActiveRange(range)
+        const s = salesSummary[range]
+        const label = range === '7days' ? '近7天' : range === '30days' ? '近30天' : '过去一年'
+        const text = `${label}销售数据：\n- 总销售额：¥${s.totalSales.toLocaleString()}\n- 总订单数：${s.orders}\n- 退货率：${s.returnRate}\n\n详细图表已更新，可在左侧查看。`
+        return { content: [{ type: 'text', text }] }
+      }
+    )
+
+    return () => {
+      server.unregisterTool(SALES_RECORD_QUERY_TOOL)
+    }
+  }, [])
   return (
     <div className="sales-container">
       <div className="header">
@@ -54,9 +92,19 @@ export function Component() {
           <div className="chart-header">
             <h3>销售额趋势</h3>
             <div className="tab-group">
-              <span className="tab active">近 7 天</span>
-              <span className="tab">近 30 天</span>
-              <span className="tab">全年</span>
+              <span
+                className={`tab ${activeRange === '7days' ? 'active' : ''}`}
+                onClick={() => setActiveRange('7days')}>
+                近 7 天
+              </span>
+              <span
+                className={`tab ${activeRange === '30days' ? 'active' : ''}`}
+                onClick={() => setActiveRange('30days')}>
+                近 30 天
+              </span>
+              <span className={`tab ${activeRange === 'year' ? 'active' : ''}`} onClick={() => setActiveRange('year')}>
+                全年
+              </span>
             </div>
           </div>
           <div className="chart-placeholder">图表区域（可使用 echarts/recharts 等库）</div>

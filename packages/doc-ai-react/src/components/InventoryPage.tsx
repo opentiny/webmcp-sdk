@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { inventoryList, type InventoryItem } from '../mock'
 import InventoryModal from './InventoryModal'
-
-const ADD_INVENTORY_TOOL = 'add_inventory'
+import { modelContext } from '@opentiny/next-sdk'
 
 export function Component() {
   const modalRef = useRef<any>(null)
@@ -11,6 +10,30 @@ export function Component() {
   useEffect(() => {
     // 初始化时复制数据，避免直接修改 mock 数据
     setInventory([...inventoryList])
+
+    // 4.2 modelContext 对象进行注册
+    const ADD_INVENTORY_TOOL = 'add_inventory'
+    modelContext.registerTool({
+      name: ADD_INVENTORY_TOOL,
+      description: '【入库管理工具】帮助电商管理员将采购的商品新增入库存系统中',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          productName: { type: 'string', description: '商品名称或型号，如：iPhone 15 Pro Max' },
+          quantity: { type: 'number', description: '要入库的数量，必须大于0' },
+          warehouse: { type: 'string', description: '入库存放的仓库名称，如：北京一号仓' }
+        },
+        required: ['productName', 'quantity', 'warehouse']
+      },
+      execute: async (params: any) => {
+        const result = await modalRef.current.openModal(params)
+        return { content: [{ type: 'text', text: result }] }
+      }
+    })
+
+    return () => {
+      modelContext.unregisterTool(ADD_INVENTORY_TOOL)
+    }
   }, [])
 
   const handleManualAdd = () => {

@@ -1,54 +1,17 @@
 import { RouterProvider } from 'react-router-dom'
 import { useEffect, useRef, useState } from 'react'
+
 import { createMcpServer } from './mcp-servers'
 import { router } from './router'
 import './App.css'
 
 function App() {
-  const [rightWidth, setRightWidth] = useState(380)
   const dragRef = useRef<{ startX: number; startWidth: number } | null>(null)
 
   useEffect(() => {
-    // 恢复宽度
-    const savedWidth = parseInt(localStorage.getItem('ai-panel-width') ?? '', 10)
-    if (!isNaN(savedWidth)) {
-      setRightWidth(savedWidth)
-    }
-
     // 启动 MCP Server
     createMcpServer()
   }, [])
-
-  const startDrag = (e: React.MouseEvent) => {
-    e.preventDefault()
-    dragRef.current = {
-      startX: e.clientX,
-      startWidth: rightWidth
-    }
-
-    const onMove = (ev: MouseEvent) => {
-      if (!dragRef.current) return
-      const delta = dragRef.current.startX - ev.clientX
-      const newWidth = Math.min(720, Math.max(240, dragRef.current.startWidth + delta))
-      setRightWidth(newWidth)
-    }
-
-    const onUp = () => {
-      if (dragRef.current) {
-        localStorage.setItem('ai-panel-width', String(rightWidth))
-        dragRef.current = null
-      }
-      document.body.style.cursor = ''
-      document.body.style.userSelect = ''
-      window.removeEventListener('mousemove', onMove)
-      window.removeEventListener('mouseup', onUp)
-    }
-
-    document.body.style.cursor = 'col-resize'
-    document.body.style.userSelect = 'none'
-    window.addEventListener('mousemove', onMove)
-    window.addEventListener('mouseup', onUp)
-  }
 
   return (
     <div className="app-container">
@@ -105,7 +68,7 @@ function App() {
 
           <main className="app-main">
             <div className="router-wrapper">
-              <RouterProvider router={router} />
+              <RouterProvider router={router}></RouterProvider>
             </div>
           </main>
         </div>

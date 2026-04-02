@@ -1,4 +1,29 @@
+import { registerPageTool } from '@opentiny/next-sdk'
+import { useEffect } from 'react'
+
 export function Component() {
+  // 第四步：在业务页面内一体化定义工具:
+  // 4.1 registerPageTool的详细用法
+  useEffect(() => {
+    // 模拟的财务数据
+    const financeData = { balance: 845210, pending: 124300, expense: 45120 }
+
+    const cleanupPageTool = registerPageTool({
+      // 显式指定路由，需与 mcp-servers 中 RouteConfig.route '/finance' 保持一致
+      route: '/finance',
+      handlers: {
+        'finance_summary_query': async ({ month }: { month?: string }) => {
+          const monthLabel = month ? `（${month}）` : '（当前）'
+          const text = `财务概况${monthLabel}：\n- 可用余额：¥${financeData.balance.toLocaleString()}\n- 待结算金额：¥${financeData.pending.toLocaleString()}\n- 本月总支出：¥${financeData.expense.toLocaleString()}\n\n详细流水已在左侧界面展示，可点击【发起提现】或【导出账单】进行操作。`
+          return { content: [{ type: 'text', text }] }
+        }
+      }
+    })
+
+    return () => {
+      cleanupPageTool()
+    }
+  }, [])
   return (
     <div className="finance-container">
       <div className="header">
