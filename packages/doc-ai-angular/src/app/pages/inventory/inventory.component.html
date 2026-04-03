@@ -1,0 +1,48 @@
+<div class="inventory-view">
+  <div class="page-header">
+    <div class="header-left">
+      <h2>库存管理</h2>
+      <p class="subtitle">管理商品库存，支持 AI 辅助快速建仓与数量更新</p>
+    </div>
+    <div class="header-right">
+      <button class="btn-add" (click)="handleManualAdd()">＋ 手动新增入库</button>
+    </div>
+  </div>
+
+  <div class="table-container">
+    <table class="inventory-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>库存单号</th>
+          <th>商品名称</th>
+          <th>SKU编码</th>
+          <th>仓库</th>
+          <th>在库数量</th>
+          <th>状态</th>
+          <th>最后更新时间</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let item of inventoryList(); let i = index">
+          <td>{{ i + 1 }}</td>
+          <td>{{ item.id }}</td>
+          <td>{{ item.productName }}</td>
+          <td>{{ item.sku }}</td>
+          <td>{{ item.warehouse }}</td>
+          <td>
+            <strong>{{ item.quantity }}</strong>
+          </td>
+          <td>
+            <span class="status-tag" [ngClass]="getStatusClass(item.status)">
+              {{ getStatusLabel(item.status) }}
+            </span>
+          </td>
+          <td>{{ item.lastUpdated }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<app-inventory-modal (inventoryAdded)="onInventoryAdded()"></app-inventory-modal>
