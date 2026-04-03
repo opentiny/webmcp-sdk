@@ -98,7 +98,7 @@
 import { TinyRemoter } from '@opentiny/next-remoter'
 import type { McpServerConfig } from '@opentiny/next-sdk'
 import { onMounted, ref, h } from 'vue'
-import { createMcpServer, clientTransport, useWebAgentServer } from './mcp-servers'
+import { createMcpServer, useWebAgentServer } from './mcp-servers'
 import { iconDesktopView, iconBoxSolid, iconLock, iconLineChart, iconCoin, iconShoppingCard } from '@opentiny/vue-icon'
 import { AGENT_ROOT } from './const'
 
