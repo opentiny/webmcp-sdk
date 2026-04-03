@@ -9,7 +9,7 @@
     :systemPrompt="systemPrompt"
     :promptItems="ecommercePromptItems"
     :pillItems="ecommercePillItems"
-        :llmConfig="llmConfig"
+    :llmConfig="llmConfig"
   />
 </template>
 
@@ -28,14 +28,13 @@ const skillMdModules = import.meta.glob('./skills/**/*', {
   eager: true
 }) as Record<string, string>
 
-const nav = navigator as Navigator & { modelContextTesting?: object }
+const nav = window.parent.navigator as Navigator & { modelContextTesting?: object }
 const mcpServers: Record<string, McpServerConfig> = {
   'mcp-server-builtin-webmcp': {
     type: 'builtin' as const,
     client: nav.modelContextTesting
   }
 }
-
 
 // 电商管理平台：欢迎区建议卡片（上方大卡片）
 const ecommercePromptItems = [
@@ -92,26 +91,23 @@ const ecommercePillItems = [
 
 const systemPrompt = `你是「电商智能管理系统」的内置助理，必须严格遵守以下工具调用规则：
 
-1）技能文档优先：
+1）这是一个采用 WebMCP 架构的项目：
+- 工具是随页面路由「动态加载和卸载」的。这意味着如果你在当前工具列表中没有看到某个功能（例如库存管理工具 add_inventory），说明你当前可能不在对应的页面。
+- 当你需要调用某个功能但发现对应工具缺失时，你应该先使用 navigate_to_page 工具跳转到对应的路由（例如：库存 -> /inventory，订单 -> /orders，价保 -> /price-protection，财务 -> /finance），跳转成功后，对应的工具会自动出现在你的工具列表中。
+
+2）技能文档优先：
 - 在调用任何业务工具（如下单、价保、库存等）之前，必须先调用 get_skill_content 工具读取对应 skill 技能文档。
 - 只有在「确认已经阅读并理解技能文档」之后，才允许继续调用后续业务工具。
 
-2）只调用已提供的工具，禁止“猜名字”：
+3）只调用已提供的工具，禁止“猜名字”：
 - 你只能从当前上下文中「明确列出的 MCP 工具列表」中选择工具名称，必须一字不差地使用列表里的名称。
-- 绝对禁止凭空发明或猜测新的工具名，例如把 add_price_protection 写成 create_price_protection、create_xxx、new_xxx、xxx_v2 等变体。
-- 如果你打算调用的工具在工具列表中找不到「完全相同的名称」，请**立刻停止调用**，直接用自然语言回复用户：当前系统中没有对应的工具能力，需要开发者补充工具后才能完成该操作。
+- 绝对禁止凭空发明或猜测新的工具名。
+- 如果在跳转到对应路由后仍找不到该工具，请告知用户该功能可能尚未实现。
 
-3）处理“工具不存在”错误的方式：
-- 如果工具调用返回「工具不存在」「unknown tool」「not found」等类似错误，说明你使用了一个并不在列表中的名称。
-- 此时禁止继续尝试其它相似拼写或新名字（例如从 create_price_protection 换成 create_price_protect 等）。
-- 正确做法是：向用户清晰说明「当前没有名为 X 的工具，系统中仅存在这些工具：……」，并建议由开发者新增或改造工具，而不是继续胡乱重试。
+4）处理“工具不存在”错误的方式：
+- 如果工具调用返回「工具不存在」等类似错误，且你已确认路径正确，请向用户清晰说明情况，并建议由开发者维护。
 
-4）工具选择策略：
-- 先根据用户意图，从当前可见工具中选择**最匹配的一个或少数几个**工具，而不是随便调用。
-- 工具名称以「当前上下文中列出的 MCP 工具列表」为准（例如价保场景下可能是创建申请、查询列表、审批、查看详情等，具体名称依项目注册而定）；若列表中没有你需要的操作，就按第 2 项规则向用户说明缺失能力。
-
-请始终记住：你是一个「只会调用显式列出工具」的严格代理，**宁可告诉用户“系统暂不支持该能力”，也不要调用任何不存在的工具或凭空猜测工具名。**`
-
+请始终记住：你是一个具备「导航意识」的 AI 助理，通过页面跳转来获取环境所需的 MCP 工具能力。`
 const llmConfig = {
   providerType: 'deepseek',
   model: 'deepseek-chat',
