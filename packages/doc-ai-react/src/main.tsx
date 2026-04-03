@@ -1,5 +1,5 @@
-import { setNavigator } from '@opentiny/next-sdk'
 import { createRoot } from 'react-dom/client'
+import { setNavigator } from '@opentiny/next-sdk'
 import './index.css'
 import App from './App.tsx'
 import { router } from './router.ts'

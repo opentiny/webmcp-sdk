@@ -2,7 +2,6 @@ import { WebMcpServer, createMessageChannelPairTransport, withPageTools } from '
 import { registerAllTools } from './common'
 export { useWebAgentServer } from './useWebAgentServer'
 
-// 第三步：创建 MCP Server
 const rawServer = new WebMcpServer()
 const [serverTransport, clientTransport] = createMessageChannelPairTransport()
 
