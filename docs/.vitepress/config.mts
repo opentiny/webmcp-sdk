@@ -4,7 +4,8 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: 'OpenTiny NEXT-SDKs',
   description: 'OpenTiny NEXT-SDKs',
-  base: '/next-sdk/',
+  base: '/webmcp-sdk/',
+  ignoreDeadLinks: [/^http:\/\/localhost:/],
   vite: {
     server: {
       port: 3000

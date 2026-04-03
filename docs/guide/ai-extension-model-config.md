@@ -51,7 +51,7 @@ import IconYourModel from '../icons/icon-model-your-model.svg'
   id: 'unique-model-id',           // 唯一标识符
   label: '显示名称',               // 用户界面显示名称
   model: 'actual-model-name',      // 实际模型名称
-  apiKey: 'your-api-key',          // API密钥
+  apiKey: '',
   baseURL: 'https://api.example.com', // API基础地址
   providerType: 'deepseek',        // 提供商类型  deepseek 或 openai
   useReActMode: boolean,           // 是否启用ReAct模式(仅大模型不支持工具调用时，才需要开启ReAct模式 )
@@ -144,7 +144,7 @@ import IconModelDeepseek from './icons/icon-model-deepseek.svg'
     id: 'qwen3:8b',
     label: 'qwen3:8b',
     model: 'qwen3:8b',
-    apiKey: 'sk-trial',
+    apiKey: '',
     baseURL: 'http://localhost:11434/api',
     providerType: createOllama,
     useReActMode: false,
@@ -154,7 +154,7 @@ import IconModelDeepseek from './icons/icon-model-deepseek.svg'
     id: 'qwen3-vl:8b',
     label: 'qwen3-vl:8b',
     model: 'qwen3-vl:8b',
-    apiKey: 'sk-trial',
+    apiKey: '',
     baseURL: 'http://localhost:11434/api',
     providerType: createOllama,
     useReActMode: false,

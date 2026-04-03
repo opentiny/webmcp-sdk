@@ -166,7 +166,7 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 const show = ref(false)
 
 const llmConfig = {
-  apiKey: 'your-api-key',
+  apiKey: '',
   baseURL: 'https://api.openai.com/v1',
   providerType: 'openai',
   model: 'gpt-4o',
@@ -208,7 +208,7 @@ const modelConfigs = [
     id: 'gpt-4o',
     label: 'GPT-4o',
     isDefault: true,
-    apiKey: 'your-openai-api-key',
+    apiKey: '',
     baseURL: 'https://api.openai.com/v1',
     providerType: 'openai',
     model: 'gpt-4o',
@@ -222,7 +222,7 @@ const modelConfigs = [
   {
     id: 'deepseek-v3',
     label: 'DeepSeek V3',
-    apiKey: 'your-deepseek-api-key',
+    apiKey: '',
     baseURL: 'https://api.deepseek.com',
     providerType: 'deepseek',
     model: 'deepseek-chat',
@@ -249,7 +249,7 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 const llmConfig = {
   // 在 createOpenAI 中直接传入 headers，效果等同于上面的 headers 字段
   llm: createOpenAI({
-    apiKey: 'your-api-key',
+    apiKey: '',
     baseURL: 'https://api.openai.com/v1',
     headers: {
       'X-Custom-Token': 'your-business-token',
@@ -729,7 +729,7 @@ const show = ref(false)
 
 // 使用llmConfig配置
 const llmConfig = {
-  apiKey: 'your-api-key',
+  apiKey: '',
   baseURL: 'https://api.openai.com/v1',
   providerType: 'openai',
   model: 'gpt-4o',
@@ -794,7 +794,7 @@ const show = ref(false)
 
 // 使用DeepSeek配置
 const deepSeekConfig = {
-  apiKey: 'your-deepseek-api-key',
+  apiKey: '',
   baseURL: 'https://api.deepseek.com',
   providerType: 'deepseek',
   model: 'DeepSeek-V3',
@@ -854,7 +854,7 @@ const show = ref(false)
 
 // 使用自定义Provider函数
 const customConfig = {
-  apiKey: 'your-custom-api-key',
+  apiKey: '',
   baseURL: 'https://api.custom-llm.com/v1',
   providerType: createCustomProvider
 }
@@ -923,7 +923,7 @@ const modelConfigs = [
     label: 'GPT-4o',
     icon: IconOpenAI,
     isDefault: true,
-    apiKey: 'your-openai-api-key',
+    apiKey: '',
     baseURL: 'https://api.openai.com/v1',
     providerType: 'openai',
     model: 'gpt-4o',
@@ -934,7 +934,7 @@ const modelConfigs = [
     id: 'deepseek-v3',
     label: 'DeepSeek V3',
     icon: IconDeepSeek,
-    apiKey: 'your-deepseek-api-key',
+    apiKey: '',
     baseURL: 'https://api.deepseek.com',
     providerType: 'deepseek',
     model: 'deepseek-chat',
@@ -981,7 +981,7 @@ import { createOpenAI } from '@ai-sdk/openai'
 
 const show = ref(false)
 const llmConfig = {
-  apiKey: 'your-api-key',
+  apiKey: '',
   baseURL: 'https://api.openai.com/v1',
   providerType: 'openai',
   model: 'gpt-4o'
@@ -1017,7 +1017,7 @@ import { createOpenAI } from '@ai-sdk/openai'
 
 const show = ref(false)
 const llmConfig = {
-  apiKey: 'your-api-key',
+  apiKey: '',
   baseURL: 'https://api.openai.com/v1',
   providerType: 'openai',
   model: 'gpt-4o'
@@ -1098,7 +1098,7 @@ import { createOpenAI } from '@ai-sdk/openai'
 
 const show = ref(false)
 const llmConfig = {
-  apiKey: 'your-api-key',
+  apiKey: '',
   baseURL: 'https://api.openai.com/v1',
   providerType: 'openai',
   model: 'gpt-4o'

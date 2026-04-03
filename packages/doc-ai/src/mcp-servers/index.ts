@@ -1,23 +1,10 @@
-import { WebMcpServer, createMessageChannelPairTransport, withPageTools } from '@opentiny/next-sdk'
-import { registerAllTools } from './common'
+import { registerNavigateTool } from '@opentiny/next-sdk'
+import registerFinanceTools from './finance/tools'
 export { useWebAgentServer } from './useWebAgentServer'
 
-const rawServer = new WebMcpServer()
-const [serverTransport, clientTransport] = createMessageChannelPairTransport()
-
-// 用 withPageTools 包装后，registerTool 第三个参数支持路由配置对象
-export const server = withPageTools(rawServer)
-
-export { clientTransport }
-
-let isConnected = false
-
 export const createMcpServer = async () => {
-  if (isConnected) return
-  isConnected = true
+  registerNavigateTool((navigator as any).modelContext)
 
-  // 使用公共注册函数，统一传递代理后的 server
-  registerAllTools(server)
-
-  await rawServer.connect(serverTransport)
+  // 仅保留财务工具在 mcp-servers 侧声明（其余工具已迁移到业务页面内一体化定义）
+  registerFinanceTools()
 }
