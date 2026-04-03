@@ -1,78 +1,93 @@
-# OpenTiny NEXT-SDKs
+# OpenTiny NEXT-SDKs: Built-in WebMCP & Polyfill + WebSkills + WebAgent
 
 English | [简体中文](README.zh-CN.md)
 
 <p align="center">
-  <strong>A toolkit for front-end intelligent application development, making your applications AI-capable instantly. With WebMCP + WebSkills, transform "existing business applications" into intelligent ones in just a few lines of code.</strong>
+  <strong>A toolkit for front-end intelligent application development. With the Built-in WebMCP protocol, transform your applications into AI-Native ones instantly.</strong>
 </p>
 
 <p align="center">
   <a href="https://docs.opentiny.design/next-sdk/">📖 Docs</a> |
   <a href="#-quick-start">🚀 Quick Start</a> |
-  <a href="#-scenarios">💡 Scenarios</a> |
-  <a href="#️-contributing">🛠️ Contributing</a>
+  <a href="#-webmcp--polyfill">🌐 WebMCP & Polyfill</a> |
+  <a href="#-scenarios">💡 Scenarios</a>
 </p>
 
 > [!IMPORTANT]
-> **WebMCP Compatibility Note**: The OpenTiny WebMCP solution is **fully compatible with the built-in WebMCP protocol in Google Chrome as defined by Google**. This means the WebSkills you develop with this SDK can seamlessly integrate with the browser's native AI capabilities.
+> **Next-Gen AI Protocol**: OpenTiny NEXT-SDKs is built on the **WebMCP (Model Context Protocol for Web)**. It is fully compatible with the native `navigator.modelContext` API (currently in experimental stage in browsers like Chrome), allowing your web apps to be controlled by AI via a standardized protocol.
 
 ---
 
-**OpenTiny NEXT-SDKs** is a front-end intelligent application development toolkit based on the Web version of the MCP protocol. Through the "WebMCP + WebSkills" model, it encapsulates page operations, data queries, and business processes in your existing front-end/business systems into tools that can be called by AI, allowing legacy applications to quickly access intelligent capabilities with **almost zero refactoring**.
+**OpenTiny NEXT-SDKs** is a front-end intelligent application development toolkit. It enables the "WebMCP + WebSkills" model to expose page operations, data queries, and business processes as standardized tools. By using our **Polyfill**, you can start building future-proof AI-Native applications on today's browsers with **zero refactoring**.
 
 ## 📑 Table of Contents
 
 - [✨ Main Features](#-main-features)
-- [📦 Core Packages Description](#-core-packages-description)
+- [🌐 WebMCP & Polyfill](#-webmcp--polyfill)
 - [🚀 Quick Start](#-quick-start)
-- [🌐 Browser Direct Import](#-browser-direct-import)
+- [📦 Core Packages Description](#-core-packages-description)
 - [💡 Core Concepts](#-core-concepts)
 - [📖 Scenarios](#-scenarios)
 - [🛠️ Contributing](#️-contributing)
-- [📚 Related Resources](#-related-resources)
-- [WebMCP + WebSkills Best Practice Projects](#webmcp--webskills-best-practice-projects)
-- [❓ FAQ](#-faq)
 - [📄 License](#-license)
 
 ## ✨ Main Features
 
-- 🎯 **Legacy App Intelligence First**: Oriented towards "existing systems", exposing existing APIs, page operations, and business processes to AI through WebMCP + WebSkills without large-scale refactoring.
-- 🔌 **WebMCP Protocol Implementation**: Fully implements the browser version of Model Context Protocol (MCP), **fully compatible with Google Chrome's built-in WebMCP protocol**, allowing front-ends to be called by AI just like "back-end tool services".
-- 🧩 **WebSkills Abstraction**: Organizes and registers tools as "Business Skills (WebSkills)". One set of capabilities can serve both AI chat and automation flows.
-- 🤖 **AI Chat Components**: Provides out-of-the-box AI chat components (`@opentiny/next-remoter`). Chatting is remote-controlling your business system.
-- 🔄 **Adapter Layer**: Quickly connects any front-end AI chat component to WebAgent / WebMCP services.
-- 🌐 **Multi-modal Support**: Supports text, voice, and other multi-modal inputs, smoothing out differences between different LLMs.
-- 📱 **QR Code Function**: Dynamically generates QR codes, allowing enterprise application MCP services to quickly connect to AI chat boxes.
-- 🎪 **Remote Control Mode**: Provides PC and mobile remote controllers to control front-end applications through conversation.
+- 🔌 **Standard WebMCP Implementation**: Fully implements the browser version of MCP, making front-ends "AI-Callable" via a unified protocol.
+- 📡 **Remote AI Control**: Seamlessly connect your front-end to a **WebAgent service**, allowing AI to remotely orchestrate and control your application via a stable sessionId.
+- 🛠️ **Built-in Polyfill Support**: Provides `navigator.modelContext` polyfill for current browsers, ensuring your code works today and is ready for tomorrow's native browser support.
+- 🎯 **Zero-Refactor Intelligence**: Expose existing business logic and UI operations as tools without changing your app's core architecture.
+- 🧩 **WebSkills Abstraction**: Organizes tools into "Business Skills" for progressive disclosure to AI.
+- 🤖 **AI Chat Components**: Ready-to-use `@opentiny/next-remoter` for instant AI remote control.
 
-## 📦 Core Packages Description
+## 🌐 WebMCP & Polyfill
 
-### @opentiny/next-sdk (Current Package)
+### What is WebMCP?
 
-Core SDK package, providing:
+WebMCP is an extension of the Model Context Protocol specifically for web browsers. It defines how a web page provides "Tools" and "Resources" to AI agents. In the near future, browsers will provide a native `navigator.modelContext` object to manage these capabilities.
 
-- **WebMcpServer**: MCP server implementation, declaring front-end functions as MCP tools (container for WebSkills).
-- **WebMcpClient**: MCP client implementation, connecting to WebAgent and other MCP services.
-- **WebAgent**: Core logic for front-end intelligent agents.
-- **McpSdk**: MCP SDK encapsulation.
-- **Transport Layer**: Supports multiple communication methods (MessageChannel, SSE, HTTP, etc.).
-- **Utility Functions and Type Definitions**: Full TypeScript type support.
+### Why Polyfill?
 
-### @opentiny/next-remoter
+Since the native API is still in its experimental phase, **OpenTiny NEXT-SDKs provides a robust Polyfill**. By calling `initializeBuiltinWebMCP()`, the SDK:
 
-Vue3 AI chat component based on `@opentiny/tiny-robot`, providing:
+1.  **Injects `navigator.modelContext`**: Provides a standard-compliant API for tool registration.
+2.  **Automatic Routing & Bridge**: Automatically handles page navigation and message synchronization across different routes/iframes.
 
-- Full AI chat interface
-- MCP plugin market
-- Scan-to-add application function
-- Multi-model switching support
-- Generative UI rendering
+This means you can write standard WebMCP code today, and it will automatically switch to the native engine when the browser supports it.
 
-See: [@opentiny/next-remoter Docs](packages/next-remoter/README.md)
+### 📡 Remote Control via WebAgent
+
+One of the most powerful features of NEXT-SDKs is the ability to connect your local page tools to a remote **WebAgent**. By using the `WebMcpClient`, you can:
+
+- **Obtain a Session ID**: Establish a persistent connection to the cloud-based AI orchestrator.
+- **Remote Orchestration**: Allow the AI to call your page's tools even when you are not actively interacting with the chat UI.
+- **Cross-Device Control**: Once connected, your application can be controlled from any authorized MCP client using its `sessionId`.
+
+#### Connection Example
+
+```typescript
+import { WebMcpClient } from '@opentiny/next-sdk'
+
+const client = new WebMcpClient()
+
+// Connect to the remote WebAgent service
+const { sessionId } = await client.connect({
+  agent: true,
+  builtin: true, // Enable the built-in WebMCP proxy
+  url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp'
+})
+
+console.log('Connected! Session ID:', sessionId)
+// Now your app can be controlled remotely via this sessionId
+```
+
+> [!TIP]
+> The URL above is a public test server provided by OpenTiny for testing purposes. For production use, you should deploy your own WebAgent instance.
+> Source code: [https://github.com/opentiny/web-agent](https://github.com/opentiny/web-agent)
 
 ## 🚀 Quick Start
 
-Using OpenTiny NEXT-SDKs, you only need four steps to turn your front-end/business application into an intelligent application that can be controlled by AI through WebMCP + WebSkills:
+Turn your front-end application into an AI-Native one in just a few lines.
 
 ### Step 1: Install Dependencies
 
@@ -80,209 +95,87 @@ Using OpenTiny NEXT-SDKs, you only need four steps to turn your front-end/busine
 npm install @opentiny/next-sdk
 ```
 
-### Step 2: Create MCP Server and Register Tools
+### Step 2: Initialize WebMCP Polyfill (Recommended)
+
+Add this at your application's entry point (e.g., `main.ts` or `app.js`).
 
 ```typescript
-import { WebMcpServer, createMessageChannelPairTransport, z } from '@opentiny/next-sdk'
+import { initializeBuiltinWebMCP } from '@opentiny/next-sdk'
 
-// Create communication channel
-const [serverTransport, clientTransport] = createMessageChannelPairTransport()
+// Initialize Polyfill and Bridge
+initializeBuiltinWebMCP()
+```
 
-// Create MCP Server
-const server = new WebMcpServer({
-  name: 'my-app-server',
-  version: '1.0.0'
-})
+### Step 3: Register Tools via Standard API
 
-// Register tool
-server.registerTool(
-  'demo-tool',
-  {
-    title: 'Demo Tool',
-    description: 'This is a demo tool',
-    inputSchema: {
-      foo: z.string().describe('Input parameter')
+Now you can use the standard `navigator.modelContext` to register tools anywhere in your app:
+
+```typescript
+// Register a tool that AI can call
+navigator.modelContext.registerTool({
+  name: 'get_user_info',
+  description: 'Get current user profile',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      userId: { type: 'string' }
     }
   },
-  async (params) => {
-    console.log('Received parameters:', params)
-    return {
-      content: [
-        {
-          type: 'text',
-          text: `Processed: ${params.foo}`
-        }
-      ]
-    }
+  handler: async (args) => {
+    // Your business logic here
+    return { content: [{ type: 'text', text: `Info for user ${args.userId}` }] }
   }
-)
-
-// Connect Server Transport
-await server.connect(serverTransport)
-```
-
-### Step 3: Create MCP Client and Connect to WebAgent
-
-```typescript
-import { WebMcpClient } from '@opentiny/next-sdk'
-
-// Create MCP Client
-const client = new WebMcpClient({
-  name: 'my-app-client',
-  version: '1.0.0'
 })
-
-// Connect Client Transport
-await client.connect(clientTransport)
-
-// Connect to WebAgent service
-const { sessionId } = await client.connect({
-  agent: true,
-  url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp'
-})
-
-console.log('Obtained sessionId:', sessionId)
 ```
 
-✅ Done! Now your front-end application has become an intelligent application and can be controlled by AI.
+✅ **Done!** Your app is now an MCP Server. You can connect it to any MCP-compatible client or use our [TinyRemoter](#-remote-control-via-webagent) to start chatting with your app.
 
-You can control intelligent applications through various [MCP Hosts](https://modelcontextprotocol.io/clients).
+---
 
-### Step 4: Add AI Remote Controller (Optional)
+## 📦 Core Packages Description
 
-We provide an out-of-the-box AI chat component that supports both PC and mobile, acting like a remote control to operate your front-end application through conversation.
+### @opentiny/next-sdk (Current Package)
 
-#### Install Remote Controller Component
+Core SDK package, providing:
 
-```bash
-npm install @opentiny/next-remoter
-```
+- **Built-in WebMCP Polyfill**: Injects `navigator.modelContext` and sets up the bridge for seamless AI-to-Page communication.
+- **WebMcpServer**: Managed MCP server for full control over lifecycle and transports.
+- **WebMcpClient**: MCP client for connecting to WebAgents and other services.
+- **WebAgent**: High-level agent orchestration logic.
+- **Transport Layer**: Support for MessageChannel, SSE, HTTP, and Chrome Extension messaging.
 
-#### Use in Vue Project and Connect WebSkills Docs
+### @opentiny/next-remoter
 
-The following example demonstrates how TinyRemoter connects to WebSkills documents through the `skills` attribute to achieve **progressive disclosure** of business capabilities. **For complete projects and best practices for each framework, please refer directly to the example projects in the repository** (see [WebMCP + WebSkills Best Practice Projects](#webmcp--webskills-best-practice-projects) below).
+Vue3 AI chat component based on TinyRobot, offering:
 
-```vue
-<script setup lang="ts">
-import { onMounted } from 'vue'
-import { TinyRemoter } from '@opentiny/next-remoter'
-import { createMcpServer, clientTransport } from './mcp-servers'
+- Integrated AI assistant UI.
+- MCP Plugin marketplace.
+- Dynamic WebSkills discovery and execution.
 
-// 1. Load local skill documents (Markdown) at once via Vite's import.meta.glob
-// Each skill.md corresponds to a business capability description + tool usage specification
-const skillMdModules = import.meta.glob('./skills/**/*.md', {
-  query: '?raw',
-  import: 'default',
-  eager: true
-}) as Record<string, string>
-
-// 2. Declare local WebMCP Server, providing business tools (base toolset for WebSkills)
-const mcpServers = {
-  'ecommerce-mcp-server': {
-    type: 'local' as const,
-    transport: clientTransport
-  }
-}
-
-// 3. Start local WebMCP Server when mounting the component
-onMounted(async () => {
-  await createMcpServer()
-})
-</script>
-
-<template>
-  <!-- Pass WebSkills docs via skills for progressive disclosure; bind local WebMCP via mcpServers to expose business tools -->
-  <tiny-remoter class="remoter-pane" :skills="skillMdModules" :mcpServers="mcpServers" title="My AI Assistant" />
-</template>
-```
-
-#### Remote Controller Features
-
-The remote controller will display an icon in the bottom right corner of your application. Hover over it to select:
-
-- 💬 **Pop-up AI Chat Box**: Open the AI chat interface on the side of the application.
-- 📱 **Show QR Code**: Open the mobile remote controller after scanning with a phone.
-
-Whether on PC or mobile, you can use natural language to let AI help you operate the application, greatly improving work efficiency!
-
-## 🌐 Browser Direct Import
-
-You can also import NEXT-SDKs directly through browser HTML tags, allowing you to use the global variable `WebMCP`.
-
-```html
-<html>
-  <head>
-    <!-- Import NEXT-SDKs -->
-    <script src="https://unpkg.com/@opentiny/next-sdk@0.1/dist/index.umd.js"></script>
-  </head>
-  <body>
-    <script>
-      ;(async () => {
-        const { WebMcpServer, createMessageChannelPairTransport, z, WebMcpClient } = WebMCP
-        const [serverTransport, clientTransport] = createMessageChannelPairTransport()
-
-        const client = new WebMcpClient()
-        await client.connect(clientTransport)
-        const { sessionId } = await client.connect({
-          agent: true,
-          url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp'
-        })
-
-        const server = new WebMcpServer()
-        server.registerTool(
-          'demo-tool',
-          {
-            title: 'Demo Tool',
-            description: 'A simple tool',
-            inputSchema: { foo: z.string() }
-          },
-          async (params) => {
-            console.log('params:', params)
-            return { content: [{ type: 'text', text: `Received: ${params.foo}` }] }
-          }
-        )
-
-        await server.connect(serverTransport)
-      })()
-    </script>
-  </body>
-</html>
-```
+---
 
 ## 💡 Core Concepts
 
-### Architecture Overview
+### The WebMCP Bridge Architecture
+
+Unlike traditional backend MCP, WebMCP focuses on the **Browser Context**.
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│                       Front-end App                         │
-│  ┌──────────────────┐              ┌───────────────────┐   │
-│  │  WebMcpServer    │◄────────────►│  WebMcpClient     │   │
-│  │  (Register Tools)│  MessageChannel │ (Connect Agent)   │   │
-│  └──────────────────┘              └───────────────────┘   │
+│                       Web Browser                           │
+│  ┌──────────────────┐              ┌───────────────────┐    │
+│  │  Front-end App   │◄── Bridge ──►│   AI Assistant    │    │
+│  │ (WebMCP Server)  │              │   (MCP Client)    │    │
+│  └──────────────────┘              └───────────────────┘    │
 │           ▲                                  │              │
 └───────────┼──────────────────────────────────┼──────────────┘
-            │                                  │
-            │                                  ▼
-            │                         ┌─────────────────┐
-            │                         │  WebAgent Service │
-            │                         │ (AI + MCP Hub)   │
-            │                         └─────────────────┘
-            │                                  │
-            │                                  ▼
-            │                         ┌─────────────────┐
-            └─────────────────────────┤  TinyRemoter    │
-                                      │ (AI Remote)     │
-                                      └─────────────────┘
+            │          (Standard Protocol)      │
+            └──────────────────────────────────┘
 ```
 
-**Workflow:**
-
-1. **WebMcpServer** registers available tools in the front-end app (e.g., querying data, UI operations, etc.).
-2. **WebMcpClient** connects to the **WebAgent Service** and obtains a sessionId.
-3. **WebAgent** acts as a hub, connecting AI LLMs and various MCP tools.
-4. **TinyRemoter** provides the user interface, where users control the app through natural language.
-5. AI calls corresponding MCP tools according to user intent.
+1.  **Registering**: Use `navigator.modelContext.registerTool` to declare what your app can do.
+2.  **Bridging**: Our Bridge automatically routes AI requests to the correct page/iframe, even if the user has navigated away.
+3.  **Executing**: Tools run in the context of your page, allowing direct access to DOM, State, and APIs.
 
 ### WebMcpServer
 

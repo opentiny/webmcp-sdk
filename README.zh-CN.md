@@ -1,78 +1,93 @@
-# OpenTiny NEXT-SDKs
+# OpenTiny NEXT-SDKs: 内置 WebMCP & Polyfill + WebSkills + WebAgent
 
 [English](README.md) | 简体中文
 
 <p align="center">
-  <strong>一套前端智能应用开发工具包，让你的应用瞬间拥有 AI 能力。用 WebMCP + WebSkills，几行代码让「现有业务应用」秒变智能应用</strong>
+  <strong>一套前端智能应用开发工具包。通过内置 WebMCP 协议，让你的应用瞬间拥有 AI-Native 能力。</strong>
 </p>
 
 <p align="center">
   <a href="https://docs.opentiny.design/next-sdk/">📖 文档</a> |
   <a href="#-快速开始">🚀 快速开始</a> |
-  <a href="#-使用场景">💡 使用场景</a> |
-  <a href="#️-参与开发">🛠️ 参与开发</a>
+  <a href="#-webmcp--polyfill">🌐 WebMCP & Polyfill</a> |
+  <a href="#-使用场景">💡 使用场景</a>
 </p>
 
 > [!IMPORTANT]
-> **WebMCP 兼容性说明**：OpenTiny WebMCP 方案**全面兼容 Google Chrome 浏览器由 Google 官方定义的内置 WebMCP 协议**。这意味着您通过此 SDK 开发的 WebSkills 可以无缝接入浏览器原生的 AI 能力。
+> **下一代 AI 协议**：OpenTiny NEXT-SDKs 基于 **WebMCP (Model Context Protocol for Web)** 构建。它全面兼容原生 `navigator.modelContext` API（目前在 Chrome 等浏览器中处于实验阶段），允许你的 Web 应用通过标准化协议被 AI 操控。
 
 ---
 
-**OpenTiny NEXT-SDKs** 是一套前端智能应用开发工具包，基于 Web 版 MCP 协议，通过「WebMCP + WebSkills」的模式，把你现有前端/业务系统中的页面操作、数据查询、业务流程等封装成可被 AI 调用的工具，让存量应用在**几乎零改造**的前提下快速接入智能化能力。
+**OpenTiny NEXT-SDKs** 是一套前端智能应用开发工具包。它通过「WebMCP + WebSkills」模式，将页面操作、数据查询和业务流程封装为标准化工具。通过使用我们的 **Polyfill**，你可以在当下的浏览器中提前构建面向未来的 AI-Native 应用，且**几乎无需重构**。
 
 ## 📑 目录
 
 - [✨ 主要特性](#-主要特性)
-- [📦 核心包说明](#-核心包说明)
+- [🌐 WebMCP & Polyfill](#-webmcp--polyfill)
 - [🚀 快速开始](#-快速开始)
-- [🌐 浏览器直接引入](#-浏览器直接引入)
+- [📦 核心包说明](#-核心包说明)
 - [💡 核心概念](#-核心概念)
 - [📖 使用场景](#-使用场景)
 - [🛠️ 参与开发](#️-参与开发)
-- [📚 相关资源](#-相关资源)
-- [WebMCP + WebSkills 最佳实践工程](#webmcp--webskills-最佳实践工程)
-- [❓ 常见问题](#-常见问题)
 - [📄 许可证](#-许可证)
 
 ## ✨ 主要特性
 
-- 🎯 **存量应用智能化改造优先**：面向「已有系统」，通过 WebMCP + WebSkills 将现有 API、页面操作、业务流程暴露给 AI，无需大规模重构
-- 🔌 **WebMCP 协议实现**：完整实现 Model Context Protocol（MCP）的浏览器版本，**全面兼容 Google Chrome 内置的 WebMCP 协议**，让前端也能像「后端工具服务」一样被 AI 调用
-- 🧩 **WebSkills 抽象**：以「业务技能 WebSkills」的方式组织和注册工具，一套能力既可服务 AI 对话，也可复用在自动化流程中
-- 🤖 **AI 对话组件**：提供开箱即用的 AI 对话框组件（`@opentiny/next-remoter`），对话即远程操控你的业务系统
-- 🔄 **适配器层**：可将任意前端 AI 对话组件快速接入 WebAgent / WebMCP 服务
-- 🌐 **多模态支持**：支持文字、语音等多模态输入，抹平不同 LLM 之间的差异
-- 📱 **二维码功能**：动态生成二维码，让企业应用的 MCP 服务快速接入 AI 对话框
-- 🎪 **遥控器模式**：提供 PC 端和移动端遥控器，通过对话方式操控前端应用
+- 🔌 **标准 WebMCP 实现**：完整实现 MCP 协议的浏览器版本，通过统一协议让前端变得“可被 AI 调用”。
+- 📡 **远程 AI 操控**：通过对接 **WebAgent 服务**，让 AI 能够轻松、稳定地远程调起和指挥你的前端工具，实现跨时空的“遥控”。
+- 🛠️ **内置 Polyfill 支持**：为当前浏览器提供 `navigator.modelContext` 补丁，确保代码在今天可用，并随浏览器的更新无缝切换至原生支持。
+- 🎯 **零改造智能化**：像定义 API 一样定义工具，无需改变应用核心架构即可暴露业务逻辑和 UI 操作。
+- 🧩 **WebSkills 抽象**：以“业务技能”方式组织工具，实现能力的渐进式披露。
+- 🤖 **AI 对话组件**：提供开箱即用的 `@opentiny/next-remoter`，瞬间拥有 AI 遥控器。
 
-## 📦 核心包说明
+## 🌐 WebMCP & Polyfill
 
-### @opentiny/next-sdk（当前包）
+### 什么是 WebMCP？
 
-核心 SDK 包，提供：
+WebMCP 是 Model Context Protocol 在浏览器端的扩展。它定义了网页如何向 AI 代理提供“工具”和“资源”。在不久的将来，浏览器将提供原生的 `navigator.modelContext` 对象来统一管理这些能力。
 
-- **WebMcpServer**：MCP 服务端实现，将前端功能声明为 MCP 工具（WebSkills 的承载容器）
-- **WebMcpClient**：MCP 客户端实现，连接 WebAgent 和其他 MCP 服务
-- **WebAgent**：前端智能代理核心逻辑
-- **McpSdk**：MCP SDK 封装
-- **Transport 层**：支持多种通信方式（MessageChannel、SSE、HTTP 等）
-- **工具函数和类型定义**：完整的 TypeScript 类型支持
+### 为什么需要 Polyfill？
 
-### @opentiny/next-remoter
+由于原生 API 仍处于实验阶段，**OpenTiny NEXT-SDKs 提供了一套强大的 Polyfill**。通过调用 `initializeBuiltinWebMCP()`，SDK 会：
 
-基于 `@opentiny/tiny-robot` 开发的 Vue3 AI 对话组件，提供：
+1.  **注入 `navigator.modelContext`**：提供符合标准规范的工具注册接口。
+2.  **自动化路由与桥接**：自动处理不同页面路径、iframe 之间的消息同步与工具调用导航。
 
-- 完整的 AI 对话界面
-- MCP 插件市场
-- 扫码添加应用功能
-- 多模型切换支持
-- 生成式 UI 渲染
+这意味着你今天编写的标准 WebMCP 代码，在未来浏览器原生支持时将自动平滑切换到原生引擎。
 
-详见：[@opentiny/next-remoter 文档](packages/next-remoter/README.md)
+### 📡 通过 WebAgent 实现远程操控
+
+OpenTiny NEXT-SDKs 的最大亮点之一是在于通过 **WebAgent** 实现页面的“可控性”。通过使用 `WebMcpClient`，你可以：
+
+- **获取持久化的 Session ID**：与云端 AI 编排器建立长效连接。
+- **跨时空协同**：即使用户不在当前聊天窗口前，AI 也可以根据业务指令远程调用页面工具。
+- **高阶业务自动化**：配合 WebAgent，将页面上的工具转化为自动化流程中的执行单元，真正实现 AI 对应用的“远程驾驶”。
+
+#### 连接示例
+
+```typescript
+import { WebMcpClient } from '@opentiny/next-sdk'
+
+const client = new WebMcpClient()
+
+// 连接至 WebAgent 服务
+const { sessionId } = await client.connect({
+  agent: true,
+  builtin: true, // 启用内置 WebMCP 代理
+  url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp'
+})
+
+console.log('连接成功！会话 ID:', sessionId)
+// 现在，你的应用已经可以通过此 sessionId 被远程操控
+```
+
+> [!TIP]
+> 上述 URL 是由 OpenTiny 提供的公开测试服务器，仅用于测试。在生产环境中，我们建议您部署自己的 WebAgent 服务。
+> 源码地址：[https://github.com/opentiny/web-agent](https://github.com/opentiny/web-agent)
 
 ## 🚀 快速开始
 
-使用 OpenTiny NEXT-SDKs，只需要以下四步，就可以把你的前端/业务应用通过 WebMCP + WebSkills 变成可被 AI 操控的智能应用：
+只需几行代码，即可让你的前端应用具备 AI 能力。
 
 ### 第一步：安装依赖
 
@@ -80,272 +95,119 @@
 npm install @opentiny/next-sdk
 ```
 
-### 第二步：创建 MCP Server 并注册工具
+### 第二步：初始化 WebMCP Polyfill（推荐）
+
+在你的应用入口文件（如 `main.ts` 或 `app.js`）中添加以下代码：
 
 ```typescript
-import { WebMcpServer, createMessageChannelPairTransport, z } from '@opentiny/next-sdk'
+import { initializeBuiltinWebMCP } from '@opentiny/next-sdk'
 
-// 创建通信通道
-const [serverTransport, clientTransport] = createMessageChannelPairTransport()
+// 初始化 Polyfill 与 桥接机制
+initializeBuiltinWebMCP()
+```
 
-// 创建 MCP Server
-const server = new WebMcpServer({
-  name: 'my-app-server',
-  version: '1.0.0'
-})
+### 第三步：使用标准 API 注册工具
 
-// 注册工具
-server.registerTool(
-  'demo-tool',
-  {
-    title: '演示工具',
-    description: '这是一个演示工具',
-    inputSchema: {
-      foo: z.string().describe('输入参数')
+现在，你可以在应用的任何地方使用标准的 `navigator.modelContext` 来注册工具：
+
+```typescript
+// 注册一个可被 AI 调用的工具
+navigator.modelContext.registerTool({
+  name: 'get_user_info',
+  description: '获取当前用户信息',
+  inputSchema: {
+    type: 'object',
+    properties: {
+      userId: { type: 'string' }
     }
   },
+  handler: async (args) => {
+    // 这里编写你的业务逻辑
+    return { content: [{ type: 'text', text: `用户 ${args.userId} 的信息...` }] }
+  }
+})
+```
+
+✅ **完成！** 你的应用现在就是一个 MCP 服务。
+你可以将其连接到任何 MCP 兼容的客户端，或使用我们的 [TinyRemoter](#-通过-webagent-实现远程操控) 直接与应用对话。
+
+---
+
+### 备选方案：自定义 MCP Server（高级）
+
+如果你需要更深层次的控制或运行多个独立服务：
+
+```typescript
+import { WebMcpServer, z } from '@opentiny/next-sdk'
+
+const server = new WebMcpServer({ name: 'custom-server', version: '1.0.0' })
+
+server.registerTool(
+  'demo',
+  {
+    title: '演示工具',
+    inputSchema: { foo: z.string() }
+  },
   async (params) => {
-    console.log('接收到参数:', params)
-    return {
-      content: [
-        {
-          type: 'text',
-          text: `已处理: ${params.foo}`
-        }
-      ]
-    }
+    return { content: [{ type: 'text', text: `结果: ${params.foo}` }] }
   }
 )
 
-// 连接 Server Transport
-await server.connect(serverTransport)
+// 连接到任意传输通道...
 ```
 
-### 第三步：创建 MCP Client 并连接 WebAgent
+## 📦 核心包说明
 
-```typescript
-import { WebMcpClient } from '@opentiny/next-sdk'
+### @opentiny/next-sdk（当前包）
 
-// 创建 MCP Client
-const client = new WebMcpClient({
-  name: 'my-app-client',
-  version: '1.0.0'
-})
+核心 SDK 包，提供：
 
-// 连接 Client Transport
-await client.connect(clientTransport)
+- **内置 WebMCP Polyfill**：注入 `navigator.modelContext` 并建立桥接机制，实现 AI 与页面的无缝通信。
+- **WebMcpServer**：受管 MCP 服务端，用于完全控制服务生命周期与传输层。
+- **WebMcpClient**：MCP 客户端，用于连接 WebAgent 或其他远程服务。
+- **WebAgent**：高层级智能代理编排逻辑。
+- **Transport 传输层**：支持 MessageChannel、SSE、HTTP 以及 Chrome 插件通信。
 
-// 连接到 WebAgent 服务
-const { sessionId } = await client.connect({
-  agent: true,
-  url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp'
-})
+### @opentiny/next-remoter
 
-console.log('获取到的 sessionId:', sessionId)
-```
+基于 TinyRobot 的 Vue3 AI 对话组件，提供：
 
-✅ 完成！现在你的前端应用已经变成智能应用，可以被 AI 操控了。
+- 集成的 AI 助手 UI。
+- MCP 插件市场。
+- 动态 WebSkills 发现与执行能力。
 
-你可以通过各类 [MCP Host](https://modelcontextprotocol.io/clients) 来操控智能应用。
-
-### 第四步：添加 AI 遥控器（可选）
-
-我们提供了一个开箱即用的 AI 对话框组件，支持 PC 端和移动端，就像一个遥控器，可以通过对话方式操控你的前端应用。
-
-#### 安装遥控器组件
-
-```bash
-npm install @opentiny/next-remoter
-```
-
-#### 在 Vue 项目中使用并接入 WebSkills 文档
-
-下面示例演示 TinyRemoter 如何通过 `skills` 属性接入 WebSkills 文档，实现对业务能力的**渐进式披露**。**完整工程与各框架最佳实践请直接参考仓库中的示例项目**（见下方 [WebMCP + WebSkills 最佳实践工程](#webmcp--webskills-最佳实践工程)）。
-
-```vue
-<script setup lang="ts">
-import { onMounted } from 'vue'
-import { TinyRemoter } from '@opentiny/next-remoter'
-import { createMcpServer, clientTransport } from './mcp-servers'
-
-// 1. 通过 Vite 的 import.meta.glob 一次性加载本地 skill 文档（Markdown）
-//    每个 skill.md 对应一块业务能力说明 + 工具使用规范
-const skillMdModules = import.meta.glob('./skills/**/*.md', {
-  query: '?raw',
-  import: 'default',
-  eager: true
-}) as Record<string, string>
-
-// 2. 声明本地 WebMCP Server，提供业务工具（WebSkills 的基础工具集合）
-const mcpServers = {
-  'ecommerce-mcp-server': {
-    type: 'local' as const,
-    transport: clientTransport
-  }
-}
-
-// 3. 挂载组件时启动本地 WebMCP Server
-onMounted(async () => {
-  await createMcpServer()
-})
-</script>
-
-<template>
-  <!-- 通过 skills 传入 WebSkills 文档实现渐进式披露；通过 mcpServers 绑定本地 WebMCP 暴露业务工具 -->
-  <tiny-remoter class="remoter-pane" :skills="skillMdModules" :mcpServers="mcpServers" title="我的智能助手" />
-</template>
-```
-
-#### 遥控器功能
-
-遥控器会在你的应用右下角显示一个图标，悬浮后可以选择：
-
-- 💬 **弹出 AI 对话框**：在应用侧边打开 AI 对话界面
-- 📱 **显示二维码**：手机扫码后打开移动端遥控器
-
-不管是 PC 端还是移动端，都可以通过自然语言对话的方式让 AI 帮你操作应用，极大提升工作效率！
-
-## 🌐 浏览器直接引入
-
-你也可以直接通过浏览器 HTML 标签导入 NEXT-SDKs，这样就可以使用全局变量 `WebMCP` 了。
-
-```html
-<html>
-  <head>
-    <!-- 导入 NEXT-SDKs -->
-    <script src="https://unpkg.com/@opentiny/next-sdk@0.1/dist/index.umd.js"></script>
-  </head>
-  <body>
-    <script>
-      ;(async () => {
-        const { WebMcpServer, createMessageChannelPairTransport, z, WebMcpClient } = WebMCP
-        const [serverTransport, clientTransport] = createMessageChannelPairTransport()
-
-        const client = new WebMcpClient()
-        await client.connect(clientTransport)
-        const { sessionId } = await client.connect({
-          agent: true,
-          url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp'
-        })
-
-        const server = new WebMcpServer()
-        server.registerTool(
-          'demo-tool',
-          {
-            title: '演示工具',
-            description: '一个简单工具',
-            inputSchema: { foo: z.string() }
-          },
-          async (params) => {
-            console.log('params:', params)
-            return { content: [{ type: 'text', text: `收到: ${params.foo}` }] }
-          }
-        )
-
-        await server.connect(serverTransport)
-      })()
-    </script>
-  </body>
-</html>
-```
+---
 
 ## 💡 核心概念
 
-### 架构概览
+### WebMCP 桥接架构 (Bridge Architecture)
+
+与传统的后端 MCP 不同，WebMCP 专注于 **浏览器上下文 (Browser Context)**。
 
 ```text
 ┌─────────────────────────────────────────────────────────────┐
-│                       前端应用                                │
-│  ┌──────────────────┐              ┌───────────────────┐   │
-│  │  WebMcpServer    │◄────────────►│  WebMcpClient     │   │
-│  │  (注册工具)       │  MessageChannel │  (连接 Agent)    │   │
-│  └──────────────────┘              └───────────────────┘   │
+│                       Web 浏览器                              │
+│  ┌──────────────────┐              ┌───────────────────┐    │
+│  │  前端应用         │◄── 桥接机制 ──►│   AI 助手          │    │
+│  │ (WebMCP服务端)    │              │   (MCP客户端)      │    │
+│  └──────────────────┘              └───────────────────┘    │
 │           ▲                                  │              │
 └───────────┼──────────────────────────────────┼──────────────┘
-            │                                  │
-            │                                  ▼
-            │                         ┌─────────────────┐
-            │                         │   WebAgent 服务  │
-            │                         │  (AI + MCP Hub) │
-            │                         └─────────────────┘
-            │                                  │
-            │                                  ▼
-            │                         ┌─────────────────┐
-            └─────────────────────────┤  TinyRemoter    │
-                                      │   (AI 遥控器)    │
-                                      └─────────────────┘
+            │          (标准通信协议)           │
+            └──────────────────────────────────┘
 ```
 
-**工作流程：**
-
-1. **WebMcpServer** 在前端应用中注册可用的工具（如查询数据、操作 UI 等）
-2. **WebMcpClient** 连接到 **WebAgent 服务**，获取 sessionId
-3. **WebAgent** 作为中枢，连接 AI 大模型和各种 MCP 工具
-4. **TinyRemoter** 提供用户界面，用户通过自然语言对话操控应用
-5. AI 根据用户意图，调用相应的 MCP 工具完成任务
+1.  **注册工具**：通过 `navigator.modelContext.registerTool` 声明你的应用具备哪些能力。
+2.  **桥接同步**：我们的桥接机制会自动将 AI 请求路由到正确的页面或 iframe，即使用户已经切换了页面。
+3.  **直接执行**：工具直接在页面环境下运行，可以访问 DOM、组件状态和本地 API。
 
 ### WebMcpServer
 
-WebMcpServer 是 MCP 服务端的实现，用于将前端应用的功能声明为 MCP 工具。
-
-```typescript
-import { WebMcpServer } from '@opentiny/next-sdk'
-
-const server = new WebMcpServer({
-  name: 'my-app',
-  version: '1.0.0'
-})
-
-// 注册工具
-server.registerTool(
-  'tool-name',
-  {
-    title: '工具标题',
-    description: '工具描述',
-    inputSchema: {
-      /* Zod schema */
-    }
-  },
-  async (params) => {
-    // 工具处理逻辑
-    return { content: [{ type: 'text', text: '结果' }] }
-  }
-)
-```
+WebMcpServer 是 MCP 服务端的实现，用于手动管理前端应用的功能声明。
 
 ### WebMcpClient
 
 WebMcpClient 是 MCP 客户端的实现，用于连接 WebAgent 服务和其他 MCP 服务。
-
-```typescript
-import { WebMcpClient } from '@opentiny/next-sdk'
-
-const client = new WebMcpClient({
-  name: 'my-client',
-  version: '1.0.0'
-})
-
-// 连接到 WebAgent
-const { sessionId } = await client.connect({
-  agent: true,
-  url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp'
-})
-```
-
-### Transport 通信层
-
-NEXT-SDKs 支持多种通信方式：
-
-- **MessageChannel**：浏览器内跨窗口通信
-- **SSE**：Server-Sent Events 服务器推送
-- **HTTP**：标准 HTTP 请求
-
-```typescript
-import { createMessageChannelPairTransport } from '@opentiny/next-sdk'
-
-// 创建 MessageChannel 通信对
-const [serverTransport, clientTransport] = createMessageChannelPairTransport()
-```
 
 ## 📖 使用场景
 
@@ -380,203 +242,6 @@ cd next-sdk
 pnpm install
 ```
 
-### 项目结构
-
-```text
-next-sdk/
-├── packages/
-│   ├── next-sdk/              # 核心 SDK 包
-│   │   ├── agent/             # WebAgent 实现
-│   │   ├── client/            # WebMCP 客户端
-│   │   ├── server/            # WebMCP 服务端
-│   │   ├── transport/         # 传输层实现
-│   │   ├── McpSdk.ts          # MCP SDK 封装
-│   │   ├── index.ts           # 主入口
-│   │   ├── package.json
-│   │   └── README.md
-│   ├── next-remoter/          # Vue3 AI 对话组件
-│   │   ├── src/
-│   │   │   ├── components/    # 组件实现
-│   │   │   └── composable/    # 组合式函数
-│   │   ├── package.json
-│   │   └── README.md
-│   └── doc-ai/                # 文档示例应用
-├── docs/                      # 项目文档
-├── pnpm-workspace.yaml        # pnpm 工作区配置
-├── package.json
-└── README.md
-```
-
-### 开发流程
-
-#### 1. 开发核心 SDK
-
-```bash
-# 进入 next-sdk 包目录
-cd packages/next-sdk
-
-# 开发模式（支持热重载）
-pnpm dev
-
-# 运行测试
-pnpm test
-
-# 构建项目
-pnpm build
-```
-
-#### 2. 开发 Remoter 组件
-
-```bash
-# 进入 next-remoter 包目录
-cd packages/next-remoter
-
-# 启动开发服务器
-pnpm dev
-
-# 浏览器访问 http://localhost:5173
-```
-
-#### 3. 调试示例应用
-
-```bash
-# 进入 doc-ai 示例目录
-cd packages/doc-ai
-
-# 启动开发服务器
-pnpm dev
-```
-
-### 构建脚本说明
-
-核心 SDK 提供多种构建脚本：
-
-```bash
-# 构建所有版本（生产版 + 开发版）
-pnpm build:all
-
-# 仅构建生产版本
-pnpm build:cdn
-
-
-# 构建开发版本（包含 source map）
-pnpm build:cdn:dev
-
-# 构建特定模块
-pnpm build:webAgent       # WebAgent 模块
-pnpm build:webMcp         # WebMCP 模块
-pnpm build:mcpSdk         # MCP SDK 模块
-pnpm build:zod            # Zod 验证模块
-pnpm build:webMcpFull     # WebMCP 完整版本
-```
-
-### 代码规范
-
-在提交代码前，请确保代码符合以下规范：
-
-- **TypeScript**：使用 TypeScript 编写类型安全的代码
-- **代码风格**：遵循项目的 ESLint 配置
-- **命名规范**：
-  - 文件名：使用 kebab-case（如 `web-mcp-client.ts`）
-  - 类名：使用 PascalCase（如 `WebMcpClient`）
-  - 函数名：使用 camelCase（如 `registerTool`）
-  - 常量：使用 UPPER_SNAKE_CASE（如 `MAX_RETRY_COUNT`）
-- **注释**：为关键逻辑添加清晰的中文注释
-- **测试**：为新功能添加单元测试
-
-### 提交代码
-
-#### 1. 创建分支
-
-```bash
-# 基于主分支创建功能分支
-git checkout -b feature/your-feature-name
-
-# 或者创建修复分支
-git checkout -b fix/your-bug-fix
-```
-
-#### 2. 提交规范
-
-我们使用约定式提交（Conventional Commits）规范：
-
-```bash
-# 新功能
-git commit -m "feat: 添加 XXX 功能"
-
-# Bug 修复
-git commit -m "fix: 修复 XXX 问题"
-
-# 文档更新
-git commit -m "docs: 更新 XXX 文档"
-
-# 代码重构
-git commit -m "refactor: 重构 XXX 模块"
-
-# 性能优化
-git commit -m "perf: 优化 XXX 性能"
-
-# 测试相关
-git commit -m "test: 添加 XXX 测试"
-
-# 构建相关
-git commit -m "build: 更新构建配置"
-
-# CI 相关
-git commit -m "ci: 更新 CI 配置"
-```
-
-#### 3. 推送并创建 PR
-
-```bash
-# 推送到远程分支
-git push origin feature/your-feature-name
-
-# 在 GitHub 上创建 Pull Request
-# 填写 PR 描述，说明改动内容和原因
-```
-
-### 发布流程
-
-> 注意：发布需要项目维护者权限
-
-```bash
-# 1. 更新版本号
-# 编辑 packages/next-sdk/package.json 中的 version 字段
-
-# 2. 更新 CHANGELOG
-# 记录本次发布的主要变更
-
-# 3. 构建项目
-pnpm build:all
-
-# 4. 发布到 npm
-cd packages/next-sdk
-npm publish
-
-# 或者发布 next-remoter
-cd packages/next-remoter
-npm publish
-```
-
-### 报告问题
-
-如果你发现了 Bug 或有功能建议，请通过以下方式反馈：
-
-1. 访问 [GitHub Issues](https://github.com/opentiny/next-sdk/issues)
-2. 点击 "New Issue"
-3. 选择合适的 Issue 模板
-4. 填写详细的问题描述：
-   - **Bug 报告**：包括复现步骤、预期行为、实际行为、环境信息等
-   - **功能建议**：说明需求背景、期望功能、使用场景等
-
-### 参与讨论
-
-- 加入 [OpenTiny 社区](https://github.com/opentiny/next-sdk/discussions)
-- 关注 [OpenTiny 官网](https://opentiny.design)
-- 在 Issue 中参与技术讨论
-- 帮助回答其他开发者的问题
-
 ## 📚 相关资源
 
 ### 官方文档
@@ -596,92 +261,18 @@ npm publish
 
 推荐直接参考以下示例项目，按你使用的技术栈克隆或对照实现：
 
-| 技术栈      | 示例工程                                  | 说明                                                                        |
-| ----------- | ----------------------------------------- | --------------------------------------------------------------------------- |
-| **Vue**     | [doc-ai](packages/doc-ai)                 | Vue3 + Vite，本地 WebMCP Server、skills 文档（Markdown）与 TinyRemoter 集成 |
-| **Angular** | [doc-ai-angular](packages/doc-ai-angular) | Angular 主应用 + iframe Remoter，通过 MessageChannel 与 WebMCP 打通         |
-| **React**   | [doc-ai-react](packages/doc-ai-react)     | React 主应用 + iframe Remoter，与 Vue 版类似的 WebMCP + WebSkills 架构      |
+| 技术栈      | 示例工程                                  | 说明                                                                |
+| ----------- | ----------------------------------------- | ------------------------------------------------------------------- |
+| **Vue**     | [doc-ai](packages/doc-ai)                 | Vue3 + Vite，本地 WebMCP / Polyfill 模式的最佳实践                  |
+| **Angular** | [doc-ai-angular](packages/doc-ai-angular) | Angular 主应用 + iframe Remoter，通过 MessageChannel 与 WebMCP 打通 |
+| **React**   | [doc-ai-react](packages/doc-ai-react)     | React 主应用 + iframe Remoter，与 Vue 版类似的 WebMCP 架构          |
 
 配套文档：
 
 - [Vue 集成 WebMCP 最佳实践](docs/guide/vue-webmcp-best-practice.md)
 - [Angular 集成 WebMCP 最佳实践](docs/guide/angular-webmcp-best-practice.md)
 
-### 其他示例项目
-
-- [next-wxt](packages/next-wxt) - 浏览器扩展示例（WXT 框架）
-
-### MCP 协议
-
-- [Model Context Protocol 官方文档](https://modelcontextprotocol.io/)
-- [MCP Specification](https://spec.modelcontextprotocol.io/)
-- [MCP SDK](https://github.com/modelcontextprotocol/sdk)
-
-### 外部链接
-
-- [GitHub 仓库](https://github.com/opentiny/next-sdk)
-- [NPM 包 - @opentiny/next-sdk](https://www.npmjs.com/package/@opentiny/next-sdk)
-- [NPM 包 - @opentiny/next-remoter](https://www.npmjs.com/package/@opentiny/next-remoter)
-- [问题反馈](https://github.com/opentiny/next-sdk/issues)
-- [贡献指南](https://github.com/opentiny/next-sdk/blob/main/CONTRIBUTING.md)
-
-## ❓ 常见问题
-
-### 1. 如何获取 sessionId？
-
-通过 WebMcpClient 连接 WebAgent 服务后自动获取：
-
-```typescript
-const { sessionId } = await client.connect({
-  agent: true,
-  url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp'
-})
-```
-
-### 2. 如何自定义 MCP 工具？
-
-使用 `server.registerTool()` 注册自定义工具：
-
-```typescript
-server.registerTool(
-  'my-tool',
-  {
-    title: '我的工具',
-    description: '工具描述',
-    inputSchema: {
-      param1: z.string(),
-      param2: z.number()
-    }
-  },
-  async (params) => {
-    // 实现工具逻辑
-    return { content: [{ type: 'text', text: '执行结果' }] }
-  }
-)
-```
-
-### 3. 支持哪些大语言模型？
-
-NEXT-SDKs 支持所有兼容 AI SDK 的大语言模型，包括：
-
-- OpenAI（GPT-4、GPT-3.5 等）
-- DeepSeek
-- Anthropic Claude
-- 通义千问
-- 文心一言
-- 其他自定义模型
-
-### 4. 如何处理跨域问题？
-
-WebMCP 使用 MessageChannel 进行跨窗口通信，不受浏览器跨域限制。如果需要连接远程 MCP 服务，服务端需要正确配置 CORS。
-
-### 5. 能否在 React 项目中使用？
-
-可以！NEXT-SDKs 的核心功能与框架无关。虽然 `@opentiny/next-remoter` 是 Vue3 组件，但你可以：
-
-- 直接使用核心 SDK（`@opentiny/next-sdk`）
-- 基于核心 SDK 开发 React 版本的对话组件
-- 使用浏览器直接引入方式
+---
 
 ## 📄 许可证
 
@@ -694,7 +285,3 @@ Copyright (c) 2024-present OpenTiny Team
 感谢所有为 OpenTiny NEXT-SDKs 项目做出贡献的开发者！
 
 [![contributors](https://contrib.rocks/image?repo=opentiny/next-sdk)](https://github.com/opentiny/next-sdk/graphs/contributors)
-
----
-
-如有任何问题或建议，欢迎提交 [Issue](https://github.com/opentiny/next-sdk/issues) 或 [Pull Request](https://github.com/opentiny/next-sdk/pulls)。
