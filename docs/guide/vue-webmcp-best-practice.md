@@ -13,7 +13,7 @@
 在 Web 端集成 MCP 时，最重要的资产是 **“模型上下文 (Model Context)”**。
 
 1.  **标准 API**：使用浏览器标准的 `navigator.modelContext` 进行工具管理。
-2.  **全平台 Polyfill**：调用 `initializeBuiltinMcpServer` 后，SDK 会确保 `navigator.modelContext` 在所有浏览器中均可用。
+2.  **全平台 Polyfill**：调用 `initializeBuiltinWebMCP` 后，SDK 会确保 `navigator.modelContext` 在所有浏览器中均可用。
 3.  **自动路由感知**：当 AI 在对话中判定需要调用某个页面的工具时，SDK 会自动驱动路由跳转，确保工具在调用前已就绪。
 
 | 模块                 | 职责                                                                     |
@@ -31,7 +31,7 @@
 
 ```text
 src/
-├── main.ts              # 激活 Builtin MCP + 设置 Navigator
+├── main.ts              # 激活 Builtin WebMCP + 设置 Navigator
 ├── App.vue              # 放置 TinyRemoter + 批量加载 Skills + 初始化 WebAgent
 ├── mcp-servers/         # 【方案B】分离式配置目录 (简单应用)
 │   ├── finance/
@@ -60,7 +60,7 @@ src/
 import { createApp } from 'vue'
 import router from './router'
 import App from './App.vue'
-import { setNavigator, initializeBuiltinMcpServer } from '@opentiny/next-sdk'
+import { setNavigator, initializeBuiltinWebMCP } from '@opentiny/next-sdk'
 import { isNavigationFailure, NavigationFailureType } from 'vue-router'
 
 // 1. 注册核心导航器：告诉 SDK 如何跳转页面
@@ -76,7 +76,7 @@ setNavigator(async (route) => {
 })
 
 // 2. 激活浏览器内置 WebMCP 服务 (含低版本浏览器 Polyfill)
-initializeBuiltinMcpServer()
+initializeBuiltinWebMCP()
 
 const app = createApp(App)
 app.use(router)
@@ -333,7 +333,7 @@ const skillMdModules = import.meta.glob('./skills/**/*', {
 
 ### 1. 为什么不用从 SDK 导入 `modelContext`？
 
-通过 `initializeBuiltinMcpServer()` 已经为全局环境注入了 `navigator.modelContext`。直接使用原生 API 可以保持代码的简洁性。
+通过 `initializeBuiltinWebMCP()` 已经为全局环境注入了 `navigator.modelContext`。直接使用原生 API 可以保持代码的简洁性。
 
 ### 2. 路由跳转失败怎么办？
 

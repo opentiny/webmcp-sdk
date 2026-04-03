@@ -66,14 +66,14 @@ const result = await navigator.modelContextTesting.executeTool('finance_summary'
 虽然原生 WebMCP 提供了基础能力，但它目前尚处于实验性阶段（需开启标志位），且在 SPA 路由跳转、工具发现时序、Polyfill 支持方面存在不足。**OpenTiny next-sdk** 对此进行了深度补全。
 
 ### 1. 全平台 Polyfill 支持
-目前原生 WebMCP 仅在 Chrome Canary 等特定版本可用。通过在应用入口调用 `initializeBuiltinMcpServer()`，`next-sdk` 会为所有浏览器自动注入符合规范的 `navigator.modelContext` 接口。
+目前原生 WebMCP 仅在 Chrome Canary 等特定版本可用。通过在应用入口调用 `initializeBuiltinWebMCP()`，`next-sdk` 会为所有浏览器自动注入符合规范的 `navigator.modelContext` 接口。
 
 ```ts
 // src/main.ts
-import { initializeBuiltinMcpServer } from '@opentiny/next-sdk'
+import { initializeBuiltinWebMCP } from '@opentiny/next-sdk'
 
 // 一行代码，让旧版浏览器立享 WebMCP 标准能力
-initializeBuiltinMcpServer()
+initializeBuiltinWebMCP()
 ```
 
 ### 2. “按需加载”带来的幻觉抑制 (中大型项目)
@@ -86,7 +86,7 @@ initializeBuiltinMcpServer()
 `next-sdk` 提供了 `setNavigator` 与 `registerPageTool` 机制。开发者只需在声明工具时配合 `routeConfig` 声明所属路由，SDK 即可在 AI 发起指令时，完全自动化地驱动前端导航：
 
 1. **匹配意图**：AI 命中工具，SDK 发现其路由在 `/finance`。
-2. **触发导航**：SDK 驱动应用跳转。
+2. **触发导航**：SDK驱动应用跳转。
 3. **时序保证**：SDK 等待目标页面就绪并刷新工具目录，随后执行指令。
 
 ---
@@ -95,7 +95,7 @@ initializeBuiltinMcpServer()
 
 WebMCP 的核心价值在于：**它将 Web 的交互逻辑从“视觉呈现”中剥离，通过结构化契约重新交付给 AI。**
 
-**OpenTiny next-sdk** 将这一前沿协议转化为生产力，帮助开发者构建不仅“可看”，而且可由 AI “深入交流、精准操控”的智能 Web 应用。通过 `initializeBuiltinMcpServer` 这一扇窗，开发者今天就可以开始为明天的原生 AI 时代进行布局。
+**OpenTiny next-sdk** 将这一前沿协议转化为生产力，帮助开发者构建不仅“可看”，而且可由 AI “深入交流、精准操控”的智能 Web 应用。通过 `initializeBuiltinWebMCP` 这一扇窗，开发者今天就可以开始为明天的原生 AI 时代进行布局。
 
 ---
 

@@ -2,7 +2,7 @@ import { createApp } from 'vue'
 import router from './router'
 import App from './App.vue'
 import './style.css'
-import { setNavigator, initializeBuiltinMcpServer } from '@opentiny/next-sdk'
+import { setNavigator, initializeBuiltinWebMCP } from '@opentiny/next-sdk'
 import { isNavigationFailure, NavigationFailureType } from 'vue-router'
 
 // 注册导航器，供 page-tool-bridge 在工具调用时自动跳转到对应路由
@@ -19,7 +19,7 @@ setNavigator(async (route) => {
   }
 })
 
-initializeBuiltinMcpServer()
+initializeBuiltinWebMCP()
 
 const app = createApp(App)
 

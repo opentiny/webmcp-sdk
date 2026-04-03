@@ -62,7 +62,7 @@ import { initializeWebMCPPolyfill } from '@mcp-b/webmcp-polyfill'
 import { setupModelContextBridge } from './page-tools/bridge'
 import { isBrowser } from './utils/env'
 
-export const initializeBuiltinMcpServer = () => {
+export const initializeBuiltinWebMCP = () => {
   if (isBrowser()) {
     try {
       initializeWebMCPPolyfill()
