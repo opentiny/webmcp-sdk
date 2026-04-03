@@ -229,20 +229,10 @@ const skillMdModules = import.meta.glob('./skills/**/*.md', {
 // Setup MCP Servers
 const nav = navigator as Navigator & { modelContextTesting?: object }
 const mcpServers: Record<string, McpServerConfig> = {
-  'ecommerce-mcp-server': {
-    type: 'local' as const,
-    transport: clientTransport
-  },
-  // 浏览器内置 WebMCP（Chrome 146+）：将 navigator.modelContextTesting 作为工具数据源
-  // 检测到支持时自动注入，未支持时此键会被忽略
-  ...(nav.modelContextTesting
-    ? {
-        'mcp-server-builtin-webmcp': {
-          type: 'builtin' as const,
-          client: nav.modelContextTesting
-        }
-      }
-    : {})
+  'mcp-server-builtin-webmcp': {
+    type: 'builtin' as const,
+    client: nav.modelContextTesting
+  }
 }
 
 const menuItems = ref<any[]>([])
