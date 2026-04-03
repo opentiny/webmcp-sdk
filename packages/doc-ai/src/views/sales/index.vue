@@ -198,11 +198,10 @@ const salesSummary = {
 
 const SALES_RECORD_QUERY_TOOL = 'sales_record_query'
 onMounted(() => {
-  const modelContext = (navigator as any).modelContext
+  const modelContext = navigator.modelContext
   if (modelContext?.registerTool) {
     modelContext.registerTool({
       name: SALES_RECORD_QUERY_TOOL,
-      title: '查询商品销售记录',
       description: '【销售数据展示工具】帮助管理员查询最近一段时间的商品销售趋势、统计图表数据',
       inputSchema: {
         type: 'object',
@@ -226,7 +225,7 @@ onMounted(() => {
   }
 })
 onUnmounted(() => {
-  const modelContext = (navigator as any).modelContext
+  const modelContext = navigator.modelContext
   if (modelContext?.unregisterTool) {
     modelContext.unregisterTool(SALES_RECORD_QUERY_TOOL)
   }
