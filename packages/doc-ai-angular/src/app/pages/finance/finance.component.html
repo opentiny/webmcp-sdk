@@ -1,0 +1,60 @@
+<div class="finance-container">
+  <div class="header">
+    <h2>财务管理</h2>
+    <p class="subtitle">企业财务总览与结算</p>
+  </div>
+
+  <!-- Data Summary -->
+  <div class="finance-overview">
+    <div class="overview-item">
+      <h3>可用余额</h3>
+      <div class="amount highlight">¥{{ financeData.balance.toLocaleString() }}.00</div>
+    </div>
+    <div class="overview-item">
+      <h3>待结算金额</h3>
+      <div class="amount">¥{{ financeData.pending.toLocaleString() }}.00</div>
+    </div>
+    <div class="overview-item">
+      <h3>本月总支出</h3>
+      <div class="amount text-danger">-¥{{ financeData.expense.toLocaleString() }}.00</div>
+    </div>
+  </div>
+
+  <!-- Quick Actions -->
+  <div class="actions">
+    <div class="btn primary">发起提现</div>
+    <div class="btn">导出账单</div>
+    <div class="btn">发票管理</div>
+  </div>
+
+  <!-- Recent Transactions -->
+  <div class="transactions">
+    <h3>最近交易记录</h3>
+    <table class="transaction-table">
+      <thead>
+        <tr>
+          <th>日期</th>
+          <th>类型</th>
+          <th>描述</th>
+          <th>金额</th>
+          <th>状态</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let transaction of transactions">
+          <td>{{ transaction.date }}</td>
+          <td>{{ transaction.type }}</td>
+          <td>{{ transaction.description }}</td>
+          <td [ngClass]="getAmountClass(transaction.amount)">
+            {{ transaction.amount > 0 ? '+' : '' }}¥{{ transaction.amount.toLocaleString() }}.00
+          </td>
+          <td>
+            <span [ngClass]="getStatusClass(transaction.status)">
+              {{ getStatusText(transaction.status) }}
+            </span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>

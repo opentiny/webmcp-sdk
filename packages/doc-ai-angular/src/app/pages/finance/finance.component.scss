@@ -1,0 +1,160 @@
+.finance-container {
+  padding: 24px;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.header {
+  margin-bottom: 24px;
+}
+
+.header h2 {
+  font-size: 22px;
+  font-weight: 600;
+  color: #1d2129;
+  margin: 0 0 4px 0;
+}
+
+.subtitle {
+  color: #86909c;
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+/* 财务概览 */
+.finance-overview {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+
+.overview-item {
+  background: white;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+  text-align: center;
+}
+
+.overview-item h3 {
+  font-size: 0.9rem;
+  color: #86909c;
+  margin: 0 0 8px 0;
+  font-weight: 500;
+}
+
+.amount {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1d2129;
+}
+
+.amount.highlight {
+  color: #00b42a;
+}
+
+.amount.text-danger {
+  color: #f53f3f;
+}
+
+.amount.text-success {
+  color: #00b42a;
+}
+
+/* 快捷操作 */
+.actions {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid #d9d9d9;
+  background: white;
+  color: #1d2129;
+}
+
+.btn.primary {
+  background: #6366f1;
+  color: white;
+  border-color: #6366f1;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* 交易记录 */
+.transactions {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+}
+
+.transactions h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #1d2129;
+  margin: 0;
+  padding: 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.transaction-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.transaction-table th,
+.transaction-table td {
+  padding: 16px 20px;
+  text-align: left;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.transaction-table th {
+  background: #fafafa;
+  font-weight: 600;
+  color: #1d2129;
+}
+
+.transaction-table tbody tr:hover {
+  background: #f9f9f9;
+}
+
+.status {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.status.success {
+  background: #e8ffea;
+  color: #00b42a;
+}
+
+.status.processing {
+  background: #fff3e8;
+  color: #ff7d00;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
