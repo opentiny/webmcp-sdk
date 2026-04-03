@@ -1,11 +1,11 @@
 <div class="price-protection-page">
   <div class="page-header">
-    <h3>价保管理</h3>
-    <div class="header-stats">
-      <span class="stat-item pending">待审核 {{ statusCount.pending }}</span>
-      <span class="stat-item approved">已通过 {{ statusCount.approved }}</span>
-      <span class="stat-item rejected">已拒绝 {{ statusCount.rejected }}</span>
-      <span class="stat-item expired">已过期 {{ statusCount.expired }}</span>
+    <div class="header-left">
+      <h2>价保单监控</h2>
+      <p class="subtitle">跟踪并审批客户提起的价保申请订单</p>
+    </div>
+    <div class="header-right">
+      <button class="btn-add" (click)="handleManualAdd()">＋ 新增价保申请</button>
     </div>
   </div>
   <div class="page-content">
@@ -21,7 +21,6 @@
           <th style="width: 110px">申请日期</th>
           <th style="width: 110px">到期日期</th>
           <th style="width: 90px">状态</th>
-          <th>备注</th>
           <th style="width: 150px">操作</th>
         </tr>
       </thead>
@@ -43,9 +42,6 @@
             }}</span>
           </td>
           <td>
-            <span class="remark-text">{{ record.remark || '—' }}</span>
-          </td>
-          <td>
             <ng-container *ngIf="record.status === 'pending'; else noAction">
               <button class="action-btn btn-success" (click)="handleApprove(record)">通过</button>
               <button class="action-btn btn-danger" style="margin-left: 6px" (click)="handleReject(record)">
@@ -59,3 +55,5 @@
     </table>
   </div>
 </div>
+
+<app-price-protection-modal (orderAdded)="onOrderAdded()"></app-price-protection-modal>

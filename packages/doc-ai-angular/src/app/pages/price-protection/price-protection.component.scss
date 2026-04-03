@@ -4,44 +4,82 @@
   min-height: 100vh;
   box-sizing: border-box;
 }
-.price-protection-page .page-header {
+
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 16px;
 }
-.price-protection-page .page-header h3 {
+
+.header-left h2 {
   margin: 0;
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 600;
   color: #1a1a1a;
 }
+
+.header-left .subtitle {
+  margin: 4px 0 0 0;
+  font-size: 14px;
+  color: #666;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+}
+
+.btn-add {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-add:hover {
+  background: #0056b3;
+}
+
 .header-stats {
   display: flex;
   gap: 12px;
 }
+
 .stat-item {
   font-size: 13px;
   padding: 3px 12px;
   border-radius: 12px;
   font-weight: 500;
 }
+
 .stat-item.pending {
   background: #fff7e6;
   color: #fa8c16;
 }
+
 .stat-item.approved {
   background: #f6ffed;
   color: #52c41a;
 }
+
 .stat-item.rejected {
   background: #fff1f0;
   color: #ff4d4f;
 }
+
 .stat-item.expired {
   background: #f5f5f5;
   color: #8c8c8c;
 }
+
 .page-content {
   padding: 20px;
   background: #fff;
