@@ -244,7 +244,7 @@ export type NavigateToolOptions = {
   timeoutMs?: number
 }
 
-export function registerNavigateTool(server: any, options?: NavigateToolOptions): any {
+export function registerNavigateTool(server: WebMcpServer, options?: NavigateToolOptions): RegisteredTool {
   const name = options?.name ?? 'navigate_to_page'
   const title = options?.title ?? '页面跳转'
   const description =
@@ -318,11 +318,11 @@ export function registerNavigateTool(server: any, options?: NavigateToolOptions)
     }
   }
 
-  if (server && typeof server.registerTool === 'function') {
+  if (server && typeof (server as any).registerTool === 'function') {
     // 优先检查是否为被 SDK 拦截过的原生/Polyfill modelContext
     // 我们在 setupModelContextBridge 中显式注入了该标识位
-    if (server.__isNextSdkBridgeSetup) {
-      return server.registerTool({
+    if ((server as any).__isNextSdkBridgeSetup) {
+      return (server as any).registerTool({
         name,
         title,
         description,
@@ -332,7 +332,7 @@ export function registerNavigateTool(server: any, options?: NavigateToolOptions)
     }
 
     // 否则默认为 SDK WebMcpServer 格式 (三个参数)
-    return server.registerTool(
+    return (server as any).registerTool(
       name,
       {
         title,
@@ -342,6 +342,8 @@ export function registerNavigateTool(server: any, options?: NavigateToolOptions)
       handler
     )
   }
+
+  throw new Error('Failed to register navigate tool: invalid server instance.')
 }
 
 /**
@@ -604,7 +606,7 @@ export function registerPageTool(options: RegisterPageToolByHandlersOptions): ()
 /**
  * 建立浏览器原生或 polyfill 与 next-sdk 页面工具桥接的联系。
  * 若用户或第三方库直接操作 navigator.modelContext 进行工具注册，
- * 我们通过此函数进行拦截劫持，并同步到 next-sdk 的握手线路 (MSG_PAGE_READY)，
+ * 我们通过此函数进行拦截劫持，并同步到 next-sdk 的握手线路 (MSG_TOOL_REGISTERED / MSG_TOOL_UNREGISTERED)，
  * 从而保证无论浏览器是否原生支持，均能正常完成 WebMCP 握手交互。
  */
 export function setupModelContextBridge() {
