@@ -55,3 +55,20 @@ export {
   type SkillMeta,
   type SkillToolsSet
 } from './skills/index'
+
+export * from '@mcp-b/webmcp-polyfill'
+
+import { initializeWebMCPPolyfill } from '@mcp-b/webmcp-polyfill'
+import { setupModelContextBridge } from './page-tools/bridge'
+import { isBrowser } from './utils/env'
+
+export const initializeBuiltinMcpServer = () => {
+  if (isBrowser()) {
+    try {
+      initializeWebMCPPolyfill()
+      setupModelContextBridge()
+    } catch (err) {
+      console.warn('[next-sdk] 自动注入 modelContext polyfill 和桥接同步失败:', err)
+    }
+  }
+}

@@ -1,5 +1,5 @@
 import { onMounted, onUnmounted } from 'vue'
-import { MSG_REMOTER_READY, MSG_TOOL_CATALOG_CHANGED } from '@opentiny/next-sdk'
+import { MSG_REMOTER_READY, MSG_TOOL_REGISTERED, MSG_TOOL_UNREGISTERED } from '@opentiny/next-sdk'
 
 /**
  * 简化后的工具同步：
@@ -40,7 +40,12 @@ export function useRouteBasedTools(options: {
   }
 
   const handleToolCatalogChanged = (event: MessageEvent) => {
-    if (!isTrustedSource(event.source) || event.data?.type !== MSG_TOOL_CATALOG_CHANGED) return
+    if (
+      !isTrustedSource(event.source) ||
+      (event.data?.type !== MSG_TOOL_REGISTERED && event.data?.type !== MSG_TOOL_UNREGISTERED)
+    ) {
+      return
+    }
     void flushToolCatalogChange()
   }
 
