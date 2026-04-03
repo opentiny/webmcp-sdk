@@ -129,7 +129,7 @@ navigator.modelContext.registerTool({
 ```
 
 ✅ **完成！** 你的应用现在就是一个 MCP 服务。
-你可以将其连接到任何 MCP 兼容的客户端，或使用我们的 [TinyRemoter](#-添加-ai-遥控器可选) 直接与应用对话。
+你可以将其连接到任何 MCP 兼容的客户端，或使用我们的 [TinyRemoter](#-通过-webagent-实现远程操控) 直接与应用对话。
 
 ---
 

@@ -128,7 +128,7 @@ navigator.modelContext.registerTool({
 })
 ```
 
-✅ **Done!** Your app is now an MCP Server. You can connect it to any MCP-compatible client or usage our [TinyRemoter](#-add-ai-remote-controller) to start chatting with your app.
+✅ **Done!** Your app is now an MCP Server. You can connect it to any MCP-compatible client or use our [TinyRemoter](#-remote-control-via-webagent) to start chatting with your app.
 
 ---
 
