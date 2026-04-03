@@ -234,7 +234,7 @@ export class SnapshotManager {
    * @param isHighlight 是否高亮
    */
   async highlightPage(isHighlight: boolean) {
-    if (this.currentSnapshot) {
+    if (!this.currentSnapshot) {
       await this.createTextSnapshot()
     }
 
