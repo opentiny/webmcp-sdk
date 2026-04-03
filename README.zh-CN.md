@@ -121,7 +121,7 @@ navigator.modelContext.registerTool({
       userId: { type: 'string' }
     }
   },
-  handler: async (args) => {
+  execute: async (args) => {
     // 这里编写你的业务逻辑
     return { content: [{ type: 'text', text: `用户 ${args.userId} 的信息...` }] }
   }

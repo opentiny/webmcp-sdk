@@ -121,7 +121,7 @@ navigator.modelContext.registerTool({
       userId: { type: 'string' }
     }
   },
-  handler: async (args) => {
+  execute: async (args) => {
     // Your business logic here
     return { content: [{ type: 'text', text: `Info for user ${args.userId}` }] }
   }
