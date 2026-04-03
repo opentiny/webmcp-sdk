@@ -361,11 +361,15 @@ export async function highlightNodeByUid(manager: SnapshotManager, uid: string, 
   try {
     if (isHighlight) {
       await handle.evaluate((el: Element) => {
-        el.style.outline = '2px solid #f2e5f3'
+        if (el && el.style) {
+          el.style.outline = '2px solid #f2e5f3'
+        }
       })
     } else {
       await handle.evaluate((el: Element) => {
-        el.style.outline = 'none'
+        if (el && el.style) {
+          el.style.outline = 'none'
+        }
       })
     }
   } finally {
