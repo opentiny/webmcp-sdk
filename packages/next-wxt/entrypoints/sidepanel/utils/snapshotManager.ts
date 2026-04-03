@@ -240,7 +240,7 @@ export class SnapshotManager {
 
     for (const [id, node] of this.currentSnapshot.idToNode.entries()) {
       if (node.backendDOMNodeId || node.backendNodeId) {
-        highlightNodeByUid(this, node.id, isHighlight)
+        await highlightNodeByUid(this, node.id, isHighlight)
       }
     }
   }

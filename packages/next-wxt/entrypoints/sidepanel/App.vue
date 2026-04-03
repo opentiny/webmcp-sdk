@@ -128,9 +128,12 @@ browser.runtime.onMessage.addListener((message) => {
 
 // 每一轮对话，都要清除一下页面高亮
 const clearHighlightPage =async () => {
-  // remoterRef.value.clearHighlightPage()
- const {manager}= await getSnapshotManager()
-  manager.highlightPage(false)
+  try {
+    const { manager } = await getSnapshotManager()
+    await manager.highlightPage(false)
+  } catch (error) {
+    console.error('清除页面高亮失败', error)
+  }
 }
 
 </script>
