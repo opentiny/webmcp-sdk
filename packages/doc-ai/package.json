@@ -29,6 +29,7 @@
     "@vitejs/plugin-vue-jsx": "catalog:",
     "@vant/auto-import-resolver": "catalog:",
     "@vue/tsconfig": "catalog:",
+    "@mcp-b/webmcp-types": "^2.2.0",
     "dotenv": "catalog:",
     "dotenv-cli": "catalog:",
     "typescript": "catalog:",

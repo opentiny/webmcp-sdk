@@ -55,7 +55,7 @@ const handleManualAdd = () => {
 const ADD_INVENTORY_TOOL = 'add_inventory'
 
 onMounted(() => {
-  ;(navigator as any).modelContext.registerTool({
+  navigator.modelContext.registerTool({
     name: ADD_INVENTORY_TOOL,
     description: '【入库管理工具】帮助电商管理员将采购的商品新增入库存系统中',
     inputSchema: {
@@ -75,7 +75,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  ;(navigator as any).modelContext.unregisterTool(ADD_INVENTORY_TOOL)
+  navigator.modelContext.unregisterTool(ADD_INVENTORY_TOOL)
 })
 </script>
 
