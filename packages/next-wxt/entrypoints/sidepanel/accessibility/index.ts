@@ -23,8 +23,8 @@ export async function executeSnapshotAction(params: SnapshotActionParams): Promi
     // 根据操作类型分发到不同的处理函数
     if (action === 'snapshot') {
       await handleSnapshotAction(manager)
-      manager.highlightPage(true) // 每一次查询无障碍，都高亮一次页面。
-      // manager.resetCursorInPage() // 重置光标到页面中心
+      await manager.resetCursorInPage() // 重置光标到页面中心
+      await manager.highlightPage(true) // 每一次查询无障碍，都高亮一次页面。
 
       const result = await handleSnapshotAction(manager)
       return result
@@ -34,7 +34,7 @@ export async function executeSnapshotAction(params: SnapshotActionParams): Promi
       }
 
       // 移动光标
-      // await manager.moveCursorInPage(params.uid)
+      await manager.moveCursorInPage(params.uid)
       const result = await handleClickAction(manager, params.uid, params.button, params.dblClick)
       return result
     } else if (action === 'fill') {
@@ -42,7 +42,7 @@ export async function executeSnapshotAction(params: SnapshotActionParams): Promi
         throw new Error('输入操作需要提供 uid 和 text 参数')
       }
       // 移动光标
-      // await manager.moveCursorInPage(params.uid)
+      await manager.moveCursorInPage(params.uid)
       const result = await handleFillAction(manager, params.uid, params.text, params.clearFirst)
       return result
     } else if (action === 'scroll') {
