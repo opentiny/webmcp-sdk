@@ -1,7 +1,5 @@
 import { useEffect, useState } from 'react'
 import { orderList, type OrderItem } from '../mock'
-import { server } from '../mcp-servers'
-import { z } from '@opentiny/next-sdk'
 
 export function Component() {
   const [orders, setOrders] = useState<OrderItem[]>([])
@@ -11,25 +9,34 @@ export function Component() {
   useEffect(() => {
     setOrders([...orderList])
 
-    // 4.4 通过 server注册的详细用法
     const ORDER_QUERY_TOOL = 'order_query'
     const ORDER_DETAIL_TOOL = 'order_detail'
 
-    server.registerTool(
-      ORDER_QUERY_TOOL,
-      {
-        title: '查询订单',
-        description: '【订单管理工具】查询电商订单列表，可按订单号、客户姓名或状态筛选，不传参数则返回全部订单。',
-        inputSchema: {
-          orderId: z.string().optional().describe('按订单号精确查询，如 ORD-5X9A2B'),
-          customerName: z.string().optional().describe('按客户姓名模糊查询'),
-          status: z
-            .enum(['Pending', 'Shipped', 'Delivered', 'Refunded', 'Cancelled'])
-            .optional()
-            .describe('按订单状态筛选')
+    navigator.modelContext.registerTool({
+      name: ORDER_QUERY_TOOL,
+      title: '查询订单',
+      description: '【订单管理工具】查询电商订单列表，可按订单号、客户姓名或状态筛选，不传参数则返回全部订单。',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          orderId: { type: 'string', description: '按订单号精确查询，如 ORD-5X9A2B' },
+          customerName: { type: 'string', description: '按客户姓名模糊查询' },
+          status: {
+            type: 'string',
+            enum: ['Pending', 'Shipped', 'Delivered', 'Refunded', 'Cancelled'],
+            description: '按订单状态筛选'
+          }
         }
       },
-      async ({ orderId, customerName, status }: { orderId?: string; customerName?: string; status?: string }) => {
+      execute: async ({
+        orderId,
+        customerName,
+        status
+      }: {
+        orderId?: string
+        customerName?: string
+        status?: string
+      }) => {
         let result = orderList as OrderItem[]
         if (orderId) result = result.filter((o) => o.id.toLowerCase().includes(orderId.toLowerCase()))
         if (customerName)
@@ -51,18 +58,20 @@ export function Component() {
                 .join('\n')}`
         return { content: [{ type: 'text', text }] }
       }
-    )
+    })
 
-    server.registerTool(
-      ORDER_DETAIL_TOOL,
-      {
-        title: '订单详情',
-        description: '【订单管理工具】根据订单号获取完整的订单详情，包括商品、金额、物流、收货人信息等。',
-        inputSchema: {
-          orderId: z.string().describe('要查询的订单号，如 ORD-5X9A2B')
-        }
+    navigator.modelContext.registerTool({
+      name: ORDER_DETAIL_TOOL,
+      title: '订单详情',
+      description: '【订单管理工具】根据订单号获取完整的订单详情，包括商品、金额、物流、收货人信息等。',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          orderId: { type: 'string', description: '要查询的订单号，如 ORD-5X9A2B' }
+        },
+        required: ['orderId']
       },
-      async ({ orderId }: { orderId: string }) => {
+      execute: async ({ orderId }: { orderId: string }) => {
         const order = orderList.find((o) => o.id === orderId)
         if (!order) {
           return { content: [{ type: 'text', text: `未找到订单号为 ${orderId} 的订单。` }] }
@@ -78,11 +87,11 @@ export function Component() {
 - 下单时间：${order.createdAt}${order.shippedAt ? `\n- 发货时间：${order.shippedAt}` : ''}`
         return { content: [{ type: 'text', text }] }
       }
-    )
+    })
 
     return () => {
-      server.unregisterTool(ORDER_QUERY_TOOL)
-      server.unregisterTool(ORDER_DETAIL_TOOL)
+      navigator.modelContext.unregisterTool(ORDER_QUERY_TOOL)
+      navigator.modelContext.unregisterTool(ORDER_DETAIL_TOOL)
     }
   }, [])
 

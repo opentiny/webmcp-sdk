@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { inventoryList, type InventoryItem } from '../mock'
 import InventoryModal from './InventoryModal'
-import { modelContext } from '@opentiny/next-sdk'
 
 export function Component() {
   const modalRef = useRef<any>(null)
@@ -11,9 +10,8 @@ export function Component() {
     // 初始化时复制数据，避免直接修改 mock 数据
     setInventory([...inventoryList])
 
-    // 4.2 modelContext 对象进行注册
     const ADD_INVENTORY_TOOL = 'add_inventory'
-    modelContext.registerTool({
+    navigator.modelContext.registerTool({
       name: ADD_INVENTORY_TOOL,
       description: '【入库管理工具】帮助电商管理员将采购的商品新增入库存系统中',
       inputSchema: {
@@ -32,7 +30,7 @@ export function Component() {
     })
 
     return () => {
-      modelContext.unregisterTool(ADD_INVENTORY_TOOL)
+      navigator.modelContext.unregisterTool(ADD_INVENTORY_TOOL)
     }
   }, [])
 

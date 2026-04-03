@@ -9,13 +9,13 @@
     :systemPrompt="systemPrompt"
     :promptItems="ecommercePromptItems"
     :pillItems="ecommercePillItems"
+        :llmConfig="llmConfig"
   />
 </template>
 
 <script setup lang="ts">
 import { TinyRemoter } from '@opentiny/next-remoter'
-import { createMessageChannelClientTransport } from '@opentiny/next-sdk'
-import type { MenuItemConfig } from '@opentiny/next-sdk'
+import type { McpServerConfig, MenuItemConfig } from '@opentiny/next-sdk'
 import { ref,h } from 'vue'
 
 // 第五步：在 App.vue 接入 TinyRemoter
@@ -28,19 +28,12 @@ const skillMdModules = import.meta.glob('./skills/**/*', {
   eager: true
 }) as Record<string, string>
 
-/** MessageChannel 客户端：与主窗口中的 MCP Server 通信 */
-const clientTransport = createMessageChannelClientTransport('local-mcp', window.parent)
-
-const mcpServers = {
-  'local-mcp-server': {
-    type: 'local',
-    transport: clientTransport
-  },
-  // 4.3 Remoter 中启用内置工具感知,增加 builtin-webmcp
-  'builtin-webmcp': {
-      type: 'builtin' as const,
-      client: navigator.modelContextTesting
-    }
+const nav = navigator as Navigator & { modelContextTesting?: object }
+const mcpServers: Record<string, McpServerConfig> = {
+  'mcp-server-builtin-webmcp': {
+    type: 'builtin' as const,
+    client: nav.modelContextTesting
+  }
 }
 
 
@@ -119,5 +112,10 @@ const systemPrompt = `你是「电商智能管理系统」的内置助理，必�
 
 请始终记住：你是一个「只会调用显式列出工具」的严格代理，**宁可告诉用户“系统暂不支持该能力”，也不要调用任何不存在的工具或凭空猜测工具名。**`
 
-
+const llmConfig = {
+  providerType: 'deepseek',
+  model: 'deepseek-chat',
+  apiKey: 'sk-4499ad317f6a441a993dbb7378eed65d',
+  baseURL: `https://api.deepseek.com`,
+}
 </script>

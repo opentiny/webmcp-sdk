@@ -1,8 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { priceProtectionList, type PriceProtectionOrder } from '../mock'
 import PriceProtectionModal from './PriceProtectionModal'
-import { z } from '@opentiny/next-sdk'
-import { server } from '../mcp-servers'
 
 export function Component() {
   const modalRef = useRef<any>(null)
@@ -18,45 +16,64 @@ export function Component() {
   useEffect(() => {
     setOrders([...priceProtectionList])
 
-    // 4.5  通过 server注册的详细用法
     const PRICE_PROTECTION_QUERY_TOOL = 'price-protection-query'
     const PRICE_PROTECTION_REVIEW_TOOL = 'price-protection-review'
     const PRICE_PROTECTION_DETAIL_TOOL = 'price-protection-detail'
     const ADD_PRICE_PROTECTION_TOOL = 'add_price_protection'
 
-    server.registerTool(
-      PRICE_PROTECTION_QUERY_TOOL,
-      {
-        title: '查询价保申请',
-        description: '查询商品价保申请列表，可按状态筛选（pending/approved/rejected/expired），不传 status 则返回全部',
-        inputSchema: {
-          status: z.enum(['pending', 'approved', 'rejected', 'expired']).optional().describe('申请状态，不传则查询全部')
+    navigator.modelContext.registerTool({
+      name: PRICE_PROTECTION_QUERY_TOOL,
+      title: '查询价保申请',
+      description: '查询商品价保申请列表，可按状态筛选（pending/approved/rejected/expired），不传 status 则返回全部',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          status: {
+            type: 'string',
+            enum: ['pending', 'approved', 'rejected', 'expired'],
+            description: '申请状态，不传则查询全部'
+          }
         }
       },
-      async ({ status }: { status?: string }) => {
+      execute: async ({ status }: { status?: string }) => {
         const list = status
           ? priceProtectionList.filter((o) => o.status.toLowerCase() === status.toLowerCase())
           : priceProtectionList
         const text = `查询到 ${list.length} 条价保申请：\n${JSON.stringify(list, null, 2)}`
         return { content: [{ type: 'text', text }] }
       }
-    )
+    })
 
-    server.registerTool(
-      PRICE_PROTECTION_REVIEW_TOOL,
-      {
-        title: '审批价保申请',
-        description: '对待审核的价保申请进行审批，支持通过（approve）或拒绝（reject），可附加备注',
-        inputSchema: {
-          id: z
-            .string()
-            .regex(/^PP-\d{8}-\d{2}$/i, 'ID格式错误，必须形如 PP-20260301-01')
-            .describe('价保申请 ID'),
-          action: z.enum(['approve', 'reject']).describe('审批动作：approve=通过，reject=拒绝'),
-          remark: z.string().optional().describe('审批备注（可选）')
-        }
+    navigator.modelContext.registerTool({
+      name: PRICE_PROTECTION_REVIEW_TOOL,
+      title: '审批价保申请',
+      description: '对待审核的价保申请进行审批，支持通过（approve）或拒绝（reject），可附加备注',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          id: {
+            type: 'string',
+            pattern: '^PP-\\d{8}-\\d{2}$',
+            description: '价保申请 ID'
+          },
+          action: {
+            type: 'string',
+            enum: ['approve', 'reject'],
+            description: '审批动作：approve=通过，reject=拒绝'
+          },
+          remark: { type: 'string', description: '审批备注（可选）' }
+        },
+        required: ['id', 'action']
       },
-      async ({ id, action, remark }: { id: string | number; action: 'approve' | 'reject'; remark?: string }) => {
+      execute: async ({
+        id,
+        action,
+        remark
+      }: {
+        id: string | number
+        action: 'approve' | 'reject'
+        remark?: string
+      }) => {
         const order = priceProtectionList.find((o) => o.id === String(id))
         if (!order) {
           return { content: [{ type: 'text', text: `未找到 ID 为 ${id} 的价保申请。` }] }
@@ -75,46 +92,51 @@ export function Component() {
           ]
         }
       }
-    )
+    })
 
-    server.registerTool(
-      PRICE_PROTECTION_DETAIL_TOOL,
-      {
-        title: '价保申请详情',
-        description: '根据申请 ID 获取单条价保申请的完整详情',
-        inputSchema: {
-          id: z
-            .string()
-            .regex(/^PP-\d{8}-\d{2}$/i, 'ID格式错误，必须形如 PP-20260301-01')
-            .describe('价保申请 ID')
-        }
+    navigator.modelContext.registerTool({
+      name: PRICE_PROTECTION_DETAIL_TOOL,
+      title: '价保申请详情',
+      description: '根据申请 ID 获取单条价保申请的完整详情',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          id: {
+            type: 'string',
+            pattern: '^PP-\\d{8}-\\d{2}$',
+            description: '价保申请 ID'
+          }
+        },
+        required: ['id']
       },
-      async ({ id }: { id: string | number }) => {
+      execute: async ({ id }: { id: string | number }) => {
         const order = priceProtectionList.find((o) => o.id === String(id))
         const text = order ? `价保申请详情：\n${JSON.stringify(order, null, 2)}` : `未找到 ID 为 ${id} 的价保申请。`
         return { content: [{ type: 'text', text }] }
       }
-    )
+    })
 
-    server.registerTool(
-      ADD_PRICE_PROTECTION_TOOL,
-      {
-        title: '申请价保补偿',
-        description:
-          '【价保监控工具】帮助电商管理员处理顾客因降价提出的补差价请求（价保申请）。注意：在调用本工具前，你必须先使用 get_skill_content 工具读取相关的技能文档，严禁凭空构造参数或跳过业务规则直接调用。',
-        inputSchema: {
-          isSkillRead: z
-            .boolean()
-            .describe(
+    navigator.modelContext.registerTool({
+      name: ADD_PRICE_PROTECTION_TOOL,
+      title: '申请价保补偿',
+      description:
+        '【价保监控工具】帮助电商管理员处理顾客因降价提出的补差价请求（价保申请）。注意：在调用本工具前，你必须先使用 get_skill_content 工具读取相关的技能文档，严禁凭空构造参数或跳过业务规则直接调用。',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          isSkillRead: {
+            type: 'boolean',
+            description:
               '是否已经通过 get_skill_content 读取过技能文档？必须阅读文档后才允许传 true。如果你还没有阅读文档，严禁调用此工具。'
-            ),
-          customerName: z.string().trim().min(1).describe('提出价保申请的顾客姓名'),
-          orderId: z.string().trim().min(1).describe('需要价保补偿的原订单编号'),
-          amount: z.number().positive().describe('申请补偿的差价金额'),
-          reason: z.string().trim().min(1).describe('顾客申请价保的原因')
-        }
+          },
+          customerName: { type: 'string', description: '提出价保申请的顾客姓名' },
+          orderId: { type: 'string', description: '需要价保补偿的原订单编号' },
+          amount: { type: 'number', description: '申请补偿的差价金额' },
+          reason: { type: 'string', description: '顾客申请价保的原因' }
+        },
+        required: ['isSkillRead', 'customerName', 'orderId', 'amount', 'reason']
       },
-      async (params: any) => {
+      execute: async (params: any) => {
         if (!params.isSkillRead) {
           return {
             content: [
@@ -128,12 +150,14 @@ export function Component() {
         const result = await modalRef.current.openModal(params)
         return { content: [{ type: 'text', text: result }] }
       }
-    )
+    })
+
     return () => {
-      server.unregisterTool(PRICE_PROTECTION_QUERY_TOOL)
-      server.unregisterTool(PRICE_PROTECTION_REVIEW_TOOL)
-      server.unregisterTool(PRICE_PROTECTION_DETAIL_TOOL)
-      server.unregisterTool(ADD_PRICE_PROTECTION_TOOL)
+      const modelContext = (navigator as any).modelContext
+      modelContext.unregisterTool(PRICE_PROTECTION_QUERY_TOOL)
+      modelContext.unregisterTool(PRICE_PROTECTION_REVIEW_TOOL)
+      modelContext.unregisterTool(PRICE_PROTECTION_DETAIL_TOOL)
+      modelContext.unregisterTool(ADD_PRICE_PROTECTION_TOOL)
     }
   }, [])
 

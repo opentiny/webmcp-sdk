@@ -1,6 +1,4 @@
-import { registerPageTool } from '@opentiny/next-sdk'
 import { useEffect, useState } from 'react'
-import { server } from '../mcp-servers'
 
 export function Component() {
   const [activeRange, setActiveRange] = useState('30days')
@@ -14,16 +12,21 @@ export function Component() {
       'year': { totalSales: 1542600, orders: 16080, returnRate: '2.1%' }
     }
 
-    server.registerTool(
-      SALES_RECORD_QUERY_TOOL,
-      {
-        title: '查询商品销售记录',
-        description: '【销售数据展示工具】帮助管理员查询最近一段时间的商品销售趋势、统计图表数据',
-        inputSchema: {
-          timeRange: z.enum(['7days', '30days', 'year']).optional().describe('查询时间范围')
+    navigator.modelContext.registerTool({
+      name: SALES_RECORD_QUERY_TOOL,
+      title: '查询商品销售记录',
+      description: '【销售数据展示工具】帮助管理员查询最近一段时间的商品销售趋势、统计图表数据',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          timeRange: {
+            type: 'string',
+            enum: ['7days', '30days', 'year'],
+            description: '查询时间范围'
+          }
         }
       },
-      async ({ timeRange }: { timeRange?: '7days' | '30days' | 'year' }) => {
+      execute: async ({ timeRange }: { timeRange?: '7days' | '30days' | 'year' }) => {
         const range = timeRange ?? '30days'
         setActiveRange(range)
         const s = salesSummary[range]
@@ -31,10 +34,10 @@ export function Component() {
         const text = `${label}销售数据：\n- 总销售额：¥${s.totalSales.toLocaleString()}\n- 总订单数：${s.orders}\n- 退货率：${s.returnRate}\n\n详细图表已更新，可在左侧查看。`
         return { content: [{ type: 'text', text }] }
       }
-    )
+    })
 
     return () => {
-      server.unregisterTool(SALES_RECORD_QUERY_TOOL)
+      navigator.modelContext.unregisterTool(SALES_RECORD_QUERY_TOOL)
     }
   }, [])
   return (
