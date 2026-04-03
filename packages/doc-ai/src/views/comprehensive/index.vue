@@ -72,8 +72,6 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue'
-import { z } from '@opentiny/next-sdk'
-import { server } from '../../mcp-servers'
 import productsData from './products.json'
 
 // 根据 products.json 结构定义类型，避免使用 any
@@ -101,25 +99,27 @@ const categoryLabels: Record<string, string> = {
 const PRODUCT_GUIDE_TOOL = 'product-guide'
 
 onMounted(() => {
-  server.registerTool(
-    PRODUCT_GUIDE_TOOL,
-    {
-      title: '产品指南',
-      description: '根据产品ID获取产品详细信息',
-      inputSchema: {
-        productId: z.string().describe('产品ID')
-      }
+  ;(navigator as any).modelContext.registerTool({
+    name: PRODUCT_GUIDE_TOOL,
+    title: '产品指南',
+    description: '根据产品ID获取产品详细信息',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        productId: { type: 'string', description: '产品ID' }
+      },
+      required: ['productId']
     },
-    async ({ productId }: { productId: string }) => {
+    execute: async ({ productId }: { productId: string }) => {
       const product = products.value.find((p) => String(p.id) === productId)
       const text = product ? `产品信息：${JSON.stringify(product, null, 2)}` : `未找到产品 ID 为 ${productId} 的商品`
       return { content: [{ type: 'text', text }] }
     }
-  )
+  })
 })
 
 onUnmounted(() => {
-  server.unregisterTool(PRODUCT_GUIDE_TOOL)
+  ;(navigator as any).modelContext.unregisterTool(PRODUCT_GUIDE_TOOL)
 })
 </script>
 

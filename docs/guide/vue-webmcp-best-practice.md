@@ -1,448 +1,216 @@
 # Vue 工程接入 WebMCP + WebSkills 最佳实践
 
-本文将以一个完整的**商品管理后台**为示例，带你一步步把普通 Vue 工程升级为 AI 驱动的智能应用。完成后，用户可以通过自然语言对话查询数据、触发业务操作，AI 还能自动跳转到对应页面并在页面内执行逻辑。
-> **示例工程仓库**：[`packages/doc-ai`](https://github.com/opentiny/next-sdk/tree/dev/packages/doc-ai)
+本文根据最新的 WebMCP 标准与 `doc-ai` 示例项目，带你一步步把普通 Vue 工程升级为 AI 驱动的智能应用。
 
-## 破坏性变更（Breaking Change）
+> **核心变化**：我们现在**统一使用浏览器原生的 `navigator.modelContext` 接口**。通过调用 SDK 提供的初始化函数，低版本浏览器也能获得完全一致的 Polyfill 支持，实现 AI 工具的自动注册与路由同步。
+> **示例工程仓库**：[`packages/doc-ai`](https://github.com/opentiny/webmcp-sdk/tree/dev/packages/doc-ai)
 
-> 新版本已移除 `TinyRemoter` 的 `pageToolsOnDemand` 属性。
-
-- 旧配置 `:pageToolsOnDemand="true"` 需要删除；
-- Remoter 统一通过 `listTools` 实时感知工具目录变化；
-- 页面工具调用与路由跳转机制不变，推荐由 `withPageTools` / `registerNavigateTool` / 页面内 `registerTool`协作完成。
-
-迁移建议：
-
-1. 推荐改为页面内一体化定义：在业务页面内 `server.registerTool`，并在页面卸载时 `server.unregisterTool`。
-2. 若继续使用“分离式定义”（`mcp-servers`），也只需删除 `pageToolsOnDemand` 配置。
+---
 
 ## 核心概念
 
-在开始之前，先理解三个模块的职责：
+在 Web 端集成 MCP 时，最重要的资产是 **“模型上下文 (Model Context)”**。
 
-| 模块                 | 包名                                            | 职责                                                       |
-| -------------------- | ----------------------------------------------- | ---------------------------------------------------------- |
-| **WebMCP Server**    | `@opentiny/next-sdk`                            | 在浏览器中运行的 MCP 工具服务器，注册可供 AI 调用的工具    |
-| **Page Tool Bridge** | `@opentiny/next-sdk`                            | 工具调用时自动导航到目标页面，并通过消息通信执行页面内逻辑 |
-| **WebSkills**        | `@opentiny/next-sdk` + `@opentiny/next-remoter` | 结构化知识包，让 AI 获得特定领域的角色和文档知识           |
-| **TinyRemoter**      | `@opentiny/next-remoter`                        | AI 对话面板组件，集成 LLM + MCP + Skills                   |
-| **WebAgent**         | `@opentiny/next-sdk`                            | 将本地 MCP Server 桥接到远端 Agent 平台，支持手机遥控      |
+1.  **标准 API**：使用浏览器标准的 `navigator.modelContext` 进行工具管理。
+2.  **全平台 Polyfill**：调用 `initializeBuiltinWebMCP` 后，SDK 会确保 `navigator.modelContext` 在所有浏览器中均可用。
+3.  **自动路由感知**：当 AI 在对话中判定需要调用某个页面的工具时，SDK 会自动驱动路由跳转，确保工具在调用前已就绪。
 
-### 为什么需要 Page Tool Bridge？
+| 模块                 | 职责                                                                     |
+| -------------------- | ------------------------------------------------------------------------ |
+| **Model Context**    | 浏览器原生接口，用于注册工具。对话组件（如 TinyRemoter）会自动从中读取。 |
+| **Page Tool Bridge** | 监听 AI 指令，负责路由跳转 (Navigator) 与工具调用之间的时序同步。        |
+| **WebSkills**        | 让 AI 获得业务知识（如产品手册、SOP）的 Markdown 文档包。                |
+| **WebAgent**         | 远程代理模块，支持手机或异地 AI 通过识别码控制当前页面工具。             |
 
-Web MCP 与传统 MCP（运行在服务器/进程中）的本质区别在于：**Web MCP 工具是动态的、随页面生命周期开启和关闭的**。
+---
 
-用户不一定打开了工具对应的页面，Page Tool Bridge 解决了这个问题：
+## 推荐目录结构
 
-```text
-AI 调用工具 → 检测目标页面是否已加载
-    ↓ 未加载                ↓ 已加载
-自动路由跳转          直接通过 postMessage 发送指令
-    ↓
-页面挂载，广播 page-ready
-    ↓
-发送工具调用消息 → 页面执行业务逻辑 → 返回结果
-```
-
-## 最终目录结构
-
-完成本文所有步骤后，项目结构如下：
+为了保持项目的可维护性，建议采用下方的模块化结构（参考 `doc-ai` 项目）：
 
 ```text
 src/
-├── main.ts                          # ① 注册路由导航器
-├── App.vue                          # ⑤ 接入 TinyRemoter
-├── router/
-│   └── index.ts                     # ② 配置路由
-├── mcp-servers/
-│   └── index.ts                     # ③ MCP Server 入口（推荐仅放全局工具）
-├── views/
-│   ├── product-list/
-│   │   └── index.vue                # ④ 页面内一体化定义工具（register/unregister）
-│   └── price-protection/
-│       └── index.vue                # ④ 页面内一体化定义工具（register/unregister）
-└── skills/                          # ⑥ AI 技能知识库
-    └── product-guide/
-        ├── SKILL.md
-        └── reference/
-            └── product-listing.md
-```
-
-## 安装依赖
-
-```bash
-pnpm add @opentiny/next-sdk @opentiny/next-remoter
+├── main.ts              # 激活 Builtin WebMCP + 设置 Navigator
+├── App.vue              # 放置 TinyRemoter + 批量加载 Skills + 初始化 WebAgent
+├── mcp-servers/         # 【方案B】分离式配置目录 (简单应用)
+│   ├── finance/
+│   │   └── tools.ts     # 定义工具 Schema 与 routeConfig
+│   └── useWebAgentServer.ts # 远程遥控初始化逻辑
+├── skills/              # 【方案A】WebSkills 知识库 (大型应用)
+│   ├── inventory/
+│   │   └── SKILL.md     # 库存业务引导词
+│   └── sales/
+│       └── SKILL.md
+└── views/               # 业务页面
+    ├── inventory/
+    │   └── index.vue    # 【方案A】页面内按需注册 (onMounted)
+    └── finance/
+        └── index.vue    # 【方案B】逻辑绑定 (registerPageTool)
 ```
 
 ---
 
-## 第一步：在 main.ts 注册路由导航器
+## 第一步：环境初始化 (main.ts)
 
-`setNavigator` 告诉 SDK 如何跳转页面。当 AI 调用某个工具而对应页面未打开时，SDK 会调用此函数自动导航。
+在应用入口处，你需要激活内置服务器并配置导航器。
 
 ```ts
 // src/main.ts
 import { createApp } from 'vue'
 import router from './router'
 import App from './App.vue'
-import { setNavigator } from '@opentiny/next-sdk'
+import { setNavigator, initializeBuiltinWebMCP } from '@opentiny/next-sdk'
+import { isNavigationFailure, NavigationFailureType } from 'vue-router'
+
+// 1. 注册核心导航器：告诉 SDK 如何跳转页面
+setNavigator(async (route) => {
+  const failure = await router.push(route)
+  if (failure) {
+    // 处理重复跳转：如果已经在目标页面，直接返回 true 告知 SDK
+    if (isNavigationFailure(failure, NavigationFailureType.duplicated)) {
+      return true
+    }
+    throw new Error(`页面跳转失败: ${(failure as any).message}`)
+  }
+})
+
+// 2. 激活浏览器内置 WebMCP 服务 (含低版本浏览器 Polyfill)
+initializeBuiltinWebMCP()
 
 const app = createApp(App)
 app.use(router)
 app.mount('#app')
-
-// 必须在 router 注册后调用，让 SDK 持有 router.push 的引用
-setNavigator((route) => router.push(route))
-```
-
-> **注意**：`setNavigator` 只需在应用入口调用一次，全局生效。该导航函数会被 SDK 用于：① withPageTools 在调用页面工具时自动跳转；② 内置的 `navigate_to_page` 工具（通过 `registerNavigateTool` 注册）在大模型主动请求跳转时使用。
-
----
-
-## 第二步：配置路由
-
-确保每个有页面工具的页面都有对应路由，并与 `navigate_to_page` 的目标路径保持一致。
-
-```ts
-// src/router/index.ts
-import { createRouter, createWebHistory } from 'vue-router'
-
-const router = createRouter({
-  history: createWebHistory(),
-  routes: [
-    {
-      path: '/',
-      component: () => import('../views/home/index.vue')
-    },
-    {
-      path: '/product-list',
-      component: () => import('../views/product-list/index.vue')
-    },
-    {
-      path: '/price-protection',
-      component: () => import('../views/price-protection/index.vue')
-    }
-  ]
-})
-
-export default router
 ```
 
 ---
 
-## 第三步：创建 MCP Server（推荐：仅保留全局工具）
+## 第二步：在页面组件中定义工具 (中大型应用首选)
 
-推荐把 `mcp-servers/index.ts` 保持精简，只注册全局能力（如 `navigate_to_page`），业务工具放到页面内定义。
+对于复杂的业务系统，我们**强烈建议**在页面组件内部按需注册工具。
 
-```ts
-// src/mcp-servers/index.ts
-import {
-  WebMcpServer,
-  createMessageChannelPairTransport,
-  withPageTools,
-  registerNavigateTool
-} from '@opentiny/next-sdk'
+### 为什么这是最佳实践？
 
-const rawServer = new WebMcpServer()
-const [serverTransport, clientTransport] = createMessageChannelPairTransport()
-
-// 保留 withPageTools：兼容路由型工具链路 + 浏览器内置 MCP 能力
-export const server = withPageTools(rawServer)
-export { clientTransport }
-
-export const createMcpServer = async () => {
-  // 注册通用页面跳转工具（推荐保留）
-  registerNavigateTool(rawServer)
-  await rawServer.connect(serverTransport)
-}
-```
-
-> **页面跳转工具（navigate_to_page）**：大模型需要跨页面操作时，会先调用该工具跳转到目标路由。SDK 内部会等待页面完成就绪握手（`page-ready` / 工具目录变更）后再返回。
-
----
-
-## 第四步：在业务页面内一体化定义工具（推荐）
-
-这是当前推荐模式：工具声明（参数 schema）和回调（业务逻辑）写在同一个页面文件中。
-
-- 页面进入：`server.registerTool(...)`
-- 页面离开：`server.unregisterTool(...)`
-
-这种方式天然实现“按需加载”：只有当前页面激活时，该页面工具才会出现在 `listTools` 中。
-
-目前 Chrome 等浏览器（146+）已开始实验性支持原生 WebMCP 协议。`@opentiny/next-sdk` 完全兼容该标准。
-
-我们**强烈推荐**使用 SDK 导出的 `modelContext` 对象进行注册，而不是原生的 `navigator.modelContext.registerTool`：
-
-- **双向同步 (Hybrid Path)**：这是 SDK 的核心优势。使用 `modelContext.registerTool` 注册的工具会同时走两条路径：
-  1. **原生路径**：自动向 `navigator.modelContext` 同步，供浏览器原生 AI（如 Chrome Sidebar AI）调用。
-  2. **SDK 路径 (Iframe Bridge)**：通过 `MSG_PAGE_READY` 握手协议同步给以 iframe 形式嵌入应用的 `next-remoter` 聊天组件。
-- **路由就绪握手**：原生 API 无法感知 SPA 内部的异步路由挂载逻辑。SDK 封装了“就绪握手”，确保 AI 发起页面跳转后，能准确识别到组件代码注册的工具，彻底解决调用超时问题。
-- **统一接口**：开发者只需关注标准 WebMCP 接口，SDK 负责处理穿透 Iframe 的通信细节。
-
-#### 代码示例：命令式注册工具
-
-在业务组件中，你可以通过 SDK 提供的 `modelContext` 简单地注册工具：
+1.  **减少幻觉**：工具只在对应的业务页面挂载时存在，大模型不会在无关页面看到干扰工具。
+2.  **降低负载**：工具列表随路由变化自动增减，保证上下文（Context）的高效。
+3.  **配合 Skills**：通过 WebSkills 引导 AI 意图。当 AI 判定用户需要执行库存操作时，它会由 Skills 指导先跳转到 `/inventory`，随后在该页面内自动激活对应的工具。
 
 ```vue
+<!-- src/views/product-list/index.vue -->
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
-import { modelContext } from '@opentiny/next-sdk' // 推荐从 SDK 导入，自带双向同步保障
+
+const modelContext = (navigator as any).modelContext
 
 onMounted(() => {
-  // 遵循 WebMCP 标准接口
+  if (!modelContext) return
+
   modelContext.registerTool({
-    name: 'get_coordinates',
-    description: '查询指定城市的经纬度坐标',
+    name: 'get_product_detail',
+    description: '查询商品详情。',
     inputSchema: {
       type: 'object',
       properties: {
-        city: { type: 'string', description: '城市名称，例如：北京、上海' }
+        id: { type: 'string', description: '商品 ID' }
       },
-      required: ['city']
+      required: ['id']
     },
-    execute: async (params: { city: string }) => {
-      // 业务逻辑实现
-      return {
-        content: [{ 
-          type: 'text', 
-          text: `城市: ${params.city}, 坐标: ${Math.random()}, ${Math.random()}` 
-        }]
-      }
+    execute: async ({ id }: { id: string }) => {
+      return { content: [{ type: 'text', text: `商品 ${id} 的状态：销售中` }] }
     }
   })
 })
 
 onUnmounted(() => {
-  modelContext.unregisterTool('get_coordinates')
+  modelContext?.unregisterTool('get_product_detail')
 })
 </script>
 ```
 
-**为什么不直接用原生 `navigator.modelContext`？**
-SDK 提供的 `modelContext` 封装了跨 Iframe 的通信逻辑。如果你的聊天组件（Remoter）在 iframe 中，仅调用原生的 `navigator.modelContext` 会导致工具对聊天组件不可见。使用 SDK 导出的对象可以确保工具同时同步到原生环境和 SDK 的 Iframe 链路。
+---
 
-#### 如何在 Remoter 中启用内置工具感知？
+## 进阶：分离式全量注册 (适合轻量/小型应用)
 
-在 `App.vue` 中配置 `mcpServers` 时，将 `navigator.modelContextTesting`（当前浏览器的测试接口名）作为 Client 传入即可：
+如果你的应用功能较少，或者不想编写繁琐的 WebSkills，可以使用**一次性全量注册**方案。
+
+### 1. 声明式配置 (含 routeConfig)
+
+在独立文件中定义工具及其所属路由。这种方式下，AI 随时可见该工具，并能自动触发跳转。
 
 ```ts
-// src/App.vue
-const nav = navigator as any
-const mcpServers = {
-  // 接入浏览器内置 WebMCP 能力
-  ...(nav.modelContextTesting ? {
-    'builtin-webmcp': {
-      type: 'builtin' as const,
-      client: nav.modelContextTesting
+// src/mcp-servers/finance/tools.ts
+export default function registerFinanceTools() {
+  ;(navigator as any).modelContext.registerTool({
+    name: 'finance_summary_query',
+    title: '查询财务数据',
+    description: '查询关键财务指标。',
+    inputSchema: {
+      /* ... */
+    },
+    // 💡 关键：无需 Skills，显式声明跳转目标
+    routeConfig: {
+      route: '/finance'
     }
-  } : {})
+  })
 }
 ```
 
----
+### 2. 页面内绑定逻辑 (registerPageTool)
 
-### 4.1 产品查询页面
+在业务组件内，你只需要关注如何处理该工具的逻辑，无需再次声明或配置。
 
 ```vue
-<!-- src/views/product-list/index.vue -->
+<!-- src/views/finance/index.vue -->
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-import { z } from '@opentiny/next-sdk'
-import { server } from '@/mcp-servers'
-import productsData from './products.json'
+import { onMounted, onUnmounted } from 'vue'
+import { registerPageTool } from '@opentiny/next-sdk'
 
-type Product = {
-  id: number
-  name: string
-  price: number
-  stock: number
-  status: 'on' | 'off' | string
-}
-
-const products = ref<Product[]>(productsData as Product[])
-const TOOL_NAME = 'product-guide'
+let cleanup: (() => void) | undefined
 
 onMounted(() => {
-  server.registerTool(
-    TOOL_NAME,
-    {
-      title: '产品指南',
-      description: '根据产品 ID 获取产品详细信息',
-      inputSchema: {
-        productId: z.string().describe('产品 ID')
+  // 绑定具体执行逻辑，需与声明时的 route 路径对应
+  cleanup = registerPageTool({
+    route: '/finance',
+    handlers: {
+      'finance_summary_query': async ({ month }) => {
+        // 执行具体的财务查询逻辑...
+        return { content: [{ type: 'text', text: `11月净收入：¥10,000` }] }
       }
-    },
-    async ({ productId }: { productId: string }) => {
-      const product = products.value.find((p) => String(p.id) === productId)
-      const text = product ? `产品信息：${JSON.stringify(product, null, 2)}` : `未找到产品 ID 为 ${productId} 的商品`
-      return { content: [{ type: 'text', text }] }
     }
-  )
+  })
 })
 
-onUnmounted(() => {
-  server.unregisterTool(TOOL_NAME)
-})
+onUnmounted(() => cleanup?.())
 </script>
 ```
-
-### 4.2 价保管理页面（单页多工具）
-
-```vue
-<!-- src/views/price-protection/index.vue -->
-<script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue'
-import { z } from '@opentiny/next-sdk'
-import { server } from '@/mcp-servers'
-import rawData from './price-protection.json'
-
-const records = ref(rawData as any[])
-const TOOL_NAMES = ['price-protection-query', 'price-protection-review', 'price-protection-detail']
-
-onMounted(() => {
-  server.registerTool(
-    'price-protection-query',
-    {
-      title: '查询价保申请',
-      inputSchema: {
-        status: z.enum(['pending', 'approved', 'rejected', 'expired']).optional()
-      }
-    },
-    async ({ status }: { status?: string }) => {
-      const result = status ? records.value.filter((r) => r.status === status) : records.value
-      return { content: [{ type: 'text', text: JSON.stringify(result, null, 2) }] }
-    }
-  )
-
-  server.registerTool(
-    'price-protection-review',
-    {
-      title: '审批价保申请',
-      inputSchema: {
-        id: z.union([z.string(), z.number()]),
-        action: z.enum(['approve', 'reject']),
-        remark: z.string().optional()
-      }
-    },
-    async ({ id, action, remark }: { id: string | number; action: 'approve' | 'reject'; remark?: string }) => {
-      const record = records.value.find((r) => r.id === id)
-      if (!record) return { content: [{ type: 'text', text: `未找到 ID 为 ${id} 的申请` }] }
-      record.status = action === 'approve' ? 'approved' : 'rejected'
-      record.remark = remark ?? (action === 'approve' ? '审核通过' : '不符合条件')
-      return { content: [{ type: 'text', text: `申请 ${id} 已${action === 'approve' ? '通过' : '拒绝'}` }] }
-    }
-  )
-})
-
-onUnmounted(() => {
-  TOOL_NAMES.forEach((name) => server.unregisterTool(name))
-})
-</script>
-```
-
-> **可选（仅补充）**：若你的团队需要“统一治理工具声明”，也可继续使用分离式写法（`mcp-servers` 声明 + `registerPageTool` 处理），但不作为本文主推荐路径。
 
 ---
 
-## 第五步：在 App.vue 接入 TinyRemoter
+## 第三步：接入远程遥控 (WebAgent，可选)
 
-把 MCP Server 和 Skills 统一传给 `TinyRemoter`：
+> [!NOTE]
+> **适用场景**：这是增强功能。只有在你需要通过手机远程操控、或将本地工具能力暴露给远端 AI Agent 平台时才需要配置。如果仅需在当前网页中使用 AI 对话，可跳过此步。
 
-```vue
-<!-- src/App.vue -->
-<template>
-  <div class="app-container">
-    <!-- 页面路由内容 -->
-    <router-view />
+WebAgent 可以将当前页面的 WebMCP 能力桥接到远端平台，通过一个会话 ID 即可实现跨设备（如手机控制电脑）遥控。
 
-    <!-- AI 对话面板 -->
-    <TinyRemoter
-      :show="true"
-      :skills="skillMdModules"
-      :mcpServers="mcpServers"
-      title="智能助手"
-      :llmConfig="llmConfig"
-    />
-  </div>
-</template>
+### 1. 编写 useWebAgentServer.ts
 
-<script setup lang="ts">
-import { onMounted } from 'vue'
-import { TinyRemoter } from '@opentiny/next-remoter'
-import { createMcpServer, clientTransport } from './mcp-servers'
-
-// LLM 配置
-const llmConfig = {
-  apiKey: 'your-api-key',
-  baseURL: 'https://api.openai.com/v1',
-  providerType: 'openai',
-  model: 'gpt-4o',
-  maxSteps: 10
-}
-
-// 加载 skills 目录下所有文件（SKILL.md + 所有参考资料）
-const skillMdModules = import.meta.glob('./skills/**/*', {
-  query: '?raw',
-  import: 'default',
-  eager: true
-}) as Record<string, string>
-
-// 将本地 MCP Server 注册到 TinyRemoter
-const mcpServers = {
-  'my-mcp-server': {
-    type: 'local' as const,
-    transport: clientTransport
-  }
-}
-
-// ⚠️ 最佳实践：本地 MCP 与远程初始化必须分开处理
-// createMcpServer() 是核心功能，失败则抛出，让开发者及时发现问题
-// useWebAgentServer() 是增强功能（远程遥控），失败只打印警告，不阻塞页面
-onMounted(async () => {
-  await createMcpServer()
-
-  // 如果不需要远程遥控功能，到这里即可
-})
-</script>
-```
-
-> **为什么要分开处理？**
-> 如果把本地 MCP 启动和远程 WebAgent 初始化放在同一个 `await` 链中，一旦网络抖动导致远程连接失败，整个 `onMounted` 都会 reject，本地 AI 对话功能也会随之失效。分开处理后，远程功能降级不影响本地体验。
-
----
-
-## 第六步：接入远程遥控（WebAgent，可选）
-
-通过 `useWebAgentServer`，可以将本地 MCP Server 桥接到远端 Agent 平台，获取一个 `sessionId`，之后使用手机扫码或输入识别码即可实现跨设备遥控。
-
-### 6.1 创建 useWebAgentServer.ts
+该文件负责建立与远程代理服务器的 WebSocket 连接。
 
 ```ts
 // src/mcp-servers/useWebAgentServer.ts
-import { WebMcpServer, WebMcpClient, createMessageChannelPairTransport, withPageTools } from '@opentiny/next-sdk'
-import { registerAllTools } from './common' // 与本地 MCP 共用的工具注册函数
+import { WebMcpClient } from '@opentiny/next-sdk'
 
-const rawServer = new WebMcpServer()
 const client = new WebMcpClient()
-const [serverTransport, clientTransport] = createMessageChannelPairTransport()
-
-export const server = withPageTools(rawServer)
-
 const SESSION_ID_KEY = 'web-agent-session-id'
 
 export const useWebAgentServer = async () => {
-  registerAllTools(server)
-
-  await rawServer.connect(serverTransport)
-  await client.connect(clientTransport)
-
-  // 从 localStorage 读取上次的 sessionId（刷新后可复用同一遥控会话）
+  // 从本地存储读取，确保刷新页面后识别码保持不变
   const cachedSessionId = localStorage.getItem(SESSION_ID_KEY) ?? undefined
 
   const { sessionId } = await client.connect({
     sessionId: cachedSessionId,
-    agent: true,
+    agent: true, // 开启代理模式
+    builtin: true, // 代理内置的 WebMCP 工具
     url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp'
   })
 
@@ -453,217 +221,119 @@ export const useWebAgentServer = async () => {
 }
 ```
 
-> **注意**：`rawServer`、`client`、`transport` 均为模块级单例，该文件**只应在应用生命周期内被调用一次**（通过 `onMounted` 中的 `try/catch` 保障，详见下方）。若需要支持热重载或多次调用场景，可在函数顶部加 `initialized` 标志做幂等保护。
+### 2. 在 App.vue 中集成
 
-### 6.2 在 App.vue 中集成（含错误隔离）
+在应用根组件中初始化远程服务，并将获取到的 `sessionId` 填充到 `TinyRemoter` 的菜单中。
 
 ```vue
-<!-- src/App.vue（片段）-->
+<!-- App.vue (部分逻辑) -->
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import type { MenuItemConfig } from '@opentiny/next-remoter'
-import { TinyRemoter } from '@opentiny/next-remoter'
-import { createMcpServer, clientTransport } from './mcp-servers'
+import { ref, onMounted } from 'vue'
 import { useWebAgentServer } from './mcp-servers/useWebAgentServer'
-import { AGENT_ROOT } from './const'
 
-const mcpServers = {
-  'my-mcp-server': { type: 'local' as const, transport: clientTransport }
-}
-
-// 远程遥控菜单项（会在 WebAgent 初始化成功后填充）
-const menuItems = ref<MenuItemConfig[]>([])
+const menuItems = ref([])
+const AGENT_ROOT = 'https://agent.opentiny.design'
 
 onMounted(async () => {
-  // ① 本地 MCP 核心功能：失败直接抛出，不容忽视
-  await createMcpServer()
-
-  // ② 远程遥控增强功能：失败只打印警告，不影响本地对话
   try {
-    const result = await useWebAgentServer()
-    if (result?.sessionId) {
-      const remoteUrl = `${AGENT_ROOT}/mcp?sessionId=${result.sessionId}`
+    const { sessionId } = await useWebAgentServer()
+    if (sessionId) {
+      const remoteUrl = `${AGENT_ROOT}/mcp?sessionId=${sessionId}`
+
+      // 在 AI 助手的菜单中添加遥控信息
       menuItems.value = [
         {
           action: 'remote-url',
           text: '遥控器链接',
-          desc: remoteUrl, // 存完整 URL（含 sessionId），复制时不会丢失会话
-          tip: remoteUrl,
+          desc: remoteUrl, // 完整链接，点击可复制
           active: true,
           showCopyIcon: true
         },
         {
           action: 'remote-control',
           text: '识别码',
-          desc: result.sessionId.slice(-6),
+          desc: sessionId.slice(-6), // 展示后 6 位作为识别码
           know: true,
           showCopyIcon: true
         }
       ]
     }
   } catch (err) {
-    console.warn('[WebAgent] 远程遥控初始化失败，本地功能不受影响：', err)
+    console.warn('[WebAgent] 远程连接初始化失败，本地对话仍可正常运行：', err)
   }
 })
 </script>
 ```
 
-> **`desc` 字段的重要性**：为 `remote-url` 菜单项设置 `desc` 时，请务必传入**完整的带 `sessionId` 的 URL**，而不是裸域名。`TinyRemoter` 的复制按钮会优先读取 `desc` 字段，若 `desc` 只是域名，用户复制到的链接将无法建立遥控会话。
-
-### 6.3 menuItems 字段说明
-
-| 字段           | 类型      | 说明                                                                                                       |
-| -------------- | --------- | ---------------------------------------------------------------------------------------------------------- |
-| `action`       | `string`  | 菜单标识：`remote-url`（遥控链接）/ `remote-control`（识别码）/ `qr-code`（二维码）/ `ai-chat`（打开对话） |
-| `text`         | `string`  | 菜单项标题                                                                                                 |
-| `desc`         | `string`  | 副标题/描述，`remote-url` 场景下应存完整链接（含 sessionId）                                               |
-| `tip`          | `string`  | hover tooltip 文字                                                                                         |
-| `active`       | `boolean` | 描述文字高亮为蓝色                                                                                         |
-| `know`         | `boolean` | 描述文字高亮为深色（用于识别码）                                                                           |
-| `showCopyIcon` | `boolean` | 是否显示复制图标按钮                                                                                       |
-
 ---
 
-## 第七步：配置 WebSkills（可选但推荐）
+## 第四步：接入 TinyRemoter 对话面板 (App.vue)
 
-Skills 让 AI 获得特定领域的角色和文档知识。当用户提问时，AI 会自动识别意图并读取对应技能的参考资料。
+在根组件中配置面板，并加载相关的技能知识库。
 
-### 6.1 创建技能目录
+```vue
+<!-- src/App.vue -->
+<template>
+  <div class="main-layout">
+    <router-view />
+    <TinyRemoter
+      :show="show"
+      :skills="skillMdModules"
+      :mcpServers="mcpServers"
+      :menuItems="menuItems"
+      title="智能助手"
+      :llmConfig="llmConfig"
+    />
+  </div>
+</template>
 
-```bash
-mkdir -p src/skills/product-guide/reference
-```
+<script setup lang="ts">
+import { ref, onMounted } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
 
-### 6.2 编写 SKILL.md 入口
+const nav = navigator as any
+const show = ref(true)
 
-```markdown
-## <!-- src/skills/product-guide/SKILL.md -->
+const mcpServers = {
+  'builtin-webmcp': {
+    type: 'builtin' as const,
+    // 【重要】Client 端仅连接 modelContextTesting 接口
+    client: nav.modelContextTesting
+  }
+}
 
-name: product-guide
-description: 商品管理指南技能包。提供商品管理相关的搜索和查询功能。当用户询问商品创建、库存管理、价格设置、上架流程等问题时使用。
+const llmConfig = {
+  /* 模型配置... */
+}
 
----
-
-# 商品管理指南
-
-这是一个商品管理指南技能包，包含多个子技能。
-
-## 可用参考资料
-
-- 商品上架流程：'./reference/product-listing.md'
-```
-
-> **description 字段非常重要**：AI 依赖此字段决定何时激活该技能，请尽量描述清楚技能的使用场景。
-
-### 6.3 添加参考资料文件
-
-```markdown
-## <!-- src/skills/product-guide/reference/product-listing.md -->
-
-title: 商品上架
-tags: [商品管理, 上架, 库存]
-
----
-
-# 商品上架
-
-## 基本流程
-
-1. 进入商品管理，找到待上架商品
-2. 补全必填项：主图、标题、类目、价格、库存
-3. 自检：类目是否正确，是否有违规内容
-4. 点击上架，在前台确认商品已展示
-```
-
-参考资料支持 `.md`、`.json`、`.xml`、`.txt` 等任意文本格式，可按需扩展。
-
----
-
-## 完整数据流说明
-
-以用户对话「帮我查一下产品 ID 为 123 的信息」为例，完整流程如下：
-
-```text
-用户发送消息
-    ↓
-TinyRemoter 将消息发给 LLM
-    ↓
-LLM 先调用 navigate_to_page，参数 { path: "/product-list" }
-    ↓
-MCP Client 通过 MessageChannel 发送页面跳转请求
-    ↓
-MCP Server 调用 setNavigator 跳转到 /product-list
-    ↓
-页面挂载，执行 server.registerTool
-工具目录更新并完成 page-ready 握手
-    ↓
-LLM 重新读取 listTools，发现 product-guide 工具已激活
-    ↓
-SDK 发送工具调用消息 { toolName: 'product-guide', input: { productId: '123' } }
-    ↓
-MCP Server 执行 product-guide 回调
-    ↓
-执行业务逻辑：从 products.value 中查找 id === '123' 的商品
-    ↓
-返回结果 { content: [{ type: 'text', text: '产品信息: ...' }] }
-    ↓
-LLM 获得工具返回结果，生成自然语言回复
-    ↓
-TinyRemoter 展示最终回复给用户
+// 加载 skills 目录下所有 Markdown 文件（含子目录）
+const skillMdModules = import.meta.glob('./skills/**/*', {
+  query: '?raw',
+  import: 'default',
+  eager: true
+}) as Record<string, string>
+</script>
 ```
 
 ---
 
-## 常见问题
+## 方案决策对比
 
-### 工具调用超时？
+| 特性             | 原生内置 WebMCP (按需)                  | 分离式全量注册 (全局)                    |
+| ---------------- | --------------------------------------- | ---------------------------------------- |
+| **推荐段位**     | **中大型、复杂业务系统**                | **小型、功能单一应用**                   |
+| **AI 幻觉风险**  | **极低**（工具随页面动态上线）          | 中（工具全局常驻，上下文负载随规模增加） |
+| **路由跳转依赖** | 依赖 **WebSkills** 指引或大模型主动跳转 | 依赖工具自身的 **routeConfig** 声明      |
+| **实现复杂度**   | 稍高（需配置 Skills 引导词）            | 极低（一站式注册即可用）                 |
 
-默认超时 30 秒。常见原因：
+---
 
-- 页面未执行 `server.registerTool`（或执行时机过晚），导致工具未进入目录
-- 页面卸载时未正确 `server.unregisterTool`，造成旧工具残留或状态错乱
-- 工具名拼写不一致（注册名与调用名不一致）
+## 常见问题 (FAQ)
 
-### 工具名大小写要注意
+### 1. 为什么不用从 SDK 导入 `modelContext`？
 
-`server.registerTool('product-guide', ...)` 中的工具名是全局唯一标识，调用时必须**完全一致**（大小写敏感）。
+通过 `initializeBuiltinWebMCP()` 已经为全局环境注入了 `navigator.modelContext`。直接使用原生 API 可以保持代码的简洁性。
 
-### 一个页面定义多个工具
+### 2. 路由跳转失败怎么办？
 
-在同一页面内多次调用 `server.registerTool` 即可；建议统一维护一个 `TOOL_NAMES` 数组，并在 `onUnmounted` 里批量 `unregisterTool`。
-
-### 如何让 AI 先跳转再使用页面工具？
-
-使用 `registerNavigateTool(rawServer)` 注册内置的 `navigate_to_page` 工具后，大模型在需要时会先调用该工具跳转到目标路由（如 `/orders`）。SDK 内部会等待目标页面完成就绪握手后再返回，下一步即可正确调用目标页面工具，无需在业务中手写等待或超时逻辑。
-
-### 还可以用分离式定义吗？
-
-可以。分离式（`mcp-servers` + `registerPageTool`）仍兼容，但本文推荐默认采用页面内一体化定义，降低认知和维护成本。
-
-### Skills 未被 AI 识别？
-
-- 检查 `SKILL.md` 文件名大小写（必须完全为 `SKILL.md`）
-- 确认 YAML Front Matter 中 `description` 字段内容详细，包含使用场景关键词
-- 在控制台打印 `Object.keys(skillMdModules)` 确认文件已被正确加载
-
-### 远程遥控报错但本地对话没有问题？
-
-这是预期行为。`useWebAgentServer` 依赖网络请求连接远端 Agent 平台，在网络受限或服务不可用时会失败。只要 `onMounted` 中用 `try/catch` 单独包裹了远程初始化（见第六步），本地 MCP 和对话功能不受任何影响。
-
-### 刷新页面后遥控会话失效？
-
-`useWebAgentServer` 内部会把 `sessionId` 持久化到 `localStorage`（key 为 `web-agent-session-id`），下次加载时自动读取并复用，正常情况下无需重新扫码。若 sessionId 确实失效（服务端过期），Agent 平台会分配新 sessionId 并自动写回。
-
-### 复制「遥控器链接」只复制到了域名？
-
-请检查 `menuItems` 中 `remote-url` 项的 `desc` 字段是否包含完整的 `sessionId` 参数：
-
-```ts
-// ✅ 正确：desc 存完整链接
-{ action: 'remote-url', desc: `${AGENT_ROOT}/mcp?sessionId=${result.sessionId}`, ... }
-
-// ❌ 错误：desc 只存了裸域名，复制后无法建立遥控会话
-{ action: 'remote-url', desc: AGENT_ROOT, ... }
-```
-
-`TinyRemoter` 的复制按钮会优先使用 `desc` 字段，只有当 `desc` 不存在或与 `remoteUrl` 选项相同时才会自动拼接 `sessionId`。
+请确保在 `main.ts` 的 `setNavigator` 中捕获并处理了 `NavigationFailure`。

@@ -24,10 +24,12 @@ let labelElement: HTMLDivElement | null = null
 let styleElement: HTMLStyleElement | null = null
 let activeCount = 0
 
+import { isDomAvailable } from '../utils/env'
+
 const BODY_GLOW_CLASS = 'next-sdk-tool-body-glow'
 
 function ensureDomReady() {
-  return typeof window !== 'undefined' && typeof document !== 'undefined'
+  return isDomAvailable()
 }
 
 function ensureStyleElement() {

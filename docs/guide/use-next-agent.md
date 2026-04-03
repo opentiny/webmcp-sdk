@@ -21,7 +21,7 @@ const {
   addSessionId //
 } = useNextAgent({
   ui: 'elplusx',
-  llmConfig: { apiKey: '...', baseURL: '...', providerType: 'deepseek' },
+  llmConfig: { apiKey: '', baseURL: '...', providerType: 'deepseek' },
   agentRoot: 'https://agent.opentiny.design/api/v1/webmcp-trial/',
   sessionId: '7fbd3f38-3ce1-4125-9475-115f844d288e',
   systemPrompt: '你是一个AI助手，会调用工具完成任务',
@@ -157,7 +157,7 @@ const renderMarkdown = (content) =>
 
 const { chatStream, status, messages, inputValue, stopChat, newConversation } = useNextAgent({
   ui: 'antdx',
-  llmConfig: { apiKey: 'sk-trial', baseURL: 'https://agent.opentiny.design/api/v1/ai', providerType: 'deepseek' },
+  llmConfig: { apiKey: '', baseURL: 'https://agent.opentiny.design/api/v1/ai', providerType: 'deepseek' },
   agentRoot: 'https://agent.opentiny.design/api/v1/webmcp-trial/',
   sessionId: '',
   systemPrompt: '你是一个AI助手，会调用工具完成任务',
