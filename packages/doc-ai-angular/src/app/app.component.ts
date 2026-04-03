@@ -1,13 +1,13 @@
 import { Component, OnInit, inject } from '@angular/core'
 import { Router } from '@angular/router'
-import { RouterOutlet } from '@angular/router'
+import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router'
 import { setNavigator } from '@opentiny/next-sdk'
 import { createMcpServer } from '../mcp-servers'
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [RouterOutlet],
+  imports: [RouterOutlet, RouterLink, RouterLinkActive],
   templateUrl: './app.component.html',
   styleUrl: './app.component.scss'
 })
