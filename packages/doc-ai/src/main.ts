@@ -3,7 +3,7 @@ import router from './router'
 import App from './App.vue'
 import './style.css'
 import { setNavigator, initializeBuiltinWebMCP } from '@opentiny/next-sdk'
-import { isNavigationFailure, NavigationFailureType } from 'vue-router'
+import { isNavigationFailure, NavigationFailureType, type NavigationFailure } from 'vue-router'
 
 // 注册导航器，供 page-tool-bridge 在工具调用时自动跳转到对应路由
 // router.push 失败时返回 NavigationFailure，需检查并抛出错误以正确反馈给工具调用方
@@ -15,7 +15,7 @@ setNavigator(async (route) => {
       console.log('重复跳转')
       return true
     }
-    throw new Error(`页面跳转失败: ${(failure as any).message}`)
+    throw new Error(`页面跳转失败: ${(failure as NavigationFailure).message}`)
   }
 })
 

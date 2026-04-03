@@ -35,6 +35,7 @@
 WebMCP 的核心创新在于它从“逆向推导”转向了**“正向显式声明”**。它通过两个关键接口定义了调用的闭环：
 
 ### 1. 业务端：工具注册 (Server)
+
 通过 `navigator.modelContext` 接口，开发者可以在页面中注册业务逻辑。
 
 ```javascript
@@ -42,7 +43,9 @@ WebMCP 的核心创新在于它从“逆向推导”转向了**“正向显式�
 navigator.modelContext.registerTool({
   name: 'finance_summary',
   description: '查询本月核心财务指标',
-  inputSchema: { /* ... */ },
+  inputSchema: {
+    /* ... */
+  },
   execute: async (args) => {
     // 页面内的业务逻辑代码
     return { content: [{ type: 'text', text: '收益：¥10,000' }] }
@@ -51,6 +54,7 @@ navigator.modelContext.registerTool({
 ```
 
 ### 2. 客户端：工具发现与调用 (Client)
+
 通过 `navigator.modelContextTesting` 接口，对话系统（Client）可以发现当前环境下的工具并执行。
 
 ```javascript
@@ -66,6 +70,7 @@ const result = await navigator.modelContextTesting.executeTool('finance_summary'
 虽然原生 WebMCP 提供了基础能力，但它目前尚处于实验性阶段（需开启标志位），且在 SPA 路由跳转、工具发现时序、Polyfill 支持方面存在不足。**OpenTiny next-sdk** 对此进行了深度补全。
 
 ### 1. 全平台 Polyfill 支持
+
 目前原生 WebMCP 仅在 Chrome Canary 等特定版本可用。通过在应用入口调用 `initializeBuiltinWebMCP()`，`next-sdk` 会为所有浏览器自动注入符合规范的 `navigator.modelContext` 接口。
 
 ```ts
@@ -77,16 +82,18 @@ initializeBuiltinWebMCP()
 ```
 
 ### 2. “按需加载”带来的幻觉抑制 (中大型项目)
+
 在大型 SPA 项目中，如果全局注册成百上千个工具，AI 的幻觉风险将急剧增加。`next-sdk` 推荐在 Vue 组件的 `onMounted` 中注册、`onUnmounted` 中注销。
 
 - **优势**：工具只在对应的业务页面激活。当 AI 判定用户想查询订单时，由 **WebSkills** 引导其跳转页面，随后页面加载并自动注册工具。
 - **结果**：大模型每次看到的工具集始终是极简且精准的，极大地提升了调用决策的准确率。
 
 ### 3. 自动化路由跳转桥接
+
 `next-sdk` 提供了 `setNavigator` 与 `registerPageTool` 机制。开发者只需在声明工具时配合 `routeConfig` 声明所属路由，SDK 即可在 AI 发起指令时，完全自动化地驱动前端导航：
 
 1. **匹配意图**：AI 命中工具，SDK 发现其路由在 `/finance`。
-2. **触发导航**：SDK驱动应用跳转。
+2. **触发导航**：SDK 驱动应用跳转。
 3. **时序保证**：SDK 等待目标页面就绪并刷新工具目录，随后执行指令。
 
 ---
@@ -101,6 +108,6 @@ WebMCP 的核心价值在于：**它将 Web 的交互逻辑从“视觉呈现”
 
 💡 **相关资料：**
 
-- [OpenTiny NEXT-SDKs 开发者中心](https://github.com/opentiny/next-sdk)
+- [OpenTiny NEXT-SDKs 官方主页](https://github.com/opentiny/webmcp-sdk)
 - [WebMCP 标准提案与实践](https://github.com/modelcontextprotocol/mcp)
-- [Vue 接入 WebMCP 最佳实践文档](https://github.com/opentiny/next-sdk/docs/guide/vue-webmcp-best-practice.md)
+- [Vue 接入 WebMCP 最佳实践文档](https://github.com/opentiny/webmcp-sdk/blob/dev/docs/guide/vue-webmcp-best-practice.md)

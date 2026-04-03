@@ -3,8 +3,7 @@
 本文根据最新的 WebMCP 标准与 `doc-ai` 示例项目，带你一步步把普通 Vue 工程升级为 AI 驱动的智能应用。
 
 > **核心变化**：我们现在**统一使用浏览器原生的 `navigator.modelContext` 接口**。通过调用 SDK 提供的初始化函数，低版本浏览器也能获得完全一致的 Polyfill 支持，实现 AI 工具的自动注册与路由同步。
-
-> **示例工程仓库**：[`packages/doc-ai`](https://github.com/opentiny/next-sdk/tree/dev/packages/doc-ai)
+> **示例工程仓库**：[`packages/doc-ai`](https://github.com/opentiny/webmcp-sdk/tree/dev/packages/doc-ai)
 
 ---
 
@@ -210,8 +209,8 @@ export const useWebAgentServer = async () => {
 
   const { sessionId } = await client.connect({
     sessionId: cachedSessionId,
-    agent: true,    // 开启代理模式
-    builtin: true,  // 代理内置的 WebMCP 工具
+    agent: true, // 开启代理模式
+    builtin: true, // 代理内置的 WebMCP 工具
     url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp'
   })
 
@@ -240,7 +239,7 @@ onMounted(async () => {
     const { sessionId } = await useWebAgentServer()
     if (sessionId) {
       const remoteUrl = `${AGENT_ROOT}/mcp?sessionId=${sessionId}`
-      
+
       // 在 AI 助手的菜单中添加遥控信息
       menuItems.value = [
         {
