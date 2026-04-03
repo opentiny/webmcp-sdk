@@ -1,0 +1,50 @@
+<div class="orders-view">
+  <div class="page-header">
+    <div class="header-left">
+      <h2>订单管理</h2>
+      <p class="subtitle">查询和追踪客户订单，支持按状态筛选</p>
+    </div>
+    <div class="header-right">
+      <select [(ngModel)]="filterStatus" class="status-select">
+        <option value="">所有状态</option>
+        <option *ngFor="let s of statusOptions" [value]="s.value">{{ s.label }}</option>
+      </select>
+      <input [(ngModel)]="searchText" type="text" placeholder="搜索订单号或客户名" class="search-input" />
+    </div>
+  </div>
+
+  <div class="table-container">
+    <table class="orders-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>订单号</th>
+          <th>客户姓名</th>
+          <th>商品名称</th>
+          <th>数量</th>
+          <th>订单金额</th>
+          <th>支付方式</th>
+          <th>状态</th>
+          <th>下单时间</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let order of filteredOrders(); let i = index">
+          <td>{{ i + 1 }}</td>
+          <td class="order-id">{{ order.id }}</td>
+          <td>{{ order.customerName }}</td>
+          <td>{{ order.productName }}</td>
+          <td>{{ order.quantity }}</td>
+          <td class="amount">¥{{ order.totalAmount.toLocaleString() }}</td>
+          <td>{{ order.paymentMethod }}</td>
+          <td>
+            <span class="status-tag" [ngClass]="order.status.toLowerCase()">
+              {{ statusLabelMap[order.status] }}
+            </span>
+          </td>
+          <td>{{ order.createdAt }}</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
