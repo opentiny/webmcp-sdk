@@ -66,7 +66,6 @@ WebSkills 能进一步增强 AI 对业务的理解能力，尤其在处理跨页
 
 > [!IMPORTANT]
 > **标准首选**：在 Vue 工程中，我们强烈建议通过调用 `initializeBuiltinWebMCP()` 激活浏览器内置服务。
-
 > 源码工程：[`packages/doc-ai`](https://github.com/opentiny/next-sdk/tree/dev/packages/doc-ai)
 
 **步骤 1：安装依赖**
@@ -205,7 +204,6 @@ onMounted(async () => {
 
 > [!IMPORTANT]
 > **架构升级**：Angular 主应用激活 **内置 WebMCP (Polyfill)**，在业务页面内直接注册工具。对话组件作为 iframe 嵌入，通过 `window.parent` 访问父窗体的测试接口。
-
 **步骤 1：激活内置服务**
 ```ts
 // src/app/app.component.ts
