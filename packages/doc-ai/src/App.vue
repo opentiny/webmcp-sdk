@@ -223,7 +223,7 @@ const startDrag = (e: MouseEvent) => {
 const skillMdModules = import.meta.glob('./skills/**/*.md', {
   query: '?raw',
   import: 'default',
-  eager: true
+  eager: false
 }) as Record<string, string>
 
 // Setup MCP Servers
