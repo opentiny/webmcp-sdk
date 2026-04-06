@@ -293,7 +293,7 @@ const props = defineProps({
    * 由 remoter 调用 next-sdk 的 skill 能力处理：生成 systemPrompt 技能说明、内置 get_skill_content 工具，大模型可自动识别并加载技能
    */
   skills: {
-    type: Object as () => Record<string, string>,
+    type: Object as () => Record<string, string | (() => Promise<string>)>,
     default: undefined
   },
   /** 布局模式：支持所有 CSS position 属性值 'static' | 'relative' | 'absolute' | 'fixed' | 'sticky' */

@@ -26,9 +26,15 @@ export interface SkillMeta {
 /**
  * 从主 SKILL.md 的 YAML front matter 中用正则提取 name、description
  */
-export function parseSkillFrontMatter(content: string): { name: string; description: string } | null {
+export async function parseSkillFrontMatter(
+  content: string | (() => Promise<string>)
+): Promise<{ name: string; description: string } | null> {
+  if (typeof content !== 'string' && typeof content !== 'function') return null
+
   // 先提取 --- 之间的文本块
-  const blockMatch = content.match(FRONT_MATTER_BLOCK_REG)
+  const realContent = typeof content === 'string' ? content : await content()
+  const blockMatch = realContent.match(FRONT_MATTER_BLOCK_REG)
+
   if (!blockMatch?.[1]) return null
   const block = blockMatch[1]
 
@@ -72,14 +78,14 @@ export function getMainSkillPaths(modules: Record<string, string>): string[] {
  * 获取所有技能的概况列表（name、description、path），用于 systemPrompt 或列表展示
  * - 内部统一对 modules 做 normalize，避免调用方关心路径细节
  */
-export function getSkillOverviews(modules: Record<string, string>): SkillMeta[] {
+export async function getSkillOverviews(modules: Record<string, string>): Promise<SkillMeta[]> {
   const normalized = normalizeSkillModuleKeys(modules)
   const mainPaths = Object.keys(normalized).filter((path) => MAIN_SKILL_PATH_REG.test(path))
   const list: SkillMeta[] = []
   for (const path of mainPaths) {
     const content = normalized[path]
     if (!content) continue
-    const parsed = parseSkillFrontMatter(content)
+    const parsed = await parseSkillFrontMatter(content)
     if (!parsed) continue
     list.push({
       name: parsed.name,
@@ -133,7 +139,7 @@ export function getSkillMdContent(modules: Record<string, string>, path: string)
  * 支持匹配目录名（如 ecommerce）或 SKILL.md 内 frontmatter 定义的 name
  * - 依赖 getMainSkillPaths，内部已做 normalize
  */
-export function getMainSkillPathByName(modules: Record<string, string>, name: string): string | undefined {
+export async function getMainSkillPathByName(modules: Record<string, string>, name: string): string | undefined {
   const normalizedModules = normalizeSkillModuleKeys(modules)
   const paths = getMainSkillPaths(normalizedModules)
 
@@ -145,7 +151,7 @@ export function getMainSkillPathByName(modules: Record<string, string>, name: st
   for (const p of paths) {
     const content = normalizedModules[p]
     if (content) {
-      const parsed = parseSkillFrontMatter(content)
+      const parsed = await parseSkillFrontMatter(content)
       if (parsed && parsed.name === name) {
         return p
       }
@@ -194,7 +200,7 @@ export function createSkillTools(modules: Record<string, string>): SkillToolsSet
     description:
       '根据技能名称或文档路径获取该技能的完整文档内容。如果你想根据相对路径查阅文件，请务必同时提供你当前所在的文件路径 currentPath。',
     inputSchema: SKILL_INPUT_SCHEMA,
-    execute: (args: { skillName?: string; path?: string; currentPath?: string }): Record<string, unknown> => {
+    execute: async (args: { skillName?: string; path?: string; currentPath?: string }): Record<string, unknown> => {
       const { skillName, path: pathArg, currentPath: currentPathArg } = args
       let content: string | undefined
       let resolvedPath = ''
@@ -241,7 +247,7 @@ export function createSkillTools(modules: Record<string, string>): SkillToolsSet
           }
         }
       } else if (skillName) {
-        const mainPath = getMainSkillPathByName(normalizedModules, skillName)
+        const mainPath = await getMainSkillPathByName(normalizedModules, skillName)
         if (mainPath) {
           resolvedPath = mainPath
           content = getSkillMdContent(normalizedModules, mainPath)

@@ -223,8 +223,8 @@ const startDrag = (e: MouseEvent) => {
 const skillMdModules = import.meta.glob('./skills/**/*.md', {
   query: '?raw',
   import: 'default',
-  eager: true
-}) as Record<string, string>
+  eager: false
+}) as Record<string, string | (() => Promise<string>)>
 
 // Setup MCP Servers
 const nav = navigator as Navigator & { modelContextTesting?: object }
