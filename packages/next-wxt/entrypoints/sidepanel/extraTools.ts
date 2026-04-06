@@ -29,8 +29,10 @@ export const useExtraTools = (server: WebMcpServer) => {
         if (!url) return { content: [{ type: 'text', text: '打开新网址工具错误: 缺少网址参数' }] }
 
         // 在打开新网址时，先尝试关闭当前页面的高亮
-        const { manager } = await getSnapshotManager()
-        await manager.highlightPage(false)
+        try {
+          const { manager } = await getSnapshotManager()
+          await manager.highlightPage(false)
+        } catch (error) {}
 
         // 判断 URL 是否匹配
         const isUrlMatch = (tabUrl: string | undefined, targetUrl: string): boolean => {
@@ -107,8 +109,10 @@ export const useExtraTools = (server: WebMcpServer) => {
         if (!tabId) return { content: [{ type: 'text', text: '切换标签页工具错误: 缺少标签页 ID 参数' }] }
 
         // 在切换标签页时，先尝试关闭当前页面的高亮
-        const { manager } = await getSnapshotManager()
-        await manager.highlightPage(false)
+        try {
+          const { manager } = await getSnapshotManager()
+          await manager.highlightPage(false)
+        } catch (error) {}
 
         try {
           await browser.tabs.update(tabId!, { active: true })
@@ -127,8 +131,10 @@ export const useExtraTools = (server: WebMcpServer) => {
         }
       } else if (action === 'switch-pre-tab') {
         // 在切换标签页时，先尝试关闭当前页面的高亮
-        const { manager } = await getSnapshotManager()
-        await manager.highlightPage(false)
+        try {
+          const { manager } = await getSnapshotManager()
+          await manager.highlightPage(false)
+        } catch (error) {}
 
         try {
           await sendRuntimeMessage('active-pre-tab', {}, 'side->bg')
