@@ -9,7 +9,7 @@ export class PromptManager {
   /** 返回全量的提示词 */
   getSystemPrompt() {
     return `
-当前时间：${new Date().toLocaleString()}。
+当前时间：${new Date().toLocaleDateString()}。
 ${this.staticPrompt}
 ${this.skillMetaPrompt}
 ${this.tempPrompt}
