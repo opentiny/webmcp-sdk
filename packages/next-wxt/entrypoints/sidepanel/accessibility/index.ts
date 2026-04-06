@@ -23,7 +23,7 @@ export async function executeSnapshotAction(params: SnapshotActionParams): Promi
     // 根据操作类型分发到不同的处理函数
     if (action === 'snapshot') {
       try {
-        await manager.highlightPage(false) // 每一次查询无障碍，都高亮一次页面。
+        await manager.highlightPage(true) // 每一次查询无障碍，都高亮一次页面。
       } catch (error) {}
 
       return await handleSnapshotAction(manager)
