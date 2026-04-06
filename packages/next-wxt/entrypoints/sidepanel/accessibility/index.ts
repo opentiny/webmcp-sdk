@@ -22,7 +22,9 @@ export async function executeSnapshotAction(params: SnapshotActionParams): Promi
   try {
     // 根据操作类型分发到不同的处理函数
     if (action === 'snapshot') {
-      await manager.highlightPage(true) // 每一次查询无障碍，都高亮一次页面。
+      try {
+        await manager.highlightPage(false) // 每一次查询无障碍，都高亮一次页面。
+      } catch (error) {}
 
       return await handleSnapshotAction(manager)
     } else if (action === 'click') {
