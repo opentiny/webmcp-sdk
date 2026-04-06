@@ -234,9 +234,7 @@ export class SnapshotManager {
    * @param isHighlight 是否高亮
    */
   async highlightPage(isHighlight: boolean) {
-    if (!this.currentSnapshot) {
-      await this.createTextSnapshot()
-    }
+    await this.createTextSnapshot()
 
     for (const [id, node] of this.currentSnapshot.idToNode.entries()) {
       if (node.backendDOMNodeId || node.backendNodeId) {
