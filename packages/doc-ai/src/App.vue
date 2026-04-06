@@ -224,7 +224,7 @@ const skillMdModules = import.meta.glob('./skills/**/*.md', {
   query: '?raw',
   import: 'default',
   eager: false
-}) as Record<string, string>
+}) as Record<string, string | (() => Promise<string>)>
 
 // Setup MCP Servers
 const nav = navigator as Navigator & { modelContextTesting?: object }

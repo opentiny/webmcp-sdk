@@ -26,14 +26,14 @@ export interface SkillMeta {
 /**
  * 从主 SKILL.md 的 YAML front matter 中用正则提取 name、description
  */
-export async function parseSkillFrontMatter(content: string): { name: string; description: string } | null {
+export async function parseSkillFrontMatter(
+  content: string | (() => Promise<string>)
+): Promise<{ name: string; description: string } | null> {
+  if (typeof content !== 'string' && typeof content !== 'function') return null
+
   // 先提取 --- 之间的文本块
-  const blockMatch =
-    typeof content === 'string'
-      ? content.match(FRONT_MATTER_BLOCK_REG)
-      : typeof content === 'function'
-        ? (await content()).match(FRONT_MATTER_BLOCK_REG)
-        : null
+  const realContent = typeof content === 'string' ? content : await content()
+  const blockMatch = realContent.match(FRONT_MATTER_BLOCK_REG)
 
   if (!blockMatch?.[1]) return null
   const block = blockMatch[1]
