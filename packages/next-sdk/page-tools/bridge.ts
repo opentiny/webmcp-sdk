@@ -14,27 +14,23 @@
  */
 
 import type { ZodRawShape } from 'zod'
-import { z } from 'zod'
 import type { RegisteredTool } from '@modelcontextprotocol/sdk/server/mcp.js'
 import type { ToolAnnotations } from '@modelcontextprotocol/sdk/types.js'
-import type { BuiltinMcpClient } from '../agent/type'
 import type { WebMcpServer } from '../WebMcpServer'
 import { randomUUID } from '../utils/uuid'
 import type { ToolInvokeEffectConfig } from './effects'
 import { hideToolInvokeEffect, resolveRuntimeEffectConfig, showToolInvokeEffect } from './effects'
+import { isBrowser } from '../utils/env'
 
 // 消息类型常量，使用命名空间前缀避免冲突
 const MSG_TOOL_CALL = 'next-sdk:tool-call'
 const MSG_TOOL_RESPONSE = 'next-sdk:tool-response'
-const MSG_PAGE_READY = 'next-sdk:page-ready'
-/** 页面卸载广播消息 */
-export const MSG_PAGE_LEAVE = 'next-sdk:page-leave'
+/** 有新工具注册进来（同时表示路由跳转成功，通知 remoter 刷新工具列表）*/
+export const MSG_TOOL_REGISTERED = 'next-sdk:tool-registered'
+/** 有工具取消注册（通知 remoter 刷新工具列表）*/
+export const MSG_TOOL_UNREGISTERED = 'next-sdk:tool-unregistered'
 /** iframe 内 Remoter 就绪后向父窗口发送，父窗口回传 route-state-initial */
 export const MSG_REMOTER_READY = 'next-sdk:remoter-ready'
-/** 历史兼容消息类型（当前简化方案不再使用） */
-export const MSG_ROUTE_STATE_INITIAL = 'next-sdk:route-state-initial'
-/** 工具目录发生变更（新增/删除/路由重绑定） */
-export const MSG_TOOL_CATALOG_CHANGED = 'next-sdk:tool-catalog-changed'
 
 // 已激活页面注册表：路由路径 → 当前页面已挂载的工具名集合
 const activePages = new Map<string, Set<string>>()
@@ -48,15 +44,17 @@ type BroadcastTarget = { win: Window; origin: string }
 const broadcastTargets = new Set<BroadcastTarget>()
 
 function initBroadcastTargets() {
-  if (typeof window !== 'undefined') {
+  if (isBrowser()) {
     broadcastTargets.add({ win: window, origin: window.location.origin || '*' })
   }
 }
+
 initBroadcastTargets()
 
-/** 向所有广播目标发送路由变更消息（同窗口 + iframe 均能收到） */
-function broadcastRouteChange(type: string, route: string, extra: Record<string, unknown> = {}) {
-  const msg = { type, route, ...extra }
+/** 向所有广播目标发送工具变更消息（同窗口 + iframe 均能收到） */
+function broadcastToolChange(type: typeof MSG_TOOL_REGISTERED | typeof MSG_TOOL_UNREGISTERED) {
+  if (!isBrowser()) return
+  const msg = { type }
   broadcastTargets.forEach(({ win, origin }) => {
     try {
       win.postMessage(msg, origin)
@@ -68,7 +66,7 @@ function broadcastRouteChange(type: string, route: string, extra: Record<string,
 
 /** 监听 iframe 内 Remoter 的 remoter-ready，并加入广播目标 */
 function setupIframeRemoterBridge() {
-  if (typeof window === 'undefined') return
+  if (!isBrowser()) return
   window.addEventListener('message', (event: MessageEvent) => {
     if (event.data?.type !== MSG_REMOTER_READY || !event.source) return
     // 仅接受与当前页面同源的 remoter，避免潜在的 XSS 风险
@@ -77,57 +75,22 @@ function setupIframeRemoterBridge() {
     broadcastTargets.add({ win: target, origin: event.origin || '*' })
   })
 }
-setupIframeRemoterBridge()
-function broadcastToolCatalogChanged() {
-  if (typeof window === 'undefined') return
-  const payload = {
-    type: MSG_TOOL_CATALOG_CHANGED
-  }
-  broadcastTargets.forEach(({ win, origin }) => {
-    try {
-      win.postMessage(payload, origin)
-    } catch {
-      // ignore
-    }
-  })
-}
 
+setupIframeRemoterBridge()
+
+/** 通过 MCP server 发送工具列表已更新消息 */
 function notifyServerToolListChanged(server: unknown) {
-  const maybeServer = server as { sendToolListChanged?: () => void }
+  if (!server) return
+  const maybeServer = server as { sendToolListChanged?: () => void; server?: { sendToolListChanged?: () => void } }
   try {
-    maybeServer.sendToolListChanged?.()
+    if (typeof maybeServer.sendToolListChanged === 'function') {
+      maybeServer.sendToolListChanged()
+    } else if (maybeServer.server && typeof maybeServer.server.sendToolListChanged === 'function') {
+      maybeServer.server.sendToolListChanged()
+    }
   } catch {
     // ignore
   }
-}
-
-/**
- * 获取通过 withPageTools + RouteConfig 注册的全部工具路由映射。
- * 为保持向后兼容，仍保留该 API；简化模式下不再维护此映射，始终返回空 Map。
- */
-export function getToolRouteMap(): ReadonlyMap<string, string> {
-  return new Map()
-}
-
-/**
- * 获取当前已激活（已挂载）的路由集合。
- * 即调用了 registerPageTool 且尚未执行 cleanup 的页面路由。
- * @returns 当前激活路由的 Set 快照
- */
-export function getActiveRoutes(): Set<string> {
-  return new Set(activePages.keys())
-}
-
-/**
- * 获取当前已激活页面上的工具清单快照。
- * key 为 route，value 为该页面当前可执行的工具名数组。
- */
-export function getActivePageTools(): ReadonlyMap<string, string[]> {
-  const snapshot = new Map<string, string[]>()
-  activePages.forEach((toolNames, route) => {
-    snapshot.set(route, Array.from(toolNames))
-  })
-  return snapshot
 }
 
 function isToolReadyOnRoute(route: string, toolName: string): boolean {
@@ -136,42 +99,31 @@ function isToolReadyOnRoute(route: string, toolName: string): boolean {
 }
 
 // 应用注册的导航函数，由 setNavigator 设置
-let _navigator: ((route: string) => void | Promise<void>) | null = null
+let _navigator: ((route: string) => void | boolean | Promise<void | boolean>) | null = null
 
 /**
  * 注册应用的导航函数，通常在应用入口（如 main.ts）调用一次。
- * @param fn 导航函数，接收路由路径并执行跳转（如 router.push）
+ * @param fn 导航函数，接收路由路径并执行跳转（如 router.push）。
+ *           若返回 true，视为目标页面已就绪（如同一路由忽略握手等待），将立即执行后续工具调用。
  */
-export function setNavigator(fn: (route: string) => void | Promise<void>) {
+export function setNavigator(fn: (route: string) => void | boolean | Promise<void | boolean>) {
   _navigator = fn
 }
 
 /**
  * 当前 pathname 是否已匹配目标路由。
- * 兼容子路径部署（例如 current=/ai/orders, target=/orders）。
  */
 function isCurrentPathMatched(path: string): boolean {
-  if (typeof window === 'undefined') return false
+  if (!isBrowser()) return false
   const target = normalizeRoute(path)
   const current = normalizeRoute(window.location.pathname)
-  return (
-    current === target ||
-    (current.endsWith(target) && (current.length === target.length || current[current.lastIndexOf(target) - 1] === '/'))
-  )
+  return current === target
 }
 
-/**
- * 跳转握手等待：
- * - 分离式路由工具：等待目标路由 page-ready
- * - 一体化动态注册：等待 tool-catalog-changed（且当前已在目标路由）
- * - 兜底超时，防止 Promise 永远不 resolve
- */
-function waitForNavigationReady(path: string, timeoutMs = 1500): Promise<void> {
-  if (typeof window === 'undefined') {
+function waitForNavigationReady(timeoutMs: number): Promise<void> {
+  if (!isBrowser()) {
     return Promise.resolve()
   }
-
-  const target = normalizeRoute(path)
 
   return new Promise<void>((resolve) => {
     let done = false
@@ -185,16 +137,8 @@ function waitForNavigationReady(path: string, timeoutMs = 1500): Promise<void> {
 
     const handleMessage = (event: MessageEvent) => {
       if (event.source !== window) return
-
-      if (event.data?.type === MSG_PAGE_READY) {
-        const route = normalizeRoute(String(event.data.route ?? ''))
-        if (route === target) {
-          cleanup()
-        }
-        return
-      }
-
-      if (event.data?.type === MSG_TOOL_CATALOG_CHANGED && isCurrentPathMatched(target)) {
+      // 有新工具注册进来即表示目标页面已就绪
+      if (event.data?.type === MSG_TOOL_REGISTERED) {
         cleanup()
       }
     }
@@ -277,26 +221,6 @@ export type PageToolDefinition<
   handler: (input: any, context?: unknown) => any | Promise<any>
 }
 
-export function definePageTool<InputArgs extends ZodRawShape, OutputArgs extends ZodRawShape>(
-  definition: PageToolDefinition<InputArgs, OutputArgs>
-): PageToolDefinition<InputArgs, OutputArgs> {
-  return definition
-}
-
-/**
- * 批量注册页面工具声明（schema/route）到 MCP Server。
- * 可与 mountPageTools 配套使用，实现“声明与执行回调在同一工具定义对象内”。
- */
-export function registerPageTools(server: PageAwareServer, definitions: PageToolDefinition[]): RegisteredTool[] {
-  return definitions.map((definition) =>
-    server.registerTool(definition.name, definition.config, {
-      route: definition.route,
-      timeout: definition.timeout,
-      invokeEffect: definition.invokeEffect
-    })
-  )
-}
-
 /**
  * 注册一个通用的页面跳转工具（navigate_to_page），供大模型在需要时主动跳转到指定路由。
  *
@@ -326,10 +250,17 @@ export function registerNavigateTool(server: WebMcpServer, options?: NavigateToo
   const description =
     options?.description ??
     '当需要的工具在当前页面不可用时，使用此工具跳转到特定页面。例如：要查询订单时跳转到 "/orders"，要创建价保时跳转到 "/price-protection"。'
-  const timeoutMs = options?.timeoutMs ?? 1500
+  const timeoutMs = options?.timeoutMs ?? 5000
 
   const inputSchema = {
-    path: z.string().describe('目标页面的路由地址，例如 "/orders"、"/inventory"、"/price-protection" 等。')
+    type: 'object',
+    properties: {
+      path: {
+        type: 'string',
+        description: '目标页面的路由地址，例如 "/orders"、"/inventory"、"/price-protection" 等。'
+      }
+    },
+    required: ['path']
   }
 
   const handler: ({ path }: { path: string }) => Promise<{ content: Array<{ type: 'text'; text: string }> }> = async ({
@@ -337,7 +268,7 @@ export function registerNavigateTool(server: WebMcpServer, options?: NavigateToo
   }: {
     path: string
   }) => {
-    if (typeof window === 'undefined') {
+    if (!isBrowser()) {
       return {
         content: [{ type: 'text', text: '当前环境不支持页面跳转（window 不存在）。' }]
       }
@@ -363,9 +294,14 @@ export function registerNavigateTool(server: WebMcpServer, options?: NavigateToo
       }
 
       // 先注册握手监听再触发导航，避免极快导航下事件先于监听器触发而漏收。
-      const readyPromise = waitForNavigationReady(path, timeoutMs)
-      await _navigator(path)
-      await readyPromise
+      const readyPromise = waitForNavigationReady(timeoutMs)
+      const isReady = await _navigator(path)
+
+      // 若导航函数返回 true（如同一路由），视为页面已就绪，跳过握手等待
+      if (isReady !== true) {
+        await readyPromise
+        await new Promise((resolve) => setTimeout(resolve, 500))
+      }
 
       return {
         content: [{ type: 'text', text: `已成功跳转至页面：${path}。请继续你的下一步操作。` }]
@@ -382,15 +318,32 @@ export function registerNavigateTool(server: WebMcpServer, options?: NavigateToo
     }
   }
 
-  return server.registerTool(
-    name,
-    {
-      title,
-      description,
-      inputSchema
-    },
-    handler
-  )
+  if (server && typeof (server as any).registerTool === 'function') {
+    // 优先检查是否为被 SDK 拦截过的原生/Polyfill modelContext
+    // 我们在 setupModelContextBridge 中显式注入了该标识位
+    if ((server as any).__isNextSdkBridgeSetup) {
+      return (server as any).registerTool({
+        name,
+        title,
+        description,
+        inputSchema,
+        execute: handler
+      })
+    }
+
+    // 否则默认为 SDK WebMcpServer 格式 (三个参数)
+    return (server as any).registerTool(
+      name,
+      {
+        title,
+        description,
+        inputSchema
+      },
+      handler
+    )
+  }
+
+  throw new Error('Failed to register navigate tool: invalid server instance.')
 }
 
 /**
@@ -474,29 +427,23 @@ function buildPageHandler(
           // 若先导航再注册，极快的导航（同步或微任务）可能导致
           // 目标页面已广播 page-ready 而监听器尚未挂载，从而错过信号。
           readyHandler = (event: MessageEvent) => {
-            if (event.source !== window || event.data?.type !== MSG_PAGE_READY) return
-            const readyRoute = normalizeRoute(String(event.data.route ?? ''))
-            if (readyRoute !== route) return
-            const readyTools = Array.isArray(event.data.toolNames)
-              ? new Set((event.data.toolNames as unknown[]).map((item) => String(item)))
-              : null
-            // 兼容旧版 page-ready（未携带 toolNames）：
-            // 若 toolNames 缺失，则按“路由已就绪”处理；若存在则必须包含目标工具名。
-            if (readyTools && !readyTools.has(name)) return
-
+            if (event.source !== window || event.data?.type !== MSG_TOOL_REGISTERED) return
             window.removeEventListener('message', readyHandler!)
             sendCallOnce()
           }
           window.addEventListener('message', readyHandler)
 
           if (_navigator) {
-            await _navigator(route)
+            const isReady = await _navigator(route)
+            // 若导航函数返回 true（如同一路由），视为页面已就绪，直接发送调用并跳过握手同步
+            if (isReady === true) {
+              if (readyHandler) {
+                window.removeEventListener('message', readyHandler)
+              }
+              sendCallOnce()
+              return
+            }
           }
-
-          // 导航 await 完成后，再次检查 activePages：
-          // 若页面在注册监听器与导航之间极短间隙内已激活（极端竞态），
-          // message 事件已被 handleMessage 消费但 readyHandler 未执行，
-          // 此处补充检查确保不会永久等待。
           // sendCallOnce 保证即使两条路径都触发，消息也只发送一次。
           if (isToolReadyOnRoute(route, name)) {
             window.removeEventListener('message', readyHandler)
@@ -520,9 +467,7 @@ function buildPageHandler(
  * - 第三个参数为 **RouteConfig 对象**：自动生成转发 handler，工具调用时
  *   先导航到目标路由，再通过 postMessage 与页面通信
  */
-export function withPageTools(server: WebMcpServer): PageAwareServer
-export function withPageTools(server: WebMcpServer, options: WithPageToolsOptions): PageAwareServer
-export function withPageTools(server: WebMcpServer, options?: WithPageToolsOptions): PageAwareServer {
+export function withPageTools(server: WebMcpServer): PageAwareServer {
   const proxyRegisteredTools = new Map<string, RegisteredTool>()
 
   const unregisterByName = (target: WebMcpServer, name: string, silent = false): boolean => {
@@ -541,7 +486,7 @@ export function withPageTools(server: WebMcpServer, options?: WithPageToolsOptio
 
     if (!silent && hadTrackedState) {
       notifyServerToolListChanged(target)
-      broadcastToolCatalogChanged()
+      broadcastToolChange(MSG_TOOL_UNREGISTERED)
     }
     return !!existing
   }
@@ -564,7 +509,7 @@ export function withPageTools(server: WebMcpServer, options?: WithPageToolsOptio
             const registeredTool = rawRegister(name, config, handlerOrRoute)
             proxyRegisteredTools.set(name, registeredTool)
             notifyServerToolListChanged(target)
-            broadcastToolCatalogChanged()
+            broadcastToolChange(MSG_TOOL_REGISTERED)
             return registeredTool
           }
           // 第三个参数是路由配置对象 → 自动生成转发 handler，并记录 tool → route 映射
@@ -575,7 +520,7 @@ export function withPageTools(server: WebMcpServer, options?: WithPageToolsOptio
           const registeredTool = rawRegister(name, config, pageHandler)
           proxyRegisteredTools.set(name, registeredTool)
           notifyServerToolListChanged(target)
-          broadcastToolCatalogChanged()
+          broadcastToolChange(MSG_TOOL_REGISTERED)
           return registeredTool
         }
       }
@@ -617,78 +562,21 @@ export type RegisterPageToolByHandlersOptions = {
   handlers: PageToolHandlers
 }
 
-export type MountPageToolsOptions = {
-  /**
-   * 待激活的工具定义（定义中同时包含 schema + handler）。
-   * 若 route 省略且 tools 包含多个路由，将抛出错误提示显式指定 route。
-   */
-  tools: PageToolDefinition[]
-  /** 可选：覆盖 route（只激活该路由下的工具定义） */
-  route?: string
-  /** 运行时上下文，会作为第二参数透传给 definition.handler */
-  context?: unknown
-}
-
-function resolveRouteAndHandlers(options: RegisterPageToolByHandlersOptions | MountPageToolsOptions): {
-  route: string
-  handlers: PageToolHandlers
-} {
-  if ('handlers' in options) {
-    return {
-      route: normalizeRoute(options.route ?? window.location.pathname),
-      handlers: options.handlers
-    }
-  }
-
-  const tools = options.tools ?? []
-  if (!tools.length) {
-    throw new Error('registerPageTool: tools 不能为空。')
-  }
-
-  const targetRoute = options.route ? normalizeRoute(options.route) : null
-  const uniqueRoutes = new Set(tools.map((item) => normalizeRoute(item.route)))
-  if (!targetRoute && uniqueRoutes.size > 1) {
-    throw new Error('registerPageTool: tools 包含多个 route，请显式传入 route 参数。')
-  }
-
-  const route = targetRoute ?? Array.from(uniqueRoutes)[0]
-  const handlers: PageToolHandlers = {}
-  tools
-    .filter((item) => normalizeRoute(item.route) === route)
-    .forEach((item) => {
-      if (handlers[item.name]) {
-        throw new Error(`registerPageTool: 工具 "${item.name}" 在 route "${route}" 上重复定义。`)
-      }
-      handlers[item.name] = (input) => item.handler(input, options.context)
-    })
-
-  if (!Object.keys(handlers).length) {
-    throw new Error(`registerPageTool: route "${route}" 下未找到可激活的工具定义。`)
-  }
-
-  return { route, handlers }
-}
-
-export function registerPageTool(options: RegisterPageToolByHandlersOptions): () => void
-export function registerPageTool(options: MountPageToolsOptions): () => void
-export function registerPageTool(options: RegisterPageToolByHandlersOptions | MountPageToolsOptions): () => void {
-  const { route, handlers } = resolveRouteAndHandlers(options)
+export function registerPageTool(options: RegisterPageToolByHandlersOptions): () => void {
+  const { route, handlers } = options
+  const resultRoute = normalizeRoute(route ?? window.location.pathname)
   const toolNames = Object.keys(handlers)
 
   const handleMessage = async (event: MessageEvent) => {
-    // 同时校验 route 字段，防止多页面注册同名工具时发生跨路由串扰
     // 对消息携带的 route 同样规范化，避免因尾部斜杠等差异导致匹配失败
-    if (
-      event.source !== window ||
-      event.data?.type !== MSG_TOOL_CALL ||
-      normalizeRoute(String(event.data?.route ?? '')) !== route ||
-      !(event.data.toolName in handlers)
-    ) {
+    if (event.source !== window || event.data?.type !== MSG_TOOL_CALL || !(event.data.toolName in handlers)) {
       return
     }
     const { callId, toolName, input } = event.data
     try {
-      const result = await handlers[toolName](input)
+      const handler = handlers[toolName]
+      if (!handler) throw new Error(`Tool "${toolName}" handler not found.`)
+      const result = await handler(input)
       window.postMessage({ type: MSG_TOOL_RESPONSE, callId, result }, window.location.origin || '*')
     } catch (err) {
       window.postMessage(
@@ -702,102 +590,79 @@ export function registerPageTool(options: RegisterPageToolByHandlersOptions | Mo
     }
   }
 
-  // 注册页面为已激活状态并广播就绪信号（同窗口 + iframe Remoter 均能收到）
-  activePages.set(route, new Set(toolNames))
+  // 注册页面为已激活状态并广播工具注册信号（同窗口 + iframe Remoter 均能收到）
+  activePages.set(resultRoute, new Set(toolNames))
   window.addEventListener('message', handleMessage)
-  broadcastRouteChange(MSG_PAGE_READY, route, { toolNames })
+  broadcastToolChange(MSG_TOOL_REGISTERED)
 
   // 返回 cleanup，由各框架在页面销毁时调用
   return () => {
-    activePages.delete(route)
+    activePages.delete(resultRoute)
     window.removeEventListener('message', handleMessage)
-    broadcastRouteChange(MSG_PAGE_LEAVE, route)
+    broadcastToolChange(MSG_TOOL_UNREGISTERED)
   }
 }
 
 /**
- * 为了兼容浏览器内置的 WebMCP 命令式 API，并且让它能复用 next-sdk 的握手机制（MSG_PAGE_READY），
- * 我们在此维护一个导出的对象 modelContext。页面端只需要调用
- * `modelContext.registerTool(...)` 即可产生带有握手机制的工具注册动作。
+ * 建立浏览器原生或 polyfill 与 next-sdk 页面工具桥接的联系。
+ * 若用户或第三方库直接操作 navigator.modelContext 进行工具注册，
+ * 我们通过此函数进行拦截劫持，并同步到 next-sdk 的握手线路 (MSG_TOOL_REGISTERED / MSG_TOOL_UNREGISTERED)，
+ * 从而保证无论浏览器是否原生支持，均能正常完成 WebMCP 握手交互。
  */
-/**
- * 获取浏览器原生或测试环境的 WebMCP 上下文
- */
-function getNativeModelContext(): BuiltinMcpClient | null {
-  if (typeof navigator === 'undefined') return null
+export function setupModelContextBridge() {
+  if (typeof navigator === 'undefined') return
   const nav = navigator as any
-  return nav.modelContext || nav.modelContextTesting || null
-}
+  const nativeCtx = nav.modelContext
 
-// 维护当前页面通过 modelContext 命令式注册的工具完整定义与处理器
-const _modelContextHandlers = new Map<string, (input: any) => Promise<any> | any>()
-let _modelContextCleanup: (() => void) | null = null
+  // 如果不存在或者已经被拦截过，则不处理
+  if (!nativeCtx || nativeCtx.__isNextSdkBridgeSetup) return
 
-/**
- * 内部统一同步函数：将当前路由下通过 modelContext 注册的所有工具
- * 统一通过一次 registerPageTool 挂载，确保握手广播包含完整的工具列表。
- */
-function syncModelContextToPage() {
-  if (typeof window === 'undefined') return
+  const originalRegisterTool = nativeCtx.registerTool?.bind(nativeCtx)
+  const originalUnregisterTool = nativeCtx.unregisterTool?.bind(nativeCtx)
 
-  // 先清理旧的注册
-  if (_modelContextCleanup) {
-    _modelContextCleanup()
-    _modelContextCleanup = null
-  }
+  if (typeof originalRegisterTool === 'function') {
+    nativeCtx.registerTool = (config: any) => {
+      const name = config.name
+      const toolConfig = { ...config } // 拷贝一份，避免修改用户原始对象
 
-  if (_modelContextHandlers.size === 0) {
-    return
-  }
+      // 1. 识别路由配置核心件：原生格式下仅从 config.routeConfig 对象识别
+      const routeConfig: RouteConfig | null =
+        toolConfig.routeConfig && typeof toolConfig.routeConfig === 'object' && 'route' in toolConfig.routeConfig
+          ? (toolConfig.routeConfig as RouteConfig)
+          : null
 
-  const route = normalizeRoute(window.location.pathname)
-  _modelContextCleanup = registerPageTool({
-    route,
-    handlers: Object.fromEntries(_modelContextHandlers)
-  })
-}
+      // 2. 如果存在路由配置，且当前不在该目标页面，则包装为自动跳转的 handler
+      if (routeConfig) {
+        const normalizedRoute = normalizeRoute(routeConfig.route)
+        const effectConfig = resolveRuntimeEffectConfig(name, toolConfig.title, routeConfig.invokeEffect)
+        const pageHandler = buildPageHandler(name, normalizedRoute, routeConfig.timeout, effectConfig)
 
-/**
- * 兼容浏览器内置的 WebMCP 命令式 API，并且让它能复用 next-sdk 的握手机制（MSG_PAGE_READY）。
- * 页面端可以通过调用 `import { modelContext } from '@opentiny/next-sdk'` 进行工具注册。
- */
-export const modelContext = {
-  /**
-   * 注册一个 WebMCP 工具
-   */
-  registerTool: (config: { name: string; execute: (input: any) => Promise<any> | any; [key: string]: any }) => {
-    const { name, execute } = config
+        // 注入跳转处理器
+        toolConfig.execute = pageHandler
+        // 剥离 SDK 扩展配置，确保符合原生 ToolRegistrationParams 结构
+        delete toolConfig.routeConfig
+      }
 
-    // 1. 更新本地处理器 Map
-    _modelContextHandlers.set(name, execute)
-
-    // 2. 若原生的 WebMCP 存在，向上透传调用使其能被原生 AI 感知
-    const nativeCtx = getNativeModelContext()
-    if (nativeCtx && typeof (nativeCtx as any).registerTool === 'function') {
-      ;(nativeCtx as any).registerTool(config)
-    }
-
-    // 3. 同步到 Page Tool Bridge 链路
-    syncModelContextToPage()
-    broadcastToolCatalogChanged()
-  },
-
-  /**
-   * 注销一个 WebMCP 工具
-   */
-  unregisterTool: (name: string) => {
-    // 1. 从原生的 WebMCP 中注销
-    const nativeCtx = getNativeModelContext()
-    if (nativeCtx && typeof (nativeCtx as any).unregisterTool === 'function') {
-      ;(nativeCtx as any).unregisterTool(name)
-    }
-
-    // 2. 从本地处理器 Map 中移除
-    if (_modelContextHandlers.has(name)) {
-      _modelContextHandlers.delete(name)
-      // 3. 重新同步（若 Map 为空，sync 会执行清理）
-      syncModelContextToPage()
-      broadcastToolCatalogChanged()
+      // 3. 执行底层的原生注册逻辑并广播同步
+      try {
+        originalRegisterTool(toolConfig)
+        broadcastToolChange(MSG_TOOL_REGISTERED)
+      } catch (err) {
+        // 忽略重复注册错误
+      }
     }
   }
+
+  if (typeof originalUnregisterTool === 'function') {
+    nativeCtx.unregisterTool = (name: string) => {
+      try {
+        originalUnregisterTool(name)
+        broadcastToolChange(MSG_TOOL_UNREGISTERED)
+      } catch (err) {
+        // 忽略注销错误
+      }
+    }
+  }
+
+  nativeCtx.__isNextSdkBridgeSetup = true
 }

@@ -89,8 +89,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { TinyHuichartsLine as TinyChartLine, TinyHuichartsPie as TinyChartPie } from '@opentiny/vue-huicharts'
-import { z } from '@opentiny/next-sdk'
-import { server } from '../../mcp-servers'
 
 const activeRange = ref('30days')
 
@@ -200,27 +198,37 @@ const salesSummary = {
 
 const SALES_RECORD_QUERY_TOOL = 'sales_record_query'
 onMounted(() => {
-  server.registerTool(
-    SALES_RECORD_QUERY_TOOL,
-    {
-      title: '查询商品销售记录',
+  const modelContext = navigator.modelContext
+  if (modelContext?.registerTool) {
+    modelContext.registerTool({
+      name: SALES_RECORD_QUERY_TOOL,
       description: '【销售数据展示工具】帮助管理员查询最近一段时间的商品销售趋势、统计图表数据',
       inputSchema: {
-        timeRange: z.enum(['7days', '30days', 'year']).optional().describe('查询时间范围')
+        type: 'object',
+        properties: {
+          timeRange: {
+            type: 'string',
+            enum: ['7days', '30days', 'year'],
+            description: '查询时间范围'
+          }
+        }
+      },
+      execute: async ({ timeRange }: { timeRange?: '7days' | '30days' | 'year' }) => {
+        const range = timeRange ?? '30days'
+        activeRange.value = range
+        const s = salesSummary[range]
+        const label = range === '7days' ? '近7天' : range === '30days' ? '近30天' : '过去一年'
+        const text = `${label}销售数据：\n- 总销售额：¥${s.totalSales.toLocaleString()}\n- 总订单数：${s.orders}\n- 退货率：${s.returnRate}\n\n详细图表已更新，可在左侧查看。`
+        return { content: [{ type: 'text', text }] }
       }
-    },
-    async ({ timeRange }: { timeRange?: '7days' | '30days' | 'year' }) => {
-      const range = timeRange ?? '30days'
-      activeRange.value = range
-      const s = salesSummary[range]
-      const label = range === '7days' ? '近7天' : range === '30days' ? '近30天' : '过去一年'
-      const text = `${label}销售数据：\n- 总销售额：¥${s.totalSales.toLocaleString()}\n- 总订单数：${s.orders}\n- 退货率：${s.returnRate}\n\n详细图表已更新，可在左侧查看。`
-      return { content: [{ type: 'text', text }] }
-    }
-  )
+    })
+  }
 })
 onUnmounted(() => {
-  server.unregisterTool(SALES_RECORD_QUERY_TOOL)
+  const modelContext = navigator.modelContext
+  if (modelContext?.unregisterTool) {
+    modelContext.unregisterTool(SALES_RECORD_QUERY_TOOL)
+  }
 })
 </script>
 

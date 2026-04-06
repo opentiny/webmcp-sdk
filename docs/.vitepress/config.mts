@@ -4,7 +4,8 @@ import { defineConfig } from 'vitepress'
 export default defineConfig({
   title: 'OpenTiny NEXT-SDKs',
   description: 'OpenTiny NEXT-SDKs',
-  base: '/next-sdk/',
+  base: '/webmcp-sdk/',
+  ignoreDeadLinks: [/^http:\/\/localhost:/],
   vite: {
     server: {
       port: 3000
@@ -38,7 +39,7 @@ export default defineConfig({
             { text: 'Vue 工程最佳实践', link: '/guide/vue-webmcp-best-practice' },
             { text: 'Angular 工程最佳实践', link: '/guide/angular-webmcp-best-practice' },
             { text: 'React 工程最佳实践', link: '/guide/react-webmcp-best-practice' },
-            { text: 'WebMCP 文章', link: '/guide/webmcp-article' }
+            { text: '浏览器内置 WebMCP', link: '/guide/webmcp-article' }
           ]
         },
         {

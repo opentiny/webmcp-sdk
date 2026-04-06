@@ -1,4 +1,4 @@
-import { dynamicTool, jsonSchema, Tool, ToolExecutionOptions, ToolSet } from 'ai'
+import { dynamicTool, jsonSchema, Tool, ToolSet } from 'ai'
 
 /**
  * 浏览器内置 WebMCP 测试 API 的工具描述格式（Chrome navigator.modelContextTesting）
@@ -47,15 +47,27 @@ export const getBuiltinMcpTools = async (client: object | undefined | null): Pro
   const list = Array.isArray(rawList) ? (rawList as BuiltinToolDescriptor[]) : []
 
   for (const descriptor of list) {
-    const { name, description, inputSchema = {} } = descriptor
+    const { name, description } = descriptor
+    const rawInputSchema = descriptor.inputSchema
+    let schemaObj: Record<string, any> = {}
+
+    if (typeof rawInputSchema === 'string') {
+      try {
+        schemaObj = JSON.parse(rawInputSchema)
+      } catch (e) {
+        console.error('Failed to parse inputSchema in getBuiltinMcpTools:', e)
+      }
+    } else if (typeof rawInputSchema === 'object' && rawInputSchema !== null) {
+      schemaObj = rawInputSchema as Record<string, any>
+    }
 
     // 规范化 inputSchema：补全 properties/additionalProperties 字段
     const normalizedSchema = {
       type: 'object' as const,
-      properties: (inputSchema.properties ?? {}) as Record<string, unknown>,
-      ...(inputSchema.required ? { required: inputSchema.required } : {}),
+      properties: (schemaObj.properties ?? {}) as Record<string, unknown>,
+      ...(schemaObj.required ? { required: schemaObj.required } : {}),
       additionalProperties: false,
-      ...inputSchema
+      ...schemaObj
     }
 
     tools[name] = dynamicTool({

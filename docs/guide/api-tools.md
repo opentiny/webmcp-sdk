@@ -310,20 +310,21 @@ if (isMcpServer(server)) {
 ```typescript
 async getAISDKTools(client: WebMcpClient): Promise<ToolSet>
 ```
+
 **参数**
 
 - `client: WebMcpClient`: WebMcpClient 实例
-**返回值**
+  **返回值**
 
 - `Promise<ToolSet>`: 工具集对象
-**示例**
+  **示例**
 
 ```typescript
 import { AgentModelProvider, getAISDKTools, WebMcpClient } from '@opentiny/next-sdk'
 
 const webAgent = new AgentModelProvider({
   llmConfig: {
-    apiKey: 'sk-xxx',
+    apiKey: '',
     baseURL: 'https://xxxxx',
     providerType: 'deepseek'
   }

@@ -53,8 +53,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { orderList, type OrderItem } from '../../mock'
-import { z } from '@opentiny/next-sdk'
-import { server } from '../../mcp-servers'
 
 const searchText = ref('')
 const filterStatus = ref('')
@@ -91,21 +89,23 @@ const ORDER_QUERY_TOOL = 'order_query'
 const ORDER_DETAIL_TOOL = 'order_detail'
 
 onMounted(() => {
-  server.registerTool(
-    ORDER_QUERY_TOOL,
-    {
-      title: '查询订单',
-      description: '【订单管理工具】查询电商订单列表，可按订单号、客户姓名或状态筛选，不传参数则返回全部订单。',
-      inputSchema: {
-        orderId: z.string().optional().describe('按订单号精确查询，如 ORD-5X9A2B'),
-        customerName: z.string().optional().describe('按客户姓名模糊查询'),
-        status: z
-          .enum(['Pending', 'Shipped', 'Delivered', 'Refunded', 'Cancelled'])
-          .optional()
-          .describe('按订单状态筛选')
-      },
+  const modelContext = navigator.modelContext
+  modelContext.registerTool({
+    name: ORDER_QUERY_TOOL,
+    description: '【订单管理工具】查询电商订单列表，可按订单号、客户姓名或状态筛选，不传参数则返回全部订单。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        orderId: { type: 'string', description: '按订单号精确查询，如 ORD-5X9A2B' },
+        customerName: { type: 'string', description: '按客户姓名模糊查询' },
+        status: {
+          type: 'string',
+          enum: ['Pending', 'Shipped', 'Delivered', 'Refunded', 'Cancelled'],
+          description: '按订单状态筛选'
+        }
+      }
     },
-    async ({
+    execute: async ({
       orderId,
       customerName,
       status
@@ -127,22 +127,25 @@ onMounted(() => {
         result.length === 0
           ? '未找到符合条件的订单。'
           : `找到 ${result.length} 条订单：\n${result
-              .map((o) => `- ${o.id}｜${o.customerName}｜${o.productName}｜¥${o.totalAmount}｜${statusLabelMap[o.status]}`)
+              .map(
+                (o) => `- ${o.id}｜${o.customerName}｜${o.productName}｜¥${o.totalAmount}｜${statusLabelMap[o.status]}`
+              )
               .join('\n')}`
       return { content: [{ type: 'text', text }] }
     }
-  )
+  })
 
-  server.registerTool(
-    ORDER_DETAIL_TOOL,
-    {
-      title: '订单详情',
-      description: '【订单管理工具】根据订单号获取完整的订单详情，包括商品、金额、物流、收货人信息等。',
-      inputSchema: {
-        orderId: z.string().describe('要查询的订单号，如 ORD-5X9A2B')
-      }
+  modelContext.registerTool({
+    name: ORDER_DETAIL_TOOL,
+    description: '【订单管理工具】根据订单号获取完整的订单详情，包括商品、金额、物流、收货人信息等。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        orderId: { type: 'string', description: '要查询的订单号，如 ORD-5X9A2B' }
+      },
+      required: ['orderId']
     },
-    async ({ orderId }: { orderId: string }) => {
+    execute: async ({ orderId }: { orderId: string }) => {
       const order = orderList.value.find((o) => o.id === orderId)
       if (!order) {
         return { content: [{ type: 'text', text: `未找到订单号为 ${orderId} 的订单。` }] }
@@ -158,12 +161,13 @@ onMounted(() => {
 - 下单时间：${order.createdAt}${order.shippedAt ? `\n- 发货时间：${order.shippedAt}` : ''}`
       return { content: [{ type: 'text', text }] }
     }
-  )
+  })
 })
 
 onUnmounted(() => {
-  server.unregisterTool(ORDER_QUERY_TOOL)
-  server.unregisterTool(ORDER_DETAIL_TOOL)
+  const modelContext = navigator.modelContext
+  modelContext.unregisterTool(ORDER_QUERY_TOOL)
+  modelContext.unregisterTool(ORDER_DETAIL_TOOL)
 })
 </script>
 

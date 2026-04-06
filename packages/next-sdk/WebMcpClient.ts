@@ -22,6 +22,7 @@ import {
   createStreamProxy,
   createSocketProxy
 } from '@opentiny/next'
+import { setupBuiltinProxy } from './utils/builtinProxy'
 import type {
   Result,
   Request,
@@ -69,6 +70,7 @@ export interface ClientConnectOptions {
   sessionId?: string
   type?: 'channel' | 'sse' | 'stream' | 'socket'
   agent?: boolean
+  builtin?: boolean
   onError?: (error: Error) => void
 }
 
@@ -121,8 +123,8 @@ export class WebMcpClient {
       return { transport: this.transport, sessionId: this.transport.sessionId as string }
     }
 
-    const { url, token, sessionId, type, agent, onError } = options as ClientConnectOptions
-    // 2. 通过代理连接时
+    const { url, token, sessionId, type, agent, builtin, onError } = options as ClientConnectOptions
+
     if (agent) {
       const proxyOptions: ProxyOptions = { client: this.client, url, token, sessionId }
 
@@ -135,6 +137,10 @@ export class WebMcpClient {
 
       response.transport.onerror = async (error: Error) => {
         onError?.(error)
+      }
+
+      if (builtin) {
+        setupBuiltinProxy(response.transport)
       }
 
       return response

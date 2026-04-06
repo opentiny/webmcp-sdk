@@ -39,11 +39,11 @@ src/
 
 **目录约定：**
 
-| 层级 | 说明 |
-|------|------|
-| `skills/<技能ID>/` | 第一级子目录，目录名即技能 ID |
-| `skills/<技能ID>/SKILL.md` | 技能入口文件，**必须存在**，大小写敏感 |
-| `skills/<技能ID>/reference/` | 参考资料目录，**可选**，可自由命名 |
+| 层级                          | 说明                                                         |
+| ----------------------------- | ------------------------------------------------------------ |
+| `skills/<技能ID>/`            | 第一级子目录，目录名即技能 ID                                |
+| `skills/<技能ID>/SKILL.md`    | 技能入口文件，**必须存在**，大小写敏感                       |
+| `skills/<技能ID>/reference/`  | 参考资料目录，**可选**，可自由命名                           |
 | `skills/<技能ID>/reference/*` | 参考文件，支持 `.md`、`.json`、`.xml`、`.txt` 等任意文本格式 |
 
 ## SKILL.md 文件格式
@@ -65,11 +65,11 @@ description: 商品管理指南技能包。提供商品管理相关的搜索和�
 商品上架管理：具体的商品上架参考文档 './product-guide/reference/product-listing.md'
 ```
 
-| 字段 | 位置 | 说明 |
-|------|------|------|
-| `name` | YAML Front Matter | 技能唯一标识，建议与目录名保持一致 |
+| 字段          | 位置              | 说明                                                      |
+| ------------- | ----------------- | --------------------------------------------------------- |
+| `name`        | YAML Front Matter | 技能唯一标识，建议与目录名保持一致                        |
 | `description` | YAML Front Matter | 技能描述，AI **依赖此字段**判断何时激活该技能，请尽量详细 |
-| Markdown Body | `---` 之后的内容 | 角色提示词，定义 AI 的角色、能力及如何引用参考资料 |
+| Markdown Body | `---` 之后的内容  | 角色提示词，定义 AI 的角色、能力及如何引用参考资料        |
 
 > **提示**：在 Markdown Body 中，可以用文件相对路径（如 `'./product-guide/reference/product-listing.md'`）告知 AI 哪些参考文件可用，AI 会通过内置的 `get_skill_content` 工具按需读取。
 
@@ -173,7 +173,7 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 const show = ref(false)
 
 const llmConfig = {
-  apiKey: 'your-api-key',
+  apiKey: '',
   baseURL: 'https://api.openai.com/v1',
   providerType: 'openai',
   model: 'gpt-4o',
@@ -183,9 +183,9 @@ const llmConfig = {
 // 导入 skills 目录下的【所有文件】，包括 SKILL.md 及所有参考资料（.md/.json/.xml 等）
 // key 为文件相对路径，value 为文件原始文本内容
 const skills = import.meta.glob('./skills/**/*', {
-  query: '?raw',      // 以原始文本形式导入，不经过模块解析
-  import: 'default',  // 取模块的 default 导出（即文件内容字符串）
-  eager: true         // 同步加载，避免异步等待
+  query: '?raw', // 以原始文本形式导入，不经过模块解析
+  import: 'default', // 取模块的 default 导出（即文件内容字符串）
+  eager: true // 同步加载，避免异步等待
 }) as Record<string, string>
 </script>
 ```
@@ -268,7 +268,7 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 const show = ref(false)
 
 const llmConfig = {
-  apiKey: 'your-api-key',
+  apiKey: '',
   baseURL: 'https://api.openai.com/v1',
   providerType: 'openai',
   model: 'gpt-4o',
