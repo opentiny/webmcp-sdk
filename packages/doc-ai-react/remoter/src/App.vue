@@ -9,7 +9,6 @@
     :systemPrompt="systemPrompt"
     :promptItems="ecommercePromptItems"
     :pillItems="ecommercePillItems"
-    :llmConfig="llmConfig"
   />
 </template>
 
@@ -108,10 +107,4 @@ const systemPrompt = `你是「电商智能管理系统」的内置助理，必�
 - 如果工具调用返回「工具不存在」等类似错误，且你已确认路径正确，请向用户清晰说明情况，并建议由开发者维护。
 
 请始终记住：你是一个具备「导航意识」的 AI 助理，通过页面跳转来获取环境所需的 MCP 工具能力。`
-const llmConfig = {
-  providerType: 'deepseek',
-  model: 'deepseek-chat',
-  apiKey: 'sk-4499ad317f6a441a993dbb7378eed65d',
-  baseURL: `https://api.deepseek.com`,
-}
 </script>
