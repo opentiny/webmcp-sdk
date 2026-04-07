@@ -259,10 +259,7 @@ export async function scrollNodeByUid(
  * @param uid 节点 UID
  * @returns 复制的文本内容
  */
-export async function copyFromNodeByUid(
-  manager: SnapshotManager,
-  uid: string
-): Promise<string> {
+export async function copyFromNodeByUid(manager: SnapshotManager, uid: string): Promise<string> {
   const page = manager.getPage()
   if (!page) {
     throw new Error('页面未连接')
@@ -300,11 +297,7 @@ export async function copyFromNodeByUid(
  * @param uid 节点 UID
  * @param text 要粘贴的文本
  */
-export async function pasteIntoNodeByUid(
-  manager: SnapshotManager,
-  uid: string,
-  text: string
-): Promise<void> {
+export async function pasteIntoNodeByUid(manager: SnapshotManager, uid: string, text: string): Promise<void> {
   const page = manager.getPage()
   if (!page) {
     throw new Error('页面未连接')
@@ -326,7 +319,7 @@ export async function pasteIntoNodeByUid(
 
       // 使用 Locator API
       const locator = (handle as any).asLocator()
-      
+
       // 先点击以聚焦
       await locator.click()
       await delay(100)
@@ -341,6 +334,40 @@ export async function pasteIntoNodeByUid(
       // 输入文本（模拟粘贴）
       await locator.fill(text)
     })
+  } finally {
+    // 确保清理资源
+    if (handle && typeof (handle as any).dispose === 'function') {
+      await (handle as any).dispose()
+    }
+  }
+}
+/**
+ * 通过 UID 高亮节点
+ * @param manager 快照管理器
+ * @param uid 节点 UID
+ */
+export async function highlightNodeByUid(manager: SnapshotManager, uid: string, isHighlight: boolean): Promise<void> {
+  const page = manager.getPage()
+  if (!page) {
+    throw new Error('页面未连接')
+  }
+
+  // 获取 ElementHandle
+  const handle = await manager.getElementHandleByUid(uid)
+  if (!handle) {
+    throw new Error(`无法获取元素句柄，UID: ${uid}`)
+  }
+
+  try {
+    if (isHighlight) {
+      await handle.evaluate((el: Element) => {
+        if (el && el.style) el.style.outline = '2px solid #f2e5f3'
+      })
+    } else {
+      await handle.evaluate((el: Element) => {
+        if (el && el.style) el.style.outline = 'none'
+      })
+    }
   } finally {
     // 确保清理资源
     if (handle && typeof (handle as any).dispose === 'function') {

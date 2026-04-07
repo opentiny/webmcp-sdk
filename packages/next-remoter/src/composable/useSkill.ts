@@ -15,9 +15,9 @@ export interface UseSkillWithToolsOptions {
 export function useSkillWithTools(options: UseSkillWithToolsOptions) {
   const { skillsRef, customAgentProvider } = options
 
-  const skillOverviews = computed<SkillMeta[]>(() => {
+  const skillOverviews = computed<SkillMeta[]>(async () => {
     const mod = skillsRef?.value
-    return mod ? getSkillOverviews(mod) : []
+    return mod ? await getSkillOverviews(mod) : []
   })
 
   /** 用于拼进 systemPrompt 的「可用技能」说明（含「请用 get_skill_content 获取详情」） */

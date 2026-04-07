@@ -56,7 +56,7 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 - `genUiAble` 双向绑定是否启用生成式 UI 的渲染，默认值为：false。输入框旁的「生成式 UI 开关」是否显示由**当前模型配置**决定：仅当配置中同时包含 `baseURL` 和 `genuiUrl` 时才会显示该开关
 - `genUiComponents` 生成式 UI 内置了一批组件，如果需要引入新组件，需要通过这里导入。参考示例：`shallowReactive({ TinyUser, TinyAlert })`
 - `customMarketMcpServers` 追加自定义 MCP 市场服务列表（`PluginInfo[]`），传入后会与组件内置的 `DEFAULT_SERVERS` 合并，用于扩展市场内容。**一般对应后台的 MCP 服务，可常驻存在。**
-- `mcpServers` 预置 MCP 服务器配置（业界格式 `Record<string, McpServerConfig>`）。键为服务器名称，值为单台服务器配置；组件初始化时会自动加载并出现在「已添加MCP服务」中。**一般对应前端的 MCP 服务，页面关闭后即不存在。** 配置说明见 [预置 MCP 服务器（mcpServers）](#预置-mcp-服务器mcpservers)
+- `mcpServers` 预置 MCP 服务器配置（业界格式 `Record<string, McpServerConfig>`）。键为服务器名称，值为单台服务器配置；组件初始化时会自动加载并出现在「已添加MCP服务」中。**一般对应前端的 MCP 服务，页面关闭后即不存在。** 支持配置自定义 `name`（插件显示名称）和 `description`（插件功能描述），配置说明见 [预置 MCP 服务器（mcpServers）](#预置-mcp-服务器mcpservers)
 - `pageToolsOnDemand` 已移除（破坏性变更），请勿继续传该属性
 - `skills` 设置技能的配置对象（`Record<string, string>` 类型）。通常配合 Vite 的 `import.meta.glob` 导入标准 `SKILL.md` 文件。AI 助手会自动识别用户意图并调用相应的技能，无需手动触发。
 - `layout-mode` 布局模式，支持所有 CSS position 属性值：`'static' | 'relative' | 'absolute' | 'fixed' | 'sticky'`，默认值为 `'fixed'`。用于控制组件的定位方式
@@ -492,6 +492,8 @@ const mcpServers = {
   'my-app-mcp-server': {
     type: 'streamableHttp',
     url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp?sessionId=xxx',
+    name: '我的自定义助手', // 可选：插件在面板中显示的名称
+    description: '这是一个预置的专业助手服务', // 可选：插件的描述信息
     // 支持配置自定义 Header
     headers: {
       'X-Project-Id': 'project-456'
@@ -499,12 +501,13 @@ const mcpServers = {
   },
   'local-mcp-server': {
     type: 'local',
-    transport: clientTransport
+    transport: clientTransport,
+    name: '本地专用工具' // 可选
   }
 }
 ```
 
-`McpServerConfig` 支持以下类型（与 next-sdk 一致）：
+`McpServerConfig` 支持以下类型（与 next-sdk 一致），所有类型均支持可选的 `name` (string) 和 `description` (string) 字段：
 
 - `type: 'streamableHttp'` 或 `type: 'sse'`：需提供 `url`，可选 `useAISdkClient` 和 `headers`
 - `type: 'extension'`：需提供 `url`、`sessionId`，可选 `useAISdkClient` 和 `headers`
@@ -519,7 +522,9 @@ const mcpServers = {
   // 接入浏览器原生 WebMCP 能力（需浏览器支持或通过 SDK 模拟）
   'builtin-mcp': {
     type: 'builtin',
-    client: nav.modelContextTesting // 指向原生测试接口
+    client: nav.modelContextTesting, // 指向原生测试接口
+    name: '浏览器内置工具', // 自定义插件名称
+    description: '通过原生测试接口暴露的工具集' // 自定义描述
   }
 }
 ```

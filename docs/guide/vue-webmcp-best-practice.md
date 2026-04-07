@@ -99,7 +99,7 @@ app.mount('#app')
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
 
-const modelContext = (navigator as any).modelContext
+const modelContext = navigator.modelContext
 
 onMounted(() => {
   if (!modelContext) return
@@ -139,7 +139,7 @@ onUnmounted(() => {
 ```ts
 // src/mcp-servers/finance/tools.ts
 export default function registerFinanceTools() {
-  ;(navigator as any).modelContext.registerTool({
+  navigator.modelContext.registerTool({
     name: 'finance_summary_query',
     title: '查询财务数据',
     description: '查询关键财务指标。',
@@ -291,14 +291,13 @@ onMounted(async () => {
 import { ref, onMounted } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
 
-const nav = navigator as any
 const show = ref(true)
 
 const mcpServers = {
   'builtin-webmcp': {
     type: 'builtin' as const,
     // 【重要】Client 端仅连接 modelContextTesting 接口
-    client: nav.modelContextTesting
+    client: navigator.modelContextTesting
   }
 }
 

@@ -223,15 +223,17 @@ const startDrag = (e: MouseEvent) => {
 const skillMdModules = import.meta.glob('./skills/**/*.md', {
   query: '?raw',
   import: 'default',
-  eager: true
-}) as Record<string, string>
+  eager: false
+}) as Record<string, string | (() => Promise<string>)>
 
 // Setup MCP Servers
 const nav = navigator as Navigator & { modelContextTesting?: object }
 const mcpServers: Record<string, McpServerConfig> = {
   'mcp-server-builtin-webmcp': {
     type: 'builtin' as const,
-    client: nav.modelContextTesting
+    client: nav.modelContextTesting,
+    name: '浏览器内置工具',
+    description: '通过 navigator.modelContextTesting 暴露的浏览器原生 MCP 工具'
   }
 }
 

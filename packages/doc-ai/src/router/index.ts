@@ -10,10 +10,6 @@ const router = createRouter({
       component: () => import('../views/home/index.vue')
     },
     {
-      path: '/comprehensive',
-      redirect: '/inventory'
-    },
-    {
       path: '/inventory',
       name: 'Inventory',
       component: () => import('../views/inventory/index.vue')

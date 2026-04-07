@@ -1,6 +1,7 @@
 import { connect, ExtensionTransport } from 'puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js'
 import type { Page, ElementHandle } from 'puppeteer-core'
 import { delay } from './utils'
+import { highlightNodeByUid } from './snapshotOperations'
 
 /**
  * 无障碍树节点类型（SerializedAXNode）
@@ -226,5 +227,19 @@ export class SnapshotManager {
     }
 
     return true
+  }
+
+  /**
+   * 高亮页面可点击的项
+   * @param isHighlight 是否高亮
+   */
+  async highlightPage(isHighlight: boolean) {
+    await this.createTextSnapshot()
+
+    for (const [id, node] of this.currentSnapshot.idToNode.entries()) {
+      if (node.backendDOMNodeId || node.backendNodeId) {
+        await highlightNodeByUid(this, node.id, isHighlight)
+      }
+    }
   }
 }
