@@ -3,6 +3,9 @@ import { CommonModule } from '@angular/common'
 import { FormsModule } from '@angular/forms'
 import { addInventory } from '../../mock'
 
+// 保存 MCP Tool 的 resolve 回调
+let currentResolve: ((result: string) => void) | null = null
+
 @Component({
   selector: 'app-inventory-modal',
   standalone: true,
@@ -196,14 +199,32 @@ export class InventoryModalComponent {
 
   @Output() inventoryAdded = new EventEmitter<void>()
 
-  openModal(initialData?: Partial<typeof this.formData>) {
+  // 保存 MCP Tool 的 resolve 回调
 
+  openModal() {
+    this.visible = true
+    this.formData = {
+      productName: '',
+      quantity: 0,
+      warehouse: ''
+    }
+  }
+
+  openAiModal(initialData?: Partial<typeof this.formData>) {
+    if (currentResolve) {
+      currentResolve('❌ 用户发起了新的操作，前置入库已取消。')
+    }
     this.visible = true
     this.formData = {
       productName: initialData?.productName || '',
       quantity: initialData?.quantity || 0,
       warehouse: initialData?.warehouse || ''
     }
+
+    // 返回一个 Promise 供 MCP Tool 挂起等待
+    return new Promise<string>((resolve) => {
+      currentResolve = resolve
+    })
   }
 
   closeModal() {

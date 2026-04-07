@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, NgZone } from '@angular/core'
+import { Component, OnInit, OnDestroy, ViewChild, NgZone } from '@angular/core'
 import { CommonModule } from '@angular/common'
 import { inventoryList, addInventory, type InventoryItem } from '../../../mock'
 import { InventoryModalComponent } from '../../components/inventory-modal.component'
@@ -10,9 +10,8 @@ import { InventoryModalComponent } from '../../components/inventory-modal.compon
   templateUrl: './inventory.component.html',
   styleUrl: './inventory.component.scss'
 })
-export class InventoryComponent implements OnInit, OnDestroy, AfterViewInit {
+export class InventoryComponent implements OnInit, OnDestroy {
   inventoryList = inventoryList
-  private pendingModalData: { productName?: string; quantity?: number; warehouse?: string } | null = null
 
   @ViewChild(InventoryModalComponent) modal!: InventoryModalComponent
 
@@ -32,13 +31,14 @@ export class InventoryComponent implements OnInit, OnDestroy, AfterViewInit {
         },
         required: ['productName', 'quantity', 'warehouse']
       },
-      execute: async (params: any) => {
-        await this.handleManualAdd(params)
-        setTimeout(() => this.modal.onSubmit(), 1000)
-        const result = '已将 ' + params.quantity + ' 件 "' + params.productName + '" 入库到 "' + params.warehouse + '" 仓库'
-        return {
-          content: [{ type: 'text', text: result }]
-        }
+      execute: (params: any) => {
+        this.zone.run(async () => {
+          const result = await this.modal.openAiModal(params)
+          console.log(1111, result)
+          return {
+            content: [{ type: 'text', text: result }]
+          }
+        })
       }
     })
   }
@@ -48,24 +48,8 @@ export class InventoryComponent implements OnInit, OnDestroy, AfterViewInit {
     modelContext.unregisterTool('add_inventory')
   }
 
-  ngAfterViewInit() {
-    if (this.pendingModalData) {
-      this.zone.run(() => {
-        this.modal.openModal(this.pendingModalData!)
-        this.pendingModalData = null
-      })
-    }
-  }
-
-  handleManualAdd(params: { productName?: string; quantity?: number; warehouse?: string } = {}) {
-    const payload = {
-      productName: params.productName || '',
-      quantity: params.quantity ?? 1,
-      warehouse: params.warehouse || ''
-    }
-    this.zone.run(() => {
-      this.modal.openModal(payload)
-    })
+  handleManualAdd() {
+    this.modal.openModal()
   }
 
   onInventoryAdded() {

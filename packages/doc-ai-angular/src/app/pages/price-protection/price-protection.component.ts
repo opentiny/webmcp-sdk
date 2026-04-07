@@ -200,7 +200,6 @@ export class PriceProtectionComponent implements OnInit, OnDestroy {
         }
         this.zone.run(() => {
           this.modal.openModal(params)
-          setTimeout(() => this.modal.onSubmit(), 1000)
         })
         const result = '价保申请已提交，正在等待审核。'
         return { content: [{ type: 'text', text: result }] }
@@ -236,7 +235,7 @@ export class PriceProtectionComponent implements OnInit, OnDestroy {
   // 当新增价保申请时调用
   onOrderAdded(formData: any): void {
     // 创建新的 PriceRecord 对象
-    let buyPrice = 3598 
+    let buyPrice = 3598
     let currentPrice = buyPrice - parseFloat(formData.amount) || 0
     const newRecord: PriceRecord = {
       id: Date.now(), // 使用时间戳作为临时 ID
