@@ -6,7 +6,7 @@
 
 它的核心概念与适配流程，与 `Vue` 工程最佳实践是一致的，可以适当结合着一起看。本文重点描述关键步骤和与Vue工程差异的地方 。
 
-### 建议将Remoter 端集成在 iframe
+## 建议将Remoter 端集成在 iframe
 
 - **TinyRemoter 是 Vue 组件**，依赖 Vue 运行时，无法在 React 中直接使用。
 - 采用 **双 HTML 入口** 方案：
@@ -64,7 +64,7 @@ pnpm add @opentiny/next-sdk @opentiny/next-remoter
 与 Vue 版类似，`setNavigator` 告诉 SDK 如何跳转页面。当 AI 调用某个工具而对应页面未打开时，SDK 会调用此函数自动导航。
 
 ```ts
-// src/main.ts
+// src/main.tsx
 import { createRoot } from 'react-dom/client'
 import { initializeBuiltinWebMCP, setNavigator } from '@opentiny/next-sdk'
 import './index.css'
