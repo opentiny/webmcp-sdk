@@ -25,9 +25,7 @@ export const setupBuiltinProxy = (transport: Transport) => {
             protocolVersion: '2024-11-05',
             capabilities: {
               tools: { listChanged: true },
-              logging: {},
-              prompts: { listChanged: true },
-              resources: { subscribe: true, listChanged: true }
+              logging: {}
             },
             serverInfo: { name: 'browser-builtin-webmcp-proxy', version: '1.0.0' }
           }
@@ -84,10 +82,17 @@ export const setupBuiltinProxy = (transport: Transport) => {
         // 浏览器内置 WebMCP 不是标准 MCP Server，不支持日志级别设置。
         // 直接 mock 返回成功，避免严格的 MCP 客户端因未实现该方法而报错。
         await transport.send({ jsonrpc: '2.0', id, result: {} })
+      } else if (method === 'prompts/list') {
+        await transport.send({ jsonrpc: '2.0', id, result: { prompts: [] } })
+      } else if (method === 'resources/list') {
+        await transport.send({ jsonrpc: '2.0', id, result: { resources: [] } })
       } else if (id !== undefined) {
-        // 浏览器内置 WebMCP 只实现了 tools 相关方法，其他带 id 的请求统一 mock 返回成功。
-        // 这样可以保持与声明了完整 capabilities 的严格客户端的兼容性。
-        await transport.send({ jsonrpc: '2.0', id, result: {} })
+        // 对于其他不支持但带 id 的请求，返回规范要求的 -32601 Method not found
+        await transport.send({
+          jsonrpc: '2.0',
+          id,
+          error: { code: -32601, message: `Method not found: ${method}` }
+        })
       }
     } catch (err: any) {
       if (id !== undefined) {
