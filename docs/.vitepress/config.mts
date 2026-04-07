@@ -28,8 +28,7 @@ export default defineConfig({
             { text: '接入三方 AI 应用', link: '/guide/mcp-host' },
             { text: 'Electron 应用接入', link: '/guide/electron' },
             { text: 'uni-app 应用接入', link: '/guide/uni-app' },
-            { text: '本地连接', link: '/guide/connect-local' },
-            { text: 'WebAgent 私有化部署', link: '/guide/web-agent-private-deployment' }
+            { text: '本地连接', link: '/guide/connect-local' }
           ]
         },
         {
