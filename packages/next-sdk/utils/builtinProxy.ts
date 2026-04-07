@@ -79,33 +79,13 @@ export const setupBuiltinProxy = (transport: Transport) => {
           throw new Error('executeTool not implemented in Browser built-in WebMCP')
         }
       } else if (method === 'logging/setLevel') {
-        const nativeCtx = getNativeCtx()
-        if (nativeCtx && nativeCtx.setLogLevel) {
-          await nativeCtx.setLogLevel(message.params.level)
-          await transport.send({ jsonrpc: '2.0', id, result: {} })
-        } else {
-          // If not implemented, just return success to avoid crashing strict clients
-          await transport.send({ jsonrpc: '2.0', id, result: {} })
-        }
+        // 浏览器内置 WebMCP 不是标准 MCP Server，不支持日志级别设置。
+        // 直接 mock 返回成功，避免严格的 MCP 客户端因未实现该方法而报错。
+        await transport.send({ jsonrpc: '2.0', id, result: {} })
       } else if (id !== undefined) {
-        // Generic fallback: Try to call the method directly on nativeCtx if it follows the same naming
-        const nativeCtx = getNativeCtx()
-        // Convert 'resources/list' to 'listResources' if needed, or handle directly
-        if (nativeCtx) {
-          // Check for direct method or generic dispatch
-          if (typeof nativeCtx.request === 'function') {
-            const result = await nativeCtx.request(method, message.params)
-            await transport.send({ jsonrpc: '2.0', id, result })
-            return
-          }
-        }
-
-        // 符合协议：对于未处理且带有 id 的请求，返回 Method not found
-        await transport.send({
-          jsonrpc: '2.0',
-          id,
-          error: { code: -32601, message: `Method not found: ${method}` }
-        })
+        // 浏览器内置 WebMCP 只实现了 tools 相关方法，其他带 id 的请求统一 mock 返回成功。
+        // 这样可以保持与声明了完整 capabilities 的严格客户端的兼容性。
+        await transport.send({ jsonrpc: '2.0', id, result: {} })
       }
     } catch (err: any) {
       if (id !== undefined) {
