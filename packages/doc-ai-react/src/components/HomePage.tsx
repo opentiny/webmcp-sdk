@@ -41,7 +41,7 @@ export function Component() {
           </p>
           <ul>
             <li>
-              <strong>左侧系统视图：</strong>标准的 React + TinyVue 业务系统，包含数据列表与操作。
+              <strong>左侧系统视图：</strong>标准的 React 业务系统，包含数据列表与操作。
             </li>
             <li>
               <strong>右侧 AI 助手：</strong>基于 TinyRobot 开发的终端，内置了电商相关的业务技能 (skills)。
