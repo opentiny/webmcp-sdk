@@ -2,7 +2,6 @@ import { Component, OnInit, inject } from '@angular/core'
 import { Router } from '@angular/router'
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router'
 import { setNavigator, initializeBuiltinWebMCP } from '@opentiny/next-sdk'
-
 import { createMcpServer } from '../mcp-servers'
 
 @Component({
@@ -24,8 +23,10 @@ export class AppComponent implements OnInit {
       }
     })
 
+    // 2. 激活浏览器内置 WebMCP 服务 (含低版本浏览器 Polyfill)
     initializeBuiltinWebMCP()
-    // 2. 启动 MCP Server
+
+    // 3. 本地 MCP Server 启动：失败则直接抛出（核心功能）
     await createMcpServer()
   }
 }
