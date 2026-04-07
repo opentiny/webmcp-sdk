@@ -6,9 +6,9 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
  */
 export const setupBuiltinProxy = (transport: Transport) => {
   const getNativeCtx = () => {
-    return typeof navigator !== 'undefined'
-      ? (navigator as any).modelContextTesting || (navigator as any).modelContext
-      : null
+    if (typeof navigator === 'undefined') return null
+    const nav = navigator as any
+    return nav.modelContextTesting || null
   }
 
   transport.onmessage = async (message: any) => {
