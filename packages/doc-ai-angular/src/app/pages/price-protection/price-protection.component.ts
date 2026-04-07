@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core'
+import { Component, OnInit, OnDestroy, ViewChild, NgZone } from '@angular/core'
 import { NgFor, NgIf, NgClass } from '@angular/common'
 import { registerPageTool, RegisterPageToolByHandlersOptions } from '@opentiny/next-sdk'
 import rawData from './price-protection.json'
@@ -36,6 +36,8 @@ export class PriceProtectionComponent implements OnInit, OnDestroy {
   records: PriceRecord[] = rawData as PriceRecord[]
 
   @ViewChild(PriceProtectionModalComponent) modal!: PriceProtectionModalComponent
+
+  constructor(private zone: NgZone) {}
 
   // 状态标签与样式映射
   statusLabels: Record<string, string> = {
@@ -179,10 +181,11 @@ export class PriceProtectionComponent implements OnInit, OnDestroy {
           },
           customerName: { type: 'string', description: '提出价保申请的顾客姓名' },
           orderId: { type: 'string', description: '需要价保补偿的原订单编号' },
+          productName: { type: 'string', description: '需要价保补偿的商品名称' },
           amount: { type: 'number', description: '申请补偿的差价金额' },
           reason: { type: 'string', description: '顾客申请价保的原因' }
         },
-        required: ['isSkillRead', 'customerName', 'orderId', 'amount', 'reason']
+        required: ['isSkillRead', 'customerName', 'orderId', 'productName', 'amount', 'reason']
       },
       execute: async (params: any) => {
         if (!params.isSkillRead) {
@@ -195,7 +198,11 @@ export class PriceProtectionComponent implements OnInit, OnDestroy {
             ]
           }
         }
-        const result = ''
+        this.zone.run(() => {
+          this.modal.openModal(params)
+          setTimeout(() => this.modal.onSubmit(), 1000)
+        })
+        const result = '价保申请已提交，正在等待审核。'
         return { content: [{ type: 'text', text: result }] }
       }
     })
@@ -227,8 +234,24 @@ export class PriceProtectionComponent implements OnInit, OnDestroy {
   }
 
   // 当新增价保申请时调用
-  onOrderAdded(): void {
-    // 可以在这里添加一些额外的逻辑，比如显示成功消息
-    console.log('价保申请已添加')
+  onOrderAdded(formData: any): void {
+    // 创建新的 PriceRecord 对象
+    let buyPrice = 3598 
+    let currentPrice = buyPrice - parseFloat(formData.amount) || 0
+    const newRecord: PriceRecord = {
+      id: Date.now(), // 使用时间戳作为临时 ID
+      orderId: formData.orderId,
+      productId: this.records.length > 0 ? this.records[this.records.length - 1].productId + 1 : 1, // 默认值
+      productName: formData.productName, // 默认值
+      buyPrice, // 默认值
+      currentPrice, // 默认值
+      diffPrice: formData.amount,
+      status: 'pending',
+      applyDate: new Date().toISOString().split('T')[0],
+      expireDate: '', // 默认值
+      remark: formData.reason
+    }
+    // 添加新记录到 records 数组
+    this.records.push(newRecord)
   }
 }

@@ -63,31 +63,5 @@
     "applyDate": "2025-01-15",
     "expireDate": "2025-02-15",
     "remark": "申请已过期"
-  },
-  {
-    "id": 6,
-    "orderId": "ORD-2024-0301-006",
-    "productId": 6,
-    "productName": "小米15",
-    "buyPrice": 5299,
-    "currentPrice": 4999,
-    "diffPrice": 300,
-    "status": "approved",
-    "applyDate": "2026-02-28",
-    "expireDate": "2026-03-28",
-    "remark": "审核通过，差价将在3个工作日内退回"
-  },
-  {
-    "id": 7,
-    "orderId": "ORD-2024-0302-007",
-    "productId": 7,
-    "productName": "小米 13",
-    "buyPrice": 4299,
-    "currentPrice": 3999,
-    "diffPrice": 300,
-    "status": "pending",
-    "applyDate": "2026-03-02",
-    "expireDate": "2026-04-02",
-    "remark": ""
   }
 ]

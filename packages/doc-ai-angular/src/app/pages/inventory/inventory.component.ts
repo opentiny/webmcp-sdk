@@ -33,8 +33,9 @@ export class InventoryComponent implements OnInit, OnDestroy, AfterViewInit {
         required: ['productName', 'quantity', 'warehouse']
       },
       execute: async (params: any) => {
-        const result = await this.handleManualAdd(params)
+        await this.handleManualAdd(params)
         setTimeout(() => this.modal.onSubmit(), 1000)
+        const result = '已将 ' + params.quantity + ' 件 "' + params.productName + '" 入库到 "' + params.warehouse + '" 仓库'
         return {
           content: [{ type: 'text', text: result }]
         }

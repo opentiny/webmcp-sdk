@@ -210,20 +210,26 @@ export class PriceProtectionModalComponent {
   visible = false
   formData = {
     customerName: '',
+    productName: '',
+    unitPrice: '',
+    totalAmount: '',
     orderId: '',
     amount: 0,
     reason: ''
   }
 
-  @Output() orderAdded = new EventEmitter<void>()
+  @Output() orderAdded = new EventEmitter<any>()
 
-  openModal() {
+  openModal(params?: { customerName: string; orderId: string; amount: number; reason: string; productName: string; unitPrice: string; totalAmount: string }): void {
     this.visible = true
     this.formData = {
-      customerName: '',
-      orderId: '',
-      amount: 0,
-      reason: ''
+      customerName: params?.customerName || '',
+      orderId: params?.orderId || '',
+      productName: params?.productName || '',
+      unitPrice: params?.unitPrice || '',
+      totalAmount: params?.totalAmount || '',
+      amount: params?.amount || 0,
+      reason: params?.reason || ''
     }
   }
 
@@ -239,7 +245,7 @@ export class PriceProtectionModalComponent {
         amount: this.formData.amount,
         reason: this.formData.reason
       })
-      this.orderAdded.emit()
+      this.orderAdded.emit(this.formData)
       this.closeModal()
     }
   }
