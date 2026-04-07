@@ -37,8 +37,6 @@ provide(RENDERER_SETTINGS_KEY, {
   Function: CustomFunction
 })
 
-
-
 const genUiComponents = shallowReactive({ TinyUser })
 // 汇总自定义 MCP Server 配置（中文注释：用于传给 TinyRemoter 的插件市场）
 const customMarketMcpServers = useCustomMarketMcpServers()
@@ -98,7 +96,6 @@ const closeRecordModal = () => {
   isRecordModalVisible.value = false
 }
 
-
 const handleStartRecording = async () => {
   try {
     await startRecording()
@@ -119,7 +116,6 @@ const handleStopRecording = async () => {
   }
 }
 
-
 browser.runtime.onMessage.addListener((message) => {
   if (message.type === 'reload-sidepanel') {
     location.reload()
@@ -127,7 +123,7 @@ browser.runtime.onMessage.addListener((message) => {
 })
 
 // 每一轮对话，都要清除一下页面高亮
-const clearHighlightPage =async () => {
+const clearHighlightPage = async () => {
   try {
     const { manager } = await getSnapshotManager()
     await manager.highlightPage(false)
@@ -135,7 +131,6 @@ const clearHighlightPage =async () => {
     console.error('清除页面高亮失败', error)
   }
 }
-
 </script>
 
 <template>
@@ -196,8 +191,14 @@ const clearHighlightPage =async () => {
 }
 
 :deep(.tr-bubble__content-items) {
+  div[type='markdown'] {
+    font-size: 16px;
+    margin: 10px 0;
+  }
+
   p {
     font-size: 16px;
+    margin: 10px 0;
   }
 
   li {
