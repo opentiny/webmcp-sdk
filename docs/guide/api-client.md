@@ -54,6 +54,8 @@ const client = new WebMcpClient({ name: 'my-app-client', version: '1.0.0' }, { c
 
    代理成功后，当前的 `WebMcpServer` 网页将变为受控端，并作为一个标准的 `MCP Server` 部署在 `Web Agent` 服务上，供其他 `MCP Client` 进行远程连接和操控。
 
+   如果同时开启了 `builtin: true`，则会自动建立原生的 JSON-RPC 拦截层，将部分 MCP 请求（如 `tools/list`, `tools/call`）拦截并分发给所在浏览器的 `navigator.modelContextTesting` 原生上下文执行。这样可以让浏览器内置的能力（通过扩展或原生支持）直接透传给 Web Agent。
+
 **类型声明**
 
 ```typescript
@@ -61,6 +63,8 @@ const client = new WebMcpClient({ name: 'my-app-client', version: '1.0.0' }, { c
 interface ClientConnectOptions {
   /** 是否代理模式 */
   agent?: boolean
+  /** 是否开启浏览器内置 WebMCP 代理，拦截请求并代理给 navigator.modelContextTesting 执行。*/
+  builtin?: boolean
   /** Transport类型。*/
   type?: 'channel' | 'sse' | 'stream' | 'socket'
   /** 代理模式时，传入 Web Agent 服务地址。
@@ -145,6 +149,18 @@ client.connect({
   onError: (error) => {
     // 自定义错误处理逻辑
   }
+})
+```
+
+6. 开启内置代理模式示例
+
+开启 `builtin: true` 后，当前 Client 会拦截发向 Server 的请求，将其代理给浏览器的 `navigator.modelContextTesting` 原生上下文。
+
+```typescript
+client.connect({
+  agent: true,
+  url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp',
+  builtin: true
 })
 ```
 
