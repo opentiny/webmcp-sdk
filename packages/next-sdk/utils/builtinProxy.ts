@@ -66,6 +66,11 @@ export const setupBuiltinProxy = (transport: Transport) => {
       } else if (method === 'tools/call') {
         const nativeCtx = getNativeCtx()
         if (nativeCtx && nativeCtx.executeTool) {
+          if (!message.params || typeof message.params !== 'object' || !message.params.name) {
+            const error: any = new Error('Invalid params: "name" is required and params must be an object')
+            error.code = -32602 // Invalid params
+            throw error
+          }
           const { name, arguments: args } = message.params
           const result = await nativeCtx.executeTool(name, JSON.stringify(args || {}))
           const finalResult =
