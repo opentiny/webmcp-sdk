@@ -196,12 +196,13 @@ export class InventoryModalComponent {
 
   @Output() inventoryAdded = new EventEmitter<void>()
 
-  openModal() {
+  openModal(initialData?: Partial<typeof this.formData>) {
+
     this.visible = true
     this.formData = {
-      productName: '',
-      quantity: 0,
-      warehouse: ''
+      productName: initialData?.productName || '',
+      quantity: initialData?.quantity || 0,
+      warehouse: initialData?.warehouse || ''
     }
   }
 

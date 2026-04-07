@@ -1,7 +1,6 @@
-import { Component, OnInit, OnDestroy, ViewChild } from '@angular/core'
+import { Component, OnInit, OnDestroy, AfterViewInit, ViewChild, NgZone } from '@angular/core'
 import { CommonModule } from '@angular/common'
 import { inventoryList, addInventory, type InventoryItem } from '../../../mock'
-import { modelContext } from '@opentiny/next-sdk'
 import { InventoryModalComponent } from '../../components/inventory-modal.component'
 
 @Component({
@@ -11,12 +10,16 @@ import { InventoryModalComponent } from '../../components/inventory-modal.compon
   templateUrl: './inventory.component.html',
   styleUrl: './inventory.component.scss'
 })
-export class InventoryComponent implements OnInit, OnDestroy {
+export class InventoryComponent implements OnInit, OnDestroy, AfterViewInit {
   inventoryList = inventoryList
+  private pendingModalData: { productName?: string; quantity?: number; warehouse?: string } | null = null
 
   @ViewChild(InventoryModalComponent) modal!: InventoryModalComponent
 
+  constructor(private zone: NgZone) {}
+
   ngOnInit() {
+    const modelContext = (navigator as any).modelContext
     modelContext.registerTool({
       name: 'add_inventory',
       description: '【入库管理工具】帮助电商管理员将采购的商品新增入库存系统中',
@@ -30,22 +33,38 @@ export class InventoryComponent implements OnInit, OnDestroy {
         required: ['productName', 'quantity', 'warehouse']
       },
       execute: async (params: any) => {
-        addInventory(params)
+        const result = await this.handleManualAdd(params)
+        setTimeout(() => this.modal.onSubmit(), 1000)
         return {
-          content: [
-            { type: 'text', text: `已成功将 ${params.quantity} 个 ${params.productName} 入库到 ${params.warehouse}。` }
-          ]
+          content: [{ type: 'text', text: result }]
         }
       }
     })
   }
 
   ngOnDestroy() {
+    const modelContext = (navigator as any).modelContext
     modelContext.unregisterTool('add_inventory')
   }
 
-  handleManualAdd() {
-    this.modal.openModal()
+  ngAfterViewInit() {
+    if (this.pendingModalData) {
+      this.zone.run(() => {
+        this.modal.openModal(this.pendingModalData!)
+        this.pendingModalData = null
+      })
+    }
+  }
+
+  handleManualAdd(params: { productName?: string; quantity?: number; warehouse?: string } = {}) {
+    const payload = {
+      productName: params.productName || '',
+      quantity: params.quantity ?? 1,
+      warehouse: params.warehouse || ''
+    }
+    this.zone.run(() => {
+      this.modal.openModal(payload)
+    })
   }
 
   onInventoryAdded() {
