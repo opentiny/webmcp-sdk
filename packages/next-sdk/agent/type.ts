@@ -46,10 +46,32 @@ export type IAgentModelProviderLlmConfig = LlmFactoryConfig | LlmInstanceConfig
 
 /** Mcp Server的配置对象 */
 export type McpServerConfig =
-  | { type: 'streamableHttp'; url: string; useAISdkClient?: boolean; headers?: Record<string, string> }
-  | { type: 'sse'; url: string; useAISdkClient?: boolean; headers?: Record<string, string> }
-  | { type: 'extension'; url: string; sessionId: string; useAISdkClient?: boolean; headers?: Record<string, string> }
-  | { type: 'local'; transport: MCPTransport; useAISdkClient?: boolean }
+  | {
+      type: 'streamableHttp'
+      url: string
+      useAISdkClient?: boolean
+      headers?: Record<string, string>
+      name?: string
+      description?: string
+    }
+  | {
+      type: 'sse'
+      url: string
+      useAISdkClient?: boolean
+      headers?: Record<string, string>
+      name?: string
+      description?: string
+    }
+  | {
+      type: 'extension'
+      url: string
+      sessionId: string
+      useAISdkClient?: boolean
+      headers?: Record<string, string>
+      name?: string
+      description?: string
+    }
+  | { type: 'local'; transport: MCPTransport; useAISdkClient?: boolean; name?: string; description?: string }
   | {
       /**
        * 浏览器内置 WebMCP 类型。
@@ -59,6 +81,8 @@ export type McpServerConfig =
       type: 'builtin'
       /** 传入 `navigator.modelContextTesting` 对象 */
       client: BuiltinMcpClient
+      name?: string
+      description?: string
     }
 
 /** */

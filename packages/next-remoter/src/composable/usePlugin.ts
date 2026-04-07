@@ -201,27 +201,39 @@ export function usePlugin(
    */
   const loadMcpServerToPlugin = async (serverName: string, mcpServer: McpServerConfig) => {
     // 解析 URL 和 sessionId
-    let pluginName: string
-    let description: string
+    let pluginName = mcpServer.name
+    let description = mcpServer.description
 
-    if ('type' in mcpServer && mcpServer.type === 'local') {
-      pluginName = '本地工具'
-      description = '本地工具列表'
-    } else if ('type' in mcpServer && mcpServer.type === 'builtin') {
-      // 浏览器内置 WebMCP（Chrome 146+）：没有 url，使用固定名称标识
-      pluginName = '浏览器内置工具'
-      description = '通过 navigator.modelContextTesting 暴露的浏览器原生 MCP 工具'
-    } else {
-      const url = new URL(mcpServer.url)
-      pluginName = url.origin
-      description = url.searchParams.get('sessionId') || ('sessionId' in mcpServer ? mcpServer.sessionId : '') || ''
+    if (!pluginName || !description) {
+      if ('type' in mcpServer && mcpServer.type === 'local') {
+        pluginName = pluginName || '本地工具'
+        description = description || '本地工具列表'
+      } else if ('type' in mcpServer && mcpServer.type === 'builtin') {
+        // 浏览器内置 WebMCP（Chrome 146+）：没有 url，使用固定名称标识
+        pluginName = pluginName || '浏览器内置工具'
+        description = description || '通过 navigator.modelContextTesting 暴露的浏览器原生 MCP 工具'
+      } else if ('url' in mcpServer) {
+        try {
+          const url = new URL(mcpServer.url)
+          pluginName = pluginName || url.origin
+          description =
+            description ||
+            url.searchParams.get('sessionId') ||
+            ('sessionId' in mcpServer ? mcpServer.sessionId : '') ||
+            ''
+        } catch (e) {
+          console.error('[usePlugin] Failed to parse MCP server URL:', mcpServer.url, e)
+          pluginName = pluginName || '未知插件'
+          description = description || ''
+        }
+      }
     }
 
     // 使用统一的添加核心函数
     await addPluginCore({
       pluginId: serverName,
-      name: pluginName,
-      description: description,
+      name: pluginName || '',
+      description: description || '',
       mcpServer
     })
   }
@@ -328,12 +340,18 @@ export function usePlugin(
     } as const
 
     // 解析URL获取origin作为插件名称
-    const url = new URL(`${agentRoot}mcp?sessionId=${sessionId}`)
+    let name = '未知插件'
+    try {
+      const url = new URL(`${agentRoot}mcp?sessionId=${sessionId}`)
+      name = url.origin
+    } catch (e) {
+      console.error('[usePlugin] Failed to parse scan URL:', e)
+    }
 
     // 使用统一的添加核心函数
     return await addPluginCore({
       pluginId: `plugin-${sessionId}`,
-      name: url.origin,
+      name,
       description: sessionId,
       mcpServer
     })
