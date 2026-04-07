@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, signal } from '@angular/core'
 import { CommonModule } from '@angular/common'
-import { server } from '../../../mcp-servers'
-import { z } from '@opentiny/next-sdk'
+
+const SALES_RECORD_QUERY_TOOL = 'sales_record_query'
 
 @Component({
   selector: 'app-sales',
@@ -92,16 +92,22 @@ export class SalesComponent implements OnInit, OnDestroy {
   ]
 
   ngOnInit() {
-    server.registerTool(
-      'sales_record_query',
-      {
-        title: '查询销售记录',
-        description: '【销售分析工具】查询商品销售记录，支持按时间范围筛选，返回销售趋势图表与数据总览。',
-        inputSchema: {
-          timeRange: z.enum(['7days', '30days', 'year']).optional()
+    const modelContext = (navigator as any).modelContext
+    modelContext.registerTool({
+      name: SALES_RECORD_QUERY_TOOL,
+      title: '查询销售记录',
+      description: '【销售分析工具】查询商品销售记录，支持按时间范围筛选，返回销售趋势图表与数据总览。',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          timeRange: {
+            type: 'string',
+            enum: ['7days', '30days', 'year'],
+            description: '查询时间范围'
+          }
         }
       },
-      async (params: { timeRange?: string }) => {
+      execute: async (params: { timeRange?: string }) => {
         const range = params.timeRange || '30days'
         this.activeRange.set(range)
 
@@ -126,11 +132,12 @@ export class SalesComponent implements OnInit, OnDestroy {
 详细图表已在左侧界面展示，可点击不同时间标签查看更多数据。`
         return { content: [{ type: 'text', text }] }
       }
-    )
+    })
   }
 
   ngOnDestroy() {
-    server.unregisterTool('sales_record_query')
+    const modelContext = (navigator as any).modelContext
+    modelContext.unregisterTool(SALES_RECORD_QUERY_TOOL)
   }
 
   setActiveRange(range: string) {

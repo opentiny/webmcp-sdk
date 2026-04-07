@@ -18,9 +18,8 @@
           <th>购买价格</th>
           <th>当前价格</th>
           <th>可退差价</th>
-          <th style="width: 110px">申请日期</th>
-          <th style="width: 110px">到期日期</th>
           <th style="width: 90px">状态</th>
+          <th>备注</th>
           <th style="width: 150px">操作</th>
         </tr>
       </thead>
@@ -34,12 +33,13 @@
           <td>
             <span class="diff-price">¥{{ record.diffPrice }}</span>
           </td>
-          <td>{{ record.applyDate }}</td>
-          <td>{{ record.expireDate }}</td>
           <td>
             <span class="tag" [ngClass]="statusClass[record.status]">{{
               statusLabels[record.status] ?? record.status
             }}</span>
+          </td>
+          <td>
+            <span class="remark-text">{{ record.remark || '—' }}</span>
           </td>
           <td>
             <ng-container *ngIf="record.status === 'pending'; else noAction">

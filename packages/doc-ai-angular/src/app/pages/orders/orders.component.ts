@@ -2,8 +2,9 @@ import { Component, OnInit, OnDestroy, computed, signal } from '@angular/core'
 import { CommonModule } from '@angular/common'
 import { FormsModule } from '@angular/forms'
 import { orderList, type OrderItem } from '../../../mock'
-import { server } from '../../../mcp-servers'
-import { z } from '@opentiny/next-sdk'
+
+const ORDER_QUERY_TOOL = 'order_query'
+const ORDER_DETAIL_TOOL = 'order_detail'
 
 @Component({
   selector: 'app-orders',
@@ -46,18 +47,31 @@ export class OrdersComponent implements OnInit, OnDestroy {
   })
 
   ngOnInit() {
-    server.registerTool(
-      'order_query',
-      {
-        title: '查询订单',
-        description: '【订单管理工具】查询电商订单列表，可按订单号、客户姓名或状态筛选，不传参数则返回全部订单。',
-        inputSchema: {
-          orderId: z.string().optional(),
-          customerName: z.string().optional(),
-          status: z.enum(['Pending', 'Shipped', 'Delivered', 'Refunded', 'Cancelled']).optional()
+    const modelContext = (navigator as any).modelContext
+    modelContext.registerTool({
+      name: ORDER_QUERY_TOOL,
+
+      title: '查询订单',
+      description: '【订单管理工具】查询电商订单列表，可按订单号、客户姓名或状态筛选，不传参数则返回全部订单。',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          orderId: {
+            type: 'string',
+            description: '订单号（可选）'
+          },
+          customerName: {
+            type: 'string',
+            description: '客户姓名（可选）'
+          },
+          status: {
+            type: 'string',
+            enum: ['Pending', 'Shipped', 'Delivered', 'Refunded', 'Cancelled'],
+            description: '订单状态（可选）'
+          }
         }
       },
-      async (params: { orderId?: string; customerName?: string; status?: string }) => {
+      execute: async (params: { orderId?: string; customerName?: string; status?: string }) => {
         let result = this.orderList() as OrderItem[]
         if (params.orderId) result = result.filter((o) => o.id.toLowerCase().includes(params.orderId!.toLowerCase()))
         if (params.customerName)
@@ -79,18 +93,20 @@ export class OrdersComponent implements OnInit, OnDestroy {
                 .join('\n')}`
         return { content: [{ type: 'text', text }] }
       }
-    )
+    })
 
-    server.registerTool(
-      'order_detail',
-      {
-        title: '订单详情',
-        description: '【订单管理工具】根据订单号获取完整的订单详情，包括商品、金额、物流、收货人信息等。',
-        inputSchema: {
-          orderId: z.string()
-        }
+    modelContext.registerTool({
+      name: ORDER_DETAIL_TOOL,
+      title: '订单详情',
+      description: '【订单管理工具】根据订单号获取完整的订单详情，包括商品、金额、物流、收货人信息等。',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          orderId: { type: 'string', description: '要查询的订单号，如 ORD-5X9A2B' }
+        },
+        required: ['orderId']
       },
-      async (params: { orderId: string }) => {
+      execute: async (params: { orderId: string }) => {
         const order = this.orderList().find((o: OrderItem) => o.id === params.orderId)
         if (!order) {
           return { content: [{ type: 'text', text: `未找到订单号为 ${params.orderId} 的订单。` }] }
@@ -106,11 +122,12 @@ export class OrdersComponent implements OnInit, OnDestroy {
 - 下单时间：${order.createdAt}${order.shippedAt ? `\n- 发货时间：${order.shippedAt}` : ''}`
         return { content: [{ type: 'text', text }] }
       }
-    )
+    })
   }
 
   ngOnDestroy() {
-    server.unregisterTool('order_query')
-    server.unregisterTool('order_detail')
+    const modelContext = (navigator as any).modelContext
+    modelContext.unregisterTool(ORDER_QUERY_TOOL)
+    modelContext.unregisterTool(ORDER_DETAIL_TOOL)
   }
 }

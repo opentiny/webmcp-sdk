@@ -20,37 +20,6 @@
     </div>
   </div>
 
-  <!-- 图表区域 -->
-  <div class="charts-section">
-    <div class="chart-card">
-      <div class="chart-header">
-        <h3>销售额趋势</h3>
-        <div class="tab-group">
-          <span class="tab" [class.active]="activeRange() === '7days'" (click)="setActiveRange('7days')"> 近7天 </span>
-          <span class="tab" [class.active]="activeRange() === '30days'" (click)="setActiveRange('30days')">
-            近30天
-          </span>
-          <span class="tab" [class.active]="activeRange() === 'year'" (click)="setActiveRange('year')"> 全年 </span>
-        </div>
-      </div>
-      <div class="chart-placeholder">
-        <p>
-          图表区域 -
-          {{ activeRange() === '7days' ? '近7天' : activeRange() === '30days' ? '近30天' : '全年' }} 销售额趋势图
-        </p>
-      </div>
-    </div>
-
-    <div class="chart-card">
-      <div class="chart-header">
-        <h3>各品类销售占比</h3>
-      </div>
-      <div class="chart-placeholder">
-        <p>饼图区域 - 各品类销售占比</p>
-      </div>
-    </div>
-  </div>
-
   <!-- 近期热销商品 -->
   <div class="table-section">
     <div class="section-header">
@@ -88,5 +57,36 @@
         </tr>
       </tbody>
     </table>
+  </div>
+  
+  <!-- 图表区域 -->
+  <div class="charts-section">
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>销售额趋势</h3>
+        <div class="tab-group">
+          <span class="tab" [class.active]="activeRange() === '7days'" (click)="setActiveRange('7days')"> 近7天 </span>
+          <span class="tab" [class.active]="activeRange() === '30days'" (click)="setActiveRange('30days')">
+            近30天
+          </span>
+          <span class="tab" [class.active]="activeRange() === 'year'" (click)="setActiveRange('year')"> 全年 </span>
+        </div>
+      </div>
+      <div class="chart-placeholder">
+        <p>
+          图表区域 -
+          {{ activeRange() === '7days' ? '近7天' : activeRange() === '30days' ? '近30天' : '全年' }} 销售额趋势图
+        </p>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>各品类销售占比</h3>
+      </div>
+      <div class="chart-placeholder">
+        <p>饼图区域 - 各品类销售占比</p>
+      </div>
+    </div>
   </div>
 </div>
