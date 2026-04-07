@@ -76,7 +76,9 @@ export const setupBuiltinProxy = (transport: Transport) => {
               : { content: [{ type: 'text', text: typeof result === 'string' ? result : JSON.stringify(result) }] }
           await transport.send({ jsonrpc: '2.0', id, result: finalResult })
         } else {
-          throw new Error('executeTool not implemented in Browser built-in WebMCP')
+          const error: any = new Error('executeTool not implemented in Browser built-in WebMCP')
+          error.code = -32601 // Method not found
+          throw error
         }
       } else if (method === 'logging/setLevel') {
         // 浏览器内置 WebMCP 不是标准 MCP Server，不支持日志级别设置。
