@@ -213,13 +213,19 @@ export function usePlugin(
         pluginName = pluginName || '浏览器内置工具'
         description = description || '通过 navigator.modelContextTesting 暴露的浏览器原生 MCP 工具'
       } else if ('url' in mcpServer) {
-        const url = new URL(mcpServer.url)
-        pluginName = pluginName || url.origin
-        description =
-          description ||
-          url.searchParams.get('sessionId') ||
-          ('sessionId' in mcpServer ? mcpServer.sessionId : '') ||
-          ''
+        try {
+          const url = new URL(mcpServer.url)
+          pluginName = pluginName || url.origin
+          description =
+            description ||
+            url.searchParams.get('sessionId') ||
+            ('sessionId' in mcpServer ? mcpServer.sessionId : '') ||
+            ''
+        } catch (e) {
+          console.error('[usePlugin] Failed to parse MCP server URL:', mcpServer.url, e)
+          pluginName = pluginName || '未知插件'
+          description = description || ''
+        }
       }
     }
 
@@ -334,12 +340,18 @@ export function usePlugin(
     } as const
 
     // 解析URL获取origin作为插件名称
-    const url = new URL(`${agentRoot}mcp?sessionId=${sessionId}`)
+    let name = '未知插件'
+    try {
+      const url = new URL(`${agentRoot}mcp?sessionId=${sessionId}`)
+      name = url.origin
+    } catch (e) {
+      console.error('[usePlugin] Failed to parse scan URL:', e)
+    }
 
     // 使用统一的添加核心函数
     return await addPluginCore({
       pluginId: `plugin-${sessionId}`,
-      name: url.origin,
+      name,
       description: sessionId,
       mcpServer
     })
