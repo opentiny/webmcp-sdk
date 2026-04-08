@@ -112,17 +112,6 @@ export function formatSkillsForSystemPrompt(skills: SkillMeta[]): string {
 }
 
 /**
- * 获取所有已加载的技能文件路径（含主 SKILL.md 与 reference 下的 .md/.json/.xml 等）
- * - 对 modules 做 normalize 后再返回 key 列表
- *
- * TODO: 没有地方调用该函数
- */
-export async function getSkillMdPaths(modules: Record<string, string | (() => Promise<string>)>): Promise<string[]> {
-  const normalized = await normalizeSkillModuleKeys(modules)
-  return Object.keys(normalized)
-}
-
-/**
  * 根据相对路径获取某个技能文档的原始内容（支持 .md、.json、.xml 等文本格式）
  * - 自动对 modules 做 normalize，再按 path 查找
  */
