@@ -200,14 +200,15 @@ const SKILL_INPUT_SCHEMA = z.object({
     )
 })
 
-let isNormalizeSkillModuleKeys = false
-let normalizeSkillModuleKeysResult: Record<string, string>
 /**
  * 根据 skillMdModules 创建供 AI 调用的工具集
  * - get_skill_content: 按技能名或路径获取完整文档内容，便于大模型自动识别并加载技能
  * remoter 可将返回的 tools 合并进 extraTools 注入 agent
  */
 export function createSkillTools(modules: Record<string, string | (() => Promise<string>)>): SkillToolsSet {
+  let isNormalizeSkillModuleKeys = false
+  let normalizeSkillModuleKeysResult: Record<string, string>
+
   // @ts-ignore ai package 的 tool() 函数类型推断存在"类型实例化过深"的已知限制，无法正确推断包含复杂 Zod 链的 schema
   const getSkillContent = tool({
     description:
