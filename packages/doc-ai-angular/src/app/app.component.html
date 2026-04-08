@@ -1,8 +1,36 @@
-<!-- 左右分栏：左侧 70% 主内容，右侧 30% AI 助手 -->
 <div class="app-container">
-  <div class="main-content">
-    <router-outlet />
+  <div class="app-left">
+    <header class="app-header">
+      <div class="logo">
+        <div class="logo-icon">🤖</div>
+        <div>
+          <h1>电商智能管理系统</h1>
+        </div>
+      </div>
+    </header>
+
+    <div class="app-body">
+      <aside class="app-sidebar">
+        <nav class="nav-menu">
+          <a routerLink="/home" routerLinkActive="active" class="nav-item">概览大盘</a>
+          <a routerLink="/inventory" routerLinkActive="active" class="nav-item">库存管理</a>
+          <a routerLink="/price-protection" routerLinkActive="active" class="nav-item">价保监控</a>
+          <a routerLink="/orders" routerLinkActive="active" class="nav-item">订单管理</a>
+          <a routerLink="/sales" routerLinkActive="active" class="nav-item">商品销售</a>
+          <a routerLink="/finance" routerLinkActive="active" class="nav-item">财务管理</a>
+        </nav>
+      </aside>
+
+      <main class="app-main">
+        <div class="router-wrapper">
+          <router-outlet></router-outlet>
+        </div>
+      </main>
+    </div>
   </div>
+
+  <div class="app-divider"></div>
+
   <aside class="remoter-sidebar">
     <iframe
       #remoterFrame

@@ -66,10 +66,6 @@ const openModal = (params: { productName: string; quantity: number; warehouse: s
   }
   visible.value = true
 
-  // 返回一个 Promise 供 MCP Tool 挂起等待
-  return new Promise<string>((resolve) => {
-    currentResolve = resolve
-  })
 }
 
 const handleConfirm = () => {

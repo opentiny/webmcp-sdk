@@ -4,10 +4,6 @@
       <h2>商品管理系统</h2>
       <p>统一管理您的商品信息，支持 AI 助手智能操作</p>
     </div>
-    <div class="header-actions">
-      <a routerLink="/comprehensive" class="btn-primary">商品管理</a>
-      <a routerLink="/price-protection" class="btn-secondary">价保管理</a>
-    </div>
   </div>
   <div class="stats-grid">
     <div class="stat-card">
@@ -36,20 +32,6 @@
       <div class="stat-info">
         <div class="stat-value">{{ stats.categories }}</div>
         <div class="stat-label">商品分类</div>
-      </div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon price-pending">🛡</div>
-      <div class="stat-info">
-        <div class="stat-value">{{ priceStats.pending }}</div>
-        <div class="stat-label">价保待审核</div>
-      </div>
-    </div>
-    <div class="stat-card">
-      <div class="stat-icon price-total">💰</div>
-      <div class="stat-info">
-        <div class="stat-value">¥{{ priceStats.totalDiff }}</div>
-        <div class="stat-label">待退差价总额</div>
       </div>
     </div>
   </div>

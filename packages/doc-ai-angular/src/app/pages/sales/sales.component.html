@@ -1,0 +1,92 @@
+<div class="sales-container">
+  <div class="header">
+    <h2>商品销售记录</h2>
+    <p class="subtitle">近30天销售趋势与数据总览</p>
+  </div>
+
+  <!-- 顶层概览卡片 -->
+  <div class="stats-row">
+    <div class="stat-card" *ngFor="let card of statCards">
+      <div class="stat-icon" [style.background]="card.iconBg">
+        <span>{{ card.icon }}</span>
+      </div>
+      <div class="stat-body">
+        <div class="stat-label">{{ card.label }}</div>
+        <div class="stat-value">{{ card.value }}</div>
+        <div class="stat-trend" [class.positive]="card.up" [class.negative]="!card.up">
+          {{ card.up ? '▲' : '▼' }} {{ card.change }} 较上月
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 近期热销商品 -->
+  <div class="table-section">
+    <div class="section-header">
+      <h3>热销商品排行</h3>
+      <span class="badge">Top 5</span>
+    </div>
+    <table class="rank-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>商品名称</th>
+          <th>品类</th>
+          <th>销售量</th>
+          <th>销售额</th>
+          <th>占比</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr *ngFor="let item of topProducts; let i = index">
+          <td>
+            <span class="rank-badge" [class.top]="i < 3">{{ i + 1 }}</span>
+          </td>
+          <td class="product-name">{{ item.name }}</td>
+          <td>
+            <span class="category-tag">{{ item.category }}</span>
+          </td>
+          <td>{{ item.qty.toLocaleString() }}</td>
+          <td class="amount">¥{{ item.revenue.toLocaleString() }}</td>
+          <td>
+            <div class="progress-bar">
+              <div class="progress-fill" [style.width.%]="item.ratio" [style.background]="item.color"></div>
+            </div>
+            <span class="ratio-text">{{ item.ratio }}%</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  
+  <!-- 图表区域 -->
+  <div class="charts-section">
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>销售额趋势</h3>
+        <div class="tab-group">
+          <span class="tab" [class.active]="activeRange() === '7days'" (click)="setActiveRange('7days')"> 近7天 </span>
+          <span class="tab" [class.active]="activeRange() === '30days'" (click)="setActiveRange('30days')">
+            近30天
+          </span>
+          <span class="tab" [class.active]="activeRange() === 'year'" (click)="setActiveRange('year')"> 全年 </span>
+        </div>
+      </div>
+      <div class="chart-placeholder">
+        <p>
+          图表区域 -
+          {{ activeRange() === '7days' ? '近7天' : activeRange() === '30days' ? '近30天' : '全年' }} 销售额趋势图
+        </p>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <div class="chart-header">
+        <h3>各品类销售占比</h3>
+      </div>
+      <div class="chart-placeholder">
+        <p>饼图区域 - 各品类销售占比</p>
+      </div>
+    </div>
+  </div>
+</div>
