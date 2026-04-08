@@ -72,7 +72,7 @@ async function normalizeSkillModuleKeys(
  * 获取所有「主 SKILL.md」的路径（一级子目录下的 SKILL.md）
  * - 对传入的 modules 先做 normalize，兼容任意 import.meta.glob 写法
  */
-export async function getMainSkillPaths(modules: Record<string, string>): Promise<string[]> {
+export async function getMainSkillPaths(modules: Record<string, string | (() => Promise<string>)>): Promise<string[]> {
   const normalized = await normalizeSkillModuleKeys(modules)
   return Object.keys(normalized).filter((path) => MAIN_SKILL_PATH_REG.test(path))
 }
@@ -81,7 +81,9 @@ export async function getMainSkillPaths(modules: Record<string, string>): Promis
  * 获取所有技能的概况列表（name、description、path），用于 systemPrompt 或列表展示
  * - 内部统一对 modules 做 normalize，避免调用方关心路径细节
  */
-export async function getSkillOverviews(modules: Record<string, string>): Promise<SkillMeta[]> {
+export async function getSkillOverviews(
+  modules: Record<string, string | (() => Promise<string>)>
+): Promise<SkillMeta[]> {
   const normalized = await normalizeSkillModuleKeys(modules)
   const mainPaths = Object.keys(normalized).filter((path) => MAIN_SKILL_PATH_REG.test(path))
   const list: SkillMeta[] = []
@@ -115,7 +117,7 @@ export function formatSkillsForSystemPrompt(skills: SkillMeta[]): string {
  *
  * TODO: 没有地方调用该函数
  */
-export async function getSkillMdPaths(modules: Record<string, string>): Promise<string[]> {
+export async function getSkillMdPaths(modules: Record<string, string | (() => Promise<string>)>): Promise<string[]> {
   const normalized = await normalizeSkillModuleKeys(modules)
   return Object.keys(normalized)
 }
@@ -124,7 +126,10 @@ export async function getSkillMdPaths(modules: Record<string, string>): Promise<
  * 根据相对路径获取某个技能文档的原始内容（支持 .md、.json、.xml 等文本格式）
  * - 自动对 modules 做 normalize，再按 path 查找
  */
-export async function getSkillMdContent(modules: Record<string, string>, path: string): Promise<string | undefined> {
+export async function getSkillMdContent(
+  modules: Record<string, string | (() => Promise<string>)>,
+  path: string
+): Promise<string | undefined> {
   const normalized = await normalizeSkillModuleKeys(modules)
 
   // 1. 尝试原有的严格匹配
@@ -145,7 +150,7 @@ export async function getSkillMdContent(modules: Record<string, string>, path: s
  * - 依赖 getMainSkillPaths，内部已做 normalize
  */
 export async function getMainSkillPathByName(
-  modules: Record<string, string>,
+  modules: Record<string, string | (() => Promise<string>)>,
   name: string
 ): Promise<string | undefined> {
   const normalizedModules = await normalizeSkillModuleKeys(modules)
@@ -196,19 +201,23 @@ const SKILL_INPUT_SCHEMA = z.object({
 })
 
 let isNormalizeSkillModuleKeys = false
-let normalizeSkillModuleKeysResult
+let normalizeSkillModuleKeysResult: Record<string, string>
 /**
  * 根据 skillMdModules 创建供 AI 调用的工具集
  * - get_skill_content: 按技能名或路径获取完整文档内容，便于大模型自动识别并加载技能
  * remoter 可将返回的 tools 合并进 extraTools 注入 agent
  */
-export function createSkillTools(modules: Record<string, string>): Promise<SkillToolsSet> {
+export function createSkillTools(modules: Record<string, string | (() => Promise<string>)>): SkillToolsSet {
   // @ts-ignore ai package 的 tool() 函数类型推断存在"类型实例化过深"的已知限制，无法正确推断包含复杂 Zod 链的 schema
   const getSkillContent = tool({
     description:
       '根据技能名称或文档路径获取该技能的完整文档内容。如果你想根据相对路径查阅文件，请务必同时提供你当前所在的文件路径 currentPath。',
     inputSchema: SKILL_INPUT_SCHEMA,
-    execute: async (args: { skillName?: string; path?: string; currentPath?: string }): Record<string, unknown> => {
+    execute: async (args: {
+      skillName?: string
+      path?: string
+      currentPath?: string
+    }): Promise<Record<string, unknown>> => {
       if (!isNormalizeSkillModuleKeys) {
         normalizeSkillModuleKeysResult = await normalizeSkillModuleKeys(modules)
         isNormalizeSkillModuleKeys = true
