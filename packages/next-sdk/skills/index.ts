@@ -53,14 +53,17 @@ export async function parseSkillFrontMatter(
  * 以便 getSkillMdContent / getMainSkillPathByName 等能正确按 path 查找。
  * 兼容任意引入位置：./skills/xxx、../skills/xxx、src/skills/xxx 等，取最后一个 skills/ 后的部分并加上 ./
  */
-function normalizeSkillModuleKeys(modules: Record<string, string>): Record<string, string> {
+async function normalizeSkillModuleKeys(
+  modules: Record<string, string | (() => Promise<string>)>
+): Promise<Record<string, string>> {
   const result: Record<string, string> = {}
   for (const [key, content] of Object.entries(modules)) {
     const normalizedKey = key.replace(/\\/g, '/')
     const skillsIndex = normalizedKey.lastIndexOf('skills/')
     const relativePath = skillsIndex >= 0 ? normalizedKey.slice(skillsIndex + 7) : normalizedKey
     const standardPath = relativePath.startsWith('./') ? relativePath : `./${relativePath}`
-    result[standardPath] = content
+    const realContent = typeof content === 'string' ? content : await content()
+    result[standardPath] = realContent
   }
   return result
 }
@@ -69,8 +72,8 @@ function normalizeSkillModuleKeys(modules: Record<string, string>): Record<strin
  * 获取所有「主 SKILL.md」的路径（一级子目录下的 SKILL.md）
  * - 对传入的 modules 先做 normalize，兼容任意 import.meta.glob 写法
  */
-export function getMainSkillPaths(modules: Record<string, string>): string[] {
-  const normalized = normalizeSkillModuleKeys(modules)
+export async function getMainSkillPaths(modules: Record<string, string | (() => Promise<string>)>): Promise<string[]> {
+  const normalized = await normalizeSkillModuleKeys(modules)
   return Object.keys(normalized).filter((path) => MAIN_SKILL_PATH_REG.test(path))
 }
 
@@ -78,8 +81,10 @@ export function getMainSkillPaths(modules: Record<string, string>): string[] {
  * 获取所有技能的概况列表（name、description、path），用于 systemPrompt 或列表展示
  * - 内部统一对 modules 做 normalize，避免调用方关心路径细节
  */
-export async function getSkillOverviews(modules: Record<string, string>): Promise<SkillMeta[]> {
-  const normalized = normalizeSkillModuleKeys(modules)
+export async function getSkillOverviews(
+  modules: Record<string, string | (() => Promise<string>)>
+): Promise<SkillMeta[]> {
+  const normalized = await normalizeSkillModuleKeys(modules)
   const mainPaths = Object.keys(normalized).filter((path) => MAIN_SKILL_PATH_REG.test(path))
   const list: SkillMeta[] = []
   for (const path of mainPaths) {
@@ -107,20 +112,14 @@ export function formatSkillsForSystemPrompt(skills: SkillMeta[]): string {
 }
 
 /**
- * 获取所有已加载的技能文件路径（含主 SKILL.md 与 reference 下的 .md/.json/.xml 等）
- * - 对 modules 做 normalize 后再返回 key 列表
- */
-export function getSkillMdPaths(modules: Record<string, string>): string[] {
-  const normalized = normalizeSkillModuleKeys(modules)
-  return Object.keys(normalized)
-}
-
-/**
  * 根据相对路径获取某个技能文档的原始内容（支持 .md、.json、.xml 等文本格式）
  * - 自动对 modules 做 normalize，再按 path 查找
  */
-export function getSkillMdContent(modules: Record<string, string>, path: string): string | undefined {
-  const normalized = normalizeSkillModuleKeys(modules)
+export async function getSkillMdContent(
+  modules: Record<string, string | (() => Promise<string>)>,
+  path: string
+): Promise<string | undefined> {
+  const normalized = await normalizeSkillModuleKeys(modules)
 
   // 1. 尝试原有的严格匹配
   const exactMatch = normalized[path]
@@ -139,9 +138,12 @@ export function getSkillMdContent(modules: Record<string, string>, path: string)
  * 支持匹配目录名（如 ecommerce）或 SKILL.md 内 frontmatter 定义的 name
  * - 依赖 getMainSkillPaths，内部已做 normalize
  */
-export async function getMainSkillPathByName(modules: Record<string, string>, name: string): string | undefined {
-  const normalizedModules = normalizeSkillModuleKeys(modules)
-  const paths = getMainSkillPaths(normalizedModules)
+export async function getMainSkillPathByName(
+  modules: Record<string, string | (() => Promise<string>)>,
+  name: string
+): Promise<string | undefined> {
+  const normalizedModules = await normalizeSkillModuleKeys(modules)
+  const paths = await getMainSkillPaths(normalizedModules)
 
   // 1. 先尝试按目录名精确匹配 (兼容老逻辑)
   const dirMatch = paths.find((p) => p.startsWith(`./${name}/SKILL.md`))
@@ -192,15 +194,26 @@ const SKILL_INPUT_SCHEMA = z.object({
  * - get_skill_content: 按技能名或路径获取完整文档内容，便于大模型自动识别并加载技能
  * remoter 可将返回的 tools 合并进 extraTools 注入 agent
  */
-export function createSkillTools(modules: Record<string, string>): SkillToolsSet {
-  const normalizedModules = normalizeSkillModuleKeys(modules)
+export function createSkillTools(modules: Record<string, string | (() => Promise<string>)>): SkillToolsSet {
+  let isNormalizeSkillModuleKeys = false
+  let normalizeSkillModuleKeysResult: Record<string, string>
 
   // @ts-ignore ai package 的 tool() 函数类型推断存在"类型实例化过深"的已知限制，无法正确推断包含复杂 Zod 链的 schema
   const getSkillContent = tool({
     description:
       '根据技能名称或文档路径获取该技能的完整文档内容。如果你想根据相对路径查阅文件，请务必同时提供你当前所在的文件路径 currentPath。',
     inputSchema: SKILL_INPUT_SCHEMA,
-    execute: async (args: { skillName?: string; path?: string; currentPath?: string }): Record<string, unknown> => {
+    execute: async (args: {
+      skillName?: string
+      path?: string
+      currentPath?: string
+    }): Promise<Record<string, unknown>> => {
+      if (!isNormalizeSkillModuleKeys) {
+        normalizeSkillModuleKeysResult = await normalizeSkillModuleKeys(modules)
+        isNormalizeSkillModuleKeys = true
+      }
+
+      const normalizedModules = normalizeSkillModuleKeysResult
       const { skillName, path: pathArg, currentPath: currentPathArg } = args
       let content: string | undefined
       let resolvedPath = ''
@@ -221,7 +234,7 @@ export function createSkillTools(modules: Record<string, string>): SkillToolsSet
         const dummyBase = `http://localhost/${basePathContext}/`
         const url = new URL(pathArg, dummyBase)
         resolvedPath = '.' + url.pathname
-        content = getSkillMdContent(normalizedModules, resolvedPath)
+        content = await getSkillMdContent(normalizedModules, resolvedPath)
 
         // 尝试 2：如果大模型忘了传正确的 currentPath，或者是强行传错，做个智能根目录回退
         if (content === undefined && (pathArg.startsWith('./') || pathArg.startsWith('../')) && currentPathArg) {
@@ -231,7 +244,7 @@ export function createSkillTools(modules: Record<string, string>): SkillToolsSet
             const fallbackDummyBase = `http://localhost/${skillRoot}/`
             const fallbackUrl = new URL(pathArg, fallbackDummyBase)
             const fallbackPath = '.' + fallbackUrl.pathname
-            content = getSkillMdContent(normalizedModules, fallbackPath)
+            content = await getSkillMdContent(normalizedModules, fallbackPath)
             if (content) {
               resolvedPath = fallbackPath
             }
@@ -250,7 +263,7 @@ export function createSkillTools(modules: Record<string, string>): SkillToolsSet
         const mainPath = await getMainSkillPathByName(normalizedModules, skillName)
         if (mainPath) {
           resolvedPath = mainPath
-          content = getSkillMdContent(normalizedModules, mainPath)
+          content = await getSkillMdContent(normalizedModules, mainPath)
         }
       }
 

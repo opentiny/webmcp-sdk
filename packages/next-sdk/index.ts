@@ -46,7 +46,6 @@ export * from './page-tools/bridge'
 export {
   getSkillOverviews,
   formatSkillsForSystemPrompt,
-  getSkillMdPaths,
   getSkillMdContent,
   getMainSkillPaths,
   getMainSkillPathByName,
