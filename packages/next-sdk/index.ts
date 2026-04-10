@@ -58,3 +58,4 @@ export {
 export * from '@mcp-b/webmcp-polyfill'
 
 export { initializeBuiltinWebMCP } from './page-tools/initialize-builtin-WebMCP'
+export { registerPageAgentTool } from './page-tools/page-agent-tool'
