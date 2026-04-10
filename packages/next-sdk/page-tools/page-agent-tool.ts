@@ -12,7 +12,7 @@ export async function registerPageAgentTool() {
 
   const inputSchema = z.object({
     action: z.enum(['browserState', 'click', 'fill', 'select', 'scroll', 'executeJavascript'] as const)
-      .describe(`执行的动作名称。 
+      .describe(`执行的动作名称, 每一次执行 'click', 'fill', 'select'动作之前，**必须**要先调用 'browserState' 去获取页面的最新状态。 
         browserState: '查询整个页面的浏览器状态;返回页面的标题、URL、HTML内容',
         click: '根据元素索引点击;',
         fill: '根据元素索引填写文本;'; 
@@ -32,7 +32,9 @@ export async function registerPageAgentTool() {
     script: z.string().optional().describe('执行的javascript代码，动作为 executeJavascript时，必须提供script参数')
   })
 
-  function buildContent(msg: string, ret?: any) {
+  async function buildContent(msg: string, ret?: any) {
+    await pageController.hideMask()
+    await pageController.cleanUpHighlights()
     return {
       content: [{ type: 'text', text: `${msg} ${JSON.stringify(ret)}` }]
     }
@@ -44,37 +46,49 @@ export async function registerPageAgentTool() {
     // @ts-ignore
     inputSchema: zodToJsonSchema(inputSchema, 'pageAgentToolInputSchema') as any,
     async execute(args: any) {
-      if (args.action === 'browserState') {
-        const result = await pageController.getBrowserState()
-        return buildContent('浏览器状态:', result)
-      } else if (args.action === 'click') {
-        if (!args.index) return buildContent('点击结果:', '缺少元素索引')
+      pageController.showMask()
+      try {
+        if (args.action === 'browserState') {
+          const result = await pageController.getBrowserState()
+          return buildContent('浏览器状态:', result)
+        } else if (args.action === 'click') {
+          if (!args.index) return buildContent('点击结果:', '缺少元素索引')
 
-        const result = await pageController.clickElement(args.index)
-        return buildContent('点击结果:', result)
-      } else if (args.action === 'fill') {
-        if (!args.index || !args.text) return buildContent('填写结果:', '缺少元素索引或文本内容')
+          const result = await pageController.clickElement(args.index)
+          return buildContent('点击结果:', result)
+        } else if (args.action === 'fill') {
+          if (!args.index || !args.text) return buildContent('填写结果:', '缺少元素索引或文本内容')
 
-        const result = await pageController.inputText(args.index, args.text)
-        return buildContent('填写结果:', result)
-      } else if (args.action === 'select') {
-        if (!args.index || !args.text) return buildContent('选择结果:', '缺少元素索引或文本内容')
+          const result = await pageController.inputText(args.index, args.text)
+          return buildContent('填写结果:', result)
+        } else if (args.action === 'select') {
+          if (!args.index || !args.text) return buildContent('选择结果:', '缺少元素索引或文本内容')
 
-        const result = await pageController.selectOption(args.index, args.text)
-        return buildContent('填写结果:', result)
-      } else if (args.action === 'scroll') {
-        if (!args.down && !args.right) return buildContent('滚动结果:', '缺少滚动方向参数')
+          const result = await pageController.selectOption(args.index, args.text)
+          return buildContent('填写结果:', result)
+        } else if (args.action === 'scroll') {
+          if (!args.down && !args.right) return buildContent('滚动结果:', '缺少滚动方向参数')
 
-        const input = Object.assign({}, args)
-        delete input.action
+          const input = Object.assign({}, args)
+          delete input.action
 
-        const result = await pageController.scroll(input)
-        return buildContent('滚动结果:', result)
-      } else if (args.action === 'executeJavascript') {
-        if (!args.script) return buildContent('脚本执行异常:', '缺少javascript代码')
+          if (args.right) {
+            delete input.down
+            delete input.numPages
+          }
 
-        const result = await pageController.executeJavascript(args.script)
-        return buildContent('脚本执行结果:', result)
+          const result = args.right
+            ? await pageController.scrollHorizontally(input)
+            : await pageController.scroll(input)
+          return buildContent('滚动结果:', result)
+        } else if (args.action === 'executeJavascript') {
+          if (!args.script) return buildContent('脚本执行异常:', '缺少javascript代码')
+
+          const result = await pageController.executeJavascript(args.script)
+          return buildContent('脚本执行结果:', result)
+        }
+      } catch (error) {
+        return buildContent('异常:', error)
       }
     }
   })
