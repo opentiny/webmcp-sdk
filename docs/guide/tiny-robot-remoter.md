@@ -55,7 +55,7 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 - `inBrowserExt` 设置组件运行在普通页面还是浏览器的扩展中，默认值为：false（与生成式 UI 开关的显示无关）
 - `genUiAble` 双向绑定是否启用生成式 UI 的渲染，默认值为：false。输入框旁的「生成式 UI 开关」是否显示由**当前模型配置**决定：仅当配置中同时包含 `baseURL` 和 `genuiUrl` 时才会显示该开关
 - `genUiComponents` 生成式 UI 内置了一批组件，如果需要引入新组件，需要通过这里导入。参考示例：`shallowReactive({ TinyUser, TinyAlert })`
-- `customMarketMcpServers` 追加自定义 MCP 市场服务列表（`PluginInfo[]`），传入后会与组件内置的 `DEFAULT_SERVERS` 合并，用于扩展市场内容。**一般对应后台的 MCP 服务，可常驻存在。**
+- `customMarketMcpServers` 自定义 MCP 市场服务列表（`PluginInfo[]`）。组件内部不再内置任何默认市场服务，若需使用官方默认的 MCP 工具集，需从应用层导入并传入。**一般对应后台的 MCP 服务，可常驻存在。**
 - `mcpServers` 预置 MCP 服务器配置（业界格式 `Record<string, McpServerConfig>`）。键为服务器名称，值为单台服务器配置；组件初始化时会自动加载并出现在「已添加MCP服务」中。**一般对应前端的 MCP 服务，页面关闭后即不存在。** 支持配置自定义 `name`（插件显示名称）和 `description`（插件功能描述），配置说明见 [预置 MCP 服务器（mcpServers）](#预置-mcp-服务器mcpservers)
 - `pageToolsOnDemand` 已移除（破坏性变更），请勿继续传该属性
 - `skills` 设置技能的配置对象（`Record<string, string>` 类型）。通常配合 Vite 的 `import.meta.glob` 导入标准 `SKILL.md` 文件。AI 助手会自动识别用户意图并调用相应的技能，无需手动触发。
@@ -458,7 +458,25 @@ const customMarketMcpServers = [
 - `type` 对应该 MCP 服务的协议类型，例如 `sse`、`StreamableHTTP`
 - `enabled/addState/tools` 驱动 TinyRemoter 市场内的状态展示（中文注释：配合 UI 控制按钮、进度等）
 
-组件初始化时会把上述数组与 `DEFAULT_SERVERS` 合并，因此你可以通过简单传参扩展默认市场。
+组件不再内置默认市场服务。你可以在应用层灵活定义并传入。如果你希望保留 OpenTiny 官方提供的默认市场工具，可以参照如下配置：
+
+```vue
+<!-- App.vue (推荐配置示例) -->
+<script setup lang="ts">
+import { ref } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
+// 导入官方定义的默认市场工具（按需）
+import { DEFAULT_SERVERS } from '@opentiny/next-remoter/src/components/default-mcps'
+
+const customMarketMcpServers = ref([...DEFAULT_SERVERS])
+</script>
+
+<template>
+  <TinyRemoter :customMarketMcpServers="customMarketMcpServers" />
+</template>
+```
+
+通过这种方式，你可以完全控制市场面板中显示的插件列表。
 
 ### 自定义 MCP 请求 Header (headers)
 

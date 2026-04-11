@@ -46,6 +46,8 @@ import { builtInAI } from '@built-in-ai/core'
 import type { Component } from 'vue'
 import type { UnifiedModelConfig } from './types/model-config'
 
+import { DEFAULT_SERVERS } from './components/default-mcps'
+
 const props = defineProps({
   support: String // 支持什么应用：  office: 办公场景，  shop: 电商场景
 })
@@ -92,19 +94,7 @@ const skills = ref<Record<string, string>>({
 // 自定义市场 MCP 服务器列表
 // enabled: true 表示该服务器默认启用
 // addState: 'added' 表示该服务器已添加，会自动连接并显示在"已添加MCP服务"列表中
-const customMarketMcpServers = ref([
-  {
-    id: '12306-mcp-server-custom',
-    name: '12306购票搜索服务器',
-    description: '12306购票搜索服务器',
-    icon: 'https://agent.opentiny.design/public-assets/icons/icon-12306.webp',
-    enabled: true, // 默认启用
-    addState: 'added' as const, // 标记为已添加，会自动连接
-    tools: [],
-    url: 'https://agent.opentiny.design/api/v1/mcp-server/12306/mcp',
-    type: 'StreamableHTTP'
-  }
-])
+const customMarketMcpServers = ref(DEFAULT_SERVERS)
 
 const llmConfigs = ref<UnifiedModelConfig[]>([
   {

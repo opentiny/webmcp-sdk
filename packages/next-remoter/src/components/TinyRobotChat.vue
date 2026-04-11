@@ -180,7 +180,6 @@ import ModelSwitch from './ModelSwitch.vue'
 import PluginToggleButton from './PluginToggleButton.vue'
 import GenUISwitch from './GenUISwitch.vue'
 import BubbleImageRenderer from './BubbleImageRenderer.vue'
-import { DEFAULT_SERVERS } from './default-mcps'
 import { defaultPluginSrc } from './default-plugin-svg'
 import { getLang, mapMake } from './lang'
 import { handleError } from './error-handle'
@@ -523,7 +522,7 @@ useRouteBasedTools({
 })
 
 // 初始化市场插件数据
-marketPlugins.value = [...DEFAULT_SERVERS, ...props.customMarketMcpServers]
+marketPlugins.value = [...props.customMarketMcpServers]
 
 // 市场分类选项
 const marketCategoryOptions = ref<MarketCategoryOption[]>([
