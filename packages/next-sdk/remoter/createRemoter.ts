@@ -5,10 +5,11 @@ import scan from './svgs/scan.svg?url'
 import link from './svgs/link.svg?url'
 import qrCode from './svgs/qrcode.svg?url'
 import iconCopy from './svgs/icon-copy.svg?url'
+import logo from './svgs/logo.svg?url'
 
 const DEFAULT_REMOTE_URL = 'https://chat.opentiny.design'
 const DEFAULT_QR_CODE_URL = 'https://ai.opentiny.design/next-remoter'
-const DEFAULT_LOGO_URL = 'https://ai.opentiny.design/next-remoter/svgs/logo-next-no-bg-left.svg'
+const DEFAULT_LOGO_URL = logo
 
 /** 菜单项配置接口 */
 export interface MenuItemConfig {
