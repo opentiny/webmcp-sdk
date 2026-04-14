@@ -5,7 +5,6 @@
     :menuItems="menuItems"
     :mcpServers="mcpServers"
     :skills="skillMdModules"
-
     :systemPrompt="systemPrompt"
     :promptItems="ecommercePromptItems"
     :pillItems="ecommercePillItems"
@@ -15,7 +14,8 @@
 <script setup lang="ts">
 import { TinyRemoter } from '@opentiny/next-remoter'
 import type { McpServerConfig, MenuItemConfig } from '@opentiny/next-sdk'
-import { ref,h } from 'vue'
+import '@opentiny/next-remoter/dist/style.css'
+import { ref, h } from 'vue'
 
 // 第五步：在 App.vue 接入 TinyRemoter
 const menuItems = ref<MenuItemConfig[]>([])

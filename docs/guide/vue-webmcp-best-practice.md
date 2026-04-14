@@ -290,6 +290,7 @@ onMounted(async () => {
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
+import '@opentiny/next-remoter/dist/style.css'
 
 const show = ref(true)
 

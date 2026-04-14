@@ -101,6 +101,7 @@ import { onMounted, ref, h } from 'vue'
 import { createMcpServer, useWebAgentServer } from './mcp-servers'
 import { iconDesktopView, iconBoxSolid, iconLock, iconLineChart, iconCoin, iconShoppingCard } from '@opentiny/vue-icon'
 import { AGENT_ROOT } from './const'
+import '@opentiny/next-remoter/dist/style.css'
 
 // 电商管理平台：欢迎区建议卡片（上方大卡片）
 const ecommercePromptItems = [
