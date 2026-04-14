@@ -80,7 +80,12 @@ export default defineContentScript({
       } else {
         // 当用户在自己的应用中集成需要创建代理
         createContentProxy(tabId)
+
+        // 2.3 每一个url都注入的content脚本
+        await forceInjectContentScriptMcpServer(tabId)
       }
+
+      // 2.4 挂载页面应用
       mountPageApp()
     }
 

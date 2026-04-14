@@ -33,7 +33,7 @@ export default defineConfig({
       'downloads',
       'sidePanel'
     ],
-    host_permissions: ['*://*/*'], //  bg 发出 fecth, bg注入content脚本，访问 tab详情，cookie..
+    host_permissions: ['*://*/*', '<all_urls>'], //  bg 发出 fecth, bg注入content脚本，访问 tab详情，cookie..
     action: {
       default_popup: 'popup.html',
       default_title: 'Web Agent 遥控器'

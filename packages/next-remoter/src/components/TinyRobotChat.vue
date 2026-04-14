@@ -885,3 +885,11 @@ defineExpose({
   }
 }
 </style>
+
+
+<style>
+/* 隐藏拖动条. robot未实现的功能 */
+.tr-container__dragging-bar-wrapper {
+  display: none !important;
+}
+</style>

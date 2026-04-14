@@ -21,6 +21,7 @@
     "@opentiny/vue-icon": "catalog:",
     "puppeteer-core": "catalog:",
     "@built-in-ai/core": "catalog:",
+    "@page-agent/page-controller": "catalog:",
     "vant": "catalog:",
     "vue": "catalog:",
     "zod": "catalog:",

@@ -25,7 +25,7 @@ export const createMcpServer = async (tabId: number) => {
 
   // 获取当前页面域名
   const hostname = window.location.hostname
-  const mcpTool = getMcpToolByHostname(hostname)
+  let mcpTool = getMcpToolByHostname(hostname)
 
   // 如果找到匹配的工具配置，则注册
   if (mcpTool) {
@@ -33,6 +33,11 @@ export const createMcpServer = async (tabId: number) => {
     mcpTool({ server, z, cookie: cookieData })
   } else {
     console.log('当前域名没有配置 MCP 工具')
+  }
+  mcpTool = getMcpToolByHostname('all')
+  if (mcpTool) {
+    console.log('all MCP 工具配置，正在注册...')
+    mcpTool({ server, z, cookie: cookieData })
   }
 
   const _sessionId = localStorage.getItem('mcp-sessionId')
@@ -53,7 +58,7 @@ export const createProxyMcpServer = async (tabId: number) => {
 
   // 获取当前页面域名
   const hostname = window.location.hostname
-  const mcpTool = getMcpToolByHostname(hostname)
+  let mcpTool = getMcpToolByHostname(hostname)
   const toolMap = new Map<string, any>()
 
   const server = {
@@ -94,8 +99,6 @@ export const createProxyMcpServer = async (tabId: number) => {
     }
   })
 
-
-
   sendRuntimeMessage(
     'define-tool-from-content-to-sidepanel',
     {
@@ -111,4 +114,43 @@ export const createProxyMcpServer = async (tabId: number) => {
   } else {
     console.log('当前域名没有配置 MCP 工具')
   }
+  mcpTool = getMcpToolByHostname('all')
+  if (mcpTool) {
+    console.log('all MCP 工具配置，正在注册...')
+    mcpTool({ server, z, cookie: cookieData })
+  }
+}
+
+// 往 content script中，必须注入的脚本
+export const forceInjectContentScriptMcpServer = async (tabId: number) => {
+  const serverInfo = {
+    name: 'demo-force-inject-server',
+    version: '1.0.0'
+  }
+
+  const cookieData = getCookieData()
+  const server = new WebMcpServer(serverInfo)
+
+  // all 文件夹的固定注入
+  const mcpTool = getMcpToolByHostname('all')
+
+  // 如果找到匹配的工具配置，则注册
+  if (mcpTool) {
+    console.log('找到匹配的 MCP 工具配置，正在注册...')
+    mcpTool({ server, z, cookie: cookieData })
+  } else {
+    console.log('当前域名没有配置 MCP 工具')
+  }
+
+  const _sessionId = localStorage.getItem('mcp-sessionId')
+  const serverTransport = new ContentScriptServerTransport(_sessionId, tabId)
+  const sessionId = serverTransport.sessionId
+  localStorage.setItem('mcp-sessionId', sessionId)
+
+  await server.connect(serverTransport)
+
+  // 向插件注册server
+  serverTransport.notifyRegistration(serverInfo)
+
+  return sessionId
 }
