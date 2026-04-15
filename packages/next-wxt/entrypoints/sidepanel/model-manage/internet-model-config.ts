@@ -15,11 +15,11 @@ const AGENT_BASE_URL = 'https://agent.opentiny.design'
 
 export const INTERNET_BASE_MODEL_CONFIGS: UnifiedModelConfig[] = [
   {
-    id: 'deepseek-ai/DeepSeek-V3',
-    label: 'DeepSeek-V3',
-    model: 'deepseek-ai/DeepSeek-V3',
-    apiKey: 'sk-trial',
-    baseURL: `${AGENT_BASE_URL}/api/v1/ai`,
+    id: 'deepseek-chat',
+    label: 'deepseek-chat',
+    model: 'deepseek-chat',
+    apiKey: 'sk-b462f8de7b364629b3136312c106655a',
+    baseURL: 'https://api.deepseek.com',
     genuiUrl: `${AGENT_BASE_URL}/api/v1/ai/prompt`,
     providerType: 'deepseek',
     useReActMode: false,
