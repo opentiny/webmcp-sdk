@@ -8,7 +8,7 @@ import { PageController } from '@page-agent/page-controller'
 export async function registerPageAgentTool() {
   initializeBuiltinWebMCP()
 
-  const pageController = new PageController({ enableMask: true })
+  const pageController = new PageController({ enableMask: true, viewportExpansion: -1 })
 
   const inputSchema = z.object({
     action: z.enum(['browserState', 'click', 'fill', 'select', 'scroll', 'executeJavascript'] as const)
