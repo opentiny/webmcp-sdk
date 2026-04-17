@@ -65,7 +65,7 @@ export function registerPageAgentTool() {
           if (!args.index || !args.text) return buildContent('选择结果:', '缺少元素索引或文本内容')
 
           const result = await pageController.selectOption(args.index, args.text)
-          return buildContent('填写结果:', result)
+          return buildContent('选择结果:', result)
         } else if (args.action === 'scroll') {
           if (!args.down && !args.right) return buildContent('滚动结果:', '缺少滚动方向参数')
 
