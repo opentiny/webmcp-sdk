@@ -44,7 +44,7 @@ export function registerPageAgentTool() {
     name: 'page-agent-tool',
     description: pageAgentPrompt,
     // @ts-ignore
-    inputSchema: zodToJsonSchema(inputSchema, 'pageAgentToolInputSchema') as any,
+    inputSchema: zodToJsonSchema(inputSchema) as any,
     async execute(args: any) {
       pageController.showMask()
       try {
