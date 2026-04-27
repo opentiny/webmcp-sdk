@@ -56,9 +56,11 @@
     "@ai-sdk/deepseek": "catalog:",
     "@ai-sdk/provider": "catalog:",
     "@ai-sdk/mcp": "catalog:",
-    "@mcp-b/webmcp-polyfill": "^2.2.0",
+    "@mcp-b/webmcp-polyfill": "catalog:",
+    "@page-agent/page-controller": "catalog:",
     "qrcode": "catalog:",
     "zod": "catalog:",
+    "zod-to-json-schema": "^3.25.2",
     "ajv": "catalog:",
     "ai": "catalog:"
   },
@@ -67,7 +69,7 @@
     "vite": "catalog:",
     "vite-plugin-dts": "catalog:",
     "@types/qrcode": "catalog:",
-    "@types/node": "^24.3.0"
+    "@types/node": "catalog:"
   },
   "publishConfig": {
     "access": "public",

@@ -15,6 +15,7 @@ catalog:
   # mcp
   '@modelcontextprotocol/inspector': ^0.16.1
   '@modelcontextprotocol/sdk': ~1.25.2
+  'zod-to-json-schema': ^3.25.2 # zod@3 to json schema
   ajv: ^8.17.1
   zod: ^3.25.76
 
@@ -58,6 +59,11 @@ catalog:
   qrcode: ^1.5.4
   html5-qrcode: ^2.3.8
   markdown-it: ^14.1.0
+
+  # 第3方ai 相关依赖
+  '@page-agent/page-controller': ^1.7.1
+  '@mcp-b/webmcp-polyfill': ^2.2.0
+  '@mcp-b/webmcp-types': ^2.2.0
 
   # vue
   vue: ^3.5.22
