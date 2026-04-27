@@ -46,7 +46,7 @@ export function registerPageAgentTool() {
     // @ts-ignore
     inputSchema: zodToJsonSchema(inputSchema) as any,
     async execute(args: any) {
-      pageController.showMask()
+      await pageController.showMask()
       try {
         if (args.action === 'browserState') {
           const result = await pageController.getBrowserState()
