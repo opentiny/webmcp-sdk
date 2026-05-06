@@ -1,6 +1,5 @@
 import { WebMcpClient } from '@opentiny/next-sdk/core'
 import { StorageKeys } from '../utils/storage-keys'
-import { createMcpServer } from '../mcpServer'
 import { AGENT_ROOT } from '../const'
 import { getWebAgentUrl, getConnectType } from '../model-manage/model-storage'
 
@@ -39,13 +38,11 @@ export const useWebAgentServer = async (): Promise<string> => {
     return finalAgentRoot
   }
 
-  const { clientTransport } = await createMcpServer()
+
   const client = new WebMcpClient(
     { name: 'mcp-web-client', version: '1.0.0' },
     { capabilities: { roots: { listChanged: true }, sampling: {}, elicitation: {} } }
   )
-
-  await client.connect(clientTransport)
 
   const connectType = import.meta.env.VITE_WEB_AGENT_CONNECT_TYPE
   let retryCount = 0
@@ -64,6 +61,7 @@ export const useWebAgentServer = async (): Promise<string> => {
       url: baseUrl + suffix,
       sessionId: latestSessionId || undefined,
       agent: true,
+      builtin: true, // 开启内置 WebMCP 代理，使大模型能够直接调用当前环境的 navigator.modelContextTesting
       type,
       onError
     }

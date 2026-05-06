@@ -1,6 +1,4 @@
 import PageUI from '@/components/pageUI.vue'
-import { createMcpServer, createProxyMcpServer } from '@/utils/createMcpServer'
-import { createContentProxy } from '@/utils/contentProxy'
 import { getMcpMetaInfo } from '@/mcp-servers'
 import { sendRuntimeMessage } from '@/utils/messages'
 
@@ -8,113 +6,79 @@ export default defineContentScript({
   matches: ['*://*/*'],
   runAt: 'document_idle',
   async main(ctx) {
-    // 全局变量
-    let self: Browser.runtime.MessageSender
     let tabId: number
 
-    // 1、判定启动条件：页面可见之后
+    // 1. 等待页面可见后再初始化（避免后台标签浪费资源）
     if (document.visibilityState === 'hidden') {
-      const handleVisibilityChange = () => {
-        if (document.visibilityState === 'visible') {
-          startAll()
-          document.removeEventListener('visibilitychange', handleVisibilityChange)
-        }
-      }
-      document.addEventListener('visibilitychange', handleVisibilityChange)
-    } else {
-      startAll()
-    }
-
-    // 2、启动流程
-    async function startAll() {
-      // 2.1
-      await getTabId()
-
-      // 2.2 根据配置类型选择不同的 MCP 加载方式
-      const hostname = window.location.hostname
-      const mcpMeta = getMcpMetaInfo(hostname)
-      if (mcpMeta) {
-        if (mcpMeta.isAlwaysEnabled) {
-          if (mcpMeta.type === 'contentScriptMcpServer') {
-            // 编译态在 content-script 中申明 mcp-server 和 tools
-            await createProxyMcpServer(tabId)
-            console.log('【Content Script】页面初始化完成（contentScriptMcpServer）', {
-              self,
-              tabId,
-              hostname,
-              mcpMeta
-            })
-          } else if (mcpMeta.type === 'pageMcpServer') {
-            createContentProxy(tabId)
-            // 运行时插入 user-script，直接在页面中申明 mcp-server 和 tools
-            await initWebTools()
-
-            console.log('【Content Script】页面初始化完成（pageMcpServer）', {
-              self,
-              tabId,
-              hostname,
-              mcpMeta
-            })
-          }
-        } else {
-          console.log('【Content Script】找到 MCP 配置:', mcpMeta)
-          if (mcpMeta.type === 'pageMcpServer') {
-            createContentProxy(tabId)
-            // 运行时插入 user-script，直接在页面中申明 mcp-server 和 tools
-            await initWebMCP()
-            console.log('【Content Script】页面初始化完成（pageMcpServer）', { self, tabId, hostname, mcpMeta })
-          } else if (mcpMeta.type === 'contentScriptMcpServer') {
-            // 编译态在 content-script 中申明 mcp-server 和 tools
-            await createMcpServer(tabId)
-
-            console.log('【Content Script】页面初始化完成（contentScriptMcpServer）', {
-              self,
-              tabId,
-              hostname,
-              mcpMeta
-            })
-          } else {
-            console.warn('【Content Script】未知的 MCP 服务器类型:', mcpMeta.type)
+      await new Promise<void>((resolve) => {
+        const handleVisibilityChange = () => {
+          if (document.visibilityState === 'visible') {
+            document.removeEventListener('visibilitychange', handleVisibilityChange)
+            resolve()
           }
         }
-      } else {
-        // 当用户在自己的应用中集成需要创建代理
-        createContentProxy(tabId)
-      }
-      mountPageApp()
-    }
-
-    async function getTabId() {
-      self = await sendRuntimeMessage('who-am-i', {}, 'content->bg')
-      tabId = self.tab?.id!
-    }
-
-    const initWebMCP = async () => {
-      const hostname = window.location.hostname
-      const reply = await browser.runtime.sendMessage({ type: 'inject-mcp-scripts', hostname, tabId })
-      console.log('【Content Script】 initWebMCP 插入脚本结果：', reply)
-    }
-
-    const initWebTools = async () => {
-      const hostname = window.location.hostname
-      // 这里携带 tabId，便于后台在首次注册脚本时主动刷新当前页面
-      const reply = await browser.runtime.sendMessage({ type: 'inject-tools-script', hostname, tabId })
-      console.log('【Content Script】 initWebTools 插入脚本结果：', reply)
-    }
-
-    function mountPageApp() {
-      const pageApp = createIntegratedUi(ctx, {
-        position: 'inline',
-        anchor: 'body',
-        onMount: async (container) => {
-          const app = createApp(PageUI, { tabId })
-          // 使用wxt提供的属性注入
-          container.dataset.wxtIntegrated = ''
-          app.mount(container)
-        }
+        document.addEventListener('visibilitychange', handleVisibilityChange)
       })
-
-      pageApp.mount()
     }
+
+    // 2. 获取当前 Tab ID
+    const self = await sendRuntimeMessage('who-am-i', {}, 'content->bg')
+    tabId = self.tab?.id!
+
+    // 3. 建立 WebMCP <-> background 双向消息桥接 (已废弃)
+    // 根据最新架构，Sidepanel 直接通过 background.ts 的 executeScript(world: MAIN) 查询和调用页面 WebMCP
+    // 因此 content script 不再需要负责桥接 WebMCP 消息。
+
+    // 4. 【场景B：存量第三方网页】检测当前域名
+    //    若在 mcp-servers/ 中有对应配置，则通过 scripting.executeScript 注入工具脚本
+    //    注入的脚本在页面真实 JS 上下文中运行，可直接访问 DOM
+    const hostname = window.location.hostname
+    const meta = getMcpMetaInfo(hostname)
+    if (meta) {
+      await injectMcpServerTools(hostname, tabId)
+    }
+
+    // 5. 挂载页面浮层 UI（工具调用动效等）
+    mountPageApp(ctx, tabId)
   }
 })
+
+/**
+ * 为第三方网页（场景B）注入 WebMCP 工具
+ *
+ * Content Script 没有 scripting API 权限，
+ * 因此发送 'inject-mcp-tools' 消息委托 background.ts 代为注入。
+ */
+async function injectMcpServerTools(hostname: string, tabId: number): Promise<void> {
+  try {
+    const res = await browser.runtime.sendMessage({
+      type: 'inject-mcp-tools',
+      tabId,
+      hostname
+    })
+
+    if (res?.success) {
+      console.log(`[next-wxt] 已为 ${hostname} 注入 WebMCP 工具`)
+    } else {
+      console.warn(`[next-wxt] 注入 mcp-servers 工具失败 (${hostname}):`, res?.error)
+    }
+  } catch (error) {
+    console.warn(`[next-wxt] 注入 mcp-servers 工具通信失败 (${hostname}):`, error)
+  }
+}
+
+/**
+ * 挂载页面浮层 UI（工具调用提示动效等）
+ */
+function mountPageApp(ctx: any, tabId: number): void {
+  const pageApp = createIntegratedUi(ctx, {
+    position: 'inline',
+    anchor: 'body',
+    onMount: async (container: HTMLElement) => {
+      const app = createApp(PageUI, { tabId })
+      container.dataset.wxtIntegrated = ''
+      app.mount(container)
+    }
+  })
+  pageApp.mount()
+}

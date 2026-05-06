@@ -609,6 +609,10 @@ export function registerPageTool(options: RegisterPageToolByHandlersOptions): ()
  * 我们通过此函数进行拦截劫持，并同步到 next-sdk 的握手线路 (MSG_TOOL_REGISTERED / MSG_TOOL_UNREGISTERED)，
  * 从而保证无论浏览器是否原生支持，均能正常完成 WebMCP 握手交互。
  */
+// 已注册工具列表（由 setupModelContextBridge 维护）
+// 供 content.ts 通过 window.__nextSdkRegisteredTools() 跨沙箱查询完整工具定义
+const _registeredTools = new Map<string, any>()
+
 export function setupModelContextBridge() {
   if (typeof navigator === 'undefined') return
   const nav = navigator as any
@@ -616,6 +620,11 @@ export function setupModelContextBridge() {
 
   // 如果不存在或者已经被拦截过，则不处理
   if (!nativeCtx || nativeCtx.__isNextSdkBridgeSetup) return
+
+  // 挂载全局查询函数，供 content script（隔离沙箱）访问
+  if (isBrowser() && !(window as any).__nextSdkRegisteredTools) {
+    ;(window as any).__nextSdkRegisteredTools = () => Array.from(_registeredTools.values())
+  }
 
   const originalRegisterTool = nativeCtx.registerTool?.bind(nativeCtx)
   const originalUnregisterTool = nativeCtx.unregisterTool?.bind(nativeCtx)
@@ -643,11 +652,21 @@ export function setupModelContextBridge() {
         delete toolConfig.routeConfig
       }
 
-      // 3. 执行底层的原生注册逻辑并广播同步
+      // 3. 维护工具定义，供 content.ts 握手查询
+      _registeredTools.set(name, {
+        name,
+        title: config.title,
+        description: config.description,
+        inputSchema: config.inputSchema
+      })
+
+      // 4. 执行底层的原生注册逻辑并广播同步
       try {
         originalRegisterTool(toolConfig)
         broadcastToolChange(MSG_TOOL_REGISTERED)
       } catch (err) {
+        // 如果注册失败，撤销记录
+        _registeredTools.delete(name)
         // 忽略重复注册错误
       }
     }
@@ -657,6 +676,8 @@ export function setupModelContextBridge() {
     nativeCtx.unregisterTool = (name: string) => {
       try {
         originalUnregisterTool(name)
+        // 从工具名集合中移除
+        _registeredTools.delete(name)
         broadcastToolChange(MSG_TOOL_UNREGISTERED)
       } catch (err) {
         // 忽略注销错误

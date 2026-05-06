@@ -13,7 +13,7 @@ export const useWebAgentServer = async () => {
     sessionId: cachedSessionId,
     agent: true,
     builtin: true,
-    url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp'
+    url: 'http://localhost:3000/api/v1/webmcp/mcp'
   })
 
   transport.onclose = () => {
@@ -23,7 +23,7 @@ export const useWebAgentServer = async () => {
   transport.onerror = (error) => {
     console.error('WebMcpClient error:', error)
   }
-
+  console.log('WebMcpClient sessionId:', sessionId)
   // 持久化到 localStorage，刷新页面后可复用
   if (sessionId) {
     localStorage.setItem(SESSION_ID_KEY, sessionId)

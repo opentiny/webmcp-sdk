@@ -18,3 +18,9 @@ export type * from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 export type * from '@modelcontextprotocol/sdk/server/mcp.js'
 
 export * from './transport/ExtensionPageServerTransport'
+
+// page-tools：供浏览器插件通过 scripting.executeScript 注入到第三方页面后初始化 WebMCP
+export { initializeBuiltinWebMCP } from './page-tools/initialize-builtin-WebMCP'
+export { setupModelContextBridge } from './page-tools/bridge'
+export { registerPageAgentTool } from './page-tools/page-agent-tool'
+

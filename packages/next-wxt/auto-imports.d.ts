@@ -6,8 +6,6 @@
 // biome-ignore lint: disable
 export {}
 declare global {
-  const TinyTooltip: typeof import('@opentiny/vue-tooltip')['default']
-  const showConfirmDialog: typeof import('vant/es')['showConfirmDialog']
   const showLoadingToast: typeof import('vant/es')['showLoadingToast']
   const showToast: typeof import('vant/es')['showToast']
 }

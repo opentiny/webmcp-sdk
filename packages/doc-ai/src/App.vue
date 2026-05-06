@@ -83,6 +83,11 @@
         class="remoter-pane"
         :skills="skillMdModules"
         v-model:show="show"
+        :llmConfig="{
+          baseURL: 'https://api.deepseek.com/v1',
+          apiKey: 'sk-08ef2acffb774302aa9eb6f802ddd05a',
+          model: 'deepseek-chat'
+        }"
         :mcpServers="mcpServers"
         layoutMode="relative"
         :menuItems="menuItems"

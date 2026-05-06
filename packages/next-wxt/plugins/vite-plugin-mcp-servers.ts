@@ -133,11 +133,13 @@ export function mcpServersPlugin(): Plugin {
           minify: false, // 不压缩代码
           rollupOptions: {
             treeshake: true, // 启用 Tree-shaking
-            external: ['@opentiny/next-sdk'], // 标记为外部依赖
+            external: ['@opentiny/next-sdk'], // 标记为外部依赖（由 content.ts 注入的 vendor/next-sdk.js 提供）
             output: {
               format: 'iife',
               globals: {
-                '@opentiny/next-sdk': 'window.NextSDK'
+                // vendor/next-sdk.js 以 UMD 格式编译，全局变量名为 WebMCP
+                // 见 vite.config.webMcpFull.ts: name: 'WebMCP'
+                '@opentiny/next-sdk': 'WebMCP'
               }
             }
           }
