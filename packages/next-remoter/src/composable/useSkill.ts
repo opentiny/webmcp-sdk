@@ -1,4 +1,4 @@
-import { computed, watchEffect, type Ref } from 'vue'
+import { computed, watchEffect, shallowRef, type Ref } from 'vue'
 import { getSkillOverviews, formatSkillsForSystemPrompt, createSkillTools, type SkillMeta } from '@opentiny/next-sdk'
 
 export interface UseSkillWithToolsOptions {
@@ -15,9 +15,12 @@ export interface UseSkillWithToolsOptions {
 export function useSkillWithTools(options: UseSkillWithToolsOptions) {
   const { skillsRef, customAgentProvider } = options
 
-  const skillOverviews = computed<SkillMeta[]>(async () => {
+  // 注意：computed 不支持 async，改为 shallowRef + watchEffect 异步加载
+  const skillOverviews = shallowRef<SkillMeta[]>([])
+
+  watchEffect(async () => {
     const mod = skillsRef?.value
-    return mod ? await getSkillOverviews(mod) : []
+    skillOverviews.value = mod ? await getSkillOverviews(mod) : []
   })
 
   /** 用于拼进 systemPrompt 的「可用技能」说明（含「请用 get_skill_content 获取详情」） */
