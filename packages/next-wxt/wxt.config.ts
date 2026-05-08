@@ -48,8 +48,8 @@ export default defineConfig({
     },
     web_accessible_resources: [
       {
-        // next-sdk 主包（供第三方页面注入时使用）
-        resources: ['vendor/next-sdk.js'],
+        // next-sdk 主包和初始化脚本（供第三方页面注入时使用）
+        resources: ['vendor/next-sdk.js', 'vendor/init-webmcp.js'],
         matches: ['*://*/*']
       },
       {

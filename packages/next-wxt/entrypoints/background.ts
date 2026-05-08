@@ -51,7 +51,7 @@ export default defineBackground(() => {
     }
 
     // ── 浏览器内置 WebMCP 代理通信（代替原有的复杂消息桥接） ──
-    // 侧边栏查询：直接在目标页面执行脚本，调用 navigator.modelContextTesting.listTools()
+    // 侧边栏查询：直接在目标页面执行脚本，调用 __nextSdkRegisteredTools 或 listTools()
     if (message.type === 'get-page-tools') {
       const { tabId } = message
       browser.scripting
@@ -86,7 +86,7 @@ export default defineBackground(() => {
           world: 'MAIN',
           func: async (name: string, inputStr: string) => {
             try {
-              const ctx = (navigator as any).modelContextTesting
+              const ctx = (navigator as any).modelContextTesting || (navigator as any).modelContext
               if (!ctx) throw new Error('WebMCP is not initialized on this page')
               const res = await ctx.executeTool(name, inputStr)
               return { success: true, result: res }
@@ -105,48 +105,7 @@ export default defineBackground(() => {
         })
       return true
     }
-
-    // ── 脚本注入机制（Content Script 没有 scripting API 权限，需委托 background 执行） ──
-    if (message.type === 'inject-mcp-tools') {
-      const { tabId, hostname } = message
-
-      // 步骤1：注入 vendor/next-sdk.js
-      browser.scripting.executeScript({
-        target: { tabId },
-        world: 'MAIN',
-        files: ['vendor/next-sdk.js']
-      }).then(() => {
-        // 步骤2：初始化 WebMCP polyfill（建立 navigator.modelContext 拦截和 __nextSdkRegisteredTools 全局函数）
-        return browser.scripting.executeScript({
-          target: { tabId },
-          world: 'MAIN',
-          func: () => {
-            const sdk = (window as any).WebMCP
-            if (sdk?.initializeBuiltinWebMCP) {
-              sdk.initializeBuiltinWebMCP()
-            } else {
-              console.warn('[next-wxt] vendor/next-sdk.js 未正确暴露 initializeBuiltinWebMCP，请检查构建')
-            }
-          }
-        })
-      }).then(() => {
-        // 步骤3：注入工具脚本（工具将通过拦截后的 registerTool 注册到 __nextSdkRegisteredTools）
-        return browser.scripting.executeScript({
-          target: { tabId },
-          world: 'MAIN',
-          files: [`mcp-servers/${hostname}/index.js`]
-        })
-      }).then(() => {
-        sendResponse({ success: true })
-        // 注入成功，主动通知所有 Sidepanel 刷新工具列表，而不必等待下一次 Tab 事件
-        browser.runtime.sendMessage({ type: 'page-tools-updated', tabId }).catch(() => {})
-      }).catch((err) => {
-        console.error('[next-wxt] 注入脚本失败:', err)
-        sendResponse({ success: false, error: err.message })
-      })
-
-      return true // 异步响应
-    }
+    // ── execute-page-tool 之后的消息处理结束 ──
   })
 
   // ─────────────────────────────────────────
