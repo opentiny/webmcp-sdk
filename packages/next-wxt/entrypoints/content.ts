@@ -1,6 +1,7 @@
 import PageUI from '@/components/pageUI.vue'
 import { getMcpMetaInfo } from '@/mcp-servers'
 import { sendRuntimeMessage } from '@/utils/messages'
+import { PageController } from '@page-agent/page-controller'
 
 export default defineContentScript({
   matches: ['*://*/*'],
@@ -25,19 +26,18 @@ export default defineContentScript({
     const self = await sendRuntimeMessage('who-am-i', {}, 'content->bg')
     tabId = self.tab?.id!
 
-    // 3. 建立 WebMCP <-> background 双向消息桥接 (已废弃)
-    // 根据最新架构，Sidepanel 直接通过 background.ts 的 executeScript(world: MAIN) 查询和调用页面 WebMCP
-    // 因此 content script 不再需要负责桥接 WebMCP 消息。
+    // 3. 在 ISOLATED world 里初始化 PageController（不受 CSP 限制）
+    //    background 通过 sendMessage({ type: 'PAGE_CONTROL' }) 调用页面 DOM 操作
+    initPageController()
 
-    // 4. 【场景B：存量第三方网页】检测当前域名
-    //    若在 mcp-servers/ 中有对应配置，则通过 DOM 注入工具脚本
-    //    关键：从 ISOLATED world (content script) 创建 <script> 标签，
-    //    Chrome 对 web_accessible_resources 的 chrome-extension:// URL 给予特殊信任，
-    //    可绕过页面的 CSP 限制（page-agent 同款方案）
+    // 4. 注入域名专属工具（mcp-servers/ 目录下的 WebMCP 工具脚本，只对配置了的域名生效）
     const hostname = window.location.hostname
     const meta = getMcpMetaInfo(hostname)
     if (meta) {
       await injectMcpServerTools(hostname, tabId)
+    } else {
+      // 无域名专属工具时，仍通知侧边栏刷新（page-agent-tool 是内置工具，不依赖此消息）
+      browser.runtime.sendMessage({ type: 'page-tools-updated', tabId }).catch(() => {})
     }
 
     // 5. 挂载页面浮层 UI（工具调用动效等）
@@ -46,11 +46,60 @@ export default defineContentScript({
 })
 
 /**
- * 从 ISOLATED world 注入单个脚本文件。
- *
- * 原理：content script（ISOLATED world）是 Chrome 信任的扩展上下文。
- * 由它创建的指向 web_accessible_resources 的 <script src="chrome-extension://..."> 标签，
- * Chrome 会绕过页面 CSP 直接执行，适用于百度等有严格 CSP 的页面。
+ * 在 content script（ISOLATED world）里初始化 PageController。
+ * 监听来自 background 的 PAGE_CONTROL 消息，执行 DOM 操作后返回结果。
+ * 完全不受页面 CSP 限制，适用于百度等严格 CSP 页面。
+ */
+function initPageController() {
+  let pageController: PageController | null = null
+
+  function getPC(): PageController {
+    if (!pageController) {
+      pageController = new PageController({ enableMask: true, viewportExpansion: -1 })
+    }
+    return pageController
+  }
+
+  browser.runtime.onMessage.addListener((message, _sender, sendResponse): true | undefined => {
+    if (message.type !== 'PAGE_CONTROL') return
+
+    const { action, payload } = message
+    const pc = getPC() as any
+
+    const actionMap: Record<string, string> = {
+      get_browser_state: 'getBrowserState',
+      click_element: 'clickElement',
+      input_text: 'inputText',
+      select_option: 'selectOption',
+      scroll: 'scroll',
+      scroll_horizontally: 'scrollHorizontally',
+      execute_javascript: 'executeJavascript',
+      show_mask: 'showMask',
+      hide_mask: 'hideMask',
+      clean_up_highlights: 'cleanUpHighlights'
+    }
+
+    const methodName = actionMap[action]
+    if (!methodName || typeof pc[methodName] !== 'function') {
+      sendResponse({ success: false, error: `Unknown PAGE_CONTROL action: ${action}` })
+      return true
+    }
+
+    Promise.resolve(pc[methodName](...(payload || [])))
+      .then((result: any) => sendResponse({ success: true, result }))
+      .catch((error: any) =>
+        sendResponse({ success: false, error: error instanceof Error ? error.message : String(error) })
+      )
+
+    return true // 异步响应
+  })
+}
+
+
+/**
+ * 从 ISOLATED world 注入单个脚本文件（<script src="chrome-extension://...">）。
+ * 适用于 mcp-servers 域名专属工具脚本的注入，这类脚本需要在 MAIN world 运行。
+ * 注意：此方式依赖 web_accessible_resources 声明，vendor/next-sdk.js 也是通过此方式注入的。
  */
 function injectScript(path: string): Promise<void> {
   return new Promise((resolve) => {
@@ -63,30 +112,35 @@ function injectScript(path: string): Promise<void> {
     script.onerror = () => {
       script.remove()
       console.warn(`[next-wxt] 脚本加载失败: ${path}`)
-      resolve() // 不 reject，让注入链继续
+      resolve()
     }
     ;(document.head || document.documentElement).appendChild(script)
   })
 }
 
+/** vendor 基础脚本幂等注入（只注入一次） */
+let vendorInjected: Promise<void> | null = null
+function injectVendorScripts(): Promise<void> {
+  if (!vendorInjected) {
+    vendorInjected = (async () => {
+      await injectScript('vendor/next-sdk.js')
+      await injectScript('vendor/init-webmcp.js')
+    })()
+  }
+  return vendorInjected
+}
+
 /**
- * 为第三方网页（场景B）注入 WebMCP 工具
- *
- * 注入链（全部从 ISOLATED world 发起，绕过页面 CSP）：
- * 1. vendor/next-sdk.js    → 加载完整 WebMCP polyfill（设置 window.WebMCP）
- * 2. vendor/init-webmcp.js → 调用 initializeBuiltinWebMCP()，建立 navigator.modelContext；
- *                            若 SDK 被 CSP 阻断则启用内联 minimal polyfill
- * 3. mcp-servers/{host}/index.js → 注册页面专属工具
+ * 为有 mcp-servers 配置的域名注入 WebMCP 专属工具脚本（MAIN world）。
+ * page-agent-tool 已作为 sidepanel 内置工具注册，此函数只处理域名专属工具。
  */
 async function injectMcpServerTools(hostname: string, tabId: number): Promise<void> {
   try {
-    await injectScript('vendor/next-sdk.js')
-    await injectScript('vendor/init-webmcp.js')
+    await injectVendorScripts()
     await injectScript(`mcp-servers/${hostname}/index.js`)
 
     console.log(`[next-wxt] 已为 ${hostname} 注入 WebMCP 工具`)
 
-    // 注入成功后，主动通知 Sidepanel 刷新工具列表
     browser.runtime.sendMessage({ type: 'page-tools-updated', tabId }).catch(() => {})
   } catch (error) {
     console.warn(`[next-wxt] 注入 mcp-servers 工具失败 (${hostname}):`, error)
@@ -108,3 +162,4 @@ function mountPageApp(ctx: any, tabId: number): void {
   })
   pageApp.mount()
 }
+

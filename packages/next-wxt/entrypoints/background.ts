@@ -105,6 +105,19 @@ export default defineBackground(() => {
         })
       return true
     }
+    // PAGE_CONTROL：由 sidepanel 发起，转发给目标 tab 的 content script 执行 DOM 操作
+    // content script 里的 PageController 在 ISOLATED world 运行，完全不受页面 CSP 限制
+    if (message.type === 'PAGE_CONTROL') {
+      const { tabId, action, payload } = message
+      browser.tabs
+        .sendMessage(tabId, { type: 'PAGE_CONTROL', action, payload })
+        .then((result) => sendResponse(result))
+        .catch((err) => {
+          console.warn('【Background】PAGE_CONTROL 转发失败:', err)
+          sendResponse({ success: false, error: err.message })
+        })
+      return true
+    }
     // ── execute-page-tool 之后的消息处理结束 ──
   })
 

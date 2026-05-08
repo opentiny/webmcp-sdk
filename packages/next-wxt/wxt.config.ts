@@ -49,7 +49,7 @@ export default defineConfig({
     web_accessible_resources: [
       {
         // next-sdk 主包和初始化脚本（供第三方页面注入时使用）
-        resources: ['vendor/next-sdk.js', 'vendor/init-webmcp.js'],
+        resources: ['vendor/next-sdk.js', 'vendor/init-webmcp.js', 'vendor/page-agent-tool.js'],
         matches: ['*://*/*']
       },
       {

@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { ref, type Ref, shallowReactive, computed, watch, onMounted } from 'vue'
+import { ref, type Ref, shallowReactive, computed, watch, onMounted, provide } from 'vue'
 import { TinyRemoter, type UnifiedModelConfig } from '@opentiny/next-remoter'
 import { useBrowserExtensions } from './composable/useBrowserExtensions'
 

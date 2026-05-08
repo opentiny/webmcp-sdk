@@ -622,7 +622,10 @@ export function setupModelContextBridge() {
   if (!nativeCtx || nativeCtx.__isNextSdkBridgeSetup) return
 
   // 挂载全局查询函数，供 content script（隔离沙箱）访问
-  if (isBrowser() && !(window as any).__nextSdkRegisteredTools) {
+  // 注意：必须强制覆盖，不检查是否已存在。
+  // init-webmcp.js 的 fallback polyfill 会提前注册一个基于内联 Map 的版本，
+  // 而该版本无法感知 bridge 拦截后的注册行为，必须用 bridge 版覆盖。
+  if (isBrowser()) {
     ;(window as any).__nextSdkRegisteredTools = () => Array.from(_registeredTools.values())
   }
 
