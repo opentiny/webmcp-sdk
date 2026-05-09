@@ -56,36 +56,18 @@ const setupPageToolsProxy = (transport: Transport) => {
       }
 
       // ── 获取工具列表 ──
-      // 来源1：background 侧内置工具（page-agent-tool，通过 PAGE_CONTROL → content script 执行，不受 CSP 限制）
+      // 来源1：background 侧内置工具（从 extraTools.ts 提取，如 page-agent-tool、tabs-manager 等）
       // 来源2：当前激活页面 MAIN world 注册的域名专属工具（__nextSdkRegisteredTools）
       if (method === 'tools/list') {
-        // 内置工具描述（只含 name/description/inputSchema，execute 逻辑在 tools/call 里处理）
-        const builtinTools = [
-          {
-            name: 'page-agent-tool',
-            description: `用于分析和操作当前浏览器页面的通用工具。
-每次执行 click、fill、select 动作前，**必须**先调用 browserState 获取页面最新状态。
-- browserState：获取页面标题、URL、HTML 无障碍树内容（包含可操作元素及其索引）
-- click：根据元素索引点击
-- fill：根据元素索引填写文本
-- select：根据元素索引选择下拉框选项
-- scroll：滚动页面（不带 index：滚动整个文档；带 index：滚动该元素的最近可滚动祖先）
-- executeJavascript：执行 JavaScript 代码`,
-            inputSchema: {
-              type: 'object',
-              properties: {
-                action: { type: 'string', enum: ['browserState', 'click', 'fill', 'select', 'scroll', 'executeJavascript'], description: '执行的动作名称' },
-                index: { type: 'number', description: '元素索引（click/fill/select 时必须提供）' },
-                text: { type: 'string', description: '文本内容（fill/select 时必须提供）' },
-                down: { type: 'boolean', description: '上下滚动方向（scroll 时必须提供）' },
-                right: { type: 'boolean', description: '水平滚动方向（scroll 时可选）' },
-                numPages: { type: 'number', description: '滚动页数' },
-                script: { type: 'string', description: 'JavaScript 代码（executeJavascript 时必须提供）' }
-              },
-              required: ['action']
-            }
-          }
-        ]
+        const { getBuiltinExtensionTools } = await import('../extraTools')
+        const builtinToolsDef = getBuiltinExtensionTools()
+        
+        // 内置工具描述
+        const builtinTools = builtinToolsDef.map((t: any) => ({
+          name: t.name,
+          description: t.description || '',
+          inputSchema: t.inputSchema || { type: 'object', properties: {} }
+        }))
 
         // 尝试合并当前激活页面 MAIN world 里注册的域名专属工具
         let pageTools: any[] = []
@@ -130,71 +112,29 @@ const setupPageToolsProxy = (transport: Transport) => {
         const { name, arguments: args } = message.params || {}
         if (!name) throw Object.assign(new Error('Missing tool name'), { code: -32602 })
 
-        const [tab] = await browser.tabs.query({ active: true, currentWindow: true })
-        if (!tab?.id || !tab.url?.startsWith('http')) throw new Error('当前页面不支持工具调用（非 http/https）')
+        // 优先匹配 background 侧内置工具（tabs-manager, page-agent-tool 等）
+        const { getBuiltinExtensionTools } = await import('../extraTools')
+        const builtinToolsDef = getBuiltinExtensionTools()
+        const targetTool = builtinToolsDef.find((t: any) => t.name === name)
 
-        // page-agent-tool：通过 tabs.sendMessage → content script 的 PageController 执行（不受 CSP 限制）
-        if (name === 'page-agent-tool') {
-          const a = args || {}
-
-          const callPageControl = async (action: string, payload?: any[]) => {
-            const res = await browser.tabs.sendMessage(tab.id!, { type: 'PAGE_CONTROL', action, payload: payload ?? [] })
-            if (!res?.success) throw new Error(res?.error || 'PAGE_CONTROL 调用失败')
-            return res.result
-          }
-
+        if (targetTool) {
           try {
-            let result: any
-
-            if (a.action === 'browserState') {
-              await callPageControl('show_mask')
-              result = await callPageControl('get_browser_state')
-              await callPageControl('hide_mask')
-              await callPageControl('clean_up_highlights')
-              await transport.send({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `浏览器状态: ${JSON.stringify(result)}` }] } })
-            } else if (a.action === 'click') {
-              await callPageControl('update_tree')   // 确保 DOM 已索引
-              await callPageControl('show_mask')
-              result = await callPageControl('click_element', [a.index])
-              await callPageControl('hide_mask')
-              await callPageControl('clean_up_highlights')
-              await transport.send({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `点击结果: ${JSON.stringify(result)}` }] } })
-            } else if (a.action === 'fill') {
-              await callPageControl('update_tree')   // 确保 DOM 已索引
-              await callPageControl('show_mask')
-              result = await callPageControl('input_text', [a.index, a.text])
-              await callPageControl('hide_mask')
-              await callPageControl('clean_up_highlights')
-              await transport.send({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `填写结果: ${JSON.stringify(result)}` }] } })
-            } else if (a.action === 'select') {
-              await callPageControl('update_tree')   // 确保 DOM 已索引
-              await callPageControl('show_mask')
-              result = await callPageControl('select_option', [a.index, a.text])
-              await callPageControl('hide_mask')
-              await callPageControl('clean_up_highlights')
-              await transport.send({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `选择结果: ${JSON.stringify(result)}` }] } })
-            } else if (a.action === 'scroll') {
-              await callPageControl('update_tree')   // 确保 DOM 已索引（带 index 的滚动需要）
-              await callPageControl('show_mask')
-              result = a.right
-                ? await callPageControl('scroll_horizontally', [{ index: a.index, right: a.right, numPages: a.numPages, pixels: a.pixels }])
-                : await callPageControl('scroll', [{ index: a.index, down: a.down, numPages: a.numPages, pixels: a.pixels }])
-              await callPageControl('hide_mask')
-              await callPageControl('clean_up_highlights')
-              await transport.send({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `滚动结果: ${JSON.stringify(result)}` }] } })
-            } else if (a.action === 'executeJavascript') {
-              result = await callPageControl('execute_javascript', [a.script])
-              await transport.send({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `脚本执行结果: ${JSON.stringify(result)}` }] } })
-            } else {
-              await transport.send({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `未知动作: ${a.action}` }] } })
-            }
+            const result = await targetTool.execute(args || {})
+            // 如果 execute() 已经返回了 { content: [...] } 格式，则直接返回；否则包装一层
+            const finalResult = result && typeof result === 'object' && 'content' in result
+              ? result
+              : { content: [{ type: 'text', text: typeof result === 'string' ? result : JSON.stringify(result) }] }
+            await transport.send({ jsonrpc: '2.0', id, result: finalResult })
           } catch (e: any) {
-            await transport.send({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `page-agent-tool 异常: ${e.message}` }] } })
+            await transport.send({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `工具 ${name} 异常: ${e.message}` }] } })
           }
           return
         }
 
-        // 其他域名专属工具：通过 MAIN world 的 executeTool 执行
+        // 如果不是内置工具，则尝试通过 MAIN world 的 executeTool 执行（域名专属工具）
+        const [tab] = await browser.tabs.query({ active: true, currentWindow: true })
+        if (!tab?.id || !tab.url?.startsWith('http')) throw new Error('当前页面不支持工具调用（非 http/https）')
+
         const result = await browser.scripting.executeScript({
           target: { tabId: tab.id },
           world: 'MAIN',
@@ -216,6 +156,7 @@ const setupPageToolsProxy = (transport: Transport) => {
         await transport.send({ jsonrpc: '2.0', id, result: finalResult })
         return
       }
+
 
       // ── 其他方法返回空 ──
       if (method === 'prompts/list') {

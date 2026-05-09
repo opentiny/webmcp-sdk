@@ -17,13 +17,17 @@ type NativeModelContext = {
   }) => void
 }
 
-/**
- * 向 navigator.modelContext 注册插件内置工具。
- * 使用原生 JSON Schema（非 Zod），与内置 WebMCP 兼容。
- */
-export const useExtraTools = (nativeCtx: NativeModelContext) => {
-  // ─────────────────── 标签页管理 ───────────────────
-  nativeCtx.registerTool({
+export interface BuiltinExtensionTool {
+  name: string
+  title?: string
+  description?: string
+  inputSchema?: object
+  execute: (args: any) => Promise<any>
+}
+
+export const getBuiltinExtensionTools = (): BuiltinExtensionTool[] => {
+  return [
+    {
     name: 'tabs-manager',
     title: '标签页管理',
     description: '可以在当前环境中，打开新网址，切换标签页，关闭标签页，查询全部标签页等操作',
@@ -150,8 +154,7 @@ export const useExtraTools = (nativeCtx: NativeModelContext) => {
         }
       }
     }
-  })
-
+    },
   //   // ─────────────────── 获取页面文本信息 ───────────────────
   //   nativeCtx.registerTool({
   //     name: 'getPageInfomation',
@@ -321,8 +324,8 @@ export const useExtraTools = (nativeCtx: NativeModelContext) => {
   // ─────────────────── page-agent-tool（通用 DOM 操作）───────────────────
   // 执行路径：sidepanel → runtime.sendMessage(PAGE_CONTROL) → background → tabs.sendMessage → content script
   // content script 里的 PageController 在 ISOLATED world 运行，完全不受页面 CSP 限制
-  nativeCtx.registerTool({
-    name: 'page-agent-tool',
+    {
+      name: 'page-agent-tool',
     title: 'Page Agent 工具',
     description: `用于分析和操作当前浏览器页面的通用工具。
 每次执行 click、fill、select 动作前，**必须**先调用 browserState 获取页面最新状态。
@@ -378,15 +381,19 @@ export const useExtraTools = (nativeCtx: NativeModelContext) => {
           return { content: [{ type: 'text', text: `浏览器状态: ${JSON.stringify(result)}` }] }
         } else if (args.action === 'click') {
           if (args.index == null) return { content: [{ type: 'text', text: '点击结果: 缺少元素索引' }] }
+          await callPageControl('update_tree')
           result = await callPageControl('click_element', args.index)
         } else if (args.action === 'fill') {
           if (args.index == null || !args.text) return { content: [{ type: 'text', text: '填写结果: 缺少元素索引或文本' }] }
+          await callPageControl('update_tree')
           result = await callPageControl('input_text', args.index, args.text)
         } else if (args.action === 'select') {
           if (args.index == null || !args.text) return { content: [{ type: 'text', text: '选择结果: 缺少元素索引或文本' }] }
+          await callPageControl('update_tree')
           result = await callPageControl('select_option', args.index, args.text)
         } else if (args.action === 'scroll') {
           if (!args.down && !args.right) return { content: [{ type: 'text', text: '滚动结果: 缺少滚动方向参数' }] }
+          await callPageControl('update_tree')
           const scrollArgs = { index: args.index, numPages: args.numPages, pixels: args.pixels }
           result = args.right
             ? await callPageControl('scroll_horizontally', { ...scrollArgs, right: args.right })
@@ -403,6 +410,16 @@ export const useExtraTools = (nativeCtx: NativeModelContext) => {
         return { content: [{ type: 'text', text: `page-agent-tool 异常: ${error.message}` }] }
       }
     }
-  })
+    }
+  ]
+}
+
+/**
+ * 向 navigator.modelContext 注册插件内置工具。
+ * 使用原生 JSON Schema（非 Zod），与内置 WebMCP 兼容。
+ */
+export const useExtraTools = (nativeCtx: NativeModelContext) => {
+  const tools = getBuiltinExtensionTools()
+  tools.forEach(tool => nativeCtx.registerTool(tool))
 }
 
