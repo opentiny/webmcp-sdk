@@ -360,9 +360,10 @@ export const getBuiltinExtensionTools = (): BuiltinExtensionTool[] => {
       }
 
       const callPageControl = async (action: string, ...payload: any[]) => {
-        const res = await browser.runtime.sendMessage({
+        // 直接发送给 content script，不通过 background 中转。
+        // 因为 extraTools 现在也会在 background 里运行，background 不能通过 runtime.sendMessage 发给自己。
+        const res = await browser.tabs.sendMessage(tabId, {
           type: 'PAGE_CONTROL',
-          tabId,
           action,
           payload
         })
