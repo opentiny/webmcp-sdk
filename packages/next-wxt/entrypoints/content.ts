@@ -68,6 +68,7 @@ function initPageController() {
 
     const actionMap: Record<string, string> = {
       get_browser_state: 'getBrowserState',
+      update_tree: 'updateTree',
       click_element: 'clickElement',
       input_text: 'inputText',
       select_option: 'selectOption',
