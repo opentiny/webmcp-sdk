@@ -72,9 +72,8 @@ if (!(window as any).__excalidrawToolsRegistered) {
   }
 
   function createFullExcalidrawElement(skeleton: any): any {
-    const id = Math.random().toString(36).substring(2, 9)
-    return {
-      id,
+    const id = skeleton.id || Math.random().toString(36).substring(2, 9)
+    const el = {
       seed: Math.floor(Math.random() * 2 ** 31),
       versionNonce: Math.floor(Math.random() * 2 ** 31),
       updated: Date.now(),
@@ -90,8 +89,18 @@ if (!(window as any).__excalidrawToolsRegistered) {
       backgroundColor: 'transparent',
       version: 1,
       locked: false,
-      ...skeleton
+      ...skeleton,
+      id
     }
+    
+    // Safety fallback for linear elements to prevent 'length' reading crash
+    if (['arrow', 'line', 'freedraw'].includes(el.type)) {
+      if (!el.points || !Array.isArray(el.points)) {
+        el.points = [[0, 0], [100, 100]]
+      }
+    }
+    
+    return el
   }
 
   // 初始化：尝试获取 Excalidraw API
@@ -113,7 +122,6 @@ if (!(window as any).__excalidrawToolsRegistered) {
         })]
         ;(window as any).excalidrawAPI.updateScene({
           elements: newElements,
-          appState: (window as any).excalidrawAPI.getAppState(),
           commitToHistory: true
         })
         return { success: true }
@@ -128,7 +136,6 @@ if (!(window as any).__excalidrawToolsRegistered) {
           newElements.splice(idx, 1)
           ;(window as any).excalidrawAPI.updateScene({
             elements: newElements,
-            appState: (window as any).excalidrawAPI.getAppState(),
             commitToHistory: true
           })
           return { success: true }
@@ -138,10 +145,21 @@ if (!(window as any).__excalidrawToolsRegistered) {
     },
     updateElement: (param: any) => {
       try {
-        const existing = (window as any).excalidrawAPI.getSceneElements()
+        const existing = [...(window as any).excalidrawAPI.getSceneElements()]
         param.forEach((item: any) => {
           const idx = existing.findIndex((e: any) => e.id === item.id)
-          if (idx >= 0) (window as any).excalidrawAPI.mutateElement(existing[idx], { ...item })
+          if (idx >= 0) {
+            existing[idx] = { 
+              ...existing[idx], 
+              ...item, 
+              version: (existing[idx].version || 1) + 1,
+              updated: Date.now() 
+            }
+          }
+        })
+        ;(window as any).excalidrawAPI.updateScene({
+          elements: existing,
+          commitToHistory: true
         })
         return { success: true }
       } catch (e: any) { return { error: true, msg: e.message } }
