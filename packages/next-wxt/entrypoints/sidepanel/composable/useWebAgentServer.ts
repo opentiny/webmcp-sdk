@@ -8,12 +8,39 @@ const MAX_RETRY_COUNT = 5
 const RETRY_DELAY = 3000
 
 let _reconnectFn: (() => Promise<string>) | null = null
+let _currentTransport: Transport | null = null
 
 export const forceWebAgentReconnect = async () => {
   if (_reconnectFn) {
     return await _reconnectFn()
   }
   throw new Error('WebAgentServer 未初始化')
+}
+
+// 当页面切换或工具注入完成后，通知远程 Web Agent 刷新工具列表
+const notifyToolsListChanged = async () => {
+  if (_currentTransport) {
+    try {
+      await _currentTransport.send({
+        jsonrpc: '2.0',
+        method: 'notifications/tools/list_changed'
+      })
+    } catch (e) {
+      // 忽略报错
+    }
+  }
+}
+
+// 注册全局监听器（只注册一次）
+if (typeof browser !== 'undefined' && browser.tabs) {
+  browser.tabs.onActivated.addListener(() => notifyToolsListChanged())
+}
+if (typeof browser !== 'undefined' && browser.runtime) {
+  browser.runtime.onMessage.addListener((message) => {
+    if (message && message.type === 'page-tools-updated') {
+      notifyToolsListChanged()
+    }
+  })
 }
 
 /**
@@ -24,6 +51,8 @@ export const forceWebAgentReconnect = async () => {
  * 不依赖 sidepanel 的 navigator.modelContextTesting，解决了跨环境工具获取问题。
  */
 const setupPageToolsProxy = (transport: Transport) => {
+  _currentTransport = transport
+  
   transport.onmessage = async (message: any) => {
     if (!message || typeof message !== 'object') return
     const { id, method } = message
