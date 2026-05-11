@@ -142,11 +142,6 @@ const clearHighlightPage = async () => {
       show
       fullscreen
       title=""
-      :llmConfig="{
-        baseURL: 'https://api.deepseek.com/v1',
-        apiKey: 'sk-08ef2acffb774302aa9eb6f802ddd05a',
-        model: 'deepseek-chat'
-      }"
       v-model:genUiAble="genuiEnabled"
       v-model:enabled-tools="enabledTools"
       inBrowserExt
