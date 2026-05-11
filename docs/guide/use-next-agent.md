@@ -39,7 +39,7 @@ export type INextAgetOption = {
   systemPrompt?: string
   /** 大语言模型 的 modelId， 比如：'deepseek-ai/DeepSeek-V3' */
   model: string
-  /** 一次对话中的最大轮数, 最大默认 5轮 */
+  /** 同一条用户消息内，模型与工具循环的最大步数；未传时默认 30 */
   maxSteps?: number
   /** 代理的后台地址，比如：'https://agent.opentiny.design/api/v1/webmcp-trial/'，若私有化部署，请填入私有化地址。 */
   agentRoot: string
@@ -55,7 +55,7 @@ export type INextAgetOption = {
 ```
 
 - llmConfig 统一承载所有 `LLM` 连接方式，可通过 `llmConfig.llm` 或 `llmConfig.providerType` 定义具体 Provider。
-- systemPrompt,model,maxStep 都是与`LLM`对话时的基本配置。
+- systemPrompt、model、maxSteps 都是与 `LLM` 对话时的基本配置。
 - agentRoot 与 sessionId 都是配置智能化WEB应用的信息。 `sessionId` 可以不填写，后面通过 `addSessionId` 来添加待操控的WEB应用。
 - ui ：当前函数内置的流行Chat UI库的支持，能返回正确的 `messages` 的会话数据。
 - processStream ：如果内置的`messages`的消息体结构不满足业务要求，可以自定义流的处理，保存到`messages`数据中去，比如要实现灵活的动态表单组件，更详细的工具调用查看等等。

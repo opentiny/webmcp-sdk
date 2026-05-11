@@ -18,7 +18,7 @@ import { PromptManager } from './promptManager'
 
 const DEFAULT_SHARED_CONFIG = {
   model: 'deepseek-ai/DeepSeek-V3',
-  maxSteps: 15,
+  maxSteps: 30,
   extraTools: {}
 }
 

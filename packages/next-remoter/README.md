@@ -318,7 +318,7 @@ const deepSeekConfig = {
   baseURL: 'https://api.deepseek.com',
   providerType: 'deepseek',
   model: 'deepseek-chat',
-  maxSteps: 15
+  maxSteps: 30
 }
 </script>
 ```
