@@ -67,6 +67,7 @@ function initPageController() {
     const pc = getPC() as any
 
     const actionMap: Record<string, string> = {
+      ping: 'ping',
       get_browser_state: 'getBrowserState',
       update_tree: 'updateTree',
       click_element: 'clickElement',
@@ -81,8 +82,19 @@ function initPageController() {
     }
 
     const methodName = actionMap[action]
-    if (!methodName || typeof pc[methodName] !== 'function') {
+    if (!methodName) {
       sendResponse({ success: false, error: `Unknown PAGE_CONTROL action: ${action}` })
+      return true
+    }
+
+    // ping 动作特殊处理：直接返回成功，不调用 PageController
+    if (action === 'ping') {
+      sendResponse({ success: true, result: 'pong' })
+      return true
+    }
+
+    if (typeof pc[methodName] !== 'function') {
+      sendResponse({ success: false, error: `Method ${methodName} is not a function on PageController` })
       return true
     }
 

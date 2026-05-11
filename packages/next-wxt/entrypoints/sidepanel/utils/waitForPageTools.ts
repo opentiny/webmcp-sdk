@@ -7,7 +7,15 @@
  * @param tabId - 目标 Tab ID，用于校验消息是否属于该 Tab
  * @param timeoutMs - 超时时间（ms），默认 8000ms；超时则直接放行（该页面可能没有 WebMCP 工具）
  */
-export const waitForPageToolsReady = (tabId: number, timeoutMs = 8000): Promise<void> => {
+export const waitForPageToolsReady = async (tabId: number, timeoutMs = 5000): Promise<void> => {
+  // 1. 尝试主动探测：如果 content script 已经就绪（page-agent-tool 可用），直接放行
+  try {
+    const res = await browser.tabs.sendMessage(tabId, { type: 'PAGE_CONTROL', action: 'ping' })
+    if (res?.success) return
+  } catch (e) {
+    // 忽略错误，继续走被动监听逻辑
+  }
+
   return new Promise<void>((resolve) => {
     const timer = setTimeout(() => {
       // 超时放行：该页面没有注册 WebMCP 工具，或工具注册耗时过长
