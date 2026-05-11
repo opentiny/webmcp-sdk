@@ -27,13 +27,12 @@ export default defineConfig({
       'activeTab',
       'scripting',
       'contextMenus',
-      'userScripts',
       'notifications',
       'debugger',
       'downloads',
       'sidePanel'
     ],
-    host_permissions: ['*://*/*'], //  bg 发出 fecth, bg注入content脚本，访问 tab详情，cookie..
+    host_permissions: ['*://*/*'],
     action: {
       default_popup: 'popup.html',
       default_title: 'Web Agent 遥控器'
@@ -49,7 +48,7 @@ export default defineConfig({
     web_accessible_resources: [
       {
         // next-sdk 主包和初始化脚本（供第三方页面注入时使用）
-        resources: ['vendor/next-sdk.js', 'vendor/init-webmcp.js', 'vendor/page-agent-tool.js'],
+        resources: ['vendor/next-sdk.js', 'vendor/init-webmcp.js'],
         matches: ['*://*/*']
       },
       {

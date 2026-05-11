@@ -25,31 +25,6 @@ export const useBrowserExtensions = async (remoterRef: Ref<InstanceType<typeof T
     } else {
       console.warn('【useBrowserExt】navigator.modelContextTesting 未就绪，跳过内置工具注册')
     }
-
-    // 加载后台已有的 MCP session 列表
-    try {
-      console.log('【useBrowserExt】向后台请求 session 列表快照')
-      const sessions = await browser.runtime.sendMessage({ type: 'get-session-registry' })
-      if (sessions && Array.isArray(sessions)) {
-        sessions.forEach(({ sessionId, serverInfo }) => {
-          registerQueue = registerQueue.then(async () => {
-            try {
-              const mcpServer = {
-                type: 'extension',
-                url: serverInfo.url,
-                sessionId
-              }
-              const serverName = `mcp-server-${sessionId}`
-              await remoterRef.value.loadMcpServerToPlugin(serverName, mcpServer as McpServerConfig)
-            } catch (error) {
-              console.error(`【useBrowserExt】初始化加载插件失败: ${sessionId}`, error as any)
-            }
-          })
-        })
-      }
-    } catch (error) {
-      console.error('【useBrowserExt】获取后台 session 列表失败', error)
-    }
   })
 
   // 注册队列：确保 MCP server 注册操作串行执行
@@ -84,11 +59,14 @@ export const useBrowserExtensions = async (remoterRef: Ref<InstanceType<typeof T
       const { sessionId } = message
       const serverName = `mcp-server-${sessionId}`
 
-      remoterRef.value.handleClientDisconnected(serverName).then(() => {
-        showToast(`插件已移除: ${serverName}`)
-      }).catch((error: any) => {
-        console.error(`【useBrowserExt】agent 删除插件失败: ${serverName}`, error)
-      })
+      remoterRef.value
+        .handleClientDisconnected(serverName)
+        .then(() => {
+          showToast(`插件已移除: ${serverName}`)
+        })
+        .catch((error: any) => {
+          console.error(`【useBrowserExt】agent 删除插件失败: ${serverName}`, error)
+        })
     } else if (message.type === 'page-tools-updated') {
       // 收到 content.ts 或 mcpServer.ts 发出的页面工具更新通知
       // 时序：先同步代理工具到 nativeCtx（mcpServer.ts 可能还没执行 refreshPageTools），
