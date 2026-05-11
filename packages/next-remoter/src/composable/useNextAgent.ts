@@ -12,7 +12,7 @@ export type INextAgetOption = {
   systemPrompt?: string
   /** 大语言模型 的 modelId， 比如：'deepseek-ai/DeepSeek-V3' */
   model: string
-  /** 一次对话中的最大轮数, 最大默认 5轮 */
+  /** 一次对话中的最大步数（模型-工具循环），默认 30 */
   maxSteps?: number
   /** 自定义流数据处理函数，将 llm 返回的流数据，按自定义的格式，保存到messages 数组中。
    * 如果设置，则代替内部默认的流处理函数。
@@ -61,7 +61,7 @@ export function useNextAgent(option: INextAgetOption) {
       model: option.model,
       system: option.systemPrompt || '',
       abortSignal: controller.signal,
-      maxSteps: option.maxSteps || 5,
+      maxSteps: option.maxSteps || 30,
       onFinish: async () => {
         await agent.closeAll() // agent聊天时，会自动连接一次所有的mcpServers
         status.value = 'ready'

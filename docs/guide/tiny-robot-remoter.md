@@ -95,7 +95,7 @@ type ProviderInstanceConfig = {
 type ICustomAgentModelProviderLlmConfig = (ProviderFactoryConfig | ProviderInstanceConfig) & {
   /** 模型名称 */
   model: string
-  /** 工具调用最大步数，默认为15 */
+  /** 工具调用最大步数（单条用户消息内），默认 30 */
   maxSteps?: number
   /** Provider 额外参数 */
   providerOptions?: Record<string, any>
@@ -226,7 +226,7 @@ const modelConfigs = [
     baseURL: 'https://api.deepseek.com',
     providerType: 'deepseek',
     model: 'deepseek-chat',
-    maxSteps: 15,
+    maxSteps: 30,
     // 为 DeepSeek 配置专属请求头
     headers: {
       'X-Business-Token': 'deepseek-business-token',
@@ -961,7 +961,7 @@ const modelConfigs = [
     baseURL: 'https://api.deepseek.com',
     providerType: 'deepseek',
     model: 'deepseek-chat',
-    maxSteps: 15,
+    maxSteps: 30,
     useReActMode: false
   }
 ]

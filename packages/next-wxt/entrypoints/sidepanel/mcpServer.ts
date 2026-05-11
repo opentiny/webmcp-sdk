@@ -1,174 +1,131 @@
-import { WebMcpServer, z, createMessageChannelPairTransport } from '@opentiny/next-sdk/core'
-import { getAllMcpServersByIsAlwaysEnabled } from '@/mcp-servers'
+import { getCurrentTabId } from './utils/utils'
 import { useExtraTools } from './extraTools'
 
-export const createMcpServer = async () => {
-  const [serverTransport, clientTransport] = createMessageChannelPairTransport()
-  const server = new WebMcpServer({ name: 'sidepanel-mcp-server', version: '1.0.0' })
+/**
+ * 注册侧边栏本地工具及页面代理工具到内置 WebMCP（navigator.modelContext）。
+ * 无需 WebMcpServer 或 Zod 转换，直接使用原生 JSON Schema。
+ */
+export const setupLocalTools = () => {
+  const nativeCtx = (navigator as any).modelContext
 
-  // 获取所有 type='sideMcpServer' 的工具配置
-  const mcpServers = getAllMcpServersByIsAlwaysEnabled()
+  if (!nativeCtx) {
+    console.warn('【setupLocalTools】navigator.modelContext 未就绪，跳过工具注册')
+    return
+  }
 
-  const createProxServer = (meta: { name: string; url: string; [key: string]: any }) => {
-    const resolveTargetUrl = (toolName: string) => {
-      return meta.toolsJumpLinks?.[toolName] ?? meta.url
-    }
+  // 1. 注册插件内置辅助工具（tabs-manager, accessibility, visual 等）
+  useExtraTools(nativeCtx)
 
-    const isUrlMatch = (tabUrl: string | undefined, targetUrl: string) => {
-      if (!tabUrl) return false
+  // 2. 记录已注册的页面代理工具，防止重复注册
+  const registeredProxyTools = new Set<string>()
+
+  /**
+   * 清除所有已注册的页面代理工具（Tab 切换时调用）
+   * 从 nativeCtx 取消注册，并清空 Set，确保旧 Tab 工具不残留
+   */
+  const clearProxyTools = () => {
+    if (registeredProxyTools.size === 0) return
+    registeredProxyTools.forEach((name) => {
       try {
-        const current = new URL(tabUrl)
-        const expected = new URL(targetUrl)
-        if (current.href === expected.href) {
-          return true
-        }
-        return current.origin === expected.origin && current.pathname === expected.pathname
-      } catch (error) {
-        return tabUrl.startsWith(targetUrl)
+        nativeCtx.unregisterTool?.(name)
+      } catch {
+        // 忽略取消注册错误
       }
-    }
+    })
+    registeredProxyTools.clear()
+  }
 
-    const findMatchedTabId = async (targetUrl: string, toolName: string) => {
-      let tabIds: number[] | undefined
-      if ((browser as any).hostNameMap) {
-        tabIds = (browser as any).hostNameMap.get(meta.name)
-      } else {
-        tabIds = await browser.runtime.sendMessage({ type: 'get-host-tab-ids', host: meta.name })
-      }
+  /**
+   * 从 background 获取指定 Tab 的页面工具，代理注册到 nativeCtx。
+   * 纯数据同步，不发送任何消息通知 —— 供外部（useBrowserExtensions）调用，
+   * 调用方自行决定何时刷新 UI。
+   */
+  const syncPageProxy = async (tabId: number): Promise<void> => {
+    clearProxyTools()
 
-      // 如果 hostNameMap 中没有记录,尝试查询所有页签
-      if (!tabIds || tabIds.length === 0) {
-        try {
-          const allTabs = await browser.tabs.query({})
-          for (const tab of allTabs) {
-            if (tab.id && tab.url && isUrlMatch(tab.url, targetUrl)) {
-              console.log(`【Sidepanel MCP】从所有页签中找到匹配的 tab:`, { tabId: tab.id, url: tab.url })
-              return tab.id
-            }
+    const tools: any[] = await browser.runtime.sendMessage({
+      type: 'get-page-tools',
+      tabId
+    })
+
+    if (!tools || !Array.isArray(tools) || tools.length === 0) return
+
+    tools.forEach((tool) => {
+      if (registeredProxyTools.has(tool.name)) return
+      registeredProxyTools.add(tool.name)
+
+      nativeCtx.registerTool({
+        name: tool.name,
+        title: tool.title,
+        description: tool.description,
+        inputSchema: tool.inputSchema,
+        execute: async (args: any) => {
+          const activeTabId = await getCurrentTabId()
+          if (!activeTabId) {
+            return { content: [{ type: 'text', text: 'Error: No active tab found' }] }
           }
-          console.log(`【Sidepanel MCP】未找到匹配的 tab, targetUrl: ${targetUrl}`)
-        } catch (error) {
-          console.warn(`【Sidepanel MCP】查询所有页签失败:`, error)
-        }
-        return
-      }
 
-      if (!meta.toolsJumpLinks?.[toolName]) {
-        return tabIds[tabIds.length - 1]
-      }
+          const res = await browser.runtime.sendMessage({
+            type: 'execute-page-tool',
+            tabId: activeTabId,
+            toolName: tool.name,
+            args
+          })
 
-      for (let index = tabIds.length - 1; index >= 0; index -= 1) {
-        const candidateId = tabIds[index]
-        try {
-          const tab = await browser.tabs.get(candidateId)
-          if (tab && isUrlMatch(tab.url, targetUrl)) {
-            return candidateId
+          if (!res?.success) {
+            return { content: [{ type: 'text', text: `Error: ${res?.error || 'Unknown error'}` }] }
           }
-        } catch (error) {
-          console.warn(`【Sidepanel MCP】查询 tab 失败, tabId: ${candidateId}`, error)
-        }
-      }
-    }
 
-    return new Proxy(server, {
-      get(target, prop) {
-        if (prop === 'registerTool') {
-          return (...args: any[]) => {
-            const toolName = args[0]
-            args[args.length - 1] = async (...args: any[]) => {
-              const targetUrl = resolveTargetUrl(toolName)
-              let tabId: number | undefined
+          if (res.result?.content) return res.result
 
-              const matchedTabId = await findMatchedTabId(targetUrl, toolName)
-
-              if (!matchedTabId) {
-                // 页面未打开或地址不匹配，需要打开新页签并等待初始化
-                try {
-                  // 打开新页签（直接激活以显示页签切换效果）
-                  const createdTab = await browser.tabs.create({ url: targetUrl, active: true })
-
-                  // 等待 content script 初始化完成并注册到 hostNameMap
-                  if ((browser as any).waitForHostInit) {
-                    tabId = await (browser as any).waitForHostInit(targetUrl)
-                  } else {
-                    const waitResult = await browser.runtime.sendMessage({ type: 'wait-for-host-init', url: targetUrl })
-                    if (waitResult && typeof waitResult === 'object' && waitResult.error) {
-                      throw new Error(waitResult.error)
-                    }
-                    tabId = waitResult
-                  }
-
-                  if (tabId === undefined || tabId === null) {
-                    tabId = createdTab.id
-                  }
-                } catch (error) {
-                  throw new Error(`无法打开或初始化页面: ${meta.name}`)
-                }
-              } else {
-                // 使用最后一个激活的 tabId
-                tabId = matchedTabId
-                try {
-                  await browser.tabs.update(tabId, { active: true })
-                } catch (error) {
-                  console.warn(`【Sidepanel MCP】激活已存在 tab 失败, tabId: ${tabId}`, error)
-                }
+          return {
+            content: [
+              {
+                type: 'text',
+                text: typeof res.result === 'string' ? res.result : JSON.stringify(res.result)
               }
-
-              if (tabId === undefined || tabId === null) {
-                throw new Error(`未找到可用的页面: ${meta.name}`)
-              }
-
-              console.log('【Sidepanel MCP】执行工具:', { toolName, tabId, args })
-
-              // 执行工具调用
-              const result = await new Promise((resolve, reject) => {
-                browser.tabs.sendMessage(
-                  tabId!,
-                  {
-                    type: 'execute-tool-from-sidepanel-to-content',
-                    data: [toolName, ...args]
-                  },
-                  (response: any) => {
-                    if (browser.runtime.lastError) {
-                      reject(new Error(browser.runtime.lastError.message))
-                    } else {
-                      resolve(response)
-                    }
-                  }
-                )
-              })
-
-              return result
-            }
-
-            return (target[prop] as any)(...args)
+            ]
           }
         }
-        return target[prop as keyof typeof target]
-      }
+      })
     })
   }
 
-  // 注册插件内部自带的工具
-  useExtraTools(server)
-
-  // 遍历并注册所有工具
-  for (const { meta, tool } of mcpServers) {
+  // 3. 动态获取当前 Tab 工具并代理，完成后通知 UI 刷新
+  //    由 tabs.onActivated / tabs.onUpdated 驱动，此路径负责发消息通知 UI
+  const refreshPageTools = async () => {
     try {
-      // 调用工具注册函数
-      tool({ server: createProxServer(meta), z })
+      const tabId = await getCurrentTabId()
+      if (!tabId) return
 
-      console.log(`[Sidepanel MCP] ✓ 工具加载成功: ${meta.name}`)
-    } catch (error) {
-      console.error(`[Sidepanel MCP] ✗ 工具加载失败: ${meta.name}`, error)
+      await syncPageProxy(tabId)
+
+      // 通知侧边栏 UI 刷新
+      browser.runtime.sendMessage({ type: 'page-tools-updated', tabId }).catch(() => {})
+    } catch (err) {
+      console.warn('【setupLocalTools】刷新页面工具代理失败:', err)
     }
   }
 
-  // 连接服务器到 InMemoryTransport
-  await server.connect(serverTransport)
+  // 初始加载
+  refreshPageTools()
 
-  return {
-    server,
-    clientTransport
-  }
+  // 监听 Tab 切换，清除旧工具并加载新 Tab 的工具
+  browser.tabs.onActivated.addListener(refreshPageTools)
+  browser.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
+    if (changeInfo.status === 'complete' && tab.active) {
+      refreshPageTools()
+    }
+  })
+
+  // 将 syncPageProxy 挂到模块级变量，供 useBrowserExtensions 访问
+  // 这样 page-tools-updated 消息到来时，可以先同步代理工具再刷新 UI
+  exportedSyncPageProxy = syncPageProxy
 }
+
+/**
+ * 模块级暴露：同步当前 Tab 的页面工具到 nativeCtx，但不发通知消息。
+ * 由 useBrowserExtensions 在收到 content.ts 的 page-tools-updated 时调用，
+ * 确保 nativeCtx 里的代理工具是最新的，再让 refreshPluginTools 刷新 UI。
+ */
+export let exportedSyncPageProxy: ((tabId: number) => Promise<void>) | null = null

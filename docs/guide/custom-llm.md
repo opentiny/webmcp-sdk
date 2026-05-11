@@ -112,7 +112,7 @@ type ProviderInstanceConfig = {
 type ICustomAgentModelProviderLlmConfig = (ProviderFactoryConfig | ProviderInstanceConfig) & {
   /** 模型名称 */
   model: string
-  /** 工具调用最大步数，默认为15 */
+  /** 工具调用最大步数（单条用户消息内），默认 30 */
   maxSteps?: number
   /** Provider 额外参数 */
   providerOptions?: Record<string, any>
@@ -213,7 +213,7 @@ const llmConfig = {
     baseURL: 'https://api.openai.com/v1'
   }),
   model: 'gpt-4o',
-  maxSteps: 15
+  maxSteps: 30
 }
 </script>
 ```

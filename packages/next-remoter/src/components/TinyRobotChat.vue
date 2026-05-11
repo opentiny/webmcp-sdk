@@ -670,7 +670,15 @@ defineExpose({
   /** 删除插件核心方法 */
   deletePlugin,
   /** 注册内容渲染器 */
-  registerContentRenderer
+  registerContentRenderer,
+  /**
+   * 刷新已安装插件的工具列表（从 agent.mcpTools 同步到 UI）
+   * 适用于 builtin client 工具变化后的快速刷新，避免 remove + reload 导致的 UI 闪烁
+   */
+  async refreshPluginTools() {
+    await agent.refreshTools()
+    syncInstalledPluginTools()
+  }
 })
 </script>
 
