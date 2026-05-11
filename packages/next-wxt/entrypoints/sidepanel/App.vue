@@ -142,6 +142,8 @@ const clearHighlightPage = async () => {
       show
       fullscreen
       title=""
+      :llmConfigs="modelConfigs"
+      v-model:selected-model-id="selectedModelId"
       v-model:genUiAble="genuiEnabled"
       v-model:enabled-tools="enabledTools"
       inBrowserExt
