@@ -20,7 +20,7 @@ const skills = ref<Record<string, string>>({})
 // 模型配置（异步加载，含 TokenTab 缓存的 x-auth-token）
 const modelConfigs = ref<UnifiedModelConfig[]>([])
 
-const webAgentUrl = ref<string>( '')
+const webAgentUrl = ref<string>('')
 getWebAgentUrl().then((url) => {
   webAgentUrl.value = url || ''
 })
