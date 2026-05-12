@@ -13,7 +13,7 @@ export function usePluginSession(options: {
    * - 后续变为非空字符串时：自动升级为带二维码 / 遥控器等完整菜单
    */
   sessionId: Ref<string | undefined>
-  agentRoot: string
+  agentRoot: Ref<string>
   mode: string
   qrCodeUrl?: string
   remoteUrl?: string
@@ -49,7 +49,7 @@ export function usePluginSession(options: {
 
     if (sessionIdValue) {
       // 使用统一的扫码添加接口
-      const success = await addPluginFromScan(sessionIdValue, agentRoot)
+      const success = await addPluginFromScan(sessionIdValue, agentRoot.value)
 
       if (success) {
         showToast('添加工具完成')
@@ -71,7 +71,7 @@ export function usePluginSession(options: {
     if (/^\/[A-Za-z0-9-]{6,}$/.test(input)) {
       try {
         // 添加 HTTP 响应状态检查
-        const response = await fetch(`${agentRoot}client?sessionId=${input.slice(1)}`)
+        const response = await fetch(`${agentRoot.value}client?sessionId=${input.slice(1)}`)
 
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}`)

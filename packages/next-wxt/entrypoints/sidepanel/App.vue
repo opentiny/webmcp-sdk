@@ -14,11 +14,16 @@ import { getModelConfigsWithToken } from './model-manage'
 import { getStorageItem, setStorageItem } from './utils/local-storage'
 import { StorageKeys } from './utils/storage-keys'
 import { getSnapshotManager } from './accessibility/utils'
-
+import { getWebAgentUrl } from './model-manage/model-storage'
 // 从统一入口读取 skills（built-in + 用户在 Options 中的覆盖）
 const skills = ref<Record<string, string>>({})
 // 模型配置（异步加载，含 TokenTab 缓存的 x-auth-token）
 const modelConfigs = ref<UnifiedModelConfig[]>([])
+
+const webAgentUrl = ref<string>('')
+getWebAgentUrl().then((url) => {
+  webAgentUrl.value = url || ''
+})
 onMounted(async () => {
   try {
     skills.value = await getUnifiedSkills()
@@ -151,6 +156,7 @@ const clearHighlightPage = async () => {
       :gen-ui-components="genUiComponents"
       :skills="skills"
       @chat-stream-finish="clearHighlightPage"
+      :agent-root="webAgentUrl"
     >
       <template #header-actions>
         <button v-if="false" class="record-button" type="button" @click="openRecordModal">

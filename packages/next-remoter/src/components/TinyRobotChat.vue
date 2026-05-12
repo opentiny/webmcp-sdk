@@ -546,7 +546,7 @@ const {
   initialize: initializePluginSession
 } = usePluginSession({
   sessionId: toRef(props, 'sessionId'),
-  agentRoot: props.agentRoot,
+  agentRoot: toRef(props, 'agentRoot'),
   mode: props.mode,
   qrCodeUrl: props.qrCodeUrl,
   remoteUrl: props.remoteUrl,
