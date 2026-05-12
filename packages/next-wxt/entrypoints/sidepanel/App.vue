@@ -156,7 +156,7 @@ const clearHighlightPage = async () => {
       :gen-ui-components="genUiComponents"
       :skills="skills"
       @chat-stream-finish="clearHighlightPage"
-        :agent-root="webAgentUrl"
+      :agent-root="webAgentUrl"
     >
       <template #header-actions>
         <button v-if="false" class="record-button" type="button" @click="openRecordModal">
