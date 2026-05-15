@@ -25,14 +25,12 @@ export default defineBackground(() => {
   // ─────────────────────────────────────────
   browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Web Agent 手动重连
+    // 注意：不依赖 initPromise，因为它可能已经 rejected（初始连接失败时），
+    // rejected 的 Promise 状态永久不变，会导致重连请求直接走 catch 分支而不实际发起连接。
     if (message.type === 'reconnect-web-agent') {
-      initPromise
-        .then(() => {
-          forceWebAgentReconnect()
-            .then((sessionId) => sendResponse({ success: true, sessionId }))
-            .catch((error) => sendResponse({ success: false, error: error.message }))
-        })
-        .catch((err) => sendResponse({ success: false, error: `初始化失败，无法重连: ${err.message}` }))
+      forceWebAgentReconnect()
+        .then((sessionId) => sendResponse({ success: true, sessionId }))
+        .catch((error) => sendResponse({ success: false, error: error.message }))
       return true
     }
 
