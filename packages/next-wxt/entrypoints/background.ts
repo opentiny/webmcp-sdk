@@ -9,8 +9,9 @@ export default defineBackground(() => {
       return sessionId
     })
     .catch((error: any) => {
-      console.error('【Background】初始化 useWebAgentServer 失败:', error)
-      throw error
+      // 初始连接失败是可控的预期行为（如默认 URL 不可达），不再 rethrow
+      // 避免产生 Uncaught (in promise) 污染扩展错误面板
+      console.warn('【Background】初始化 useWebAgentServer 失败:', error)
     })
 
   // ─────────────────────────────────────────

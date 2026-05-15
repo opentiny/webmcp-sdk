@@ -284,7 +284,7 @@ export const useWebAgentServer = async (): Promise<string> => {
       setStatus('connected')
       return sessionId
     } catch (error) {
-      console.error(`【useWebAgentServer】${isRetry ? '重连' : '连接'}失败:`, error)
+      console.warn(`【useWebAgentServer】${isRetry ? '重连' : '连接'}失败:`, error)
       if (isRetry) isReconnecting = false
       reconnect()
       if (!isRetry) {
@@ -298,7 +298,7 @@ export const useWebAgentServer = async (): Promise<string> => {
   const reconnect = async () => {
     if (isReconnecting || retryCount >= MAX_RETRY_COUNT) {
       if (retryCount >= MAX_RETRY_COUNT) {
-        console.error(`【useWebAgentServer】已达到最大重连次数 ${MAX_RETRY_COUNT}，停止重连`)
+        console.warn(`【useWebAgentServer】已达到最大重连次数 ${MAX_RETRY_COUNT}，停止重连`)
         setStatus('error')
       }
       return
@@ -314,15 +314,35 @@ export const useWebAgentServer = async (): Promise<string> => {
 
   _reconnectFn = async () => {
     console.log('【useWebAgentServer】主动断开并重连...')
+    // 重置自动重连状态，防止与手动重连竞态
     isReconnecting = false
     retryCount = 0
     try { await client.close() } catch (e) {}
     await browser.storage.local.remove(StorageKeys.MCP_SESSION_ID)
-    return await connectToAgent(false, true)
+
+    // 使用独立逻辑：直接尝试连接，成功返回 sessionId，失败直接 throw（供 UI 感知）
+    // 不复用 connectToAgent(false, ...) —— 那会在失败时同时触发 reconnect() 自动重试，造成竞态
+    setStatus('connecting')
+    latestSessionId = null
+    try {
+      const finalUrl = await getDynamicFinalAgentRoot()
+      const type = await getConnectType()
+      const { transport, sessionId } = await client.connect(createConnectOptions(finalUrl, type, handleError))
+      setupPageToolsProxy(transport)
+      await handleConnectSuccess(sessionId, false)
+      setStatus('connected')
+      return sessionId
+    } catch (error) {
+      console.warn('【useWebAgentServer】手动重连失败:', error)
+      setStatus('error')
+      // 手动重连失败后，启动自动重试兜底
+      reconnect()
+      throw error
+    }
   }
 
   const handleError = (error: Error) => {
-    console.error('【useWebAgentServer】Connect proxy error:', error)
+    console.warn('【useWebAgentServer】Connect proxy error:', error)
     setStatus('error')
     reconnect()
   }
