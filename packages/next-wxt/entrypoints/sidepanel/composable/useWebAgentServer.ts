@@ -291,7 +291,8 @@ export const useWebAgentServer = async (): Promise<string> => {
         setStatus('error')
         throw error
       }
-      return Promise.reject(error)
+      // isRetry 时调用方（setTimeout）不关心返回值，直接 return 避免 Uncaught (in promise)
+      return
     }
   }
 
@@ -308,7 +309,7 @@ export const useWebAgentServer = async (): Promise<string> => {
     console.log(`【useWebAgentServer】准备第 ${retryCount} 次重连，延迟 ${RETRY_DELAY}ms`)
     setTimeout(() => {
       console.log(`【useWebAgentServer】开始第 ${retryCount} 次重连`)
-      connectToAgent(true)
+      connectToAgent(true).catch(() => {}) // 失败已在内部处理，不需要冒泡
     }, RETRY_DELAY)
   }
 
