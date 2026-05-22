@@ -34,7 +34,11 @@ export default defineContentScript({
     const hostname = window.location.hostname
     const meta = getMcpMetaInfo(hostname)
     if (meta) {
-      await injectMcpServerTools(hostname, tabId)
+      if (meta.runInContext) {
+        await injectMcpServerToolsInContext(hostname)
+      } else {
+        await injectMcpServerTools(hostname, tabId)
+      }
     } else {
       // 无域名专属工具时，仍通知侧边栏刷新（page-agent-tool 是内置工具，不依赖此消息）
       browser.runtime.sendMessage({ type: 'page-tools-updated', tabId }).catch(() => {})
@@ -108,7 +112,6 @@ function initPageController() {
   })
 }
 
-
 /**
  * 从 ISOLATED world 注入单个脚本文件（<script src="chrome-extension://...">）。
  * 适用于 mcp-servers 域名专属工具脚本的注入，这类脚本需要在 MAIN world 运行。
@@ -160,6 +163,14 @@ async function injectMcpServerTools(hostname: string, tabId: number): Promise<vo
   }
 }
 
+async function injectMcpServerToolsInContext(hostname: string): Promise<void> {
+  try {
+    // 内部版本，在此手动执行各自的函数
+  } catch (error) {
+    console.warn(`[next-wxt] 注入 mcp-servers 工具失败 (${hostname}):`, error)
+  }
+}
+
 /**
  * 挂载页面浮层 UI（工具调用提示动效等）
  */
@@ -175,4 +186,3 @@ function mountPageApp(ctx: any, tabId: number): void {
   })
   pageApp.mount()
 }
-
