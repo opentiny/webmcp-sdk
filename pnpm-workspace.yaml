@@ -81,6 +81,9 @@ catalog:
   vite-svg-loader: ^5.1.0
   vitepress: ^1.6.4
 
+  # chrome remote interface
+  'chrome-remote-interface': ^0.33.0
+
   # 工具链路
   '@babel/standalone': ^7.28.5
   '@types/node': ^24.6.0

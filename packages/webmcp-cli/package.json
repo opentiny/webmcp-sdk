@@ -1,0 +1,31 @@
+{
+  "name": "@opentiny/webmcp-cli",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Chrome remote debugging CLI tool for WebMCP",
+  "main": "dist/index.js",
+  "bin": {
+    "webmcp": "./dist/index.js"
+  },
+  "scripts": {
+    "dev": "node --loader tsx src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "keywords": [
+    "chrome",
+    "remote-debugging",
+    "cdp",
+    "webmcp"
+  ],
+  "license": "MIT",
+  "author": "OpenTiny Team",
+  "dependencies": {
+    "chrome-remote-interface": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "^4.0.0",
+    "typescript": "catalog:"
+  }
+}
