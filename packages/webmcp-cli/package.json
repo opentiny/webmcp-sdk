@@ -8,8 +8,9 @@
     "webmcp": "./dist/index.js"
   },
   "scripts": {
-    "dev": "node --loader tsx src/index.ts",
-    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "build:inject": "node scripts/build-inject.mjs",
+    "build": "pnpm run build:inject && tsc",
     "start": "node dist/index.js"
   },
   "keywords": [
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "esbuild": "^0.25.0",
     "tsx": "^4.0.0",
     "typescript": "catalog:"
   }

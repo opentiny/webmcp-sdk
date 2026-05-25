@@ -45,13 +45,7 @@ async function main(): Promise<void> {
   if (command === 'list') {
     await listBrowserInfo()
   } else if (command === 'run') {
-    if (commandArgs.length === 0) {
-      console.error('命令有误: run 需要提供子命令')
-      process.exit(1)
-    }
-    const subCommand = commandArgs[0]
-    const subArgs = commandArgs.slice(1)
-    await runCommand(subCommand, subArgs)
+    await runCommand(commandArgs)
   }
 }
 

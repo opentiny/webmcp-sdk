@@ -2,6 +2,13 @@ declare module 'chrome-remote-interface' {
   import { EventEmitter } from 'events'
 
   namespace CDP {
+    interface TargetDescriptor {
+      id: string
+      title: string
+      url: string
+      type: string
+    }
+
     interface Client extends EventEmitter {
       Browser: {
         getVersion(): Promise<{
@@ -20,6 +27,9 @@ declare module 'chrome-remote-interface' {
             targetId: string
           }>
         }>
+        createTarget(options: { url: string }): Promise<{ targetId: string }>
+        activateTarget(options: { targetId: string }): Promise<void>
+        closeTarget(options: { targetId: string }): Promise<void>
       }
       Page: {
         enable(): Promise<void>
@@ -29,9 +39,16 @@ declare module 'chrome-remote-interface' {
       }
       Runtime: {
         enable(): Promise<void>
-        evaluate(options: { expression: string; returnByValue?: boolean }): Promise<{
-          result: { value: any }
-          exceptionDetails?: { text: string }
+        evaluate(options: {
+          expression: string
+          awaitPromise?: boolean
+          returnByValue?: boolean
+        }): Promise<{
+          result: { value: unknown }
+          exceptionDetails?: {
+            text?: string
+            exception?: { description?: string }
+          }
         }>
       }
       close(): Promise<void>
@@ -40,7 +57,10 @@ declare module 'chrome-remote-interface' {
     interface Options {
       port?: number
       host?: string
+      target?: TargetDescriptor | string
     }
+
+    function List(options?: { port?: number; host?: string }): Promise<TargetDescriptor[]>
   }
 
   function CDP(options?: CDP.Options): Promise<CDP.Client>
