@@ -29,8 +29,7 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
-  // 确保 Chrome 正在运行
-  console.log('检查 Chrome 状态...')
+  // 确保 Chrome 正在运行（进度信息走 stderr，避免污染 stdout 中的 JSON 结果）
   const chromeStatus = await ensureChromeRunning()
 
   if (chromeStatus === 'not_installed') {

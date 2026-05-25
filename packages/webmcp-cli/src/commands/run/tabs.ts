@@ -5,7 +5,7 @@ import { fetchBrowsablePageTargets } from '../../cdp/targets.js'
 const TABS_ACTIONS = ['open', 'close', 'switch'] as const
 
 /**
- * webmcp run tabs <open|close|switch> [arg]
+ * webmcp-cli run tabs <open|close|switch> [arg]
  */
 export async function runTabsCommand(args: string[]): Promise<void> {
   const action = args[0]

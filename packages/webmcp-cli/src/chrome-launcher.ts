@@ -93,8 +93,8 @@ export async function launchChrome(chromePath: string, port: number = DEBUG_PORT
     'about:blank'
   ]
 
-  console.log(`正在启动 Chrome (端口: ${port})...`)
-  console.log(`路径: ${chromePath}`)
+  console.error(`正在启动 Chrome (端口: ${port})...`)
+  console.error(`路径: ${chromePath}`)
 
   const child = spawn(chromePath, args, {
     detached: true,
@@ -109,7 +109,7 @@ export async function launchChrome(chromePath: string, port: number = DEBUG_PORT
  */
 export async function ensureChromeRunning(): Promise<ChromeEnsureStatus> {
   if (await isChromeRunning(DEBUG_PORT)) {
-    console.log(`检测到 Chrome 已在运行 (端口: ${DEBUG_PORT})`)
+    console.error(`检测到 Chrome 已在运行 (端口: ${DEBUG_PORT})`)
     return 'running'
   }
 
@@ -124,10 +124,10 @@ export async function ensureChromeRunning(): Promise<ChromeEnsureStatus> {
   for (let retries = 1; retries <= maxRetries; retries++) {
     await new Promise((resolve) => setTimeout(resolve, 1000))
     if (await isChromeRunning(DEBUG_PORT)) {
-      console.log('Chrome 已成功启动')
+      console.error('Chrome 已成功启动')
       return 'launched'
     }
-    console.log(`等待 Chrome 启动... (${retries}/${maxRetries})`)
+    console.error(`等待 Chrome 启动... (${retries}/${maxRetries})`)
   }
 
   return 'launch_failed'

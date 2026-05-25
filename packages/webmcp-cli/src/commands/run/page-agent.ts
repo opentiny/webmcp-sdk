@@ -18,7 +18,7 @@ function parseElementIndex(raw: string | undefined): number {
 }
 
 /**
- * webmcp run page-agent <action> [args...]
+ * webmcp-cli run page-agent <action> [args...]
  */
 export async function runPageAgentCommand(client: CDP.Client, args: string[]): Promise<void> {
   const action = args[0] as PageAgentAction | undefined
@@ -34,7 +34,10 @@ export async function runPageAgentCommand(client: CDP.Client, args: string[]): P
       expression = `(async () => {
         const pc = window.__webmcpcli_pageController
         if (!pc) throw new Error('PageController 未初始化')
-        return await pc.getBrowserState()
+        const ret = await pc.getBrowserState()
+        await pc.hideMask()
+        await pc.cleanUpHighlights()
+        return ret
       })()`
       break
     case 'click': {
@@ -42,7 +45,10 @@ export async function runPageAgentCommand(client: CDP.Client, args: string[]): P
       expression = `(async () => {
         const pc = window.__webmcpcli_pageController
         if (!pc) throw new Error('PageController 未初始化')
-        return await pc.clickElement(${index})
+        const ret =  await pc.clickElement(${index})
+        await pc.hideMask()
+        await pc.cleanUpHighlights()
+        return ret
       })()`
       break
     }
@@ -56,7 +62,10 @@ export async function runPageAgentCommand(client: CDP.Client, args: string[]): P
       expression = `(async () => {
         const pc = window.__webmcpcli_pageController
         if (!pc) throw new Error('PageController 未初始化')
-        return await pc.inputText(${index}, ${JSON.stringify(text)})
+        const ret =  await pc.inputText(${index}, ${JSON.stringify(text)})
+        await pc.hideMask()
+        await pc.cleanUpHighlights()        
+        return ret
       })()`
       break
     }
@@ -70,7 +79,10 @@ export async function runPageAgentCommand(client: CDP.Client, args: string[]): P
       expression = `(async () => {
         const pc = window.__webmcpcli_pageController
         if (!pc) throw new Error('PageController 未初始化')
-        return await pc.selectOption(${index}, ${JSON.stringify(text)})
+        const ret =  await pc.selectOption(${index}, ${JSON.stringify(text)})
+        await pc.hideMask()
+        await pc.cleanUpHighlights()     
+        return ret
       })()`
       break
     }

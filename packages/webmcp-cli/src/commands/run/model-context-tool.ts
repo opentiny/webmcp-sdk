@@ -63,7 +63,7 @@ function buildToolArgs(tool: ToolDescriptor, cliArgs: string[]): Record<string, 
 }
 
 /**
- * webmcp run <toolName> [toolArgs...] — 执行 navigator.modelContext 注册的工具
+ * webmcp-cli run <toolName> [toolArgs...] — 执行 navigator.modelContext 注册的工具
  */
 export async function runModelContextToolCommand(
   client: CDP.Client,

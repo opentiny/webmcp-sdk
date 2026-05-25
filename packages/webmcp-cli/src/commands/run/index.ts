@@ -5,7 +5,7 @@ import { runPageAgentCommand } from './page-agent.js'
 import { runTabsCommand } from './tabs.js'
 
 /**
- * webmcp run <子命令> [args...]
+ * webmcp-cli run <子命令> [args...]
  * - run page-agent ...
  * - run tabs ...
  * - run <toolName> ...  (modelContext 工具)

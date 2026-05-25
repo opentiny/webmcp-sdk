@@ -1,5 +1,36 @@
 # webmcp-cli 的命令
 
+## 安装与本地联调
+
+```bash
+# 全局安装（发布后）
+npm install -g @opentiny/webmcp-cli
+# 或
+pnpm add -g @opentiny/webmcp-cli
+
+# 本地联调（在 packages/webmcp-cli 目录，改代码后需重新 build）
+pnpm build
+pnpm link:global
+# 等价于: npm install -g .
+```
+
+全局命令名为 **`webmcp-cli`**，例如：`webmcp-cli list`。
+
+### 为什么 `npm link` 成功但命令找不到？
+
+`npm link` 只会把包链到全局 `node_modules`，**不保证**把 `webmcp-cli.cmd` 放进 PATH。
+在 Vite Plus 等自定义 `npm prefix` 环境下，bin 往往生成在 prefix 目录（如 `%USERPROFILE%\.vite-plus\js_runtime\node\<version>\`），而 PATH 里只有 `%USERPROFILE%\.vite-plus\bin`。
+
+请改用 **`npm install -g .`**（或 `pnpm link:global` / `vp install -g .`），会在 PATH 目录下生成可执行的 shim。
+
+取消全局联调：
+
+```bash
+npm uninstall -g @opentiny/webmcp-cli
+```
+
+---
+
 # 1、 list 命令
 
 list命令第一步： 
