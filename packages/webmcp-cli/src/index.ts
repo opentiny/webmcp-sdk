@@ -1,29 +1,10 @@
 #!/usr/bin/env node
 
 import { ensureChromeRunning } from './chrome-launcher.js'
-import { listBrowserInfo, runCommand } from './cdp-client.js'
+import { listBrowserInfo } from './cdp-client.js'
+import { runCommand } from './commands/run-registry.js'
+import { printUsage } from './print-usage.js'
 
-/**
- * 打印使用说明
- */
-function printUsage(): void {
-  console.log(`
-WebMCP CLI - Chrome 远程调试工具
-
-用法:
-  webmcp <command> [args]
-
-命令:
-  list              查询浏览器当前情况（标签页、版本信息等）
-  run <cmd> [args]  让浏览器执行命令
-
-示例:
-  webmcp list
-  webmcp run navigate https://example.com
-  webmcp run screenshot output.png
-  webmcp run evaluate document.title
-  `)
-}
 
 /**
  * 主函数
@@ -59,9 +40,6 @@ async function main(): Promise<void> {
     console.error('Chrome 启动失败，请手动启动后重试')
     process.exit(1)
   }
-
-  // 等待一小段时间确保 Chrome 完全就绪
-  await new Promise((resolve) => setTimeout(resolve, 500))
 
   // 执行命令
   if (command === 'list') {
