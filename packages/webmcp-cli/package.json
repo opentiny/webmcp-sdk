@@ -1,11 +1,12 @@
 {
   "name": "@opentiny/webmcp-cli",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
-  "description": "Chrome remote debugging CLI tool for WebMCP",
+  "description": "WebMCP CLI for AI Agents to interact with browser via CDP",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "bin": {
-    "webmcp-cli": "./dist/index.js"
+    "webmcp-cli": "./dist/bin.js"
   },
   "files": [
     "dist",
@@ -13,18 +14,17 @@
     "skills"
   ],
   "scripts": {
-    "dev": "tsx src/index.ts",
+    "dev": "tsup --watch",
     "build:inject": "node scripts/build-inject.mjs",
-    "build": "pnpm run build:inject && tsc",
+    "build": "tsup && pnpm run build:inject",
     "prepublishOnly": "pnpm run build",
     "link:global": "npm install -g .",
-    "start": "node dist/index.js"
+    "start": "node dist/bin.js"
   },
   "keywords": [
     "chrome",
-    "remote-debugging",
-    "cdp",
-    "webmcp-cli"
+    "puppeteer",
+    "cli"
   ],
   "license": "MIT",
   "author": "OpenTiny Team",
@@ -35,14 +35,18 @@
     "access": "public"
   },
   "dependencies": {
-    "chrome-remote-interface": "catalog:",
     "@mcp-b/webmcp-polyfill": "catalog:",
-    "@page-agent/page-controller": "catalog:"
+    "@opentiny/next-sdk": "workspace:^",
+    "@page-agent/page-controller": "catalog:",
+    "commander": "^11.1.0",
+    "picocolors": "^1.0.0",
+    "puppeteer-core": "^22.0.0"
   },
   "devDependencies": {
-    "@types/node": "catalog:",
+    "@types/node": "^20.0.0",
     "esbuild": "^0.25.0",
+    "tsup": "^8.0.2",
     "tsx": "^4.0.0",
-    "typescript": "catalog:"
+    "typescript": "^5.3.3"
   }
 }

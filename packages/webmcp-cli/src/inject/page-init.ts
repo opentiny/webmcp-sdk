@@ -1,10 +1,9 @@
 import { initializeWebMCPPolyfill } from '@mcp-b/webmcp-polyfill'
-import { PageController } from '@page-agent/page-controller'
+import { registerPageAgentTool } from '@opentiny/next-sdk'
 
 declare global {
   interface Window {
     __webmcpcli_init?: boolean
-    __webmcpcli_pageController?: PageController
     __webmcpcli_tools?: Array<{
       name: string
       description?: string
@@ -27,11 +26,7 @@ function initWebMcpCliPage(): void {
   }
 
   initializeWebMCPPolyfill()
-
-  window.__webmcpcli_pageController = new PageController({
-    enableMask: true,
-    viewportExpansion: -1
-  })
+  registerPageAgentTool()
 
   window.__webmcpcli_tools = []
 
