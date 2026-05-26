@@ -1,5 +1,4 @@
 import { connectBrowser, getTargetPage } from '../browser'
-import pc from 'picocolors'
 
 export async function runCommand({
   toolName,

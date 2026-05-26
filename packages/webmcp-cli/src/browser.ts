@@ -4,6 +4,10 @@ import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import { spawn } from 'child_process'
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 const CDP_PORT = 9222
 // 使用 localhost 以兼容 IPv4/IPv6 绑定
@@ -121,7 +125,8 @@ export async function connectBrowser(): Promise<Browser> {
 export async function getTargetPage(browser: Browser, tabid?: number): Promise<Page> {
   const pages = await browser.pages()
   if (pages.length === 0) {
-    throw new Error('No open pages found.')
+    const newPage = await browser.newPage()
+    pages.push(newPage)
   }
 
   let targetPage: Page | undefined

@@ -1,5 +1,4 @@
 import { connectBrowser, getTargetPage } from '../browser'
-import pc from 'picocolors'
 
 export async function stateCommand({ tabid }: { tabid?: number }) {
   const browser = await connectBrowser()
