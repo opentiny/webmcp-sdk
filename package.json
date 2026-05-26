@@ -23,7 +23,9 @@
     "build:playground": "pnpm -F next-sdk-playground build",
     "preview:playground": "pnpm -F next-sdk-playground preview",
     "pub:next-sdk": "pnpm -F @opentiny/next-sdk publish --no-git-checks",
-    "pub:remoter": "pnpm -F @opentiny/next-remoter publish --no-git-checks"
+    "pub:remoter": "pnpm -F @opentiny/next-remoter publish --no-git-checks",
+    "dev:webmcp-cli": "pnpm -F @opentiny/webmcp-cli dev",
+    "build:webmcp-cli": "pnpm -F @opentiny/webmcp-cli build"
   },
   "devDependencies": {
     "prettier": "catalog:",
