@@ -2,7 +2,11 @@
   "name": "@opentiny/webmcp-cli",
   "version": "1.0.0",
   "type": "module",
+<<<<<<< HEAD
   "description": "WebMCP CLI for AI Agents to interact with browser via CDP",
+=======
+  "description": "WebMCP CLI for AI Agents to interact with browser",
+>>>>>>> 7ca0ea7 (feat: 支持webmcp-cli)
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
@@ -16,7 +20,11 @@
   "scripts": {
     "dev": "tsup --watch",
     "build:inject": "node scripts/build-inject.mjs",
+<<<<<<< HEAD
     "build": "tsup && pnpm run build:inject",
+=======
+    "build": "pnpm run build:inject && tsup",
+>>>>>>> 7ca0ea7 (feat: 支持webmcp-cli)
     "prepublishOnly": "pnpm run build",
     "link:global": "npm install -g .",
     "start": "node dist/bin.js"
@@ -36,7 +44,10 @@
   },
   "dependencies": {
     "@mcp-b/webmcp-polyfill": "catalog:",
+<<<<<<< HEAD
     "@opentiny/next-sdk": "workspace:^",
+=======
+>>>>>>> 7ca0ea7 (feat: 支持webmcp-cli)
     "@page-agent/page-controller": "catalog:",
     "commander": "^11.1.0",
     "picocolors": "^1.0.0",

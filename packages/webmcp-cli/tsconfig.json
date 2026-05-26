@@ -8,7 +8,11 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
+<<<<<<< HEAD
     "outDir": "dist",
+=======
+    "outDir": "./dist",
+>>>>>>> 7ca0ea7 (feat: 支持webmcp-cli)
     "rootDir": "./src",
     "declaration": true,
     "declarationMap": false,

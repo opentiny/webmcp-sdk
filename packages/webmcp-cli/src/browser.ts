@@ -166,68 +166,23 @@ export function getNumericTabId(targetId: string): number {
 async function injectWebMCPPolyfillAndTools(page: Page) {
   // Check if WebMCP environment already exists
   const isReady = await page.evaluate(() => {
-    return !!((navigator as any).modelContextTesting || (navigator as any).modelContext)
+    return !!(window as any).__webmcpcli_init
   }).catch(() => false)
 
   if (isReady) return // Already injected
 
   console.log(pc.cyan('当前页面尚未注入 WebMCP 环境，正在执行自动注入...'))
 
-  // Load the webmcp-full bundle from next-sdk
-  let sdkScriptPath = ''
-  
-  // 1. 先尝试在 monorepo 源码目录结构中找
-  const localRepoPath = path.resolve(__dirname, '../../next-sdk/dist/webmcp-full.js')
-  if (fs.existsSync(localRepoPath)) {
-    sdkScriptPath = localRepoPath
-  } else {
-    // 2. 在 node_modules 中找
-    try {
-      const sdkMainPath = require.resolve('@opentiny/next-sdk')
-      sdkScriptPath = path.join(path.dirname(sdkMainPath), 'webmcp-full.js')
-    } catch (e) {
-      throw new Error('Cannot find @opentiny/next-sdk module.')
-    }
+  const injectScriptPath = path.resolve(__dirname, 'inject-bundle.js')
+  if (!fs.existsSync(injectScriptPath)) {
+    throw new Error(`Cannot find inject-bundle.js at ${injectScriptPath}. Please ensure you run 'pnpm build:inject' first.`)
   }
 
-  if (!fs.existsSync(sdkScriptPath)) {
-    throw new Error(`Cannot find @opentiny/next-sdk bundle at ${sdkScriptPath}. Please ensure it is built.`)
-  }
-
-  const scriptContent = fs.readFileSync(sdkScriptPath, 'utf-8')
-
-  // 很多页面（如百度）会自带 AMD define 等加载器，这会拦截 UMD 脚本的执行。
-  // 我们在注入时，短暂地将这些变量隐藏，确保脚本能直接挂载到 window 对象上。
-  const UMD_MASK = `
-    var __temp_define = window.define;
-    var __temp_module = window.module;
-    var __temp_exports = window.exports;
-    window.define = undefined;
-    window.module = undefined;
-    window.exports = undefined;
-  `
-  const UMD_RESTORE = `
-    window.define = __temp_define;
-    window.module = __temp_module;
-    window.exports = __temp_exports;
-  `
+  const scriptContent = fs.readFileSync(injectScriptPath, 'utf-8')
 
   // Inject the script into the page
-  await page.evaluate(UMD_MASK + scriptContent + UMD_RESTORE)
-
-  // Initialize polyfill and register tools
-  await page.evaluate(() => {
-    if (typeof (window as any).WebMCP !== 'undefined') {
-      const { initializeBuiltinWebMCP, registerPageAgentTool } = (window as any).WebMCP
-      if (initializeBuiltinWebMCP) {
-        initializeBuiltinWebMCP()
-      }
-      if (registerPageAgentTool) {
-        registerPageAgentTool()
-      }
-    }
-  }).catch((err) => {
-    console.error(pc.yellow('自动注入脚本初始化失败: ' + err.message))
+  await page.evaluate(scriptContent).catch((err) => {
+    console.error(pc.yellow('自动注入脚本执行失败: ' + err.message))
   })
 
   // Short delay to allow tools to register asynchronously if any
