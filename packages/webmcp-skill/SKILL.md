@@ -22,7 +22,7 @@ This skill provides comprehensive instructions for third-party AI agents on how 
 To use `webmcp-cli`, the CLI needs to be installed globally or run via `npx` (if published) in the environment.
 
 **Local Monorepo:**
-If you are operating within the `next-sdk` monorepo, the CLI is available by linking:
+If you are operating within the monorepo, the CLI is available by linking:
 ```bash
 cd packages/webmcp-cli && pnpm link --global
 ```
@@ -66,7 +66,7 @@ It returns a JSON object containing the current URL, title, and most importantly
   "url": "https://www.baidu.com/",
   "title": "百度一下，你就知道",
   "webmcpTools": [
-    // Available MCP tools like page-agent-tool
+    "page-agent-tool"
   ]
 }
 ```

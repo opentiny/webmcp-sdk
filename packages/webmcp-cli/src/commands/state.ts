@@ -68,32 +68,25 @@ export async function stateCommand({ tabid }: { tabid?: number }) {
 
     // 获取所有的 tab 信息
     const pages = await browser.pages()
-    const tabs = []
-    for (const p of pages) {
+    const tabs = await Promise.all(pages.map(async (p, i) => {
       const pUrl = p.url()
-      if (pUrl.startsWith('devtools://')) continue // 忽略 devtools
-      const pTitle = await p.title().catch(() => 'Unknown')
-      const target = p.target()
-      // @ts-ignore
-      const targetId = target._targetId || 'unknown'
-      // 简单数字 hash，或直接返回 targetId
-      let numId = 0
-      for (let i = 0; i < targetId.length; i++) {
-        numId = (numId << 5) - numId + targetId.charCodeAt(i)
-        numId |= 0
-      }
-      numId = Math.abs(numId) % 10000
+      if (pUrl.startsWith('devtools://')) return null
+      
+      const pTitle = await Promise.race([
+        p.title().catch(() => 'Unknown'),
+        new Promise<string>(resolve => setTimeout(() => resolve('Unknown'), 500))
+      ])
 
-      tabs.push({
-        tabid: numId,
+      return {
+        tabid: i,
         title: pTitle,
         url: pUrl
-      })
-    }
+      }
+    }))
 
     return {
       ...state,
-      tabs
+      tabs: tabs.filter(Boolean)
     }
   } finally {
     await browser.disconnect()

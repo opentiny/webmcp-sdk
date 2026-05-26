@@ -43,5 +43,9 @@ const puppeteer = require('puppeteer-core');
   });
   
   console.log(JSON.stringify(results, null, 2));
+  if (results && results.error_debug) {
+    console.error('Parsing failed.');
+    process.exit(1);
+  }
   process.exit(0);
 })();

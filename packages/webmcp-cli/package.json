@@ -2,7 +2,7 @@
   "name": "@opentiny/webmcp-cli",
   "version": "1.0.0",
   "type": "module",
-  "description": "WebMCP CLI for AI Agents to interact with browser via CDP",
+  "description": "WebMCP CLI for AI Agents to interact with browser via Puppeteer",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {

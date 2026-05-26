@@ -89,14 +89,14 @@ export async function connectBrowser(): Promise<Browser> {
       defaultViewport: null,
     })
     return browser
-  } catch (error: any) {
+  } catch (error: unknown) {
     try {
       // 尝试使用 127.0.0.1 连接（有时候 puppeteer 在某些系统对 localhost 解析异常）
       return await puppeteer.connect({
         browserURL: `http://127.0.0.1:${CDP_PORT}`,
         defaultViewport: null,
       })
-    } catch (error2: any) {
+    } catch (error2: unknown) {
       // 连接失败时，尝试唤起浏览器
       try {
         await startChromeInBackground()
@@ -112,8 +112,9 @@ export async function connectBrowser(): Promise<Browser> {
             defaultViewport: null,
           })
         }
-      } catch (launchError: any) {
-        console.error(pc.red(`无法连接或启动浏览器: ${launchError.message}`))
+      } catch (launchError: unknown) {
+        const msg = launchError instanceof Error ? launchError.message : String(launchError)
+        console.error(pc.red(`无法连接或启动浏览器: ${msg}`))
         console.error(pc.yellow(`💡 提示：由于我们要使用你日常的默认浏览器（包含你的书签和登录态），如果你的 Chrome 目前正处于打开状态，它会拒绝使用带有调试端口的新参数启动。`))
         console.error(pc.yellow(`👉 解决办法：请先完全退出当前的 Chrome 浏览器（在 Mac 上按 Cmd+Q），然后再重新运行命令。`))
         throw new Error('Browser connection failed.')
@@ -132,12 +133,7 @@ export async function getTargetPage(browser: Browser, tabid?: number): Promise<P
   let targetPage: Page | undefined
 
   if (tabid !== undefined) {
-    const target = browser.targets().find((t) => t.type() === 'page' && getNumericTabId((t as any)._targetId || '') === tabid)
-    if (target) {
-      const page = await target.page()
-      if (page) targetPage = page
-    }
-    if (!targetPage && tabid >= 0 && tabid < pages.length) {
+    if (tabid >= 0 && tabid < pages.length) {
       targetPage = pages[tabid]
     }
     if (!targetPage) {
@@ -145,7 +141,11 @@ export async function getTargetPage(browser: Browser, tabid?: number): Promise<P
     }
   } else {
     for (const page of pages) {
-      const isVisible = await page.evaluate(() => document.visibilityState === 'visible').catch(() => false)
+      if (page.url().startsWith('devtools://')) continue
+      const isVisible = await Promise.race([
+        page.evaluate(() => document.visibilityState === 'visible').catch(() => false),
+        new Promise<boolean>(resolve => setTimeout(() => resolve(false), 500))
+      ])
       if (isVisible) {
         targetPage = page
         break
@@ -157,15 +157,6 @@ export async function getTargetPage(browser: Browser, tabid?: number): Promise<P
   // Inject polyfill and tools if not present
   await injectWebMCPPolyfillAndTools(targetPage)
   return targetPage
-}
-
-export function getNumericTabId(targetId: string): number {
-  let hash = 0
-  for (let i = 0; i < targetId.length; i++) {
-    hash = (hash << 5) - hash + targetId.charCodeAt(i)
-    hash |= 0
-  }
-  return Math.abs(hash) % 10000
 }
 
 async function injectWebMCPPolyfillAndTools(page: Page) {
@@ -186,9 +177,12 @@ async function injectWebMCPPolyfillAndTools(page: Page) {
   const scriptContent = fs.readFileSync(injectScriptPath, 'utf-8')
 
   // Inject the script into the page
-  await page.evaluate(scriptContent).catch((err) => {
-    console.error(pc.yellow('自动注入脚本执行失败: ' + err.message))
-  })
+  try {
+    await page.evaluate(scriptContent)
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    throw new Error('自动注入脚本执行失败: ' + msg)
+  }
 
   // Short delay to allow tools to register asynchronously if any
   await new Promise(resolve => setTimeout(resolve, 300))

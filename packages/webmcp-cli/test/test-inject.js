@@ -20,7 +20,7 @@ const fs = require('fs');
     window.exports = __temp_exports;
   `;
 
-  const scriptContent = fs.readFileSync('../next-sdk/dist/webmcp-full.js', 'utf-8');
+  const scriptContent = fs.readFileSync('../../next-sdk/dist/webmcp-full.js', 'utf-8');
   await page.evaluate(UMD_MASK + scriptContent + UMD_RESTORE);
   
   const keys = await page.evaluate(() => Object.keys(window));
@@ -41,5 +41,10 @@ const fs = require('fs');
   
   console.log('Tools:', JSON.stringify(tools, null, 2));
   
+  if (tools === 'no mcp' || !tools.tools || tools.tools.length === 0) {
+    console.error('Tool injection/registration failed.');
+    process.exit(1);
+  }
+
   process.exit(0);
 })();
