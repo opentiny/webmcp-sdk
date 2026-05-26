@@ -1,6 +1,8 @@
-# webmcp-cli 的命令
+# @opentiny/webmcp-cli
 
-## 安装与本地联调
+`@opentiny/webmcp-cli` 是一个用于控制 Chrome 浏览器并暴露 WebMCP 接口的 CLI 工具。它基于 `puppeteer-core`，通过 CDP（Chrome DevTools Protocol）连接或启动本地浏览器，支持自动为页面注入 WebMCP 运行环境及页面操作工具 (`page-agent-tool`)，从而让 AI Agent 可以轻松感知和操控网页。
+
+## 安装与开发
 
 ```bash
 # 全局安装（发布后）
@@ -8,124 +10,108 @@ npm install -g @opentiny/webmcp-cli
 # 或
 pnpm add -g @opentiny/webmcp-cli
 
-# 本地联调（在 packages/webmcp-cli 目录，改代码后需重新 build）
+# 本地联调（在 packages/webmcp-cli 目录）
 pnpm build
-pnpm link:global
-# 等价于: npm install -g .
+npm install -g .
 ```
 
-全局命令名为 **`webmcp-cli`**，例如：`webmcp-cli list`。
+> **注意：** 在本地联调时，建议使用 `npm install -g .`，这会确保在你的 PATH 中生成有效的可执行文件（`webmcp-cli`）。
 
-### 为什么 `npm link` 成功但命令找不到？
+## 核心架构特性
 
-`npm link` 只会把包链到全局 `node_modules`，**不保证**把 `webmcp-cli.cmd` 放进 PATH。
-在 Vite Plus 等自定义 `npm prefix` 环境下，bin 往往生成在 prefix 目录（如 `%USERPROFILE%\.vite-plus\js_runtime\node\<version>\`），而 PATH 里只有 `%USERPROFILE%\.vite-plus\bin`。
+- **后台浏览器驻留**：如果当前没有开启带有调试端口 (`9222`) 的 Chrome，CLI 会自动在后台拉起一个基于你本地 Profile 的独立 Chrome 实例。
+- **自动环境注入**：当获取页面状态时，CLI 会自动探测并向页面注入 `webmcp-polyfill` 以及内置的 `page-agent-tool` 工具。
+- **统一工具协议**：采用标准 MCP (Model Context Protocol) 规范。所有的页面操作（点击、输入等）不再是生硬的命令，而是直接调用页面上注册好的 `page-agent-tool`。
 
-请改用 **`npm install -g .`**（或 `pnpm link:global` / `vp install -g .`），会在 PATH 目录下生成可执行的 shim。
+## CLI 命令使用
 
-取消全局联调：
+全局命令为 **`webmcp-cli`**，支持全局参数：
+- `-w, --workspace <path>`: 指定自定义的浏览器工作空间（用户配置目录）路径。如果不传默认使用 `~/.webmcp_chrome_profile`。
 
+---
+
+### 1. `state` 命令
+
+获取浏览器当前活跃页签（或指定页签）的详细状态，包括当前页面的标题、URL、页面中包含的可操作 DOM 树，以及当前页面所有可调用的 MCP 工具列表（包含自动注入的 `page-agent-tool`）。
+
+**用法：**
 ```bash
-npm uninstall -g @opentiny/webmcp-cli
+webmcp-cli state
+webmcp-cli state -t <tabid>
+```
+
+**返回格式（JSON）：**
+```json
+{
+  "content": "浏览器状态：包含 [index]<type>text</type> 格式的页面树...",
+  "url": "https://example.com",
+  "title": "Example Domain",
+  "webmcpTools": [
+    {
+      "name": "page-agent-tool",
+      "description": "...",
+      "inputSchema": "..."
+    }
+  ],
+  "tabs": [
+    {
+      "tabid": 1234,
+      "title": "Example Domain",
+      "url": "https://example.com"
+    }
+  ]
+}
 ```
 
 ---
 
-# 1、 list 命令
+### 2. `run` 命令
 
-list命令第一步： 
-向当前打开的网页，注入脚本，注入成功后记录  window.__webmcpcli_init=true.
+向指定页签调用并执行任意的 WebMCP 工具。工具名与参数须与 `state` 命令中获取到的 `webmcpTools` 清单匹配。
 
-注入脚本中，先判断window.__webmcpcli_init为true， 则直接返回
-window.__webmcpcli_init不存在，则注入以下逻辑：
-
-```javascript
-import { initializeWebMCPPolyfill } from '@mcp-b/webmcp-polyfill'
-import { PageController } from '@page-agent/page-controller'
-
-// 让网页兼容最新的 webmcp api
-initializeWebMCPPolyfill()
-
-
-// 去操作网页， 比如 browserState click  fill select scroll 
-window.__webmcpcli_pageController = new PageController({ enableMask: true, viewportExpansion: -1 })
-
-
-
-
-// 立即收集一次页面所有的工具
-navigator.modelContextTesting.registerToolsChangedCallback(async () => {
-    // 把当前页面所有的工具，更新到 window.__webmcpcli_tools下面
-});
-  ```
-list命令第二步： 
-返回当前页面状态为json
-```json
-{
-    currTab:{
-        url:  当前url
-        content: pageController.getBrowserState,
-        tabId: 当前标签面的tabId
-        tools:[
-            window.__webmcpcli_tools 的值
-        ]
-    },
-    otherTabs:[
-        {url,title,tabId}
-    ]
-}
-
+**用法：**
+```bash
+webmcp-cli run <toolName> <argsJson> [-t tabid]
 ```
 
-2. run 命令
-
-run 命令就是执行一些网页命令，它分为3种
-1  是执行当前页面  navigator.modelContext 注册的tools
-比如用户注册了改变颜色的工具：
-```js
-navigator.modelContext.registerTool({
-  name: "change-color",
-  description: "改变当前颜色",
-  inputSchema: { type: "object", properties: {"color": { "type": "string" },} },
-  async execute({color}) {
-    document.body.style.background=color
-    return {
-      content: [
-        {
-          type: "text",
-          text: `当前红色, from buildin-modelcontext`,
-        },
-      ],
-    };
-  },
-});
-
+**示例一：执行页面自带工具**
+假设网页使用 `navigator.modelContext.registerTool` 注册了一个名为 `change-color` 的工具：
+```bash
+webmcp-cli run change-color '{"color": "#ff0000"}'
 ```
-那我们就可以执行它：
-  `webmcp-cli run  change-color #110000`
 
-2 是执行 page-agent 工具中的命令
+**示例二：使用内置的 `page-agent-tool` 操控浏览器**
+CLI 自动注入的 `page-agent-tool` 支持丰富的动作（action）：`browserState`, `click`, `fill`, `select`, `scroll`, `executeJavascript`。
 
-如果是 webmcp-cli run  ,则表示执行page-agent命令
+获取状态（执行前必须调用一次）：
+```bash
+webmcp-cli run page-agent-tool '{"action": "browserState"}'
+```
 
-page-agent 子命令有
+点击索引为 35 的元素：
+```bash
+webmcp-cli run page-agent-tool '{"action": "click", "index": 35}'
+```
 
-| --子命令-- | --参数--  | -动作- | -说明- |
-|-----|-----|-----|
-| browserState |  无  |   await pageController.getBrowserState()   |  查询当前整个页面的浏览器状态;返回页面的标题、URL、HTML内容 |
-| click |  index  |  await pageController.clickElement(args.index)   |  根据元素索引点击 |
-| fill |   index  text |  await pageController.inputText(args.index, args.text)   | 根据元素索引填写文本 |
-| select |  index  text  |  await pageController.selectOption(args.index, args.text)   | 根据元素索引选择下拉框选项 |
+向索引为 40 的输入框填入文本：
+```bash
+webmcp-cli run page-agent-tool '{"action": "fill", "index": 40, "text": "OpenTiny"}'
+```
 
-比如：  `webmcp-cli run  page-agent  browserState `
-        `webmcp-cli run  page-agent  click #35 `
-3是 执行tabs 操作
+---
 
-管理整个浏览器的tabs
-| --子命令-- | --参数--  |  -说明- |
-|-----|-----|-----|
-| open |  url |  打开url |
-| close |  tabid  |  关闭标签 |
-| switch |  tabid| 激活指定tabid |
+### 3. `open` 命令
 
-比如：  `webmcp-cli run  tabs open https://baidu.com`
+在浏览器中打开指定的网页，并且可以选择是在当前页签导航，还是开启全新页签。
+
+**用法：**
+```bash
+webmcp-cli open <url>
+webmcp-cli open <url> -t <tabid>
+webmcp-cli open <url> -n    # 在新页签中打开
+```
+
+**示例：**
+```bash
+webmcp-cli open "https://github.com/opentiny/tiny-vue" -n
+```
