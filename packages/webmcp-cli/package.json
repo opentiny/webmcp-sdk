@@ -1,0 +1,28 @@
+{
+  "name": "@opentiny/webmcp-cli",
+  "version": "1.0.0",
+  "description": "WebMCP CLI for AI Agents to interact with browser via CDP",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "webmcp-cli": "./dist/bin.js"
+  },
+  "scripts": {
+    "dev": "tsup --watch",
+    "build": "tsup"
+  },
+  "dependencies": {
+    "@opentiny/next-sdk": "workspace:^",
+    "commander": "^11.1.0",
+    "picocolors": "^1.0.0",
+    "puppeteer-core": "^22.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "tsup": "^8.0.2",
+    "typescript": "^5.3.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
