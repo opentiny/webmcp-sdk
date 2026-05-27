@@ -64,7 +64,7 @@ description: 擅长绘制各种图表、流程图、架构图等，能够提供�
 
 2. **文本 (`text`)**
    - `text`: **必须**. 显示的文本内容, 支持`\n`换行。
-   - `originText`: **必须**. 用于后续编辑。
+   - `originalText`: **必须**. 用于后续编辑，必须与 `text` 字段完全一致。
    - `fontSize`: 字体大小 (数字), 默认为20。如 `16`, `20`, `28`。
    - `fontFamily`: 字体类型: `1` (手写/Virgil), `2` (正常/Helvetica), `3` (代码/Cascadia)，默认为1。
    - `textAlign`: 水平对齐: `"left"`, `"center"`, `"right"`，默认为"left"。
@@ -117,6 +117,7 @@ description: 擅长绘制各种图表、流程图、架构图等，能够提供�
          "height": 50,
          "containerId": "api-server-1",
          "text": "核心API服务\n(Node.js)",
+         "originalText": "核心API服务\n(Node.js)",
          "fontSize": 20,
          "fontFamily": 2,
          "textAlign": "center",

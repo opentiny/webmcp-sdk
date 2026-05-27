@@ -13,6 +13,29 @@ const CDP_PORT = 9222
 // 使用 localhost 以兼容 IPv4/IPv6 绑定
 const CDP_URL = `http://localhost:${CDP_PORT}`
 
+async function fetchWithTimeout(url: string, timeoutMs = 1500): Promise<Response> {
+  const controller = new AbortController()
+  const id = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(url, { signal: controller.signal })
+  } finally {
+    clearTimeout(id)
+  }
+}
+
+function promiseWithTimeout<T>(promise: Promise<T>, timeoutMs = 5000, errorMsg = 'Operation timed out'): Promise<T> {
+  let timeoutId: NodeJS.Timeout
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(errorMsg))
+    }, timeoutMs)
+  })
+  
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    clearTimeout(timeoutId)
+  })
+}
+
 function getDefaultChromePath(): string | null {
   const platform = os.platform()
   if (platform === 'darwin') {
@@ -65,7 +88,7 @@ async function startChromeInBackground(): Promise<void> {
       const urls = [`http://localhost:${CDP_PORT}/json/version`, `http://127.0.0.1:${CDP_PORT}/json/version`]
       for (const url of urls) {
         try {
-          const response = await fetch(url)
+          const response = await fetchWithTimeout(url, 1000)
           if (response.ok) {
             console.log(pc.green('Chrome 启动并就绪。'))
             return
@@ -111,25 +134,51 @@ export async function connectBrowser(): Promise<Browser> {
     }
   }
 
+  // 辅助函数：快速检测 CDP 端口是否工作
+  const checkCdpReady = async (url: string) => {
+    try {
+      const res = await fetchWithTimeout(url, 1000)
+      return res.ok
+    } catch {
+      return false
+    }
+  }
+
   try {
+    const is127Ready = await checkCdpReady(`http://127.0.0.1:${CDP_PORT}/json/version`)
+    if (!is127Ready) {
+      throw new Error('127.0.0.1 CDP port not responding')
+    }
     console.log(pc.yellow('connectBrowser: 正在尝试连接 127.0.0.1:9222...'))
     // 优先尝试通过 127.0.0.1 连接
-    const browser = await puppeteer.connect({
-      browserURL: `http://127.0.0.1:${CDP_PORT}`,
-      defaultViewport: null,
-      targetFilter,
-    })
+    const browser = await promiseWithTimeout(
+      puppeteer.connect({
+        browserURL: `http://127.0.0.1:${CDP_PORT}`,
+        defaultViewport: null,
+        targetFilter,
+      }),
+      5000,
+      'puppeteer.connect to 127.0.0.1 timed out'
+    )
     console.log(pc.green('connectBrowser: 成功连接 127.0.0.1:9222'))
     return browser
   } catch (error: unknown) {
     try {
+      const isLocalhostReady = await checkCdpReady(`http://localhost:${CDP_PORT}/json/version`)
+      if (!isLocalhostReady) {
+        throw new Error('localhost CDP port not responding')
+      }
       console.log(pc.yellow('connectBrowser: 正在尝试连接 localhost:9222...'))
       // 尝试使用 localhost 连接
-      const browser = await puppeteer.connect({
-        browserURL: `http://localhost:${CDP_PORT}`,
-        defaultViewport: null,
-        targetFilter,
-      })
+      const browser = await promiseWithTimeout(
+        puppeteer.connect({
+          browserURL: `http://localhost:${CDP_PORT}`,
+          defaultViewport: null,
+          targetFilter,
+        }),
+        5000,
+        'puppeteer.connect to localhost timed out'
+      )
       console.log(pc.green('connectBrowser: 成功连接 localhost:9222'))
       return browser
     } catch (error2: unknown) {
@@ -139,21 +188,37 @@ export async function connectBrowser(): Promise<Browser> {
         await startChromeInBackground()
         // 再次尝试连接
         try {
+          const is127Ready = await checkCdpReady(`http://127.0.0.1:${CDP_PORT}/json/version`)
+          if (!is127Ready) {
+            throw new Error('127.0.0.1 CDP port not responding after launch')
+          }
           console.log(pc.yellow('connectBrowser: 浏览器已启动，正在尝试连接 127.0.0.1:9222...'))
-          const browser = await puppeteer.connect({
-            browserURL: `http://127.0.0.1:${CDP_PORT}`,
-            defaultViewport: null,
-            targetFilter,
-          })
+          const browser = await promiseWithTimeout(
+            puppeteer.connect({
+              browserURL: `http://127.0.0.1:${CDP_PORT}`,
+              defaultViewport: null,
+              targetFilter,
+            }),
+            5000,
+            'puppeteer.connect to 127.0.0.1 after launch timed out'
+          )
           console.log(pc.green('connectBrowser: 成功连接 127.0.0.1:9222'))
           return browser
         } catch (e) {
+          const isLocalhostReady = await checkCdpReady(`http://localhost:${CDP_PORT}/json/version`)
+          if (!isLocalhostReady) {
+            throw new Error('localhost CDP port not responding after launch')
+          }
           console.log(pc.yellow('connectBrowser: 正在尝试连接 localhost:9222...'))
-          const browser = await puppeteer.connect({
-            browserURL: `http://localhost:${CDP_PORT}`,
-            defaultViewport: null,
-            targetFilter,
-          })
+          const browser = await promiseWithTimeout(
+            puppeteer.connect({
+              browserURL: `http://localhost:${CDP_PORT}`,
+              defaultViewport: null,
+              targetFilter,
+            }),
+            5000,
+            'puppeteer.connect to localhost after launch timed out'
+          )
           console.log(pc.green('connectBrowser: 成功连接 localhost:9222'))
           return browser
         }
@@ -227,7 +292,7 @@ export async function getTargetPage(browser: Browser, tabid?: string): Promise<P
       let activeTargetId: string | null = null
       for (const url of urls) {
         try {
-          const res = await fetch(url)
+          const res = await fetchWithTimeout(url, 1000)
           if (res.ok) {
             const targetsData: Array<{ id: string; type: string; url: string }> = await res.json()
             // 找第一个 type=page 且不是 devtools:// 的 target（Chrome 把激活的排第一）

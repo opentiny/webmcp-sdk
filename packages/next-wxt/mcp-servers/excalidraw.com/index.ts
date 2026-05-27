@@ -99,6 +99,15 @@ if (!(window as any).__excalidrawToolsRegistered) {
         el.points = [[0, 0], [100, 100]]
       }
     }
+    // 保护 text 类型的元素，确保 originalText 存在且等于 text，防止编辑时显示 undefined，且默认 fontFamily 为 2 (防止加载 Virgil 字体包未完成导致模糊)
+    if (el.type === 'text') {
+      if (el.originalText === undefined) {
+        el.originalText = el.text || ''
+      }
+      if (el.fontFamily === undefined) {
+        el.fontFamily = 2
+      }
+    }
     
     return el
   }

@@ -68,9 +68,9 @@ webmcp-cli run excalidraw_execute_command '{"eventName": "addElement", "payload"
 | 属性 | 说明 |
 |------|------|
 | `text` | **必须**。显示内容，支持 `\n` 换行 |
-| `originText` | **必须**。用于后续编辑，与 `text` 相同 |
+| `originalText` | **必须**。用于后续编辑，值必须与 `text` 字段完全一致 |
 | `fontSize` | 字体大小，默认 20 |
-| `fontFamily` | `1`=手写/Virgil，`2`=正常/Helvetica，`3`=代码/Cascadia，默认 1 |
+| `fontFamily` | `1`=手写/Virgil，`2`=正常/Helvetica，`3`=代码/Cascadia。**强烈建议默认用 2**（常规矢量字体，边缘清晰） |
 | `textAlign` | `"left"` / `"center"` / `"right"`，默认 `"left"` |
 | `verticalAlign` | `"top"` / `"middle"` / `"bottom"`，默认 `"top"` |
 | `containerId` | **核心关系**。将文本放入容器的关键，值为目标容器元素的 `id` |
@@ -120,7 +120,7 @@ webmcp-cli run excalidraw_execute_command '{"eventName": "addElement", "payload"
     "width": 200, "height": 50,
     "containerId": "api-server-1",
     "text": "核心API服务\n(Node.js)",
-    "originText": "核心API服务\n(Node.js)",
+    "originalText": "核心API服务\n(Node.js)",
     "fontSize": 20,
     "fontFamily": 2,
     "textAlign": "center",
