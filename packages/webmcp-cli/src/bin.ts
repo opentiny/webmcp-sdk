@@ -7,11 +7,9 @@ import { openCommand } from './commands/open'
 
 const program = new Command()
 
-function parseTabId(id?: string): number | undefined {
+function parseTabId(id?: string): string | undefined {
   if (!id) return undefined
-  const parsed = parseInt(id, 10)
-  if (isNaN(parsed)) throw new Error(`Invalid tabid provided: ${id}`)
-  return parsed
+  return id
 }
 
 program

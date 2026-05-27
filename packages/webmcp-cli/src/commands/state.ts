@@ -1,6 +1,6 @@
-import { connectBrowser, getTargetPage } from '../browser'
+import { connectBrowser, getTargetPage, getPageTargetId } from '../browser'
 
-export async function stateCommand({ tabid }: { tabid?: number }) {
+export async function stateCommand({ tabid }: { tabid?: string }) {
   const browser = await connectBrowser()
   try {
     const page = await getTargetPage(browser, tabid)
@@ -66,19 +66,20 @@ export async function stateCommand({ tabid }: { tabid?: number }) {
       }
     })
 
-    // 获取所有的 tab 信息
+    // 获取所有的 tab 信息（排除 devtools:// 内部页面）
     const pages = await browser.pages()
-    const tabs = await Promise.all(pages.map(async (p, i) => {
+    const tabs = await Promise.all(pages.map(async (p) => {
       const pUrl = p.url()
       if (pUrl.startsWith('devtools://')) return null
-      
+
       const pTitle = await Promise.race([
         p.title().catch(() => 'Unknown'),
         new Promise<string>(resolve => setTimeout(() => resolve('Unknown'), 500))
       ])
 
       return {
-        tabid: i,
+        // 使用真实的 Chrome target ID，而非数组下标
+        tabid: await getPageTargetId(p).catch(() => pUrl),
         title: pTitle,
         url: pUrl
       }

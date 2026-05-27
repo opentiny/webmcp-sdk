@@ -82,40 +82,85 @@ async function startChromeInBackground(): Promise<void> {
 }
 
 export async function connectBrowser(): Promise<Browser> {
+  const targetFilter = (target: any) => {
+    try {
+      const info = typeof target._getTargetInfo === 'function' ? target._getTargetInfo() : target
+      const type = info.type || ''
+      const url = info.url || ''
+      
+      // 过滤掉绝对不需要 attach 且容易发生死锁的后台/子框架 target
+      if (
+        type === 'service_worker' || 
+        type === 'shared_worker' || 
+        type === 'iframe' || 
+        type === 'other' || 
+        type === 'webview' ||
+        type === 'background_page'
+      ) {
+        return false
+      }
+      
+      // 过滤掉 devtools 和插件页面
+      if (url.startsWith('devtools://') || url.startsWith('chrome-extension://')) {
+        return false
+      }
+      
+      return true
+    } catch (e) {
+      return false
+    }
+  }
+
   try {
-    // 优先尝试通过 localhost 连接
+    console.log(pc.yellow('connectBrowser: 正在尝试连接 127.0.0.1:9222...'))
+    // 优先尝试通过 127.0.0.1 连接
     const browser = await puppeteer.connect({
-      browserURL: `http://localhost:${CDP_PORT}`,
+      browserURL: `http://127.0.0.1:${CDP_PORT}`,
       defaultViewport: null,
+      targetFilter,
     })
+    console.log(pc.green('connectBrowser: 成功连接 127.0.0.1:9222'))
     return browser
   } catch (error: unknown) {
     try {
-      // 尝试使用 127.0.0.1 连接（有时候 puppeteer 在某些系统对 localhost 解析异常）
-      return await puppeteer.connect({
-        browserURL: `http://127.0.0.1:${CDP_PORT}`,
+      console.log(pc.yellow('connectBrowser: 正在尝试连接 localhost:9222...'))
+      // 尝试使用 localhost 连接
+      const browser = await puppeteer.connect({
+        browserURL: `http://localhost:${CDP_PORT}`,
         defaultViewport: null,
+        targetFilter,
       })
+      console.log(pc.green('connectBrowser: 成功连接 localhost:9222'))
+      return browser
     } catch (error2: unknown) {
+      console.log(pc.yellow(`connectBrowser: 连接失败，将尝试唤起浏览器。错误原因: ${error2 instanceof Error ? error2.message : String(error2)}`))
       // 连接失败时，尝试唤起浏览器
       try {
         await startChromeInBackground()
         // 再次尝试连接
         try {
-          return await puppeteer.connect({
-            browserURL: `http://localhost:${CDP_PORT}`,
-            defaultViewport: null,
-          })
-        } catch (e) {
-          return await puppeteer.connect({
+          console.log(pc.yellow('connectBrowser: 浏览器已启动，正在尝试连接 127.0.0.1:9222...'))
+          const browser = await puppeteer.connect({
             browserURL: `http://127.0.0.1:${CDP_PORT}`,
             defaultViewport: null,
+            targetFilter,
           })
+          console.log(pc.green('connectBrowser: 成功连接 127.0.0.1:9222'))
+          return browser
+        } catch (e) {
+          console.log(pc.yellow('connectBrowser: 正在尝试连接 localhost:9222...'))
+          const browser = await puppeteer.connect({
+            browserURL: `http://localhost:${CDP_PORT}`,
+            defaultViewport: null,
+            targetFilter,
+          })
+          console.log(pc.green('connectBrowser: 成功连接 localhost:9222'))
+          return browser
         }
       } catch (launchError: unknown) {
         const msg = launchError instanceof Error ? launchError.message : String(launchError)
         console.error(pc.red(`无法连接或启动浏览器: ${msg}`))
-        console.error(pc.yellow(`💡 提示：由于我们要使用你日常的默认浏览器（包含你的书签和登录态），如果你的 Chrome 目前正处于打开状态，它会拒绝使用带有调试端口的新参数启动。`))
+        console.error(pc.yellow(`💡 提示：由于我们要使用你日常的默认浏览器（包含你的书签 and 登录态），如果你的 Chrome 目前正处于打开状态，它会拒绝使用带有调试端口的新参数启动。`))
         console.error(pc.yellow(`👉 解决办法：请先完全退出当前的 Chrome 浏览器（在 Mac 上按 Cmd+Q），然后再重新运行命令。`))
         throw new Error('Browser connection failed.')
       }
@@ -123,67 +168,170 @@ export async function connectBrowser(): Promise<Browser> {
   }
 }
 
-export async function getTargetPage(browser: Browser, tabid?: number): Promise<Page> {
-  const pages = await browser.pages()
-  if (pages.length === 0) {
+
+/**
+ * 通过 CDP 获取页面真实的 Chrome target ID（UUID 格式字符串）
+ * 供 state.ts 等命令展示 tabs 列表时使用
+ */
+export async function getPageTargetId(page: Page): Promise<string> {
+  const session = await page.target().createCDPSession()
+  try {
+    const { targetInfo } = await session.send('Target.getTargetInfo')
+    return targetInfo.targetId
+  } finally {
+    await session.detach().catch(() => {})
+  }
+}
+
+export async function getTargetPage(browser: Browser, tabid?: string): Promise<Page> {
+  const targets = browser.targets()
+  const pageTargets = targets.filter(t => {
+    try {
+      const type = (typeof t.type === 'function' ? t.type() : (t as any).type) || ''
+      const url = (typeof t.url === 'function' ? t.url() : (t as any).url) || ''
+      return type === 'page' && !url.startsWith('devtools://')
+    } catch {
+      return false
+    }
+  })
+
+  if (pageTargets.length === 0) {
     const newPage = await browser.newPage()
-    pages.push(newPage)
+    await injectWebMCPPolyfillAndTools(newPage)
+    return newPage
   }
 
-  let targetPage: Page | undefined
+  let targetPage: Page | null = null
 
   if (tabid !== undefined) {
-    if (tabid >= 0 && tabid < pages.length) {
-      targetPage = pages[tabid]
-    }
-    if (!targetPage) {
-      throw new Error(`Tab with id ${tabid} not found.`)
-    }
-  } else {
-    for (const page of pages) {
-      if (page.url().startsWith('devtools://')) continue
-      const isVisible = await Promise.race([
-        page.evaluate(() => document.visibilityState === 'visible').catch(() => false),
-        new Promise<boolean>(resolve => setTimeout(() => resolve(false), 500))
-      ])
-      if (isVisible) {
-        targetPage = page
+    // 按真实 Chrome target ID 查找
+    for (const target of pageTargets) {
+      const tid = typeof (target as any)._getTargetInfo === 'function'
+        ? (target as any)._getTargetInfo().targetId
+        : ((target as any)._targetId || (target as any).targetId || '')
+      if (tid === tabid || tid.includes(tabid)) {
+        targetPage = await target.page()
         break
       }
     }
-    if (!targetPage) targetPage = pages[pages.length - 1]
+    if (!targetPage) {
+      throw new Error(`Tab with targetId "${tabid}" not found.`)
+    }
+  } else {
+    // Chrome 的 /json/list 接口把当前激活 the tab 排在第一位，用它来判断激活 tab
+    try {
+      const urls = [
+        `http://localhost:${CDP_PORT}/json/list`,
+        `http://127.0.0.1:${CDP_PORT}/json/list`
+      ]
+      let activeTargetId: string | null = null
+      for (const url of urls) {
+        try {
+          const res = await fetch(url)
+          if (res.ok) {
+            const targetsData: Array<{ id: string; type: string; url: string }> = await res.json()
+            // 找第一个 type=page 且不是 devtools:// 的 target（Chrome 把激活的排第一）
+            const active = targetsData.find(t => t.type === 'page' && !t.url.startsWith('devtools://'))
+            if (active) { activeTargetId = active.id; break }
+          }
+        } catch { /* 忽略，继续试下一个地址 */ }
+      }
+
+      if (activeTargetId) {
+        for (const target of pageTargets) {
+          const tid = typeof (target as any)._getTargetInfo === 'function'
+            ? (target as any)._getTargetInfo().targetId
+            : ((target as any)._targetId || (target as any).targetId || '')
+          if (tid === activeTargetId) {
+            targetPage = await target.page()
+            break
+          }
+        }
+      }
+    } catch { /* 忽略，使用 fallback */ }
+
+    // fallback：取最后一个非 devtools 页面
+    if (!targetPage) {
+      const lastTarget = pageTargets[pageTargets.length - 1]
+      targetPage = await lastTarget.page()
+    }
   }
 
-  // Inject polyfill and tools if not present
+  if (!targetPage) {
+    throw new Error('无法获取目标页面')
+  }
+
+  // 注入 polyfill 和域名工具（幂等检查）
   await injectWebMCPPolyfillAndTools(targetPage)
   return targetPage
 }
 
-async function injectWebMCPPolyfillAndTools(page: Page) {
-  // Check if WebMCP environment already exists
-  const isReady = await page.evaluate(() => {
+/**
+ * 供 open 命令在 goto 完成后调用：强制注入（不做 flag 检查，因为 goto 后页面上下文已清空）
+ */
+export async function injectIntoPage(page: Page): Promise<void> {
+  await injectWebMCPPolyfillAndTools(page, true)
+}
+
+async function injectWebMCPPolyfillAndTools(page: Page, force = false) {
+  // 检查 polyfill 是否已注入（force=true 时跳过，用于 goto 之后的强制重注入）
+  const polyfillReady = !force && await page.evaluate(() => {
     return !!(window as any).__webmcpcli_init
   }).catch(() => false)
 
-  if (isReady) return // Already injected
+  if (!polyfillReady) {
+    console.log(pc.cyan('当前页面尚未注入 WebMCP 环境，正在执行自动注入...'))
 
-  console.log(pc.cyan('当前页面尚未注入 WebMCP 环境，正在执行自动注入...'))
+    const injectScriptPath = path.resolve(__dirname, 'inject-bundle.js')
+    if (!fs.existsSync(injectScriptPath)) {
+      throw new Error(`Cannot find inject-bundle.js at ${injectScriptPath}. Please ensure you run 'pnpm build:inject' first.`)
+    }
 
-  const injectScriptPath = path.resolve(__dirname, 'inject-bundle.js')
-  if (!fs.existsSync(injectScriptPath)) {
-    throw new Error(`Cannot find inject-bundle.js at ${injectScriptPath}. Please ensure you run 'pnpm build:inject' first.`)
+    const scriptContent = fs.readFileSync(injectScriptPath, 'utf-8')
+
+    // 注入 WebMCP polyfill
+    try {
+      await page.evaluate(scriptContent)
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      throw new Error('自动注入脚本执行失败: ' + msg)
+    }
+
+    // 等待工具异步注册
+    await new Promise(resolve => setTimeout(resolve, 300))
   }
 
-  const scriptContent = fs.readFileSync(injectScriptPath, 'utf-8')
+  // 无论 polyfill 是否刚注入，都检查域名工具（工具内部有防重复 flag）
+  await injectDomainTools(page)
+}
 
-  // Inject the script into the page
+/**
+ * 根据页面域名查找并注入对应的工具 bundle
+ * bundle 文件位于 dist/webmcp-tools/{hostname}.js
+ */
+async function injectDomainTools(page: Page): Promise<void> {
+  let hostname: string
   try {
-    await page.evaluate(scriptContent)
+    const url = new URL(page.url())
+    hostname = url.hostname
+  } catch {
+    return // 非 http(s) 页面，跳过
+  }
+
+  const toolBundlePath = path.resolve(__dirname, 'webmcp-tools', `${hostname}.js`)
+  if (!fs.existsSync(toolBundlePath)) {
+    return // 没有对应的工具预置，跳过
+  }
+
+  console.log(pc.cyan(`检测到域名 ${hostname} 有预置工具，正在注入...`))
+
+  const toolScript = fs.readFileSync(toolBundlePath, 'utf-8')
+  try {
+    await page.evaluate(toolScript)
+    console.log(pc.green(`已为 ${hostname} 注入预置工具`))
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err)
-    throw new Error('自动注入脚本执行失败: ' + msg)
+    // 工具注入失败不阻断主流程，仅打印警告
+    console.warn(pc.yellow(`域名工具注入失败 (${hostname}): ${msg}`))
   }
-
-  // Short delay to allow tools to register asynchronously if any
-  await new Promise(resolve => setTimeout(resolve, 300))
 }

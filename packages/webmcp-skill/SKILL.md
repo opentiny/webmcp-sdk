@@ -1,125 +1,121 @@
 ---
 name: webmcp-skill
-description: Instructions and guidelines for third-party AI agents on how to install and execute webmcp-cli commands to interact with browser pages.
+description: Instructions and guidelines for third-party AI agents on how to install and execute webmcp-cli commands to interact with browser pages. Includes domain-specific tool guides for pages with injected WebMCP tools.
 license: MIT
 metadata:
   author: opentiny
-  version: '1.0.0'
+  version: '1.1.0'
 ---
 
 # WebMCP CLI Skill
 
-This skill provides comprehensive instructions for third-party AI agents on how to use `webmcp-cli` to interact with browser pages (DOM querying, clicks, text input, scrolling, etc.). `webmcp-cli` bridges the AI agent to an actual browser using Model Context Protocol (MCP).
+This skill provides comprehensive instructions for third-party AI agents on how to use `webmcp-cli` to interact with browser pages via Model Context Protocol (MCP).
 
 ## When to use
 
-- When you need to interact with a web page dynamically (e.g., clicking elements, filling forms).
-- When you need to read the current DOM structure, specifically identifying interactive elements on the page.
-- When evaluating the result of a browser interaction.
+- When you need to interact with a web page (clicking elements, filling forms, scrolling).
+- When you need to read the current DOM structure and identify interactive elements.
+- When operating on pages with domain-specific injected tools (e.g., Excalidraw drawing tools).
 
 ## Installation
 
-To use `webmcp-cli`, the CLI needs to be installed globally or run via `npx` (if published) in the environment.
-
 **Local Monorepo:**
-If you are operating within the monorepo, the CLI is available by linking:
 ```bash
 cd packages/webmcp-cli && pnpm link --global
 ```
-*(Depending on permissions, you may need `sudo npm link`)*
 
-**NPM Installation (When published):**
+**NPM:**
 ```bash
 npm install -g @opentiny/webmcp-cli
 ```
 
-## How to use `webmcp-cli`
+---
 
-`webmcp-cli` communicates with the browser and provides two main commands: `state` and `run`.
+## Commands
 
-### Workspace Configuration (Important)
-By default, the CLI uses a persistent profile at `~/.webmcp_chrome_profile` to bypass Chrome's security restrictions on the default user profile and keep login credentials saved across sessions.
-You can override this workspace directory using the global `--workspace` flag or the `WEBMCP_WORKSPACE` environment variable.
-Example:
+### `webmcp-cli open <url>`
+
+Opens a URL and automatically injects the WebMCP polyfill + any domain-specific tools.
+
 ```bash
-webmcp-cli --workspace /path/to/custom/profile state
-# Or
-WEBMCP_WORKSPACE=/path/to/profile webmcp-cli state
+webmcp-cli open https://excalidraw.com
+webmcp-cli open https://www.baidu.com
 ```
 
-### 1. `webmcp-cli state`
+### `webmcp-cli state`
 
-**Description:** Retrieves the current state of the browser, capturing a snapshot of all interactive elements.
+Returns the current browser state: URL, title, interactive element indices, available tools, and open tabs.
 
-**Usage:**
 ```bash
 webmcp-cli state
+webmcp-cli state -t <targetId>   # target a specific tab by its real Chrome target ID
 ```
 
-**What it returns:**
-It returns a JSON object containing the current URL, title, and most importantly, the `content` field. The `content` field contains the parsed DOM tree in a flat list format with **index numbers**, making it easy for AI to target specific elements.
-
-**Example Output (Truncated):**
+**Example output:**
 ```json
 {
-  "content": "[0]<a target=_blank>新闻 />\\n[1]<a target=_blank>hao123 />\\n[13]<textarea placeholder=搜索 id=chat-textarea />\\n[18]<button id=chat-submit-button>百度一下 />",
+  "content": "[0]<a>新闻 />\n[13]<textarea placeholder=搜索 />\n[18]<button>百度一下</button>",
   "url": "https://www.baidu.com/",
   "title": "百度一下，你就知道",
   "webmcpTools": [
-    "page-agent-tool"
+    { "name": "page-agent-tool" },
+    { "name": "baidu_search" }
+  ],
+  "tabs": [
+    { "tabid": "2EA73ED323E46E5E108D4E46DA4E4AA7", "title": "百度一下，你就知道", "url": "https://www.baidu.com/" }
   ]
 }
 ```
 
-**Important Rule:** 
-Always call `webmcp-cli state` to read the screen and get the latest `[index]` **BEFORE** executing any actions.
+> `tabid` is the **real Chrome target ID** (UUID). Use it with `-t` to target a specific tab.
+
+**Rule: Always call `webmcp-cli state` BEFORE any action to get the latest element indices.**
+
+### `webmcp-cli run <tool-name> '<json-args>'`
+
+Executes an MCP tool on the active page.
+
+```bash
+# Click element at index 18
+webmcp-cli run page-agent-tool '{"action": "click", "index": 18}'
+
+# Fill text into input at index 13
+webmcp-cli run page-agent-tool '{"action": "fill", "index": 13, "text": "Hello"}'
+
+# Scroll the page
+webmcp-cli run page-agent-tool '{"action": "scroll", "down": true, "numPages": 1}'
+
+# Execute JavaScript
+webmcp-cli run page-agent-tool '{"action": "executeJavascript", "script": "document.title"}'
+
+# Target a specific tab
+webmcp-cli run page-agent-tool '{"action": "browserState"}' -t <targetId>
+```
 
 ---
 
-### 2. `webmcp-cli run`
+## Domain-Specific Tools
 
-**Description:** Executes an action on the page by calling an available MCP tool (typically `page-agent-tool`) with a specific JSON argument payload.
+When `webmcp-cli open` navigates to certain domains, specialized tools are automatically injected alongside the universal `page-agent-tool`. Check `webmcpTools` in the `state` output to confirm what's available.
 
-**Usage:**
-```bash
-webmcp-cli run <tool-name> '<json-args>'
-```
+| Domain | Injected Tools | When to read sub-skill |
+|--------|----------------|------------------------|
+| `excalidraw.com` | `excalidraw_execute_command` | **Read [domains/excalidraw.md](domains/excalidraw.md) whenever the current page URL contains `excalidraw.com` and you need to draw or manipulate canvas elements.** |
+| `www.baidu.com` | `baidu_search`, `baidu_get_results` | No sub-skill needed; tool names are self-explanatory. |
 
-**Examples:**
+### When to read `domains/excalidraw.md`
 
-- **Clicking an element (e.g., index 18):**
-  ```bash
-  webmcp-cli run page-agent-tool '{"action": "click", "index": 18}'
-  ```
+Read [domains/excalidraw.md](domains/excalidraw.md) if **any** of the following is true:
 
-- **Filling text into an input field (e.g., index 13):**
-  ```bash
-  webmcp-cli run page-agent-tool '{"action": "fill", "index": 13, "text": "Hello World"}'
-  ```
+- The user asks you to draw a diagram, flowchart, architecture chart, or any visual on Excalidraw.
+- The current page URL is `excalidraw.com` and `webmcpTools` includes `excalidraw_execute_command`.
+- You need to add, update, delete, or query elements on the Excalidraw canvas.
 
-- **Scrolling the page:**
-  ```bash
-  webmcp-cli run page-agent-tool '{"action": "scroll", "down": true, "numPages": 1}'
-  ```
+---
 
-**What it returns:**
-A JSON output detailing the success or failure of the action.
+## Core Constraints
 
-**Example Output:**
-```json
-{
-  "content": [
-    {
-      "type": "text",
-      "text": "点击结果: {\"success\":true,\"message\":\"✅ Clicked element ([18]<button>百度一下).\"}"
-    }
-  ]
-}
-```
-
-## Core Agent Constraints
-
-1. **State dependency:** NEVER guess an element index. Always fetch the latest snapshot using `webmcp-cli state` before calling `webmcp-cli run` to interact with an element, as DOM changes frequently.
-2. **Valid JSON argument:** Ensure the arguments passed into `webmcp-cli run` are properly formatted, valid JSON strings. Wrap the JSON string in single quotes `'{"action": ...}'` when running it via shell to prevent escaping issues.
-3. **Handle new tabs:** Be aware that some clicks might open new tabs. The CLI evaluates the current top-level target page.
-
+1. **State dependency:** NEVER guess element indices. Always call `webmcp-cli state` first.
+2. **Valid JSON:** Wrap JSON args in single quotes: `'{"action": ...}'`.
+3. **Tab targeting:** Use the UUID `tabid` from `state` output with `-t` to target a specific tab.
+4. **Domain tools:** Prefer domain-specific tools over `page-agent-tool` when available — they are more reliable for that domain's specific interactions.
