@@ -82,40 +82,85 @@ async function startChromeInBackground(): Promise<void> {
 }
 
 export async function connectBrowser(): Promise<Browser> {
+  const targetFilter = (target: any) => {
+    try {
+      const info = typeof target._getTargetInfo === 'function' ? target._getTargetInfo() : target
+      const type = info.type || ''
+      const url = info.url || ''
+      
+      // 过滤掉绝对不需要 attach 且容易发生死锁的后台/子框架 target
+      if (
+        type === 'service_worker' || 
+        type === 'shared_worker' || 
+        type === 'iframe' || 
+        type === 'other' || 
+        type === 'webview' ||
+        type === 'background_page'
+      ) {
+        return false
+      }
+      
+      // 过滤掉 devtools 和插件页面
+      if (url.startsWith('devtools://') || url.startsWith('chrome-extension://')) {
+        return false
+      }
+      
+      return true
+    } catch (e) {
+      return false
+    }
+  }
+
   try {
-    // 优先尝试通过 localhost 连接
+    console.log(pc.yellow('connectBrowser: 正在尝试连接 127.0.0.1:9222...'))
+    // 优先尝试通过 127.0.0.1 连接
     const browser = await puppeteer.connect({
-      browserURL: `http://localhost:${CDP_PORT}`,
+      browserURL: `http://127.0.0.1:${CDP_PORT}`,
       defaultViewport: null,
+      targetFilter,
     })
+    console.log(pc.green('connectBrowser: 成功连接 127.0.0.1:9222'))
     return browser
   } catch (error: unknown) {
     try {
-      // 尝试使用 127.0.0.1 连接（有时候 puppeteer 在某些系统对 localhost 解析异常）
-      return await puppeteer.connect({
-        browserURL: `http://127.0.0.1:${CDP_PORT}`,
+      console.log(pc.yellow('connectBrowser: 正在尝试连接 localhost:9222...'))
+      // 尝试使用 localhost 连接
+      const browser = await puppeteer.connect({
+        browserURL: `http://localhost:${CDP_PORT}`,
         defaultViewport: null,
+        targetFilter,
       })
+      console.log(pc.green('connectBrowser: 成功连接 localhost:9222'))
+      return browser
     } catch (error2: unknown) {
+      console.log(pc.yellow(`connectBrowser: 连接失败，将尝试唤起浏览器。错误原因: ${error2 instanceof Error ? error2.message : String(error2)}`))
       // 连接失败时，尝试唤起浏览器
       try {
         await startChromeInBackground()
         // 再次尝试连接
         try {
-          return await puppeteer.connect({
-            browserURL: `http://localhost:${CDP_PORT}`,
-            defaultViewport: null,
-          })
-        } catch (e) {
-          return await puppeteer.connect({
+          console.log(pc.yellow('connectBrowser: 浏览器已启动，正在尝试连接 127.0.0.1:9222...'))
+          const browser = await puppeteer.connect({
             browserURL: `http://127.0.0.1:${CDP_PORT}`,
             defaultViewport: null,
+            targetFilter,
           })
+          console.log(pc.green('connectBrowser: 成功连接 127.0.0.1:9222'))
+          return browser
+        } catch (e) {
+          console.log(pc.yellow('connectBrowser: 正在尝试连接 localhost:9222...'))
+          const browser = await puppeteer.connect({
+            browserURL: `http://localhost:${CDP_PORT}`,
+            defaultViewport: null,
+            targetFilter,
+          })
+          console.log(pc.green('connectBrowser: 成功连接 localhost:9222'))
+          return browser
         }
       } catch (launchError: unknown) {
         const msg = launchError instanceof Error ? launchError.message : String(launchError)
         console.error(pc.red(`无法连接或启动浏览器: ${msg}`))
-        console.error(pc.yellow(`💡 提示：由于我们要使用你日常的默认浏览器（包含你的书签和登录态），如果你的 Chrome 目前正处于打开状态，它会拒绝使用带有调试端口的新参数启动。`))
+        console.error(pc.yellow(`💡 提示：由于我们要使用你日常的默认浏览器（包含你的书签 and 登录态），如果你的 Chrome 目前正处于打开状态，它会拒绝使用带有调试端口的新参数启动。`))
         console.error(pc.yellow(`👉 解决办法：请先完全退出当前的 Chrome 浏览器（在 Mac 上按 Cmd+Q），然后再重新运行命令。`))
         throw new Error('Browser connection failed.')
       }
@@ -139,26 +184,33 @@ export async function getPageTargetId(page: Page): Promise<string> {
 }
 
 export async function getTargetPage(browser: Browser, tabid?: string): Promise<Page> {
-  const pages = await browser.pages()
-  if (pages.length === 0) {
+  const targets = browser.targets()
+  const pageTargets = targets.filter(t => {
+    try {
+      const type = (typeof t.type === 'function' ? t.type() : (t as any).type) || ''
+      const url = (typeof t.url === 'function' ? t.url() : (t as any).url) || ''
+      return type === 'page' && !url.startsWith('devtools://')
+    } catch {
+      return false
+    }
+  })
+
+  if (pageTargets.length === 0) {
     const newPage = await browser.newPage()
-    pages.push(newPage)
+    await injectWebMCPPolyfillAndTools(newPage)
+    return newPage
   }
 
-  // 过滤掉 devtools:// 等内部页面
-  const normalPages = pages.filter(p => !p.url().startsWith('devtools://'))
-  if (normalPages.length === 0) {
-    throw new Error('没有可用的页面')
-  }
-
-  let targetPage: Page | undefined
+  let targetPage: Page | null = null
 
   if (tabid !== undefined) {
     // 按真实 Chrome target ID 查找
-    for (const page of normalPages) {
-      const tid = await getPageTargetId(page).catch(() => '')
-      if (tid === tabid) {
-        targetPage = page
+    for (const target of pageTargets) {
+      const tid = typeof (target as any)._getTargetInfo === 'function'
+        ? (target as any)._getTargetInfo().targetId
+        : ((target as any)._targetId || (target as any).targetId || '')
+      if (tid === tabid || tid.includes(tabid)) {
+        targetPage = await target.page()
         break
       }
     }
@@ -166,7 +218,7 @@ export async function getTargetPage(browser: Browser, tabid?: string): Promise<P
       throw new Error(`Tab with targetId "${tabid}" not found.`)
     }
   } else {
-    // Chrome 的 /json/list 接口把当前激活的 tab 排在第一位，用它来判断激活 tab
+    // Chrome 的 /json/list 接口把当前激活 the tab 排在第一位，用它来判断激活 tab
     try {
       const urls = [
         `http://localhost:${CDP_PORT}/json/list`,
@@ -177,19 +229,21 @@ export async function getTargetPage(browser: Browser, tabid?: string): Promise<P
         try {
           const res = await fetch(url)
           if (res.ok) {
-            const targets: Array<{ id: string; type: string; url: string }> = await res.json()
+            const targetsData: Array<{ id: string; type: string; url: string }> = await res.json()
             // 找第一个 type=page 且不是 devtools:// 的 target（Chrome 把激活的排第一）
-            const active = targets.find(t => t.type === 'page' && !t.url.startsWith('devtools://'))
+            const active = targetsData.find(t => t.type === 'page' && !t.url.startsWith('devtools://'))
             if (active) { activeTargetId = active.id; break }
           }
         } catch { /* 忽略，继续试下一个地址 */ }
       }
 
       if (activeTargetId) {
-        for (const page of normalPages) {
-          const tid = await getPageTargetId(page).catch(() => '')
+        for (const target of pageTargets) {
+          const tid = typeof (target as any)._getTargetInfo === 'function'
+            ? (target as any)._getTargetInfo().targetId
+            : ((target as any)._targetId || (target as any).targetId || '')
           if (tid === activeTargetId) {
-            targetPage = page
+            targetPage = await target.page()
             break
           }
         }
@@ -197,7 +251,14 @@ export async function getTargetPage(browser: Browser, tabid?: string): Promise<P
     } catch { /* 忽略，使用 fallback */ }
 
     // fallback：取最后一个非 devtools 页面
-    if (!targetPage) targetPage = normalPages[normalPages.length - 1]
+    if (!targetPage) {
+      const lastTarget = pageTargets[pageTargets.length - 1]
+      targetPage = await lastTarget.page()
+    }
+  }
+
+  if (!targetPage) {
+    throw new Error('无法获取目标页面')
   }
 
   // 注入 polyfill 和域名工具（幂等检查）
