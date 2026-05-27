@@ -4,6 +4,7 @@ import pc from 'picocolors'
 import { stateCommand } from './commands/state'
 import { runCommand } from './commands/run'
 import { openCommand } from './commands/open'
+import packageJson from '../package.json'
 
 const program = new Command()
 
@@ -15,7 +16,7 @@ function parseTabId(id?: string): string | undefined {
 program
   .name('webmcp-cli')
   .description('WebMCP CLI for interacting with browser via CDP')
-  .version('1.0.0')
+  .version(packageJson.version)
   .option('-w, --workspace <path>', '指定自定义的浏览器工作空间（用户配置目录）路径')
   .hook('preAction', (thisCommand) => {
     const opts = thisCommand.opts()
