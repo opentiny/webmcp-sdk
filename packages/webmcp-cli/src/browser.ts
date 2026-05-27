@@ -36,6 +36,62 @@ function promiseWithTimeout<T>(promise: Promise<T>, timeoutMs = 5000, errorMsg =
   })
 }
 
+async function checkCdpReady(url: string, retries = 3): Promise<boolean> {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetchWithTimeout(url, 1500)
+      if (res.ok) return true
+    } catch {}
+    if (i < retries - 1) {
+      await new Promise(r => setTimeout(r, 200))
+    }
+  }
+  return false
+}
+
+async function killProcessOnPortIfZombie(port: number): Promise<void> {
+  // 先检测端口是否还在正常响应 HTTP 请求
+  const isResponding = await checkCdpReady(`http://127.0.0.1:${port}/json/version`, 1)
+  if (isResponding) {
+    console.log(pc.green(`connectBrowser: 端口 ${port} 上的浏览器实例仍在正常响应，跳过强杀，尝试直接接管。`))
+    return
+  }
+
+  try {
+    const platform = os.platform()
+    const { execSync } = require('child_process')
+    if (platform === 'darwin' || platform === 'linux') {
+      console.log(pc.yellow(`正在检测并清理占用 ${port} 端口的残留僵尸进程...`))
+      const pids = execSync(`lsof -t -i :${port}`).toString().trim()
+      if (pids) {
+        console.log(pc.yellow(`发现僵尸 PID: ${pids.split('\n').join(', ')}，正在强制终止...`))
+        execSync(`kill -9 ${pids.split('\n').join(' ')}`)
+        console.log(pc.green(`成功清理残留僵尸进程`))
+      }
+    } else if (platform === 'win32') {
+      console.log(pc.yellow(`正在检测并清理 Windows 上占用 ${port} 端口的残留僵尸进程...`))
+      const output = execSync(`netstat -ano | findstr :${port}`).toString().trim()
+      if (output) {
+        const lines = output.split('\n')
+        const pids = new Set<string>()
+        lines.forEach((line: string) => {
+          const parts = line.trim().split(/\s+/)
+          const pid = parts[parts.length - 1]
+          if (pid && /^\d+$/.test(pid) && pid !== '0') {
+            pids.add(pid)
+          }
+        })
+        pids.forEach(pid => {
+          console.log(pc.yellow(`发现 Windows 残留僵尸 PID: ${pid}，正在强制终止...`))
+          execSync(`taskkill /F /PID ${pid}`)
+        })
+      }
+    }
+  } catch (e) {
+    // 忽略找不到残留进程时的报错
+  }
+}
+
 function getDefaultChromePath(): string | null {
   const platform = os.platform()
   if (platform === 'darwin') {
@@ -134,18 +190,8 @@ export async function connectBrowser(): Promise<Browser> {
     }
   }
 
-  // 辅助函数：快速检测 CDP 端口是否工作
-  const checkCdpReady = async (url: string) => {
-    try {
-      const res = await fetchWithTimeout(url, 1000)
-      return res.ok
-    } catch {
-      return false
-    }
-  }
-
   try {
-    const is127Ready = await checkCdpReady(`http://127.0.0.1:${CDP_PORT}/json/version`)
+    const is127Ready = await checkCdpReady(`http://127.0.0.1:${CDP_PORT}/json/version`, 3)
     if (!is127Ready) {
       throw new Error('127.0.0.1 CDP port not responding')
     }
@@ -157,14 +203,14 @@ export async function connectBrowser(): Promise<Browser> {
         defaultViewport: null,
         targetFilter,
       }),
-      5000,
+      10000,
       'puppeteer.connect to 127.0.0.1 timed out'
     )
     console.log(pc.green('connectBrowser: 成功连接 127.0.0.1:9222'))
     return browser
   } catch (error: unknown) {
     try {
-      const isLocalhostReady = await checkCdpReady(`http://localhost:${CDP_PORT}/json/version`)
+      const isLocalhostReady = await checkCdpReady(`http://localhost:${CDP_PORT}/json/version`, 3)
       if (!isLocalhostReady) {
         throw new Error('localhost CDP port not responding')
       }
@@ -176,7 +222,7 @@ export async function connectBrowser(): Promise<Browser> {
           defaultViewport: null,
           targetFilter,
         }),
-        5000,
+        10000,
         'puppeteer.connect to localhost timed out'
       )
       console.log(pc.green('connectBrowser: 成功连接 localhost:9222'))
@@ -185,10 +231,11 @@ export async function connectBrowser(): Promise<Browser> {
       console.log(pc.yellow(`connectBrowser: 连接失败，将尝试唤起浏览器。错误原因: ${error2 instanceof Error ? error2.message : String(error2)}`))
       // 连接失败时，尝试唤起浏览器
       try {
+        await killProcessOnPortIfZombie(CDP_PORT)
         await startChromeInBackground()
         // 再次尝试连接
         try {
-          const is127Ready = await checkCdpReady(`http://127.0.0.1:${CDP_PORT}/json/version`)
+          const is127Ready = await checkCdpReady(`http://127.0.0.1:${CDP_PORT}/json/version`, 3)
           if (!is127Ready) {
             throw new Error('127.0.0.1 CDP port not responding after launch')
           }
@@ -199,13 +246,13 @@ export async function connectBrowser(): Promise<Browser> {
               defaultViewport: null,
               targetFilter,
             }),
-            5000,
+            10000,
             'puppeteer.connect to 127.0.0.1 after launch timed out'
           )
           console.log(pc.green('connectBrowser: 成功连接 127.0.0.1:9222'))
           return browser
         } catch (e) {
-          const isLocalhostReady = await checkCdpReady(`http://localhost:${CDP_PORT}/json/version`)
+          const isLocalhostReady = await checkCdpReady(`http://localhost:${CDP_PORT}/json/version`, 3)
           if (!isLocalhostReady) {
             throw new Error('localhost CDP port not responding after launch')
           }
@@ -216,7 +263,7 @@ export async function connectBrowser(): Promise<Browser> {
               defaultViewport: null,
               targetFilter,
             }),
-            5000,
+            10000,
             'puppeteer.connect to localhost after launch timed out'
           )
           console.log(pc.green('connectBrowser: 成功连接 localhost:9222'))
