@@ -7,7 +7,7 @@ export async function runCommand({
 }: {
   toolName: string
   argsJson: string
-  tabid?: number
+  tabid?: string
 }) {
   const browser = await connectBrowser()
   try {
