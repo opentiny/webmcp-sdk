@@ -201,7 +201,7 @@ npm install -g .
 Launch a headless/headful browser and navigate to a URL:
 
 ```bash
-webmcp-cli open https://excalidraw.com
+webmcp-cli tabs open https://excalidraw.com
 ```
 
 #### 3. Inspect Browser State

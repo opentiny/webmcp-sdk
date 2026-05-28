@@ -225,7 +225,7 @@ npm install -g .
 在 Chrome 中导航至指定的 URL 并进行环境准备：
 
 ```bash
-webmcp-cli open https://excalidraw.com
+webmcp-cli tabs open https://excalidraw.com
 ```
 
 #### 3. 获取浏览器状态

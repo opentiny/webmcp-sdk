@@ -44,7 +44,7 @@ sequenceDiagram
     User->>Agent: 1. 提出任务 (如 "在百度搜索 OpenTiny 并打开官网")
     Agent->>SK: 2. 读取技能指南 (SKILL.md)
     Note over Agent: 载入操作手册，获取操作规范和命令行参数限制
-    Agent->>CLI: 3. 执行 webmcp-cli open <url>
+    Agent->>CLI: 3. 执行 webmcp-cli tabs open <url>
     CLI->>Browser: 启动/接管 Chrome 并导航至百度，自动注入环境
     
     rect rgb(240, 248, 255)
@@ -80,7 +80,7 @@ sequenceDiagram
 Agent 解析用户需求后，首先生成终端命令，通过 `webmcp-cli` 在 Chrome 中开启页面：
 
 ```bash
-webmcp-cli open "http://127.0.0.1:3003/login"
+webmcp-cli tabs open "http://127.0.0.1:3003/login"
 ```
 **底层机制**：`webmcp-cli` 接收到指令后，会通过 CDP 驱动 Puppeteer 自动拉起带有 `9222` 调试端口的 Chrome，并在该页面上自动注入 `navigator.modelContext` Polyfill 及操控代理 `page-agent-tool`。
 

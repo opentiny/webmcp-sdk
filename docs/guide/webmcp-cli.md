@@ -49,22 +49,47 @@ npm install -g .
 ### 全局参数
 - `-w, --workspace <path>`：指定自定义的浏览器工作空间（用户配置目录 User Data Dir）。若不指定，默认使用 `~/.webmcp_chrome_profile`。这允许 CLI 在多次启动间保留您的登录状态和个人数据。
 
-### 1. `open` 命令 —— 在浏览器中导航网页
-在运行的 Chrome 实例中开启新网页或导航。
+### 1. `tabs` 子命令 —— 管理浏览器标签页与导航
 
+`webmcp-cli` 通过 `tabs` 子命令提供了对浏览器标签页生命周期与历史导航的完整控制。
+
+#### 打开新网页
+在新标签页中打开指定的 URL 并自动注入 WebMCP 运行环境。
 **用法：**
 ```bash
-webmcp-cli open <url> [options]
+webmcp-cli tabs open <url>
 ```
-
-**选项：**
-- `-t, --tabid <id>`：在指定的页签（使用 UUID 标识的 tabid）中导航。
-- `-n, --new-tab`：即使存在活跃页签，也强制在全新页签中打开。
-
 **示例：**
 ```bash
-webmcp-cli open "https://github.com/opentiny/tiny-vue" -n # -n 为 --new-tab 的缩写
+webmcp-cli tabs open "https://github.com/opentiny/tiny-vue"
 ```
+
+#### 关闭标签页
+关闭指定页签 ID（通过 `state` 命令获取的 UUID）的标签页。
+**用法：**
+```bash
+webmcp-cli tabs close <tabid>
+```
+
+#### 切换活跃标签页
+激活并强制将浏览器视角切换到指定的标签页。
+**用法：**
+```bash
+webmcp-cli tabs switch <tabid>
+```
+
+#### 标签页导航控制（前进/后退）
+对指定标签页（不传则默认当前标签页）进行后退或前进一步的导航。
+**用法：**
+```bash
+# 后退一步
+webmcp-cli tabs back [tabid]
+
+# 前进一步
+webmcp-cli tabs forward [tabid]
+```
+
+---
 
 ### 2. `state` 命令 —— 感知当前页面的状态与工具
 获取当前活动页签（或指定页签）的详细状态，包括当前页面的标题、URL、可操作 DOM 树，以及当前页面所有可调用的 MCP 工具列表。
