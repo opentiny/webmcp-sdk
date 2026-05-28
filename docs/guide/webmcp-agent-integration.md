@@ -136,11 +136,15 @@ webmcp-cli run page-agent-tool '{"action": "click", "index": 2}'
 当页面发生跳转，进入到一个更加复杂且交互密集的系统（如白板系统）中时：
 1. Agent 再次执行 `state` 命令，发现 `url` 已经变更为 `https://excalidraw.com`，并且在 `webmcpTools` 中多出了一个专属的页面工具 `excalidraw_execute_command`。
 2. 根据 `webmcp-skill` 中关于域名的判定规则，Agent 会自动加载子技能描述文件 `domains/excalidraw.md`。
-3. 此时，Agent 不再依赖 `page-agent-tool` 的鼠标模拟点击来笨拙地作画，而是直接调用专属的 MCP 工具，发送高度抽象且精准的画布作画参数：
+3. 此时，Agent 不再依赖 `page-agent-tool` 的鼠标模拟点击来作画，而是直接调用专属的 MCP 工具，发送符合契约的 `eventName` 和序列化后为字符串的 `payload` 参数：
    ```bash
-   webmcp-cli run excalidraw_execute_command '{"command": "create_rect", "x": 100, "y": 100, "width": 200, "height": 80, "label": "开始节点"}'
+   # 示例：清空画布
+   webmcp-cli run excalidraw_execute_command '{"eventName": "cleanup"}'
+
+   # 示例：向画布中添加一个矩形框
+   webmcp-cli run excalidraw_execute_command '{"eventName": "addElement", "payload": "{\"eles\": [{\"id\": \"rect-1\", \"type\": \"rectangle\", \"x\": 100, \"y\": 100, \"width\": 200, \"height\": 80}]}"}'
    ```
-4. Excalidraw 画布底层接收到由 WebMCP 桥接传来的内部调用，零延迟、零失误地在白板上创建了一个带文字的矩形。
+4. Excalidraw 画布底层接收到由 WebMCP 桥接传来的内部调用，零延迟、零失误地在白板上执行对应指令。
 
 ### 第八步：终结与结果汇报
 当 Agent 在 `state` 中观测到页面已成功呈现最终所需的目标，或已经满足了用户“提交表单”的要求后，向用户返回成功报告：

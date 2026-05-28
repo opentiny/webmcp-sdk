@@ -58,12 +58,12 @@ webmcp-cli open <url> [options]
 ```
 
 **选项：**
-- `-t, --target <tabid>`：在指定的页签（UUID 标识）中导航。
-- `-n, --new`：即使存在活跃页签，也强制在全新页签中打开。
+- `-t, --tabid <id>`：在指定的页签（使用 UUID 标识的 tabid）中导航。
+- `-n, --new-tab`：即使存在活跃页签，也强制在全新页签中打开。
 
 **示例：**
 ```bash
-webmcp-cli open "https://github.com/opentiny/tiny-vue" -n
+webmcp-cli open "https://github.com/opentiny/tiny-vue" -n # -n 为 --new-tab 的缩写
 ```
 
 ### 2. `state` 命令 —— 感知当前页面的状态与工具
