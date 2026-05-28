@@ -295,9 +295,8 @@ export async function getPageTargetId(page: Page): Promise<string> {
   }
 }
 
-export async function getTargetPage(browser: Browser, tabid?: string): Promise<Page> {
-  const targets = browser.targets()
-  const pageTargets = targets.filter(t => {
+export function getPageTargets(browser: Browser) {
+  return browser.targets().filter(t => {
     try {
       const type = (typeof t.type === 'function' ? t.type() : (t as any).type) || ''
       const url = (typeof t.url === 'function' ? t.url() : (t as any).url) || ''
@@ -306,6 +305,48 @@ export async function getTargetPage(browser: Browser, tabid?: string): Promise<P
       return false
     }
   })
+}
+
+export function getTargetIdFromTarget(target: any): string {
+  return typeof target._getTargetInfo === 'function'
+    ? target._getTargetInfo().targetId
+    : (target._targetId || target.targetId || '')
+}
+
+export function findPageTargetByTabId(browser: Browser, tabid: string) {
+  const pageTargets = getPageTargets(browser)
+  return pageTargets.find(t => {
+    const tid = getTargetIdFromTarget(t)
+    return tid === tabid || tid.includes(tabid)
+  }) ?? null
+}
+
+export async function activateTabById(browser: Browser, tabid: string): Promise<void> {
+  const target = findPageTargetByTabId(browser, tabid)
+  if (!target) {
+    throw new Error(`Tab with targetId "${tabid}" not found.`)
+  }
+
+  const realTabId = getTargetIdFromTarget(target)
+  const pages = await browser.pages()
+  let sessionPage = pages.find(p => !p.url().startsWith('devtools://'))
+  if (!sessionPage && pages.length > 0) {
+    sessionPage = pages[0]
+  }
+  if (!sessionPage) {
+    sessionPage = await browser.newPage()
+  }
+
+  const session = await sessionPage.createCDPSession()
+  try {
+    await session.send('Target.activateTarget', { targetId: realTabId })
+  } finally {
+    await session.detach().catch(() => {})
+  }
+}
+
+export async function getTargetPage(browser: Browser, tabid?: string): Promise<Page> {
+  const pageTargets = getPageTargets(browser)
 
   if (pageTargets.length === 0) {
     const newPage = await browser.newPage()
@@ -316,19 +357,11 @@ export async function getTargetPage(browser: Browser, tabid?: string): Promise<P
   let targetPage: Page | null = null
 
   if (tabid !== undefined) {
-    // 按真实 Chrome target ID 查找
-    for (const target of pageTargets) {
-      const tid = typeof (target as any)._getTargetInfo === 'function'
-        ? (target as any)._getTargetInfo().targetId
-        : ((target as any)._targetId || (target as any).targetId || '')
-      if (tid === tabid || tid.includes(tabid)) {
-        targetPage = await target.page()
-        break
-      }
-    }
-    if (!targetPage) {
+    const target = findPageTargetByTabId(browser, tabid)
+    if (!target) {
       throw new Error(`Tab with targetId "${tabid}" not found.`)
     }
+    targetPage = await target.page()
   } else {
     // Chrome 的 /json/list 接口把当前激活 the tab 排在第一位，用它来判断激活 tab
     try {
@@ -351,10 +384,7 @@ export async function getTargetPage(browser: Browser, tabid?: string): Promise<P
 
       if (activeTargetId) {
         for (const target of pageTargets) {
-          const tid = typeof (target as any)._getTargetInfo === 'function'
-            ? (target as any)._getTargetInfo().targetId
-            : ((target as any)._targetId || (target as any).targetId || '')
-          if (tid === activeTargetId) {
+          if (getTargetIdFromTarget(target) === activeTargetId) {
             targetPage = await target.page()
             break
           }
@@ -379,7 +409,7 @@ export async function getTargetPage(browser: Browser, tabid?: string): Promise<P
 }
 
 /**
- * 供 open 命令在 goto 完成后调用：强制注入（不做 flag 检查，因为 goto 后页面上下文已清空）
+ * 供 tabs open / back / forward 命令在导航完成后调用：强制注入（不做 flag 检查，因为 goto 后页面上下文已清空）
  */
 export async function injectIntoPage(page: Page): Promise<void> {
   await injectWebMCPPolyfillAndTools(page, true)

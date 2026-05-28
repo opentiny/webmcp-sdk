@@ -3,7 +3,13 @@ import { Command } from 'commander'
 import pc from 'picocolors'
 import { stateCommand } from './commands/state'
 import { runCommand } from './commands/run'
-import { openCommand } from './commands/open'
+import {
+  tabsOpenCommand,
+  tabsCloseCommand,
+  tabsSwitchCommand,
+  tabsBackCommand,
+  tabsForwardCommand
+} from './commands/tabs'
 import packageJson from '../package.json'
 
 const program = new Command()
@@ -11,6 +17,12 @@ const program = new Command()
 function parseTabId(id?: string): string | undefined {
   if (!id) return undefined
   return id
+}
+
+function handleCommandError(error: unknown, commandName: string): never {
+  const msg = error instanceof Error ? error.message : String(error)
+  console.error(pc.red(`Error executing ${commandName} command: ${msg}`))
+  process.exit(1)
 }
 
 program
@@ -34,9 +46,7 @@ program
       const result = await stateCommand({ tabid: parseTabId(options.tabid) })
       console.log(JSON.stringify(result, null, 2))
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : String(error)
-      console.error(pc.red(`Error executing state command: ${msg}`))
-      process.exit(1)
+      handleCommandError(error, 'state')
     }
   })
 
@@ -53,28 +63,71 @@ program
       })
       console.log(JSON.stringify(result, null, 2))
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : String(error)
-      console.error(pc.red(`Error executing run command: ${msg}`))
-      process.exit(1)
+      handleCommandError(error, 'run')
     }
   })
 
-program
+const tabs = program
+  .command('tabs')
+  .description('管理浏览器标签页')
+
+tabs
   .command('open <url>')
-  .description('在当前浏览器中打开指定网页')
-  .option('-t, --tabid <id>', '在指定页签中打开')
-  .option('-n, --new-tab', '在一个全新的页签中打开')
-  .action(async (url, options) => {
+  .description('打开新网页')
+  .action(async (url) => {
     try {
-      const result = await openCommand(url, {
-        tabid: parseTabId(options.tabid),
-        newTab: options.newTab
-      })
+      const result = await tabsOpenCommand(url)
       console.log(JSON.stringify(result, null, 2))
     } catch (error: unknown) {
-      const msg = error instanceof Error ? error.message : String(error)
-      console.error(pc.red(`Error executing open command: ${msg}`))
-      process.exit(1)
+      handleCommandError(error, 'tabs open')
+    }
+  })
+
+tabs
+  .command('close <tabid>')
+  .description('关闭指定 tabid 的标签页')
+  .action(async (tabid) => {
+    try {
+      const result = await tabsCloseCommand(tabid)
+      console.log(JSON.stringify(result, null, 2))
+    } catch (error: unknown) {
+      handleCommandError(error, 'tabs close')
+    }
+  })
+
+tabs
+  .command('switch <tabid>')
+  .description('激活并切换到指定 tabid 的标签页')
+  .action(async (tabid) => {
+    try {
+      const result = await tabsSwitchCommand(tabid)
+      console.log(JSON.stringify(result, null, 2))
+    } catch (error: unknown) {
+      handleCommandError(error, 'tabs switch')
+    }
+  })
+
+tabs
+  .command('back [tabid]')
+  .description('将当前或指定标签页导航后退一步')
+  .action(async (tabid) => {
+    try {
+      const result = await tabsBackCommand(parseTabId(tabid))
+      console.log(JSON.stringify(result, null, 2))
+    } catch (error: unknown) {
+      handleCommandError(error, 'tabs back')
+    }
+  })
+
+tabs
+  .command('forward [tabid]')
+  .description('将当前或指定标签页导航前进一步')
+  .action(async (tabid) => {
+    try {
+      const result = await tabsForwardCommand(parseTabId(tabid))
+      console.log(JSON.stringify(result, null, 2))
+    } catch (error: unknown) {
+      handleCommandError(error, 'tabs forward')
     }
   })
 
