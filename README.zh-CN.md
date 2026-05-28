@@ -16,9 +16,13 @@
 > [!IMPORTANT]
 > **下一代 AI 协议**：OpenTiny NEXT-SDKs 基于 **WebMCP (Model Context Protocol for Web)** 构建。它全面兼容原生 `navigator.modelContext` API（目前在 Chrome 等浏览器中处于实验阶段），允许你的 Web 应用通过标准化协议被 AI 操控。
 
+> [!TIP]
+> **✨ 命令行自动化与 AI 技能库**：
+> 我们全新推出了 **`webmcp-cli`**（浏览器操控与 Polyfill 自动注入命令行工具）与 **`webmcp-skill`**（为 AI 代理提供的网页操控技能与 Excalidraw 自动绘图等特定领域优化指南）。通过它们，AI 代理可以开箱即用地自动控制任何网页，执行复杂的细粒度交互。
+
 ---
 
-**OpenTiny NEXT-SDKs** 是一套前端智能应用开发工具包。它通过「WebMCP + WebSkills」模式，将页面操作、数据查询和业务流程封装为标准化工具。通过使用我们的 **Polyfill**，你可以在当下的浏览器中提前构建面向未来的 AI-Native 应用，且**几乎无需重构**。
+**OpenTiny NEXT-SDKs** 是一套前端智能应用开发工具包。它通过「WebMCP + WebSkills」模式，将页面操作、数据查询和业务流程封装为标准化工具，同时提供了强大的 **`webmcp-cli`**（浏览器感知与操控工具）和 **`webmcp-skill`**（AI 代理操控技能库）。通过使用我们的 **Polyfill**，你可以在当下的浏览器中提前构建面向未来的 AI-Native 应用，或者让 AI 代理自动化地控制任何网页，且**几乎无需重构**。
 
 ## 📑 目录
 
@@ -26,6 +30,7 @@
 - [🌐 WebMCP & Polyfill](#-webmcp--polyfill)
 - [🚀 快速开始](#-快速开始)
 - [📦 核心包说明](#-核心包说明)
+- [💻 WebMCP CLI 与 Agent 技能](#-webmcp-cli-与-agent-技能)
 - [💡 核心概念](#-核心概念)
 - [📖 使用场景](#-使用场景)
 - [🛠️ 参与开发](#️-参与开发)
@@ -176,6 +181,85 @@ server.registerTool(
 - MCP 插件市场。
 - 动态 WebSkills 发现与执行能力。
 
+### @opentiny/webmcp-cli
+
+基于 `puppeteer-core` 的 CLI 工具，用于控制 Chrome 浏览器并暴露 WebMCP 接口：
+
+- **浏览器实例接管**：通过 Chrome DevTools Protocol (CDP) 自动启动或连接到带有调试端口的本地 Chrome。
+- **自动环境注入**：当浏览器页签打开时，自动探测并注入 WebMCP 补丁和页面操控工具（`page-agent-tool`）。
+- **统一工具协议**：将页面上的操作映射为标准的 MCP 接口，使得 AI 代理可以直接调用。
+
+### webmcp-skill
+
+为第三方 AI Agent 提供的网页交互与特定领域技能指南包：
+
+- **Prompt 优化**：内置完善的系统提示词和使用规范，辅助外部大模型代理准确使用 CLI 操控页面。
+- **特定领域技能**：提供如 Excalidraw 画布命令操作（`excalidraw_execute_command`）等子技能，用于支持高难度的网页细粒度操作。
+
+---
+
+## 💻 WebMCP CLI 与 Agent 技能
+
+通过 WebMCP CLI，你可以将浏览器视作一个 MCP 服务端，直接向 AI Agent 暴露页面的操控接口。它在后台通过 Puppeteer 驱动真实的 Chrome 浏览器，将传统的页面元素交互（点击、输入、滚动等）映射为标准的 MCP Tool 调用。
+
+### 🚀 快速上手
+
+#### 1. 安装
+
+你可以直接通过 NPM 全局安装：
+
+```bash
+npm install -g @opentiny/webmcp-cli
+```
+
+或者在当前 Monorepo 仓库中进行本地联调：
+
+```bash
+cd packages/webmcp-cli
+pnpm build
+npm install -g .
+```
+
+#### 2. 打开网页
+
+在 Chrome 中导航至指定的 URL 并进行环境准备：
+
+```bash
+webmcp-cli open https://excalidraw.com
+```
+
+#### 3. 获取浏览器状态
+
+查看当前页面状态，包括 URL、标题、打开的标签页，以及**自动注入与页面自带的 MCP 工具列表**，同时会返回带索引的 DOM 树：
+
+```bash
+webmcp-cli state
+```
+
+输出中会包含类似 `[18]<button>百度一下</button>` 的元素索引以及对应的 MCP 接口名称。
+
+#### 4. 执行 MCP 工具
+
+使用 JSON 格式的参数，直接执行页面中注册的 MCP 工具：
+
+```bash
+# 点击 DOM 索引为 18 的按钮
+webmcp-cli run page-agent-tool '{"action": "click", "index": 18}'
+
+# 在 DOM 索引为 13 的输入框内填入文本
+webmcp-cli run page-agent-tool '{"action": "fill", "index": 13, "text": "Model Context Protocol"}'
+```
+
+### 🧠 Agent 技能规范
+
+在 `packages/webmcp-skill` 目录下，我们定义了一套标准的 **Agent Skills（AI 代理指令）**。当大模型（如 Claude 或 Gemini）以 Agent 身份接入网页并希望与其交互时，会读取 `SKILL.md` 以获悉如何正确下发 CLI 命令。
+
+针对复杂网页，我们还会为其配对特定领域的子技能：
+- **Excalidraw 画布工具 (`domains/excalidraw.md`)**：指导 Agent 在检测到 URL 包含 `excalidraw.com` 时，通过调用 `excalidraw_execute_command` 实现在画布上绘制图形、关系图等。
+- **百度搜索工具**：指导 Agent 自动下发搜索并拉取页面结果。
+
+这使得 NEXT-SDKs 拥有了让外部 AI 能够自主“远程驾驶”任何网页的完整生态。
+
 ---
 
 ## 💡 核心概念
@@ -240,6 +324,41 @@ cd next-sdk
 
 # 安装依赖
 pnpm install
+```
+
+### 项目结构
+
+```text
+next-sdk/
+├── packages/
+│   ├── next-sdk/              # 核心 SDK 包
+│   │   ├── agent/             # WebAgent 实现
+│   │   ├── client/            # WebMCP 客户端
+│   │   ├── server/            # WebMCP 服务端
+│   │   ├── transport/         # 传输层实现
+│   │   ├── McpSdk.ts          # MCP SDK 封装
+│   │   ├── index.ts           # 主入口
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── next-remoter/          # Vue3 AI 对话组件
+│   │   ├── src/
+│   │   │   ├── components/    # 组件实现
+│   │   │   └── composable/    # 组合式函数
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── webmcp-cli/            # 基于 WebMCP 操控浏览器的 CLI 工具
+│   │   ├── src/               # CLI 主实现
+│   │   ├── webmcp-tools/      # 注入页面的工具（如 Excalidraw, Baidu）
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── webmcp-skill/          # AI 代理的网页交互与特定领域技能指南
+│   │   ├── SKILL.md           # 核心指令文件
+│   │   └── domains/           # 特定领域指令（如 Excalidraw）
+│   └── doc-ai/                # 文档 AI 示例应用
+├── docs/                      # 项目文档
+├── pnpm-workspace.yaml        # pnpm 工作空间配置
+├── package.json
+└── README.md
 ```
 
 ## 📚 相关资源

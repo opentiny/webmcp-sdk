@@ -16,9 +16,13 @@ English | [简体中文](README.zh-CN.md)
 > [!IMPORTANT]
 > **Next-Gen AI Protocol**: OpenTiny NEXT-SDKs is built on the **WebMCP (Model Context Protocol for Web)**. It is fully compatible with the native `navigator.modelContext` API (currently in experimental stage in browsers like Chrome), allowing your web apps to be controlled by AI via a standardized protocol.
 
+> [!TIP]
+> **✨ Command-line Automation & AI Skills**:
+> We now offer **`webmcp-cli`** (browser control & polyfill auto-injection CLI) and **`webmcp-skill`** (standard instructions and sub-skills like Excalidraw drawing for AI agents). Together, they enable AI agents to perform complex, fine-grained tasks and "remote-drive" any webpage out of the box.
+
 ---
 
-**OpenTiny NEXT-SDKs** is a front-end intelligent application development toolkit. It enables the "WebMCP + WebSkills" model to expose page operations, data queries, and business processes as standardized tools. By using our **Polyfill**, you can start building future-proof AI-Native applications on today's browsers with **zero refactoring**.
+**OpenTiny NEXT-SDKs** is a front-end intelligent application development toolkit. It enables the "WebMCP + WebSkills" model to expose page operations, data queries, and business processes as standardized tools, while providing the powerful **`webmcp-cli`** and **`webmcp-skill`** for browser automation. By using our **Polyfill**, you can start building future-proof AI-Native applications on today's browsers with **zero refactoring**.
 
 ## 📑 Table of Contents
 
@@ -26,6 +30,7 @@ English | [简体中文](README.zh-CN.md)
 - [🌐 WebMCP & Polyfill](#-webmcp--polyfill)
 - [🚀 Quick Start](#-quick-start)
 - [📦 Core Packages Description](#-core-packages-description)
+- [💻 WebMCP CLI & Agent Skills](#-webmcp-cli--agent-skills)
 - [💡 Core Concepts](#-core-concepts)
 - [📖 Scenarios](#-scenarios)
 - [🛠️ Contributing](#️-contributing)
@@ -151,6 +156,85 @@ Vue3 AI chat component based on TinyRobot, offering:
 - Integrated AI assistant UI.
 - MCP Plugin marketplace.
 - Dynamic WebSkills discovery and execution.
+
+### @opentiny/webmcp-cli
+
+A CLI tool that launches or connects to Chrome via Chrome DevTools Protocol (CDP), allowing AI agents to perceive and control pages:
+
+- **Browser Orchestration**: Configures a dedicated Chrome profile or connects to a running debug instance.
+- **Auto-Injection**: Intercepts navigations to auto-inject the WebMCP polyfill and `page-agent-tool`.
+- **JSON RPC API**: Exposes standard MCP tools like state inspection and page actions.
+
+### webmcp-skill
+
+Guidelines and domain-specific tools package for AI agents:
+
+- **Agent Optimization**: Pre-written system prompts and instructions guiding LLM agents to call CLI commands correctly.
+- **Domain Specialization**: Specific sub-skills (e.g., Excalidraw drawing tools) for advanced interaction tasks.
+
+---
+
+## 💻 WebMCP CLI & Agent Skills
+
+With the WebMCP CLI, you can expose browser control directly to AI agents. It runs a local Puppeteer instance under the hood and maps page actions to standard MCP tools.
+
+### 🚀 Getting Started
+
+#### 1. Installation
+
+You can install it globally from NPM:
+
+```bash
+npm install -g @opentiny/webmcp-cli
+```
+
+Or run it locally within this monorepo:
+
+```bash
+cd packages/webmcp-cli
+pnpm build
+npm install -g .
+```
+
+#### 2. Open a Page
+
+Launch a headless/headful browser and navigate to a URL:
+
+```bash
+webmcp-cli open https://excalidraw.com
+```
+
+#### 3. Inspect Browser State
+
+Get current URL, title, open tabs, and **available WebMCP tools**, along with an indexed representation of the DOM tree:
+
+```bash
+webmcp-cli state
+```
+
+Output includes interactive element IDs (e.g., `[18]<button>Search</button>`) and tool lists.
+
+#### 4. Run an MCP Tool
+
+Directly trigger actions using standard MCP calls:
+
+```bash
+# Click a button at DOM index 18
+webmcp-cli run page-agent-tool '{"action": "click", "index": 18}'
+
+# Fill an input field at DOM index 13
+webmcp-cli run page-agent-tool '{"action": "fill", "index": 13, "text": "Model Context Protocol"}'
+```
+
+### 🧠 Agent Skill Guidelines
+
+Under `packages/webmcp-skill`, we define a set of **Agent Skills** (System instructions and reference templates). When an AI agent connects to a webpage, it reads `SKILL.md` to learn how to interact with the page.
+
+For complex pages, it also loads domain-specific sub-skills:
+- **Excalidraw (`domains/excalidraw.md`)**: Instructs the agent on how to call canvas drawing commands (`excalidraw_execute_command`) to draw flowcharts and shapes.
+- **Baidu Search**: Executes search actions and parses results automatically.
+
+This makes NEXT-SDKs not just an API for your app, but a complete playground for autonomous AI agents.
 
 ---
 
@@ -293,6 +377,14 @@ next-sdk/
 │   │   │   └── composable/    # Composables
 │   │   ├── package.json
 │   │   └── README.md
+│   ├── webmcp-cli/            # CLI tool for browser control via WebMCP
+│   │   ├── src/               # CLI main implementation
+│   │   ├── webmcp-tools/      # Injected page tools (e.g. Excalidraw, Baidu)
+│   │   ├── package.json
+│   │   └── README.md
+│   ├── webmcp-skill/          # Guidelines and domain-specific skills for AI agents
+│   │   ├── SKILL.md           # Master instruction file for agents
+│   │   └── domains/           # Domain-specific instructions (e.g., Excalidraw)
 │   └── doc-ai/                # Doc AI example app
 ├── docs/                      # Project docs
 ├── pnpm-workspace.yaml        # pnpm workspace config
