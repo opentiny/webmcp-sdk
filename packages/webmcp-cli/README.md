@@ -100,18 +100,22 @@ webmcp-cli run page-agent-tool '{"action": "fill", "index": 40, "text": "OpenTin
 
 ---
 
-### 3. `open` 命令
+### 3. `tabs` 命令
 
-在浏览器中打开指定的网页，并且可以选择是在当前页签导航，还是开启全新页签。
+管理浏览器标签页。
 
 **用法：**
 ```bash
-webmcp-cli open <url>
-webmcp-cli open <url> -t <tabid>
-webmcp-cli open <url> -n    # 在新页签中打开
+webmcp-cli tabs open <url>         # 在新标签页打开网页
+webmcp-cli tabs close <tabid>      # 关闭指定标签页
+webmcp-cli tabs switch <tabid>     # 切换到指定标签页
+webmcp-cli tabs back [tabid]       # 后退（默认当前标签页）
+webmcp-cli tabs forward [tabid]    # 前进（默认当前标签页）
 ```
 
 **示例：**
 ```bash
-webmcp-cli open "https://github.com/opentiny/tiny-vue" -n
+webmcp-cli tabs open "https://github.com/opentiny/tiny-vue"
+webmcp-cli tabs switch 2EA73ED323E46E5E108D4E46DA4E4AA7
+webmcp-cli tabs back
 ```

@@ -15,7 +15,6 @@
   "scripts": {
     "dev": "tsup --watch",
     "build:inject": "node scripts/build-inject.mjs",
-    "build:tools": "node scripts/build-inject.mjs",
     "build": "tsup && pnpm run build:inject",
     "prepublishOnly": "pnpm run build",
     "link:global": "npm install -g .",
