@@ -3,7 +3,7 @@
 English | [简体中文](README.zh-CN.md)
 
 <p align="center">
-  <strong>A toolkit for front-end intelligent application development. With the Built-in WebMCP protocol, transform your applications into AI-Native ones instantly.</strong>
+  <strong>A front-end intelligent application development and browser automation toolkit. It turns existing apps intelligent via WebMCP + WebSkills, and provides webmcp-cli to perceive and control any webpage with zero refactoring.</strong>
 </p>
 
 <p align="center">
@@ -22,7 +22,7 @@ English | [简体中文](README.zh-CN.md)
 
 ---
 
-**OpenTiny NEXT-SDKs** is a front-end intelligent application development toolkit. It enables the "WebMCP + WebSkills" model to expose page operations, data queries, and business processes as standardized tools, while providing the powerful **`webmcp-cli`** and **`webmcp-skill`** for browser automation. By using our **Polyfill**, you can start building future-proof AI-Native applications on today's browsers with **zero refactoring**.
+**OpenTiny NEXT-SDKs** is a front-end intelligent application development and browser automation toolkit. Beyond enabling the "WebMCP + WebSkills" model to expose page operations as standardized tools in just a few lines of code, it features **`webmcp-cli`** to connect, perceive, and control any webpage with zero source code modifications, instantly bringing out-of-the-box AI-Native capability to any web app.
 
 ## 📑 Table of Contents
 

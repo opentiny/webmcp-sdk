@@ -42,6 +42,13 @@ export default defineConfig({
           ]
         },
         {
+          text: 'WebMCP CLI & Skills',
+          items: [
+            { text: 'WebMCP CLI 工具介绍', link: '/guide/webmcp-cli' },
+            { text: '第三方 Agent 接入指南', link: '/guide/webmcp-agent-integration' }
+          ]
+        },
+        {
           text: 'NEXT-SDKs API',
           items: [
             { text: 'WebMcpServer 类', link: '/guide/api-server' },

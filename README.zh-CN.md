@@ -3,7 +3,7 @@
 [English](README.md) | 简体中文
 
 <p align="center">
-  <strong>一套前端智能应用开发工具包。通过内置 WebMCP 协议，让你的应用瞬间拥有 AI-Native 能力。</strong>
+  <strong>一套前端智能应用开发与端侧自动化工具包。既能用 WebMCP + WebSkills 几行代码让「现有业务应用」秒变智能，也能通过 webmcp-cli 零改动接管、感知并操控任意第三方网页，赋予其开箱即用的 AI-Native 能力。</strong>
 </p>
 
 <p align="center">
@@ -22,7 +22,7 @@
 
 ---
 
-**OpenTiny NEXT-SDKs** 是一套前端智能应用开发工具包。它通过「WebMCP + WebSkills」模式，将页面操作、数据查询和业务流程封装为标准化工具，同时提供了强大的 **`webmcp-cli`**（浏览器感知与操控工具）和 **`webmcp-skill`**（AI 代理操控技能库）。通过使用我们的 **Polyfill**，你可以在当下的浏览器中提前构建面向未来的 AI-Native 应用，或者让 AI 代理自动化地控制任何网页，且**几乎无需重构**。
+**OpenTiny NEXT-SDKs** 是一套前端智能应用开发与端侧自动化工具包。除了支持通过「WebMCP + WebSkills」模式几行代码将「现有业务应用」秒变智能之外，更提供了强大的 **`webmcp-cli`**（浏览器感知与操控工具）和 **`webmcp-skill`**（AI 代理操控技能库）。配合我们的 **Polyfill**，你不仅可以在当下的浏览器中提前构建面向未来的 AI-Native 应用，更能在不修改任何源码的前提下，让 AI 代理自动化地感知并控制任何网页，实现开箱即用的 AI 驾驶能力。
 
 ## 📑 目录
 
