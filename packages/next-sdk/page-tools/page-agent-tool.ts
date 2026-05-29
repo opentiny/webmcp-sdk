@@ -52,17 +52,17 @@ export function registerPageAgentTool() {
           const result = await pageController.getBrowserState()
           return buildContent('浏览器状态:', result)
         } else if (args.action === 'click') {
-          if (!args.index) return buildContent('点击结果:', '缺少元素索引')
+          if (args.index === undefined) return buildContent('点击结果:', '缺少元素索引')
 
           const result = await pageController.clickElement(args.index)
           return buildContent('点击结果:', result)
         } else if (args.action === 'fill') {
-          if (!args.index || !args.text) return buildContent('填写结果:', '缺少元素索引或文本内容')
+          if (args.index === undefined || !args.text) return buildContent('填写结果:', '缺少元素索引或文本内容')
 
           const result = await pageController.inputText(args.index, args.text)
           return buildContent('填写结果:', result)
         } else if (args.action === 'select') {
-          if (!args.index || !args.text) return buildContent('选择结果:', '缺少元素索引或文本内容')
+          if (args.index === undefined || !args.text) return buildContent('选择结果:', '缺少元素索引或文本内容')
 
           const result = await pageController.selectOption(args.index, args.text)
           return buildContent('选择结果:', result)
