@@ -1,11 +1,14 @@
-import { connectBrowser, getTargetPage, getPageTargetId } from '../browser'
+import { connectBrowser, getTargetPage, getPageTargetId, injectIntoPage } from '../browser'
 
 export async function stateCommand({ tabid }: { tabid?: string }) {
   const browser = await connectBrowser()
   try {
     const page = await getTargetPage(browser, tabid)
 
-    // 在页面上下文中执行，获取当前状态和可用工具
+    // 1. 每一次state都重新注入一次page-agent-tool。  这样用户即使手动打开的网页也会有相应的工具。
+    await injectIntoPage(page)
+
+    // 2. 在页面上下文中执行，获取当前状态和可用工具
     const state = await page.evaluate(async () => {
       const url = document.URL
       const title = document.title
@@ -14,7 +17,7 @@ export async function stateCommand({ tabid }: { tabid?: string }) {
       const mcp = (navigator as any).modelContextTesting || (navigator as any).modelContext
       let webmcpTools: any[] = []
       let contentData: any = `页面已准备好: ${title}`
-      
+
       if (mcp) {
         if (typeof mcp.listTools === 'function') {
           const toolsResult = await mcp.listTools()
@@ -25,7 +28,7 @@ export async function stateCommand({ tabid }: { tabid?: string }) {
           try {
             const argsString = JSON.stringify({ action: 'browserState' })
             let stateRes = await mcp.executeTool('page-agent-tool', argsString)
-            
+
             if (typeof stateRes === 'string') {
               try {
                 stateRes = JSON.parse(stateRes)
@@ -35,7 +38,7 @@ export async function stateCommand({ tabid }: { tabid?: string }) {
             }
             if (stateRes && stateRes.content && stateRes.content.length > 0) {
               const textContent = stateRes.content.map((c: any) => c.text).join('\\n')
-              
+
               // page-agent-tool 返回的格式通常是 "浏览器状态: {\"url\":..., \"content\":\"[0]...\"}"
               // 我们尝试把这个 JSON 提取出来，让外层更容易解析
               const prefix = '浏览器状态: '
@@ -66,24 +69,26 @@ export async function stateCommand({ tabid }: { tabid?: string }) {
       }
     })
 
-    // 获取所有的 tab 信息（排除 devtools:// 内部页面）
+    // 3. 获取所有的 tab 信息（排除 devtools:// 内部页面）
     const pages = await browser.pages()
-    const tabs = await Promise.all(pages.map(async (p) => {
-      const pUrl = p.url()
-      if (pUrl.startsWith('devtools://')) return null
+    const tabs = await Promise.all(
+      pages.map(async (p) => {
+        const pUrl = p.url()
+        if (pUrl.startsWith('devtools://')) return null
 
-      const pTitle = await Promise.race([
-        p.title().catch(() => 'Unknown'),
-        new Promise<string>(resolve => setTimeout(() => resolve('Unknown'), 500))
-      ])
+        const pTitle = await Promise.race([
+          p.title().catch(() => 'Unknown'),
+          new Promise<string>((resolve) => setTimeout(() => resolve('Unknown'), 500))
+        ])
 
-      return {
-        // 使用真实的 Chrome target ID，而非数组下标
-        tabid: await getPageTargetId(p).catch(() => pUrl),
-        title: pTitle,
-        url: pUrl
-      }
-    }))
+        return {
+          // 使用真实的 Chrome target ID，而非数组下标
+          tabid: await getPageTargetId(p).catch(() => pUrl),
+          title: pTitle,
+          url: pUrl
+        }
+      })
+    )
 
     return {
       ...state,
