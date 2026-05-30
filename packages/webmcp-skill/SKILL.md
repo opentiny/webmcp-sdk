@@ -99,7 +99,7 @@ webmcp-cli run ...
 
 ### `webmcp-cli run <tool-name> '<json-args>'`
 
-在当前活动页面上执行 MCP 工具。
+在当前活动页面上执行 MCP 工具， json-args要提前转义为有效的cli参数。
 
 ```bash
 # Click element at index 18
@@ -127,7 +127,7 @@ webmcp-cli run page-agent-tool '{"action": "browserState"}' -t <targetId>
 | 域名             | 注入的工具                          | 何时阅读子 Skill                                                                                                             |
 | ---------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `excalidraw.com` | `excalidraw_execute_command`        | **当当前页面 URL 包含 `excalidraw.com` 且需要绘制或操作画布元素时，请阅读 [domains/excalidraw.md](domains/excalidraw.md)。** |
-| `juejin.cn`      | 通用工具 / `page-agent-tool`         | **当需要在掘金平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article.md](domains/publish-article.md)。** |
+| `juejin.cn`      | 通用工具 / `page-agent-tool`        | **当需要在掘金平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article.md](domains/publish-article.md)。**      |
 | `www.baidu.com`  | `baidu_search`, `baidu_get_results` | 无需子 Skill；工具的描述已能说明用途。                                                                                       |
 
 ### 何时阅读 `domains/excalidraw.md`

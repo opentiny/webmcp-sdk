@@ -3,6 +3,7 @@ import { Command } from 'commander'
 import pc from 'picocolors'
 import { stateCommand } from './commands/state'
 import { runCommand } from './commands/run'
+import { evaluateCommand } from './commands/evaluate'
 import {
   tabsOpenCommand,
   tabsCloseCommand,
@@ -64,6 +65,22 @@ program
       console.log(JSON.stringify(result, null, 2))
     } catch (error: unknown) {
       handleCommandError(error, 'run')
+    }
+  })
+
+program
+  .command('evaluate <jsScript>')
+  .description('向当前网页或指定页签注入并执行 JavaScript 代码')
+  .option('-t, --tabid <id>', '指定页签的 ID')
+  .action(async (jsScript, options) => {
+    try {
+      const result = await evaluateCommand({
+        jsScript,
+        tabid: parseTabId(options.tabid)
+      })
+      console.log(JSON.stringify(result, null, 2))
+    } catch (error: unknown) {
+      handleCommandError(error, 'evaluate')
     }
   })
 
