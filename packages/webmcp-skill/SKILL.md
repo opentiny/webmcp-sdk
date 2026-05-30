@@ -19,19 +19,17 @@ metadata:
 
 ## 安装
 
-**本地 Monorepo：**
-
-```bash
-cd packages/webmcp-cli && pnpm link --global
-```
-
-**NPM：**
-
 ```bash
 npm install -g @opentiny/webmcp-cli
 ```
 
----
+## 调用规范
+
+该工具可以在多种终端下运行，但优先使用 `bash` shell 来运行。不同终端传入 json-args 参数时，写法不一致的，请严格依照下面规则传入json参数：
+
+- bash终端： 使用单引号包裹json-args , eg. '{"action": "fill", "index": 0, "text": "你的幽默风趣技术标题"}'
+- cmd终端： 使用双引号包裹json-args, 且里面的双引号需要转义， eg. "{\"action\": \"fill\", \"index\": 0, \"text\":\ "你的幽默风趣技术标题\"}"
+- powershell终端： 使用单引号包裹json-args, 且里面的双引号需要转义， eg. `{\"action\": \"fill\", \"index\": 0, \"text\":\ "你的幽默风趣技术标题\"}'
 
 ## 命令
 
@@ -124,11 +122,11 @@ webmcp-cli run page-agent-tool '{"action": "browserState"}' -t <targetId>
 
 当 `webmcp-cli tabs open` 导航到特定域名时，除通用 `page-agent-tool` 外还会自动注入专用工具。请查看 `state` 输出中的 `webmcpTools` 以确认可用工具。
 
-| 域名             | 注入的工具                          | 何时阅读子 Skill                                                                                                             |
-| ---------------- | ----------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `excalidraw.com` | `excalidraw_execute_command`        | **当当前页面 URL 包含 `excalidraw.com` 且需要绘制或操作画布元素时，请阅读 [domains/excalidraw.md](domains/excalidraw.md)。** |
-| `juejin.cn`      | 通用工具 / `page-agent-tool`        | **当需要在掘金平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article.md](domains/publish-article.md)。**      |
-| `www.baidu.com`  | `baidu_search`, `baidu_get_results` | 无需子 Skill；工具的描述已能说明用途。                                                                                       |
+| 域名             | 注入的工具                          | 何时阅读子 Skill                                                                                                                            |
+| ---------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `excalidraw.com` | `excalidraw_execute_command`        | **当当前页面 URL 包含 `excalidraw.com` 且需要绘制或操作画布元素时，请阅读 [domains/excalidraw.md](domains/excalidraw.md)。**                |
+| `juejin.cn`      | `create_article`                    | **当需要在掘金平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-juejin.md](domains/publish-article-in-juejin.md)。** |
+| `www.baidu.com`  | `baidu_search`, `baidu_get_results` | 无需子 Skill；工具的描述已能说明用途。                                                                                                      |
 
 ### 何时阅读 `domains/excalidraw.md`
 
