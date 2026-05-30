@@ -4,6 +4,7 @@ import pc from 'picocolors'
 import { stateCommand } from './commands/state'
 import { runCommand } from './commands/run'
 import { evaluateCommand } from './commands/evaluate'
+import { setClipboard } from './commands/clipboard'
 import {
   tabsOpenCommand,
   tabsCloseCommand,
@@ -84,9 +85,19 @@ program
     }
   })
 
-const tabs = program
-  .command('tabs')
-  .description('管理浏览器标签页')
+program
+  .command('clipboard <content>')
+  .description('将内容设置到系统剪贴板')
+  .action(async (content) => {
+    try {
+      await setClipboard(content)
+      console.log(JSON.stringify({ success: true, message: '内容已设置到系统剪贴板' }, null, 2))
+    } catch (error: unknown) {
+      handleCommandError(error, 'clipboard')
+    }
+  })
+
+const tabs = program.command('tabs').description('管理浏览器标签页')
 
 tabs
   .command('open <url>')

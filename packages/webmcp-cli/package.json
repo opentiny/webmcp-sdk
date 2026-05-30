@@ -37,6 +37,7 @@
     "@mcp-b/webmcp-polyfill": "catalog:",
     "@opentiny/next-sdk": "workspace:^",
     "@page-agent/page-controller": "catalog:",
+    "clipboardy": "^5.3.1",
     "commander": "^11.1.0",
     "picocolors": "^1.0.0",
     "puppeteer-core": "^22.0.0"
