@@ -36,12 +36,22 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
           }
         }
 
-        // 填写标题和内容
+        // 填写标题
         const titleInput = document.querySelector('.edit-draft .header  .title-input')
         if (titleInput) {
+          titleInput.focus()
           titleInput.value = title
+          titleInput.dispatchEvent(
+            new InputEvent('input', {
+              bubbles: true,
+              cancelable: true,
+              data: title
+            })
+          )
+          titleInput.dispatchEvent(new Event('change', { bubbles: true }))
+          titleInput.blur()
         }
-
+        // 填写内容
         const decodeContent = decodeURIComponent(escape(atob(content)))
         // 1. CodeMirror 5 注入 (如 ByteMD)
         const cm5El = document.querySelector('.edit-draft .CodeMirror')
