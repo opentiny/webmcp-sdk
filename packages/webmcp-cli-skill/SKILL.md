@@ -1,5 +1,5 @@
 ---
-name: webmcp-skill
+name: webmcp-cli-skill
 description: 面向第三方 AI Agent 的安装与执行指南：如何使用 webmcp-cli 与浏览器页面交互。包含已注入 WebMCP 工具的页面领域专用工具说明。
 license: MIT
 metadata:

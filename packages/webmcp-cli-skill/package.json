@@ -1,5 +1,5 @@
 {
-  "name": "@opentiny/webmcp-skill",
+  "name": "@opentiny/webmcp-cli-skill",
   "version": "1.0.0",
   "description": "Skill instructions for third-party AI agents on how to use webmcp-cli",
   "private": true
