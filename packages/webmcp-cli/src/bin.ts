@@ -3,6 +3,8 @@ import { Command } from 'commander'
 import pc from 'picocolors'
 import { stateCommand } from './commands/state'
 import { runCommand } from './commands/run'
+import { evaluateCommand } from './commands/evaluate'
+import { setClipboard } from './commands/clipboard'
 import {
   tabsOpenCommand,
   tabsCloseCommand,
@@ -67,9 +69,35 @@ program
     }
   })
 
-const tabs = program
-  .command('tabs')
-  .description('管理浏览器标签页')
+program
+  .command('evaluate <jsScript>')
+  .description('向当前网页或指定页签注入并执行 JavaScript 代码')
+  .option('-t, --tabid <id>', '指定页签的 ID')
+  .action(async (jsScript, options) => {
+    try {
+      const result = await evaluateCommand({
+        jsScript,
+        tabid: parseTabId(options.tabid)
+      })
+      console.log(JSON.stringify(result, null, 2))
+    } catch (error: unknown) {
+      handleCommandError(error, 'evaluate')
+    }
+  })
+
+program
+  .command('clipboard <content>')
+  .description('将内容设置到系统剪贴板')
+  .action(async (content) => {
+    try {
+      await setClipboard(content)
+      console.log(JSON.stringify({ success: true, message: '内容已设置到系统剪贴板' }, null, 2))
+    } catch (error: unknown) {
+      handleCommandError(error, 'clipboard')
+    }
+  })
+
+const tabs = program.command('tabs').description('管理浏览器标签页')
 
 tabs
   .command('open <url>')

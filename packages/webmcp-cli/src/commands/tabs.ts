@@ -1,5 +1,11 @@
-import { connectBrowser, getTargetPage, injectIntoPage, getPageTargetId, findPageTargetByTabId, activateTabById } from '../browser'
-import pc from 'picocolors'
+import {
+  connectBrowser,
+  getTargetPage,
+  injectIntoPage,
+  getPageTargetId,
+  findPageTargetByTabId,
+  activateTabById
+} from '../browser'
 
 function normalizeUrl(url: string): string {
   if (!url.startsWith('http://') && !url.startsWith('https://')) {
@@ -16,7 +22,7 @@ export async function tabsOpenCommand(url: string) {
 
     await page.goto(url, { waitUntil: 'domcontentloaded' })
     await injectIntoPage(page)
-    await new Promise(resolve => setTimeout(resolve, 500))
+    await new Promise((resolve) => setTimeout(resolve, 500))
     return {
       success: true,
       tabid: await getPageTargetId(page),
