@@ -101,8 +101,8 @@ webmcp-cli run ...
 不同终端传入 `json-args` 参数时，请严格依照下面规则传入：
 
 - bash终端： 使用单引号包裹`json-args` , eg. '{"action": "fill", "index": 0, "text": "你的幽默风趣技术标题"}'
-- cmd终端： 使用双引号包裹`json-args`, 且里面的双引号需要转义， eg. "{\"action\": \"fill\", \"index\": 0, \"text\":\ "你的幽默风趣技术标题\"}"
-- powershell 终端： 使用单引号包裹`json-args`, 且里面的双引号需要转义， eg. `{\"action\": \"fill\", \"index\": 0, \"text\":\ "你的幽默风趣技术标题\"}'
+- cmd终端： 使用双引号包裹`json-args`, 且里面的双引号需要转义， eg. "{\"action\": \"fill\", \"index\": 0, \"text\":\"你的幽默风趣技术标题\"}"
+- powershell 终端： 使用单引号包裹`json-args`, 且里面的双引号需要转义， eg. `{\"action\": \"fill\", \"index\": 0, \"text\":\"你的幽默风趣技术标题\"}'
 
 在遇到控制台报错： `executing run command: 参数不是有效的 JSON`时， 一定要检查`json-args` 参数的格式是否符合上面的规则。
 

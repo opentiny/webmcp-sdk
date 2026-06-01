@@ -4,9 +4,9 @@
 
 ---
 
-### 1. 详细发布步骤
+## 详细发布步骤
 
-#### 第一步：打开编辑器并同步状态
+### 第一步：打开编辑器并同步状态
 
 使用`state` 命令查询当前激活的标签，如果已经打开了https://juejin.cn/editor/drafts/new?v=2 页面，则进入一下步。
 
@@ -21,7 +21,7 @@ webmcp-cli tabs open "https://juejin.cn/editor/drafts/new?v=2"
 webmcp-cli state
 ```
 
-#### 第二步：填写文章标题
+### 第二步：填写文章标题
 
 网页上已经存在create_article的页面工具，将标题和正文的base64编码传递进去。
 
@@ -29,7 +29,7 @@ webmcp-cli state
 webmcp-cli run create_article '{"title":"文章标题"， "content":"正文的base64编码"}'
 ```
 
-#### 第三步：点击发布按钮
+### 第三步：点击发布按钮
 
 为了保存并更新 DOM 状态，注入正文后**必须**重新执行 `state` 命令：
 
@@ -45,7 +45,7 @@ webmcp-cli state
 webmcp-cli run page-agent-tool '{"action": "click", "index": 5}'
 ```
 
-#### 第五步：处理发布设置弹窗
+### 第四步：处理发布设置弹窗
 
 点击右上角发布后，页面会弹出“发布文章”的设置窗口。在该窗口中，有 **三项红星必填项（分类、添加标签、编辑摘要）** 必须正确填写，否则“确定并发布”按钮将处于禁用状态或无法成功发布。
 
@@ -57,7 +57,7 @@ webmcp-cli state
 
 请依次完成以下三项必填设置：
 
-##### 1. 选择分类（必填 `*`）
+#### 1. 选择分类（必填 `*`）
 
 定位到分类按钮区域（如 `前端`、`后端`、`Android`、`iOS`、`人工智能`、`开发工具` 等），对目标分类执行 `click` 操作。例如，选择“前端”分类（假设其索引为 12）：
 
@@ -65,7 +65,7 @@ webmcp-cli state
 webmcp-cli run page-agent-tool '{"action": "click", "index": 12}'
 ```
 
-##### 2. 添加标签（必填 `*`）
+#### 2. 添加标签（必填 `*`）
 
 必须添加一个标签。总结文章所讲述的对象确定为标签名。 然后定位到 `请搜索添加标签` 输入框（通常是一个 input 元素，假设其索引为 14），使用 `fill` 写入标签名称后触发回车：
 
@@ -73,7 +73,7 @@ webmcp-cli run page-agent-tool '{"action": "click", "index": 12}'
 webmcp-cli run page-agent-tool '{"action": "fill", "index": 14, "text": "TypeScript"}'
 ```
 
-##### 3. 编辑摘要（必填 `*`）
+#### 3. 编辑摘要（必填 `*`）
 
 总结文章所讲述的内容，生成 100 字以内的文章简要概述。
 
@@ -85,7 +85,7 @@ webmcp-cli run page-agent-tool '{"action": "fill", "index": 14, "text": "TypeScr
 
 ---
 
-#### 第六步：确定并发布
+### 第五步：确定并发布
 
 完成上述三个必填项的填写与确认后：
 
@@ -98,7 +98,7 @@ webmcp-cli run page-agent-tool '{"action": "fill", "index": 14, "text": "TypeScr
 
 ---
 
-## 三、 高级实战避坑与优化指南
+## 避坑与优化指南
 
 基于真实发布流程的调试，在开发其他发布平台或进行复杂 DOM 交互时，**必须**遵循以下优化准则：
 
