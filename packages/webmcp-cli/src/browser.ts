@@ -92,37 +92,69 @@ async function killProcessOnPortIfZombie(port: number): Promise<void> {
   }
 }
 
-function getDefaultChromePath(): string | null {
+interface BrowserInfo {
+  path: string
+  name: string
+}
+
+function getDefaultBrowserPath(): BrowserInfo | null {
   const platform = os.platform()
   if (platform === 'darwin') {
-    return '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+    // macOS：优先 Chrome，其次 Edge
+    const chromePath = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+    if (fs.existsSync(chromePath)) return { path: chromePath, name: 'Chrome' }
+    const edgePath = '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge'
+    if (fs.existsSync(edgePath)) return { path: edgePath, name: 'Edge' }
+    return null
   } else if (platform === 'win32') {
-    const paths = [
+    // Windows：优先 Chrome，其次 Edge（系统内置路径）
+    const chromePaths = [
       process.env.LOCALAPPDATA + '\\Google\\Chrome\\Application\\chrome.exe',
       process.env.PROGRAMFILES + '\\Google\\Chrome\\Application\\chrome.exe',
       process.env['PROGRAMFILES(X86)'] + '\\Google\\Chrome\\Application\\chrome.exe'
     ]
-    return paths.find(p => fs.existsSync(p)) || null
+    const foundChrome = chromePaths.find(p => fs.existsSync(p))
+    if (foundChrome) return { path: foundChrome, name: 'Chrome' }
+
+    // Edge 在 Windows 上的常见路径（包括系统内置的 Edge）
+    const edgePaths = [
+      process.env.LOCALAPPDATA + '\\Microsoft\\Edge\\Application\\msedge.exe',
+      process.env.PROGRAMFILES + '\\Microsoft\\Edge\\Application\\msedge.exe',
+      process.env['PROGRAMFILES(X86)'] + '\\Microsoft\\Edge\\Application\\msedge.exe',
+      'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
+      'C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe'
+    ]
+    const foundEdge = edgePaths.find(p => fs.existsSync(p))
+    if (foundEdge) return { path: foundEdge, name: 'Edge' }
+    return null
   } else {
-    // Linux
-    const paths = ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser']
-    return paths.find(p => fs.existsSync(p)) || null
+    // Linux：优先 Chrome，其次 Chromium，最后 Edge
+    const paths: Array<{ p: string; name: string }> = [
+      { p: '/usr/bin/google-chrome', name: 'Chrome' },
+      { p: '/usr/bin/google-chrome-stable', name: 'Chrome' },
+      { p: '/usr/bin/chromium', name: 'Chromium' },
+      { p: '/usr/bin/chromium-browser', name: 'Chromium' },
+      { p: '/usr/bin/microsoft-edge', name: 'Edge' },
+      { p: '/usr/bin/microsoft-edge-stable', name: 'Edge' }
+    ]
+    const found = paths.find(({ p }) => fs.existsSync(p))
+    return found ? { path: found.p, name: found.name } : null
   }
 }
 
-async function startChromeInBackground(): Promise<void> {
-  const chromePath = getDefaultChromePath()
-  if (!chromePath || !fs.existsSync(chromePath)) {
-    throw new Error('无法在系统中找到 Chrome 浏览器的默认安装路径。')
+async function startBrowserInBackground(): Promise<void> {
+  const browserInfo = getDefaultBrowserPath()
+  if (!browserInfo || !fs.existsSync(browserInfo.path)) {
+    throw new Error('无法在系统中找到 Chrome 或 Edge 浏览器的默认安装路径。')
   }
 
-  console.log(pc.yellow(`正在启动后台 Chrome 实例 (端口: ${CDP_PORT})...`))
+  console.log(pc.yellow(`正在启动后台 ${browserInfo.name} 实例 (端口: ${CDP_PORT})...`))
   
   // 用户可以通过 --workspace CLI 选项或 WEBMCP_WORKSPACE 环境变量自定义。
   const userDataDir = process.env.WEBMCP_WORKSPACE || path.join(os.homedir(), '.webmcp_chrome_profile')
   
   const child = spawn(
-    chromePath,
+    browserInfo.path,
     [
       `--remote-debugging-port=${CDP_PORT}`,
       `--user-data-dir=${userDataDir}`,
@@ -146,7 +178,7 @@ async function startChromeInBackground(): Promise<void> {
         try {
           const response = await fetchWithTimeout(url, 1000)
           if (response.ok) {
-            console.log(pc.green('Chrome 启动并就绪。'))
+            console.log(pc.green(`${browserInfo.name} 启动并就绪。`))
             return
           }
         } catch (err) {}
@@ -157,7 +189,7 @@ async function startChromeInBackground(): Promise<void> {
     await new Promise(resolve => setTimeout(resolve, 500))
   }
 
-  throw new Error('Chrome 启动超时，无法连接到 CDP 端口。')
+  throw new Error(`${browserInfo.name} 启动超时，无法连接到 CDP 端口。`)
 }
 
 export async function connectBrowser(): Promise<Browser> {
@@ -232,7 +264,7 @@ export async function connectBrowser(): Promise<Browser> {
       // 连接失败时，尝试唤起浏览器
       try {
         await killProcessOnPortIfZombie(CDP_PORT)
-        await startChromeInBackground()
+        await startBrowserInBackground()
         // 再次尝试连接
         try {
           const is127Ready = await checkCdpReady(`http://127.0.0.1:${CDP_PORT}/json/version`, 3)
@@ -272,8 +304,8 @@ export async function connectBrowser(): Promise<Browser> {
       } catch (launchError: unknown) {
         const msg = launchError instanceof Error ? launchError.message : String(launchError)
         console.error(pc.red(`无法连接或启动浏览器: ${msg}`))
-        console.error(pc.yellow(`💡 提示：由于我们要使用你日常的默认浏览器（包含你的书签 and 登录态），如果你的 Chrome 目前正处于打开状态，它会拒绝使用带有调试端口的新参数启动。`))
-        console.error(pc.yellow(`👉 解决办法：请先完全退出当前的 Chrome 浏览器（在 Mac 上按 Cmd+Q），然后再重新运行命令。`))
+        console.error(pc.yellow(`💡 提示：由于我们要使用你日常的默认浏览器（包含你的书签和登录态），如果你的 Chrome/Edge 目前正处于打开状态，它会拒绝使用带有调试端口的新参数启动。`))
+        console.error(pc.yellow(`👉 解决办法：请先完全退出当前的 Chrome 或 Edge 浏览器（在 Mac 上按 Cmd+Q，Windows 上右键任务栏图标退出），然后再重新运行命令。`))
         throw new Error('Browser connection failed.')
       }
     }
