@@ -27,12 +27,24 @@
 > 掘金的富文本编辑器根据版本不同，底层可能使用的是 **CodeMirror 5**（如 ByteMD 编辑器，类名为 `.CodeMirror`）或 **CodeMirror 6**（类名为 `.cm-editor`）。页面上可见的 `<textarea>` 只是隐藏的代理元素。如果直接通过普通的 `fill` 操作向代理 `textarea` 填入内容，编辑器不会同步渲染，且无法触发掘金草稿的自动保存机制。
 > **唯一正确的做法**：直接通过 `executeJavascript` 判断编辑器版本，并调用其底层的 `setValue` 或 `dispatch` 方法替换整个文档状态。
 
-为了避免 Markdown 文本中包含的换行符、双引号、单引号或反斜杠导致 CLI 工具解析 JSON 参数失败，我们必须采用 **URL 编码（URI Encode）解密注入方案**。
+为了彻底规避 Markdown 文本中的换行符、双引号、中文等特殊字符在 **Shell → JSON → JS** 三层传递时导致的解析失败和乱码问题，我们必须采用 **Base64 编码注入方案**（Base64 只含 `A-Za-z0-9+/=`，对三层环境均完全安全，优于 URI 编码）。
 
-**核心 JavaScript 兼容注入脚本模板：**
+**Agent 侧（Node.js）生成 Base64：**
+```javascript
+// 在构造 CLI 命令前，先将文章内容转为 Base64
+const content = "# 你的文章内容\n包含中文和特殊字符..."
+const base64Content = Buffer.from(content, 'utf-8').toString('base64')
+// 将 base64Content 嵌入下方注入脚本模板
+```
+
+**核心 JavaScript 兼容注入脚本模板（Base64 版）：**
 ```javascript
 (function() {
-  const content = decodeURIComponent("<YOUR_URL_ENCODED_ARTICLE_CONTENT>");
+  // 注意：不能直接用 atob()，atob 只支持 Latin-1，中文需要两步解码
+  const base64 = "<YOUR_BASE64_ENCODED_ARTICLE_CONTENT>";
+  const content = decodeURIComponent(
+    atob(base64).split('').map(c => '%' + c.charCodeAt(0).toString(16).padStart(2, '0')).join('')
+  );
 
   // 1. CodeMirror 5 注入 (如 ByteMD)
   const cm5El = document.querySelector('.CodeMirror');
@@ -80,11 +92,11 @@ webmcp-cli run page-agent-tool '{"action": "fill", "index": 2, "text": "你的�
 ```
 
 #### 第三步：注入文章正文
-1. 将准备好的 Markdown 正文使用 JavaScript 或工具进行 **URI 编码**（即将换行、空格和特殊字符转换为 `%0A`、`%20` 等安全字符）。
-2. 将编码后的字符串嵌入到 JS 脚本模板中，通过 `executeJavascript` 执行：
+1. 在 Agent 侧（Node.js）将 Markdown 正文转为 Base64：`Buffer.from(content, 'utf-8').toString('base64')`
+2. 将 Base64 字符串嵌入脚本模板，通过 `executeJavascript` 执行：
 ```bash
-# 示例（正文内容为 "# 标题\n内容" 编码后为 "%23%20%E6%A0%87%E9%A2%98%0A%E5%86%85%E5%AE%B9"）
-webmcp-cli run page-agent-tool '{"action": "executeJavascript", "script": "const view = document.querySelector(\".cm-editor\")?.cmView?.view; if (view) { view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: decodeURIComponent(\"%23%20%E6%A0%87%E9%A2%98%0A%E5%86%85%E5%AE%B9\") } }); true; } else { false; }"}'
+# 示例：正文 "# 标题\n内容" 的 Base64 为 "IyDmkJHpg6jKCuWGheWtlw=="
+webmcp-cli run page-agent-tool '{"action": "executeJavascript", "script": "(function(){ var b=\"IyDmkJHpg6jKCuWGheWtlw==\"; var c=decodeURIComponent(atob(b).split(\"\").map(function(x){return \"%\"+x.charCodeAt(0).toString(16).padStart(2,\"0\")}).join(\"\")); var v=document.querySelector(\".cm-editor\")?.cmView?.view; if(v){v.dispatch({changes:{from:0,to:v.state.doc.length,insert:c}});return \"ok\";} var cm=document.querySelector(\".CodeMirror\"); if(cm&&cm.CodeMirror){cm.CodeMirror.setValue(c);return \"ok\";} return \"not_found\"; })()"}'
 ```
 
 #### 第四步：点击发布按钮
@@ -153,10 +165,26 @@ webmcp-cli run page-agent-tool '{"action": "click", "index": 12}'
 
 基于真实发布流程的调试，在开发其他发布平台或进行复杂 DOM 交互时，**必须**遵循以下优化准则：
 
-### 1. 规避 Shell/JSON 转义地狱的“黄金法则”
-当需要向页面注入长文本（如包含换行、双引号、反斜杠的 Markdown）时，直接使用 `executeJavascript` 包裹文本极易导致 CLI 工具解析 JSON 参数失败。
-- **最佳做法**：在 CLI 命令构建前，**必须**先将正文内容在本地进行 **URI 编码 (URL Encoding)**。
-- 注入时，在 JS 脚本中通过 `decodeURIComponent("%XX%XX...")` 进行解密还原。这能规避 99% 的字符转义错误。
+### 1. 规避 Shell/JSON 转义地狱与中文乱码的"黄金法则"
+当需要向页面注入长文本（如包含中文、换行、双引号、反斜杠的 Markdown）时，直接拼接文本极易导致 CLI 工具解析失败或中文乱码。
+
+**推荐等级（从高到低）：**
+
+| 方案 | 优点 | 缺点 |
+|------|------|------|
+| **Base64（首选）** | 只含 `A-Za-z0-9+/=`，对 Shell/JSON/JS 三层均安全；中文绝对不会乱码 | 需要 Agent 侧预处理一步 |
+| URI 编码 | 可读性稍好 | 中文编码为 `%E6%B1%89` 等长串，部分终端或工具仍可能乱码；不如 Base64 彻底 |
+| 直接拼接 | 无需预处理 | 极易因引号/换行/反斜杠导致解析失败，**禁止使用** |
+
+**Base64 标准做法：**
+- **Agent 侧（Node.js）编码**：`Buffer.from(content, 'utf-8').toString('base64')`
+- **浏览器侧（JS）解码**：
+  ```javascript
+  // ⚠️ 不能直接用 atob()！atob 只支持 Latin-1，中文必须两步处理
+  const content = decodeURIComponent(
+    atob(base64).split('').map(c => '%' + c.charCodeAt(0).toString(16).padStart(2, '0')).join('')
+  );
+  ```
 
 ### 2. 突破框架（Vue/React）表单“双向绑定”防线
 在许多现代单页应用中，如果直接通过 JS 修改 `input.value`，由于绕过了框架的 Synthetic Event 机制，底层的 Vue/React State 无法感知数据变化，导致提交时仍被拦截并报错（例如提示“至少添加一个标签”）。
