@@ -73,7 +73,7 @@ webmcp-cli state -t <targetId>   # target a specific tab by its real Chrome targ
 `webmcpTools`的值的数组中如果有 `system-overview`的工具，并且在本轮对话中，该域名下没有调用过它，那么一定要立即执行一下 。`system-overview`工具的返回值能指导后续的操作，比如会包含网站的`模块 & 路由 & 页面工具 &使用规范`等等内容。
 
 ```bash
-webmcp-cli run system-overview '{}'
+webmcp-cli run system-overview
 ```
 
 #### 何时必须调用 state
