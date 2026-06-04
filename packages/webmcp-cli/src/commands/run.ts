@@ -13,11 +13,13 @@ export async function runCommand({
   try {
     const page = await getTargetPage(browser, tabid)
 
-    // 验证一下是否是合法的 JSON，以防用户传入了非法的字符串
-    try {
-      JSON.parse(argsJson)
-    } catch (e: any) {
-      throw new Error(`参数不是有效的 JSON: ${e.message}`)
+    // 无参工具可省略 argsJson（默认为空字符串）；有参时需传入合法 JSON
+    if (argsJson) {
+      try {
+        JSON.parse(argsJson)
+      } catch (e: any) {
+        throw new Error(`参数不是有效的 JSON: ${e.message}`)
+      }
     }
 
     const result = await page.evaluate(async (name, inputString) => {

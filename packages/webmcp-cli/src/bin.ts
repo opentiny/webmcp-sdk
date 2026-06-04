@@ -53,14 +53,14 @@ program
   })
 
 program
-  .command('run <toolName> <argsJson>')
+  .command('run <toolName> [argsJson]')
   .description('向指定页签调用指定的 WebMCP 工具执行操作')
   .option('-t, --tabid <id>', '指定页签的 ID')
   .action(async (toolName, argsJson, options) => {
     try {
       const result = await runCommand({
         toolName,
-        argsJson,
+        argsJson: argsJson ?? '{}',
         tabid: parseTabId(options.tabid)
       })
       console.log(JSON.stringify(result, null, 2))
