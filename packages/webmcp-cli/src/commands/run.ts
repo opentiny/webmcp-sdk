@@ -1,3 +1,4 @@
+import JSON5 from 'json5'
 import { connectBrowser, getTargetPage } from '../browser'
 
 export async function runCommand({
@@ -13,11 +14,17 @@ export async function runCommand({
   try {
     const page = await getTargetPage(browser, tabid)
 
-    // 验证一下是否是合法的 JSON，以防用户传入了非法的字符串
+    // 验证并清洗、转换参数为合法的 JSON 字符串
+    let cleanedArgs = argsJson.trim()
+    if (cleanedArgs.startsWith("'") && cleanedArgs.endsWith("'")) {
+      cleanedArgs = cleanedArgs.slice(1, -1).trim()
+    }
+
     try {
-      JSON.parse(argsJson)
+      const obj = JSON5.parse(cleanedArgs)
+      cleanedArgs = JSON.stringify(obj)
     } catch (e: any) {
-      throw new Error(`参数不是有效的 JSON: ${e.message}`)
+      throw new Error(`参数不是有效的 JSON 或 JS 对象: ${e.message}`)
     }
 
     const result = await page.evaluate(async (name, inputString) => {
@@ -38,8 +45,7 @@ export async function runCommand({
           // ignore
         }
       }
-      return res
-    }, toolName, argsJson)
+    }, toolName, cleanedArgs)
 
     return result
   } finally {

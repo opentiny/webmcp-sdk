@@ -18,6 +18,14 @@ import packageJson from '../package.json'
 
 const program = new Command()
 
+function cleanJsonString(str: string): string {
+  let cleaned = str.trim()
+  if (cleaned.startsWith("'") && cleaned.endsWith("'")) {
+    cleaned = cleaned.slice(1, -1).trim()
+  }
+  return cleaned
+}
+
 function parseTabId(id?: string): string | undefined {
   if (!id) return undefined
   return id
@@ -79,22 +87,22 @@ program
   })
 
 program
-  .command('run <toolName> [argsJson]')
+  .command('run <toolName> [args...]')
   .description('向指定页签调用指定的 WebMCP 工具执行操作')
   .option('-t, --tabid <id>', '指定页签的 ID')
   .option(
     '-f, --file <path>',
-    '从指定 .json 文件读取整个 argsJson（文件内容即为参数 JSON）。\n' +
-    '如需在 argsJson 中内联引用文件，使用占位符语法：\n' +
-    '  @file:<path>       读取文件原始文本\n' +
-    '  @base64file:<path> 读取文件并 Base64 编码\n' +
-    '示例：webmcp-cli run mytool \'{"content":"@base64file:./doc.md"}\'' 
+    '从指定 .json 文件读取整个参数（文件内容即为参数 JSON）。\n' +
+      '如需在参数中内联引用文件，使用占位符语法：\n' +
+      '  @file:<path>       读取文件原始文本\n' +
+      '  @base64file:<path> 读取文件并 Base64 编码\n' +
+      '示例：webmcp-cli run mytool \'{"content":"@base64file:./doc.md"}\''
   )
-  .action(async (toolName, argsJson, options) => {
+  .action(async (toolName, args, options) => {
     try {
-      let finalArgsJson = argsJson
+      let finalArgsJson = ''
 
-      // -f/--file：把整个文件内容作为 argsJson（适合 .json 参数文件）
+      // -f/--file：把整个文件内容作为 argsJson
       if (options.file) {
         const filePath = resolve(process.cwd(), options.file)
         try {
@@ -102,10 +110,38 @@ program
         } catch (e: any) {
           throw new Error(`无法读取文件 "${filePath}": ${e.message}`)
         }
+      } else if (args && args.length > 0) {
+        const firstArg = args[0].trim()
+        const cleanedFirstArg = cleanJsonString(firstArg)
+
+        if (cleanedFirstArg.startsWith('{') && cleanedFirstArg.endsWith('}')) {
+          // 认为是完整的或被拆分的 JSON 字符串，重新用空格连接起来
+          finalArgsJson = args.map(cleanJsonString).join(' ')
+        } else {
+          // 认为是 key=value 键值对形式
+          const obj: Record<string, any> = {}
+          for (const pair of args) {
+            const index = pair.indexOf('=')
+            if (index === -1) {
+              throw new Error(`无效的参数格式 "${pair}"。必须是 JSON 字符串或 key=value 格式。`)
+            }
+            const key = pair.substring(0, index).trim()
+            let val = pair.substring(index + 1).trim()
+            val = cleanJsonString(val)
+
+            // 尝试把值当做 JSON 解析（支持 bool, number, null 以及对象）
+            try {
+              obj[key] = JSON.parse(val)
+            } catch {
+              obj[key] = val // 解析失败则保留为原样字符串
+            }
+          }
+          finalArgsJson = JSON.stringify(obj)
+        }
       }
 
       if (!finalArgsJson) {
-        throw new Error('必须提供 argsJson 参数或通过 -f/--file 指定参数文件')
+        throw new Error('必须提供参数或通过 -f/--file 指定参数文件')
       }
 
       // 展开 argsJson 中的 @file: / @base64file: 内联文件引用
@@ -121,7 +157,6 @@ program
       handleCommandError(error, 'run')
     }
   })
-
 
 program
   .command('evaluate <jsScript>')
