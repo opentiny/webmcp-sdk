@@ -1,4 +1,3 @@
-import JSON5 from 'json5'
 import { connectBrowser, getTargetPage } from '../browser'
 
 export async function runCommand({
@@ -14,18 +13,8 @@ export async function runCommand({
   try {
     const page = await getTargetPage(browser, tabid)
 
-    // 验证并清洗、转换参数为合法的 JSON 字符串
-    let cleanedArgs = argsJson.trim()
-    if (cleanedArgs.startsWith("'") && cleanedArgs.endsWith("'")) {
-      cleanedArgs = cleanedArgs.slice(1, -1).trim()
-    }
-
-    try {
-      const obj = JSON5.parse(cleanedArgs)
-      cleanedArgs = JSON.stringify(obj)
-    } catch (e: any) {
-      throw new Error(`参数不是有效的 JSON 或 JS 对象: ${e.message}`)
-    }
+    // argsJson 已在 bin.ts 中完成 @base64file 展开与 JSON 校验
+    const cleanedArgs = argsJson.trim()
 
     const result = await page.evaluate(async (name, inputString) => {
       const mcp = (navigator as any).modelContextTesting || (navigator as any).modelContext
@@ -36,15 +25,26 @@ export async function runCommand({
 
       // executeTool 的第二个参数必须是 JSON 字符串
       let res = await mcp.executeTool(name, inputString)
-      
+
       // executeTool 的返回值可能是普通对象，也可能是 JSON 字符串
       if (typeof res === 'string') {
         try {
           res = JSON.parse(res)
-        } catch (e) {
-          // ignore
+        } catch {
+          // 保留原始字符串
         }
       }
+
+      if (res === undefined || res === null) {
+        throw new Error('工具 execute 未返回结果，请检查工具实现是否缺少 return')
+      }
+
+      if (typeof res === 'object' && (res as { success?: boolean }).success === false) {
+        const failed = res as { error?: string; message?: string }
+        throw new Error(failed.error || failed.message || '工具执行失败')
+      }
+
+      return res
     }, toolName, cleanedArgs)
 
     return result

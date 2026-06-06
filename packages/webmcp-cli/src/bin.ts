@@ -3,6 +3,8 @@ import { Command } from 'commander'
 import pc from 'picocolors'
 import { readFileSync } from 'fs'
 import { resolve } from 'path'
+import { getFileBaseDir } from './expand-file-refs'
+import { prepareRunArgsJson } from './parse-run-args'
 import { stateCommand } from './commands/state'
 import { runCommand } from './commands/run'
 import { evaluateCommand } from './commands/evaluate'
@@ -18,14 +20,6 @@ import packageJson from '../package.json'
 
 const program = new Command()
 
-function cleanJsonString(str: string): string {
-  let cleaned = str.trim()
-  if (cleaned.startsWith("'") && cleaned.endsWith("'")) {
-    cleaned = cleaned.slice(1, -1).trim()
-  }
-  return cleaned
-}
-
 function parseTabId(id?: string): string | undefined {
   if (!id) return undefined
   return id
@@ -35,30 +29,6 @@ function handleCommandError(error: unknown, commandName: string): never {
   const msg = error instanceof Error ? error.message : String(error)
   console.error(pc.red(`Error executing ${commandName} command: ${msg}`))
   process.exit(1)
-}
-
-/**
- * 展开 argsJson 字符串中的文件引用占位符：
- *   @file:<path>       → 读取文件原始文本内容
- *   @base64file:<path> → 读取文件内容并 Base64 编码
- * 占位符必须是 JSON 字符串值，例如：
- *   '{"content":"@base64file:./article.md","prompt":"@file:./prompt.txt"}'
- */
-function expandFileRefs(argsJson: string): string {
-  // 匹配 JSON 字符串值内的 @file: / @base64file: 引用
-  // 格式："@(base64)?file:<path>"，path 不含双引号
-  return argsJson.replace(/"@(base64)?file:([^"]+)"/g, (_match, base64Flag, filePath) => {
-    const absPath = resolve(process.cwd(), filePath)
-    let content: string
-    try {
-      content = readFileSync(absPath, 'utf-8')
-    } catch (e: any) {
-      throw new Error(`无法读取文件引用 "${filePath}": ${e.message}`)
-    }
-    const value = base64Flag ? Buffer.from(content, 'utf-8').toString('base64') : content
-    // 将值序列化为合法 JSON 字符串（自动处理换行、引号等转义）
-    return JSON.stringify(value)
-  })
 }
 
 program
@@ -100,52 +70,20 @@ program
   )
   .action(async (toolName, args, options) => {
     try {
-      let finalArgsJson = ''
+      let fileContent: string | undefined
+      let fileBaseDir = process.cwd()
 
-      // -f/--file：把整个文件内容作为 argsJson
       if (options.file) {
         const filePath = resolve(process.cwd(), options.file)
+        fileBaseDir = getFileBaseDir(options.file)
         try {
-          finalArgsJson = readFileSync(filePath, 'utf-8').trim()
+          fileContent = readFileSync(filePath, 'utf-8')
         } catch (e: any) {
           throw new Error(`无法读取文件 "${filePath}": ${e.message}`)
         }
-      } else if (args && args.length > 0) {
-        const firstArg = args[0].trim()
-        const cleanedFirstArg = cleanJsonString(firstArg)
-
-        if (cleanedFirstArg.startsWith('{') && cleanedFirstArg.endsWith('}')) {
-          // 认为是完整的或被拆分的 JSON 字符串，重新用空格连接起来
-          finalArgsJson = args.map(cleanJsonString).join(' ')
-        } else {
-          // 认为是 key=value 键值对形式
-          const obj: Record<string, any> = {}
-          for (const pair of args) {
-            const index = pair.indexOf('=')
-            if (index === -1) {
-              throw new Error(`无效的参数格式 "${pair}"。必须是 JSON 字符串或 key=value 格式。`)
-            }
-            const key = pair.substring(0, index).trim()
-            let val = pair.substring(index + 1).trim()
-            val = cleanJsonString(val)
-
-            // 尝试把值当做 JSON 解析（支持 bool, number, null 以及对象）
-            try {
-              obj[key] = JSON.parse(val)
-            } catch {
-              obj[key] = val // 解析失败则保留为原样字符串
-            }
-          }
-          finalArgsJson = JSON.stringify(obj)
-        }
       }
 
-      if (!finalArgsJson) {
-        throw new Error('必须提供参数或通过 -f/--file 指定参数文件')
-      }
-
-      // 展开 argsJson 中的 @file: / @base64file: 内联文件引用
-      finalArgsJson = expandFileRefs(finalArgsJson)
+      const finalArgsJson = prepareRunArgsJson(args ?? [], fileContent, fileBaseDir)
 
       const result = await runCommand({
         toolName,
