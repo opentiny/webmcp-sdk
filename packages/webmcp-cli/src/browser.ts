@@ -3,6 +3,7 @@ import pc from 'picocolors'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
+import http from 'http'
 import { spawn } from 'child_process'
 import { fileURLToPath } from 'url'
 
@@ -13,14 +14,26 @@ const CDP_PORT = 9222
 // 使用 localhost 以兼容 IPv4/IPv6 绑定
 const CDP_URL = `http://localhost:${CDP_PORT}`
 
-async function fetchWithTimeout(url: string, timeoutMs = 1500): Promise<Response> {
-  const controller = new AbortController()
-  const id = setTimeout(() => controller.abort(), timeoutMs)
-  try {
-    return await fetch(url, { signal: controller.signal })
-  } finally {
-    clearTimeout(id)
-  }
+/**
+ * 使用 Node.js 原生 http 模块发起 GET 请求并返回响应体文本
+ * 避免 Node.js fetch 将 localhost 解析为 IPv6 ::1 导致连接 Chrome CDP 失败的问题
+ */
+function httpGet(url: string, timeoutMs = 1500): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const req = http.get(url, { timeout: timeoutMs }, (res) => {
+      let data = ''
+      res.on('data', (chunk: Buffer) => { data += chunk.toString() })
+      res.on('end', () => {
+        if (res.statusCode && res.statusCode >= 200 && res.statusCode < 300) {
+          resolve(data)
+        } else {
+          reject(new Error(`HTTP ${res.statusCode}`))
+        }
+      })
+    })
+    req.on('error', reject)
+    req.on('timeout', () => { req.destroy(); reject(new Error('request timeout')) })
+  })
 }
 
 function promiseWithTimeout<T>(promise: Promise<T>, timeoutMs = 5000, errorMsg = 'Operation timed out'): Promise<T> {
@@ -30,7 +43,6 @@ function promiseWithTimeout<T>(promise: Promise<T>, timeoutMs = 5000, errorMsg =
       reject(new Error(errorMsg))
     }, timeoutMs)
   })
-  
   return Promise.race([promise, timeoutPromise]).finally(() => {
     clearTimeout(timeoutId)
   })
@@ -39,8 +51,8 @@ function promiseWithTimeout<T>(promise: Promise<T>, timeoutMs = 5000, errorMsg =
 async function checkCdpReady(url: string, retries = 3): Promise<boolean> {
   for (let i = 0; i < retries; i++) {
     try {
-      const res = await fetchWithTimeout(url, 1500)
-      if (res.ok) return true
+      await httpGet(url, 1500)
+      return true
     } catch {}
     if (i < retries - 1) {
       await new Promise(r => setTimeout(r, 200))
@@ -49,48 +61,7 @@ async function checkCdpReady(url: string, retries = 3): Promise<boolean> {
   return false
 }
 
-async function killProcessOnPortIfZombie(port: number): Promise<void> {
-  // 先检测端口是否还在正常响应 HTTP 请求
-  const isResponding = await checkCdpReady(`http://127.0.0.1:${port}/json/version`, 1)
-  if (isResponding) {
-    console.log(pc.green(`connectBrowser: 端口 ${port} 上的浏览器实例仍在正常响应，跳过强杀，尝试直接接管。`))
-    return
-  }
 
-  try {
-    const platform = os.platform()
-    const { execSync } = require('child_process')
-    if (platform === 'darwin' || platform === 'linux') {
-      console.log(pc.yellow(`正在检测并清理占用 ${port} 端口的残留僵尸进程...`))
-      const pids = execSync(`lsof -t -i :${port}`).toString().trim()
-      if (pids) {
-        console.log(pc.yellow(`发现僵尸 PID: ${pids.split('\n').join(', ')}，正在强制终止...`))
-        execSync(`kill -9 ${pids.split('\n').join(' ')}`)
-        console.log(pc.green(`成功清理残留僵尸进程`))
-      }
-    } else if (platform === 'win32') {
-      console.log(pc.yellow(`正在检测并清理 Windows 上占用 ${port} 端口的残留僵尸进程...`))
-      const output = execSync(`netstat -ano | findstr :${port}`).toString().trim()
-      if (output) {
-        const lines = output.split('\n')
-        const pids = new Set<string>()
-        lines.forEach((line: string) => {
-          const parts = line.trim().split(/\s+/)
-          const pid = parts[parts.length - 1]
-          if (pid && /^\d+$/.test(pid) && pid !== '0') {
-            pids.add(pid)
-          }
-        })
-        pids.forEach(pid => {
-          console.log(pc.yellow(`发现 Windows 残留僵尸 PID: ${pid}，正在强制终止...`))
-          execSync(`taskkill /F /PID ${pid}`)
-        })
-      }
-    }
-  } catch (e) {
-    // 忽略找不到残留进程时的报错
-  }
-}
 
 interface BrowserInfo {
   path: string
@@ -172,15 +143,12 @@ async function startBrowserInBackground(): Promise<void> {
   // 轮询等待 CDP 端口就绪
   for (let i = 0; i < 20; i++) {
     try {
-      // 尝试 127.0.0.1 和 localhost，兼容不同 Node 版本的 fetch 行为
-      const urls = [`http://localhost:${CDP_PORT}/json/version`, `http://127.0.0.1:${CDP_PORT}/json/version`]
+      const urls = [`http://127.0.0.1:${CDP_PORT}/json/version`, `http://localhost:${CDP_PORT}/json/version`]
       for (const url of urls) {
         try {
-          const response = await fetchWithTimeout(url, 1000)
-          if (response.ok) {
-            console.log(pc.green(`${browserInfo.name} 启动并就绪。`))
-            return
-          }
+          await httpGet(url, 1000)
+          console.log(pc.green(`${browserInfo.name} 启动并就绪。`))
+          return
         } catch (err) {}
       }
     } catch (e) {
@@ -222,94 +190,62 @@ export async function connectBrowser(): Promise<Browser> {
     }
   }
 
-  try {
-    const is127Ready = await checkCdpReady(`http://127.0.0.1:${CDP_PORT}/json/version`, 3)
-    if (!is127Ready) {
-      throw new Error('127.0.0.1 CDP port not responding')
-    }
-    console.log(pc.yellow('connectBrowser: 正在尝试连接 127.0.0.1:9222...'))
-    // 优先尝试通过 127.0.0.1 连接
-    const browser = await promiseWithTimeout(
-      puppeteer.connect({
-        browserURL: `http://127.0.0.1:${CDP_PORT}`,
-        defaultViewport: null,
-        targetFilter,
-      }),
-      10000,
-      'puppeteer.connect to 127.0.0.1 timed out'
-    )
-    console.log(pc.green('connectBrowser: 成功连接 127.0.0.1:9222'))
-    return browser
-  } catch (error: unknown) {
+  // 第一步：检查 9222 端口是否已有可用的 CDP 实例
+  const portAddresses = [
+    `http://127.0.0.1:${CDP_PORT}/json/version`,
+    `http://localhost:${CDP_PORT}/json/version`
+  ]
+
+  for (const addr of portAddresses) {
+    const isReady = await checkCdpReady(addr, 2)
+    if (!isReady) continue
+
+    const browserURL = addr.replace('/json/version', '')
     try {
-      const isLocalhostReady = await checkCdpReady(`http://localhost:${CDP_PORT}/json/version`, 3)
-      if (!isLocalhostReady) {
-        throw new Error('localhost CDP port not responding')
-      }
-      console.log(pc.yellow('connectBrowser: 正在尝试连接 localhost:9222...'))
-      // 尝试使用 localhost 连接
+      console.log(pc.yellow(`connectBrowser: 检测到端口 ${CDP_PORT} 已就绪，正在连接 ${browserURL}...`))
       const browser = await promiseWithTimeout(
-        puppeteer.connect({
-          browserURL: `http://localhost:${CDP_PORT}`,
-          defaultViewport: null,
-          targetFilter,
-        }),
+        puppeteer.connect({ browserURL, defaultViewport: null, targetFilter }),
         10000,
-        'puppeteer.connect to localhost timed out'
+        `puppeteer.connect to ${browserURL} timed out`
       )
-      console.log(pc.green('connectBrowser: 成功连接 localhost:9222'))
+      console.log(pc.green(`connectBrowser: 成功连接 ${browserURL}`))
       return browser
-    } catch (error2: unknown) {
-      console.log(pc.yellow(`connectBrowser: 连接失败，将尝试唤起浏览器。错误原因: ${error2 instanceof Error ? error2.message : String(error2)}`))
-      // 连接失败时，尝试唤起浏览器
-      try {
-        await killProcessOnPortIfZombie(CDP_PORT)
-        await startBrowserInBackground()
-        // 再次尝试连接
-        try {
-          const is127Ready = await checkCdpReady(`http://127.0.0.1:${CDP_PORT}/json/version`, 3)
-          if (!is127Ready) {
-            throw new Error('127.0.0.1 CDP port not responding after launch')
-          }
-          console.log(pc.yellow('connectBrowser: 浏览器已启动，正在尝试连接 127.0.0.1:9222...'))
-          const browser = await promiseWithTimeout(
-            puppeteer.connect({
-              browserURL: `http://127.0.0.1:${CDP_PORT}`,
-              defaultViewport: null,
-              targetFilter,
-            }),
-            10000,
-            'puppeteer.connect to 127.0.0.1 after launch timed out'
-          )
-          console.log(pc.green('connectBrowser: 成功连接 127.0.0.1:9222'))
-          return browser
-        } catch (e) {
-          const isLocalhostReady = await checkCdpReady(`http://localhost:${CDP_PORT}/json/version`, 3)
-          if (!isLocalhostReady) {
-            throw new Error('localhost CDP port not responding after launch')
-          }
-          console.log(pc.yellow('connectBrowser: 正在尝试连接 localhost:9222...'))
-          const browser = await promiseWithTimeout(
-            puppeteer.connect({
-              browserURL: `http://localhost:${CDP_PORT}`,
-              defaultViewport: null,
-              targetFilter,
-            }),
-            10000,
-            'puppeteer.connect to localhost after launch timed out'
-          )
-          console.log(pc.green('connectBrowser: 成功连接 localhost:9222'))
-          return browser
-        }
-      } catch (launchError: unknown) {
-        const msg = launchError instanceof Error ? launchError.message : String(launchError)
-        console.error(pc.red(`无法连接或启动浏览器: ${msg}`))
-        console.error(pc.yellow(`💡 提示：由于我们要使用你日常的默认浏览器（包含你的书签和登录态），如果你的 Chrome/Edge 目前正处于打开状态，它会拒绝使用带有调试端口的新参数启动。`))
-        console.error(pc.yellow(`👉 解决办法：请先完全退出当前的 Chrome 或 Edge 浏览器（在 Mac 上按 Cmd+Q，Windows 上右键任务栏图标退出），然后再重新运行命令。`))
-        throw new Error('Browser connection failed.')
-      }
+    } catch {
+      // 当前地址连不上，继续尝试下一个
     }
   }
+
+  // 第二步：端口无响应，直接启动新的浏览器实例（使用独立用户数据目录，不影响用户已有浏览器）
+  console.log(pc.yellow(`connectBrowser: 端口 ${CDP_PORT} 无响应，正在启动新的浏览器实例...`))
+  try {
+    await startBrowserInBackground()
+  } catch (launchError: unknown) {
+    const msg = launchError instanceof Error ? launchError.message : String(launchError)
+    console.error(pc.red(`无法启动浏览器: ${msg}`))
+    throw new Error('Browser launch failed.')
+  }
+
+  // 第三步：浏览器启动后再次尝试连接
+  for (const addr of portAddresses) {
+    const isReady = await checkCdpReady(addr, 3)
+    if (!isReady) continue
+
+    const browserURL = addr.replace('/json/version', '')
+    try {
+      console.log(pc.yellow(`connectBrowser: 浏览器已启动，正在连接 ${browserURL}...`))
+      const browser = await promiseWithTimeout(
+        puppeteer.connect({ browserURL, defaultViewport: null, targetFilter }),
+        10000,
+        `puppeteer.connect to ${browserURL} after launch timed out`
+      )
+      console.log(pc.green(`connectBrowser: 成功连接 ${browserURL}`))
+      return browser
+    } catch {
+      // 继续尝试下一个地址
+    }
+  }
+
+  throw new Error(`无法连接到浏览器（端口 ${CDP_PORT}），请检查 Chrome/Edge 是否已安装。`)
 }
 
 
@@ -404,13 +340,11 @@ export async function getTargetPage(browser: Browser, tabid?: string): Promise<P
       let activeTargetId: string | null = null
       for (const url of urls) {
         try {
-          const res = await fetchWithTimeout(url, 1000)
-          if (res.ok) {
-            const targetsData: Array<{ id: string; type: string; url: string }> = await res.json()
-            // 找第一个 type=page 且不是 devtools:// 的 target（Chrome 把激活的排第一）
-            const active = targetsData.find(t => t.type === 'page' && !t.url.startsWith('devtools://'))
-            if (active) { activeTargetId = active.id; break }
-          }
+          const body = await httpGet(url, 1000)
+          const targetsData: Array<{ id: string; type: string; url: string }> = JSON.parse(body)
+          // 找第一个 type=page 且不是 devtools:// 的 target（Chrome 把激活的排第一）
+          const active = targetsData.find(t => t.type === 'page' && !t.url.startsWith('devtools://'))
+          if (active) { activeTargetId = active.id; break }
         } catch { /* 忽略，继续试下一个地址 */ }
       }
 

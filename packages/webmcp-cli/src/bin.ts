@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { Command } from 'commander'
 import pc from 'picocolors'
+import { readFileSync } from 'fs'
+import { resolve } from 'path'
 import { stateCommand } from './commands/state'
 import { runCommand } from './commands/run'
 import { evaluateCommand } from './commands/evaluate'
@@ -25,6 +27,30 @@ function handleCommandError(error: unknown, commandName: string): never {
   const msg = error instanceof Error ? error.message : String(error)
   console.error(pc.red(`Error executing ${commandName} command: ${msg}`))
   process.exit(1)
+}
+
+/**
+ * 展开 argsJson 字符串中的文件引用占位符：
+ *   @file:<path>       → 读取文件原始文本内容
+ *   @base64file:<path> → 读取文件内容并 Base64 编码
+ * 占位符必须是 JSON 字符串值，例如：
+ *   '{"content":"@base64file:./article.md","prompt":"@file:./prompt.txt"}'
+ */
+function expandFileRefs(argsJson: string): string {
+  // 匹配 JSON 字符串值内的 @file: / @base64file: 引用
+  // 格式："@(base64)?file:<path>"，path 不含双引号
+  return argsJson.replace(/"@(base64)?file:([^"]+)"/g, (_match, base64Flag, filePath) => {
+    const absPath = resolve(process.cwd(), filePath)
+    let content: string
+    try {
+      content = readFileSync(absPath, 'utf-8')
+    } catch (e: any) {
+      throw new Error(`无法读取文件引用 "${filePath}": ${e.message}`)
+    }
+    const value = base64Flag ? Buffer.from(content, 'utf-8').toString('base64') : content
+    // 将值序列化为合法 JSON 字符串（自动处理换行、引号等转义）
+    return JSON.stringify(value)
+  })
 }
 
 program
@@ -53,14 +79,41 @@ program
   })
 
 program
-  .command('run <toolName> <argsJson>')
+  .command('run <toolName> [argsJson]')
   .description('向指定页签调用指定的 WebMCP 工具执行操作')
   .option('-t, --tabid <id>', '指定页签的 ID')
+  .option(
+    '-f, --file <path>',
+    '从指定 .json 文件读取整个 argsJson（文件内容即为参数 JSON）。\n' +
+    '如需在 argsJson 中内联引用文件，使用占位符语法：\n' +
+    '  @file:<path>       读取文件原始文本\n' +
+    '  @base64file:<path> 读取文件并 Base64 编码\n' +
+    '示例：webmcp-cli run mytool \'{"content":"@base64file:./doc.md"}\'' 
+  )
   .action(async (toolName, argsJson, options) => {
     try {
+      let finalArgsJson = argsJson
+
+      // -f/--file：把整个文件内容作为 argsJson（适合 .json 参数文件）
+      if (options.file) {
+        const filePath = resolve(process.cwd(), options.file)
+        try {
+          finalArgsJson = readFileSync(filePath, 'utf-8').trim()
+        } catch (e: any) {
+          throw new Error(`无法读取文件 "${filePath}": ${e.message}`)
+        }
+      }
+
+      if (!finalArgsJson) {
+        throw new Error('必须提供 argsJson 参数或通过 -f/--file 指定参数文件')
+      }
+
+      // 展开 argsJson 中的 @file: / @base64file: 内联文件引用
+      finalArgsJson = expandFileRefs(finalArgsJson)
+
       const result = await runCommand({
         toolName,
-        argsJson,
+        argsJson: finalArgsJson,
         tabid: parseTabId(options.tabid)
       })
       console.log(JSON.stringify(result, null, 2))
@@ -68,6 +121,7 @@ program
       handleCommandError(error, 'run')
     }
   })
+
 
 program
   .command('evaluate <jsScript>')
