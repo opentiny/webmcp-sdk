@@ -2,12 +2,19 @@
  * juejin.cn 工具适配层
  */
 
+type ToolResult = {
+  success: true
+  message: string
+  title: string
+  contentLength: number
+  editor: 'codemirror5' | 'codemirror6'
+}
+
 const mcp = (navigator as any).modelContext
 if (!mcp || typeof mcp.registerTool !== 'function') {
   console.warn('[webmcp-tools] juejin.cn: navigator.modelContext.registerTool 未就绪，跳过注入')
 } else if (!(window as any).__webmcptools_juejincn) {
   try {
-    // ─── 工具注册 ────────────────────────────────────────────────────
     mcp.registerTool({
       name: 'create_article',
       title: '发布新文章',
@@ -26,52 +33,88 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
         },
         required: ['title', 'content']
       },
-      execute: async ({ title, content }: { title: string; content: string }) => {
-        // 不是发布网页，则返回
-        if (!location.href.startsWith('https://juejin.cn/editor/drafts/new')) {
-          return {
-            content: [
-              { type: 'text', text: '当前页面不是发布新文章页面，请先访问 https://juejin.cn/editor/drafts/new?v=2' }
-            ]
-          }
+      execute: async ({ title, content }: { title: string; content: string }): Promise<ToolResult> => {
+        if (!title?.trim()) {
+          throw new Error('参数 title 不能为空')
+        }
+        if (!content?.trim()) {
+          throw new Error('参数 content 不能为空')
         }
 
-        // 填写标题
-        const titleInput = document.querySelector('.edit-draft .header  .title-input')
-        if (titleInput) {
-          titleInput.focus()
-          titleInput.value = title
-          titleInput.dispatchEvent(
-            new InputEvent('input', {
-              bubbles: true,
-              cancelable: true,
-              data: title
-            })
+        if (!location.href.startsWith('https://juejin.cn/editor/drafts/new')) {
+          throw new Error(
+            '当前页面不是掘金新建文章编辑器，请先打开 https://juejin.cn/editor/drafts/new?v=2'
           )
-          titleInput.dispatchEvent(new Event('change', { bubbles: true }))
-          titleInput.blur()
         }
-        // 填写内容
-        const decodeContent = decodeURIComponent(escape(atob(content)))
-        // 1. CodeMirror 5 注入 (如 ByteMD)
-        const cm5El = document.querySelector('.edit-draft .CodeMirror')
-        if (cm5El && cm5El.CodeMirror) {
+
+        let decodeContent: string
+        try {
+          decodeContent = decodeURIComponent(escape(atob(content)))
+        } catch {
+          throw new Error('content 不是有效的 Base64 编码，请检查参数或使用 @base64file: 引用文件')
+        }
+
+        const titleInput = document.querySelector(
+          '.edit-draft .header .title-input'
+        ) as HTMLInputElement | null
+        if (!titleInput) {
+          throw new Error('未找到标题输入框，请确认编辑器页面已完全加载')
+        }
+
+        titleInput.focus()
+        titleInput.value = title
+        titleInput.dispatchEvent(
+          new InputEvent('input', {
+            bubbles: true,
+            cancelable: true,
+            data: title
+          })
+        )
+        titleInput.dispatchEvent(new Event('change', { bubbles: true }))
+        titleInput.blur()
+
+        if (titleInput.value.trim() !== title.trim()) {
+          throw new Error('标题填写失败，请刷新页面后重试')
+        }
+
+        let editor: ToolResult['editor'] | null = null
+
+        const cm5El = document.querySelector('.edit-draft .CodeMirror') as
+          | (HTMLElement & { CodeMirror?: { setValue: (v: string) => void; getValue: () => string } })
+          | null
+        if (cm5El?.CodeMirror) {
           cm5El.CodeMirror.setValue(decodeContent)
+          if (cm5El.CodeMirror.getValue() !== decodeContent) {
+            throw new Error('正文填写失败（CodeMirror 5），请刷新页面后重试')
+          }
+          editor = 'codemirror5'
         } else {
-          // 2. CodeMirror 6 注入
-          const cm6View = document.querySelector('.cm-editor')?.cmView?.view
+          const cm6View = (document.querySelector('.cm-editor') as any)?.cmView?.view
           if (cm6View) {
             cm6View.dispatch({
               changes: { from: 0, to: cm6View.state.doc.length, insert: decodeContent }
             })
+            if (cm6View.state.doc.toString() !== decodeContent) {
+              throw new Error('正文填写失败（CodeMirror 6），请刷新页面后重试')
+            }
+            editor = 'codemirror6'
           }
         }
 
-        return { content: [{ type: 'text', text: '文章标题和内容已经填写到网页' }] }
+        if (!editor) {
+          throw new Error('未找到正文编辑器（CodeMirror），请确认编辑器页面已完全加载')
+        }
+
+        return {
+          success: true,
+          message: '文章标题和正文已成功填写到掘金编辑器，草稿将自动保存',
+          title: title.trim(),
+          contentLength: decodeContent.length,
+          editor
+        }
       }
     })
 
-    // 注册成功后设 flag
     ;(window as any).__webmcptools_juejincn = true
     console.log('[webmcp-tools] juejin.cn 工具注册成功')
   } catch (e: any) {
