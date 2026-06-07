@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 import { Command } from 'commander'
 import pc from 'picocolors'
+import { readFileSync } from 'fs'
+import { resolve } from 'path'
+import { getFileBaseDir } from './expand-file-refs'
+import { prepareRunArgsJson } from './parse-run-args'
 import { stateCommand } from './commands/state'
 import { runCommand } from './commands/run'
 import { evaluateCommand } from './commands/evaluate'
@@ -53,14 +57,37 @@ program
   })
 
 program
-  .command('run <toolName> [argsJson]')
+  .command('run <toolName> [args...]')
   .description('向指定页签调用指定的 WebMCP 工具执行操作')
   .option('-t, --tabid <id>', '指定页签的 ID')
-  .action(async (toolName, argsJson, options) => {
+  .option(
+    '-f, --file <path>',
+    '从指定 .json 文件读取整个参数（文件内容即为参数 JSON）。\n' +
+      '如需在参数中内联引用文件，使用占位符语法：\n' +
+      '  @file:<path>       读取文件原始文本\n' +
+      '  @base64file:<path> 读取文件并 Base64 编码\n' +
+      '示例：webmcp-cli run mytool \'{"content":"@base64file:./doc.md"}\''
+  )
+  .action(async (toolName, args, options) => {
     try {
+      let fileContent: string | undefined
+      let fileBaseDir = process.cwd()
+
+      if (options.file) {
+        const filePath = resolve(process.cwd(), options.file)
+        fileBaseDir = getFileBaseDir(options.file)
+        try {
+          fileContent = readFileSync(filePath, 'utf-8')
+        } catch (e: any) {
+          throw new Error(`无法读取文件 "${filePath}": ${e.message}`)
+        }
+      }
+
+      const finalArgsJson = prepareRunArgsJson(args ?? [], fileContent, fileBaseDir)
+
       const result = await runCommand({
         toolName,
-        argsJson: argsJson ?? '{}',
+        argsJson: finalArgsJson,
         tabid: parseTabId(options.tabid)
       })
       console.log(JSON.stringify(result, null, 2))

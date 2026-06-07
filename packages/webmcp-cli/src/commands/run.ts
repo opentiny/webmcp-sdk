@@ -13,21 +13,12 @@ export async function runCommand({
   try {
     const page = await getTargetPage(browser, tabid)
 
-    if (argsJson) {
-      try {
-        JSON.parse(argsJson)
-      } catch (e: any) {
-        throw new Error(`参数不是有效的 JSON: ${e.message}`)
-      }
-    }
+    // argsJson 已在 bin.ts 中完成 @base64file 展开与 JSON 校验
+    const cleanedArgs = argsJson.trim()
 
     const result = await page.evaluate(
       async (name, inputString) => {
         const mcp = (navigator as any).modelContextTesting || (navigator as any).modelContext
-
-        if (!mcp || typeof mcp.executeTool !== 'function') {
-          throw new Error('当前页面没有注入 WebMCP 环境 (navigator.modelContextTesting.executeTool 未找到)')
-        }
 
         // executeTool 的第二个参数必须是 JSON 字符串
         let res = await mcp.executeTool(name, inputString)
@@ -36,14 +27,24 @@ export async function runCommand({
         if (typeof res === 'string') {
           try {
             res = JSON.parse(res)
-          } catch (e) {
-            // ignore
+          } catch {
+            // 保留原始字符串
           }
         }
+
+        if (res === undefined || res === null) {
+          throw new Error('工具 execute 未返回结果，请检查工具实现是否缺少 return')
+        }
+
+        if (typeof res === 'object' && (res as { success?: boolean }).success === false) {
+          const failed = res as { error?: string; message?: string }
+          throw new Error(failed.error || failed.message || '工具执行失败')
+        }
+
         return res
       },
       toolName,
-      argsJson
+      cleanedArgs
     )
 
     return result
