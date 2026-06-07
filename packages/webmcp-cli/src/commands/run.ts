@@ -13,7 +13,6 @@ export async function runCommand({
   try {
     const page = await getTargetPage(browser, tabid)
 
-    // 无参工具可省略 argsJson（默认为空字符串）；有参时需传入合法 JSON
     if (argsJson) {
       try {
         JSON.parse(argsJson)
@@ -22,26 +21,30 @@ export async function runCommand({
       }
     }
 
-    const result = await page.evaluate(async (name, inputString) => {
-      const mcp = (navigator as any).modelContextTesting || (navigator as any).modelContext
-      
-      if (!mcp || typeof mcp.executeTool !== 'function') {
-        throw new Error('当前页面没有注入 WebMCP 环境 (navigator.modelContextTesting.executeTool 未找到)')
-      }
+    const result = await page.evaluate(
+      async (name, inputString) => {
+        const mcp = (navigator as any).modelContextTesting || (navigator as any).modelContext
 
-      // executeTool 的第二个参数必须是 JSON 字符串
-      let res = await mcp.executeTool(name, inputString)
-      
-      // executeTool 的返回值可能是普通对象，也可能是 JSON 字符串
-      if (typeof res === 'string') {
-        try {
-          res = JSON.parse(res)
-        } catch (e) {
-          // ignore
+        if (!mcp || typeof mcp.executeTool !== 'function') {
+          throw new Error('当前页面没有注入 WebMCP 环境 (navigator.modelContextTesting.executeTool 未找到)')
         }
-      }
-      return res
-    }, toolName, argsJson)
+
+        // executeTool 的第二个参数必须是 JSON 字符串
+        let res = await mcp.executeTool(name, inputString)
+
+        // executeTool 的返回值可能是普通对象，也可能是 JSON 字符串
+        if (typeof res === 'string') {
+          try {
+            res = JSON.parse(res)
+          } catch (e) {
+            // ignore
+          }
+        }
+        return res
+      },
+      toolName,
+      argsJson
+    )
 
     return result
   } finally {
