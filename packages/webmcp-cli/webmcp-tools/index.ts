@@ -28,6 +28,12 @@ export function getToolsBundleName(hostname: string): string | null {
   if (supported.includes(normalized)) {
     return `webmcp-tools/${normalized}.js`
   }
+  // 尝试匹配子域名后缀（如 creator.xiaohongshu.com 匹配 xiaohongshu.com）
+  for (const domain of supported) {
+    if (normalized.endsWith('.' + domain)) {
+      return `webmcp-tools/${domain}.js`
+    }
+  }
   return null
 }
 
@@ -42,4 +48,7 @@ export function getToolsBundleName(hostname: string): string | null {
 export const SUPPORTED_DOMAINS: string[] = [
   'www.baidu.com',
   'excalidraw.com',
+  'juejin.cn',
+  'xiaohongshu.com',
+  'creator.xiaohongshu.com',
 ]

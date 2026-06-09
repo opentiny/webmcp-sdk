@@ -405,12 +405,44 @@ async function injectWebMCPPolyfillAndTools(page: Page, force = false) {
       throw new Error('自动注入脚本执行失败: ' + msg)
     }
 
-    // 等待工具异步注册
-    await new Promise(resolve => setTimeout(resolve, 300))
+    // 显式等待 WebMCP 注册接口完全就绪
+    await page.waitForFunction(() => {
+      const mcp = (navigator as any).modelContext
+      return mcp && typeof mcp.registerTool === 'function'
+    }, { timeout: 10000 }).catch(() => {
+      console.warn('等待 WebMCP registerTool 接口就绪超时，正在继续注入...')
+    })
   }
 
   // 无论 polyfill 是否刚注入，都检查域名工具（工具内部有防重复 flag）
   await injectDomainTools(page)
+}
+
+function getToolsBundleName(hostname: string): string | null {
+  const normalized = hostname.split(':')[0].toLowerCase()
+  const toolsDir = path.resolve(__dirname, 'webmcp-tools')
+  if (!fs.existsSync(toolsDir)) {
+    return null
+  }
+  let files: string[] = []
+  try {
+    files = fs.readdirSync(toolsDir)
+  } catch {
+    return null
+  }
+  const supportedDomains = files
+    .filter(f => f.endsWith('.js'))
+    .map(f => f.slice(0, -3))
+
+  if (supportedDomains.includes(normalized)) {
+    return `webmcp-tools/${normalized}.js`
+  }
+  for (const domain of supportedDomains) {
+    if (normalized.endsWith('.' + domain)) {
+      return `webmcp-tools/${domain}.js`
+    }
+  }
+  return null
 }
 
 /**
@@ -426,9 +458,14 @@ async function injectDomainTools(page: Page): Promise<void> {
     return // 非 http(s) 页面，跳过
   }
 
-  const toolBundlePath = path.resolve(__dirname, 'webmcp-tools', `${hostname}.js`)
-  if (!fs.existsSync(toolBundlePath)) {
+  const bundleName = getToolsBundleName(hostname)
+  if (!bundleName) {
     return // 没有对应的工具预置，跳过
+  }
+
+  const toolBundlePath = path.resolve(__dirname, bundleName)
+  if (!fs.existsSync(toolBundlePath)) {
+    return // 文件不存在，跳过
   }
 
   console.log(pc.cyan(`检测到域名 ${hostname} 有预置工具，正在注入...`))
