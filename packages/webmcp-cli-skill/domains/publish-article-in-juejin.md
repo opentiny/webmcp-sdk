@@ -90,7 +90,17 @@ webmcp-cli run page-agent-tool '{"action": "executeJavascript", "script": "retur
 
 #### 3.1 点击进入草稿编辑页
 
-从草稿箱列表中点击对应草稿，进入编辑器：
+从草稿箱列表中点击对应草稿，进入编辑器。由于掘金的草稿箱列表中草稿标题不是普通的 `a` 标签链接，而是通过 JavaScript 绑定自定义点击事件触发，可能在 `state` 的 `content` 中无法获取到该元素的交互索引 `[index]`。
+
+**推荐做法：** 使用 `executeJavascript` 直接触发第一条或指定草稿的点击事件，这样最为稳定：
+
+```bash
+# 点击第一个草稿（索引为 0）
+webmcp-cli run page-agent-tool '{"action": "executeJavascript", "script": "document.querySelectorAll(\".essays-container .essay-list .title\")[0].click()"}'
+webmcp-cli state  # 等待新标签页编辑器加载完毕后刷新，并执行 tabs switch 到该编辑器标签
+```
+
+如果 `state` 中识别到了可点击索引，也可以通过常规方式点击：
 
 ```bash
 # 根据 state 输出中的索引点击对应草稿标题
@@ -124,16 +134,21 @@ webmcp-cli run page-agent-tool '{"action": "click", "index": <分类索引>}'
 
 **2. 添加标签（必填）**
 
-总结文章主题确定标签名，推荐先点击激活输入框触发下拉，再从下拉项中 `click` 选择（参考通用避坑指南中的"双向绑定"问题）：
+> [!IMPORTANT]
+> 标签属于多选下拉框，强制要求必须在下拉框中选择（不可自己填充）。选择完成一个或多个标签后，**必须点击下拉框之外的空白处以关闭下拉框**，否则下拉弹窗会阻挡其他元素。
+
+总结文章主题确定标签名，点击激活输入框触发下拉，再从下拉项中 `click` 选择：
 
 ```bash
-# 方式 A：点击弹窗中的热门标签（推荐）
-webmcp-cli run page-agent-tool '{"action": "click", "index": <热门标签索引>}'
+# 点击激活标签输入框以展开下拉列表
+webmcp-cli run page-agent-tool '{"action": "click", "index": <标签输入框索引>}'
+webmcp-cli state  # 刷新状态获取下拉列表中的标签索引
 
-# 方式 B：搜索输入后从下拉选择
-webmcp-cli run page-agent-tool '{"action": "fill", "index": <标签输入框索引>, "text": "TypeScript"}'
-webmcp-cli state  # 刷新，找到下拉选项
-webmcp-cli run page-agent-tool '{"action": "click", "index": <下拉选项索引>}'
+# 从下拉列表中点击选择对应标签（多选）
+webmcp-cli run page-agent-tool '{"action": "click", "index": <标签选项索引>}'
+
+# 选择完成后，点击下拉框之外的空白区域关闭下拉框
+webmcp-cli run page-agent-tool '{"action": "click", "index": <空白区域或非下拉框元素索引>}'
 ```
 
 **3. 编辑摘要（必填）**
