@@ -142,13 +142,13 @@ webmcp-cli run page-agent-tool '{"action": "browserState"}' -t <targetId>
 请查看 `webmcp-cli state` 输出中的 `webmcpTools` 以确认网页的可用工具。
 
 | 需要注入的域名            | 注入的工具                                                | 何时阅读子 Skill                                                                                                                            |
-| ------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| ------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `excalidraw.com`          | `excalidraw_execute_command`                              | **当当前页面 URL 包含 `excalidraw.com` 且需要绘制或操作画布元素时，请阅读 [domains/excalidraw.md](domains/excalidraw.md)。**                |
 | `juejin.cn`               | `create_article`                                          | **当需要在掘金平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-juejin.md](domains/publish-article-in-juejin.md)。** |
 | `www.baidu.com`           | `baidu_search`, `baidu_get_results`                       | 无需子 Skill；工具的描述已能说明用途。                                                                                                      |
 | `xiaohongshu.com`         | `xhs_get_note_detail`, `xhs_get_feed`, `xhs_search_notes` | 无需子 Skill；工具的描述已能说明用途。                                                                                                      |
-| `editor.csdn.net`         | `create_article`                                          | **当需要在 CSDN 平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-csdn.md](domains/publish-article-in-csdn.md)。**   |     |
 | `creator.xiaohongshu.com` | `xhs_publish_note`                                        | 无需子 Skill；工具的描述已能说明用途。                                                                                                      |
+| `editor.csdn.net`         | `create_article`                                          | **当需要在 CSDN 平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-csdn.md](domains/publish-article-in-csdn.md)。**   |
 
 在各自的域名中，可以调用相应的网页工具：
 
