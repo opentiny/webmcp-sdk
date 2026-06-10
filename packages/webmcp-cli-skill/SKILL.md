@@ -144,8 +144,9 @@ webmcp-cli run page-agent-tool '{"action": "browserState"}' -t <targetId>
 | 需要注入的域名   | 注入的工具                          | 何时阅读子 Skill                                                                                                                            |
 | ---------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `excalidraw.com` | `excalidraw_execute_command`        | **当当前页面 URL 包含 `excalidraw.com` 且需要绘制或操作画布元素时，请阅读 [domains/excalidraw.md](domains/excalidraw.md)。**                |
-| `juejin.cn`      | `create_article`                    | **当需要在掘金平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-juejin.md](domains/publish-article-in-juejin.md)。** |
-| `www.baidu.com`  | `baidu_search`, `baidu_get_results` | 无需子 Skill；工具的描述已能说明用途。                                                                                                      |
+| `juejin.cn`         | `create_article`                    | **当需要在掘金平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-juejin.md](domains/publish-article-in-juejin.md)。**   |
+| `editor.csdn.net`   | `create_article`                    | **当需要在 CSDN 平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-csdn.md](domains/publish-article-in-csdn.md)。**     |
+| `www.baidu.com`     | `baidu_search`, `baidu_get_results` | 无需子 Skill；工具的描述已能说明用途。                                                                                                        |
 
 在各自的域名中，可以调用相应的网页工具：
 
@@ -154,6 +155,9 @@ webmcp-cli run page-agent-tool '{"action": "browserState"}' -t <targetId>
 webmcp-cli run excalidraw_execute_command '{"eventName": "getSceneElements"}'
 
 # 在掘金上发布新文章的工具
+webmcp-cli run create_article '{"title": "文章标题", "content": "文章的正文的base64编码"}'
+
+# 在 CSDN 上填写新文章（需先关闭模版库弹窗，见 publish-article-in-csdn.md）
 webmcp-cli run create_article '{"title": "文章标题", "content": "文章的正文的base64编码"}'
 ```
 

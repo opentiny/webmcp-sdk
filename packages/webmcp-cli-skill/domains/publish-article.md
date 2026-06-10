@@ -18,6 +18,7 @@
 | 平台 | 状态 | 详细文档 |
 |------|------|---------|
 | 掘金 (Juejin) | ✅ 已支持 | [publish-article-in-juejin.md](./publish-article-in-juejin.md) |
+| CSDN | ✅ 已支持 | [publish-article-in-csdn.md](./publish-article-in-csdn.md) |
 | 小红书 (XiaoHongShu) | 🚧 规划中 | 见下方"平台扩展规划" |
 
 ---
