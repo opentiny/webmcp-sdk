@@ -15,6 +15,15 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
   console.warn('[webmcp-tools] juejin.cn: navigator.modelContext.registerTool 未就绪，跳过注入')
 } else if (!(window as any).__webmcptools_juejincn) {
   try {
+    // 该函数在每次 getBrowserState 之前调用，用于设置当前网站的黑白名单
+    //  掘金的草稿箱使用div开发的列表， 无法统计为索引。  这样处理后就可以了。
+    window.__webmcpcli_beforeGetBrowserState = () => {
+      window.__webmcpcli_interactiveWhitelist.length = 0
+      const whites = document.querySelectorAll('.link[target]')
+      window.__webmcpcli_interactiveWhitelist.push(...whites)
+    }
+
+    // 注册创建文章工具
     mcp.registerTool({
       name: 'create_article',
       title: '发布新文章',
@@ -42,9 +51,7 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
         }
 
         if (!location.href.startsWith('https://juejin.cn/editor/drafts/new')) {
-          throw new Error(
-            '当前页面不是掘金新建文章编辑器，请先打开 https://juejin.cn/editor/drafts/new?v=2'
-          )
+          throw new Error('当前页面不是掘金新建文章编辑器，请先打开 https://juejin.cn/editor/drafts/new?v=2')
         }
 
         let decodeContent: string
@@ -54,9 +61,7 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
           throw new Error('content 不是有效的 Base64 编码，请检查参数或使用 @base64file: 引用文件')
         }
 
-        const titleInput = document.querySelector(
-          '.edit-draft .header .title-input'
-        ) as HTMLInputElement | null
+        const titleInput = document.querySelector('.edit-draft .header .title-input') as HTMLInputElement | null
         if (!titleInput) {
           throw new Error('未找到标题输入框，请确认编辑器页面已完全加载')
         }
@@ -114,7 +119,6 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
         }
       }
     })
-
     ;(window as any).__webmcptools_juejincn = true
     console.log('[webmcp-tools] juejin.cn 工具注册成功')
   } catch (e: any) {
