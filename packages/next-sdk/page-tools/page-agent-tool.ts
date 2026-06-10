@@ -8,7 +8,15 @@ import { PageController } from '@page-agent/page-controller'
 export function registerPageAgentTool() {
   initializeBuiltinWebMCP()
 
-  const pageController = new PageController({ enableMask: true, viewportExpansion: -1 })
+  window.__webmcpcli_interactiveWhitelist = [] // 白名单元素列表， 存在则识别为交互元素
+  window.__webmcpcli_interactiveBlacklist = [] // 黑名单， 反之。
+  window.__webmcpcli_beforeGetBrowserState = null // 指定网站覆盖该函数，用于设置当前网站的黑白名单
+  const pageController = new PageController({
+    enableMask: true,
+    viewportExpansion: -1,
+    interactiveWhitelist: window.__webmcpcli_interactiveWhitelist,
+    interactiveBlacklist: window.__webmcpcli_interactiveBlacklist
+  })
 
   const inputSchema = z.object({
     action: z.enum(['browserState', 'click', 'fill', 'select', 'scroll', 'executeJavascript'] as const)
@@ -49,6 +57,9 @@ export function registerPageAgentTool() {
       await pageController.showMask()
       try {
         if (args.action === 'browserState') {
+          if (window.__webmcpcli_beforeGetBrowserState) {
+            window.__webmcpcli_beforeGetBrowserState()
+          }
           const result = await pageController.getBrowserState()
           return buildContent('浏览器状态:', result)
         } else if (args.action === 'click') {

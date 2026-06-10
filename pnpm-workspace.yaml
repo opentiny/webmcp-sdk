@@ -61,7 +61,7 @@ catalog:
   markdown-it: ^14.1.0
 
   # 第3方ai 相关依赖
-  '@page-agent/page-controller': ^1.8.2
+  '@page-agent/page-controller': ^1.9.0
   '@mcp-b/webmcp-polyfill': ^2.2.0
   '@mcp-b/webmcp-types': ^2.2.0
 
