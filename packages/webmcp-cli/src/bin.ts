@@ -1,4 +1,7 @@
 #!/usr/bin/env node
+import fs from 'fs'
+import path from 'path'
+import os from 'os'
 import { Command } from 'commander'
 import pc from 'picocolors'
 import { readFileSync } from 'fs'
@@ -25,8 +28,110 @@ function parseTabId(id?: string): string | undefined {
   return id
 }
 
-function handleCommandError(error: unknown, commandName: string): never {
+function cleanOldLogs(baseDir: string, logDir: string) {
+  try {
+    // 1. 清理原本根目录下的旧版单文件和旧版日期文件
+    const oldLogFile = path.join(baseDir, 'webmcp-cli.log')
+    if (fs.existsSync(oldLogFile)) {
+      try { fs.unlinkSync(oldLogFile) } catch {}
+    }
+    if (fs.existsSync(baseDir)) {
+      const baseFiles = fs.readdirSync(baseDir)
+      for (const file of baseFiles) {
+        if (/^webmcp-cli-\d{4}-\d{2}-\d{2}\.log$/.test(file)) {
+          try { fs.unlinkSync(path.join(baseDir, file)) } catch {}
+        }
+      }
+    }
+
+    // 2. 清理 logs 目录下超过 7 天的日志
+    if (!fs.existsSync(logDir)) return
+    const files = fs.readdirSync(logDir)
+    const logFilePattern = /^webmcp-cli-(\d{4}-\d{2}-\d{2})\.log$/
+    const now = Date.now()
+    const maxAgeMs = 7 * 24 * 60 * 60 * 1000 // 7天
+
+    for (const file of files) {
+      const match = file.match(logFilePattern)
+      if (match) {
+        const fileDateStr = match[1]
+        const fileDate = new Date(fileDateStr).getTime()
+        if (isNaN(fileDate)) continue
+        if (now - fileDate > maxAgeMs) {
+          try {
+            fs.unlinkSync(path.join(logDir, file))
+          } catch {
+            // 忽略单文件删除失败
+          }
+        }
+      }
+    }
+  } catch (e) {
+    // 忽略清理日志本身的错误
+  }
+}
+
+function writeLog(commandName: string, args: any, result: any, error?: any) {
+  try {
+    const baseDir = process.env.WEBMCP_WORKSPACE || path.join(os.homedir(), '.webmcp_chrome_profile')
+    const logDir = path.join(baseDir, 'logs')
+    if (!fs.existsSync(logDir)) {
+      fs.mkdirSync(logDir, { recursive: true })
+    }
+    const todayStr = new Date().toISOString().split('T')[0]
+    const logFile = path.join(logDir, `webmcp-cli-${todayStr}.log`)
+
+    const timestamp = new Date().toISOString()
+    let logText = `========================================\n`
+    logText += `[${timestamp}] COMMAND: ${commandName}\n`
+    logText += `ARGS:\n${JSON.stringify(args, null, 2)}\n\n`
+
+    if (error) {
+      logText += `ERROR:\n${error instanceof Error ? error.stack : String(error)}\n`
+    } else if (result) {
+      logText += `RESULT:\n`
+      try {
+        if (result && typeof result === 'object') {
+          const textContent = result.content?.[0]?.text
+          if (textContent && typeof textContent === 'string' && textContent.startsWith('浏览器状态: ')) {
+            const stateJsonStr = textContent.replace('浏览器状态: ', '')
+            const stateData = JSON.parse(stateJsonStr)
+            logText += `  URL: ${stateData.url}\n`
+            logText += `  TITLE: ${stateData.title}\n`
+            logText += `  CONTENT:\n`
+            const yamlLines = stateData.content.split('\n')
+            logText += yamlLines.map((line: string) => `    ${line}`).join('\n') + '\n'
+          } else if (typeof result.content === 'string') {
+            const { content, ...rest } = result
+            logText += `  METADATA:\n`
+            logText += JSON.stringify(rest, null, 2).split('\n').map(line => `    ${line}`).join('\n') + '\n'
+            logText += `  CONTENT:\n`
+            const contentLines = content.split('\n')
+            logText += contentLines.map((line: string) => `    ${line}`).join('\n') + '\n'
+          } else {
+            logText += JSON.stringify(result, null, 2).split('\n').map(line => `  ${line}`).join('\n') + '\n'
+          }
+        } else {
+          logText += String(result).split('\n').map(line => `  ${line}`).join('\n') + '\n'
+        }
+      } catch {
+        logText += JSON.stringify(result, null, 2).split('\n').map(line => `  ${line}`).join('\n') + '\n'
+      }
+    } else {
+      logText += `RESULT: null\n`
+    }
+    logText += `========================================\n\n`
+
+    fs.appendFileSync(logFile, logText, 'utf-8')
+    cleanOldLogs(baseDir, logDir)
+  } catch (e) {
+    // 忽略日志写入本身的错误，防止阻塞主流程
+  }
+}
+
+function handleCommandError(error: unknown, commandName: string, args?: any): never {
   const msg = error instanceof Error ? error.message : String(error)
+  writeLog(commandName, args, null, error)
   console.error(pc.red(`Error executing ${commandName} command: ${msg}`))
   process.exit(1)
 }
@@ -47,12 +152,15 @@ program
   .command('state')
   .description('获取浏览器当前页签或指定页签的状态（内容、所有页签列表、可用 WebMCP 工具列表）')
   .option('-t, --tabid <id>', '指定页签的 ID')
+  .option('-r, --resMode <mode>', '返回模式，支持 full (全部)、diff (差异)、both (全部和差异)，默认为 diff', 'diff')
   .action(async (options) => {
+    const args = { tabid: parseTabId(options.tabid), resMode: options.resMode }
     try {
-      const result = await stateCommand({ tabid: parseTabId(options.tabid) })
+      const result = await stateCommand(args)
+      writeLog('state', args, result)
       console.log(JSON.stringify(result, null, 2))
     } catch (error: unknown) {
-      handleCommandError(error, 'state')
+      handleCommandError(error, 'state', args)
     }
   })
 
@@ -69,6 +177,8 @@ program
       '示例：webmcp-cli run mytool \'{"content":"@base64file:./doc.md"}\''
   )
   .action(async (toolName, args, options) => {
+    let finalArgsJson = ''
+    const rawArgs = { toolName, args, file: options.file, tabid: options.tabid }
     try {
       let fileContent: string | undefined
       let fileBaseDir = process.cwd()
@@ -83,16 +193,17 @@ program
         }
       }
 
-      const finalArgsJson = prepareRunArgsJson(args ?? [], fileContent, fileBaseDir)
+      finalArgsJson = prepareRunArgsJson(args ?? [], fileContent, fileBaseDir)
 
       const result = await runCommand({
         toolName,
         argsJson: finalArgsJson,
         tabid: parseTabId(options.tabid)
       })
+      writeLog('run', { ...rawArgs, finalArgsJson }, result)
       console.log(JSON.stringify(result, null, 2))
     } catch (error: unknown) {
-      handleCommandError(error, 'run')
+      handleCommandError(error, 'run', { ...rawArgs, finalArgsJson })
     }
   })
 
@@ -101,14 +212,13 @@ program
   .description('向当前网页或指定页签注入并执行 JavaScript 代码')
   .option('-t, --tabid <id>', '指定页签的 ID')
   .action(async (jsScript, options) => {
+    const args = { jsScript, tabid: parseTabId(options.tabid) }
     try {
-      const result = await evaluateCommand({
-        jsScript,
-        tabid: parseTabId(options.tabid)
-      })
+      const result = await evaluateCommand(args)
+      writeLog('evaluate', args, result)
       console.log(JSON.stringify(result, null, 2))
     } catch (error: unknown) {
-      handleCommandError(error, 'evaluate')
+      handleCommandError(error, 'evaluate', args)
     }
   })
 
@@ -116,11 +226,14 @@ program
   .command('clipboard <content>')
   .description('将内容设置到系统剪贴板')
   .action(async (content) => {
+    const args = { content }
     try {
       await setClipboard(content)
-      console.log(JSON.stringify({ success: true, message: '内容已设置到系统剪贴板' }, null, 2))
+      const result = { success: true, message: '内容已设置到系统剪贴板' }
+      writeLog('clipboard', args, result)
+      console.log(JSON.stringify(result, null, 2))
     } catch (error: unknown) {
-      handleCommandError(error, 'clipboard')
+      handleCommandError(error, 'clipboard', args)
     }
   })
 
@@ -130,11 +243,13 @@ tabs
   .command('open <url>')
   .description('打开新网页')
   .action(async (url) => {
+    const args = { url }
     try {
       const result = await tabsOpenCommand(url)
+      writeLog('tabs open', args, result)
       console.log(JSON.stringify(result, null, 2))
     } catch (error: unknown) {
-      handleCommandError(error, 'tabs open')
+      handleCommandError(error, 'tabs open', args)
     }
   })
 
@@ -142,11 +257,13 @@ tabs
   .command('close <tabid>')
   .description('关闭指定 tabid 的标签页')
   .action(async (tabid) => {
+    const args = { tabid }
     try {
       const result = await tabsCloseCommand(tabid)
+      writeLog('tabs close', args, result)
       console.log(JSON.stringify(result, null, 2))
     } catch (error: unknown) {
-      handleCommandError(error, 'tabs close')
+      handleCommandError(error, 'tabs close', args)
     }
   })
 
@@ -154,11 +271,13 @@ tabs
   .command('switch <tabid>')
   .description('激活并切换到指定 tabid 的标签页')
   .action(async (tabid) => {
+    const args = { tabid }
     try {
       const result = await tabsSwitchCommand(tabid)
+      writeLog('tabs switch', args, result)
       console.log(JSON.stringify(result, null, 2))
     } catch (error: unknown) {
-      handleCommandError(error, 'tabs switch')
+      handleCommandError(error, 'tabs switch', args)
     }
   })
 
@@ -166,11 +285,13 @@ tabs
   .command('back [tabid]')
   .description('将当前或指定标签页导航后退一步')
   .action(async (tabid) => {
+    const args = { tabid: parseTabId(tabid) }
     try {
-      const result = await tabsBackCommand(parseTabId(tabid))
+      const result = await tabsBackCommand(args.tabid)
+      writeLog('tabs back', args, result)
       console.log(JSON.stringify(result, null, 2))
     } catch (error: unknown) {
-      handleCommandError(error, 'tabs back')
+      handleCommandError(error, 'tabs back', args)
     }
   })
 
@@ -178,11 +299,13 @@ tabs
   .command('forward [tabid]')
   .description('将当前或指定标签页导航前进一步')
   .action(async (tabid) => {
+    const args = { tabid: parseTabId(tabid) }
     try {
-      const result = await tabsForwardCommand(parseTabId(tabid))
+      const result = await tabsForwardCommand(args.tabid)
+      writeLog('tabs forward', args, result)
       console.log(JSON.stringify(result, null, 2))
     } catch (error: unknown) {
-      handleCommandError(error, 'tabs forward')
+      handleCommandError(error, 'tabs forward', args)
     }
   })
 

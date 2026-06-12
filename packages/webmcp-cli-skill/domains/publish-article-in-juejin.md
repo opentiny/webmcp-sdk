@@ -9,11 +9,13 @@
 
 ## 可用工具
 
-掘金页面已注入 `create_article` WebMCP 工具，直接调用即可完成标题和正文填写，无需手动操作编辑器 DOM。
+掘金页面已注入以下 WebMCP 工具，直接调用即可完成操作，无需手动操作编辑器 DOM。
 
 | 工具名 | 描述 | 参数 |
 |--------|------|------|
 | `create_article` | 填写文章标题和正文 | `title`（标题字符串）、`content`（正文的 **Base64** 编码） |
+| `get_article_info` | 在编辑器中获取当前草稿的标题和正文 | 无 |
+| `publish_current_draft` | 在编辑器中自动填写分类、标签和摘要并发布文章 | `category`（分类）、`tag`（标签）、`summary`（必填，由 AI 总结的 50~100 字摘要） |
 
 ---
 
@@ -108,65 +110,24 @@ webmcp-cli run page-agent-tool '{"action": "click", "index": <草稿链接索引
 webmcp-cli state  # 等待编辑器加载完成，刷新 DOM
 ```
 
-#### 3.2 点击"发布"按钮
+#### 3.2 使用内置工具发布文章
 
-```bash
-webmcp-cli state  # 确认当前页面元素
-# 找到文本为"发布"的按钮并点击
-webmcp-cli run page-agent-tool '{"action": "click", "index": <发布按钮索引>}'
-```
-
-#### 3.3 处理发布设置弹窗
-
-点击发布后会弹出设置窗口，有 **三项红星必填项**，未填写时"确定并发布"为禁用状态。
-
-```bash
-webmcp-cli state  # 刷新弹窗内的元素索引
-```
-
-**1. 选择分类（必填）**
-
-定位分类按钮（`前端`、`后端`、`Android`、`iOS`、`人工智能`、`开发工具` 等），点击对应分类：
-
-```bash
-webmcp-cli run page-agent-tool '{"action": "click", "index": <分类索引>}'
-```
-
-**2. 添加标签（必填）**
+在编辑器页面加载完成后，无需通过 `page-agent-tool` 模拟各种输入框和下拉框点击，直接使用注入该域名的 `publish_current_draft` 内置 MCP 工具一键完成分类、标签选择并点击发布。
 
 > [!IMPORTANT]
-> 标签属于多选下拉框，强制要求必须在下拉框中选择（不可自己填充）。选择完成一个或多个标签后，**必须点击下拉框之外的空白处以关闭下拉框**，否则下拉弹窗会阻挡其他元素。
-
-总结文章主题确定标签名，点击激活输入框触发下拉，再从下拉项中 `click` 选择：
-
-```bash
-# 点击激活标签输入框以展开下拉列表
-webmcp-cli run page-agent-tool '{"action": "click", "index": <标签输入框索引>}'
-webmcp-cli state  # 刷新状态获取下拉列表中的标签索引
-
-# 从下拉列表中点击选择对应标签（多选）
-webmcp-cli run page-agent-tool '{"action": "click", "index": <标签选项索引>}'
-
-# 选择完成后，点击下拉框之外的空白区域关闭下拉框
-webmcp-cli run page-agent-tool '{"action": "click", "index": <空白区域或非下拉框元素索引>}'
-```
-
-**3. 编辑摘要（必填）**
-
-生成 100 字以内的文章简要概述，填入 `编辑摘要` 下方的 `<textarea>`：
+> - **切勿盲目使用默认值（"前端" 和 "Vue.js"）**！
+> - 在运行发布工具前，AI 必须先调用 `get_article_info` 工具获取当前文章的标题和正文内容。
+> - AI 需要基于获取的文章内容智能推断并选择最合适的 `category`（分类）与 `tag`（标签），并**自主总结出一段字数在 50 到 100 字之间的文章摘要**，将该摘要传入 `summary` 字段。
 
 ```bash
-webmcp-cli run page-agent-tool '{"action": "fill", "index": <摘要textarea索引>, "text": "这是一篇关于..."}'
+# 1. 获取当前文章信息
+webmcp-cli run get_article_info
+
+# 2. 智能推断和总结摘要后，执行一键发布
+webmcp-cli run publish_current_draft '{"category":"开发工具","tag":"AI Agent","summary":"本指南详细介绍了如何使用 WebMCP 让 AI 助手精准操控浏览器，涵盖了安装配置、核心工具集的使用方法以及多种实际应用场景，是一篇极具实用价值的 AI Agent 实战教程。"}'
 ```
 
-#### 3.4 确定并发布
-
-```bash
-webmcp-cli state  # 再次确认页面元素状态
-webmcp-cli run page-agent-tool '{"action": "click", "index": <确定并发布按钮索引>}'
-```
-
-#### 3.5 返回草稿箱，处理下一篇
+#### 3.3 返回草稿箱，处理下一篇
 
 ```bash
 webmcp-cli tabs open "https://juejin.cn/creator/content/article/drafts"
@@ -174,4 +135,4 @@ webmcp-cli state  # 刷新草稿列表，继续下一篇
 ```
 
 > [!NOTE]
-> 重复 3.1 ~ 3.5，直到所有审核通过的草稿全部发布完毕。
+> 重复 3.1 ~ 3.3，直到所有审核通过的草稿全部发布完毕。

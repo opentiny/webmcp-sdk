@@ -2,33 +2,47 @@ import { initializeBuiltinWebMCP } from './initialize-builtin-WebMCP'
 import { z } from 'zod'
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import pageAgentPrompt from './page-agent-prompt.md?raw'
-import { PageController } from '@page-agent/page-controller'
+import { PageController, clickElement, inputTextElement, selectOptionElement } from '@page-agent/page-controller'
+import { buildA11yTree, type RefMap } from './a11y-tree'
+import { PageStateCache } from './page-state-cache'
+
+declare global {
+  interface Window {
+    __webmcpcli_interactiveWhitelist?: Element[]
+    __webmcpcli_interactiveBlacklist?: Element[]
+    __webmcpcli_beforeGetBrowserState?: (() => void) | null
+  }
+}
 
 /** 在浏览器页面中注册 page-agent-tool, 用于页面的内容获取和操作，页面的动效 */
 export function registerPageAgentTool() {
   initializeBuiltinWebMCP()
 
-  window.__webmcpcli_interactiveWhitelist = [] // 白名单元素列表， 存在则识别为交互元素
-  window.__webmcpcli_interactiveBlacklist = [] // 黑名单， 反之。
+  window.__webmcpcli_interactiveWhitelist = [] // 白名单元素列表，存在则识别为交互元素
+  window.__webmcpcli_interactiveBlacklist = [] // 黑名单，反之
   window.__webmcpcli_beforeGetBrowserState = null // 指定网站覆盖该函数，用于设置当前网站的黑白名单
-  const pageController = new PageController({
-    enableMask: true,
-    viewportExpansion: -1,
-    interactiveWhitelist: window.__webmcpcli_interactiveWhitelist,
-    interactiveBlacklist: window.__webmcpcli_interactiveBlacklist
-  })
 
+  // 保留 PageController 仅用于 showMask/hideMask（UX 遮罩层）
+  const pageController = new PageController({ enableMask: true })
+
+  // ─── 状态 Diff 缓存
+  const stateCache = new PageStateCache()
+
+  // 当前 ref 索引 → HTMLElement 映射（每次 buildA11yTree 后更新）
+  let currentRefMap: RefMap = new Map()
+
+  // ─── inputSchema 与原版完全一致（对外 API 不变）──────────────────────────
   const inputSchema = z.object({
     action: z.enum(['browserState', 'click', 'fill', 'select', 'scroll', 'executeJavascript'] as const)
       .describe(`执行的动作名称, 每一次执行 'click', 'fill', 'select'动作之前，**必须**要先调用 'browserState' 去获取页面的最新状态。 
-        browserState: '查询整个页面的浏览器状态;返回页面的标题、URL、HTML内容',
+        browserState: '查询整个页面的浏览器状态;返回页面的标题、URL、YAML格式的语义化页面树',
         click: '根据元素索引点击;',
         fill: '根据元素索引填写文本;'; 
         select: '根据元素索引选择下拉框选项;'; 
         scroll: '滚动页面的动作，可以指定水平滚动还是上下滚动; 不带元素索引时：滚动整个文档。带元素索引时：滚动该索引处的容器（或其最近的可滚动祖先元素）'
         executeJavascript: '执行javascript代码'
     `),
-    index: z.number().min(0).optional().describe('执行动作的元素索引, 动作为 click,fill,select时，必须提供元素索引'),
+    index: z.number().min(0).optional().describe('执行动作 of the element index, 动作为 click,fill,select时，必须提供元素索引'),
     text: z.string().optional().describe('执行动作的文本内容, 动作为 fill,select 时，必须提供文本内容'),
     down: z.boolean().optional().describe('执行上下滚动时，必须提供down参数'),
     right: z.boolean().optional().describe('执行水平滚动方向, 必须提供right参数'),
@@ -37,17 +51,57 @@ export function registerPageAgentTool() {
       .optional()
       .describe('执行动作的滚动页数, 动作为 scroll时，可以提供滚动页数，建议每次滚动0.1页，该值不要大于5.'),
     pixels: z.number().int().min(0).optional().describe('执行动作的滚动像素数，动作为 scroll时，可以提供滚动像素数'),
-    script: z.string().optional().describe('执行的javascript代码，动作为 executeJavascript时，必须提供script参数')
+    script: z.string().optional().describe('执行的javascript代码，动作为 executeJavascript时，必须提供script参数'),
+    responseMode: z.enum(['full', 'diff', 'both'] as const)
+      .optional()
+      .default('diff')
+      .describe('返回浏览器状态的模式。full: 仅返回当前全量 A11y 树；diff: 仅返回与上一次状态的增量差异；both: 同时返回全量 A11y 树与增量差异。默认值为 diff。')
   })
 
-  async function buildContent(msg: string, ret?: any) {
+  // ─── 辅助：构建错误响应 ───────────────────────────────────────────────────
+  async function errContent(msg: string) {
     await pageController.hideMask()
-    await pageController.cleanUpHighlights()
-    return {
-      content: [{ type: 'text', text: `${msg} ${JSON.stringify(ret)}` }]
-    }
+    return { content: [{ type: 'text', text: msg }] }
   }
 
+  // ─── 核心：构建 browserState 响应（全量 or 增量 Diff）────────────────────
+  async function buildBrowserStateResponse(responseMode: 'full' | 'diff' | 'both' = 'diff'): Promise<{ content: Array<{ type: string; text: string }> }> {
+    const url = window.location.href
+    const title = document.title
+
+    // 获取用户自定义黑名单
+    const blacklist = (window.__webmcpcli_interactiveBlacklist ?? []) as Element[]
+
+    // 生成语义化 ARIA YAML 树 + 刷新 refMap
+    const { yaml, refMap } = buildA11yTree(document.body, blacklist)
+    currentRefMap = refMap
+
+    // 计算 Diff
+    const diff = stateCache.update(url, yaml)
+
+    await pageController.hideMask()
+
+    // 根据 responseMode 组装 content
+    let displayContent = ''
+    if (responseMode === 'full') {
+      displayContent = yaml
+    } else if (responseMode === 'diff') {
+      displayContent = diff.isFullRefresh ? yaml : diff.diffText
+    } else if (responseMode === 'both') {
+      displayContent = `【全量页面树】:\n${yaml}\n\n【增量差异】:\n${diff.isFullRefresh ? '（首次/刷新，无增量差异）' : diff.diffText}`
+    }
+
+    // 拼装 JSON 格式状态，与 webmcp-cli 的 state 提取逻辑对齐
+    const stateObj = {
+      url,
+      title,
+      content: displayContent
+    }
+    const text = `浏览器状态: ${JSON.stringify(stateObj)}`
+    return { content: [{ type: 'text', text }] }
+  }
+
+  // ─── 工具注册（名称与 inputSchema 与原版完全一致）────────────────────────
   navigator.modelContext.registerTool({
     name: 'page-agent-tool',
     description: pageAgentPrompt,
@@ -55,51 +109,89 @@ export function registerPageAgentTool() {
     inputSchema: zodToJsonSchema(inputSchema) as any,
     async execute(args: any) {
       await pageController.showMask()
+      const mode = args.responseMode ?? 'diff'
       try {
+        // ── browserState：生成语义化 YAML + Diff ──────────────────────────
         if (args.action === 'browserState') {
           if (window.__webmcpcli_beforeGetBrowserState) {
             window.__webmcpcli_beforeGetBrowserState()
           }
-          const result = await pageController.getBrowserState()
-          return buildContent('浏览器状态:', result)
+          return buildBrowserStateResponse(mode)
+
+        // ── click：用底层 clickElement(el) 操作，操作后自动返回 diff ───────
         } else if (args.action === 'click') {
-          if (args.index === undefined) return buildContent('点击结果:', '缺少元素索引')
+          if (args.index === undefined) return errContent('点击结果: 缺少元素索引')
+          const el = currentRefMap.get(args.index)
+          if (!el) return errContent(`点击结果: 无效的 ref 索引 ${args.index}，请先调用 browserState 刷新页面状态`)
+          await clickElement(el)
+          // 操作成功后自动返回 diff/both/full
+          return buildBrowserStateResponse(mode)
 
-          const result = await pageController.clickElement(args.index)
-          return buildContent('点击结果:', result)
+        // ── fill：输入文本，操作后自动返回 diff ───────────────────────────
         } else if (args.action === 'fill') {
-          if (args.index === undefined || !args.text) return buildContent('填写结果:', '缺少元素索引或文本内容')
-
-          const result = await pageController.inputText(args.index, args.text)
-          return buildContent('填写结果:', result)
-        } else if (args.action === 'select') {
-          if (args.index === undefined || !args.text) return buildContent('选择结果:', '缺少元素索引或文本内容')
-
-          const result = await pageController.selectOption(args.index, args.text)
-          return buildContent('选择结果:', result)
-        } else if (args.action === 'scroll') {
-          if (!args.down && !args.right) return buildContent('滚动结果:', '缺少滚动方向参数')
-
-          const input = Object.assign({}, args)
-          delete input.action
-
-          if (args.right) {
-            delete input.down
-            delete input.numPages
+          if (args.index === undefined || !args.text) return errContent('填写结果: 缺少元素索引或文本内容')
+          const el = currentRefMap.get(args.index)
+          if (!el) return errContent(`填写结果: 无效的 ref 索引 ${args.index}，请先调用 browserState 刷新页面状态`)
+          
+          let targetEl = el
+          if (!(targetEl instanceof HTMLInputElement) && !(targetEl instanceof HTMLTextAreaElement)) {
+            const innerInput = el.querySelector('input, textarea')
+            if (innerInput) {
+              targetEl = innerInput as HTMLElement
+            }
           }
 
-          const result = args.right
-            ? await pageController.scrollHorizontally(input)
-            : await pageController.scroll(input)
-          return buildContent('滚动结果:', result)
-        } else if (args.action === 'executeJavascript') {
-          if (!args.script) return buildContent('脚本执行异常:', '缺少javascript代码')
+          if (targetEl instanceof HTMLInputElement && targetEl.readOnly) {
+            targetEl.value = args.text
+            targetEl.dispatchEvent(new Event('input', { bubbles: true }))
+            targetEl.dispatchEvent(new Event('change', { bubbles: true }))
+            targetEl.dispatchEvent(new Event('blur', { bubbles: true }))
+          } else {
+            await inputTextElement(targetEl, args.text)
+          }
+          return buildBrowserStateResponse(mode)
 
-          const result = await pageController.executeJavascript(args.script)
-          return buildContent('脚本执行结果:', result)
+        // ── select：选择下拉框，操作后自动返回 diff ───────────────────────
+        } else if (args.action === 'select') {
+          if (args.index === undefined || !args.text) return errContent('选择结果: 缺少元素索引或文本内容')
+          const el = currentRefMap.get(args.index) as HTMLSelectElement
+          if (!el) return errContent(`选择结果: 无效的 ref 索引 ${args.index}，请先调用 browserState 刷新页面状态`)
+          await selectOptionElement(el, args.text)
+          return buildBrowserStateResponse(mode)
+
+        // ── scroll：滚动页面，操作后自动返回 diff ─────────────────────────
+        } else if (args.action === 'scroll') {
+          if (!args.down && !args.right) return errContent('滚动结果: 缺少滚动方向参数')
+
+          // 确定滚动目标（有 index 时滚动该元素容器，否则滚动整个文档）
+          const scrollTarget = args.index !== undefined
+            ? (currentRefMap.get(args.index) ?? window)
+            : window
+
+          if (args.right) {
+            const pixels = args.pixels ?? 300
+            scrollTarget.scrollBy({ left: args.right ? pixels : -pixels, behavior: 'smooth' })
+          } else {
+            const pixels = args.pixels ?? Math.round((args.numPages ?? 1) * window.innerHeight)
+            scrollTarget.scrollBy({ top: args.down ? pixels : -pixels, behavior: 'smooth' })
+          }
+
+          // 等待滚动动画完成后再采集状态
+          await new Promise(r => setTimeout(r, 400))
+          return buildBrowserStateResponse(mode)
+        // ── executeJavascript：执行任意 JS ────────────────────────────────
+        } else if (args.action === 'executeJavascript') {
+          if (!args.script) return errContent('脚本执行异常: 缺少javascript代码')
+          // eslint-disable-next-line no-new-func
+          const result = await new Function(`return (async () => { ${args.script} })()`)()
+          await pageController.hideMask()
+          return {
+            content: [{ type: 'text', text: `脚本执行结果: ${JSON.stringify(result)}` }]
+          }
         }
       } catch (error) {
-        return buildContent('异常:', error)
+        await pageController.hideMask()
+        return { content: [{ type: 'text', text: `异常: ${String(error)}` }] }
       }
     }
   })

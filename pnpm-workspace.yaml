@@ -64,6 +64,12 @@ catalog:
   '@page-agent/page-controller': ^1.9.0
   '@mcp-b/webmcp-polyfill': ^2.2.0
   '@mcp-b/webmcp-types': ^2.2.0
+  # 浏览器内 ARIA 树序列化 + Diff
+  'dom-accessibility-api': ^0.6.3
+  'aria-query': ^5.3.2
+  'tabbable': ^6.2.0
+  'diff': ^7.0.0
+  '@types/diff': ^7.0.0
 
   # vue
   vue: ^3.5.22
