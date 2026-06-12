@@ -1,6 +1,6 @@
 import { connectBrowser, getTargetPage, getPageTargetId, injectIntoPage } from '../browser'
 
-export async function stateCommand({ tabid }: { tabid?: string }) {
+export async function stateCommand({ tabid, resMode }: { tabid?: string; resMode?: string }) {
   const browser = await connectBrowser()
   try {
     const page = await getTargetPage(browser, tabid)
@@ -9,7 +9,7 @@ export async function stateCommand({ tabid }: { tabid?: string }) {
     await injectIntoPage(page)
 
     // 2. 在页面上下文中执行，获取当前状态和可用工具
-    const state = await page.evaluate(async () => {
+    const state = await page.evaluate(async (responseMode) => {
       const url = document.URL
       const title = document.title
 
@@ -26,7 +26,7 @@ export async function stateCommand({ tabid }: { tabid?: string }) {
 
         if (typeof mcp.executeTool === 'function') {
           try {
-            const argsString = JSON.stringify({ action: 'browserState' })
+            const argsString = JSON.stringify({ action: 'browserState', responseMode: responseMode || 'diff' })
             let stateRes = await mcp.executeTool('page-agent-tool', argsString)
 
             if (typeof stateRes === 'string') {
@@ -39,7 +39,7 @@ export async function stateCommand({ tabid }: { tabid?: string }) {
             if (stateRes && stateRes.content && stateRes.content.length > 0) {
               const textContent = stateRes.content.map((c: any) => c.text).join('\\n')
 
-              // page-agent-tool 返回的格式通常是 "浏览器状态: {\"url\":..., \"content\":\"[0]...\"}"
+              // page-agent-tool 返回的格式通常官方是 "浏览器状态: {\"url\":..., \"content\":\"[0]...\"}"
               // 我们尝试把这个 JSON 提取出来，让外层更容易解析
               const prefix = '浏览器状态: '
               if (textContent.startsWith(prefix)) {
@@ -67,7 +67,7 @@ export async function stateCommand({ tabid }: { tabid?: string }) {
         title,
         webmcpTools
       }
-    })
+    }, resMode)
 
     // 3. 获取所有的 tab 信息（排除 devtools:// 内部页面）
     const pages = await browser.pages()

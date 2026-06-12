@@ -83,17 +83,29 @@ webmcp-cli run change-color '{"color": "#ff0000"}'
 **示例二：使用内置的 `page-agent-tool` 操控浏览器**
 CLI 自动注入的 `page-agent-tool` 支持丰富的动作（action）：`browserState`, `click`, `fill`, `select`, `scroll`, `executeJavascript`。
 
-获取状态（执行前必须调用一次）：
+此外，该工具接收配置参数 **`responseMode`**，用于控制返回的页面状态形式：
+- **`diff`**（默认）：仅返回自上一次状态以来的增量 DOM 差异。
+- **`full`**：返回当前视口中完整的语义化 ARIA YAML 树。
+- **`both`**：同时返回全量树和增量差异。
+
+在执行 `click`, `fill`, `select`, `scroll` 等操作后，工具默认会自动以指定的 `responseMode`（默认 `diff`）返回最新的页面状态，使你可以立即检测操作效果，无须再次手动调用 `browserState`。
+
+获取状态（全量模式）：
 ```bash
-webmcp-cli run page-agent-tool '{"action": "browserState"}'
+webmcp-cli run page-agent-tool '{"action": "browserState", "responseMode": "full"}'
 ```
 
-点击索引为 35 的元素：
+获取状态（仅增量差异模式，默认）：
+```bash
+webmcp-cli run page-agent-tool '{"action": "browserState", "responseMode": "diff"}'
+```
+
+点击索引为 35 的元素（动作执行完自动返回增量）：
 ```bash
 webmcp-cli run page-agent-tool '{"action": "click", "index": 35}'
 ```
 
-向索引为 40 的输入框填入文本：
+向索引为 40 的输入框填入文本（动作执行完自动返回增量）：
 ```bash
 webmcp-cli run page-agent-tool '{"action": "fill", "index": 40, "text": "OpenTiny"}'
 ```

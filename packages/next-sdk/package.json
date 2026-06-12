@@ -62,14 +62,19 @@
     "zod": "catalog:",
     "zod-to-json-schema": "^3.25.2",
     "ajv": "catalog:",
-    "ai": "catalog:"
+    "ai": "catalog:",
+    "dom-accessibility-api": "catalog:",
+    "aria-query": "catalog:",
+    "tabbable": "catalog:",
+    "diff": "catalog:"
   },
   "devDependencies": {
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plugin-dts": "catalog:",
     "@types/qrcode": "catalog:",
-    "@types/node": "catalog:"
+    "@types/node": "catalog:",
+    "@types/diff": "catalog:"
   },
   "publishConfig": {
     "access": "public",
