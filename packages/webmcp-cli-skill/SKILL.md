@@ -146,6 +146,7 @@ webmcp-cli run page-agent-tool '{"action": "browserState"}' -t <targetId>
 | `excalidraw.com`          | `excalidraw_execute_command`                              | **当当前页面 URL 包含 `excalidraw.com` 且需要绘制或操作画布元素时，请阅读 [domains/excalidraw.md](domains/excalidraw.md)。**                |
 | `juejin.cn`               | `create_article`                                          | **当需要在掘金平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-juejin.md](domains/publish-article-in-juejin.md)。** |
 | `www.baidu.com`           | `baidu_search`, `baidu_get_results`                       | 无需子 Skill；工具的描述已能说明用途。                                                                                                      |
+| `my.oschina.net/`         | `create_article`                                          | **当需要在开源中国平台发布文章时，请阅读 [domains/publish-article-in-oschina.md](domains/publish-article-in-juejin.md)。**                  |
 | `xiaohongshu.com`         | `xhs_get_note_detail`, `xhs_get_feed`, `xhs_search_notes` | 无需子 Skill；工具的描述已能说明用途。                                                                                                      |
 | `creator.xiaohongshu.com` | `xhs_publish_note`                                        | 无需子 Skill；工具的描述已能说明用途。                                                                                                      |
 | `editor.csdn.net`         | `create_article`                                          | **当需要在 CSDN 平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-csdn.md](domains/publish-article-in-csdn.md)。**   |

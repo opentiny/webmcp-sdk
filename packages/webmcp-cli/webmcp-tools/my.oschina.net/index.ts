@@ -2,12 +2,10 @@
  * juejin.cn 工具适配层
  */
 
-type ToolResult = {
+type OSCHINAToolResult = {
   success: true
   message: string
   title: string
-  contentLength: number
-  editor: 'codemirror5' | 'codemirror6'
 }
 
 const mcp = (navigator as any).modelContext
@@ -15,15 +13,6 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
   console.warn('[webmcp-tools] juejin.cn: navigator.modelContext.registerTool 未就绪，跳过注入')
 } else if (!(window as any).__webmcptools_juejincn) {
   try {
-    // 该函数在每次 getBrowserState 之前调用，用于设置当前网站的黑白名单
-    //  掘金的草稿箱使用div开发的列表， 无法统计为索引。  这样处理后就可以了。
-    window.__webmcpcli_beforeGetBrowserState = () => {
-      window.__webmcpcli_interactiveWhitelist.length = 0
-      const whites = document.querySelectorAll('.link[target]')
-      window.__webmcpcli_interactiveWhitelist.push(...whites)
-    }
-
-    // 注册创建文章工具
     mcp.registerTool({
       name: 'create_article',
       title: '发布新文章',
@@ -42,7 +31,15 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
         },
         required: ['title', 'content']
       },
-      execute: async ({ title, content }: { title: string; content: string }): Promise<ToolResult> => {
+      execute: async ({
+        uid,
+        title,
+        content
+      }: {
+        uid: string
+        title: string
+        content: string
+      }): Promise<OSCHINAToolResult> => {
         if (!title?.trim()) {
           throw new Error('参数 title 不能为空')
         }
@@ -50,8 +47,8 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
           throw new Error('参数 content 不能为空')
         }
 
-        if (!location.href.startsWith('https://juejin.cn/editor/drafts/new')) {
-          throw new Error('当前页面不是掘金新建文章编辑器，请先打开 https://juejin.cn/editor/drafts/new?v=2')
+        if (!(location.href.startsWith(`https://my.oschina.net/u`) && location.href.endsWith(`/blog/ai-write`))) {
+          throw new Error(`当前页面不是发布页面，请先打开 https://my.oschina.net/u/<uid>}/blog/ai-write`)
         }
 
         let decodeContent: string
@@ -61,7 +58,14 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
           throw new Error('content 不是有效的 Base64 编码，请检查参数或使用 @base64file: 引用文件')
         }
 
-        const titleInput = document.querySelector('.edit-draft .header .title-input') as HTMLInputElement | null
+        // 1、 必须先切换 MD 编辑器
+        let switchBtn = document.querySelector('.editor-switch-btn') as HTMLButtonElement | null
+        if (switchBtn) {
+          switchBtn.click()
+        }
+        await new Promise((resolve) => setTimeout(resolve, 300))
+        // 2. 填写标题
+        const titleInput = document.querySelector('.title-input-container .title-input') as HTMLInputElement | null
         if (!titleInput) {
           throw new Error('未找到标题输入框，请确认编辑器页面已完全加载')
         }
@@ -82,40 +86,22 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
           throw new Error('标题填写失败，请刷新页面后重试')
         }
 
-        let editor: ToolResult['editor'] | null = null
+        await new Promise((resolve) => setTimeout(resolve, 300)) // 等待标题输入框失去焦点
 
-        const cm5El = document.querySelector('.edit-draft .CodeMirror') as
-          | (HTMLElement & { CodeMirror?: { setValue: (v: string) => void; getValue: () => string } })
-          | null
-        if (cm5El?.CodeMirror) {
-          cm5El.CodeMirror.setValue(decodeContent)
-          if (cm5El.CodeMirror.getValue() !== decodeContent) {
-            throw new Error('正文填写失败（CodeMirror 5），请刷新页面后重试')
-          }
-          editor = 'codemirror5'
+        // 3. 填写正文
+        let editor = document.querySelector('.v-md-textarea-editor textarea') as HTMLTextAreaElement | null
+        if (editor) {
+          editor.value = decodeContent
+          editor.dispatchEvent(new Event('change', { bubbles: true }))
+          editor.blur()
         } else {
-          const cm6View = (document.querySelector('.cm-editor') as any)?.cmView?.view
-          if (cm6View) {
-            cm6View.dispatch({
-              changes: { from: 0, to: cm6View.state.doc.length, insert: decodeContent }
-            })
-            if (cm6View.state.doc.toString() !== decodeContent) {
-              throw new Error('正文填写失败（CodeMirror 6），请刷新页面后重试')
-            }
-            editor = 'codemirror6'
-          }
-        }
-
-        if (!editor) {
-          throw new Error('未找到正文编辑器（CodeMirror），请确认编辑器页面已完全加载')
+          throw new Error('未找到正文编辑器')
         }
 
         return {
           success: true,
-          message: '文章标题和正文已成功填写到掘金编辑器，草稿将自动保存',
-          title: title.trim(),
-          contentLength: decodeContent.length,
-          editor
+          message: '文章标题和正文已成功填写到开源中国的编辑器，草稿将自动保存',
+          title: title.trim()
         }
       }
     })

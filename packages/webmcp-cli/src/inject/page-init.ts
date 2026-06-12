@@ -9,6 +9,9 @@ declare global {
       description?: string
       inputSchema?: string | object
     }>
+    __webmcpcli_interactiveWhitelist: Array<Element>
+    __webmcpcli_interactiveBlacklist: Array<Element>
+    __webmcpcli_beforeGetBrowserState: () => void
   }
 }
 
@@ -30,11 +33,13 @@ function initWebMcpCliPage(): void {
 
   window.__webmcpcli_tools = []
 
-  const ctx = (navigator as Navigator & {
-    modelContextTesting?: {
-      registerToolsChangedCallback?: (cb: () => void) => void
+  const ctx = (
+    navigator as Navigator & {
+      modelContextTesting?: {
+        registerToolsChangedCallback?: (cb: () => void) => void
+      }
     }
-  }).modelContextTesting
+  ).modelContextTesting
 
   if (ctx?.registerToolsChangedCallback) {
     ctx.registerToolsChangedCallback(() => {
