@@ -1,6 +1,14 @@
 # OpenTiny NEXT-SDKs: 内置 WebMCP & Polyfill + WebSkills + WebAgent
 
+<p align="center">
+  <a href="https://opentiny.design" target="_blank" rel="noopener noreferrer">
+    <img alt="OpenTiny Logo" src="logo.svg" height="100" style="max-width:100%;">
+  </a>
+</p>
+
 [English](README.md) | 简体中文
+
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/opentiny/webmcp-sdk)
 
 <p align="center">
   <strong>一套前端智能应用开发与端侧自动化工具包。既能用 WebMCP + WebSkills 几行代码让「现有业务应用」秒变智能，也能通过 webmcp-cli 零改动接管、感知并操控任意第三方网页，赋予其开箱即用的 AI-Native 能力。</strong>
@@ -255,6 +263,7 @@ webmcp-cli run page-agent-tool '{"action": "fill", "index": 13, "text": "Model C
 在 `packages/webmcp-skill` 目录下，我们定义了一套标准的 **Agent Skills（AI 代理指令）**。当大模型（如 Claude 或 Gemini）以 Agent 身份接入网页并希望与其交互时，会读取 `SKILL.md` 以获悉如何正确下发 CLI 命令。
 
 针对复杂网页，我们还会为其配对特定领域的子技能：
+
 - **Excalidraw 画布工具 (`domains/excalidraw.md`)**：指导 Agent 在检测到 URL 包含 `excalidraw.com` 时，通过调用 `excalidraw_execute_command` 实现在画布上绘制图形、关系图等。
 - **百度搜索工具**：指导 Agent 自动下发搜索并拉取页面结果。
 
