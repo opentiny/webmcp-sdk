@@ -58,10 +58,18 @@ Diff 格式示例如下：
 ```
 或者，当页面结构发生改变时，会展示新增或移除的节点差异。
 
-### 页面状态获取三原则（重要）：
-1. **首次获取全量**：首次进入页面或页面发生重大刷新时，应调用 `browserState` 并优先指定 `responseMode` 为 `full` 或 `both` 获取完整 A11y 树。
-2. **增量优先**：在执行 `click`、`fill`、`select`、`scroll` 操作后，工具默认自动返回 `diff` 增量信息。大模型应优先阅读这些增量 Diff，以便快速确认当前操作是否生效（例如输入框是否填入内容、弹窗是否出现等）。
-3. **按需拉取全量**：如果增量 Diff 信息不足以支持下一步操作，或者你需要寻找其他不在 Diff 中的 `[ref=N]` 节点，应显式调用 `browserState`，并将 `responseMode` 设置为 `full` 或 `both`，以拉取完整的页面状态树。
+### 页面状态获取四原则（重要，请严格遵守）：
+
+> 与业界 AI 编辑器（Cursor / Windsurf）按需读取文件而非全量加载的理念完全一致——**先精准搜索，再按需拉取全量**，将发送给大模型的 token 降至最低。
+
+1. **按关键词精准搜索（最高优先级）**：当你已知要找什么类型的元素（如按钮、输入框、特定名称的链接）时，**优先使用 `searchTree` 动作**，传入 role 名称、元素文本或状态关键词搜索。它只返回命中行和上下文，token 消耗比全量树减少 80%+ 。
+   - 示例：查找所有按钮 → `{"action": "searchTree", "query": "button"}`
+   - 示例：查找含"提交"文本的节点 → `{"action": "searchTree", "query": "提交"}`
+   - 示例：查找已勾选的复选框 → `{"action": "searchTree", "query": "checked"}`
+   - 示例：精确定位某个 ref → `{"action": "searchTree", "query": "#5"}`
+2. **首次获取全量**：首次进入页面、页面发生重大刷新、或 `searchTree` 无法找到所需信息时，调用 `browserState` 并指定 `responseMode` 为 `full` 或 `both` 获取完整 A11y 树。
+3. **增量优先**：执行 `click`、`fill`、`select`、`scroll` 操作后，工具默认自动返回 `diff` 增量信息。优先阅读这些 Diff，以便快速确认操作是否生效。
+4. **按需拉取全量**：如果增量 Diff 不足以支持下一步操作，或需要寻找不在 Diff 中的 `[ref=N]` 节点，且 `searchTree` 也无法定位时，再显式调用 `browserState` 拉取完整树。
 
 </browser_state_diff>
 
