@@ -149,6 +149,7 @@ webmcp-cli run page-agent-tool '{"action": "browserState"}' -t <targetId>
 | `my.oschina.net/`         | `create_article`                                          | **当需要在开源中国平台发布文章时，请阅读 [domains/publish-article-in-oschina.md](domains/publish-article-in-juejin.md)。**                  |
 | `xiaohongshu.com`         | `xhs_get_note_detail`, `xhs_get_feed`, `xhs_search_notes` | 无需子 Skill；工具的描述已能说明用途。                                                                                                      |
 | `creator.xiaohongshu.com` | `xhs_publish_note`                                        | 无需子 Skill；工具的描述已能说明用途。                                                                                                      |
+| `editor.csdn.net`         | `create_article`                                          | **当需要在 CSDN 平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-csdn.md](domains/publish-article-in-csdn.md)。**   |
 
 在各自的域名中，可以调用相应的网页工具：
 
@@ -157,6 +158,9 @@ webmcp-cli run page-agent-tool '{"action": "browserState"}' -t <targetId>
 webmcp-cli run excalidraw_execute_command '{"eventName": "getSceneElements"}'
 
 # 在掘金上发布新文章的工具
+webmcp-cli run create_article '{"title": "文章标题", "content": "文章的正文的base64编码"}'
+
+# 在 CSDN 上填写新文章（需先关闭模版库弹窗，见 publish-article-in-csdn.md）
 webmcp-cli run create_article '{"title": "文章标题", "content": "文章的正文的base64编码"}'
 
 # 搜索小红书笔记（自动触发滚动加载）
