@@ -133,6 +133,73 @@ webmcp-cli run page-agent-tool '{"action": "executeJavascript", "script": "docum
 webmcp-cli run page-agent-tool '{"action": "browserState"}' -t <targetId>
 ```
 
+#### 3.1.1 `searchTree`：按关键词精准搜索无障碍树（优先使用）
+
+> 与业界 AI 编辑器（Cursor / Windsurf / Copilot）**按需读取文件**的策略完全一致：
+> 不要每次都拉取全量的无障碍树（等价于把整个项目代码全部发给模型），
+> 而是**先用关键词搜索定位**，只把命中行及上下文发给模型，节省 80%+ 的 token。
+
+**决策流程（请严格遵循）：**
+
+```
+已知要找的元素类型或名称？
+    ↓ 是
+    → 先用 searchTree 搜索
+        ↓ 找到了？
+            是 → 直接使用命中的 #N 索引操作
+            否 → 再用 browserState(full) 获取全量树兜底
+    ↓ 否（完全不知道页面有什么）
+    → 用 browserState(full) 获取完整树
+```
+
+**支持的搜索维度（均对同一个 query 字符串做包含匹配）：**
+
+| 搜索目标 | 示例 query | 说明 |
+|---------|-----------|------|
+| 按 role 类型 | `button` / `link` / `heading` / `textbox` | 查找特定角色的节点 |
+| 按元素名称 | `提交` / `下一步` / `立即购买` | 查找 accessible name 含该文本的节点 |
+| 按状态 | `checked` / `disabled` / `expanded` | 查找特定状态的节点 |
+| 按 ref 索引 | `#5` | 精确定位某个已知 ref |
+
+**参数：**
+
+- `query`（必填）：搜索关键词
+- `contextLines`（可选，默认 2）：每个命中行前后保留的上下文行数
+- `maxMatches`（可选，默认 20）：最多返回的分组数，防止结果过多
+
+**示例：**
+
+```bash
+# 查找页面上所有按钮
+webmcp-cli run page-agent-tool '{"action": "searchTree", "query": "button"}'
+
+# 查找名称含"提交"的节点（上下文 3 行）
+webmcp-cli run page-agent-tool '{"action": "searchTree", "query": "提交", "contextLines": 3}'
+
+# 查找所有已勾选的复选框
+webmcp-cli run page-agent-tool '{"action": "searchTree", "query": "checked"}'
+
+# 精确定位 ref #42
+webmcp-cli run page-agent-tool '{"action": "searchTree", "query": "#42", "contextLines": 1}'
+```
+
+**输出示例：**
+
+```
+无障碍树搜索结果 — 关键词: "button" | 总行数: 182 | 命中: 4 行 | 返回分组: 1
+
+── 分组 1（第 159–171 行）──
+    159 | - generic #132 [cursor=pointer]
+    160 | - link #133 [cursor=pointer]
+>>>  161 |   - button #134 [cursor=pointer] "立即购买"
+    162 | - link #135 [cursor=pointer] "计费说明"
+>>>  165 | - button #138 [cursor=pointer] "立即购买"
+
+提示：如需操作命中元素，使用其 #N 索引；如需查看完整树，请使用 browserState。
+```
+
+`>>>` 标注的行是命中行，其余是上下文。拿到 `#N` 后直接传给 `click` / `fill` 等动作。
+
 ---
 
 #### 3.2 领域专用工具
@@ -182,8 +249,9 @@ webmcp-cli run xhs_publish_note '{"title": "第一条笔记", "content": "内容
 
 ## 核心约束
 
-1. **state 优先：** 除 `tabs open` 外，执行任何其它命令前必须先调用 `webmcp-cli state`；`tabs open` 之后也必须再调用一次 `state`。切勿猜测元素索引或工具列表——`state` 是查询浏览器完整状态的唯一入口。
-2. **合法 JSON：** 将 JSON 参数用单引号包裹：`'{"action": ...}'`。
-3. **标签页定位：** 使用 `state` 输出中的 UUID 格式 `tabid`，配合 `-t` 指定标签页。
-4. **领域工具：** 若存在领域专用工具，应优先于 `page-agent-tool` 使用——它们对该域名的交互更可靠。
-5. **调用网页工具:** 严格按照终端的类型，传入相应的`json-args` 参数
+1. **searchTree 优先：** 已知目标元素类型或名称时，**必须优先使用 `searchTree`** 而非直接拉取全量树。这与业界 AI 编辑器按需读文件的策略完全一致——先搜索定位，找不到再兜底全量。
+2. **state 优先：** 除 `tabs open` 外，执行任何其它命令前必须先调用 `webmcp-cli state`；`tabs open` 之后也必须再调用一次 `state`。切勿猜测元素索引或工具列表——`state` 是查询浏览器完整状态的唯一入口。
+3. **合法 JSON：** 将 JSON 参数用单引号包裹：`'{"action": ...}'`。
+4. **标签页定位：** 使用 `state` 输出中的 UUID 格式 `tabid`，配合 `-t` 指定标签页。
+5. **领域工具：** 若存在领域专用工具，应优先于 `page-agent-tool` 使用——它们对该域名的交互更可靠。
+6. **调用网页工具:** 严格按照终端的类型，传入相应的`json-args` 参数
