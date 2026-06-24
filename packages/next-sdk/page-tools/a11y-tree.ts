@@ -279,6 +279,7 @@ function buildVNode(
   refCounter: { value: number },
   refMap: RefMap,
   blacklistSet: Set<Element>,
+  whitelistSet: Set<Element>,
 ): VNode | null {
   if (isHidden(el) || blacklistSet.has(el)) return null
 
@@ -287,9 +288,10 @@ function buildVNode(
   const name = computeAccessibleName(el as HTMLElement)
   const isTrulyInteractive = isFocusable(el as HTMLElement)
   const isVisuallyClickable = tokens.includes('cursor=pointer')
+  const isWhitelisted = whitelistSet.has(el)
   // generic 无 name 时，即使有 cursor=pointer 也不分配 ref：
   // cursor 通常是 CSS 继承传播的，这类 div 本身无法被有意义地操作
-  const interactive = isTrulyInteractive || (isVisuallyClickable && (role !== 'generic' || name !== ''))
+  const interactive = isTrulyInteractive || isWhitelisted || (isVisuallyClickable && (role !== 'generic' || name !== ''))
 
   let ref: number | undefined
   if (interactive) {
@@ -300,7 +302,7 @@ function buildVNode(
 
   const children: VNode[] = []
   for (const child of Array.from(el.children)) {
-    const childVNode = buildVNode(child, refCounter, refMap, blacklistSet)
+    const childVNode = buildVNode(child, refCounter, refMap, blacklistSet, whitelistSet)
     if (childVNode) children.push(childVNode)
   }
 
@@ -377,11 +379,13 @@ const DEFAULT_OPTIONS: Required<A11yTreeOptions> = {
  *
  * @param root 遍历起点，默认 document.body
  * @param blacklist 需要跳过的元素（用户自定义黑名单）
+ * @param whitelist 需要识别为可交互的白名单元素列表
  * @param options 过滤选项
  */
 export function buildA11yTree(
   root: Element = document.body,
   blacklist: Element[] = [],
+  whitelist: Element[] = [],
   options?: A11yTreeOptions,
 ): A11yTreeResult {
   const opts: Required<A11yTreeOptions> = { ...DEFAULT_OPTIONS, ...options }
@@ -389,10 +393,11 @@ export function buildA11yTree(
   const refCounter = { value: 0 }
   const refMap: RefMap = new Map()
   const blacklistSet = new Set(blacklist)
+  const whitelistSet = new Set(whitelist)
   const lines: string[] = []
 
   for (const child of Array.from(root.children)) {
-    const vnode = buildVNode(child, refCounter, refMap, blacklistSet)
+    const vnode = buildVNode(child, refCounter, refMap, blacklistSet, whitelistSet)
     if (vnode) {
       lines.push(...serializeVNode(vnode, 0, opts))
     }
@@ -428,6 +433,7 @@ export function searchA11yTree(
   query: string,
   root: Element = document.body,
   blacklist: Element[] = [],
+  whitelist: Element[] = [],
   options?: SearchA11yTreeOptions,
 ): SearchA11yTreeResult {
   const {
@@ -438,22 +444,32 @@ export function searchA11yTree(
   } = options ?? {}
 
   // 复用 buildA11yTree 生成完整树，直接取 lines 数组（不重复构建 DOM 遍历）
-  const { lines } = buildA11yTree(root, blacklist, treeOptions)
+  const { lines } = buildA11yTree(root, blacklist, whitelist, treeOptions)
 
   const needle = caseInsensitive ? query.toLowerCase() : query
   const totalLines = lines.length
 
+  const isRefQuery = /^#\d+$/.test(query)
+  const refRegex = isRefQuery ? new RegExp(`\\s${query}(?:\\s|[\\[]|$)`) : null
+
   // 找出所有命中行的下标（0-based）
   const hitIndices: number[] = []
   for (let i = 0; i < lines.length; i++) {
-    const haystack = caseInsensitive ? lines[i].toLowerCase() : lines[i]
-    if (haystack.includes(needle)) {
+    let matched = false
+    if (refRegex) {
+      matched = refRegex.test(lines[i])
+    } else {
+      const haystack = caseInsensitive ? lines[i].toLowerCase() : lines[i]
+      matched = haystack.includes(needle)
+    }
+    if (matched) {
       hitIndices.push(i)
     }
   }
 
   // 合并重叠的上下文区间，避免重复输出行
   const mergedRanges: Array<{ start: number; end: number; hits: number[] }> = []
+  let isTruncated = false
   for (const idx of hitIndices) {
     const start = Math.max(0, idx - contextLines)
     const end = Math.min(totalLines - 1, idx + contextLines)
@@ -463,10 +479,12 @@ export function searchA11yTree(
       last.end = Math.max(last.end, end)
       last.hits.push(idx)
     } else {
+      if (mergedRanges.length >= maxMatches) {
+        isTruncated = true
+        break
+      }
       mergedRanges.push({ start, end, hits: [idx] })
     }
-    // 达到分组上限就停止（防止撑爆上下文）
-    if (mergedRanges.length >= maxMatches) break
   }
 
   // 构建结构化结果
@@ -499,7 +517,7 @@ export function searchA11yTree(
       })
       textParts.push('')
     })
-    if (hitIndices.length > maxMatches) {
+    if (isTruncated) {
       textParts.push(`⚠️ 命中过多，已截断至前 ${maxMatches} 个分组，建议缩小搜索范围`)
     }
     textParts.push(`提示：如需操作命中元素，使用其 #N 索引；如需查看完整树，请使用 browserState。`)

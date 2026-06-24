@@ -54,8 +54,8 @@ export function registerPageAgentTool() {
     pixels: z.number().int().min(0).optional().describe('执行动作的滚动像素数，动作为 scroll时，可以提供滚动像素数'),
     script: z.string().optional().describe('执行的javascript代码，动作为 executeJavascript时，必须提供script参数'),
     query: z.string().optional().describe('搜索关键词，动作为 searchTree 时必须提供。支持按 role（如 button、link）、节点名称、状态（如 checked）或 ref 索引（如 #3）搜索'),
-    contextLines: z.number().int().min(0).max(10).optional().describe('searchTree 时每个命中行前后保留的上下文行数，默认 2'),
-    maxMatches: z.number().int().min(1).max(50).optional().describe('searchTree 时最大返回分组数，默认 20'),
+    contextLines: z.number().int().min(0).max(10).default(2).describe('searchTree 时每个命中行前后保留的上下文行数，默认 2'),
+    maxMatches: z.number().int().min(1).max(50).default(20).describe('searchTree 时最大返回分组数，默认 20'),
     responseMode: z.enum(['full', 'diff', 'both'] as const)
       .optional()
       .default('diff')
@@ -73,11 +73,12 @@ export function registerPageAgentTool() {
     const url = window.location.href
     const title = document.title
 
-    // 获取用户自定义黑名单
+    // 获取用户自定义黑名单与白名单
     const blacklist = (window.__webmcpcli_interactiveBlacklist ?? []) as Element[]
+    const whitelist = (window.__webmcpcli_interactiveWhitelist ?? []) as Element[]
 
     // 生成语义化 ARIA YAML 树 + 刷新 refMap
-    const { yaml, refMap } = buildA11yTree(document.body, blacklist)
+    const { yaml, refMap } = buildA11yTree(document.body, blacklist, whitelist)
     currentRefMap = refMap
 
     // 计算 Diff
@@ -197,10 +198,12 @@ export function registerPageAgentTool() {
         } else if (args.action === 'searchTree') {
           if (!args.query) return errContent('搜索失败: 缺少 query 参数')
           const blacklist = (window.__webmcpcli_interactiveBlacklist ?? []) as Element[]
+          const whitelist = (window.__webmcpcli_interactiveWhitelist ?? []) as Element[]
           const { text } = searchA11yTree(
             args.query,
             document.body,
             blacklist,
+            whitelist,
             {
               contextLines: args.contextLines,
               maxMatches: args.maxMatches,
