@@ -22,17 +22,16 @@
     "access": "public"
   },
   "scripts": {
-    "build": "vp pack",
-    "dev": "vp pack --watch",
-    "test": "vp test",
-    "check": "vp check",
-    "prepublishOnly": "vp run build"
+    "dev": "vite --config vite.config-dev.ts",
+    "build": "vite build"
   },
   "dependencies": {
     "@ai-sdk/mcp": "catalog:",
     "@ai-sdk/openai": "catalog:",
     "@ai-sdk/provider": "catalog:",
     "@ai-sdk/provider-utils": "catalog:",
+    "@ai-sdk/openai-compatible": "catalog:",
+    "@ai-sdk/deepseek": "catalog:",
     "@mcp-b/webmcp-polyfill": "^3.0.0",
     "@mcp-b/webmcp-types": "^3.0.0",
     "@modelcontextprotocol/sdk": "catalog:",
@@ -46,6 +45,7 @@
   "devDependencies": {
     "@types/node": "catalog:",
     "typescript": "catalog:",
-    "vite": "catalog:"
+    "vite": "catalog:",
+    "@vitejs/plugin-vue": "catalog:"
   }
 }

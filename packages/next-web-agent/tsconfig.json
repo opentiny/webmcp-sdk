@@ -25,6 +25,7 @@
   },
   "include": [
     "src",
-    "src/types/global.d.ts"
+    "src/types/global.d.ts",
+    "main.ts"
   ]
 }

@@ -1,68 +1,63 @@
-import type {
-  FinishReason,
-  LanguageModelRequestMetadata,
-  LanguageModelUsage,
-  StreamTextResult,
-} from "ai";
-import { reactive, ref } from "vue";
+import type { FinishReason, LanguageModelRequestMetadata, LanguageModelUsage, StreamTextResult } from 'ai'
+import { reactive, ref } from 'vue'
 export interface StreamVisitorOption {
-  debug?: boolean;
-  onStart?: (content: StartContent) => void;
-  onStep?: (content: StepContent) => void;
-  onReasoning?: (content: ReasoningContent) => void;
-  onText?: (content: TextContent) => void;
-  onTool?: (content: ToolContent) => void;
-  onFinish?: () => void; // stop, error, abort 均触发 onFinish
+  debug?: boolean
+  onStart?: (content: StartContent) => void
+  onStep?: (content: StepContent) => void
+  onReasoning?: (content: ReasoningContent) => void
+  onText?: (content: TextContent) => void
+  onTool?: (content: ToolContent) => void
+  onFinish?: () => void // stop, error, abort 均触发 onFinish
 }
 
 export interface StartContent {
-  running: boolean;
-  steps: StepContent[];
-  finishReason?: FinishReason;
-  totalUsage?: LanguageModelUsage;
+  running: boolean
+  steps: StepContent[]
+  finishReason?: FinishReason
+  totalUsage?: LanguageModelUsage
   /**  工具内部异常的错误信息 */
-  error?: any;
+  error?: any
 }
 
 export interface StepContent {
-  running: boolean;
-  contents: (TextContent | ReasoningContent | ToolContent)[];
-  finishReason?: FinishReason;
+  running: boolean
+  contents: (TextContent | ReasoningContent | ToolContent)[]
+  finishReason?: FinishReason
   /** 本轮对话的消耗 */
-  usage?: LanguageModelUsage;
+  usage?: LanguageModelUsage
   /** 包含本轮对话的请求体 */
-  request: LanguageModelRequestMetadata;
+  request: LanguageModelRequestMetadata
 }
 
 export interface TextContent {
-  type: "text";
-  id: string;
-  running: boolean;
-  text: string;
+  type: 'text'
+  id: string
+  running: boolean
+  text: string
 }
 export interface ReasoningContent {
-  type: "reasoning";
-  id: string;
-  running: boolean;
-  text: string;
+  type: 'reasoning'
+  id: string
+  running: boolean
+  text: string
 }
 export interface ToolContent {
-  type: "tool";
-  id: string;
-  running: boolean;
-  toolCallId: string;
-  title: string;
-  toolName: string;
+  type: 'tool'
+  id: string
+  running: boolean
+  toolCallId: string
+  title: string
+  toolName: string
   /** 不确定输入参数的工具调用 */
-  dynamic: boolean | undefined;
+  dynamic: boolean | undefined
   /** 生成tool 调用参数的动态字符串, 在调用 tool 之前，会保存json结果到input属性中 */
-  inputStr: string;
+  inputStr: string
   /** 工具参数对象 */
-  input: any;
+  input: any
   /** 工具返回值对象 */
-  output: any;
+  output: any
   /**  工具内部异常的错误信息 */
-  error?: any;
+  error?: any
 }
 
 /** ai-sdk@v6 的流消息访问者， 暴露响应式的数据，它随着流消息到来逐渐的变化
@@ -81,150 +76,145 @@ export class StreamVisitor {
   constructor(public option: StreamVisitorOption = {}) {}
 
   traverse(stream: StreamTextResult<{}, never>) {
-    const result = ref<StartContent>();
+    const result = ref<StartContent>()
     if (this.option.debug) {
-      console.log("【stream-debug】 响应对象体：", result);
+      console.log('【stream-debug】 响应对象体：', result)
     }
 
     const backgroundRun = async () => {
-      let startContent: StartContent;
-      let stepContent: StepContent;
-      let reasoningContent: ReasoningContent;
-      let textContent: TextContent;
-      let toolContent: ToolContent;
+      let startContent: StartContent
+      let stepContent: StepContent
+      let reasoningContent: ReasoningContent
+      let textContent: TextContent
+      let toolContent: ToolContent
       for await (const event of stream.fullStream) {
         if (this.option.debug) {
-          console.log(
-            "【stream-debug】 " +
-              (new Date().getTime() / 1000).toString().slice(-6) +
-              event.type,
-            event,
-          );
+          console.log(`【stream-debug】 ${(new Date().getTime() / 1000).toString().slice(-6)} ${event.type}`, event)
         }
 
         switch (event.type) {
-          case "start":
+          case 'start':
             startContent = reactive({
               running: true,
-              steps: [],
-            });
-            result.value = startContent;
-            this.option.onStart?.(startContent);
-            break;
-          case "start-step":
+              steps: []
+            })
+            result.value = startContent
+            this.option.onStart?.(startContent)
+            break
+          case 'start-step':
             stepContent = reactive({
               running: true,
               contents: [],
-              request: event.request,
-            });
-            startContent!.steps.push(stepContent);
-            this.option.onStep?.(stepContent);
-            break;
-          case "reasoning-start":
+              request: event.request
+            })
+            startContent!.steps.push(stepContent)
+            this.option.onStep?.(stepContent)
+            break
+          case 'reasoning-start':
             reasoningContent = reactive({
-              type: "reasoning",
+              type: 'reasoning',
               id: event.id,
               running: true,
-              text: "",
-            });
-            stepContent!.contents.push(reasoningContent);
-            this.option.onReasoning?.(reasoningContent);
-            break;
-          case "reasoning-delta":
-            reasoningContent!.text += event.text;
-            break;
-          case "reasoning-end":
-            reasoningContent!.running = false;
-            break;
-          case "text-start":
+              text: ''
+            })
+            stepContent!.contents.push(reasoningContent)
+            this.option.onReasoning?.(reasoningContent)
+            break
+          case 'reasoning-delta':
+            reasoningContent!.text += event.text
+            break
+          case 'reasoning-end':
+            reasoningContent!.running = false
+            break
+          case 'text-start':
             textContent = reactive({
-              type: "text",
+              type: 'text',
               id: event.id,
               running: true,
-              text: "",
-            });
-            stepContent!.contents.push(textContent);
-            this.option.onText?.(textContent);
-            break;
-          case "text-delta":
-            textContent!.text += event.text;
-            break;
-          case "text-end":
-            textContent!.running = false;
-            break;
-          case "tool-input-start":
+              text: ''
+            })
+            stepContent!.contents.push(textContent)
+            this.option.onText?.(textContent)
+            break
+          case 'text-delta':
+            textContent!.text += event.text
+            break
+          case 'text-end':
+            textContent!.running = false
+            break
+          case 'tool-input-start':
             toolContent = reactive({
-              type: "tool",
+              type: 'tool',
               running: true,
               id: event.id,
               toolCallId: event.id,
-              title: "",
+              title: '',
               toolName: event.toolName,
               dynamic: event.dynamic,
-              inputStr: "",
+              inputStr: '',
               input: {},
-              output: {},
-            });
-            stepContent!.contents.push(toolContent);
-            this.option.onTool?.(toolContent);
-            break;
-          case "tool-input-delta":
-            toolContent!.inputStr += event.delta;
-            break;
-          case "tool-input-end":
-            break;
-          case "tool-call":
-            toolContent!.input = event.input;
-            break;
-          case "tool-result":
-            toolContent!.output = event.output;
-            toolContent!.running = false;
-            break;
-          case "tool-error":
-            toolContent!.error = event.error as any;
-            toolContent!.running = false;
-            break;
-          case "finish-step":
-            stepContent!.running = false;
-            stepContent!.finishReason = event.finishReason;
-            stepContent!.usage = event.usage;
-            break;
-          case "finish":
-            startContent!.running = false;
-            startContent!.finishReason = event.finishReason;
-            startContent!.totalUsage = event.totalUsage;
-            this.option.onFinish?.();
-            break;
-          case "source":
-          case "file":
+              output: {}
+            })
+            stepContent!.contents.push(toolContent)
+            this.option.onTool?.(toolContent)
+            break
+          case 'tool-input-delta':
+            toolContent!.inputStr += event.delta
+            break
+          case 'tool-input-end':
+            break
+          case 'tool-call':
+            toolContent!.input = event.input
+            break
+          case 'tool-result':
+            toolContent!.output = event.output
+            toolContent!.running = false
+            break
+          case 'tool-error':
+            toolContent!.error = event.error as any
+            toolContent!.running = false
+            break
+          case 'finish-step':
+            stepContent!.running = false
+            stepContent!.finishReason = event.finishReason
+            stepContent!.usage = event.usage
+            break
+          case 'finish':
+            startContent!.running = false
+            startContent!.finishReason = event.finishReason
+            startContent!.totalUsage = event.totalUsage
+            this.option.onFinish?.()
+            break
+          case 'source':
+          case 'file':
             // todo: 待实现
-            break;
-          case "error":
+            break
+          case 'error':
             if (startContent!) {
-              startContent.running = false;
-              startContent!.error = event.error as any;
-              startContent!.finishReason = "error";
+              startContent.running = false
+              startContent!.error = event.error as any
+              startContent!.finishReason = 'error'
             }
-            this.option.onFinish?.();
-            break;
-          case "abort":
+            this.option.onFinish?.()
+            break
+          case 'abort':
             if (startContent!) {
-              startContent.running = false;
-              startContent!.error = { message: event.reason };
-              startContent!.finishReason = "other";
+              startContent.running = false
+              startContent!.error = { message: event.reason }
+              startContent!.finishReason = 'other'
             }
-            this.option.onFinish?.();
-            break;
+            this.option.onFinish?.()
+            break
           default:
             // 忽略未知事件
-            break;
+            break
         }
       }
-    };
+    }
 
-    backgroundRun();
+    backgroundRun()
 
-    return result;
+    return result
   }
 }
 

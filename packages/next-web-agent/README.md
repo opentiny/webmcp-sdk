@@ -58,7 +58,7 @@ registerOnPage({
 
 ```javascript
 import { NextAgent } from 'next-agent'
-import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
+import { createDeepSeek } from '@ai-sdk/deepseek'
 
 const deepseek = createDeepSeek({
   apiKey: 'sk-1234',
@@ -91,8 +91,8 @@ agent.reLastChat()
 
 // 6. agent的属性
 agent.debugStream = true // 在控制台上，打印流消息
-agent.messages = [] // 与 llm 接口对话的消息体
-agent.uiMessages = [] // llm 流消息返回的消息体
+agent.messages = ref([]) // 与 llm 接口对话的消息体
+agent.uiMessages = ref([]) // llm 流消息返回的消息体
 agent.status = ref('init') // 智能体当前状态
 agent.extraTools = {} // ai-sdk 支持的 ToolSet 对象
 
@@ -109,7 +109,7 @@ const weatherTool = tool({
   inputSchema: z.object({
     city: z.string().describe('城市')
   }),
-  execute: async ({ location }) => {
+  execute: async ({ city }) => {
     return { temperature: 24, conditions: '晴' }
   }
 })
