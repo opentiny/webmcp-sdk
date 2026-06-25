@@ -37,7 +37,7 @@ document.modelContext.registerTool(
 // ----------------------------- 测试AGENT -----------------------------
 
 const deepseek = createDeepSeek({
-  apiKey: 'sk-c473b92cebcf4bc19c3719e709c9c7a3',
+  apiKey: 'sk-1234',
   baseURL: 'https://api.deepseek.com'
 })
 
