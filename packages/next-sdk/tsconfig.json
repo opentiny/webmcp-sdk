@@ -1,16 +1,31 @@
 {
   "compilerOptions": {
-    "declaration": true,
-    "outDir": "dist",
-    "target": "ES2015",
-    "lib": ["ES2015", "DOM"],
-    "moduleResolution": "node",
-    "module": "esnext",
+    "target": "esnext",
+    "lib": [
+      "es2023",
+      "dom",
+      "dom.iterable"
+    ],
+    "moduleDetection": "force",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "types": [
+      "@mcp-b/webmcp-types"
+    ],
     "strict": true,
+    "noUnusedLocals": true,
+    "declaration": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
     "esModuleInterop": true,
-    "skipLibCheck": true,
-    "types": ["vite/client"]
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true
   },
-  "include": ["**/*.ts"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts", "**/*.spec.ts"]
+  "include": [
+    "src",
+    "src/types/global.d.ts",
+    "main.ts"
+  ]
 }

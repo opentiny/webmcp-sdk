@@ -1,6 +1,6 @@
 {
   "name": "@opentiny/next-sdk",
-  "version": "0.3.3",
+  "version": "0.4.0-alpha.1",
   "type": "module",
   "homepage": "https://docs.opentiny.design/next-sdk/guide/",
   "repository": {
@@ -13,15 +13,14 @@
   "keywords": [
     "next-sdk",
     "opentiny",
-    "mcp",
-    "sdk",
-    "agent"
+    "web-mcp",
+    "web-agent"
   ],
   "license": "MIT",
-  "author": "Chunhui Mo",
-  "main": "index.ts",
-  "module": "index.ts",
-  "types": "index.ts",
+  "author": "OpenTiny",
+  "main": "dist/index.js",
+  "module": "dist/index.mjs",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
       "import": "./index.ts",
@@ -34,47 +33,28 @@
   },
   "description": "A frontend intelligent application development toolkit designed to simplify WebAgent integration and usage, supporting multiple programming languages and frontend frameworks to help developers rapidly implement intelligent features",
   "scripts": {
-    "build:all": "pnpm build:cdn && pnpm build:cdn:dev && pnpm build",
-    "build": "vite build --config vite-build-tsc.ts",
-    "build:cdn": "vite build && pnpm build:webAgent && pnpm build:webMcp && pnpm build:mcpSdk && pnpm build:zod && pnpm build:webMcpFull",
-    "build:cdn:dev": "vite build --mode dev && pnpm build:webAgent:dev && pnpm build:webMcp:dev && pnpm build:mcpSdk:dev && pnpm build:zod:dev && pnpm build:webMcpFull:dev",
-    "build:webAgent": "vite build --config vite.config.webAgent.ts",
-    "build:webAgent:dev": "vite build --config vite.config.webAgent.ts --mode dev",
-    "build:webMcp": "vite build --config vite.config.webMcp.ts",
-    "build:webMcp:dev": "vite build --config vite.config.webMcp.ts --mode dev",
-    "build:mcpSdk": "vite build --config vite.config.mcpSdk.ts",
-    "build:mcpSdk:dev": "vite build --config vite.config.mcpSdk.ts --mode dev",
-    "build:zod": "vite build --config vite.config.zod.ts",
-    "build:zod:dev": "vite build --config vite.config.zod.ts --mode dev",
-    "build:webMcpFull": "vite build --config vite.config.webMcpFull.ts",
-    "build:webMcpFull:dev": "vite build --config vite.config.webMcpFull.ts --mode dev"
+    "dev": "vite --config vite.config-dev.ts",
+    "build": "vite build"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "catalog:",
-    "@opentiny/next": "catalog:",
-    "@ai-sdk/openai": "catalog:",
+    "@ai-sdk/provider-utils": "catalog:",
     "@ai-sdk/deepseek": "catalog:",
-    "@ai-sdk/provider": "catalog:",
-    "@ai-sdk/mcp": "catalog:",
-    "@mcp-b/webmcp-polyfill": "catalog:",
+    "@mcp-b/webmcp-polyfill": "^3.0.0",
+    "@mcp-b/webmcp-types": "^3.0.0",
+    "@modelcontextprotocol/sdk": "catalog:",
     "@page-agent/page-controller": "catalog:",
-    "qrcode": "catalog:",
-    "zod": "catalog:",
-    "zod-to-json-schema": "^3.25.2",
-    "ajv": "catalog:",
     "ai": "catalog:",
-    "dom-accessibility-api": "catalog:",
-    "aria-query": "catalog:",
-    "tabbable": "catalog:",
-    "diff": "catalog:"
+    "json-schema-to-zod": "catalog:",
+    "zod-to-json-schema": "catalog:",
+    "vue": "catalog:",
+    "zod": "catalog:"
   },
   "devDependencies": {
+    "@types/node": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
-    "vite-plugin-dts": "catalog:",
-    "@types/qrcode": "catalog:",
-    "@types/node": "catalog:",
-    "@types/diff": "catalog:"
+    "@vitejs/plugin-vue": "catalog:",
+    "vite-plugin-dts": "catalog:"
   },
   "publishConfig": {
     "access": "public",
