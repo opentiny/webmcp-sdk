@@ -9,7 +9,7 @@ export interface RegisterInfo {
 }
 
 /**  将页面注册为智能应用 */
-export async function registerOnPage(option: RegisterInfo) {
+export function registerOnPage(option: RegisterInfo) {
   if (window.__IS_NEXTAGENT_PAGE__) return
 
   window.__IS_NEXTAGENT_PAGE__ = true

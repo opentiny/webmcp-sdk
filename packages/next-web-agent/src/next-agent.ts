@@ -25,7 +25,7 @@ const cbMap = {
 }
 export class NextAgent {
   /** 调试流， 是否打印流数据 */
-  private debugStream: boolean = true
+  debugStream: boolean = true
 
   // **************** 智能体管理 ****************
   /** 主体智能体 */

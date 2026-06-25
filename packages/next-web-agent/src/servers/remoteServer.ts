@@ -13,11 +13,13 @@ export async function buildRemoteTools(server: RemoteServer) {
     if (!server.client) {
       // 1. 缓存 client
       const client = new Client({ name: 'web-mcp-client', version: '1.0.0' })
+      const requestInit = server.headers ? { headers: server.headers } : undefined
+
       let transport
       if (server.type === 'http') {
-        transport = new StreamableHTTPClientTransport(new URL(server.url!))
+        transport = new StreamableHTTPClientTransport(new URL(server.url!), { requestInit })
       } else if (server.type === 'sse') {
-        transport = new SSEClientTransport(new URL(server.url!))
+        transport = new SSEClientTransport(new URL(server.url!), { requestInit })
       }
 
       await client.connect(transport!)
