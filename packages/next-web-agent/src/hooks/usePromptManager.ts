@@ -11,7 +11,6 @@ export class PromptManager {
   /** 返回全量的提示词 */
   getAll() {
     return `
-当前时间：${new Date().toLocaleDateString()}
 ${this.staticPrompt}
 ${this.skillMetaPrompt}
 ${this.tempPrompt}
