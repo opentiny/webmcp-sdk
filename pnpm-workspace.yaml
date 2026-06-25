@@ -16,6 +16,7 @@ catalog:
   '@modelcontextprotocol/inspector': ^0.16.1
   '@modelcontextprotocol/sdk': ~1.25.2
   'zod-to-json-schema': ^3.25.2 # zod@3 to json schema
+  'json-schema-to-zod': ^2.8.1
   ajv: ^8.17.1
   zod: ^3.25.76
 
