@@ -47,10 +47,14 @@
     "json-schema-to-zod": "catalog:",
     "zod-to-json-schema": "catalog:",
     "vue": "catalog:",
-    "zod": "catalog:"
+    "zod": "catalog:",
+    "dom-accessibility-api": "catalog:",
+    "tabbable": "catalog:",
+    "diff": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",
+    "@types/diff": "catalog:",
     "typescript": "catalog:",
     "vite": "catalog:",
     "@vitejs/plugin-vue": "catalog:",

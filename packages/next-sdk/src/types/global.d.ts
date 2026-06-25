@@ -4,8 +4,13 @@ interface Window {
   __IS_NEXTAGENT_PAGE__?: boolean
 }
 
-// 扩展 Document 接口以包含 modelContext
-interface Document {
-  /** MCP 模型上下文 */
-  modelContext?: any
+// Vite raw 导入类型声明
+declare module '*.md?raw' {
+  const content: string
+  export default content
+}
+
+declare module '*?raw' {
+  const content: string
+  export default content
 }

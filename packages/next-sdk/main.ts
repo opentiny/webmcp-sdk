@@ -1,4 +1,4 @@
-import { registerOnPage } from './src/index'
+import { registerOnPage, registerPageAgentTool } from './src/index'
 import { NextAgent } from './src/index'
 import { createDeepSeek } from '@ai-sdk/deepseek'
 import { tool } from 'ai'
@@ -9,6 +9,9 @@ registerOnPage({
   name: 'xxx 控制台服务',
   description: '当前服务有哪些功能，有哪些工具。。。'
 })
+
+// 注册页面上的pageAgent工具
+registerPageAgentTool()
 
 // 注册页面工具
 const controller = new AbortController()

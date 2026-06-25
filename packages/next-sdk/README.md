@@ -5,9 +5,11 @@
 ## 能力边界
 
 1. 直接与LLM api交互，遵循 open ai 协议接口。 如果需要兼容不同协议，需要自行提供 `Provider`。
-2. 支持 McpServer 的配置， 尤其是原生 `WebMcp API`的支持。
+2. 支持 McpServer 的配置， 目前3种Server: 页面， http, sse。  
+   未来可以通过增加Server 来增加tool, 比如：识图server, 语音server , genuiServer ....., 实现类似 子Agent的能力。
 3. 支持 Skills 的配置，渐进式的披露内容。
-4. 支持系统提示词的管理。
+4. 支持 Prompt 系统提示词的管理。
+5. 支持 灵活的tools 挂载。 tools的途径： ToolLoopAgentSettings.tools ,agent.extraTools, mcpServer.tools , 它们会在对话开始时，自动刷新加载。
 
 ## 使用方法
 
