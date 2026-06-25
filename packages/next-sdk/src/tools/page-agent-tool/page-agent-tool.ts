@@ -124,7 +124,7 @@ export function registerPageAgentTool() {
   }
 
   // ─── 工具注册（名称与 inputSchema 与原版完全一致）────────────────────────
-  navigator.modelContext.registerTool({
+  document.modelContext.registerTool({
     name: 'page-agent-tool',
     description: pageAgentPrompt,
     // @ts-ignore

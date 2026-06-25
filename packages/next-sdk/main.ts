@@ -141,5 +141,5 @@ agent.$mcpServers.addMcpServer({
 // 3. 发起对话
 agent.chatStream({
   role: 'user',
-  content: '查询我的esc机器'
+  content: '调用工具，查询当前整个页面的浏览器状态'
 })
