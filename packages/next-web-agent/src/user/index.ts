@@ -7,15 +7,28 @@ export interface RegisterInfo {
   /** 系统描述 */
   description?: string
 }
-let isRegistered = false
 
 /**  将页面注册为智能应用 */
 export async function registerOnPage(option: RegisterInfo) {
-  if (isRegistered) return
+  if (window.__IS_NEXTAGENT_PAGE__) return
 
-  isRegistered = true
+  window.__IS_NEXTAGENT_PAGE__ = true
   initializeWebMCPPolyfill()
+  registerPageMessage(option)
+}
 
+/** 注册页面消息
+ *
+ * 无论是智能体在同个页面，还是跨iframe，都可以通过postMessage进行通信
+ *
+ * @listens getRegisterInfo: 获取注册信息
+ * @listens listTools: 列出工具
+ * @listens excuteTool: 执行工具
+ *
+ * @example window.postMessage({ type: 'getRegisterInfo' }, '*')
+ * @example window.postMessage({ type: 'excuteTool', name: 'toolName', args: { city: 'Beijing' } }, '*')
+ */
+function registerPageMessage(option: RegisterInfo) {
   // 回复页面注册信息
   window.addEventListener('message', (event) => {
     if (event.data.type === 'getRegisterInfo') {
@@ -27,7 +40,7 @@ export async function registerOnPage(option: RegisterInfo) {
   window.addEventListener('message', async (event) => {
     if (event.data.type === 'listTools') {
       const toolsList = await document.modelContext.getTools()
-      toolsList.forEach((tool) => delete (tool as any).window)
+      toolsList.forEach((tool: any) => delete (tool as any).window)
 
       event.source?.postMessage(JSON.stringify(toolsList))
     }
@@ -38,13 +51,12 @@ export async function registerOnPage(option: RegisterInfo) {
       const toolsList = await document.modelContext.getTools()
       const { name, args = {} } = event.data
 
-      const tool = toolsList.find((tool) => tool.name === name)
+      const tool = toolsList.find((tool: any) => tool.name === name)
       let response = ''
       try {
-        if (tool) {
-          response = (await document.modelContext.executeTool(toolsList[0], JSON.stringify(args))) || ''
-        } else {
-        }
+        response = tool
+          ? (await document.modelContext.executeTool(toolsList[0], JSON.stringify(args))) || ''
+          : `${name}工具不存在`
       } catch (error: any) {
         response = `${name}工具调用出错，原因： ` + error?.message || 'Unknown error'
       }

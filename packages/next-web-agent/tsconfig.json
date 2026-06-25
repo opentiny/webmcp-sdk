@@ -1,12 +1,18 @@
 {
   "compilerOptions": {
     "target": "esnext",
-    "lib": ["es2023", "dom", "dom.iterable"],
+    "lib": [
+      "es2023",
+      "dom",
+      "dom.iterable"
+    ],
     "moduleDetection": "force",
     "module": "ESNext",
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
-    "types": ["@mcp-b/webmcp-types"],
+    "types": [
+      "@mcp-b/webmcp-types"
+    ],
     "strict": true,
     "noUnusedLocals": true,
     "declaration": true,
@@ -17,5 +23,8 @@
     "verbatimModuleSyntax": true,
     "skipLibCheck": true
   },
-  "include": ["src"]
+  "include": [
+    "src",
+    "src/types/global.d.ts"
+  ]
 }
