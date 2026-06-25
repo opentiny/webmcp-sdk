@@ -36,7 +36,6 @@
     "@mcp-b/webmcp-polyfill": "^3.0.0",
     "@mcp-b/webmcp-types": "^3.0.0",
     "@modelcontextprotocol/sdk": "catalog:",
-    "@opentiny/next": "catalog:",
     "@page-agent/page-controller": "catalog:",
     "ai": "catalog:",
     "json-schema-to-zod": "catalog:",
