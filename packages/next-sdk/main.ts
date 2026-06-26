@@ -40,7 +40,7 @@ document.modelContext.registerTool(
 // ----------------------------- 测试AGENT -----------------------------
 
 const deepseek = createDeepSeek({
-  apiKey: 'sk-1234',
+  apiKey: 'sk-c473b92cebcf4bc19c3719e709c9c7a3',
   baseURL: 'https://api.deepseek.com'
 })
 
@@ -144,9 +144,9 @@ const skillMdModules = import.meta.glob('./skills/**/*.md', {
 }) as Record<string, string | (() => Promise<string>)>
 
 console.log(skillMdModules, 'skillMdModules11111111')
-agent.$skills.set(skillMdModules)
+await agent.$skills.set(skillMdModules)
 // 3. 发起对话
 agent.chatStream({
   role: 'user',
-  content: '调用工具，查询当前整个页面的浏览器状态'
+  content: '查询商品销售记录并解读销售趋势的业务说明书中的时间范围有哪些种'
 })

@@ -1,14 +1,19 @@
 import type { ToolSet } from 'ai'
 import type { NextAgent } from '../next-agent'
-import { createSkillTools } from '../tools/skills-tool'
+import { createSkillTools, formatSkillsForSystemPrompt, getSkillOverviews, type SkillMeta } from '../tools/skills-tool'
 
+/** Skills 管理器
+ * 传入skillsMd配置对象，自动生成get-skill-content工具和技能的系统提示词
+ */
 export const useSkills = (agent: NextAgent) => {
   const tools: ToolSet = {}
-  function set(skillMdModules: Record<string, string | (() => Promise<string>)>) {
+  async function set(skillMdModules: Record<string, string | (() => Promise<string>)>) {
     try {
-      const skillTools = createSkillTools(skillMdModules)
-      // 将技能工具合并到现有工具集中
-      Object.assign(tools, skillTools)
+      Object.assign(tools, createSkillTools(skillMdModules))
+
+      const skillOverviews: SkillMeta[] = await getSkillOverviews(skillMdModules)
+      const prompt = formatSkillsForSystemPrompt(skillOverviews)
+      agent.$promptManager.setSkillMeta(prompt)
     } catch (error) {
       console.error('Error setting skill:', error)
     }
@@ -16,6 +21,7 @@ export const useSkills = (agent: NextAgent) => {
 
   function clear() {
     delete tools['get-skill-content']
+    agent.$promptManager.setSkillMeta('')
   }
 
   return {

@@ -184,7 +184,7 @@ const skillMdByHand={
 }
 
 // 设置与清除skill
-agent.$skills.set(skillMdModules)
+await agent.$skills.set(skillMdModules)
 agent.$skills.clear()
 
 // 6.6 tools管理
