@@ -137,8 +137,6 @@ agent.$prompts.appendTemp('xxx') // 追加临时值
 agent.$prompts.getAll() // 获取全部的提示词。 （不必手动获取， agent在每一次对话前，会调用一次）
 
 // 6.4 mcpServer管理， 目前支持3种: PageServer / StreamableHttpServer / SSEServer
-// 1. mcpServer添加后，它会自动连接Server,并获取它的实时工具。
-// 2. agent在每一次对话前，会刷新实时工具，再与llm会话。
 agent.$mcpServers.mcpServers = [] // mcp列表， 【请勿手动修改】
 agent.$mcpServers.tools = {} // 所有mcpServer的tools集合，【请勿手动修改】
 
@@ -166,7 +164,7 @@ agent.$mcpServers.removeMcpServer('page-1')
 agent.$mcpServers.removeMcpServer({id:'http-2', ... })
 
 // 刷新服务下的工具
-agent.$mcpServers.refreshTools()
+agent.$mcpServers.openMcpServers()
 
 // 6.5 skills管理
 

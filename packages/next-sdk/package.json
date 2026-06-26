@@ -39,6 +39,7 @@
   "dependencies": {
     "@ai-sdk/provider-utils": "^5.0.0 ",
     "@ai-sdk/deepseek": "^3.0.0",
+    "@ai-sdk/mcp": "^2.0.0",
     "@mcp-b/webmcp-polyfill": "^3.0.0",
     "@mcp-b/webmcp-types": "^3.0.0",
     "@modelcontextprotocol/sdk": "catalog:",

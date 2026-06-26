@@ -16,8 +16,6 @@ export function useTools(agent: NextAgent) {
     Object.keys(finalTools).forEach((key) => {
       delete finalTools[key]
     })
-    //  刷新 mcpServers 中的工具
-    await agent.$mcpServers.refreshTools()
 
     // 合并初始工具
     Object.assign(
@@ -27,6 +25,7 @@ export function useTools(agent: NextAgent) {
       agent.$mcpServers.tools,
       agent.$skills.tools
     )
+    debugger
 
     // 移除忽略的工具
     ignoreToolNames.value.forEach((name) => {

@@ -5,7 +5,6 @@ interface BaseServer {
   /** 服务名称 */
   name: string
 
-  client?: any
   /** 动态更新的服务工具集 */
   tools?: ToolSet
 }
@@ -14,6 +13,7 @@ interface BaseServer {
 export interface PageServer extends BaseServer {
   type: 'page'
   window?: Window
+  client?: ModelClient
 }
 
 export interface StreamableHttpServer extends BaseServer {
@@ -22,6 +22,8 @@ export interface StreamableHttpServer extends BaseServer {
   url: string
   /** 请求头 */
   headers?: Record<string, string>
+
+  client?: MCPClient
 }
 
 export interface SSEServer extends BaseServer {
@@ -30,6 +32,8 @@ export interface SSEServer extends BaseServer {
   url: string
   /** 请求头 */
   headers?: Record<string, string>
+
+  client?: MCPClient
 }
 export type RemoteServer = StreamableHttpServer | SSEServer
 export type NextMcpServer = PageServer | StreamableHttpServer | SSEServer

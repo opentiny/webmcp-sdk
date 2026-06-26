@@ -22,9 +22,6 @@ export function useMcpServers(agent: NextAgent) {
     }
     server.id = `${server.type}-${_guid++}`
     mcpServers.value.push(server)
-
-    // 添加后就立即刷新工具
-    await getToolsFromServer(server)
   }
 
   /** 添加MCP服务 */
@@ -40,27 +37,48 @@ export function useMcpServers(agent: NextAgent) {
     mcpServers.value = mcpServers.value.filter((s) => s !== server)
   }
 
-  /** 获取MCP服务的工具 */
-  async function getToolsFromServer(server: NextMcpServer) {
-    if (server.type === 'page') {
-      buildPageTools(server)
-    } else if (isRemoteServer(server)) {
-      await buildRemoteTools(server as RemoteServer)
-    }
-  }
+  // 打开 MCP服务
+  async function openMcpServers() {
+    // 清空工具
+    Object.keys(tools).forEach((key) => {
+      delete tools[key]
+    })
 
-  async function refreshTools() {
+    // 打开并收集
     for (const server of mcpServers.value) {
-      await getToolsFromServer(server)
+      if (server.type === 'page') {
+        await buildPageTools(server)
+      } else if (isRemoteServer(server)) {
+        await buildRemoteTools(server as RemoteServer)
+      }
       Object.assign(tools, server.tools || {})
     }
   }
+
+  // 对话结束后，才一次性关闭
+  async function closeMcpServers() {
+    for (const server of mcpServers.value) {
+      if (isRemoteServer(server)) {
+        await (server as RemoteServer).client?.close()
+      }
+    }
+  }
+
+  // ************ 生命周期 ************
+  agent.on('chatStart', async () => {
+    await openMcpServers()
+  })
+
+  agent.on('chatEnd', async () => {
+    await closeMcpServers()
+  })
 
   return {
     mcpServers,
     tools,
     addMcpServer,
     removeMcpServer,
-    refreshTools
+    openMcpServers,
+    closeMcpServers
   }
 }

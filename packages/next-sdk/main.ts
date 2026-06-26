@@ -146,7 +146,9 @@ const skillMdModules = import.meta.glob('./skills/**/*.md', {
 console.log(skillMdModules, 'skillMdModules11111111')
 await agent.$skills.set(skillMdModules)
 // 3. 发起对话
-agent.chatStream({
+await agent.chatStream({
   role: 'user',
-  content: '查询商品销售记录并解读销售趋势的业务说明书中的时间范围有哪些种'
+  content: '查询当前时间'
 })
+
+document.body.innerHTML = `<pre>${JSON.stringify(agent.uiMessages.value, null, 2)}</pre>`

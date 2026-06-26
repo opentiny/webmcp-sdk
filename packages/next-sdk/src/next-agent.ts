@@ -17,14 +17,6 @@ export type UIMessage =
       role: 'assistant'
       content: Ref<StartContent | undefined>
     }
-/** 生命周期存储集合 */
-const cbMap = {
-  initAgent: [] as Function[], // 初始化智能体后触发
-  chatStart: [] as Function[], // 压入user消息后, 发出新请求之前触发
-  chatStep: [] as Function[], // 每次返回step数据后触发
-  chatEnd: [] as Function[], // 流消息结束并保存到messages，uiMessages之后触发
-  reChat: [] as Function[] // 重新发起对话, 清除上次对话记录后, 发出新请求之前触发
-}
 export class NextAgent {
   /** 调试流， 是否打印流数据 */
   debugStream: boolean = true
@@ -44,16 +36,23 @@ export class NextAgent {
   uiMessages: Ref<UIMessage[]> = ref([])
 
   // **************** 生命周期管理 ****************
-  emit = async (type: keyof typeof cbMap, ...args: any[]) => {
-    for (const cb of cbMap[type]) await cb(...args)
+  lifeCbMap = {
+    initAgent: [] as Function[], // 初始化智能体后触发
+    chatStart: [] as Function[], // 压入user消息后, 发出新请求之前触发
+    chatStep: [] as Function[], // 每次返回step数据后触发
+    chatEnd: [] as Function[], // 流消息结束并保存到messages，uiMessages之后触发
+    reChat: [] as Function[] // 重新发起对话, 清除上次对话记录后, 发出新请求之前触发
+  }
+  emit = async (type: keyof typeof this.lifeCbMap, ...args: any[]) => {
+    for (const cb of this.lifeCbMap[type]) await cb(...args)
   }
 
-  on = (type: keyof typeof cbMap, cb: Function) => cbMap[type].push(cb)
+  on = (type: keyof typeof this.lifeCbMap, cb: Function) => this.lifeCbMap[type].push(cb)
 
   // ****************  状态管理 ($打头是状态管理变量)  ****************
   $conversations = useConversation(this)
   $prompts = usePromptManager(this)
-  $mcpServers = useMcpServers(this)
+  $mcpServers = useMcpServers(this) // 必须在$tools之前初始化，（先刷新tools, 再收集tools)
   $skills = useSkills(this)
   $tools = useTools(this)
   // 不用添加到 $mcpServers中，就能加载的tools
@@ -102,6 +101,9 @@ export class NextAgent {
     const dp = new DelayedPromise<void>()
     const visitor = new StreamVisitor({
       debug: this.debugStream,
+      onStep: async () => {
+        await this.emit('chatStep')
+      },
       onFinish: async () => {
         try {
           // stream.response.message 就是ai-sdk 包装的ai 多轮对话消息, 拼接到**主消息列表**
@@ -113,9 +115,6 @@ export class NextAgent {
 
         await this.emit('chatEnd') // abort 时, messages只有用户消息，没有ai消息
         dp.resolve()
-      },
-      onStep: async () => {
-        await this.emit('chatStep')
       }
     })
     // 立即返回的一个ref数据，拼接到 **UI消息列表**
