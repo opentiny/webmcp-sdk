@@ -75,9 +75,7 @@ export class NextAgent {
   /** 设置ToolLoopAgent */
   setupAgent(settings: ToolLoopAgentSettings) {
     this.settings = settings
-    if (settings.tools) {
-      Object.assign(this.$mcpServers.tools, settings.tools)
-    }
+
     this.mainAgent = new ToolLoopAgent({
       ...settings,
       tools: this.$tools.finalTools
