@@ -37,13 +37,13 @@
     "build": "vite build"
   },
   "dependencies": {
-    "@ai-sdk/provider-utils": "catalog:",
-    "@ai-sdk/deepseek": "catalog:",
+    "@ai-sdk/provider-utils": "^5.0.0 ",
+    "@ai-sdk/deepseek": "^3.0.0",
     "@mcp-b/webmcp-polyfill": "^3.0.0",
     "@mcp-b/webmcp-types": "^3.0.0",
     "@modelcontextprotocol/sdk": "catalog:",
     "@page-agent/page-controller": "catalog:",
-    "ai": "catalog:",
+    "ai": "^7.0.0",
     "json-schema-to-zod": "catalog:",
     "zod-to-json-schema": "catalog:",
     "vue": "catalog:",

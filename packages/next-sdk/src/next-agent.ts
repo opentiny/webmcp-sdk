@@ -78,7 +78,8 @@ export class NextAgent {
 
     this.mainAgent = new ToolLoopAgent({
       ...settings,
-      tools: this.$tools.finalTools
+      tools: this.$tools.finalTools,
+      instructions: this.$prompts.finalPrompt
     })
 
     // oxlint-disable-next-line typescript/no-floating-promises
