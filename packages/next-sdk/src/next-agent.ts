@@ -79,7 +79,7 @@ export class NextAgent {
     this.mainAgent = new ToolLoopAgent({
       ...settings,
       tools: this.$tools.finalTools,
-      instructions: this.$prompts.finalPrompt
+      instructions: this.$prompts.finalPrompt // ai@7 不鼓励在message中拼接 system prompt了
     })
 
     // oxlint-disable-next-line typescript/no-floating-promises
