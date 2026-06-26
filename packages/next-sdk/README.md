@@ -101,6 +101,8 @@ agent.extraTools = {} // ai-sdk 支持的 ToolSet 对象
 agent.$conversation = {} // 多个会话管理，可以切换，保存会话等
 agent.$promptManager = {} // 提示词管理
 agent.$mcpServers = [] // mcpServer管理
+agent.$skills = {} // skills管理
+agent.$tools = {} // 最终的tools 管理(汇集各个来源)
 
 // 6.1 extraTools
 import { tool } from 'ai'
@@ -137,9 +139,8 @@ agent.$promptManager.getAll() // 获取全部的提示词。 （不必手动获�
 // 6.4 mcpServer管理， 目前支持3种: PageServer / StreamableHttpServer / SSEServer
 // 1. mcpServer添加后，它会自动连接Server,并获取它的实时工具。
 // 2. agent在每一次对话前，会刷新实时工具，再与llm会话。
-agent.$mcpServers.mcpServers = [] // mcp列表， 请勿修改
-agent.$mcpServers.ignoreToolNames = ['getWeather'] // 临时忽略的工具名
-agent.$mcpServers.tools = {} // ai-sdk规范的 ToolSet 对象
+agent.$mcpServers.mcpServers = [] // mcp列表， 【请勿手动修改】
+agent.$mcpServers.tools = {} // 所有mcpServer的tools集合，【请勿手动修改】
 
 // 添加服务， 自动生成内部id
 agent.$mcpServers.addMcpServer({
@@ -157,12 +158,24 @@ agent.$mcpServers.addMcpServer({
   name: 'sse 服务',
   type: 'sse',
   url: 'https://.......',
-  headers: {}
+  headers: {} // 可选
 })
 
 // 移除服务， 传入id 或 mcpSever对象
 agent.$mcpServers.removeMcpServer('page-1')
 agent.$mcpServers.removeMcpServer({id:'http-2', ... })
 
+// 6.5 skills管理
+const skillMdModules = import.meta.glob('./skills/**/*.md', {
+  query: '?raw',
+  import: 'default',
+  eager: false // true时同步加载， false时懒加载内容
+})
 
+agent.$skills.set(skillMdModules)
+agent.$skills.clear(skillMdModules)
+
+// 6.6 tools管理
+agent.$tools.finalTools={} // 最终的所有工具，在对话前自动更新【请勿手动修改】
+agent.$tools.ignoreToolNames = ['getWeather'] // 临时忽略的工具名
 ```

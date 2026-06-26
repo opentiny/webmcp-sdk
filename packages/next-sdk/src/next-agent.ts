@@ -7,6 +7,8 @@ import { useConversation } from './hooks/useConversation'
 import { usePromptManager } from './hooks/usePromptManager'
 import { useMcpServers } from './hooks/useMcpServers'
 import { useStatus, type NextAgentStatus } from './hooks/useStatus'
+import { useSkills } from './hooks/useSkills'
+import { useTools } from './hooks/useTools'
 
 /** 用户界面渲染的消息体 */
 export type UIMessage =
@@ -52,6 +54,8 @@ export class NextAgent {
   $conversation = useConversation(this)
   $promptManager = usePromptManager(this)
   $mcpServers = useMcpServers(this)
+  $skills = useSkills(this)
+  $tools = useTools(this)
   // 不用添加到 $mcpServers中，就能加载的tools
   extraTools: ToolSet = {}
   status: Ref<NextAgentStatus> = useStatus(this)
@@ -76,7 +80,7 @@ export class NextAgent {
     }
     this.mainAgent = new ToolLoopAgent({
       ...settings,
-      tools: this.$mcpServers.tools
+      tools: this.$tools.finalTools
     })
 
     // oxlint-disable-next-line typescript/no-floating-promises

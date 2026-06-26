@@ -8,7 +8,6 @@ import { buildPageTools } from '../servers/pageServer'
 export function useMcpServers(agent: NextAgent) {
   /** 所有MCP服务， 尽量不要直接操作mcpServers, 而是调用 addMcpServer(server)*/
   const mcpServers = ref<NextMcpServer[]>([])
-  const ignoreToolNames = ref<string[]>([])
   // 最终传递给 ToolLoopAgent 的工具，不要修改引用地址
   const tools: ToolSet = {}
   /** 生成服务ID */
@@ -50,30 +49,18 @@ export function useMcpServers(agent: NextAgent) {
     }
   }
 
-  // 每次对话前，刷新工具。 tools三个来源： settings.tools, extraTools, mcpServers.tools， 一个删除。
-  agent.on('chatStart', async () => {
-    // 清空工具
-    Object.keys(tools).forEach((key) => {
-      delete tools[key]
-    })
-    // 合并初始工具
-    Object.assign(tools, agent.settings.tools || {}, agent.extraTools)
-    // 合并 mcpServers 中的工具
+  async function refreshTools() {
     for (const server of mcpServers.value) {
       await getToolsFromServer(server)
       Object.assign(tools, server.tools || {})
     }
-    // 移除忽略的工具
-    ignoreToolNames.value.forEach((name) => {
-      delete tools[name]
-    })
-  })
+  }
 
   return {
     mcpServers,
-    ignoreToolNames,
     tools,
     addMcpServer,
-    removeMcpServer
+    removeMcpServer,
+    refreshTools
   }
 }
