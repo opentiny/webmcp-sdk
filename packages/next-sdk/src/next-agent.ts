@@ -51,8 +51,8 @@ export class NextAgent {
   on = (type: keyof typeof cbMap, cb: Function) => cbMap[type].push(cb)
 
   // ****************  状态管理 ($打头是状态管理变量)  ****************
-  $conversation = useConversation(this)
-  $promptManager = usePromptManager(this)
+  $conversations = useConversation(this)
+  $prompts = usePromptManager(this)
   $mcpServers = useMcpServers(this)
   $skills = useSkills(this)
   $tools = useTools(this)

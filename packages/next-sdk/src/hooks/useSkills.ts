@@ -13,7 +13,7 @@ export const useSkills = (agent: NextAgent) => {
 
       const skillOverviews: SkillMeta[] = await getSkillOverviews(skillMdModules)
       const prompt = formatSkillsForSystemPrompt(skillOverviews)
-      agent.$promptManager.setSkillMeta(prompt)
+      agent.$prompts.setSkillMeta(prompt)
     } catch (error) {
       console.error('Error setting skill:', error)
     }
@@ -21,7 +21,7 @@ export const useSkills = (agent: NextAgent) => {
 
   function clear() {
     delete tools['get-skill-content']
-    agent.$promptManager.setSkillMeta('')
+    agent.$prompts.setSkillMeta('')
   }
 
   return {

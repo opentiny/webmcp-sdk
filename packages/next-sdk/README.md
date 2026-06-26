@@ -98,8 +98,8 @@ agent.uiMessages = ref([]) // llm 流消息返回的消息体
 agent.status = ref('init') // 智能体当前状态
 agent.extraTools = {} // ai-sdk 支持的 ToolSet 对象
 
-agent.$conversation = {} // 多个会话管理，可以切换，保存会话等
-agent.$promptManager = {} // 提示词管理
+agent.$conversations = {} // 多个会话管理，可以切换，保存会话等
+agent.$prompts = {} // 提示词管理
 agent.$mcpServers = [] // mcpServer管理
 agent.$skills = {} // skills管理
 agent.$tools = {} // 最终的tools 管理(汇集各个来源)
@@ -123,18 +123,18 @@ agent.extraTools = {
 }
 
 // 6.2 会话管理，自动localstorage保存
-agent.$conversation.conversations = [] // 会话列表， 第一条为当前会话
-agent.$conversation.createConversation() // 创建新会话，并放置在列表的顶部
-agent.$conversation.switchConversation(conv) // 切换某个记录为当前会话
-agent.$conversation.deleteConversation(conv) // 删除某个记录， 不允许删除当前会话
-agent.$conversation.renameConversation(conv, '新标题') // 重命名会话标题
+agent.$conversations.conversations = [] // 会话列表， 第一条为当前会话
+agent.$conversations.createConversation() // 创建新会话，并放置在列表的顶部
+agent.$conversations.switchConversation(conv) // 切换某个记录为当前会话
+agent.$conversations.deleteConversation(conv) // 删除某个记录， 不允许删除当前会话
+agent.$conversations.renameConversation(conv, '新标题') // 重命名会话标题
 
 // 6.3 提示词管理
-agent.$promptManager.setStatic('xxx') // 设置固定的词
-agent.$promptManager.setSkillMeta('xxx') // 设置技能包的结果（可以不使用）
-agent.$promptManager.setTemp('xxx') // 设置临时值
-agent.$promptManager.appendTemp('xxx') // 追加临时值
-agent.$promptManager.getAll() // 获取全部的提示词。 （不必手动获取， agent在每一次对话前，会调用一次）
+agent.$prompts.setStatic('xxx') // 设置固定的词
+agent.$prompts.setSkillMeta('xxx') // 设置技能包的结果（可以不使用）
+agent.$prompts.setTemp('xxx') // 设置临时值
+agent.$prompts.appendTemp('xxx') // 追加临时值
+agent.$prompts.getAll() // 获取全部的提示词。 （不必手动获取， agent在每一次对话前，会调用一次）
 
 // 6.4 mcpServer管理， 目前支持3种: PageServer / StreamableHttpServer / SSEServer
 // 1. mcpServer添加后，它会自动连接Server,并获取它的实时工具。
