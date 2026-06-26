@@ -137,7 +137,14 @@ agent.$mcpServers.addMcpServer({
 // // 移除服务， 传入id 或 mcpSever对象
 // agent.$mcpServers.removeMcpServer('page-1')
 // agent.$mcpServers.removeMcpServer({id:'http-2', ... })
+const skillMdModules = import.meta.glob('./skills/**/*.md', {
+  query: '?raw',
+  import: 'default',
+  eager: false // true时同步加载， false时懒加载内容
+}) as Record<string, string | (() => Promise<string>)>
 
+console.log(skillMdModules, 'skillMdModules11111111')
+agent.$skills.set(skillMdModules)
 // 3. 发起对话
 agent.chatStream({
   role: 'user',

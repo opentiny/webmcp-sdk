@@ -26,6 +26,7 @@
   "include": [
     "src",
     "src/types/global.d.ts",
-    "main.ts"
+    "main.ts",
+    "vite-env.d.ts"
   ]
 }
