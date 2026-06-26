@@ -165,6 +165,8 @@ agent.$mcpServers.addMcpServer({
 agent.$mcpServers.removeMcpServer('page-1')
 agent.$mcpServers.removeMcpServer({id:'http-2', ... })
 
+agent.$mcpServers.refreshTools()
+
 // 6.5 skills管理
 const skillMdModules = import.meta.glob('./skills/**/*.md', {
   query: '?raw',

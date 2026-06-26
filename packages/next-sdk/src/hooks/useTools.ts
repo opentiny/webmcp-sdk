@@ -17,7 +17,7 @@ export function useTools(agent: NextAgent) {
       delete finalTools[key]
     })
     //  刷新 mcpServers 中的工具
-    agent.$mcpServers.refreshTools()
+    await agent.$mcpServers.refreshTools()
 
     // 合并初始工具
     Object.assign(
