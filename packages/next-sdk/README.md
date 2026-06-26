@@ -190,4 +190,7 @@ agent.$skills.clear()
 // 6.6 tools管理
 agent.$tools.finalTools={} // 最终的所有工具，在对话前自动更新【请勿手动修改】
 agent.$tools.ignoreToolNames = ['getWeather'] // 临时忽略的工具名
+
+// 7. 生命周期： initAgent、chatStart、chatStep、chatEnd、reChat
+agent.on('initAgent', ()=>{})
 ```

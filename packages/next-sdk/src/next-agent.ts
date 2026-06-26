@@ -20,9 +20,9 @@ export type UIMessage =
 /** 生命周期存储集合 */
 const cbMap = {
   initAgent: [] as Function[], // 初始化智能体后触发
-  chatStart: [] as Function[], // 压入usr消息后触发
+  chatStart: [] as Function[], // 压入user消息后, 发出新请求之前触发
   chatStep: [] as Function[], // 每次返回step数据后触发
-  chatEnd: [] as Function[], // 压入ai消息后触发
+  chatEnd: [] as Function[], // 流消息结束并保存到messages，uiMessages之后触发
   reChat: [] as Function[] // 重新发起对话, 清除上次对话记录后, 发出新请求之前触发
 }
 export class NextAgent {
