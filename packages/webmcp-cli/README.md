@@ -32,7 +32,9 @@ npm install -g .
 
 ### 1. `state` 命令
 
-获取浏览器当前活跃页签（或指定页签）的详细状态，包括当前页面的标题、URL、页面中包含的可操作 DOM 树，以及当前页面所有可调用的 MCP 工具列表（包含自动注入的 `page-agent-tool`）。
+获取浏览器当前活跃页签（或指定页签）的**导航元数据**，包括当前页面的标题、URL、浏览器所有已打开的页签列表，以及当前页面已注入的 MCP 工具列表（`webmcpTools`）。
+
+> **注意**：`state` 不再返回页面 DOM 内容（`content`）。若需要读取页面可交互元素，请在 `state` 之后显式调用 `page-agent-tool` 的 `browserState` action。
 
 **用法：**
 ```bash
@@ -43,7 +45,6 @@ webmcp-cli state -t <tabid>
 **返回格式（JSON）：**
 ```json
 {
-  "content": "浏览器状态：包含 [index]<type>text</type> 格式的页面树...",
   "url": "https://example.com",
   "title": "Example Domain",
   "webmcpTools": [
@@ -55,7 +56,7 @@ webmcp-cli state -t <tabid>
   ],
   "tabs": [
     {
-      "tabid": 1234,
+      "tabid": "2EA73ED323E46E5E108D4E46DA4E4AA7",
       "title": "Example Domain",
       "url": "https://example.com"
     }

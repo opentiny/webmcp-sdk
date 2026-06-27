@@ -206,13 +206,13 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
         ;(catBtn as HTMLElement).click()
 
         // 3. 搜索标签
-        const tagLabel = Array.from(document.querySelectorAll('span, div, label, .label')).find(
+        const tagLabel = Array.from(document.querySelectorAll('span, label, .label')).find(
           e => e.textContent?.includes('添加标签')
         )
         if (!tagLabel) {
           throw new Error('未找到“添加标签”的表单项')
         }
-        const parent = tagLabel.closest('.form-item, .margin-bottom, .entry-form-item, div')
+        const parent = tagLabel.closest('.form-item, .margin-bottom, .entry-form-item')
         const input = parent ? (parent.querySelector('input') as HTMLInputElement | null) : null
         if (!input) {
           throw new Error('未找到标签输入框')
