@@ -33,7 +33,7 @@ npm install -g @opentiny/webmcp-cli
 
 ```bash
 webmcp-cli tabs open https://excalidraw.com    # 打开新网页
-webmcp-cli tabs close <tabid>                  # 关闭指定标�### 2. 查询浏览器当前状态 `webmcp-cli state`
+webmcp-cli tabs close <tabid>                  # 关闭指定标�### 2. 查询浏览器当前状态 `webmcp-cli state`
 
 它返回当前浏览器的**导航元数据**（url、title、activeTabid、webmcpTools、所有已打开页签），是确认当前页面有哪些可用工具（`webmcpTools`）的唯一方式。
 
@@ -87,32 +87,8 @@ webmcp-cli run page-agent-tool '{"action": "browserState", "responseMode": "full
 webmcp-cli run ...          # 基于返回的元素索引/工具执行操作（例如 click, fill）
 ```
 
-执行 `page-agent-tool`（点击、填写、滚动等）时，**必须** 依据 `browserState` 或 `searchTree` 返回的元素索引确定元素 `index`，切勿沿用过期索引。`state` 是确认当前页面有哪些 `webmcpTools`（含领域专用工具）的唯一方式，获取页面状态必须调用 `browserState` 或 `searchTree`。等等内容。
+执行 `page-agent-tool`（点击、填写、滚动等）时，**必须** 依据 `browserState` 或 `searchTree` 返回的元素索引确定元素 `index`，切勿沿用过期索引。`state` 是确认当前页面有哪些 `webmcpTools`（含领域专用工具）的唯一方式，获取页面状态必须调用 `browserState` 或 `searchTree`。
 
-```bash
-webmcp-cli run system-overview '{}'
-```
-
-#### 何时必须调用 state
-
-| 时机                  | 是否必须先 `state` | 说明                                                                                |
-| --------------------- | ------------------ | ----------------------------------------------------------------------------------- |
-| 执行 `tabs open` 之前 | 否                 | `tabs open` 是唯一可在未先 `state` 的情况下直接执行的命令                           |
-| 执行 `tabs` 之后      | **是**             | 新页面加载并注入工具后，须用 `state` 获取新页面的 `content` 与 `webmcpTools`        |
-| 执行 `run` 之前       | **是**             | 元素索引与页面内容会随操作变化，须先拿到最新状态再调用 `page-agent-tool` 或其它工具 |
-| 连续多次 `run` 之间   | **是**             | 每次 `run` 可能改变 DOM（跳转、弹窗、列表刷新等），下一步操作前须再次 `state`       |
-
-**推荐工作流：**
-
-```text
-webmcp-cli tabs open <url>  # 打开页面（无需先 state）
-webmcp-cli state            # tabs open 之后必调：获取新页面内容与工具
-webmcp-cli run ...        # 基于 state 返回的索引/工具执行操作
-webmcp-cli state          # run 之后若继续操作，再次 state
-webmcp-cli run ...
-```
-
-执行 `page-agent-tool`（点击、填写、滚动等）时，**必须** 依据 `state` 输出中的 `content` 字段确定元素 `index`，切勿沿用过期索引。`state` 也是确认当前页面有哪些 `webmcpTools`（含领域专用工具）的唯一方式。
 
 ### 3. 执行页面上的工具 `webmcp-cli run <tool-name> '<json-args>'`
 

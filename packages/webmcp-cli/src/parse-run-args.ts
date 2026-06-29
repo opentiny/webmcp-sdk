@@ -186,7 +186,7 @@ export function prepareRunArgsJson(args: string[], fileContent: string | undefin
   }
 
   if (!raw.trim()) {
-    return '{}'
+    throw new Error('未提供有效参数')
   }
 
   const expanded = expandFileRefs(raw, baseDir)
