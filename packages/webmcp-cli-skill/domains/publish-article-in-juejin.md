@@ -32,12 +32,21 @@ webmcp-cli tabs open "https://juejin.cn/editor/drafts/new?v=2"
 webmcp-cli state
 ```
 
+> [!IMPORTANT]
+> **标签页定位（必读）**
+>
+> 1. `tabs open` 会返回 `tabid`，后续 `run` 建议始终带上 `-t <tabid>`，避免命令打到错误的标签页（例如浏览器默认首页）。
+> 2. 掘金打开 `/new?v=2` 后，填写标题时会**自动跳转**为 `/editor/drafts/{id}` 草稿 URL——这是正常现象，`create_article` 在两种 URL 下均可工作。
+> 3. 无参工具（如 `get_article_info`）可直接运行：`webmcp-cli run get_article_info` 或 `webmcp-cli run get_article_info '{}'`
+> 4. 发布前务必 `tabs switch` 到含文章内容的编辑器标签页，再执行 `publish_current_draft`。
+
 ### 第二步：填写标题和正文
 
-将文章内容写入 `.md` 文件后，通过 `@base64file:` 内联引用传入：
+将文章内容写入 `.md` 文件后，通过 `@base64file:` 内联引用传入。**请使用上一步返回的 tabid**：
 
 ```bash
-webmcp-cli run create_article '{"title":"你的文章标题","content":"@base64file:./article.md"}'
+# TAB_ID 来自 tabs open 的返回值
+webmcp-cli run create_article -t TAB_ID '{"title":"你的文章标题","content":"@base64file:./article.md"}'
 ```
 
 > [!WARNING]
@@ -68,9 +77,9 @@ webmcp-cli run create_article -f ./article_args.json
 > - AI 需要基于获取的文章内容智能推断并选择最合适的 `category`（分类）与 `tag`（标签），并**自主总结出一段字数在 50 到 100 字之间的文章摘要**，将该摘要传入 `summary` 字段。
 
 ```bash
-# 1. 获取当前文章信息
-webmcp-cli run get_article_info
+# 1. 获取当前文章信息（无参数时可省略 '{}'）
+webmcp-cli run get_article_info -t TAB_ID
 
-# 2. 智能推断和总结摘要后，执行一键发布
-webmcp-cli run publish_current_draft '{"category":"开发工具","tag":"AI Agent","summary":"本指南详细介绍了如何使用 WebMCP 让 AI 助手精准操控浏览器，涵盖了安装配置、核心工具集的使用方法以及多种实际应用场景，是一篇极具实用价值的 AI Agent 实战教程。"}'
+# 2. 智能推断和总结摘要后，执行一键发布（必须在编辑器标签页上）
+webmcp-cli run publish_current_draft -t TAB_ID '{"category":"开发工具","tag":"AI Agent","summary":"本指南详细介绍了如何使用 WebMCP 让 AI 助手精准操控浏览器，涵盖了安装配置、核心工具集的使用方法以及多种实际应用场景，是一篇极具实用价值的 AI Agent 实战教程。"}'
 ```

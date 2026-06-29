@@ -25,6 +25,8 @@ export async function stateCommand({ tabid }: { tabid?: string }) {
       return { url, title, webmcpTools }
     })
 
+    const activeTabid = await getPageTargetId(page).catch(() => undefined)
+
     // 3. 获取所有标签页信息（排除 devtools:// 内部页面）
     const pages = await browser.pages()
     const tabs = await Promise.all(
@@ -48,6 +50,7 @@ export async function stateCommand({ tabid }: { tabid?: string }) {
 
     return {
       ...state,
+      activeTabid,
       tabs: tabs.filter(Boolean)
     }
   } finally {

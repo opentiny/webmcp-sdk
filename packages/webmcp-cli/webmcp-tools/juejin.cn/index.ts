@@ -10,6 +10,14 @@ type ToolResult = {
   editor: 'codemirror5' | 'codemirror6'
 }
 
+/** 掘金编辑器页面：/editor/drafts/new 会在填写标题后自动跳转为 /editor/drafts/{id} */
+function isJuejinDraftEditorPage(): boolean {
+  if (!/^https:\/\/juejin\.cn\/editor\/drafts\//.test(location.href)) {
+    return false
+  }
+  return !!document.querySelector('.edit-draft .header .title-input')
+}
+
 const mcp = (navigator as any).modelContext
 if (!mcp || typeof mcp.registerTool !== 'function') {
   console.warn('[webmcp-tools] juejin.cn: navigator.modelContext.registerTool 未就绪，跳过注入')
@@ -50,8 +58,10 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
           throw new Error('参数 content 不能为空')
         }
 
-        if (!location.href.startsWith('https://juejin.cn/editor/drafts/new')) {
-          throw new Error('当前页面不是掘金新建文章编辑器，请先打开 https://juejin.cn/editor/drafts/new?v=2')
+        if (!isJuejinDraftEditorPage()) {
+          throw new Error(
+            '当前页面不是掘金文章编辑器（新建或草稿页均可），请先打开 https://juejin.cn/editor/drafts/new?v=2'
+          )
         }
 
         let decodeContent: string
@@ -178,12 +188,17 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
         required: ['summary']
       },
       execute: async ({ category = '前端', tag = 'Vue.js', summary }: { category?: string; tag?: string; summary: string }) => {
-        // 1. 找到“发布”按钮并点击
-        const publishBtn = Array.from(document.querySelectorAll('button')).find(
+        if (!isJuejinDraftEditorPage()) {
+          throw new Error('未处于掘金文章编辑器页面，请先 tabs switch 到编辑器标签页后再发布')
+        }
+
+        // 1. 在编辑器区域内找到“发布”按钮并点击
+        const editorRoot = document.querySelector('.edit-draft') ?? document
+        const publishBtn = Array.from(editorRoot.querySelectorAll('button')).find(
           e => e.textContent?.trim() === '发布'
         ) as HTMLButtonElement | null
         if (!publishBtn) {
-          throw new Error('未找到“发布”按钮，请确认已处于文章编辑器页面')
+          throw new Error('未找到“发布”按钮，请确认已处于文章编辑器页面且页面已完全加载')
         }
         publishBtn.click()
 

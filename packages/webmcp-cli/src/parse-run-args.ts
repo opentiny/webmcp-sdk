@@ -177,7 +177,8 @@ export function prepareRunArgsJson(args: string[], fileContent: string | undefin
   }
 
   if (!raw) {
-    throw new Error('必须提供参数或通过 -f/--file 指定参数文件')
+    // 无参数工具（如 get_article_info）允许省略 args，默认空对象
+    return '{}'
   }
 
   const expanded = expandFileRefs(raw, baseDir)

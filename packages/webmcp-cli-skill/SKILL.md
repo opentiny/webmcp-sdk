@@ -56,9 +56,10 @@ webmcp-cli state -t <targetId>   # target a specific tab by its real Chrome targ
 
 ```json
 {
-  "content": "[0]<a>新闻 />\n[13]<textarea placeholder=搜索 />\n[18]<button>百度一下</button>",
   "url": "https://www.baidu.com/",
   "title": "百度一下，你就知道",
+  "activeTabid": "2EA73ED323E46E5E108D4E46DA4E4AA7",
+  "content": "[0]<a>新闻 />\n[13]<textarea placeholder=搜索 />\n[18]<button>百度一下</button>",
   "webmcpTools": [{ "name": "page-agent-tool" }, { "name": "baidu_search" }],
   "tabs": [
     { "tabid": "2EA73ED323E46E5E108D4E46DA4E4AA7", "title": "百度一下，你就知道", "url": "https://www.baidu.com/" }
@@ -252,6 +253,6 @@ webmcp-cli run xhs_publish_note '{"title": "第一条笔记", "content": "内容
 1. **searchTree 优先：** 已知目标元素类型或名称时，**必须优先使用 `searchTree`** 而非直接拉取全量树。这与业界 AI 编辑器按需读文件的策略完全一致——先搜索定位，找不到再兜底全量。
 2. **state 优先：** 除 `tabs open` 外，执行任何其它命令前必须先调用 `webmcp-cli state`；`tabs open` 之后也必须再调用一次 `state`。切勿猜测元素索引或工具列表——`state` 是查询浏览器完整状态的唯一入口。
 3. **合法 JSON：** 将 JSON 参数用单引号包裹：`'{"action": ...}'`。
-4. **标签页定位：** 使用 `state` 输出中的 UUID 格式 `tabid`，配合 `-t` 指定标签页。
+4. **标签页定位：** 使用 `state` 输出中的 UUID 格式 `tabid`，配合 `-t` 指定标签页。`tabs open` / `tabs switch` 返回的 `tabid` 应在后续所有 `run` 命令中复用；`state` 也会返回当前操作页的 `activeTabid`。
 5. **领域工具：** 若存在领域专用工具，应优先于 `page-agent-tool` 使用——它们对该域名的交互更可靠。
 6. **调用网页工具:** 严格按照终端的类型，传入相应的`json-args` 参数

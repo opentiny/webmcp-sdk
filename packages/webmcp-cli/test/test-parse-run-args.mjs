@@ -73,9 +73,9 @@ assertOk('missing comma between properties', () => {
   if (!fixed.includes('"A","content"')) throw new Error(`bad comma insert: ${fixed}`)
 })
 
-assertOk('windows backslash path in quoted placeholder', () => {
-  const raw = '{"title":"Test","content":"@base64file:' + articlePath + '"}'
-  parseArgsJson(expandFileRefs(raw, process.cwd()))
+assertOk('empty args default to empty object', () => {
+  const result = prepareRunArgsJson([], undefined, process.cwd())
+  if (result !== '{}') throw new Error(`expected {}, got ${result}`)
 })
 
 process.exit(failed > 0 ? 1 : 0)

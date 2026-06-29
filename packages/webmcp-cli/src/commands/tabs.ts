@@ -4,7 +4,8 @@ import {
   injectIntoPage,
   getPageTargetId,
   findPageTargetByTabId,
-  activateTabById
+  activateTabById,
+  setLastActiveTabId
 } from '../browser'
 
 function normalizeUrl(url: string): string {
@@ -23,9 +24,14 @@ export async function tabsOpenCommand(url: string) {
     await page.goto(url, { waitUntil: 'domcontentloaded' })
     await injectIntoPage(page)
     await new Promise((resolve) => setTimeout(resolve, 500))
+
+    const tabid = await getPageTargetId(page)
+    await activateTabById(browser, tabid)
+    setLastActiveTabId(tabid)
+
     return {
       success: true,
-      tabid: await getPageTargetId(page),
+      tabid,
       url: page.url(),
       title: await page.title()
     }
@@ -65,9 +71,12 @@ export async function tabsSwitchCommand(tabid: string) {
     await activateTabById(browser, tabid)
     const page = await getTargetPage(browser, tabid)
 
+    const realTabid = await getPageTargetId(page)
+    setLastActiveTabId(realTabid)
+
     return {
       success: true,
-      tabid: await getPageTargetId(page),
+      tabid: realTabid,
       url: page.url(),
       title: await page.title()
     }
