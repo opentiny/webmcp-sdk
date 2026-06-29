@@ -49,6 +49,7 @@ export const SUPPORTED_DOMAINS: string[] = [
   'www.baidu.com',
   'excalidraw.com',
   'juejin.cn',
+  'editor.csdn.net',
   'xiaohongshu.com',
   'creator.xiaohongshu.com',
   'segmentfault.com'

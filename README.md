@@ -1,6 +1,14 @@
 # OpenTiny NEXT-SDKs: Built-in WebMCP & Polyfill + WebSkills + WebAgent
 
+<p align="center">
+  <a href="https://opentiny.design" target="_blank" rel="noopener noreferrer">
+    <img alt="OpenTiny Logo" src="logo.svg" height="100" style="max-width:100%;">
+  </a>
+</p>
+
 English | [简体中文](README.zh-CN.md)
+
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/opentiny/webmcp-sdk)
 
 <p align="center">
   <strong>A front-end intelligent application development and browser automation toolkit. It turns existing apps intelligent via WebMCP + WebSkills, and provides webmcp-cli to perceive and control any webpage with zero refactoring.</strong>
@@ -231,6 +239,7 @@ webmcp-cli run page-agent-tool '{"action": "fill", "index": 13, "text": "Model C
 Under `packages/webmcp-skill`, we define a set of **Agent Skills** (System instructions and reference templates). When an AI agent connects to a webpage, it reads `SKILL.md` to learn how to interact with the page.
 
 For complex pages, it also loads domain-specific sub-skills:
+
 - **Excalidraw (`domains/excalidraw.md`)**: Instructs the agent on how to call canvas drawing commands (`excalidraw_execute_command`) to draw flowcharts and shapes.
 - **Baidu Search**: Executes search actions and parses results automatically.
 

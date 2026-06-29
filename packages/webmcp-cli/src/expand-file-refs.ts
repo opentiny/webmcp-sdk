@@ -87,6 +87,18 @@ export function expandFileRefs(argsJson: string, baseDir: string = process.cwd()
   return expandUnquotedFileRefs(withQuotedExpanded, baseDir)
 }
 
+/**
+ * 确定 `@file` / `@base64file` 相对路径的解析基准目录。
+ *
+ * 未使用 `-f/--file` 时以 `process.cwd()` 为基准；
+ * 使用参数文件时以该文件所在目录为基准，使 `args.json` 内 `./article.md` 等路径
+ * 相对于参数文件而非 shell 当前工作目录解析。
+ *
+ * @example
+ * // cwd 为 /home/user/project，执行 webmcp run tool -f test/fixtures/nested/args.json
+ * getFileBaseDir('test/fixtures/nested/args.json')
+ * // => '/home/user/project/test/fixtures/nested'
+ */
 export function getFileBaseDir(fileOption?: string): string {
   if (!fileOption) {
     return process.cwd()

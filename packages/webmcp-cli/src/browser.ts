@@ -14,6 +14,36 @@ const CDP_PORT = 9222
 // 使用 localhost 以兼容 IPv4/IPv6 绑定
 const CDP_URL = `http://localhost:${CDP_PORT}`
 
+function getWorkspaceDir(): string {
+  return process.env.WEBMCP_WORKSPACE || path.join(os.homedir(), '.webmcp_chrome_profile')
+}
+
+function getLastTabIdFilePath(): string {
+  return path.join(getWorkspaceDir(), '.last-tab-id')
+}
+
+/** 记录最近一次 tabs open / tabs switch 操作的标签页，供 run 无 -t 时回退定位 */
+export function setLastActiveTabId(tabid: string): void {
+  try {
+    const dir = getWorkspaceDir()
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+    }
+    fs.writeFileSync(getLastTabIdFilePath(), tabid, 'utf-8')
+  } catch {
+    // 写入失败不阻断主流程
+  }
+}
+
+function getLastActiveTabId(): string | null {
+  try {
+    const tabid = fs.readFileSync(getLastTabIdFilePath(), 'utf-8').trim()
+    return tabid || null
+  } catch {
+    return null
+  }
+}
+
 /**
  * 使用 Node.js 原生 http 模块发起 GET 请求并返回响应体文本
  * 避免 Node.js fetch 将 localhost 解析为 IPv6 ::1 导致连接 Chrome CDP 失败的问题
@@ -59,6 +89,41 @@ async function checkCdpReady(url: string, retries = 3): Promise<boolean> {
     }
   }
   return false
+}
+
+/**
+ * 找出第一个真正可达的 CDP 地址，避免 Windows 上 localhost 解析为 IPv6 导致 puppeteer 连接失败
+ */
+async function findAvailableCdpUrl(addresses: string[], retries = 2): Promise<string | null> {
+  for (const addr of addresses) {
+    if (await checkCdpReady(addr, retries)) {
+      return addr.replace('/json/version', '')
+    }
+  }
+  return null
+}
+
+/**
+ * 通过 Puppeteer 连接已运行的浏览器。
+ * 注意：不要在 connect 时使用 targetFilter——在 Windows Edge 上会导致 WebSocket 握手后永久挂起；
+ * 页面 target 的筛选在 getPageTargets / getTargetPage 中按需完成。
+ */
+async function connectPuppeteer(browserBaseUrl: string, attempt = 1, maxAttempts = 3): Promise<Browser> {
+  try {
+    return await promiseWithTimeout(
+      puppeteer.connect({ browserURL: browserBaseUrl, defaultViewport: null }),
+      10000,
+      `puppeteer.connect to ${browserBaseUrl} timed out`
+    )
+  } catch (err) {
+    if (attempt >= maxAttempts) {
+      throw err
+    }
+    const delayMs = 500 * attempt
+    console.log(pc.yellow(`connectBrowser: 第 ${attempt} 次连接失败，${delayMs}ms 后重试...`))
+    await new Promise(resolve => setTimeout(resolve, delayMs))
+    return connectPuppeteer(browserBaseUrl, attempt + 1, maxAttempts)
+  }
 }
 
 
@@ -124,14 +189,20 @@ async function startBrowserInBackground(): Promise<void> {
   // 用户可以通过 --workspace CLI 选项或 WEBMCP_WORKSPACE 环境变量自定义。
   const userDataDir = process.env.WEBMCP_WORKSPACE || path.join(os.homedir(), '.webmcp_chrome_profile')
   
+  const launchArgs = [
+    `--remote-debugging-port=${CDP_PORT}`,
+    `--user-data-dir=${userDataDir}`,
+    '--no-first-run',
+    '--no-default-browser-check'
+  ]
+  // Windows 上显式绑定 IPv4，避免 localhost 解析到 IPv6 导致 CDP 连接不稳定
+  if (os.platform() === 'win32') {
+    launchArgs.push('--remote-debugging-address=127.0.0.1')
+  }
+
   const child = spawn(
     browserInfo.path,
-    [
-      `--remote-debugging-port=${CDP_PORT}`,
-      `--user-data-dir=${userDataDir}`,
-      '--no-first-run',
-      '--no-default-browser-check'
-    ],
+    launchArgs,
     {
       detached: true,
       stdio: 'ignore'
@@ -140,19 +211,17 @@ async function startBrowserInBackground(): Promise<void> {
 
   child.unref() // 让子进程脱离父进程独立运行
 
-  // 轮询等待 CDP 端口就绪
-  for (let i = 0; i < 20; i++) {
-    try {
-      const urls = [`http://127.0.0.1:${CDP_PORT}/json/version`, `http://localhost:${CDP_PORT}/json/version`]
-      for (const url of urls) {
-        try {
-          await httpGet(url, 1000)
-          console.log(pc.green(`${browserInfo.name} 启动并就绪。`))
-          return
-        } catch (err) {}
-      }
-    } catch (e) {
-      // 忽略连接错误，继续重试
+  // 轮询等待 CDP 端口就绪（优先 127.0.0.1，避免 Windows IPv6 解析问题）
+  const pollUrls = [`http://127.0.0.1:${CDP_PORT}/json/version`, `http://localhost:${CDP_PORT}/json/version`]
+  for (let i = 0; i < 30; i++) {
+    for (const url of pollUrls) {
+      try {
+        await httpGet(url, 1000)
+        console.log(pc.green(`${browserInfo.name} 启动并就绪。`))
+        // 额外等待 500ms，确保 CDP 完全稳定（Mac 首次启动时端口通但连接不稳定）
+        await new Promise(resolve => setTimeout(resolve, 500))
+        return
+      } catch {}
     }
     await new Promise(resolve => setTimeout(resolve, 500))
   }
@@ -161,61 +230,29 @@ async function startBrowserInBackground(): Promise<void> {
 }
 
 export async function connectBrowser(): Promise<Browser> {
-  const targetFilter = (target: any) => {
-    try {
-      const info = typeof target._getTargetInfo === 'function' ? target._getTargetInfo() : target
-      const type = info.type || ''
-      const url = info.url || ''
-      
-      // 过滤掉绝对不需要 attach 且容易发生死锁的后台/子框架 target
-      if (
-        type === 'service_worker' || 
-        type === 'shared_worker' || 
-        type === 'iframe' || 
-        type === 'other' || 
-        type === 'webview' ||
-        type === 'background_page'
-      ) {
-        return false
-      }
-      
-      // 过滤掉 devtools 和插件页面
-      if (url.startsWith('devtools://') || url.startsWith('chrome-extension://')) {
-        return false
-      }
-      
-      return true
-    } catch (e) {
-      return false
-    }
-  }
-
-  // 第一步：检查 9222 端口是否已有可用的 CDP 实例
-  const portAddresses = [
+  // 第一步：找到第一个真正可达的 CDP 地址（优先 127.0.0.1，规避 Windows localhost → IPv6 问题）
+  const versionAddresses = [
     `http://127.0.0.1:${CDP_PORT}/json/version`,
     `http://localhost:${CDP_PORT}/json/version`
   ]
 
-  for (const addr of portAddresses) {
-    const isReady = await checkCdpReady(addr, 2)
-    if (!isReady) continue
-
-    const browserURL = addr.replace('/json/version', '')
+  const existingUrl = await findAvailableCdpUrl(versionAddresses, 2)
+  if (existingUrl) {
+    console.log(pc.yellow(`connectBrowser: 检测到端口 ${CDP_PORT} 已就绪，正在连接 ${existingUrl}...`))
     try {
-      console.log(pc.yellow(`connectBrowser: 检测到端口 ${CDP_PORT} 已就绪，正在连接 ${browserURL}...`))
-      const browser = await promiseWithTimeout(
-        puppeteer.connect({ browserURL, defaultViewport: null, targetFilter }),
-        10000,
-        `puppeteer.connect to ${browserURL} timed out`
-      )
-      console.log(pc.green(`connectBrowser: 成功连接 ${browserURL}`))
+      const browser = await connectPuppeteer(existingUrl)
+      console.log(pc.green(`connectBrowser: 成功连接 ${existingUrl}`))
       return browser
-    } catch {
-      // 当前地址连不上，继续尝试下一个
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      throw new Error(
+        `无法连接到已在运行的浏览器（${existingUrl}）：${msg}。` +
+        'CDP 端口可用，请勿重复启动浏览器；可关闭多余窗口后重试。'
+      )
     }
   }
 
-  // 第二步：端口无响应，直接启动新的浏览器实例（使用独立用户数据目录，不影响用户已有浏览器）
+  // 第二步：端口无响应，启动新的浏览器实例（使用独立用户数据目录，不影响用户已有浏览器）
   console.log(pc.yellow(`connectBrowser: 端口 ${CDP_PORT} 无响应，正在启动新的浏览器实例...`))
   try {
     await startBrowserInBackground()
@@ -225,27 +262,20 @@ export async function connectBrowser(): Promise<Browser> {
     throw new Error('Browser launch failed.')
   }
 
-  // 第三步：浏览器启动后再次尝试连接
-  for (const addr of portAddresses) {
-    const isReady = await checkCdpReady(addr, 3)
-    if (!isReady) continue
-
-    const browserURL = addr.replace('/json/version', '')
-    try {
-      console.log(pc.yellow(`connectBrowser: 浏览器已启动，正在连接 ${browserURL}...`))
-      const browser = await promiseWithTimeout(
-        puppeteer.connect({ browserURL, defaultViewport: null, targetFilter }),
-        10000,
-        `puppeteer.connect to ${browserURL} after launch timed out`
-      )
-      console.log(pc.green(`connectBrowser: 成功连接 ${browserURL}`))
-      return browser
-    } catch {
-      // 继续尝试下一个地址
-    }
+  // 第三步：浏览器启动后，再次找可用地址并连接
+  const launchedUrl = await findAvailableCdpUrl(versionAddresses, 5)
+  if (!launchedUrl) {
+    throw new Error(`无法连接到浏览器（端口 ${CDP_PORT}），请检查 Chrome/Edge 是否已安装。`)
   }
 
-  throw new Error(`无法连接到浏览器（端口 ${CDP_PORT}），请检查 Chrome/Edge 是否已安装。`)
+  try {
+    console.log(pc.yellow(`connectBrowser: 浏览器已启动，正在连接 ${launchedUrl}...`))
+    const browser = await connectPuppeteer(launchedUrl)
+    console.log(pc.green(`connectBrowser: 成功连接 ${launchedUrl}`))
+    return browser
+  } catch {
+    throw new Error(`无法连接到浏览器（端口 ${CDP_PORT}），请检查 Chrome/Edge 是否已安装。`)
+  }
 }
 
 
@@ -331,32 +361,43 @@ export async function getTargetPage(browser: Browser, tabid?: string): Promise<P
     }
     targetPage = await target.page()
   } else {
-    // Chrome 的 /json/list 接口把当前激活 the tab 排在第一位，用它来判断激活 tab
-    try {
-      const urls = [
-        `http://localhost:${CDP_PORT}/json/list`,
-        `http://127.0.0.1:${CDP_PORT}/json/list`
-      ]
-      let activeTargetId: string | null = null
-      for (const url of urls) {
-        try {
-          const body = await httpGet(url, 1000)
-          const targetsData: Array<{ id: string; type: string; url: string }> = JSON.parse(body)
-          // 找第一个 type=page 且不是 devtools:// 的 target（Chrome 把激活的排第一）
-          const active = targetsData.find(t => t.type === 'page' && !t.url.startsWith('devtools://'))
-          if (active) { activeTargetId = active.id; break }
-        } catch { /* 忽略，继续试下一个地址 */ }
+    // 优先使用最近一次 tabs open/switch 记录的标签页（Agent 连续 CLI 调用更可靠）
+    const lastTabId = getLastActiveTabId()
+    if (lastTabId) {
+      const lastTarget = findPageTargetByTabId(browser, lastTabId)
+      if (lastTarget) {
+        targetPage = await lastTarget.page()
       }
+    }
 
-      if (activeTargetId) {
-        for (const target of pageTargets) {
-          if (getTargetIdFromTarget(target) === activeTargetId) {
-            targetPage = await target.page()
-            break
+    // Chrome 的 /json/list 接口把当前激活 the tab 排在第一位，用它来判断激活 tab
+    if (!targetPage) {
+      try {
+        const urls = [
+          `http://localhost:${CDP_PORT}/json/list`,
+          `http://127.0.0.1:${CDP_PORT}/json/list`
+        ]
+        let activeTargetId: string | null = null
+        for (const url of urls) {
+          try {
+            const body = await httpGet(url, 1000)
+            const targetsData: Array<{ id: string; type: string; url: string }> = JSON.parse(body)
+            // 找第一个 type=page 且不是 devtools:// 的 target（Chrome 把激活的排第一）
+            const active = targetsData.find(t => t.type === 'page' && !t.url.startsWith('devtools://'))
+            if (active) { activeTargetId = active.id; break }
+          } catch { /* 忽略，继续试下一个地址 */ }
+        }
+
+        if (activeTargetId) {
+          for (const target of pageTargets) {
+            if (getTargetIdFromTarget(target) === activeTargetId) {
+              targetPage = await target.page()
+              break
+            }
           }
         }
-      }
-    } catch { /* 忽略，使用 fallback */ }
+      } catch { /* 忽略，使用 fallback */ }
+    }
 
     // fallback：取最后一个非 devtools 页面
     if (!targetPage) {
@@ -448,6 +489,8 @@ function getToolsBundleName(hostname: string): string | null {
 /**
  * 根据页面域名查找并注入对应的工具 bundle
  * bundle 文件位于 dist/webmcp-tools/{hostname}.js
+ * 注意：每个工具 bundle 内部会在 window 上设置 __webmcptools_{domain} flag 防止重复注册，
+ * 此处在 JS 层额外做一次快速检查，避免每次都 evaluate 完整脚本带来不必要的 IPC 开销。
  */
 async function injectDomainTools(page: Page): Promise<void> {
   let hostname: string
@@ -468,6 +511,14 @@ async function injectDomainTools(page: Page): Promise<void> {
     return // 文件不存在，跳过
   }
 
+  // 快速检查：若页面已注入，直接返回，省去读文件和 evaluate 的开销
+  const bundleKey = bundleName.replace(/^webmcp-tools\//, '').replace(/\.js$/, '')
+  const flagKey = `__webmcptools_${bundleKey.replace(/[^a-zA-Z0-9]/g, '')}`
+  const alreadyInjected = await page.evaluate((key: string) => !!(window as any)[key], flagKey).catch(() => false)
+  if (alreadyInjected) {
+    return
+  }
+
   console.log(pc.cyan(`检测到域名 ${hostname} 有预置工具，正在注入...`))
 
   const toolScript = fs.readFileSync(toolBundlePath, 'utf-8')
@@ -480,3 +531,4 @@ async function injectDomainTools(page: Page): Promise<void> {
     console.warn(pc.yellow(`域名工具注入失败 (${hostname}): ${msg}`))
   }
 }
+

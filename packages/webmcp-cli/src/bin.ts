@@ -10,7 +10,6 @@ import { getFileBaseDir } from './expand-file-refs'
 import { prepareRunArgsJson } from './parse-run-args'
 import { stateCommand } from './commands/state'
 import { runCommand } from './commands/run'
-import { evaluateCommand } from './commands/evaluate'
 import { setClipboard } from './commands/clipboard'
 import {
   tabsOpenCommand,
@@ -92,25 +91,7 @@ function writeLog(commandName: string, args: any, result: any, error?: any) {
       logText += `RESULT:\n`
       try {
         if (result && typeof result === 'object') {
-          const textContent = result.content?.[0]?.text
-          if (textContent && typeof textContent === 'string' && textContent.startsWith('浏览器状态: ')) {
-            const stateJsonStr = textContent.replace('浏览器状态: ', '')
-            const stateData = JSON.parse(stateJsonStr)
-            logText += `  URL: ${stateData.url}\n`
-            logText += `  TITLE: ${stateData.title}\n`
-            logText += `  CONTENT:\n`
-            const yamlLines = stateData.content.split('\n')
-            logText += yamlLines.map((line: string) => `    ${line}`).join('\n') + '\n'
-          } else if (typeof result.content === 'string') {
-            const { content, ...rest } = result
-            logText += `  METADATA:\n`
-            logText += JSON.stringify(rest, null, 2).split('\n').map(line => `    ${line}`).join('\n') + '\n'
-            logText += `  CONTENT:\n`
-            const contentLines = content.split('\n')
-            logText += contentLines.map((line: string) => `    ${line}`).join('\n') + '\n'
-          } else {
-            logText += JSON.stringify(result, null, 2).split('\n').map(line => `  ${line}`).join('\n') + '\n'
-          }
+          logText += JSON.stringify(result, null, 2).split('\n').map(line => `  ${line}`).join('\n') + '\n'
         } else {
           logText += String(result).split('\n').map(line => `  ${line}`).join('\n') + '\n'
         }
@@ -150,11 +131,10 @@ program
 
 program
   .command('state')
-  .description('获取浏览器当前页签或指定页签的状态（内容、所有页签列表、可用 WebMCP 工具列表）')
+  .description('获取浏览器当前页签或指定页签的导航元数据（url、title、webmcpTools、所有页签列表）')
   .option('-t, --tabid <id>', '指定页签的 ID')
-  .option('-r, --resMode <mode>', '返回模式，支持 full (全部)、diff (差异)、both (全部和差异)，默认为 diff', 'diff')
   .action(async (options) => {
-    const args = { tabid: parseTabId(options.tabid), resMode: options.resMode }
+    const args = { tabid: parseTabId(options.tabid) }
     try {
       const result = await stateCommand(args)
       writeLog('state', args, result)
@@ -207,20 +187,6 @@ program
     }
   })
 
-program
-  .command('evaluate <jsScript>')
-  .description('向当前网页或指定页签注入并执行 JavaScript 代码')
-  .option('-t, --tabid <id>', '指定页签的 ID')
-  .action(async (jsScript, options) => {
-    const args = { jsScript, tabid: parseTabId(options.tabid) }
-    try {
-      const result = await evaluateCommand(args)
-      writeLog('evaluate', args, result)
-      console.log(JSON.stringify(result, null, 2))
-    } catch (error: unknown) {
-      handleCommandError(error, 'evaluate', args)
-    }
-  })
 
 program
   .command('clipboard <content>')

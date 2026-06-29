@@ -10,6 +10,14 @@ type ToolResult = {
   editor: 'codemirror5' | 'codemirror6'
 }
 
+/** 掘金编辑器页面：/editor/drafts/new 会在填写标题后自动跳转为 /editor/drafts/{id} */
+function isJuejinDraftEditorPage(): boolean {
+  if (!/^https:\/\/juejin\.cn\/editor\/drafts\//.test(location.href)) {
+    return false
+  }
+  return !!document.querySelector('.edit-draft .header .title-input')
+}
+
 const mcp = (navigator as any).modelContext
 if (!mcp || typeof mcp.registerTool !== 'function') {
   console.warn('[webmcp-tools] juejin.cn: navigator.modelContext.registerTool 未就绪，跳过注入')
@@ -50,8 +58,10 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
           throw new Error('参数 content 不能为空')
         }
 
-        if (!location.href.startsWith('https://juejin.cn/editor/drafts/new')) {
-          throw new Error('当前页面不是掘金新建文章编辑器，请先打开 https://juejin.cn/editor/drafts/new?v=2')
+        if (!isJuejinDraftEditorPage()) {
+          throw new Error(
+            '当前页面不是掘金文章编辑器（新建或草稿页均可），请先打开 https://juejin.cn/editor/drafts/new?v=2'
+          )
         }
 
         let decodeContent: string
@@ -111,11 +121,16 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
         }
 
         return {
-          success: true,
-          message: '文章标题和正文已成功填写到掘金编辑器，草稿将自动保存',
-          title: title.trim(),
-          contentLength: decodeContent.length,
-          editor
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              success: true,
+              message: '文章标题和正文已成功填写到掘金编辑器，草稿将自动保存',
+              title: title.trim(),
+              contentLength: decodeContent.length,
+              editor
+            })
+          }]
         }
       }
     })
@@ -147,9 +162,15 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
         }
 
         return {
-          success: true,
-          title,
-          content
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              success: true,
+              title: title.trim(),
+              contentLength: content.length,
+              content
+            })
+          }]
         }
       }
     })
@@ -178,99 +199,131 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
         required: ['summary']
       },
       execute: async ({ category = '前端', tag = 'Vue.js', summary }: { category?: string; tag?: string; summary: string }) => {
-        // 1. 找到“发布”按钮并点击
-        const publishBtn = Array.from(document.querySelectorAll('button')).find(
+        if (!isJuejinDraftEditorPage()) {
+          throw new Error('未处于掘金文章编辑器页面，请先 tabs switch 到编辑器标签页后再发布')
+        }
+
+        // 1. 在编辑器区域内找到“发布”按钮并点击
+        const editorRoot = document.querySelector('.edit-draft') ?? document
+        const publishBtn = Array.from(editorRoot.querySelectorAll('button')).find(
           e => e.textContent?.trim() === '发布'
         ) as HTMLButtonElement | null
         if (!publishBtn) {
-          throw new Error('未找到“发布”按钮，请确认已处于文章编辑器页面')
+          throw new Error('未找到“发布”按钮，请确认已处于文章编辑器页面且页面已完全加载')
         }
         publishBtn.click()
 
         // 等待弹窗渲染
         await new Promise(resolve => setTimeout(resolve, 1000))
 
-        // 2. 选择分类
-        const categoryButtons = Array.from(
-          document.querySelectorAll('.category-list .item, .category-list .category-item, .category-item, .item')
-        )
-        let catBtn = categoryButtons.find(e => e.textContent?.includes(category))
-        if (!catBtn) {
-          catBtn = Array.from(document.querySelectorAll('*')).find(
-            e => e.textContent === category && (e as HTMLElement).tagName !== 'SCRIPT'
+        const dialogScope = document.querySelector('.panel, .modal, [role="dialog"]') || document
+
+        // 2. 选择分类：掘金真实 DOM 结构是 .category-list > div.item（文本两侧有空格，用 trim 处理）
+        const candidateSelectors = [
+          '.category-list .item',      // 掘金：直接命中
+          '.category-list li', '.category-list button', '.category-list [role="button"]',
+          '.category-item', '[class*="category"] li', '[class*="category"] span'
+        ]
+        let catBtn: Element | undefined
+        for (const sel of candidateSelectors) {
+          catBtn = Array.from(dialogScope.querySelectorAll(sel)).find(
+            e => e.textContent?.trim() === category
           )
+          if (catBtn) break
+        }
+        // 降级：全文本精确匹配所有可见 div/span 元素
+        if (!catBtn) {
+          catBtn = Array.from(dialogScope.querySelectorAll('div, span, li, button')).find(e => {
+            const el = e as HTMLElement
+            return el.textContent?.trim() === category && el.offsetParent !== null
+          })
         }
         if (!catBtn) {
           throw new Error(`未找到分类按钮: ${category}`)
         }
         ;(catBtn as HTMLElement).click()
 
-        // 3. 搜索标签
-        const tagLabel = Array.from(document.querySelectorAll('span, div, label, .label')).find(
-          e => e.textContent?.includes('添加标签')
-        )
-        if (!tagLabel) {
-          throw new Error('未找到“添加标签”的表单项')
-        }
-        const parent = tagLabel.closest('.form-item, .margin-bottom, .entry-form-item, div')
-        const input = parent ? (parent.querySelector('input') as HTMLInputElement | null) : null
+        // 3. 搜索标签：掘金真实输入框类名为 .byte-select__input（没有 placeholder 属性），优先用类名查找
+        const input = (
+          dialogScope.querySelector('.byte-select__input, input[placeholder*="搜索添加标签"], input[placeholder*="添加标签"], input[placeholder*="标签"]')
+        ) as HTMLInputElement | null
         if (!input) {
           throw new Error('未找到标签输入框')
         }
 
         input.focus()
-        input.value = tag
-        input.dispatchEvent(new Event('input', { bubbles: true }))
+        // 使用 InputEvent 触发 Vue/React 响应式监听（普通 Event 无法被框架感知）
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set
+        if (nativeInputValueSetter) {
+          nativeInputValueSetter.call(input, tag)
+        } else {
+          input.value = tag
+        }
+        input.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, data: tag }))
         input.dispatchEvent(new Event('change', { bubbles: true }))
 
-        // 等待下拉选项渲染
-        await new Promise(resolve => setTimeout(resolve, 1500))
+        // 等待异步搜索接口返回并渲染下拉选项（增大至 2000ms 防止网络慢丢失结果）
+        await new Promise(resolve => setTimeout(resolve, 2000))
 
-        // 选择下拉项
-        const items = Array.from(
+        // 选择下拉项：使用 ByteDance/掘金特有的下拉选项类名，同时也保留 .item 防止类名混用
+        const tagDropdownItems = Array.from(
           document.querySelectorAll(
-            '.byte-select-option, .select-option, .option, .item, .dropdown-item, .byte-select__option, .byte-select-option-wrapper'
+            '.byte-select-option, .byte-select__option, .byte-select-option-wrapper, .select-option, .dropdown-item, .item'
           )
         )
-        const tagItem = items.find(e => e.textContent?.trim() === tag) as HTMLElement | null
+        let tagItem = tagDropdownItems.find(e => e.textContent?.trim() === tag) as HTMLElement | null
+        // 降级：在所有可见的 li / [role=option] 中查找精确文本匹配
         if (!tagItem) {
-          throw new Error(`标签下拉选项中未找到匹配的: ${tag}`)
+          tagItem = Array.from(document.querySelectorAll('li, [role="option"]')).find(e => {
+            const el = e as HTMLElement
+            return el.textContent?.trim() === tag && el.offsetParent !== null
+          }) as HTMLElement | null
+        }
+        if (!tagItem) {
+          const foundTexts = tagDropdownItems.map(e => e.textContent?.trim()).join(', ')
+          throw new Error(`标签下拉选项中未找到匹配的: ${tag}。当前找到的选项有: [${foundTexts}]，请检查标签名称是否正确，或手动打开下拉框选择`)
         }
         tagItem.click()
 
-        // 3.1 对传入的摘要进行长度自适应及填入
+        // 3.1 强制要求摘要在 50-100 字之间
         let finalSummary = summary || ''
-        if (finalSummary.length < 50) {
-          while (finalSummary.length < 50) {
-            finalSummary += '。这是关于本文内容的详细介绍，欢迎阅读全文了解更多精彩的技术细节与实践经验分享。'
-          }
-        }
-        if (finalSummary.length > 100) {
-          finalSummary = finalSummary.slice(0, 97) + '...'
+        if (finalSummary.length < 50 || finalSummary.length > 100) {
+          throw new Error(`摘要字数必须在 50 到 100 字之间，当前字数为：${finalSummary.length}。请重新生成摘要后再试。`)
         }
 
         // 3.2 找到并填写摘要框
-        const summaryTextarea = document.querySelector('.summary-textarea, textarea[placeholder*="摘要"], textarea[placeholder*="文章的摘要"]') as HTMLTextAreaElement | null
-        if (summaryTextarea) {
-          summaryTextarea.focus()
-          summaryTextarea.value = finalSummary
-          summaryTextarea.dispatchEvent(new Event('input', { bubbles: true }))
-          summaryTextarea.dispatchEvent(new Event('change', { bubbles: true }))
-          summaryTextarea.blur()
-          await new Promise(resolve => setTimeout(resolve, 500))
+        // 掘金摘要框真实类名是 .byte-input__textarea（无 placeholder），不是 .summary-textarea
+        const summaryTextarea = (
+          dialogScope.querySelector('.byte-input__textarea') ||
+          dialogScope.querySelector('textarea') ||
+          dialogScope.querySelector('.summary-textarea, textarea[placeholder*="摘要"]')
+        ) as HTMLTextAreaElement | null
+
+        if (!summaryTextarea) {
+          throw new Error('未找到摘要输入框（.byte-input__textarea），请检查弹窗是否正常打开')
         }
 
-        // 3.3 点击标题关闭下拉弹窗（避免遮挡“确定并发布”按钮）
-        const titleClose = Array.from(document.querySelectorAll('*')).find(
-          e => e.textContent?.trim() === '发布文章'
-        ) as HTMLElement | null
-        if (titleClose) {
-          titleClose.click()
+        // 使用 nativeInputValueSetter 触发 ByteDance 组件响应式（普通赋值无效）
+        const nativeTextareaValueSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set
+        summaryTextarea.focus()
+        if (nativeTextareaValueSetter) {
+          nativeTextareaValueSetter.call(summaryTextarea, finalSummary)
+        } else {
+          summaryTextarea.value = finalSummary
         }
+        summaryTextarea.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true }))
+        summaryTextarea.dispatchEvent(new Event('change', { bubbles: true }))
+        summaryTextarea.blur()
+        await new Promise(resolve => setTimeout(resolve, 300))
+
+        // 3.3 用 Escape 键关闭标签下拉（避免误点"发布文章"标题关闭整个弹窗）
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))
+        input.blur()
         await new Promise(resolve => setTimeout(resolve, 500))
 
-        // 4. 点击确定并发布
-        const confirmBtn = Array.from(document.querySelectorAll('button')).find(
+        // 3.4 找到并点击确认发布按钮
+        // 在掘金发布弹窗中，按钮文本通常是“确定并发布”
+        let confirmBtn = Array.from(dialogScope.querySelectorAll('button')).find(
           e => e.textContent?.trim() === '确定并发布'
         ) as HTMLButtonElement | null
         if (!confirmBtn) {
@@ -278,20 +331,48 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
         }
         confirmBtn.click()
 
-        // 停留 500 毫秒后验证发布状态
-        await new Promise(resolve => setTimeout(resolve, 500))
+        // 用 Promise.race 同时监听两个成功信号：
+        //   1. 弹窗 .panel 从 DOM 中消失（正常发布流程）
+        //   2. 页面发生跳转（window.location 变化，掘金有时会导航到发布成功页）
+        //   3. 超时兜底（5000ms 后若仍未变化，认为发布已触发，不再阻塞）
+        const publishResult = await Promise.race([
+          // 信号1：轮询检测弹窗是否消失
+          new Promise<'popup_closed'>((resolve) => {
+            const check = setInterval(() => {
+              const panel = document.querySelector('.panel')
+              if (!panel || (panel as HTMLElement).offsetParent === null) {
+                clearInterval(check)
+                resolve('popup_closed')
+              }
+            }, 200)
+            setTimeout(() => { clearInterval(check) }, 5000)
+          }),
+          // 信号2：监听页面跳转（beforeunload / hashchange 均可触发）
+          new Promise<'navigating'>((resolve) => {
+            const handler = () => resolve('navigating')
+            window.addEventListener('beforeunload', handler, { once: true })
+            setTimeout(() => { window.removeEventListener('beforeunload', handler) }, 5000)
+          }),
+          // 信号3：超时兜底
+          new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), 5000))
+        ])
 
-        // 判断发布文章的弹出框是否关闭
-        const popupTitle = Array.from(document.querySelectorAll('*')).find(
-          e => e.textContent?.trim() === '发布文章' && (e as HTMLElement).offsetParent !== null
-        )
-        if (popupTitle) {
-          throw new Error('发布文章失败，弹出框未关闭，请检查分类、标签或其他必填项是否正确填写')
+        // 如果是超时兜底，再检查一次弹窗
+        if (publishResult === 'timeout') {
+          const panel = document.querySelector('.panel')
+          if (panel && (panel as HTMLElement).offsetParent !== null) {
+            throw new Error('发布文章失败，弹出框未关闭，请检查分类、标签或其他必填项是否正确填写')
+          }
         }
 
         return {
-          success: true,
-          message: `自动发布流程已触发，分类: ${category}, 标签: ${tag}`
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              success: true,
+              message: `自动发布流程已触发，分类: ${category}, 标签: ${tag}，发布信号: ${publishResult}`
+            })
+          }]
         }
       }
     })
