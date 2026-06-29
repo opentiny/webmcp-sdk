@@ -25,15 +25,20 @@ export async function tabsOpenCommand(url: string) {
     await injectIntoPage(page)
     await new Promise((resolve) => setTimeout(resolve, 500))
 
-    const tabid = await getPageTargetId(page)
-    await activateTabById(browser, tabid)
-    setLastActiveTabId(tabid)
+    let tabid: string | undefined
+    try {
+      tabid = await getPageTargetId(page)
+      await activateTabById(browser, tabid)
+      setLastActiveTabId(tabid)
+    } catch (e) {
+      console.warn('Best-effort tab activation failed:', e)
+    }
 
     return {
       success: true,
       tabid,
       url: page.url(),
-      title: await page.title()
+      title: await page.title().catch(() => '')
     }
   } finally {
     await browser.disconnect()
