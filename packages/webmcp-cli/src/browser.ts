@@ -73,6 +73,29 @@ async function findAvailableCdpUrl(addresses: string[], retries = 2): Promise<st
   return null
 }
 
+/**
+ * 通过 Puppeteer 连接已运行的浏览器。
+ * 注意：不要在 connect 时使用 targetFilter——在 Windows Edge 上会导致 WebSocket 握手后永久挂起；
+ * 页面 target 的筛选在 getPageTargets / getTargetPage 中按需完成。
+ */
+async function connectPuppeteer(browserBaseUrl: string, attempt = 1, maxAttempts = 3): Promise<Browser> {
+  try {
+    return await promiseWithTimeout(
+      puppeteer.connect({ browserURL: browserBaseUrl, defaultViewport: null }),
+      10000,
+      `puppeteer.connect to ${browserBaseUrl} timed out`
+    )
+  } catch (err) {
+    if (attempt >= maxAttempts) {
+      throw err
+    }
+    const delayMs = 500 * attempt
+    console.log(pc.yellow(`connectBrowser: 第 ${attempt} 次连接失败，${delayMs}ms 后重试...`))
+    await new Promise(resolve => setTimeout(resolve, delayMs))
+    return connectPuppeteer(browserBaseUrl, attempt + 1, maxAttempts)
+  }
+}
+
 
 
 interface BrowserInfo {
@@ -136,14 +159,20 @@ async function startBrowserInBackground(): Promise<void> {
   // 用户可以通过 --workspace CLI 选项或 WEBMCP_WORKSPACE 环境变量自定义。
   const userDataDir = process.env.WEBMCP_WORKSPACE || path.join(os.homedir(), '.webmcp_chrome_profile')
   
+  const launchArgs = [
+    `--remote-debugging-port=${CDP_PORT}`,
+    `--user-data-dir=${userDataDir}`,
+    '--no-first-run',
+    '--no-default-browser-check'
+  ]
+  // Windows 上显式绑定 IPv4，避免 localhost 解析到 IPv6 导致 CDP 连接不稳定
+  if (os.platform() === 'win32') {
+    launchArgs.push('--remote-debugging-address=127.0.0.1')
+  }
+
   const child = spawn(
     browserInfo.path,
-    [
-      `--remote-debugging-port=${CDP_PORT}`,
-      `--user-data-dir=${userDataDir}`,
-      '--no-first-run',
-      '--no-default-browser-check'
-    ],
+    launchArgs,
     {
       detached: true,
       stdio: 'ignore'
@@ -171,35 +200,6 @@ async function startBrowserInBackground(): Promise<void> {
 }
 
 export async function connectBrowser(): Promise<Browser> {
-  const targetFilter = (target: any) => {
-    try {
-      const info = typeof target._getTargetInfo === 'function' ? target._getTargetInfo() : target
-      const type = info.type || ''
-      const url = info.url || ''
-      
-      // 过滤掉绝对不需要 attach 且容易发生死锁的后台/子框架 target
-      if (
-        type === 'service_worker' || 
-        type === 'shared_worker' || 
-        type === 'iframe' || 
-        type === 'other' || 
-        type === 'webview' ||
-        type === 'background_page'
-      ) {
-        return false
-      }
-      
-      // 过滤掉 devtools 和插件页面
-      if (url.startsWith('devtools://') || url.startsWith('chrome-extension://')) {
-        return false
-      }
-      
-      return true
-    } catch (e) {
-      return false
-    }
-  }
-
   // 第一步：找到第一个真正可达的 CDP 地址（优先 127.0.0.1，规避 Windows localhost → IPv6 问题）
   const versionAddresses = [
     `http://127.0.0.1:${CDP_PORT}/json/version`,
@@ -208,18 +208,17 @@ export async function connectBrowser(): Promise<Browser> {
 
   const existingUrl = await findAvailableCdpUrl(versionAddresses, 2)
   if (existingUrl) {
+    console.log(pc.yellow(`connectBrowser: 检测到端口 ${CDP_PORT} 已就绪，正在连接 ${existingUrl}...`))
     try {
-      console.log(pc.yellow(`connectBrowser: 检测到端口 ${CDP_PORT} 已就绪，正在连接 ${existingUrl}...`))
-      const browser = await promiseWithTimeout(
-        puppeteer.connect({ browserURL: existingUrl, defaultViewport: null, targetFilter }),
-        10000,
-        `puppeteer.connect to ${existingUrl} timed out`
-      )
+      const browser = await connectPuppeteer(existingUrl)
       console.log(pc.green(`connectBrowser: 成功连接 ${existingUrl}`))
       return browser
     } catch (err) {
-      // 地址可达但 puppeteer 连接失败（如浏览器正在关闭），继续走启动流程
-      console.log(pc.yellow(`connectBrowser: 连接 ${existingUrl} 失败，将尝试重新启动浏览器...`))
+      const msg = err instanceof Error ? err.message : String(err)
+      throw new Error(
+        `无法连接到已在运行的浏览器（${existingUrl}）：${msg}。` +
+        'CDP 端口可用，请勿重复启动浏览器；可关闭多余窗口后重试。'
+      )
     }
   }
 
@@ -241,11 +240,7 @@ export async function connectBrowser(): Promise<Browser> {
 
   try {
     console.log(pc.yellow(`connectBrowser: 浏览器已启动，正在连接 ${launchedUrl}...`))
-    const browser = await promiseWithTimeout(
-      puppeteer.connect({ browserURL: launchedUrl, defaultViewport: null, targetFilter }),
-      10000,
-      `puppeteer.connect to ${launchedUrl} after launch timed out`
-    )
+    const browser = await connectPuppeteer(launchedUrl)
     console.log(pc.green(`connectBrowser: 成功连接 ${launchedUrl}`))
     return browser
   } catch {
