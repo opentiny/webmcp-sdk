@@ -18,8 +18,10 @@ export type UIMessage =
       content: Ref<StartContent | undefined>
     }
 export class NextAgent {
-  /** 调试流， 是否打印流数据 */
+  /** 是否打印调试流数据 */
   debugStream: boolean = true
+  /** 是否调试会话 */
+  debugConversation: boolean = false
 
   // **************** 智能体管理 ****************
   /** 主体智能体 */

@@ -13,11 +13,6 @@ export type Conversation = {
 
 const $KEY = 'next-web-agent-conversation-key'
 
-const debugLog = false
-const log = (...data: any) => {
-  debugLog && console.log(data)
-}
-
 /* 对话管理, 创建新会话，删除会话，记录到本地存储
   1. 加载时，创建一个新会话，压入到队列头， 但不记录到本地存储。
   2. 保存时，才检查新会话有没有消息，有消息才生成title。  无消息，证明会话一直未聊天，要移除掉它。
@@ -29,6 +24,10 @@ export function useConversation(agent: NextAgent) {
   // 加载历史会话 + 创建新会话
   const conversations: Ref<Conversation[]> = ref(JSON.parse(localStorage.getItem($KEY) || '[]'))
   createConversation()
+
+  const _log = (...data: any) => {
+    agent.debugConversation && console.log(data)
+  }
 
   /** 插入到队首，更新当前会话 */
   function createConversation() {
@@ -51,7 +50,7 @@ export function useConversation(agent: NextAgent) {
     agent.uiMessages.value = conversation.uiMessages
     // 保存到本地存储
     _save(conversations, maxConversations)
-    log('switchConversation', conversation)
+    _log('switchConversation', conversation)
   }
   /** 删除会话 */
   function deleteConversation(conversation: Conversation) {
@@ -60,7 +59,7 @@ export function useConversation(agent: NextAgent) {
 
     conversations.value = conversations.value.filter((c) => c.id !== conversation.id)
     _save(conversations, maxConversations)
-    log('deleteConversation', conversation)
+    _log('deleteConversation', conversation)
   }
 
   /** 重命名会话标题 */
@@ -70,7 +69,7 @@ export function useConversation(agent: NextAgent) {
       con.title = newTitle
       _save(conversations, maxConversations)
     }
-    log('renameConversation', conversation, newTitle)
+    _log('renameConversation', conversation, newTitle)
   }
   // 注册钩子函数
   function syncMsgAndSave() {

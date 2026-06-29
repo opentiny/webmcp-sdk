@@ -163,9 +163,6 @@ export async function getMainSkillPathByName(
   return undefined
 }
 
-// ============ 内置工具：供 remoter 注入，替代业界 skill 中「读取文档」的操作 ============
-
-/** AI SDK Tool 类型，用于 extraTools 合并，不写死泛型避免与 ai 包版本强绑定 */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type SkillToolsSet = Record<string, any>
 
@@ -190,8 +187,7 @@ const SKILL_INPUT_SCHEMA = z.object({
 })
 
 /**
- * 根据 skillMdModules 创建供 AI 调用的工具集
- *  @return \{ 'get-skill-content': tool }
+ * 根据 skillMdModules 创建供 AI 调用的工具集,返回 `getSkillContent` 函数
  */
 export function createSkillTools(modules: Record<string, string | (() => Promise<string>)>): SkillToolsSet {
   let isNormalizeSkillModuleKeys = false
