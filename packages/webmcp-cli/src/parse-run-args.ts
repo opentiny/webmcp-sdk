@@ -161,23 +161,32 @@ export function parseArgsJson(raw: string): string {
  * prepareRunArgsJson([], readFileSync('args.json', 'utf-8'), dirname('args.json'))
  */
 export function prepareRunArgsJson(args: string[], fileContent: string | undefined, baseDir: string): string {
-  let raw = ''
-
   if (fileContent !== undefined) {
-    raw = fileContent.trim()
-  } else if (args.length > 0) {
-    const joined = joinShellArgs(args)
-    if (joined.startsWith('{') || looksLikeObjectBody(joined)) {
-      raw = joined
-    } else if (args.every((arg) => arg.includes('='))) {
-      raw = buildArgsFromKeyValuePairs(args)
-    } else {
-      raw = joined
+    const trimmed = fileContent.trim()
+    if (!trimmed) {
+      throw new Error('通过 -f/--file 指定的参数文件内容不能为空')
     }
+    const expanded = expandFileRefs(trimmed, baseDir)
+    return parseArgsJson(expanded)
   }
 
-  if (!raw) {
-    throw new Error('必须提供参数或通过 -f/--file 指定参数文件')
+  if (args.length === 0) {
+    // 无参数工具（如 get_article_info）允许省略 args，默认空对象
+    return '{}'
+  }
+
+  const joined = joinShellArgs(args)
+  let raw = ''
+  if (joined.startsWith('{') || looksLikeObjectBody(joined)) {
+    raw = joined
+  } else if (args.every((arg) => arg.includes('='))) {
+    raw = buildArgsFromKeyValuePairs(args)
+  } else {
+    raw = joined
+  }
+
+  if (!raw.trim()) {
+    throw new Error('未提供有效参数')
   }
 
   const expanded = expandFileRefs(raw, baseDir)

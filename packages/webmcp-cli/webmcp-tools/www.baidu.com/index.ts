@@ -11,7 +11,8 @@
 const _baiduMcp = (navigator as any).modelContext
 if (!_baiduMcp || typeof _baiduMcp.registerTool !== 'function') {
   console.warn('[webmcp-tools] www.baidu.com: navigator.modelContext.registerTool 未就绪，跳过注入')
-} else if (!(window as any).__webmcptools_baidu) {
+} else if (!(window as any).__webmcptools_wwwbaiducom) {
+  ;(window as any).__webmcptools_wwwbaiducom = true
   try {
     _baiduMcp.registerTool({
       name: 'baidu_search',

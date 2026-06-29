@@ -14,6 +14,36 @@ const CDP_PORT = 9222
 // 使用 localhost 以兼容 IPv4/IPv6 绑定
 const CDP_URL = `http://localhost:${CDP_PORT}`
 
+function getWorkspaceDir(): string {
+  return process.env.WEBMCP_WORKSPACE || path.join(os.homedir(), '.webmcp_chrome_profile')
+}
+
+function getLastTabIdFilePath(): string {
+  return path.join(getWorkspaceDir(), '.last-tab-id')
+}
+
+/** 记录最近一次 tabs open / tabs switch 操作的标签页，供 run 无 -t 时回退定位 */
+export function setLastActiveTabId(tabid: string): void {
+  try {
+    const dir = getWorkspaceDir()
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+    }
+    fs.writeFileSync(getLastTabIdFilePath(), tabid, 'utf-8')
+  } catch {
+    // 写入失败不阻断主流程
+  }
+}
+
+function getLastActiveTabId(): string | null {
+  try {
+    const tabid = fs.readFileSync(getLastTabIdFilePath(), 'utf-8').trim()
+    return tabid || null
+  } catch {
+    return null
+  }
+}
+
 /**
  * 使用 Node.js 原生 http 模块发起 GET 请求并返回响应体文本
  * 避免 Node.js fetch 将 localhost 解析为 IPv6 ::1 导致连接 Chrome CDP 失败的问题
@@ -331,32 +361,43 @@ export async function getTargetPage(browser: Browser, tabid?: string): Promise<P
     }
     targetPage = await target.page()
   } else {
-    // Chrome 的 /json/list 接口把当前激活 the tab 排在第一位，用它来判断激活 tab
-    try {
-      const urls = [
-        `http://localhost:${CDP_PORT}/json/list`,
-        `http://127.0.0.1:${CDP_PORT}/json/list`
-      ]
-      let activeTargetId: string | null = null
-      for (const url of urls) {
-        try {
-          const body = await httpGet(url, 1000)
-          const targetsData: Array<{ id: string; type: string; url: string }> = JSON.parse(body)
-          // 找第一个 type=page 且不是 devtools:// 的 target（Chrome 把激活的排第一）
-          const active = targetsData.find(t => t.type === 'page' && !t.url.startsWith('devtools://'))
-          if (active) { activeTargetId = active.id; break }
-        } catch { /* 忽略，继续试下一个地址 */ }
+    // 优先使用最近一次 tabs open/switch 记录的标签页（Agent 连续 CLI 调用更可靠）
+    const lastTabId = getLastActiveTabId()
+    if (lastTabId) {
+      const lastTarget = findPageTargetByTabId(browser, lastTabId)
+      if (lastTarget) {
+        targetPage = await lastTarget.page()
       }
+    }
 
-      if (activeTargetId) {
-        for (const target of pageTargets) {
-          if (getTargetIdFromTarget(target) === activeTargetId) {
-            targetPage = await target.page()
-            break
+    // Chrome 的 /json/list 接口把当前激活 the tab 排在第一位，用它来判断激活 tab
+    if (!targetPage) {
+      try {
+        const urls = [
+          `http://localhost:${CDP_PORT}/json/list`,
+          `http://127.0.0.1:${CDP_PORT}/json/list`
+        ]
+        let activeTargetId: string | null = null
+        for (const url of urls) {
+          try {
+            const body = await httpGet(url, 1000)
+            const targetsData: Array<{ id: string; type: string; url: string }> = JSON.parse(body)
+            // 找第一个 type=page 且不是 devtools:// 的 target（Chrome 把激活的排第一）
+            const active = targetsData.find(t => t.type === 'page' && !t.url.startsWith('devtools://'))
+            if (active) { activeTargetId = active.id; break }
+          } catch { /* 忽略，继续试下一个地址 */ }
+        }
+
+        if (activeTargetId) {
+          for (const target of pageTargets) {
+            if (getTargetIdFromTarget(target) === activeTargetId) {
+              targetPage = await target.page()
+              break
+            }
           }
         }
-      }
-    } catch { /* 忽略，使用 fallback */ }
+      } catch { /* 忽略，使用 fallback */ }
+    }
 
     // fallback：取最后一个非 devtools 页面
     if (!targetPage) {
@@ -448,6 +489,8 @@ function getToolsBundleName(hostname: string): string | null {
 /**
  * 根据页面域名查找并注入对应的工具 bundle
  * bundle 文件位于 dist/webmcp-tools/{hostname}.js
+ * 注意：每个工具 bundle 内部会在 window 上设置 __webmcptools_{domain} flag 防止重复注册，
+ * 此处在 JS 层额外做一次快速检查，避免每次都 evaluate 完整脚本带来不必要的 IPC 开销。
  */
 async function injectDomainTools(page: Page): Promise<void> {
   let hostname: string
@@ -468,6 +511,14 @@ async function injectDomainTools(page: Page): Promise<void> {
     return // 文件不存在，跳过
   }
 
+  // 快速检查：若页面已注入，直接返回，省去读文件和 evaluate 的开销
+  const bundleKey = bundleName.replace(/^webmcp-tools\//, '').replace(/\.js$/, '')
+  const flagKey = `__webmcptools_${bundleKey.replace(/[^a-zA-Z0-9]/g, '')}`
+  const alreadyInjected = await page.evaluate((key: string) => !!(window as any)[key], flagKey).catch(() => false)
+  if (alreadyInjected) {
+    return
+  }
+
   console.log(pc.cyan(`检测到域名 ${hostname} 有预置工具，正在注入...`))
 
   const toolScript = fs.readFileSync(toolBundlePath, 'utf-8')
@@ -480,3 +531,4 @@ async function injectDomainTools(page: Page): Promise<void> {
     console.warn(pc.yellow(`域名工具注入失败 (${hostname}): ${msg}`))
   }
 }
+

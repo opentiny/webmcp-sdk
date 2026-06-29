@@ -1,5 +1,5 @@
 /**
- * juejin.cn 工具适配层
+ * my.oschina.net 工具适配层
  */
 
 type OSCHINAToolResult = {
@@ -10,8 +10,9 @@ type OSCHINAToolResult = {
 
 const mcp = (navigator as any).modelContext
 if (!mcp || typeof mcp.registerTool !== 'function') {
-  console.warn('[webmcp-tools] juejin.cn: navigator.modelContext.registerTool 未就绪，跳过注入')
-} else if (!(window as any).__webmcptools_juejincn) {
+  console.warn('[webmcp-tools] my.oschina.net: navigator.modelContext.registerTool 未就绪，跳过注入')
+} else if (!(window as any).__webmcptools_myoschinanet) {
+  ;(window as any).__webmcptools_myoschinanet = true
   try {
     mcp.registerTool({
       name: 'create_article',
