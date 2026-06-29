@@ -25,7 +25,6 @@ export function useTools(agent: NextAgent) {
       agent.$mcpServers.tools,
       agent.$skills.tools
     )
-    debugger
 
     // 移除忽略的工具
     ignoreToolNames.value.forEach((name) => {

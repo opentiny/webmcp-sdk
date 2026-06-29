@@ -191,8 +191,7 @@ const SKILL_INPUT_SCHEMA = z.object({
 
 /**
  * 根据 skillMdModules 创建供 AI 调用的工具集
- * - get_skill_content: 按技能名或路径获取完整文档内容，便于大模型自动识别并加载技能
- * remoter 可将返回的 tools 合并进 extraTools 注入 agent
+ *  @return \{ 'get-skill-content': tool }
  */
 export function createSkillTools(modules: Record<string, string | (() => Promise<string>)>): SkillToolsSet {
   let isNormalizeSkillModuleKeys = false
@@ -281,5 +280,5 @@ export function createSkillTools(modules: Record<string, string | (() => Promise
     }
   })
 
-  return { 'get-skill-content': getSkillContent }
+  return getSkillContent
 }
