@@ -51,4 +51,5 @@ export const SUPPORTED_DOMAINS: string[] = [
   'juejin.cn',
   'xiaohongshu.com',
   'creator.xiaohongshu.com',
+  'segmentfault.com'
 ]

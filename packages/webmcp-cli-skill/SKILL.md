@@ -145,6 +145,7 @@ webmcp-cli run page-agent-tool '{"action": "browserState"}' -t <targetId>
 | ------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `excalidraw.com`          | `excalidraw_execute_command`                              | **当当前页面 URL 包含 `excalidraw.com` 且需要绘制或操作画布元素时，请阅读 [domains/excalidraw.md](domains/excalidraw.md)。**                |
 | `juejin.cn`               | `create_article`                                          | **当需要在掘金平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-juejin.md](domains/publish-article-in-juejin.md)。** |
+| `segmentfault.com`        | `segmentfault_publish_article`                            | **当需要在思否平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-segmentfault.md](domains/publish-article-in-segmentfault.md)。支持完整流程、定时发布、封面手动上传。** |
 | `www.baidu.com`           | `baidu_search`, `baidu_get_results`                       | 无需子 Skill；工具的描述已能说明用途。                                                                                                      |
 | `my.oschina.net/`         | `create_article`                                          | **当需要在开源中国平台发布文章时，请阅读 [domains/publish-article-in-oschina.md](domains/publish-article-in-juejin.md)。**                  |
 | `xiaohongshu.com`         | `xhs_get_note_detail`, `xhs_get_feed`, `xhs_search_notes` | 无需子 Skill；工具的描述已能说明用途。                                                                                                      |
@@ -164,6 +165,25 @@ webmcp-cli run xhs_search_notes '{"keyword": "AI Agent", "limit": 10}'
 
 # 小红书发布图文笔记
 webmcp-cli run xhs_publish_note '{"title": "第一条笔记", "content": "内容极其精彩...", "images": [{"name": "1.jpg", "mimeType": "image/jpeg", "base64": "..."}]}'
+
+# 思否平台完整流程（导航→过引导→填内容→保存草稿）
+webmcp-cli run segmentfault_publish_article '{
+  "action": "publish_full_flow",
+  "title": "你的文章标题",
+  "content": "# 正文\n\n文章内容...",
+  "category": "前端",
+  "tags": ["前端", "AI", "WebMCP"],
+  "type": "original",
+  "scope": "personal",
+  "copyright": true,
+  "scheduled_time": "2026-07-01T10:00:00+08:00"
+}'
+
+# 思否分步操作（精细控制）
+webmcp-cli run segmentfault_publish_article '{"action": "set_title", "title": "文章标题"}'
+webmcp-cli run segmentfault_publish_article '{"action": "set_scheduled_publish", "scheduled_time": "2026-07-01T10:00:00+08:00"}'
+webmcp-cli run segmentfault_publish_article '{"action": "publish", "confirm": true}'
+}'
 ```
 
 ### 何时阅读 `domains/excalidraw.md`
