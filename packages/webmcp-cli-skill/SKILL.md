@@ -79,15 +79,16 @@ webmcp-cli run system-overview '{}'
 
 **推荐工作流：**
 
-```text
-webmcp-cli tabs open <url>  # 打开页面（无需先 state）
-webmcp-cli state            # 获取 url/title/webmcpTools/tabs 导航元数据
-webmcp-cli run page-agent-tool '{"action": "browserState", "responseMode": "full"}'
-                            # 获取完整 DOM 元素索引，或者使用 searchTree 进行过滤搜索
-webmcp-cli run ...          # 基于返回的元素索引/工具执行操作（例如 click, fill）
-```
+1. **打开页面**：使用 `tabs open` 命令导航到目标 URL。
+2. **确认状态**：使用 `state` 获取导航元数据，确认 `webmcpTools` 是否注入完毕。
+3. **获取页面信息**：这是与页面交互**最关键的一步**！由于 `state` 不包含 DOM 内容，你必须通过 `page-agent-tool` 来获取页面的可交互元素。**请根据实际情况自主思考并选择获取方式**：
+   - **方式 A（按需搜索）**：如果你明确知道要寻找的元素特征（例如“登录”按钮），**优先使用** `searchTree` 以节省大量上下文 Token。
+     `webmcp-cli run page-agent-tool '{"action": "searchTree", "query": "登录"}'`
+   - **方式 B（全量获取）**：如果你需要全面了解页面结构，或者不知道页面上具体有什么元素，请使用 `browserState` 抓取完整的无障碍树。
+     `webmcp-cli run page-agent-tool '{"action": "browserState", "responseMode": "full"}'`
+4. **执行交互**：拿到上一步返回的元素索引（`index`）后，再执行 `click`、`fill` 等具体操作。
 
-执行 `page-agent-tool`（点击、填写、滚动等）时，**必须** 依据 `browserState` 或 `searchTree` 返回的元素索引确定元素 `index`，切勿沿用过期索引。`state` 是确认当前页面有哪些 `webmcpTools`（含领域专用工具）的唯一方式，获取页面状态必须调用 `browserState` 或 `searchTree`。
+执行 `page-agent-tool` 操作（点击、填写、滚动等）时，**必须** 依据 `browserState` 或 `searchTree` 返回的元素索引确定元素 `index`，切勿沿用过期猜测的索引。
 
 
 ### 3. 执行页面上的工具 `webmcp-cli run <tool-name> '<json-args>'`
@@ -204,7 +205,7 @@ webmcp-cli run page-agent-tool '{"action": "searchTree", "query": "#42", "contex
 | 需要注入的域名            | 注入的工具                                                | 何时阅读子 Skill                                                                                                                            |
 | ------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `excalidraw.com`          | `excalidraw_execute_command`                              | **当当前页面 URL 包含 `excalidraw.com` 且需要绘制或操作画布元素时，请阅读 [domains/excalidraw.md](domains/excalidraw.md)。**                |
-| `juejin.cn`               | `create_article`                                          | **当需要在掘金平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-juejin.md](domains/publish-article-in-juejin.md)。** |
+| `juejin.cn`               | `create_article`, `publish_current_draft`, `get_article_info` | **当需要在掘金平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-juejin.md](domains/publish-article-in-juejin.md)。**<br>注意：调用 `publish_current_draft` 前必须先生成严格在 **50-100 字** 内的文章摘要，否则工具将直接报错停止发布！ |
 | `www.baidu.com`           | `baidu_search`, `baidu_get_results`                       | 无需子 Skill；工具的描述已能说明用途。                                                                                                      |
 | `my.oschina.net/`         | `create_article`                                          | **当需要在开源中国平台发布文章时，请阅读 [domains/publish-article-in-oschina.md](domains/publish-article-in-juejin.md)。**                  |
 | `xiaohongshu.com`         | `xhs_get_note_detail`, `xhs_get_feed`, `xhs_search_notes` | 无需子 Skill；工具的描述已能说明用途。                                                                                                      |

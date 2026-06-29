@@ -489,6 +489,8 @@ function getToolsBundleName(hostname: string): string | null {
 /**
  * 根据页面域名查找并注入对应的工具 bundle
  * bundle 文件位于 dist/webmcp-tools/{hostname}.js
+ * 注意：每个工具 bundle 内部会在 window 上设置 __webmcptools_{domain} flag 防止重复注册，
+ * 此处在 JS 层额外做一次快速检查，避免每次都 evaluate 完整脚本带来不必要的 IPC 开销。
  */
 async function injectDomainTools(page: Page): Promise<void> {
   let hostname: string
@@ -509,6 +511,13 @@ async function injectDomainTools(page: Page): Promise<void> {
     return // 文件不存在，跳过
   }
 
+  // 快速检查：若页面已注入，直接返回，省去读文件和 evaluate 的开销
+  const flagKey = `__webmcptools_${hostname.replace(/[^a-zA-Z0-9]/g, '')}`
+  const alreadyInjected = await page.evaluate((key: string) => !!(window as any)[key], flagKey).catch(() => false)
+  if (alreadyInjected) {
+    return
+  }
+
   console.log(pc.cyan(`检测到域名 ${hostname} 有预置工具，正在注入...`))
 
   const toolScript = fs.readFileSync(toolBundlePath, 'utf-8')
@@ -521,3 +530,4 @@ async function injectDomainTools(page: Page): Promise<void> {
     console.warn(pc.yellow(`域名工具注入失败 (${hostname}): ${msg}`))
   }
 }
+
