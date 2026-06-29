@@ -33,19 +33,11 @@ npm install -g @opentiny/webmcp-cli
 
 ```bash
 webmcp-cli tabs open https://excalidraw.com    # 打开新网页
-webmcp-cli tabs close <tabid>                  # 关闭指定标签页
-webmcp-cli tabs switch <tabid>                 # 切换到指定标签页
-webmcp-cli tabs back                           # 当前标签页后退
-webmcp-cli tabs back <tabid>                   # 指定标签页后退
-webmcp-cli tabs forward                        # 当前标签页前进
-webmcp-cli tabs forward <tabid>                # 指定标签页前进
-```
+webmcp-cli tabs close <tabid>                  # 关闭指定标�### 2. 查询浏览器当前状态 `webmcp-cli state`
 
-`tabs` 会影响当前浏览器的实时状态，它 **不会** 返回当前页面的可交互元素索引和 `webmcpTools` 列表。所以 每一个`tabs` 命令执行完毕后，**必须立即再调用一次** `webmcp-cli state`，才能获取新页面的 DOM 内容与可用页面工具。
+它返回当前浏览器的**导航元数据**（url、title、activeTabid、webmcpTools、所有已打开页签），是确认当前页面有哪些可用工具（`webmcpTools`）的唯一方式。
 
-### 2. 查询浏览器当前状态 `webmcp-cli state`
-
-它返回当前浏览器的 **完整状态**，这是操作页面前的唯一可靠信息来源。
+> **注意**：`state` 不返回页面 DOM 内容（没有 `content` 字段）。需要获取可交互元素或页面信息状态时，请显式调用 `page-agent-tool` 的 `browserState` 或 `searchTree` 动作。
 
 ```bash
 webmcp-cli state
@@ -59,19 +51,43 @@ webmcp-cli state -t <targetId>   # target a specific tab by its real Chrome targ
   "url": "https://www.baidu.com/",
   "title": "百度一下，你就知道",
   "activeTabid": "2EA73ED323E46E5E108D4E46DA4E4AA7",
-  "content": "[0]<a>新闻 />\n[13]<textarea placeholder=搜索 />\n[18]<button>百度一下</button>",
   "webmcpTools": [{ "name": "page-agent-tool" }, { "name": "baidu_search" }],
   "tabs": [
-    { "tabid": "2EA73ED323E46E5E108D4E46DA4E4AA7", "title": "百度一下，你就知道", "url": "https://www.baidu.com/" }
+    { "tabid": "2EA73ED323E46E5E108D4E46DA4E4AA7", "title": "百度一下,你就知道", "url": "https://www.baidu.com/" }
   ]
 }
 ```
 
-返回值中， `tabs` 属性值是浏览器当前打开的全部标签页的信息，其它属性为当前激活页面的URL、标题、可交互元素索引（`content`）、已注入的 MCP 工具列表（`webmcpTools`）。
+返回值中， `tabs` 属性值是浏览器当前打开的全部标签页的信息，其它属性为当前激活页面的URL、标题、已注入的 MCP 工具列表（`webmcpTools`）。
 
 > `tabid` 是 **真实的 Chrome target ID**（UUID）。配合 `-t` 可指定某个标签页。
 
 `webmcpTools`的值的数组中如果有 `system-overview`的工具，并且在本轮对话中，该域名下没有调用过它，那么一定要立即执行一下 。`system-overview`工具的返回值能指导后续的操作，比如会包含网站的`模块 & 路由 & 页面工具 &使用规范`等等内容。
+
+```bash
+webmcp-cli run system-overview '{}'
+```
+
+#### 何时必须调用 state
+
+| 时机                  | 是否必须先 `state` | 说明                                                                                |
+| --------------------- | ------------------ | ----------------------------------------------------------------------------------- |
+| 执行 `tabs open` 之前 | 否                 | `tabs open` 是唯一可在未先 `state` 的情况下直接执行的命令                           |
+| 执行 `tabs` 之后      | **是**             | 新页面加载并注入工具后，须用 `state` 获取新页面的 `webmcpTools`                     |
+| 执行 `run` 之前       | **是**             | 须先通过 `state` 确认工具列表，再用 `browserState` 或 `searchTree` 获取页面可交互元素 |
+| 连续多次 `run` 之间   | 视情况             | 若需重新确认工具列表或当前页面，才需再次 `state`；仅获取 DOM 变化直接使用 `page-agent-tool` 相关 action 即可 |
+
+**推荐工作流：**
+
+```text
+webmcp-cli tabs open <url>  # 打开页面（无需先 state）
+webmcp-cli state            # 获取 url/title/webmcpTools/tabs 导航元数据
+webmcp-cli run page-agent-tool '{"action": "browserState", "responseMode": "full"}'
+                            # 获取完整 DOM 元素索引，或者使用 searchTree 进行过滤搜索
+webmcp-cli run ...          # 基于返回的元素索引/工具执行操作（例如 click, fill）
+```
+
+执行 `page-agent-tool`（点击、填写、滚动等）时，**必须** 依据 `browserState` 或 `searchTree` 返回的元素索引确定元素 `index`，切勿沿用过期索引。`state` 是确认当前页面有哪些 `webmcpTools`（含领域专用工具）的唯一方式，获取页面状态必须调用 `browserState` 或 `searchTree`。等等内容。
 
 ```bash
 webmcp-cli run system-overview '{}'
