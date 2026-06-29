@@ -33,7 +33,10 @@ npm install -g @opentiny/webmcp-cli
 
 ```bash
 webmcp-cli tabs open https://excalidraw.com    # 打开新网页
-webmcp-cli tabs close <tabid>                  # 关闭指定标�### 2. 查询浏览器当前状态 `webmcp-cli state`
+webmcp-cli tabs close <tabid>                  # 关闭指定标签页
+```
+
+### 2. 查询浏览器当前状态 `webmcp-cli state`
 
 它返回当前浏览器的**导航元数据**（url、title、activeTabid、webmcpTools、所有已打开页签），是确认当前页面有哪些可用工具（`webmcpTools`）的唯一方式。
 

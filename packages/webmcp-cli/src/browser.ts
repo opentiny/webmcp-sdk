@@ -512,7 +512,8 @@ async function injectDomainTools(page: Page): Promise<void> {
   }
 
   // 快速检查：若页面已注入，直接返回，省去读文件和 evaluate 的开销
-  const flagKey = `__webmcptools_${hostname.replace(/[^a-zA-Z0-9]/g, '')}`
+  const bundleKey = bundleName.replace(/^webmcp-tools\//, '').replace(/\.js$/, '')
+  const flagKey = `__webmcptools_${bundleKey.replace(/[^a-zA-Z0-9]/g, '')}`
   const alreadyInjected = await page.evaluate((key: string) => !!(window as any)[key], flagKey).catch(() => false)
   if (alreadyInjected) {
     return

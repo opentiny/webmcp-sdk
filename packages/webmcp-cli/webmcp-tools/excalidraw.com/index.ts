@@ -9,7 +9,8 @@
 const _excalidrawMcp = (navigator as any).modelContext
 if (!_excalidrawMcp || typeof _excalidrawMcp.registerTool !== 'function') {
   console.warn('[webmcp-tools] excalidraw.com: navigator.modelContext.registerTool 未就绪，跳过注入')
-} else if (!(window as any).__webmcptools_excalidraw) {
+} else if (!(window as any).__webmcptools_excalidrawcom) {
+  ;(window as any).__webmcptools_excalidrawcom = true
   const mcp = _excalidrawMcp
   try {
     // ─── 内部工具函数 ────────────────────────────────────────────────

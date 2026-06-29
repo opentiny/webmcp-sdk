@@ -64,10 +64,8 @@ export async function runCommand({
         await new Promise(resolve => setTimeout(resolve, 800))
         let newUrl = ''
         try {
-          // 重新获取页面（导航后 page 对象可能失效，从 browser 重新拿）
-          const pages = await browser.pages()
-          const activePage = pages.find(p => !p.url().startsWith('devtools://') && !p.url().startsWith('about:'))
-          newUrl = activePage?.url() ?? ''
+          // 重新读取页面（导航后 JS 上下文虽被销毁，但 page 实例本身的 url() 依然是最新的）
+          newUrl = page.url()
         } catch { /* 忽略 */ }
 
         // 如果 URL 已经发生变化，认为是正常导航触发的上下文销毁（工具执行成功）

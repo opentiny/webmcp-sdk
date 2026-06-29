@@ -121,11 +121,16 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
         }
 
         return {
-          success: true,
-          message: '文章标题和正文已成功填写到掘金编辑器，草稿将自动保存',
-          title: title.trim(),
-          contentLength: decodeContent.length,
-          editor
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              success: true,
+              message: '文章标题和正文已成功填写到掘金编辑器，草稿将自动保存',
+              title: title.trim(),
+              contentLength: decodeContent.length,
+              editor
+            })
+          }]
         }
       }
     })
@@ -157,9 +162,15 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
         }
 
         return {
-          success: true,
-          title,
-          content
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              success: true,
+              title: title.trim(),
+              contentLength: content.length,
+              content
+            })
+          }]
         }
       }
     })
@@ -205,6 +216,8 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
         // 等待弹窗渲染
         await new Promise(resolve => setTimeout(resolve, 1000))
 
+        const dialogScope = document.querySelector('.panel, .modal, [role="dialog"]') || document
+
         // 2. 选择分类：掘金真实 DOM 结构是 .category-list > div.item（文本两侧有空格，用 trim 处理）
         const candidateSelectors = [
           '.category-list .item',      // 掘金：直接命中
@@ -213,14 +226,14 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
         ]
         let catBtn: Element | undefined
         for (const sel of candidateSelectors) {
-          catBtn = Array.from(document.querySelectorAll(sel)).find(
+          catBtn = Array.from(dialogScope.querySelectorAll(sel)).find(
             e => e.textContent?.trim() === category
           )
           if (catBtn) break
         }
         // 降级：全文本精确匹配所有可见 div/span 元素
         if (!catBtn) {
-          catBtn = Array.from(document.querySelectorAll('div, span, li, button')).find(e => {
+          catBtn = Array.from(dialogScope.querySelectorAll('div, span, li, button')).find(e => {
             const el = e as HTMLElement
             return el.textContent?.trim() === category && el.offsetParent !== null
           })
@@ -232,7 +245,7 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
 
         // 3. 搜索标签：掘金真实输入框类名为 .byte-select__input（没有 placeholder 属性），优先用类名查找
         const input = (
-          document.querySelector('.byte-select__input, input[placeholder*="搜索添加标签"], input[placeholder*="添加标签"], input[placeholder*="标签"]')
+          dialogScope.querySelector('.byte-select__input, input[placeholder*="搜索添加标签"], input[placeholder*="添加标签"], input[placeholder*="标签"]')
         ) as HTMLInputElement | null
         if (!input) {
           throw new Error('未找到标签输入框')
@@ -252,10 +265,10 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
         // 等待异步搜索接口返回并渲染下拉选项（增大至 2000ms 防止网络慢丢失结果）
         await new Promise(resolve => setTimeout(resolve, 2000))
 
-        // 选择下拉项：使用 ByteDance/掘金特有的下拉选项类名，避免 .item/.option 误命中无关元素
+        // 选择下拉项：使用 ByteDance/掘金特有的下拉选项类名，同时也保留 .item 防止类名混用
         const tagDropdownItems = Array.from(
           document.querySelectorAll(
-            '.byte-select-option, .byte-select__option, .byte-select-option-wrapper, .select-option, .dropdown-item'
+            '.byte-select-option, .byte-select__option, .byte-select-option-wrapper, .select-option, .dropdown-item, .item'
           )
         )
         let tagItem = tagDropdownItems.find(e => e.textContent?.trim() === tag) as HTMLElement | null
@@ -267,7 +280,8 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
           }) as HTMLElement | null
         }
         if (!tagItem) {
-          throw new Error(`标签下拉选项中未找到匹配的: ${tag}，请检查标签名称是否正确，或手动打开下拉框选择`)
+          const foundTexts = tagDropdownItems.map(e => e.textContent?.trim()).join(', ')
+          throw new Error(`标签下拉选项中未找到匹配的: ${tag}。当前找到的选项有: [${foundTexts}]，请检查标签名称是否正确，或手动打开下拉框选择`)
         }
         tagItem.click()
 
@@ -280,9 +294,9 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
         // 3.2 找到并填写摘要框
         // 掘金摘要框真实类名是 .byte-input__textarea（无 placeholder），不是 .summary-textarea
         const summaryTextarea = (
-          document.querySelector('.panel .byte-input__textarea') ||
-          document.querySelector('.panel textarea') ||
-          document.querySelector('.summary-textarea, textarea[placeholder*="摘要"]')
+          dialogScope.querySelector('.byte-input__textarea') ||
+          dialogScope.querySelector('textarea') ||
+          dialogScope.querySelector('.summary-textarea, textarea[placeholder*="摘要"]')
         ) as HTMLTextAreaElement | null
 
         if (!summaryTextarea) {
@@ -307,8 +321,9 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
         input.blur()
         await new Promise(resolve => setTimeout(resolve, 500))
 
-        // 4. 点击确定并发布
-        const confirmBtn = Array.from(document.querySelectorAll('button')).find(
+        // 3.4 找到并点击确认发布按钮
+        // 在掘金发布弹窗中，按钮文本通常是“确定并发布”
+        let confirmBtn = Array.from(dialogScope.querySelectorAll('button')).find(
           e => e.textContent?.trim() === '确定并发布'
         ) as HTMLButtonElement | null
         if (!confirmBtn) {
@@ -351,8 +366,13 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
         }
 
         return {
-          success: true,
-          message: `自动发布流程已触发，分类: ${category}, 标签: ${tag}，发布信号: ${publishResult}`
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              success: true,
+              message: `自动发布流程已触发，分类: ${category}, 标签: ${tag}，发布信号: ${publishResult}`
+            })
+          }]
         }
       }
     })
