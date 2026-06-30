@@ -144,8 +144,9 @@ const ADD_PRICE_PROTECTION_TOOL = 'add_price_protection'
 const abortController = new AbortController()
 
 onMounted(() => {
-  const modelContext = (document as any).modelContext
-  modelContext.registerTool(
+  const modelContext = (document as any).modelContext || (navigator as any).modelContext
+  if (modelContext?.registerTool) {
+    modelContext.registerTool(
     {
     name: PRICE_PROTECTION_QUERY_TOOL,
     description: '查询商品价保申请列表，可按状态筛选（pending/approved/rejected/expired），不传 status 则返回全部',
@@ -283,6 +284,7 @@ onMounted(() => {
   },
   { signal: abortController.signal }
   )
+  }
 })
 
 onUnmounted(() => {

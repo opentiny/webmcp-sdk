@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { ModelContext } from '@mcp-b/webmcp-types'
 
 export function Component() {
   const [activeRange, setActiveRange] = useState('30days')
@@ -13,8 +14,12 @@ export function Component() {
     }
 
     const controller = new AbortController()
-    ;(document as any).modelContext.registerTool(
-      {
+    const modelContext = (document as unknown as { modelContext?: ModelContext }).modelContext || 
+                         (navigator as unknown as { modelContext?: ModelContext }).modelContext
+
+    if (modelContext?.registerTool) {
+      modelContext.registerTool(
+        {
         name: SALES_RECORD_QUERY_TOOL,
         title: '查询商品销售记录',
         description: '【销售数据展示工具】帮助管理员查询最近一段时间的商品销售趋势、统计图表数据',
@@ -39,6 +44,7 @@ export function Component() {
       },
       { signal: controller.signal }
     )
+    }
 
     return () => {
       controller.abort()

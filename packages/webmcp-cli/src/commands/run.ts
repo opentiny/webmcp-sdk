@@ -20,7 +20,8 @@ export async function runCommand({
     let result: any
     try {
       result = await page.evaluate(async (name, inputString) => {
-        const mcp = (navigator as any).modelContextTesting || (document as any).modelContext || (navigator as any).modelContext
+        // @ts-expect-error WebMCP APIs are experimental and not yet in DOM types
+        const mcp = navigator.modelContextTesting || document.modelContext || navigator.modelContext
 
         if (!mcp || typeof mcp.executeTool !== 'function') {
           throw new Error('当前页面没有注入 WebMCP 环境 (modelContextTesting.executeTool 或 modelContext.executeTool 未找到)')

@@ -689,11 +689,12 @@ export function setupModelContextBridge() {
       if (typeof originalUnregisterTool === 'function') {
         originalUnregisterTool(name)
       }
+    } catch (err) {
+      // 忽略原生注销错误
+    } finally {
       // 从工具名集合中移除
       _registeredTools.delete(name)
       broadcastToolChange(MSG_TOOL_UNREGISTERED)
-    } catch (err) {
-      // 忽略注销错误
     }
   }
 

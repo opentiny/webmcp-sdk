@@ -19,8 +19,19 @@
   var tools = new Map()
   var ctx = {
     __isNextSdkBridgeSetup: true,
-    registerTool: function (config) {
+    registerTool: function (config, options) {
       tools.set(config.name, Object.assign({}, config))
+      if (options && options.signal) {
+        options.signal.addEventListener('abort', function () {
+          tools.delete(config.name)
+        })
+      }
+    },
+    unregisterTool: function (nameOrTool) {
+      var name = typeof nameOrTool === 'string' ? nameOrTool : (nameOrTool && nameOrTool.name)
+      if (name) {
+        tools.delete(name)
+      }
     },
     executeTool: function (name, argsStr) {
       var tool = tools.get(name)

@@ -143,6 +143,7 @@ onUnmounted(() => {
 ```ts
 // src/mcp-servers/finance/tools.ts
 export default function registerFinanceTools() {
+  const abortController = new AbortController()
   ;(document as any).modelContext.registerTool(
     {
       name: 'finance_summary_query',

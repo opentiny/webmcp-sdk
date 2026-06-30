@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { ModelContext } from '@mcp-b/webmcp-types'
 import { orderList, type OrderItem } from '../mock'
 
 export function Component() {
@@ -12,9 +13,12 @@ export function Component() {
     const ORDER_QUERY_TOOL = 'order_query'
     const ORDER_DETAIL_TOOL = 'order_detail'
     const controller = new AbortController()
+    const modelContext = (document as unknown as { modelContext?: ModelContext }).modelContext || 
+                         (navigator as unknown as { modelContext?: ModelContext }).modelContext
 
-    ;(document as any).modelContext.registerTool(
-      {
+    if (modelContext?.registerTool) {
+      modelContext.registerTool(
+        {
         name: ORDER_QUERY_TOOL,
         title: '查询订单',
       description: '【订单管理工具】查询电商订单列表，可按订单号、客户姓名或状态筛选，不传参数则返回全部订单。',
@@ -64,7 +68,7 @@ export function Component() {
     { signal: controller.signal }
   )
 
-    ;(document as any).modelContext.registerTool(
+    modelContext.registerTool(
       {
         name: ORDER_DETAIL_TOOL,
         title: '订单详情',
@@ -95,6 +99,7 @@ export function Component() {
     },
     { signal: controller.signal }
   )
+    }
 
     return () => {
       controller.abort()

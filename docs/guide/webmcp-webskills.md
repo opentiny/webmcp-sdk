@@ -159,7 +159,7 @@ onUnmounted(() => {
 > [!TIP]
 > **进阶：分离式注册（Next-SDK 独家增强 API）**
 > 对于需要全局感知工具的场景，你可以将 Metadata 集中定义在全局，而在具体页面中仅编写对应的执行 Handler：
-> 1. 全局调用 `document.modelContext.registerTool({ ...routeConfig: { route: '/path' } }, { signal: controller.signal })`（无 execute）。
+> 1. 全局调用 `document.modelContext.registerTool({ ...routeConfig: { route: '/path' } }, { signal: abortController.signal })`（无 execute）。
 > 2. 页面内调用 `registerPageTool({ route: '/path', handlers: { ... } })` 绑定实现逻辑。
 
 **步骤 6：在 App.vue 中挂载 Remoter + 接入远程遥控**
