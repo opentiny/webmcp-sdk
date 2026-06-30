@@ -272,10 +272,8 @@ VITE_AGENT_ROOT=https://your-agent-server.com/api/v1/webmcp/
 2. **agentRoot 格式**：`agentRoot` 必须以 `/` 结尾，否则可能导致连接失败
 3. **跨域问题**：如果使用自定义代理服务，请确保服务端已配置正确的 CORS 策略
 4. **安全性**：API Key 等敏感信息建议使用环境变量管理，不要直接写在代码中
-5. **私有化部署**：如果使用私有化部署的 WebAgent，请参考 [WebAgent 私有化部署文档](./web-agent-private-deployment.md)
 
 ## 相关文档
 
 - [TinyRemoter for Vue](./tiny-robot-remoter.md) - TinyRemoter 组件完整文档
 - [AgentModelProvider API](./api-agentModelProvider.md) - AgentModelProvider 类详细说明
-- [WebAgent 私有化部署](./web-agent-private-deployment.md) - WebAgent 私有化部署指南
