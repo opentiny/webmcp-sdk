@@ -89,44 +89,56 @@ webmcp-cli run excalidraw_execute_command '{"eventName": "addElement", "payload"
 
 ## 元素关系创建规则（必须遵守）
 
-### 1. 将文本放入形状（容器绑定）
+### 1. 将文本放入形状
 
-**场景**：矩形等形状内部需要显示文字标签。必须建立**双向链接**。
+根据排版要求，你可以选择**容器绑定**（适合流式自适应大小）或**分组（Grouping）+ 手动居中**（适合固定大小卡片架构图，**强烈推荐**）。
 
-**流程**：
-1. 为形状和文本分别指定唯一 `id`
-2. 在 `addElement` 时，文本元素设置 `containerId` 为形状的 `id`；形状元素设置 `boundElements` 包含文本引用
-3. 调用 `updateElement` 确保双向绑定完整
-4. 文字建议 `textAlign: "center"` + `verticalAlign: "middle"`
+#### 方式 A：容器绑定（自适应大小）
+*适用于不需要严格固定卡片高度的自由布局。*
+- **流程**：
+  1. 为形状和文本分别指定唯一 `id`
+  2. 在 `addElement` 时，文本元素设置 `containerId` 为形状的 `id`；形状元素设置 `boundElements` 包含文本引用
+  3. 调用 `updateElement` 确保双向绑定完整
+  4. 文字建议 `textAlign: "center"` + `verticalAlign: "middle"`
+- **【⚠️ 严重警告】**：在双击卡片或双击文本编辑时，Excalidraw 默认会触发自适应文本高度，导致矩形容器的高度被缩扁至文本高度（如从 60px 缩为 25px），这会彻底破坏原本规整的网格排版！
 
-**示例**：
+#### 方式 B：分组 + 手动居中（固定高度卡片，强烈推荐 ⭐）
+*适用于整齐划一的架构图。双击卡片时，文字可正常编辑，且外部卡片容器的高度绝对不会发生缩窄或变形。*
+- **流程**：
+  1. **放弃容器绑定**：文字**不要**设置 `containerId`，矩形卡片 `boundElements` 中**不要**包含文本的 ID。
+  2. **精确计算文本高度**：`textHeight = 文本行数 * fontSize * 1.3 (默认行高)`。例如两行 12px 字体文本高度为 `2 * 12 * 1.3 = 31.2px`。
+  3. **计算垂直居中坐标**：设置文本的 `y` 坐标为 `absY + (node.h - textHeight) / 2`，实现渲染层完美的垂直居中。
+  4. **建立组群关联**：卡片和文本元素分配完全相同的 `groupIds: [groupId]`（例如 `["group_node_1"]`）。这样在画布上拖拽时它们作为一个整体移动。
+  5. **保持连线绑定**：如果有连接线/箭头指向该卡片，卡片的 `boundElements` 中只应包含连线（arrow）的 ID，确保线随卡片动。
 
+**方式 B 示例**：
 ```json
 [
   {
-    "id": "api-server-1",
+    "id": "node-1",
     "type": "rectangle",
     "x": 100, "y": 100,
-    "width": 220, "height": 80,
+    "width": 220, "height": 60,
     "backgroundColor": "#e3f2fd",
     "strokeColor": "#1976d2",
     "fillStyle": "solid",
-    "boundElements": [{ "type": "text", "id": "api-server-text" }]
+    "groupIds": ["group_node-1"],
+    "boundElements": [{ "type": "arrow", "id": "arrow-1" }] // 仅绑定线，不绑定字
   },
   {
-    "id": "api-server-text",
+    "id": "node-1-text",
     "type": "text",
-    "x": 110, "y": 125,
-    "width": 200, "height": 50,
-    "containerId": "api-server-1",
+    "x": 110, "y": 114.4, // 计算得出的垂直居中 Y 坐标: 100 + (60 - 31.2) / 2
+    "width": 200, "height": 31.2, // 实际文本高度
     "text": "核心API服务\n(Node.js)",
     "originalText": "核心API服务\n(Node.js)",
-    "fontSize": 20,
+    "fontSize": 12,
     "fontFamily": 2,
     "textAlign": "center",
     "verticalAlign": "middle",
     "autoResize": true,
-    "lineHeight": 1.25
+    "lineHeight": 1.3,
+    "groupIds": ["group_node-1"] // 共同加入分组
   }
 ]
 ```
