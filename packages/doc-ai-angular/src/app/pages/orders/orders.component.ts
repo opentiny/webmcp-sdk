@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, computed, signal } from '@angular/core'
+import type { ModelContext } from '@mcp-b/webmcp-types'
 import { CommonModule } from '@angular/common'
 import { FormsModule } from '@angular/forms'
 import { orderList, type OrderItem } from '../../../mock'
@@ -48,9 +49,11 @@ export class OrdersComponent implements OnInit, OnDestroy {
   })
 
   ngOnInit() {
-    const modelContext = (document as any).modelContext || (navigator as any).modelContext
-    modelContext.registerTool(
-      {
+    const modelContext = (document as unknown as { modelContext?: ModelContext }).modelContext || 
+                         (navigator as unknown as { modelContext?: ModelContext }).modelContext
+    if (modelContext?.registerTool) {
+      modelContext.registerTool(
+        {
         name: ORDER_QUERY_TOOL,
 
       title: '查询订单',
@@ -130,6 +133,7 @@ export class OrdersComponent implements OnInit, OnDestroy {
     },
     { signal: this.abortController.signal }
     )
+    }
   }
 
   ngOnDestroy() {

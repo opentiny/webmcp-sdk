@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, ViewChild, NgZone } from '@angular/core'
+import type { ModelContext } from '@mcp-b/webmcp-types'
 import { CommonModule } from '@angular/common'
 import { inventoryList, addInventory, type InventoryItem } from '../../../mock'
 import { InventoryModalComponent } from '../../components/inventory-modal.component'
@@ -19,9 +20,11 @@ export class InventoryComponent implements OnInit, OnDestroy {
   constructor(private zone: NgZone) {}
 
   ngOnInit() {
-    const modelContext = (document as any).modelContext || (navigator as any).modelContext
-    modelContext.registerTool(
-      {
+    const modelContext = (document as unknown as { modelContext?: ModelContext }).modelContext || 
+                         (navigator as unknown as { modelContext?: ModelContext }).modelContext
+    if (modelContext?.registerTool) {
+      modelContext.registerTool(
+        {
         name: 'add_inventory',
       description: '【入库管理工具】帮助电商管理员将采购的商品新增入库存系统中',
       inputSchema: {
@@ -34,7 +37,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
         required: ['productName', 'quantity', 'warehouse']
       },
       execute: (params: any) => {
-        this.zone.run(async () => {
+        return this.zone.run(async () => {
           const result = await this.modal.openAiModal(params)
           console.log(1111, result)
           return {
@@ -45,6 +48,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
     },
     { signal: this.abortController.signal }
     )
+    }
   }
 
   ngOnDestroy() {

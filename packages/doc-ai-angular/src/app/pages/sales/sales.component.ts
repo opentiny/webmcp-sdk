@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, signal } from '@angular/core'
+import type { ModelContext } from '@mcp-b/webmcp-types'
 import { CommonModule } from '@angular/common'
 
 const SALES_RECORD_QUERY_TOOL = 'sales_record_query'
@@ -93,10 +94,12 @@ export class SalesComponent implements OnInit, OnDestroy {
   private abortController = new AbortController()
 
   ngOnInit() {
-    const modelContext = (document as any).modelContext || (navigator as any).modelContext
-    modelContext.registerTool(
-      {
-        name: SALES_RECORD_QUERY_TOOL,
+    const modelContext = (document as unknown as { modelContext?: ModelContext }).modelContext || 
+                         (navigator as unknown as { modelContext?: ModelContext }).modelContext
+    if (modelContext?.registerTool) {
+      modelContext.registerTool(
+        {
+          name: SALES_RECORD_QUERY_TOOL,
       title: '查询销售记录',
       description: '【销售分析工具】查询商品销售记录，支持按时间范围筛选，返回销售趋势图表与数据总览。',
       inputSchema: {
@@ -137,6 +140,7 @@ export class SalesComponent implements OnInit, OnDestroy {
     },
     { signal: this.abortController.signal }
     )
+    }
   }
 
   ngOnDestroy() {

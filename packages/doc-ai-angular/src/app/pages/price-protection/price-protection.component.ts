@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, ViewChild, NgZone } from '@angular/core'
+import type { ModelContext } from '@mcp-b/webmcp-types'
 import { NgFor, NgIf, NgClass } from '@angular/common'
 import { registerPageTool, RegisterPageToolByHandlersOptions } from '@opentiny/next-sdk'
 import rawData from './price-protection.json'
@@ -71,9 +72,11 @@ export class PriceProtectionComponent implements OnInit, OnDestroy {
   private abortController = new AbortController()
 
   ngOnInit(): void {
-    const modelContext = (document as any).modelContext || (navigator as any).modelContext
-    modelContext.registerTool(
-      {
+    const modelContext = (document as unknown as { modelContext?: ModelContext }).modelContext || 
+                         (navigator as unknown as { modelContext?: ModelContext }).modelContext
+    if (modelContext?.registerTool) {
+      modelContext.registerTool(
+        {
         name: PRICE_PROTECTION_QUERY_TOOL,
       title: '查询价保申请',
       description: '查询商品价保申请列表，可按状态筛选（pending/approved/rejected/expired），不传 status 则返回全部',
@@ -218,6 +221,7 @@ export class PriceProtectionComponent implements OnInit, OnDestroy {
     },
     { signal: this.abortController.signal }
     )
+    }
   }
 
   ngOnDestroy(): void {
