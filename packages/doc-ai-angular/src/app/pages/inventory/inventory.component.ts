@@ -18,7 +18,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
   constructor(private zone: NgZone) {}
 
   ngOnInit() {
-    const modelContext = (navigator as any).modelContext
+    const modelContext = (document as any).modelContext || (navigator as any).modelContext
     modelContext.registerTool({
       name: 'add_inventory',
       description: '【入库管理工具】帮助电商管理员将采购的商品新增入库存系统中',
@@ -44,7 +44,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
-    const modelContext = (navigator as any).modelContext
+    const modelContext = (document as any).modelContext || (navigator as any).modelContext
     modelContext.unregisterTool('add_inventory')
   }
 

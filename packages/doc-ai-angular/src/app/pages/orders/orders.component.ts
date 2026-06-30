@@ -47,7 +47,7 @@ export class OrdersComponent implements OnInit, OnDestroy {
   })
 
   ngOnInit() {
-    const modelContext = (navigator as any).modelContext
+    const modelContext = (document as any).modelContext || (navigator as any).modelContext
     modelContext.registerTool({
       name: ORDER_QUERY_TOOL,
 
@@ -126,7 +126,7 @@ export class OrdersComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
-    const modelContext = (navigator as any).modelContext
+    const modelContext = (document as any).modelContext || (navigator as any).modelContext
     modelContext.unregisterTool(ORDER_QUERY_TOOL)
     modelContext.unregisterTool(ORDER_DETAIL_TOOL)
   }

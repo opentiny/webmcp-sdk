@@ -87,87 +87,92 @@ const filteredOrders = computed(() => {
 
 const ORDER_QUERY_TOOL = 'order_query'
 const ORDER_DETAIL_TOOL = 'order_detail'
+const abortController = new AbortController()
 
 onMounted(() => {
-  const modelContext = navigator.modelContext
-  modelContext.registerTool({
-    name: ORDER_QUERY_TOOL,
-    description: '【订单管理工具】查询电商订单列表，可按订单号、客户姓名或状态筛选，不传参数则返回全部订单。',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        orderId: { type: 'string', description: '按订单号精确查询，如 ORD-5X9A2B' },
-        customerName: { type: 'string', description: '按客户姓名模糊查询' },
-        status: {
-          type: 'string',
-          enum: ['Pending', 'Shipped', 'Delivered', 'Refunded', 'Cancelled'],
-          description: '按订单状态筛选'
+  const modelContext = (document as any).modelContext
+  modelContext.registerTool(
+    {
+      name: ORDER_QUERY_TOOL,
+      description: '【订单管理工具】查询电商订单列表，可按订单号、客户姓名或状态筛选，不传参数则返回全部订单。',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          orderId: { type: 'string', description: '按订单号精确查询，如 ORD-5X9A2B' },
+          customerName: { type: 'string', description: '按客户姓名模精查询' },
+          status: {
+            type: 'string',
+            enum: ['Pending', 'Shipped', 'Delivered', 'Refunded', 'Cancelled'],
+            description: '按订单状态筛选'
+          }
         }
-      }
-    },
-    execute: async ({
-      orderId,
-      customerName,
-      status
-    }: {
-      orderId?: string
-      customerName?: string
-      status?: string
-    }) => {
-      let result = orderList.value as OrderItem[]
-      if (orderId) result = result.filter((o) => o.id.toLowerCase().includes(orderId.toLowerCase()))
-      if (customerName) result = result.filter((o) => o.customerName.toLowerCase().includes(customerName.toLowerCase()))
-      if (status) result = result.filter((o) => o.status === status)
-
-      // 同步更新页面筛选框
-      if (status) filterStatus.value = status
-      if (orderId || customerName) searchText.value = orderId ?? customerName ?? ''
-
-      const text =
-        result.length === 0
-          ? '未找到符合条件的订单。'
-          : `找到 ${result.length} 条订单：\n${result
-              .map(
-                (o) => `- ${o.id}｜${o.customerName}｜${o.productName}｜¥${o.totalAmount}｜${statusLabelMap[o.status]}`
-              )
-              .join('\n')}`
-      return { content: [{ type: 'text', text }] }
-    }
-  })
-
-  modelContext.registerTool({
-    name: ORDER_DETAIL_TOOL,
-    description: '【订单管理工具】根据订单号获取完整的订单详情，包括商品、金额、物流、收货人信息等。',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        orderId: { type: 'string', description: '要查询的订单号，如 ORD-5X9A2B' }
       },
-      required: ['orderId']
-    },
-    execute: async ({ orderId }: { orderId: string }) => {
-      const order = orderList.value.find((o) => o.id === orderId)
-      if (!order) {
-        return { content: [{ type: 'text', text: `未找到订单号为 ${orderId} 的订单。` }] }
+      execute: async ({
+        orderId,
+        customerName,
+        status
+      }: {
+        orderId?: string
+        customerName?: string
+        status?: string
+      }) => {
+        let result = orderList.value as OrderItem[]
+        if (orderId) result = result.filter((o) => o.id.toLowerCase().includes(orderId.toLowerCase()))
+        if (customerName) result = result.filter((o) => o.customerName.toLowerCase().includes(customerName.toLowerCase()))
+        if (status) result = result.filter((o) => o.status === status)
+
+        // 同步更新页面筛选框
+        if (status) filterStatus.value = status
+        if (orderId || customerName) searchText.value = orderId ?? customerName ?? ''
+
+        const text =
+          result.length === 0
+            ? '未找到符合条件的订单。'
+            : `找到 ${result.length} 条订单：\n${result
+                .map(
+                  (o) => `- ${o.id}｜${o.customerName}｜${o.productName}｜¥${o.totalAmount}｜${statusLabelMap[o.status]}`
+                )
+                .join('\n')}`
+        return { content: [{ type: 'text', text }] }
       }
-      // 高亮该订单
-      searchText.value = orderId
-      const text = `订单详情（${orderId}）：
+    },
+    { signal: abortController.signal }
+  )
+
+  modelContext.registerTool(
+    {
+      name: ORDER_DETAIL_TOOL,
+      description: '【订单管理工具】根据订单号获取完整的订单详情，包括商品、金额、物流、收货人信息等。',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          orderId: { type: 'string', description: '要查询的订单号，如 ORD-5X9A2B' }
+        },
+        required: ['orderId']
+      },
+      execute: async ({ orderId }: { orderId: string }) => {
+        const order = orderList.value.find((o) => o.id === orderId)
+        if (!order) {
+          return { content: [{ type: 'text', text: `未找到订单号为 ${orderId} 的订单。` }] }
+        }
+        // 高亮该订单
+        searchText.value = orderId
+        const text = `订单详情（${orderId}）：
 - 客户：${order.customerName}（${order.customerPhone}）
 - 商品：${order.productName} × ${order.quantity}
 - 金额：¥${order.totalAmount.toLocaleString()}
 - 支付：${order.paymentMethod}
 - 状态：${statusLabelMap[order.status]}
 - 下单时间：${order.createdAt}${order.shippedAt ? `\n- 发货时间：${order.shippedAt}` : ''}`
-      return { content: [{ type: 'text', text }] }
-    }
-  })
+        return { content: [{ type: 'text', text }] }
+      }
+    },
+    { signal: abortController.signal }
+  )
 })
 
 onUnmounted(() => {
-  const modelContext = navigator.modelContext
-  modelContext.unregisterTool(ORDER_QUERY_TOOL)
-  modelContext.unregisterTool(ORDER_DETAIL_TOOL)
+  abortController.abort()
 })
 </script>
 

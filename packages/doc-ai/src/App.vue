@@ -82,6 +82,11 @@
       <tiny-remoter
         class="remoter-pane"
         :skills="skillMdModules"
+        :llmConfig="{
+          baseURL: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+          apiKey: 'sk-ae8c1261feac4991a2ebd9c8ed4f1c68',
+          model: 'glm-5.1'
+        }"
         v-model:show="show"
         :mcpServers="mcpServers"
         layoutMode="relative"

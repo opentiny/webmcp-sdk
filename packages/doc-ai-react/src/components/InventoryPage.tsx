@@ -11,26 +11,30 @@ export function Component() {
     setInventory([...inventoryList])
 
     const ADD_INVENTORY_TOOL = 'add_inventory'
-    navigator.modelContext.registerTool({
-      name: ADD_INVENTORY_TOOL,
-      description: '【入库管理工具】帮助电商管理员将采购的商品新增入库存系统中',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          productName: { type: 'string', description: '商品名称或型号，如：iPhone 15 Pro Max' },
-          quantity: { type: 'number', description: '要入库的数量，必须大于0' },
-          warehouse: { type: 'string', description: '入库存放的仓库名称，如：北京一号仓' }
+    const controller = new AbortController()
+    ;(document as any).modelContext.registerTool(
+      {
+        name: ADD_INVENTORY_TOOL,
+        description: '【入库管理工具】帮助电商管理员将采购的商品新增入库存系统中',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            productName: { type: 'string', description: '商品名称或型号，如：iPhone 15 Pro Max' },
+            quantity: { type: 'number', description: '要入库的数量，必须大于0' },
+            warehouse: { type: 'string', description: '入库存放的仓库名称，如：北京一号仓' }
+          },
+          required: ['productName', 'quantity', 'warehouse']
         },
-        required: ['productName', 'quantity', 'warehouse']
+        execute: async (params: any) => {
+          const result = await modalRef.current.openModal(params)
+          return { content: [{ type: 'text', text: result }] }
+        }
       },
-      execute: async (params: any) => {
-        const result = await modalRef.current.openModal(params)
-        return { content: [{ type: 'text', text: result }] }
-      }
-    })
+      { signal: controller.signal }
+    )
 
     return () => {
-      navigator.modelContext.unregisterTool(ADD_INVENTORY_TOOL)
+      controller.abort()
     }
   }, [])
 

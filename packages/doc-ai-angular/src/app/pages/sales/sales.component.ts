@@ -92,7 +92,7 @@ export class SalesComponent implements OnInit, OnDestroy {
   ]
 
   ngOnInit() {
-    const modelContext = (navigator as any).modelContext
+    const modelContext = (document as any).modelContext || (navigator as any).modelContext
     modelContext.registerTool({
       name: SALES_RECORD_QUERY_TOOL,
       title: '查询销售记录',
@@ -136,7 +136,7 @@ export class SalesComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy() {
-    const modelContext = (navigator as any).modelContext
+    const modelContext = (document as any).modelContext || (navigator as any).modelContext
     modelContext.unregisterTool(SALES_RECORD_QUERY_TOOL)
   }
 

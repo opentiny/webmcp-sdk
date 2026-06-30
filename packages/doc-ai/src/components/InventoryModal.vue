@@ -66,6 +66,9 @@ const openModal = (params: { productName: string; quantity: number; warehouse: s
   }
   visible.value = true
 
+  return new Promise<string>((resolve) => {
+    currentResolve = resolve
+  })
 }
 
 const handleConfirm = () => {

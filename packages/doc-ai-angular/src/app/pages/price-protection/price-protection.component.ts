@@ -70,7 +70,7 @@ export class PriceProtectionComponent implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    const modelContext = (navigator as any).modelContext
+    const modelContext = (document as any).modelContext || (navigator as any).modelContext
     modelContext.registerTool({
       name: PRICE_PROTECTION_QUERY_TOOL,
       title: '查询价保申请',
@@ -208,7 +208,7 @@ export class PriceProtectionComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    const modelContext = (navigator as any).modelContext
+    const modelContext = (document as any).modelContext || (navigator as any).modelContext
     modelContext.unregisterTool(PRICE_PROTECTION_QUERY_TOOL)
     modelContext.unregisterTool(PRICE_PROTECTION_REVIEW_TOOL)
     modelContext.unregisterTool(PRICE_PROTECTION_DETAIL_TOOL)

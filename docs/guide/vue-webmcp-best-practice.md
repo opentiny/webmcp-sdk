@@ -2,7 +2,7 @@
 
 本文根据最新的 WebMCP 标准与 `doc-ai` 示例项目，带你一步步把普通 Vue 工程升级为 AI 驱动的智能应用。
 
-> **核心变化**：我们现在**统一使用浏览器原生的 `navigator.modelContext` 接口**。通过调用 SDK 提供的初始化函数，低版本浏览器也能获得完全一致的 Polyfill 支持，实现 AI 工具的自动注册与路由同步。
+> **核心变化**：我们现在**统一使用浏览器原生的 `document.modelContext` 接口**（同时兼容老标准的 `navigator.modelContext`）。通过调用 SDK 提供的初始化函数，低版本浏览器也能获得完全一致的 Polyfill 支持，实现 AI 工具的自动注册与路由同步。
 > **示例工程仓库**：[`packages/doc-ai`](https://github.com/opentiny/webmcp-sdk/tree/dev/packages/doc-ai)
 
 ---
@@ -11,8 +11,8 @@
 
 在 Web 端集成 MCP 时，最重要的资产是 **“模型上下文 (Model Context)”**。
 
-1.  **标准 API**：使用浏览器标准的 `navigator.modelContext` 进行工具管理。
-2.  **全平台 Polyfill**：调用 `initializeBuiltinWebMCP` 后，SDK 会确保 `navigator.modelContext` 在所有浏览器中均可用。
+1.  **标准 API**：使用浏览器标准的 `document.modelContext` 进行工具管理。
+2.  **全平台 Polyfill**：调用 `initializeBuiltinWebMCP` 后，SDK 会确保 `document.modelContext` 在所有浏览器中均可用。
 3.  **自动路由感知**：当 AI 在对话中判定需要调用某个页面的工具时，SDK 会自动驱动路由跳转，确保工具在调用前已就绪。
 
 | 模块                 | 职责                                                                     |
@@ -95,33 +95,37 @@ app.mount('#app')
 3.  **配合 Skills**：通过 WebSkills 引导 AI 意图。当 AI 判定用户需要执行库存操作时，它会由 Skills 指导先跳转到 `/inventory`，随后在该页面内自动激活对应的工具。
 
 ```vue
-<!-- src/views/product-list/index.vue -->
+<!-- src/views/product-detail/index.vue -->
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
 
-const modelContext = navigator.modelContext
+const modelContext = (document as any).modelContext
+const abortController = new AbortController()
 
 onMounted(() => {
   if (!modelContext) return
 
-  modelContext.registerTool({
-    name: 'get_product_detail',
-    description: '查询商品详情。',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        id: { type: 'string', description: '商品 ID' }
+  modelContext.registerTool(
+    {
+      name: 'get_product_detail',
+      description: '查询商品详情。',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          id: { type: 'string', description: '商品 ID' }
+        },
+        required: ['id']
       },
-      required: ['id']
+      execute: async ({ id }: { id: string }) => {
+        return { content: [{ type: 'text', text: `商品 ${id} 的状态：销售中` }] }
+      }
     },
-    execute: async ({ id }: { id: string }) => {
-      return { content: [{ type: 'text', text: `商品 ${id} 的状态：销售中` }] }
-    }
-  })
+    { signal: abortController.signal }
+  )
 })
 
 onUnmounted(() => {
-  modelContext?.unregisterTool('get_product_detail')
+  abortController.abort()
 })
 </script>
 ```
@@ -139,18 +143,21 @@ onUnmounted(() => {
 ```ts
 // src/mcp-servers/finance/tools.ts
 export default function registerFinanceTools() {
-  navigator.modelContext.registerTool({
-    name: 'finance_summary_query',
-    title: '查询财务数据',
-    description: '查询关键财务指标。',
-    inputSchema: {
-      /* ... */
+  ;(document as any).modelContext.registerTool(
+    {
+      name: 'finance_summary_query',
+      title: '查询财务数据',
+      description: '查询关键财务指标。',
+      inputSchema: {
+        /* ... */
+      },
+      // 💡 关键：无需 Skills，显式声明跳转目标
+      routeConfig: {
+        route: '/finance'
+      }
     },
-    // 💡 关键：无需 Skills，显式声明跳转目标
-    routeConfig: {
-      route: '/finance'
-    }
-  })
+    { signal: abortController.signal }
+  )
 }
 ```
 
@@ -332,7 +339,7 @@ const skillMdModules = import.meta.glob('./skills/**/*', {
 
 ### 1. 为什么不用从 SDK 导入 `modelContext`？
 
-通过 `initializeBuiltinWebMCP()` 已经为全局环境注入了 `navigator.modelContext`。直接使用原生 API 可以保持代码的简洁性。
+通过 `initializeBuiltinWebMCP()` 已经为全局环境注入了 `document.modelContext`（并向后兼容 `navigator.modelContext`）。直接使用原生 API 可以保持代码的简洁性。
 
 ### 2. 路由跳转失败怎么办？
 

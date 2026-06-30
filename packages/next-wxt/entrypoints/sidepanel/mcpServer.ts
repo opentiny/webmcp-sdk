@@ -6,10 +6,10 @@ import { useExtraTools } from './extraTools'
  * 无需 WebMcpServer 或 Zod 转换，直接使用原生 JSON Schema。
  */
 export const setupLocalTools = () => {
-  const nativeCtx = (navigator as any).modelContext
+  const nativeCtx = (document as any).modelContext || (navigator as any).modelContext
 
   if (!nativeCtx) {
-    console.warn('【setupLocalTools】navigator.modelContext 未就绪，跳过工具注册')
+    console.warn('【setupLocalTools】document.modelContext 未就绪，跳过工具注册')
     return
   }
 
