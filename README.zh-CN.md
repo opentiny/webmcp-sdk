@@ -21,8 +21,7 @@
   <a href="#-使用场景">💡 使用场景</a>
 </p>
 
-> [!IMPORTANT]
-> **下一代 AI 协议**：OpenTiny NEXT-SDKs 基于 **WebMCP (Model Context Protocol for Web)** 构建。它全面兼容原生 `navigator.modelContext` API（目前在 Chrome 等浏览器中处于实验阶段），允许你的 Web 应用通过标准化协议被 AI 操控。
+> **下一代 AI 协议**：OpenTiny NEXT-SDKs 基于 **WebMCP (Model Context Protocol for Web)** 构建。它全面兼容原生 `document.modelContext` API（目前在 Chrome 等浏览器中处于实验阶段），允许你的 Web 应用通过标准化协议被 AI 操控。
 
 > [!TIP]
 > **✨ 命令行自动化与 AI 技能库**：
@@ -48,7 +47,7 @@
 
 - 🔌 **标准 WebMCP 实现**：完整实现 MCP 协议的浏览器版本，通过统一协议让前端变得“可被 AI 调用”。
 - 📡 **远程 AI 操控**：通过对接 **WebAgent 服务**，让 AI 能够轻松、稳定地远程调起和指挥你的前端工具，实现跨时空的“遥控”。
-- 🛠️ **内置 Polyfill 支持**：为当前浏览器提供 `navigator.modelContext` 补丁，确保代码在今天可用，并随浏览器的更新无缝切换至原生支持。
+- 🛠️ **内置 Polyfill 支持**：为当前浏览器提供 `document.modelContext` / `navigator.modelContext` 补丁，确保代码在今天可用，并随浏览器的更新无缝切换至原生支持。
 - 🎯 **零改造智能化**：像定义 API 一样定义工具，无需改变应用核心架构即可暴露业务逻辑和 UI 操作。
 - 🧩 **WebSkills 抽象**：以“业务技能”方式组织工具，实现能力的渐进式披露。
 - 🤖 **AI 对话组件**：提供开箱即用的 `@opentiny/next-remoter`，瞬间拥有 AI 遥控器。
@@ -57,13 +56,13 @@
 
 ### 什么是 WebMCP？
 
-WebMCP 是 Model Context Protocol 在浏览器端的扩展。它定义了网页如何向 AI 代理提供“工具”和“资源”。在不久的将来，浏览器将提供原生的 `navigator.modelContext` 对象来统一管理这些能力。
+WebMCP 是 Model Context Protocol 在浏览器端的扩展。它定义了网页如何向 AI 代理提供“工具”和“资源”。在不久的将来，浏览器将提供原生的 `document.modelContext` 对象来统一管理这些能力。
 
 ### 为什么需要 Polyfill？
 
 由于原生 API 仍处于实验阶段，**OpenTiny NEXT-SDKs 提供了一套强大的 Polyfill**。通过调用 `initializeBuiltinWebMCP()`，SDK 会：
 
-1.  **注入 `navigator.modelContext`**：提供符合标准规范的工具注册接口。
+1.  **注入 `document.modelContext`**：提供符合标准规范的工具注册接口（同时也为向后兼容挂载了 `navigator.modelContext` 别名）。
 2.  **自动化路由与桥接**：自动处理不同页面路径、iframe 之间的消息同步与工具调用导航。
 
 这意味着你今天编写的标准 WebMCP 代码，在未来浏览器原生支持时将自动平滑切换到原生引擎。
@@ -119,13 +118,13 @@ import { initializeBuiltinWebMCP } from '@opentiny/next-sdk'
 initializeBuiltinWebMCP()
 ```
 
-### 第三步：使用标准 API 注册工具
-
-现在，你可以在应用的任何地方使用标准的 `navigator.modelContext` 来注册工具：
+现在，你可以在应用的任何地方使用标准的 `document.modelContext` 来注册工具：
 
 ```typescript
 // 注册一个可被 AI 调用的工具
-navigator.modelContext.registerTool({
+const abortController = new AbortController()
+
+document.modelContext.registerTool({
   name: 'get_user_info',
   description: '获取当前用户信息',
   inputSchema: {
@@ -138,7 +137,10 @@ navigator.modelContext.registerTool({
     // 这里编写你的业务逻辑
     return { content: [{ type: 'text', text: `用户 ${args.userId} 的信息...` }] }
   }
-})
+}, { signal: abortController.signal })
+
+// 当页面销毁或不需要此工具时，可调用 abort() 进行销毁注销
+// abortController.abort()
 ```
 
 ✅ **完成！** 你的应用现在就是一个 MCP 服务。
@@ -290,7 +292,7 @@ webmcp-cli run page-agent-tool '{"action": "fill", "index": 13, "text": "Model C
             └──────────────────────────────────┘
 ```
 
-1.  **注册工具**：通过 `navigator.modelContext.registerTool` 声明你的应用具备哪些能力。
+1.  **注册工具**：通过 `document.modelContext.registerTool` 声明你的应用具备哪些能力，并可用 `AbortSignal` 进行自动注销管理。
 2.  **桥接同步**：我们的桥接机制会自动将 AI 请求路由到正确的页面或 iframe，即使用户已经切换了页面。
 3.  **直接执行**：工具直接在页面环境下运行，可以访问 DOM、组件状态和本地 API。
 

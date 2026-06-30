@@ -197,11 +197,13 @@ const salesSummary = {
 }
 
 const SALES_RECORD_QUERY_TOOL = 'sales_record_query'
+const abortController = new AbortController()
 onMounted(() => {
-  const modelContext = navigator.modelContext
+  const modelContext = (document as any).modelContext || (navigator as any).modelContext
   if (modelContext?.registerTool) {
-    modelContext.registerTool({
-      name: SALES_RECORD_QUERY_TOOL,
+    modelContext.registerTool(
+      {
+        name: SALES_RECORD_QUERY_TOOL,
       description: '【销售数据展示工具】帮助管理员查询最近一段时间的商品销售趋势、统计图表数据',
       inputSchema: {
         type: 'object',
@@ -221,14 +223,13 @@ onMounted(() => {
         const text = `${label}销售数据：\n- 总销售额：¥${s.totalSales.toLocaleString()}\n- 总订单数：${s.orders}\n- 退货率：${s.returnRate}\n\n详细图表已更新，可在左侧查看。`
         return { content: [{ type: 'text', text }] }
       }
-    })
+    },
+    { signal: abortController.signal }
+  )
   }
 })
 onUnmounted(() => {
-  const modelContext = navigator.modelContext
-  if (modelContext?.unregisterTool) {
-    modelContext.unregisterTool(SALES_RECORD_QUERY_TOOL)
-  }
+  abortController.abort()
 })
 </script>
 

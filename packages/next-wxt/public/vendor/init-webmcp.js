@@ -1,8 +1,9 @@
 ;(function () {
+  var doc = document
   var nav = navigator
 
   // 已初始化，跳过
-  if ((nav.modelContext && nav.modelContext.__isNextSdkBridgeSetup) || window.__nextSdkRegisteredTools) {
+  if ((doc.modelContext && doc.modelContext.__isNextSdkBridgeSetup) || (nav.modelContext && nav.modelContext.__isNextSdkBridgeSetup) || window.__nextSdkRegisteredTools) {
     return
   }
 
@@ -13,13 +14,24 @@
     return
   }
 
-  // Fallback：内联最简 polyfill（不依赖外部文件）
-  console.log('[next-wxt] 启用内联 polyfill（navigator.modelContext）')
+  // Fallback：内联最简 polyfill（document.modelContext）
+  console.log('[next-wxt] 启用内联 polyfill（document.modelContext）')
   var tools = new Map()
   var ctx = {
     __isNextSdkBridgeSetup: true,
-    registerTool: function (config) {
+    registerTool: function (config, options) {
       tools.set(config.name, Object.assign({}, config))
+      if (options && options.signal) {
+        options.signal.addEventListener('abort', function () {
+          tools.delete(config.name)
+        })
+      }
+    },
+    unregisterTool: function (nameOrTool) {
+      var name = typeof nameOrTool === 'string' ? nameOrTool : (nameOrTool && nameOrTool.name)
+      if (name) {
+        tools.delete(name)
+      }
     },
     executeTool: function (name, argsStr) {
       var tool = tools.get(name)
@@ -34,6 +46,7 @@
     }
   }
 
+  Object.defineProperty(doc, 'modelContext', { value: ctx, writable: true, configurable: true })
   Object.defineProperty(nav, 'modelContext', { value: ctx, writable: true, configurable: true })
   Object.defineProperty(nav, 'modelContextTesting', { value: ctx, writable: true, configurable: true })
 

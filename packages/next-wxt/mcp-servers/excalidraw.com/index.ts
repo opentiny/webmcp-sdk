@@ -179,7 +179,7 @@ if (!(window as any).__excalidrawToolsRegistered) {
     }
   }
 
-  navigator.modelContext.registerTool({
+  ;(document as any).modelContext.registerTool({
     name: 'excalidraw_execute_command',
     title: 'Excalidraw 画布操作工具',
     description:

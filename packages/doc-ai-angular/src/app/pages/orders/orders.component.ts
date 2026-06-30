@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, computed, signal } from '@angular/core'
+import type { ModelContext } from '@mcp-b/webmcp-types'
 import { CommonModule } from '@angular/common'
 import { FormsModule } from '@angular/forms'
 import { orderList, type OrderItem } from '../../../mock'
@@ -17,6 +18,7 @@ export class OrdersComponent implements OnInit, OnDestroy {
   orderList = orderList
   searchText = signal('')
   filterStatus = signal('')
+  private abortController = new AbortController()
 
   statusOptions = [
     { label: '待发货', value: 'Pending' },
@@ -47,9 +49,12 @@ export class OrdersComponent implements OnInit, OnDestroy {
   })
 
   ngOnInit() {
-    const modelContext = (navigator as any).modelContext
-    modelContext.registerTool({
-      name: ORDER_QUERY_TOOL,
+    const modelContext = (document as unknown as { modelContext?: ModelContext }).modelContext || 
+                         (navigator as unknown as { modelContext?: ModelContext }).modelContext
+    if (modelContext?.registerTool) {
+      modelContext.registerTool(
+        {
+        name: ORDER_QUERY_TOOL,
 
       title: '查询订单',
       description: '【订单管理工具】查询电商订单列表，可按订单号、客户姓名或状态筛选，不传参数则返回全部订单。',
@@ -93,10 +98,13 @@ export class OrdersComponent implements OnInit, OnDestroy {
                 .join('\n')}`
         return { content: [{ type: 'text', text }] }
       }
-    })
+    },
+    { signal: this.abortController.signal }
+    )
 
-    modelContext.registerTool({
-      name: ORDER_DETAIL_TOOL,
+    modelContext.registerTool(
+      {
+        name: ORDER_DETAIL_TOOL,
       title: '订单详情',
       description: '【订单管理工具】根据订单号获取完整的订单详情，包括商品、金额、物流、收货人信息等。',
       inputSchema: {
@@ -122,12 +130,13 @@ export class OrdersComponent implements OnInit, OnDestroy {
 - 下单时间：${order.createdAt}${order.shippedAt ? `\n- 发货时间：${order.shippedAt}` : ''}`
         return { content: [{ type: 'text', text }] }
       }
-    })
+    },
+    { signal: this.abortController.signal }
+    )
+    }
   }
 
   ngOnDestroy() {
-    const modelContext = (navigator as any).modelContext
-    modelContext.unregisterTool(ORDER_QUERY_TOOL)
-    modelContext.unregisterTool(ORDER_DETAIL_TOOL)
+    this.abortController.abort()
   }
 }

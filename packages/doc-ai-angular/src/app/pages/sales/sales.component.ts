@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, signal } from '@angular/core'
+import type { ModelContext } from '@mcp-b/webmcp-types'
 import { CommonModule } from '@angular/common'
 
 const SALES_RECORD_QUERY_TOOL = 'sales_record_query'
@@ -90,11 +91,15 @@ export class SalesComponent implements OnInit, OnDestroy {
       color: '#86909c'
     }
   ]
+  private abortController = new AbortController()
 
   ngOnInit() {
-    const modelContext = (navigator as any).modelContext
-    modelContext.registerTool({
-      name: SALES_RECORD_QUERY_TOOL,
+    const modelContext = (document as unknown as { modelContext?: ModelContext }).modelContext || 
+                         (navigator as unknown as { modelContext?: ModelContext }).modelContext
+    if (modelContext?.registerTool) {
+      modelContext.registerTool(
+        {
+          name: SALES_RECORD_QUERY_TOOL,
       title: '查询销售记录',
       description: '【销售分析工具】查询商品销售记录，支持按时间范围筛选，返回销售趋势图表与数据总览。',
       inputSchema: {
@@ -132,12 +137,14 @@ export class SalesComponent implements OnInit, OnDestroy {
 详细图表已在左侧界面展示，可点击不同时间标签查看更多数据。`
         return { content: [{ type: 'text', text }] }
       }
-    })
+    },
+    { signal: this.abortController.signal }
+    )
+    }
   }
 
   ngOnDestroy() {
-    const modelContext = (navigator as any).modelContext
-    modelContext.unregisterTool(SALES_RECORD_QUERY_TOOL)
+    this.abortController.abort()
   }
 
   setActiveRange(range: string) {

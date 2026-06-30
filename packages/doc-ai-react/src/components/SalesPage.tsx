@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import type { ModelContext } from '@mcp-b/webmcp-types'
 
 export function Component() {
   const [activeRange, setActiveRange] = useState('30days')
@@ -12,32 +13,41 @@ export function Component() {
       'year': { totalSales: 1542600, orders: 16080, returnRate: '2.1%' }
     }
 
-    navigator.modelContext.registerTool({
-      name: SALES_RECORD_QUERY_TOOL,
-      title: '查询商品销售记录',
-      description: '【销售数据展示工具】帮助管理员查询最近一段时间的商品销售趋势、统计图表数据',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          timeRange: {
-            type: 'string',
-            enum: ['7days', '30days', 'year'],
-            description: '查询时间范围'
+    const controller = new AbortController()
+    const modelContext = (document as unknown as { modelContext?: ModelContext }).modelContext || 
+                         (navigator as unknown as { modelContext?: ModelContext }).modelContext
+
+    if (modelContext?.registerTool) {
+      modelContext.registerTool(
+        {
+        name: SALES_RECORD_QUERY_TOOL,
+        title: '查询商品销售记录',
+        description: '【销售数据展示工具】帮助管理员查询最近一段时间的商品销售趋势、统计图表数据',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            timeRange: {
+              type: 'string',
+              enum: ['7days', '30days', 'year'],
+              description: '查询时间范围'
+            }
           }
+        },
+        execute: async ({ timeRange }: { timeRange?: '7days' | '30days' | 'year' }) => {
+          const range = timeRange ?? '30days'
+          setActiveRange(range)
+          const s = salesSummary[range]
+          const label = range === '7days' ? '近7天' : range === '30days' ? '近30天' : '过去一年'
+          const text = `${label}销售数据：\n- 总销售额：¥${s.totalSales.toLocaleString()}\n- 总订单数：${s.orders}\n- 退货率：${s.returnRate}\n\n详细图表已更新，可在左侧查看。`
+          return { content: [{ type: 'text', text }] }
         }
       },
-      execute: async ({ timeRange }: { timeRange?: '7days' | '30days' | 'year' }) => {
-        const range = timeRange ?? '30days'
-        setActiveRange(range)
-        const s = salesSummary[range]
-        const label = range === '7days' ? '近7天' : range === '30days' ? '近30天' : '过去一年'
-        const text = `${label}销售数据：\n- 总销售额：¥${s.totalSales.toLocaleString()}\n- 总订单数：${s.orders}\n- 退货率：${s.returnRate}\n\n详细图表已更新，可在左侧查看。`
-        return { content: [{ type: 'text', text }] }
-      }
-    })
+      { signal: controller.signal }
+    )
+    }
 
     return () => {
-      navigator.modelContext.unregisterTool(SALES_RECORD_QUERY_TOOL)
+      controller.abort()
     }
   }, [])
   return (
