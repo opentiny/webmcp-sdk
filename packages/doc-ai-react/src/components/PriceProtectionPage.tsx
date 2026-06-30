@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ModelContext } from '@mcp-b/webmcp-types'
 import { priceProtectionList, type PriceProtectionOrder } from '../mock'
-import PriceProtectionModal from './PriceProtectionModal'
+import PriceProtectionModal, { type PriceProtectionModalRef, type PriceProtectionModalProps } from './PriceProtectionModal'
 
 export function Component() {
-  const modalRef = useRef<any>(null)
+  const modalRef = useRef<PriceProtectionModalRef>(null)
   const [orders, setOrders] = useState<PriceProtectionOrder[]>([])
   const [reviewDialog, setReviewDialog] = useState({
     visible: false,
@@ -20,8 +21,13 @@ export function Component() {
     const PRICE_PROTECTION_REVIEW_TOOL = 'price-protection-review'
     const PRICE_PROTECTION_DETAIL_TOOL = 'price-protection-detail'
     const ADD_PRICE_PROTECTION_TOOL = 'add_price_protection'
+    const controller = new AbortController()
+    const modelContext = (document as unknown as { modelContext?: ModelContext }).modelContext || 
+                         (navigator as unknown as { modelContext?: ModelContext }).modelContext
 
-    navigator.modelContext.registerTool({
+    if (modelContext?.registerTool) {
+      modelContext.registerTool(
+        {
       name: PRICE_PROTECTION_QUERY_TOOL,
       title: '查询价保申请',
       description: '查询商品价保申请列表，可按状态筛选（pending/approved/rejected/expired），不传 status 则返回全部',
@@ -42,9 +48,12 @@ export function Component() {
         const text = `查询到 ${list.length} 条价保申请：\n${JSON.stringify(list, null, 2)}`
         return { content: [{ type: 'text', text }] }
       }
-    })
+    },
+    { signal: controller.signal }
+  )
 
-    navigator.modelContext.registerTool({
+    modelContext.registerTool(
+      {
       name: PRICE_PROTECTION_REVIEW_TOOL,
       title: '审批价保申请',
       description: '对待审核的价保申请进行审批，支持通过（approve）或拒绝（reject），可附加备注',
@@ -92,9 +101,12 @@ export function Component() {
           ]
         }
       }
-    })
+    },
+    { signal: controller.signal }
+  )
 
-    navigator.modelContext.registerTool({
+    modelContext.registerTool(
+      {
       name: PRICE_PROTECTION_DETAIL_TOOL,
       title: '价保申请详情',
       description: '根据申请 ID 获取单条价保申请的完整详情',
@@ -114,9 +126,12 @@ export function Component() {
         const text = order ? `价保申请详情：\n${JSON.stringify(order, null, 2)}` : `未找到 ID 为 ${id} 的价保申请。`
         return { content: [{ type: 'text', text }] }
       }
-    })
+    },
+    { signal: controller.signal }
+  )
 
-    navigator.modelContext.registerTool({
+    modelContext.registerTool(
+      {
       name: ADD_PRICE_PROTECTION_TOOL,
       title: '申请价保补偿',
       description:
@@ -136,7 +151,7 @@ export function Component() {
         },
         required: ['isSkillRead', 'customerName', 'orderId', 'amount', 'reason']
       },
-      execute: async (params: any) => {
+      execute: async (params: PriceProtectionModalProps) => {
         if (!params.isSkillRead) {
           return {
             content: [
@@ -147,17 +162,19 @@ export function Component() {
             ]
           }
         }
+        if (!modalRef.current) {
+          return { content: [{ type: 'text', text: '错误：价保弹窗未加载，当前页面可能已被销毁。' }] }
+        }
         const result = await modalRef.current.openModal(params)
         return { content: [{ type: 'text', text: result }] }
       }
-    })
+    },
+    { signal: controller.signal }
+  )
+    }
 
     return () => {
-      const modelContext = (navigator as any).modelContext
-      modelContext.unregisterTool(PRICE_PROTECTION_QUERY_TOOL)
-      modelContext.unregisterTool(PRICE_PROTECTION_REVIEW_TOOL)
-      modelContext.unregisterTool(PRICE_PROTECTION_DETAIL_TOOL)
-      modelContext.unregisterTool(ADD_PRICE_PROTECTION_TOOL)
+      controller.abort()
     }
   }, [])
 

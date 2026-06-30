@@ -50,7 +50,7 @@
 ## 1.3 WebMCP + WebSkills 的定位：标准核心，原生优先
 
 **WebMCP 不是“替代者”，而是“最强补充”**：
-我们强烈推荐直接使用浏览器标准的 **`navigator.modelContext`** 接口。通过调用 SDK 的 **`initializeBuiltinWebMCP()`**，你将获得全平台 Polyfill 支持。标准的 API 极大简化了适配成本，让智能化接入变得更轻量、高效且面向未来。
+我们强烈推荐直接使用浏览器标准的 **`document.modelContext`** 接口。通过调用 SDK 的 **`initializeBuiltinWebMCP()`**，你将获得全平台 Polyfill 支持。标准的 API 极大简化了适配成本，让智能化接入变得更轻量、高效且面向未来。
 
 **WebSkills：让 AI 真的“懂你的业务”**：
 WebSkills 能进一步增强 AI 对业务的理解能力，尤其在处理跨页面逻辑时提供精准的语义导航。
@@ -129,30 +129,37 @@ export const useWebAgentServer = async () => {
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
 
+const abortController = new AbortController()
+
 onMounted(() => {
   // ✅ 推荐：直接使用浏览器标准接口进行注册流程
-  navigator.modelContext.registerTool({
-    name: 'product-guide',
-    title: '产品指南',
-    description: '获取产品详细信息',
-    inputSchema: {
-      type: 'object',
-      properties: { productId: { type: 'string' } }
+  ;(document as any).modelContext.registerTool(
+    {
+      name: 'product-guide',
+      title: '产品指南',
+      description: '获取产品详细信息',
+      inputSchema: {
+        type: 'object',
+        properties: { productId: { type: 'string' } }
+      },
+      execute: async ({ productId }) => {
+        return { content: [{ type: 'text', text: `已找到商品 ${productId}` }] }
+      }
     },
-    execute: async ({ productId }) => {
-      return { content: [{ type: 'text', text: `已找到商品 ${productId}` }] }
-    }
-  })
+    { signal: abortController.signal }
+  )
 })
 
-onUnmounted(() => navigator.modelContext.unregisterTool('product-guide'))
+onUnmounted(() => {
+  abortController.abort()
+})
 </script>
 ```
 
 > [!TIP]
 > **进阶：分离式注册（Next-SDK 独家增强 API）**
 > 对于需要全局感知工具的场景，你可以将 Metadata 集中定义在全局，而在具体页面中仅编写对应的执行 Handler：
-> 1. 全局调用 `navigator.modelContext.registerTool({ ...routeConfig: { route: '/path' } })`（无 execute）。
+> 1. 全局调用 `document.modelContext.registerTool({ ...routeConfig: { route: '/path' } }, { signal: abortController.signal })`（无 execute）。
 > 2. 页面内调用 `registerPageTool({ route: '/path', handlers: { ... } })` 绑定实现逻辑。
 
 **步骤 6：在 App.vue 中挂载 Remoter + 接入远程遥控**

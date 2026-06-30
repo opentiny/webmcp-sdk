@@ -614,9 +614,9 @@ export function registerPageTool(options: RegisterPageToolByHandlersOptions): ()
 const _registeredTools = new Map<string, any>()
 
 export function setupModelContextBridge() {
-  if (typeof navigator === 'undefined') return
-  const nav = navigator as any
-  const nativeCtx = nav.modelContext
+  if (typeof document === 'undefined') return
+  const doc = document as any
+  const nativeCtx = doc.modelContext
 
   // 如果不存在或者已经被拦截过，则不处理
   if (!nativeCtx || nativeCtx.__isNextSdkBridgeSetup) return
@@ -633,17 +633,25 @@ export function setupModelContextBridge() {
   const originalUnregisterTool = nativeCtx.unregisterTool?.bind(nativeCtx)
 
   if (typeof originalRegisterTool === 'function') {
-    nativeCtx.registerTool = (config: any) => {
+    nativeCtx.registerTool = (config: any, options?: any) => {
       const name = config.name
       const toolConfig = { ...config } // 拷贝一份，避免修改用户原始对象
 
-      // 1. 识别路由配置核心件：原生格式下仅从 config.routeConfig 对象识别
+      // 1. 监听 AbortSignal 以同步卸载状态
+      if (options?.signal) {
+        options.signal.addEventListener('abort', () => {
+          _registeredTools.delete(name)
+          broadcastToolChange(MSG_TOOL_UNREGISTERED)
+        })
+      }
+
+      // 2. 识别路由配置核心件：原生格式下仅从 config.routeConfig 对象识别
       const routeConfig: RouteConfig | null =
         toolConfig.routeConfig && typeof toolConfig.routeConfig === 'object' && 'route' in toolConfig.routeConfig
           ? (toolConfig.routeConfig as RouteConfig)
           : null
 
-      // 2. 如果存在路由配置，且当前不在该目标页面，则包装为自动跳转的 handler
+      // 3. 如果存在路由配置，且当前不在该目标页面，则包装为自动跳转的 handler
       if (routeConfig) {
         const normalizedRoute = normalizeRoute(routeConfig.route)
         const effectConfig = resolveRuntimeEffectConfig(name, toolConfig.title, routeConfig.invokeEffect)
@@ -655,7 +663,7 @@ export function setupModelContextBridge() {
         delete toolConfig.routeConfig
       }
 
-      // 3. 维护工具定义，供 content.ts 握手查询
+      // 4. 维护工具定义，供 content.ts 握手查询
       _registeredTools.set(name, {
         name,
         title: config.title,
@@ -663,9 +671,9 @@ export function setupModelContextBridge() {
         inputSchema: config.inputSchema
       })
 
-      // 4. 执行底层的原生注册逻辑并广播同步
+      // 5. 执行底层的原生注册逻辑并广播同步
       try {
-        originalRegisterTool(toolConfig)
+        originalRegisterTool(toolConfig, options)
         broadcastToolChange(MSG_TOOL_REGISTERED)
       } catch (err) {
         // 如果注册失败，撤销记录
@@ -675,16 +683,18 @@ export function setupModelContextBridge() {
     }
   }
 
-  if (typeof originalUnregisterTool === 'function') {
-    nativeCtx.unregisterTool = (name: string) => {
-      try {
+  // 无论原生是否提供 unregisterTool，都在 bridge 侧保证此方法存在，从而向后兼容老旧的卸载写法
+  nativeCtx.unregisterTool = (name: string) => {
+    try {
+      if (typeof originalUnregisterTool === 'function') {
         originalUnregisterTool(name)
-        // 从工具名集合中移除
-        _registeredTools.delete(name)
-        broadcastToolChange(MSG_TOOL_UNREGISTERED)
-      } catch (err) {
-        // 忽略注销错误
       }
+    } catch (err) {
+      // 忽略原生注销错误
+    } finally {
+      // 从工具名集合中移除
+      _registeredTools.delete(name)
+      broadcastToolChange(MSG_TOOL_UNREGISTERED)
     }
   }
 

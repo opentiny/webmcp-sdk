@@ -68,11 +68,13 @@ export class PriceProtectionComponent implements OnInit, OnDestroy {
     })
     return count
   }
+  private abortController = new AbortController()
 
   ngOnInit(): void {
-    const modelContext = (navigator as any).modelContext
-    modelContext.registerTool({
-      name: PRICE_PROTECTION_QUERY_TOOL,
+    const modelContext = (document as any).modelContext || (navigator as any).modelContext
+    modelContext.registerTool(
+      {
+        name: PRICE_PROTECTION_QUERY_TOOL,
       title: '查询价保申请',
       description: '查询商品价保申请列表，可按状态筛选（pending/approved/rejected/expired），不传 status 则返回全部',
       inputSchema: {
@@ -92,10 +94,13 @@ export class PriceProtectionComponent implements OnInit, OnDestroy {
         const text = `查询到 ${list.length} 条价保申请：\n${JSON.stringify(list, null, 2)}`
         return { content: [{ type: 'text', text }] }
       }
-    })
+    },
+    { signal: this.abortController.signal }
+    )
 
-    modelContext.registerTool({
-      name: PRICE_PROTECTION_REVIEW_TOOL,
+    modelContext.registerTool(
+      {
+        name: PRICE_PROTECTION_REVIEW_TOOL,
       title: '审批价保申请',
       description: '对待审核的价保申请进行审批，支持通过（approve）或拒绝（reject），可附加备注',
       inputSchema: {
@@ -142,10 +147,13 @@ export class PriceProtectionComponent implements OnInit, OnDestroy {
           ]
         }
       }
-    })
+    },
+    { signal: this.abortController.signal }
+    )
 
-    modelContext.registerTool({
-      name: PRICE_PROTECTION_DETAIL_TOOL,
+    modelContext.registerTool(
+      {
+        name: PRICE_PROTECTION_DETAIL_TOOL,
       title: '价保申请详情',
       description: '根据申请 ID 获取单条价保申请的完整详情',
       inputSchema: {
@@ -164,10 +172,13 @@ export class PriceProtectionComponent implements OnInit, OnDestroy {
         const text = order ? `价保申请详情：\n${JSON.stringify(order, null, 2)}` : `未找到 ID 为 ${id} 的价保申请。`
         return { content: [{ type: 'text', text }] }
       }
-    })
+    },
+    { signal: this.abortController.signal }
+    )
 
-    modelContext.registerTool({
-      name: ADD_PRICE_PROTECTION_TOOL,
+    modelContext.registerTool(
+      {
+        name: ADD_PRICE_PROTECTION_TOOL,
       title: '申请价保补偿',
       description:
         '【价保监控工具】帮助电商管理员处理顾客因降价提出的补差价请求（价保申请）。注意：在调用本工具前，你必须先使用 get_skill_content 工具读取相关的技能文档，严禁凭空构造参数或跳过业务规则直接调用。',
@@ -204,15 +215,13 @@ export class PriceProtectionComponent implements OnInit, OnDestroy {
         const result = '价保申请已提交，正在等待审核。'
         return { content: [{ type: 'text', text: result }] }
       }
-    })
+    },
+    { signal: this.abortController.signal }
+    )
   }
 
   ngOnDestroy(): void {
-    const modelContext = (navigator as any).modelContext
-    modelContext.unregisterTool(PRICE_PROTECTION_QUERY_TOOL)
-    modelContext.unregisterTool(PRICE_PROTECTION_REVIEW_TOOL)
-    modelContext.unregisterTool(PRICE_PROTECTION_DETAIL_TOOL)
-    modelContext.unregisterTool(ADD_PRICE_PROTECTION_TOOL)
+    this.abortController.abort()
   }
 
   // 审核通过

@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ModelContext } from '@mcp-b/webmcp-types'
 import { inventoryList, type InventoryItem } from '../mock'
-import InventoryModal from './InventoryModal'
+import InventoryModal, { type InventoryModalRef, type InventoryModalProps } from './InventoryModal'
 
 export function Component() {
-  const modalRef = useRef<any>(null)
+  const modalRef = useRef<InventoryModalRef>(null)
   const [inventory, setInventory] = useState<InventoryItem[]>([])
 
   useEffect(() => {
@@ -11,26 +12,38 @@ export function Component() {
     setInventory([...inventoryList])
 
     const ADD_INVENTORY_TOOL = 'add_inventory'
-    navigator.modelContext.registerTool({
-      name: ADD_INVENTORY_TOOL,
-      description: '【入库管理工具】帮助电商管理员将采购的商品新增入库存系统中',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          productName: { type: 'string', description: '商品名称或型号，如：iPhone 15 Pro Max' },
-          quantity: { type: 'number', description: '要入库的数量，必须大于0' },
-          warehouse: { type: 'string', description: '入库存放的仓库名称，如：北京一号仓' }
+    const controller = new AbortController()
+    const modelContext = (document as unknown as { modelContext?: ModelContext }).modelContext || 
+                         (navigator as unknown as { modelContext?: ModelContext }).modelContext
+
+    if (modelContext?.registerTool) {
+      modelContext.registerTool(
+        {
+          name: ADD_INVENTORY_TOOL,
+          description: '【入库管理工具】帮助电商管理员将采购的商品新增入库存系统中',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              productName: { type: 'string', description: '商品名称或型号，如：iPhone 15 Pro Max' },
+              quantity: { type: 'number', description: '要入库的数量，必须大于0' },
+              warehouse: { type: 'string', description: '入库存放的仓库名称，如：北京一号仓' }
+            },
+            required: ['productName', 'quantity', 'warehouse']
+          },
+          execute: async (params: InventoryModalProps) => {
+            if (!modalRef.current) {
+              return { content: [{ type: 'text', text: '错误：入库弹窗未加载，当前页面可能已被销毁。' }] }
+            }
+            const result = await modalRef.current.openModal(params)
+            return { content: [{ type: 'text', text: result }] }
+          }
         },
-        required: ['productName', 'quantity', 'warehouse']
-      },
-      execute: async (params: any) => {
-        const result = await modalRef.current.openModal(params)
-        return { content: [{ type: 'text', text: result }] }
-      }
-    })
+        { signal: controller.signal }
+      )
+    }
 
     return () => {
-      navigator.modelContext.unregisterTool(ADD_INVENTORY_TOOL)
+      controller.abort()
     }
   }, [])
 

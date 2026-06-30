@@ -44,6 +44,7 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import InventoryModal from '../../components/InventoryModal.vue'
 
 const modalRef = ref()
+const abortController = new AbortController()
 
 const handleManualAdd = () => {
   // 唤起表单但使用空数据
@@ -55,27 +56,36 @@ const handleManualAdd = () => {
 const ADD_INVENTORY_TOOL = 'add_inventory'
 
 onMounted(() => {
-  navigator.modelContext.registerTool({
-    name: ADD_INVENTORY_TOOL,
-    description: '【入库管理工具】帮助电商管理员将采购的商品新增入库存系统中',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        productName: { type: 'string', description: '商品名称或型号，如：iPhone 15 Pro Max' },
-        quantity: { type: 'number', description: '要入库的数量，必须大于0' },
-        warehouse: { type: 'string', description: '入库存放的仓库名称，如：北京一号仓' }
+  const modelContext = (document as any).modelContext || (navigator as any).modelContext
+  if (modelContext?.registerTool) {
+    modelContext.registerTool(
+      {
+        name: ADD_INVENTORY_TOOL,
+        description: '【入库管理工具】帮助电商管理员将采购的商品新增入库存系统中',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            productName: { type: 'string', description: '商品名称或型号，如：iPhone 15 Pro Max' },
+            quantity: { type: 'number', description: '要入库的数量，必须大于0' },
+            warehouse: { type: 'string', description: '入库存放的仓库名称，如：北京一号仓' }
+          },
+          required: ['productName', 'quantity', 'warehouse']
+        },
+        execute: async (params: any) => {
+          if (!modalRef.value) {
+            return { content: [{ type: 'text', text: '错误：入库弹窗未加载，当前页面可能已被销毁。' }] }
+          }
+          const result = await modalRef.value.openModal(params)
+          return { content: [{ type: 'text', text: result }] }
+        }
       },
-      required: ['productName', 'quantity', 'warehouse']
-    },
-    execute: async (params: any) => {
-      const result = await modalRef.value.openModal(params)
-      return { content: [{ type: 'text', text: result }] }
-    }
-  })
+      { signal: abortController.signal }
+    )
+  }
 })
 
 onUnmounted(() => {
-  navigator.modelContext.unregisterTool(ADD_INVENTORY_TOOL)
+  abortController.abort()
 })
 </script>
 

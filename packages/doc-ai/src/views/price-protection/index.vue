@@ -141,10 +141,13 @@ const PRICE_PROTECTION_QUERY_TOOL = 'price-protection-query'
 const PRICE_PROTECTION_REVIEW_TOOL = 'price-protection-review'
 const PRICE_PROTECTION_DETAIL_TOOL = 'price-protection-detail'
 const ADD_PRICE_PROTECTION_TOOL = 'add_price_protection'
+const abortController = new AbortController()
 
 onMounted(() => {
-  const modelContext = navigator.modelContext
-  modelContext.registerTool({
+  const modelContext = (document as any).modelContext || (navigator as any).modelContext
+  if (modelContext?.registerTool) {
+    modelContext.registerTool(
+    {
     name: PRICE_PROTECTION_QUERY_TOOL,
     description: '查询商品价保申请列表，可按状态筛选（pending/approved/rejected/expired），不传 status 则返回全部',
     inputSchema: {
@@ -164,9 +167,12 @@ onMounted(() => {
       const text = `查询到 ${list.length} 条价保申请：\n${JSON.stringify(list, null, 2)}`
       return { content: [{ type: 'text', text }] }
     }
-  })
+  },
+  { signal: abortController.signal }
+  )
 
-  modelContext.registerTool({
+  modelContext.registerTool(
+    {
     name: PRICE_PROTECTION_REVIEW_TOOL,
     description: '对待审核的价保申请进行审批，支持通过（approve）或拒绝（reject），可附加备注',
     inputSchema: {
@@ -211,9 +217,12 @@ onMounted(() => {
         content: [{ type: 'text', text: `价保申请 ${order.id} 已${action === 'approve' ? '通过' : '拒绝'}${remarkText}。` }]
       }
     }
-  })
+  },
+  { signal: abortController.signal }
+  )
 
-  modelContext.registerTool({
+  modelContext.registerTool(
+    {
     name: PRICE_PROTECTION_DETAIL_TOOL,
     description: '根据申请 ID 获取单条价保申请的完整详情',
     inputSchema: {
@@ -232,9 +241,12 @@ onMounted(() => {
       const text = order ? `价保申请详情：\n${JSON.stringify(order, null, 2)}` : `未找到 ID 为 ${id} 的价保申请。`
       return { content: [{ type: 'text', text }] }
     }
-  })
+  },
+  { signal: abortController.signal }
+  )
 
-  modelContext.registerTool({
+  modelContext.registerTool(
+    {
     name: ADD_PRICE_PROTECTION_TOOL,
     description:
       '【价保监控工具】帮助电商管理员处理顾客因降价提出的补差价请求（价保申请）。注意：在调用本工具前，你必须先使用 get_skill_content 工具读取相关的技能文档，严禁凭空构造参数或跳过业务规则直接调用。',
@@ -263,18 +275,20 @@ onMounted(() => {
           ]
         }
       }
+      if (!modalRef.value) {
+        return { content: [{ type: 'text', text: '错误：价保弹窗未加载，当前页面可能已被销毁。' }] }
+      }
       const result = await modalRef.value.openModal(params)
       return { content: [{ type: 'text', text: result }] }
     }
-  })
+  },
+  { signal: abortController.signal }
+  )
+  }
 })
 
 onUnmounted(() => {
-  const modelContext = navigator.modelContext
-  modelContext.unregisterTool(PRICE_PROTECTION_QUERY_TOOL)
-  modelContext.unregisterTool(PRICE_PROTECTION_REVIEW_TOOL)
-  modelContext.unregisterTool(PRICE_PROTECTION_DETAIL_TOOL)
-  modelContext.unregisterTool(ADD_PRICE_PROTECTION_TOOL)
+  abortController.abort()
 })
 </script>
 

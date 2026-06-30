@@ -147,7 +147,7 @@ import registerFinanceTools from './finance/tools'
 export { useWebAgentServer } from './useWebAgentServer'
 
 export const createMcpServer = async () => {
-  registerNavigateTool((navigator as any).modelContext)
+  registerNavigateTool((document as any).modelContext)
 
   // 仅保留财务工具在 mcp-servers 侧声明（其余工具已迁移到业务页面内一体化定义）
   registerFinanceTools()
@@ -163,27 +163,31 @@ export const createMcpServer = async () => {
 ```ts
 useEffect(() => {
   const ADD_INVENTORY_TOOL = 'add_inventory'
+  const controller = new AbortController()
 
-  navigator.modelContext.registerTool({
-    name: ADD_INVENTORY_TOOL,
-    description: '【入库管理工具】帮助电商管理员将采购的商品新增入库存系统中',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        productName: { type: 'string', description: '商品名称或型号，如：iPhone 15 Pro Max' },
-        quantity: { type: 'number', description: '要入库的数量，必须大于0' },
-        warehouse: { type: 'string', description: '入库存放的仓库名称，如：北京一号仓' }
+  ;(document as any).modelContext.registerTool(
+    {
+      name: ADD_INVENTORY_TOOL,
+      description: '【入库管理工具】帮助电商管理员将采购的商品新增入库存系统中',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          productName: { type: 'string', description: '商品名称或型号，如：iPhone 15 Pro Max' },
+          quantity: { type: 'number', description: '要入库的数量，必须大于0' },
+          warehouse: { type: 'string', description: '入库存放的仓库名称，如：北京一号仓' }
+        },
+        required: ['productName', 'quantity', 'warehouse']
       },
-      required: ['productName', 'quantity', 'warehouse']
+      execute: async (params: any) => {
+        const result = await modalRef.current.openModal(params)
+        return { content: [{ type: 'text', text: result }] }
+      }
     },
-    execute: async (params: any) => {
-      const result = await modalRef.current.openModal(params)
-      return { content: [{ type: 'text', text: result }] }
-    }
-  })
+    { signal: controller.signal }
+  )
 
   return () => {
-    navigator.modelContext.unregisterTool(ADD_INVENTORY_TOOL)
+    controller.abort()
   }
 }, [])
 ```

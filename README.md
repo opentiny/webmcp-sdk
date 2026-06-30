@@ -21,8 +21,7 @@ English | [简体中文](README.zh-CN.md)
   <a href="#-scenarios">💡 Scenarios</a>
 </p>
 
-> [!IMPORTANT]
-> **Next-Gen AI Protocol**: OpenTiny NEXT-SDKs is built on the **WebMCP (Model Context Protocol for Web)**. It is fully compatible with the native `navigator.modelContext` API (currently in experimental stage in browsers like Chrome), allowing your web apps to be controlled by AI via a standardized protocol.
+> **Next-Gen AI Protocol**: OpenTiny NEXT-SDKs is built on the **WebMCP (Model Context Protocol for Web)**. It is fully compatible with the native `document.modelContext` API (currently in experimental stage in browsers like Chrome), allowing your web apps to be controlled by AI via a standardized protocol.
 
 > [!TIP]
 > **✨ Command-line Automation & AI Skills**:
@@ -48,7 +47,7 @@ English | [简体中文](README.zh-CN.md)
 
 - 🔌 **Standard WebMCP Implementation**: Fully implements the browser version of MCP, making front-ends "AI-Callable" via a unified protocol.
 - 📡 **Remote AI Control**: Seamlessly connect your front-end to a **WebAgent service**, allowing AI to remotely orchestrate and control your application via a stable sessionId.
-- 🛠️ **Built-in Polyfill Support**: Provides `navigator.modelContext` polyfill for current browsers, ensuring your code works today and is ready for tomorrow's native browser support.
+- 🛠️ **Built-in Polyfill Support**: Provides `document.modelContext` / `navigator.modelContext` polyfill for current browsers, ensuring your code works today and is ready for tomorrow's native browser support.
 - 🎯 **Zero-Refactor Intelligence**: Expose existing business logic and UI operations as tools without changing your app's core architecture.
 - 🧩 **WebSkills Abstraction**: Organizes tools into "Business Skills" for progressive disclosure to AI.
 - 🤖 **AI Chat Components**: Ready-to-use `@opentiny/next-remoter` for instant AI remote control.
@@ -57,14 +56,14 @@ English | [简体中文](README.zh-CN.md)
 
 ### What is WebMCP?
 
-WebMCP is an extension of the Model Context Protocol specifically for web browsers. It defines how a web page provides "Tools" and "Resources" to AI agents. In the near future, browsers will provide a native `navigator.modelContext` object to manage these capabilities.
+WebMCP is an extension of the Model Context Protocol specifically for web browsers. It defines how a web page provides "Tools" and "Resources" to AI agents. In the near future, browsers will provide a native `document.modelContext` object to manage these capabilities.
 
 ### Why Polyfill?
 
-Since the native API is still in its experimental phase, **OpenTiny NEXT-SDKs provides a robust Polyfill**. By calling `initializeBuiltinWebMCP()`, the SDK:
+Since native APIs are still experimental, **OpenTiny NEXT-SDKs provides a powerful Polyfill**. By calling `initializeBuiltinWebMCP()`, the SDK will:
 
-1.  **Injects `navigator.modelContext`**: Provides a standard-compliant API for tool registration.
-2.  **Automatic Routing & Bridge**: Automatically handles page navigation and message synchronization across different routes/iframes.
+1.  **Injects `document.modelContext`**: Provides a standard-compliant API for tool registration (also aliases `navigator.modelContext` for backward compatibility).
+2.  **Route & Message Bridge**: Handles message routing across multiple pages, domains, and iframes automatically.
 
 This means you can write standard WebMCP code today, and it will automatically switch to the native engine when the browser supports it.
 
@@ -119,13 +118,13 @@ import { initializeBuiltinWebMCP } from '@opentiny/next-sdk'
 initializeBuiltinWebMCP()
 ```
 
-### Step 3: Register Tools via Standard API
-
-Now you can use the standard `navigator.modelContext` to register tools anywhere in your app:
+Now you can use the standard `document.modelContext` to register tools anywhere in your app:
 
 ```typescript
 // Register a tool that AI can call
-navigator.modelContext.registerTool({
+const abortController = new AbortController()
+
+document.modelContext.registerTool({
   name: 'get_user_info',
   description: 'Get current user profile',
   inputSchema: {
@@ -138,7 +137,10 @@ navigator.modelContext.registerTool({
     // Your business logic here
     return { content: [{ type: 'text', text: `Info for user ${args.userId}` }] }
   }
-})
+}, { signal: abortController.signal })
+
+// Unregister the tool when the component unmounts
+// abortController.abort()
 ```
 
 ✅ **Done!** Your app is now an MCP Server. You can connect it to any MCP-compatible client or use our [TinyRemoter](#-remote-control-via-webagent) to start chatting with your app.
@@ -266,7 +268,7 @@ Unlike traditional backend MCP, WebMCP focuses on the **Browser Context**.
             └──────────────────────────────────┘
 ```
 
-1.  **Registering**: Use `navigator.modelContext.registerTool` to declare what your app can do.
+1.  **Registering**: Use `document.modelContext.registerTool` to declare what your app can do, with support for auto-unregistration via `AbortSignal`.
 2.  **Bridging**: Our Bridge automatically routes AI requests to the correct page/iframe, even if the user has navigated away.
 3.  **Executing**: Tools run in the context of your page, allowing direct access to DOM, State, and APIs.
 

@@ -1,4 +1,4 @@
-navigator.modelContext.registerTool({
+;(document as any).modelContext.registerTool({
   name: 'baidu-search',
   title: '百度搜索',
   description: '在百度输入框中输入关键字并执行搜索。',

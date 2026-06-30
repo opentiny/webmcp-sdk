@@ -14,13 +14,15 @@ export class InventoryComponent implements OnInit, OnDestroy {
   inventoryList = inventoryList
 
   @ViewChild(InventoryModalComponent) modal!: InventoryModalComponent
+  private abortController = new AbortController()
 
   constructor(private zone: NgZone) {}
 
   ngOnInit() {
-    const modelContext = (navigator as any).modelContext
-    modelContext.registerTool({
-      name: 'add_inventory',
+    const modelContext = (document as any).modelContext || (navigator as any).modelContext
+    modelContext.registerTool(
+      {
+        name: 'add_inventory',
       description: '【入库管理工具】帮助电商管理员将采购的商品新增入库存系统中',
       inputSchema: {
         type: 'object',
@@ -40,12 +42,13 @@ export class InventoryComponent implements OnInit, OnDestroy {
           }
         })
       }
-    })
+    },
+    { signal: this.abortController.signal }
+    )
   }
 
   ngOnDestroy() {
-    const modelContext = (navigator as any).modelContext
-    modelContext.unregisterTool('add_inventory')
+    this.abortController.abort()
   }
 
   handleManualAdd() {
