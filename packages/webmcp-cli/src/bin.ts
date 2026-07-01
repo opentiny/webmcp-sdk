@@ -107,7 +107,13 @@ function formatLogResult(result: any): string {
         } catch {
           // JSON 解析失败则不处理
         }
-      } else if (text.includes('A11y Tree 搜索结果') || text.includes('命中行') || text.includes('context:')) {
+      } else if (
+        text.includes('A11y Tree 搜索结果') ||
+        text.includes('无障碍树搜索结果') ||
+        text.includes('无障碍树搜索') ||
+        text.includes('命中行') ||
+        text.includes('context:')
+      ) {
         // 如果是 searchTree 的返回，或者其他可能包含 A11y Tree 搜索结构的多行文本
         searchResultStr = text
         clone.content[0].text = '[Search A11y Tree Result - See details below]'
