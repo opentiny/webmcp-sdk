@@ -70,6 +70,68 @@ function cleanOldLogs(baseDir: string, logDir: string) {
   }
 }
 
+function formatLogResult(result: any): string {
+  if (result === undefined || result === null) {
+    return 'null'
+  }
+
+  try {
+    if (typeof result !== 'object') {
+      return String(result)
+    }
+
+    // 深拷贝 result，防止意外修改原始数据导致控制台输出受影响
+    const clone = JSON.parse(JSON.stringify(result))
+    let a11yTreeStr = ''
+    let searchResultStr = ''
+
+    // 检测 page-agent-tool 的 browserState/操作 动作返回
+    if (
+      clone &&
+      Array.isArray(clone.content) &&
+      clone.content.length > 0 &&
+      clone.content[0] &&
+      typeof clone.content[0].text === 'string'
+    ) {
+      const text = clone.content[0].text
+      if (text.startsWith('浏览器状态: ')) {
+        const jsonStr = text.substring('浏览器状态: '.length)
+        try {
+          const parsed = JSON.parse(jsonStr)
+          if (parsed && typeof parsed.content === 'string') {
+            a11yTreeStr = parsed.content
+            // 替换 clone 中的 content 部分，避免在 JSON 序列化时产生超长难读的字符串
+            parsed.content = '[Formatted A11y Tree - See details below]'
+            clone.content[0].text = `浏览器状态: ${JSON.stringify(parsed, null, 2)}`
+          }
+        } catch {
+          // JSON 解析失败则不处理
+        }
+      } else if (text.includes('A11y Tree 搜索结果') || text.includes('命中行') || text.includes('context:')) {
+        // 如果是 searchTree 的返回，或者其他可能包含 A11y Tree 搜索结构的多行文本
+        searchResultStr = text
+        clone.content[0].text = '[Search A11y Tree Result - See details below]'
+      }
+    }
+
+    let out = JSON.stringify(clone, null, 2)
+    if (a11yTreeStr) {
+      out += `\n\n[FORMATTED A11Y TREE]:\n${a11yTreeStr}`
+    }
+    if (searchResultStr) {
+      out += `\n\n[FORMATTED SEARCH RESULT]:\n${searchResultStr}`
+    }
+    return out
+  } catch (e) {
+    // 降级使用标准 stringify
+    try {
+      return JSON.stringify(result, null, 2)
+    } catch {
+      return String(result)
+    }
+  }
+}
+
 function writeLog(commandName: string, args: any, result: any, error?: any) {
   try {
     const baseDir = process.env.WEBMCP_WORKSPACE || path.join(os.homedir(), '.webmcp_chrome_profile')
@@ -89,15 +151,8 @@ function writeLog(commandName: string, args: any, result: any, error?: any) {
       logText += `ERROR:\n${error instanceof Error ? error.stack : String(error)}\n`
     } else if (result) {
       logText += `RESULT:\n`
-      try {
-        if (result && typeof result === 'object') {
-          logText += JSON.stringify(result, null, 2).split('\n').map(line => `  ${line}`).join('\n') + '\n'
-        } else {
-          logText += String(result).split('\n').map(line => `  ${line}`).join('\n') + '\n'
-        }
-      } catch {
-        logText += JSON.stringify(result, null, 2).split('\n').map(line => `  ${line}`).join('\n') + '\n'
-      }
+      const formattedResult = formatLogResult(result)
+      logText += formattedResult.split('\n').map(line => `  ${line}`).join('\n') + '\n'
     } else {
       logText += `RESULT: null\n`
     }
