@@ -1,4 +1,4 @@
-import pkg from '@opentiny/next-sdk/package.json' with { type: 'json' }
+import pkg from '../next-sdk/package.json' with { type: 'json' }
 import vue from '@vitejs/plugin-vue'
 import { dirname, resolve } from 'path'
 import { fileURLToPath } from 'url'

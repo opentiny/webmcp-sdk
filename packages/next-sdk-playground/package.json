@@ -23,12 +23,12 @@
   },
   "devDependencies": {
     "@types/node": "^22.13.17",
-    "@vitejs/plugin-vue": "^4.5.2",
+    "@vitejs/plugin-vue": "catalog:",
     "concurrently": "^8.2.0",
     "less": "^4.2.0",
-    "typescript": "^5.2.2",
-    "vite": "^5.0.8",
-    "vite-plugin-dts": "^4.5.3",
-    "vue-tsc": "^2.2.8"
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vite-plugin-dts": "catalog:",
+    "vue-tsc": "catalog:"
   }
 }
