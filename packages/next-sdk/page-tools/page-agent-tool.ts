@@ -10,17 +10,24 @@ declare global {
   interface Window {
     __webmcpcli_interactiveWhitelist?: Element[]
     __webmcpcli_interactiveBlacklist?: Element[]
+    __webmcpcli_exposedAttributes?: string[]
     __webmcpcli_beforeGetBrowserState?: (() => void) | null
   }
 }
 
+export interface PageAgentToolOptions {
+  /** 允许在无障碍树节点中额外暴露的 DOM 属性白名单 */
+  exposedAttributes?: string[]
+}
+
 /** 在浏览器页面中注册 page-agent-tool, 用于页面的内容获取和操作，页面的动效 */
-export function registerPageAgentTool() {
+export function registerPageAgentTool(options?: PageAgentToolOptions) {
   initializeBuiltinWebMCP()
 
-  window.__webmcpcli_interactiveWhitelist = [] // 白名单元素列表，存在则识别为交互元素
-  window.__webmcpcli_interactiveBlacklist = [] // 黑名单，反之
-  window.__webmcpcli_beforeGetBrowserState = null // 指定网站覆盖该函数，用于设置当前网站的黑白名单
+  window.__webmcpcli_interactiveWhitelist = window.__webmcpcli_interactiveWhitelist || [] // 白名单元素列表，存在则识别为交互元素
+  window.__webmcpcli_interactiveBlacklist = window.__webmcpcli_interactiveBlacklist || [] // 黑名单，反之
+  window.__webmcpcli_exposedAttributes = window.__webmcpcli_exposedAttributes || options?.exposedAttributes || [] // 额外暴露的自定义属性白名单
+  window.__webmcpcli_beforeGetBrowserState = window.__webmcpcli_beforeGetBrowserState || null // 指定网站覆盖该函数，用于设置当前网站的黑白名单
 
   // 保留 PageController 仅用于 showMask/hideMask（UX 遮罩层）
   const pageController = new PageController({ enableMask: true })
@@ -86,12 +93,13 @@ export function registerPageAgentTool() {
     const url = window.location.href
     const title = document.title
 
-    // 获取用户自定义黑名单与白名单
+    // 获取用户自定义黑名单与白名单及额外暴露的属性
     const blacklist = (window.__webmcpcli_interactiveBlacklist ?? []) as Element[]
     const whitelist = (window.__webmcpcli_interactiveWhitelist ?? []) as Element[]
+    const exposedAttributes = (window.__webmcpcli_exposedAttributes ?? []) as string[]
 
     // 生成语义化 ARIA YAML 树 + 刷新 refMap
-    const { yaml, refMap } = buildA11yTree(document.body, blacklist, whitelist)
+    const { yaml, refMap } = buildA11yTree(document.body, blacklist, whitelist, { exposedAttributes })
     currentRefMap = refMap
 
     // 计算 Diff
@@ -157,7 +165,7 @@ export function registerPageAgentTool() {
             const innerInput = el.querySelector('input, textarea')
               ?? (el.shadowRoot?.querySelector('input, textarea') as HTMLElement | null)
             if (innerInput) {
-              targetEl = innerInput
+              targetEl = innerInput as HTMLElement
             }
           }
 
@@ -230,6 +238,7 @@ export function registerPageAgentTool() {
           if (!args.query) return errContent('搜索失败: 缺少 query 参数')
           const blacklist = (window.__webmcpcli_interactiveBlacklist ?? []) as Element[]
           const whitelist = (window.__webmcpcli_interactiveWhitelist ?? []) as Element[]
+          const exposedAttributes = (window.__webmcpcli_exposedAttributes ?? []) as string[]
           const { text } = searchA11yTree(
             args.query,
             document.body,
@@ -238,6 +247,7 @@ export function registerPageAgentTool() {
             {
               contextLines: args.contextLines,
               maxMatches: args.maxMatches,
+              exposedAttributes,
             },
           )
           await pageController.hideMask()

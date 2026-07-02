@@ -46,6 +46,12 @@ export interface A11yTreeOptions {
    * 例如：['table', 'row'] 用于保留表格结构
    */
   preserveRoles?: string[]
+  /**
+   * 允许在无障碍树节点中作为 token 额外输出的 DOM 属性白名单
+   * 包含这些属性的节点会被自动视为需要暴露/交互的节点（分配 ref 并保留），
+   * 且属性及其值会显示在节点的 token 列表中，如 [cf-uba="cloudShell"]
+   */
+  exposedAttributes?: string[]
 }
 
 export interface A11yTreeResult {
@@ -205,7 +211,7 @@ function inferRole(el: Element): string {
  * 收集节点的 ARIA 状态 token
  * 格式：[checked] [selected] [disabled] [hasPopup] [cursor=pointer] [value="..."]
  */
-function getStateTokens(el: Element): string[] {
+function getStateTokens(el: Element, exposedAttributes?: string[]): string[] {
   const tokens: string[] = []
   const aria = (k: string) => el.getAttribute(k)
 
@@ -248,6 +254,16 @@ function getStateTokens(el: Element): string[] {
   const valuenow = el.getAttribute('aria-valuenow')
   if (valuenow) {
     tokens.push(`valuenow="${valuenow}"`)
+  }
+
+  // 额外暴露的自定义属性白名单
+  if (exposedAttributes) {
+    for (const attr of exposedAttributes) {
+      const val = el.getAttribute(attr)
+      if (val !== null) {
+        tokens.push(`${attr}="${val}"`)
+      }
+    }
   }
 
   return tokens
@@ -352,16 +368,18 @@ function buildVNode(
   refMap: RefMap,
   blacklistSet: Set<Element>,
   whitelistSet: Set<Element>,
+  exposedAttributes?: string[],
 ): VNode | null {
   if (isHidden(el) || blacklistSet.has(el)) return null
 
   const role = inferRole(el)
-  const tokens = getStateTokens(el)
+  const tokens = getStateTokens(el, exposedAttributes)
   
   let name = computeAccessibleName(el as HTMLElement)
   const isTrulyInteractive = isFocusable(el as HTMLElement)
   const isVisuallyClickable = tokens.includes('cursor=pointer')
-  const isWhitelisted = whitelistSet.has(el)
+  // 包含白名单属性的节点也视为白名单节点（确保不被剪枝并分配 ref 操作索引）
+  const isWhitelisted = whitelistSet.has(el) || (exposedAttributes?.some(attr => el.hasAttribute(attr)) ?? false)
 
   // 兜底方案：如果 AccName 计算结果为空，但该节点具有明显的交互性或属于结构性列表项，
   // 我们从其子树收集纯文本作为其 fallback name，以防 AI 丢失可读上下文。
@@ -390,7 +408,7 @@ function buildVNode(
 
   const children: VNode[] = []
   for (const child of getComposedChildren(el)) {
-    const childVNode = buildVNode(child, refCounter, refMap, blacklistSet, whitelistSet)
+    const childVNode = buildVNode(child, refCounter, refMap, blacklistSet, whitelistSet, exposedAttributes)
     if (childVNode) children.push(childVNode)
   }
 
@@ -460,6 +478,7 @@ function serializeVNode(
 const DEFAULT_OPTIONS: Required<A11yTreeOptions> = {
   pruneUnnamed: true,
   preserveRoles: [],
+  exposedAttributes: [],
 }
 
 /**
@@ -485,7 +504,7 @@ export function buildA11yTree(
   const lines: string[] = []
 
   for (const child of getComposedChildren(root)) {
-    const vnode = buildVNode(child, refCounter, refMap, blacklistSet, whitelistSet)
+    const vnode = buildVNode(child, refCounter, refMap, blacklistSet, whitelistSet, opts.exposedAttributes)
     if (vnode) {
       lines.push(...serializeVNode(vnode, 0, opts))
     }
