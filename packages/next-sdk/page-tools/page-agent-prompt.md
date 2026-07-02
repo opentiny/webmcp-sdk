@@ -26,35 +26,48 @@
 
 - url: 当前查看页面的 URL。
 - title: 当前查看页面的标题。
-- 可交互元素总数：带有 `[ref=N]` 标记的元素数量。
+- 可交互元素总数：带有 `#N` 标记的元素数量。
 - YAML 树：页面的语义化结构，格式如下：
 
 ```yaml
 - region:
-  - main:
-    - button [cursor=pointer] [ref=9]: 产品文档
-    - button [selected] [cursor=pointer] [ref=47]: 40元/月 2核CPU 2GB内存
-    - radio [checked] [cursor=pointer] [ref=53]: 自动生成密码
-    - button [cursor=pointer] [ref=74]: 立即购买
+    - main:
+        - button #9 [cursor=pointer] "产品文档"
+        - button #47 [selected] [cursor=pointer] "40元/月 2核CPU 2GB内存"
+        - radio #53 [checked] [cursor=pointer] "自动生成密码"
+        - button #74 [cursor=pointer] "立即购买"
+        - generic #6 [cf-uba="serviceList..Flexus云服务"] "Flexus云服务"
 ```
 
 节点格式说明：
-- `- role [state1] [state2] [ref=N]: accessible name`
-- `role`：ARIA 语义角色（如 button/link/radio/heading/list/listitem 等）
-- `[state]`：可选状态标记，如 `[checked]` `[selected]` `[disabled]` `[expanded]` `[cursor=pointer]`
-- `[ref=N]`：可交互元素的唯一操作索引，**只有带 ref 的节点才能被操作**
-- `accessible name`：元素的语义化名称（通过 aria-label/aria-labelledby/innerText 等计算得出）
+- `- role #N [token1] [token2] "accessible name"`
+- `role`：ARIA 语义角色（如 button/link/radio/heading/listitem/generic 等）
+- `#N`：可交互元素的唯一操作索引，**只有带 `#N` 的节点才能被操作**，操作时将 N 作为 `index` 参数传入
+- `[token]`：可选 token，包括状态标记（如 `[checked]` `[selected]` `[disabled]` `[cursor=pointer]`）和定制属性（如 `[cf-uba="..."]`）
+- `"accessible name"`：元素的语义化名称，**用双引号包裹**（通过 aria-label/aria-labelledby/innerText 等计算得出）；无名称的节点此字段省略
 - 缩进表示父子关系
 
 </browser_state>
+
+<responseMode>
+
+`page-agent-tool` 支持 `responseMode` 参数，用于控制操作后返回的页面状态形式：
+
+- **`diff`**（默认）：仅返回自上一次状态以来的增量 DOM 差异，极大节省 Token。
+- **`full`**：返回当前视口中完整的语义化 ARIA YAML 树。
+- **`both`**：同时返回全量树和增量差异。
+
+执行 `click`、`fill`、`select`、`scroll` 操作后，工具默认自动以 `diff` 模式返回最新页面状态，无需再次手动调用 `browserState`。
+
+</responseMode>
 
 <browser_state_diff>
 
 在交互过程中，为了提高效率和减少上下文占用，工具会生成页面的增量差异（Diff）信息。
 Diff 格式示例如下：
 ```diff
-- button [ref=9]: 产品文档
-+ button [ref=9]: 产品文档 (已点击)
+- button #9: 产品文档
++ button #9: 产品文档 (已点击)
 ```
 或者，当页面结构发生改变时，会展示新增或移除的节点差异。
 
@@ -62,14 +75,14 @@ Diff 格式示例如下：
 
 > 与业界 AI 编辑器（Cursor / Windsurf）按需读取文件而非全量加载的理念完全一致——**先精准搜索，再按需拉取全量**，将发送给大模型的 token 降至最低。
 
-1. **按关键词精准搜索（最高优先级）**：当你已知要找什么类型的元素（如按钮、输入框、特定名称的链接）时，**优先使用 `searchTree` 动作**，传入 role 名称、元素文本或状态关键词搜索。它只返回命中行和上下文，token 消耗比全量树减少 80%+ 。
+1. **按关键词精准搜索（最高优先级）**：当你已知要找什么类型的元素（如按钮、输入框、特定名称的链接）时，**优先使用 `searchTree` 动作**，传入 role 名称、元素文本或状态关键词搜索。它只返回命中行和上下文，token 消耗比全量树减少 80%+。
    - 示例：查找所有按钮 → `{"action": "searchTree", "query": "button"}`
    - 示例：查找含"提交"文本的节点 → `{"action": "searchTree", "query": "提交"}`
    - 示例：查找已勾选的复选框 → `{"action": "searchTree", "query": "checked"}`
    - 示例：精确定位某个 ref → `{"action": "searchTree", "query": "#5"}`
 2. **首次获取全量**：首次进入页面、页面发生重大刷新、或 `searchTree` 无法找到所需信息时，调用 `browserState` 并指定 `responseMode` 为 `full` 或 `both` 获取完整 A11y 树。
 3. **增量优先**：执行 `click`、`fill`、`select`、`scroll` 操作后，工具默认自动返回 `diff` 增量信息。优先阅读这些 Diff，以便快速确认操作是否生效。
-4. **按需拉取全量**：如果增量 Diff 不足以支持下一步操作，或需要寻找不在 Diff 中的 `[ref=N]` 节点，且 `searchTree` 也无法定位时，再显式调用 `browserState` 拉取完整树。
+4. **按需拉取全量**：如果增量 Diff 不足以支持下一步操作，或需要寻找不在 Diff 中的 `#N` 节点，且 `searchTree` 也无法定位时，再显式调用 `browserState` 拉取完整树。
 
 </browser_state_diff>
 
@@ -78,9 +91,9 @@ Diff 格式示例如下：
 <browser_rules>
 在使用浏览器和浏览网页时严格遵守以下规则：
 
-- 仅与分配有 `[ref=N]` 的元素进行交互。
-- 仅使用明确提供的 ref 索引。
-- 每次操作后 ref 索引会重新分配，不要使用旧的 ref 索引。
+- 仅与分配有 `#N` 索引的元素进行交互，将 N 作为 `index` 参数传入。
+- 仅使用明确出现在树中的 `#N` 索引，切勿猜测或沿用过期索引。
+- 每次操作后 `#N` 索引会重新分配，不要使用旧的索引。
 - 如果页面在执行操作后发生变化（例如输入文本操作），分析是否需要与新元素进行交互，例如从列表中选择正确的选项。
 - 默认情况下，仅列出可见视口中的元素。如果你怀疑需要交互的相关内容在屏幕外，请使用滚动操作。仅在页面下方或上方还有更多像素时才滚动。
 - 你可以使用 num_pages 参数滚动特定页数（例如，0.5 表示半页，2.0 表示两页）。

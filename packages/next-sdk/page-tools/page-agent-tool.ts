@@ -201,7 +201,31 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
             // composed:true 确保事件穿透 shadow boundary，事件委托框架可捕获
             dispatchComposedEvents(targetEl, 'input', 'change', 'blur')
           } else {
-            await inputTextElement(targetEl, args.text)
+            // 优先尝试标准方式（支持 contenteditable、普通 input/textarea）
+            let fillSuccess = false
+            try {
+              await inputTextElement(targetEl, args.text)
+              fillSuccess = true
+            } catch (fillErr) {
+              // inputTextElement 失败时（如 Angular/React 组件包装的密码框），
+              // 降级使用原生 input value 描述符触发框架变更检测
+              const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+                (targetEl instanceof HTMLTextAreaElement ? HTMLTextAreaElement : HTMLInputElement).prototype,
+                'value'
+              )?.set
+              if (nativeInputValueSetter && (targetEl instanceof HTMLInputElement || targetEl instanceof HTMLTextAreaElement)) {
+                nativeInputValueSetter.call(targetEl, args.text)
+                // 发送完整事件序列，触发 Angular ngModel / React 合成事件的变更检测
+                targetEl.dispatchEvent(new Event('focus', { bubbles: true, composed: true }))
+                targetEl.dispatchEvent(new Event('input', { bubbles: true, composed: true }))
+                targetEl.dispatchEvent(new Event('change', { bubbles: true, composed: true }))
+                targetEl.dispatchEvent(new Event('blur', { bubbles: true, composed: true }))
+                fillSuccess = true
+              }
+            }
+            if (!fillSuccess) {
+              return errContent(`填写结果: 无法填写元素 ${args.index}，元素不是 input、textarea 或 contenteditable`)
+            }
             // shadow DOM 内元素：inputTextElement 派发的合成事件 composed:false，
             // 补发 composed:true 事件确保事件委托框架（如 React）能收到
             if (isInShadowDom(targetEl)) {
@@ -252,7 +276,18 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
         } else if (args.action === 'executeJavascript') {
           if (!args.script) return errContent('脚本执行异常: 缺少javascript代码')
           // eslint-disable-next-line no-new-func
-          const result = await new Function(`return (async () => { ${args.script} })()`)()
+          // 方式1：将脚本包裹在 async IIFE 中执行，允许 return 语句
+          let result = await new Function(`return (async () => { ${args.script} })()`)()
+          // 方式2：若 result 为 undefined（脚本没有 return），降级尝试以表达式方式求值
+          // 场景：Agent 写了 "Array.from(...).map(...)" 但没有 return 关键字
+          if (result === undefined) {
+            try {
+              // eslint-disable-next-line no-new-func
+              result = await new Function(`return (async () => (${args.script}))()`)()
+            } catch {
+              // 表达式求值也失败（如含 await/let/const 等语句），保持 undefined
+            }
+          }
           await pageController.hideMask()
           return {
             content: [{ type: 'text', text: `脚本执行结果: ${JSON.stringify(result)}` }]
