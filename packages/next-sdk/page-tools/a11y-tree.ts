@@ -154,6 +154,7 @@ const TAG_ROLE_MAP: Record<string, string> = {
   table: 'table',
   tbody: 'rowgroup',
   td: 'cell',
+  textarea: 'textbox',
   tfoot: 'rowgroup',
   th: 'columnheader',
   thead: 'rowgroup',
@@ -265,6 +266,48 @@ function isHidden(el: Element): boolean {
   return false
 }
 
+/** 收集子孙节点的文本内容，用作无障碍名字的兜底 */
+function collectDescendantText(el: Element): string {
+  let text = ''
+  const walk = (node: Node) => {
+    if (node.nodeType === Node.TEXT_NODE) {
+      text += (node.textContent ?? '') + ' '
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      const element = node as Element
+      if (isHidden(element)) return
+
+      // 如果遇到嵌套的列表项或其他交互/语义节点，停止向下遍历该子树，避免兜底文本重复吸收
+      if (element !== el) {
+        const tag = element.tagName.toLowerCase()
+        const role = inferRole(element)
+        const isInteractiveTag = ['button', 'a', 'input', 'select', 'textarea', 'li', 'option'].includes(tag)
+        const isInteractiveRole = ['button', 'link', 'checkbox', 'radio', 'textbox', 'listitem', 'option', 'combobox', 'listbox'].includes(role)
+        const isTrulyInteractive = isFocusable(element as HTMLElement)
+
+        let isVisuallyClickable = false
+        try {
+          const style = window.getComputedStyle(element as HTMLElement)
+          if (style.cursor === 'pointer') {
+            isVisuallyClickable = true
+          }
+        } catch {
+          // 忽略
+        }
+
+        if (isTrulyInteractive || isVisuallyClickable || isInteractiveTag || isInteractiveRole) {
+          return
+        }
+      }
+
+      for (const child of Array.from(element.childNodes)) {
+        walk(child)
+      }
+    }
+  }
+  walk(el)
+  return text.trim().replace(/\s+/g, ' ')
+}
+
 // ─── 阶段 1：构建 VNode 中间树 ────────────────────────────────────────────────
 
 /**
@@ -314,10 +357,26 @@ function buildVNode(
 
   const role = inferRole(el)
   const tokens = getStateTokens(el)
-  const name = computeAccessibleName(el as HTMLElement)
+  
+  let name = computeAccessibleName(el as HTMLElement)
   const isTrulyInteractive = isFocusable(el as HTMLElement)
   const isVisuallyClickable = tokens.includes('cursor=pointer')
   const isWhitelisted = whitelistSet.has(el)
+
+  // 兜底方案：如果 AccName 计算结果为空，但该节点具有明显的交互性或属于结构性列表项，
+  // 我们从其子树收集纯文本作为其 fallback name，以防 AI 丢失可读上下文。
+  // 注意：不要对 <select> / combobox / listbox 等下拉组件进行文本兜底，以防它们吸收所有子选项文本导致极其嘈杂。
+  if (!name.trim()) {
+    const tag = el.tagName.toLowerCase()
+    const isDropdown = tag === 'select' || role === 'combobox' || role === 'listbox'
+    if (!isDropdown) {
+      const isInteractiveTag = ['button', 'a', 'input', 'textarea', 'li'].includes(tag)
+      if (isTrulyInteractive || isWhitelisted || isVisuallyClickable || isInteractiveTag || role === 'listitem' || role === 'option') {
+        name = collectDescendantText(el)
+      }
+    }
+  }
+
   // generic 无 name 时，即使有 cursor=pointer 也不分配 ref：
   // cursor 通常是 CSS 继承传播的，这类 div 本身无法被有意义地操作
   const interactive = isTrulyInteractive || isWhitelisted || (isVisuallyClickable && (role !== 'generic' || name !== ''))
