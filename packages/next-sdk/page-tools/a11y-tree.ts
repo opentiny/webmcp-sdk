@@ -268,6 +268,35 @@ function isHidden(el: Element): boolean {
 // ─── 阶段 1：构建 VNode 中间树 ────────────────────────────────────────────────
 
 /**
+ * 获取元素在 composed tree（组合树）中的有效子元素
+ *
+ * Shadow DOM 场景下，简单拼接 el.children + el.shadowRoot.children 不符合浏览器
+ * 实际渲染和无障碍树使用的组合树语义：slotted 节点应出现在 <slot> 的位置而非
+ * host 下，<slot> 本身不应作为噪音节点出现，未被任何 slot 接收的 light children
+ * 在组合树中不可见。
+ *
+ * 因此：有 shadowRoot 时遍历 shadow tree，遇到 <slot> 用 assignedElements 替换；
+ * 无 shadowRoot 时直接遍历 light DOM children。
+ */
+function getComposedChildren(el: Element): Element[] {
+  // <slot> 可嵌套在 shadow tree 的任意层级（如 <div><slot/></div>），递归时
+  // wrapper 节点无 shadowRoot 走 light 分支，因此两个分支都需解析 <slot>。
+  // light DOM 中不会出现 <slot>，检查无副作用。
+  const source = el.shadowRoot ? el.shadowRoot.children : el.children
+  const result: Element[] = []
+  for (const node of Array.from(source)) {
+    if (node instanceof HTMLSlotElement) {
+      const assigned = node.assignedElements({ flatten: true })
+      // 有分配节点时用 slotted 内容；否则用 slot 的 fallback content
+      result.push(...(assigned.length > 0 ? assigned : Array.from(node.children)))
+    } else {
+      result.push(node)
+    }
+  }
+  return result
+}
+
+/**
  * 递归将 DOM 元素转换为 VNode 中间表示
  * @param el 当前 DOM 元素
  * @param refCounter 引用计数器（使用对象引用避免全局可变状态）
@@ -301,7 +330,7 @@ function buildVNode(
   }
 
   const children: VNode[] = []
-  for (const child of Array.from(el.children)) {
+  for (const child of getComposedChildren(el)) {
     const childVNode = buildVNode(child, refCounter, refMap, blacklistSet, whitelistSet)
     if (childVNode) children.push(childVNode)
   }
@@ -396,7 +425,7 @@ export function buildA11yTree(
   const whitelistSet = new Set(whitelist)
   const lines: string[] = []
 
-  for (const child of Array.from(root.children)) {
+  for (const child of getComposedChildren(root)) {
     const vnode = buildVNode(child, refCounter, refMap, blacklistSet, whitelistSet)
     if (vnode) {
       lines.push(...serializeVNode(vnode, 0, opts))

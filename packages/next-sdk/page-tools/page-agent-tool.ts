@@ -68,6 +68,19 @@ export function registerPageAgentTool() {
     return { content: [{ type: 'text', text: msg }] }
   }
 
+  // ─── 辅助：Shadow DOM 事件穿透 ───────────────────────────────────────────
+  // 外部包 inputTextElement/selectOptionElement 派发的合成事件 composed:false，
+  // 无法穿透 shadow boundary，导致事件委托框架（如 React）收不到 shadow 内元素的
+  // input/change 事件。这里对 shadow DOM 内元素补发 composed:true 事件。
+  function isInShadowDom(el: Element): boolean {
+    return el.getRootNode() instanceof ShadowRoot
+  }
+  function dispatchComposedEvents(el: Element, ...types: string[]) {
+    for (const type of types) {
+      el.dispatchEvent(new Event(type, { bubbles: true, composed: true }))
+    }
+  }
+
   // ─── 核心：构建 browserState 响应（全量 or 增量 Diff）────────────────────
   async function buildBrowserStateResponse(responseMode: 'full' | 'diff' | 'both' = 'diff'): Promise<{ content: Array<{ type: string; text: string }> }> {
     const url = window.location.href
@@ -140,28 +153,46 @@ export function registerPageAgentTool() {
           
           let targetEl = el
           if (!(targetEl instanceof HTMLInputElement) && !(targetEl instanceof HTMLTextAreaElement)) {
+            // querySelector 不穿透 shadow boundary，对 shadow host 补查其 shadowRoot
             const innerInput = el.querySelector('input, textarea')
+              ?? (el.shadowRoot?.querySelector('input, textarea') as HTMLElement | null)
             if (innerInput) {
-              targetEl = innerInput as HTMLElement
+              targetEl = innerInput
             }
           }
 
           if (targetEl instanceof HTMLInputElement && targetEl.readOnly) {
             targetEl.value = args.text
-            targetEl.dispatchEvent(new Event('input', { bubbles: true }))
-            targetEl.dispatchEvent(new Event('change', { bubbles: true }))
-            targetEl.dispatchEvent(new Event('blur', { bubbles: true }))
+            // composed:true 确保事件穿透 shadow boundary，事件委托框架可捕获
+            dispatchComposedEvents(targetEl, 'input', 'change', 'blur')
           } else {
             await inputTextElement(targetEl, args.text)
+            // shadow DOM 内元素：inputTextElement 派发的合成事件 composed:false，
+            // 补发 composed:true 事件确保事件委托框架（如 React）能收到
+            if (isInShadowDom(targetEl)) {
+              dispatchComposedEvents(targetEl, 'input', 'change')
+            }
           }
           return buildBrowserStateResponse(mode)
 
         // ── select：选择下拉框，操作后自动返回 diff ───────────────────────
         } else if (args.action === 'select') {
           if (args.index === undefined || !args.text) return errContent('选择结果: 缺少元素索引或文本内容')
-          const el = currentRefMap.get(args.index) as HTMLSelectElement
+          let el = currentRefMap.get(args.index) as HTMLSelectElement | HTMLElement | undefined
           if (!el) return errContent(`选择结果: 无效的 ref 索引 ${args.index}，请先调用 browserState 刷新页面状态`)
-          await selectOptionElement(el, args.text)
+          // 若 ref 指向 shadow host，解析其内部真正的 <select>（与 fill 一致）
+          if (!(el instanceof HTMLSelectElement)) {
+            const innerSelect = el.querySelector('select')
+              ?? (el.shadowRoot?.querySelector('select') as HTMLSelectElement | null)
+            if (innerSelect) {
+              el = innerSelect
+            }
+          }
+          await selectOptionElement(el as HTMLSelectElement, args.text)
+          // shadow DOM 内元素：补发 composed:true 的 change 事件
+          if (isInShadowDom(el)) {
+            dispatchComposedEvents(el, 'change')
+          }
           return buildBrowserStateResponse(mode)
 
         // ── scroll：滚动页面，操作后自动返回 diff ─────────────────────────
