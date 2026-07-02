@@ -33,15 +33,10 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
   // 保留 PageController ，先关闭内置mask, 再手工绑定当前项目的mask类
   const pageController = new PageController({ enableMask: false })
 
-<<<<<<< HEAD
   // @ts-ignore
   pageController.maskReady = (async () => {
     // @ts-ignore
     pageController.mask = new SimulatorMask()
-=======
-  ;(pageController as any).maskReady = (async () => {
-    ;(pageController as any).mask = new SimulatorMask()
->>>>>>> 7a7850d (feat: 支持属性白名单，可以让结构树的节点添加制定属性和对应属性的值)
   })()
 
   // ─── 状态 Diff 缓存
