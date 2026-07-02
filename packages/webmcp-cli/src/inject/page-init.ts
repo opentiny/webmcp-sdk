@@ -11,6 +11,7 @@ declare global {
     }>
     __webmcpcli_interactiveWhitelist: Array<Element>
     __webmcpcli_interactiveBlacklist: Array<Element>
+    __webmcpcli_exposedAttributes?: Array<string>
     __webmcpcli_beforeGetBrowserState: () => void
   }
 }
@@ -29,7 +30,7 @@ function initWebMcpCliPage(): void {
   }
 
   initializeWebMCPPolyfill()
-  registerPageAgentTool()
+  registerPageAgentTool({ exposedAttributes: ['cf-uba'] })
 
   window.__webmcpcli_tools = []
 
