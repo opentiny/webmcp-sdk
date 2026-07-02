@@ -256,6 +256,35 @@ function getStateTokens(el: Element, exposedAttributes?: string[]): string[] {
     tokens.push(`valuenow="${valuenow}"`)
   }
 
+  // link 元素：检测 target=_blank，提示 Agent 该链接会在新标签页打开
+  if (el.tagName.toLowerCase() === 'a' && el.getAttribute('target') === '_blank') {
+    tokens.push('opens-new-tab')
+  }
+
+  // 检测 CSS 激活/选中状态类名（用于未使用标准 ARIA 的 Tab/选项组件，如华为云镜像选择）
+  // 若元素携带常见激活类名，输出 [active] token，帮助 Agent 判断当前选中项
+  const cls = typeof el.className === 'string' ? el.className : ''
+  const ACTIVE_CLASS_PATTERNS = [
+    'is-active', 'isActive',
+    'is-selected', 'isSelected',
+    'is-current', 'isCurrent',
+    'active-item', 'activeItem',
+    'tab-active', 'tabActive',
+    // 仅当作为独立 class 词或有连字符前缀时匹配 "active"，避免误匹配 "interactive" 等
+    /\bactive\b/,
+    /\bselected\b/,
+    /\bcurrent\b/,
+  ]
+  const hasActiveClass = ACTIVE_CLASS_PATTERNS.some(p =>
+    typeof p === 'string' ? cls.split(/\s+/).includes(p) : p.test(cls)
+  )
+  // 只对有 cursor=pointer 或明确角色的元素输出 active token，避免太多噪音
+  const roleForActive = el.getAttribute('role') || el.tagName.toLowerCase()
+  const isTabLike = ['tab', 'button', 'option', 'a', 'li', 'generic'].some(r => roleForActive.includes(r))
+  if (hasActiveClass && isTabLike && !tokens.includes('checked') && !tokens.includes('selected')) {
+    tokens.push('active')
+  }
+
   // 额外暴露的自定义属性白名单
   if (exposedAttributes) {
     for (const attr of exposedAttributes) {

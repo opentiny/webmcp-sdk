@@ -4,7 +4,7 @@ description: 面向第三方 AI Agent 的安装与执行指南：如何使用 we
 license: MIT
 metadata:
   author: opentiny
-  version: '1.1.0'
+  version: '1.2.0'
 ---
 
 # WebMCP CLI Skill
@@ -34,6 +34,11 @@ npm install -g @opentiny/webmcp-cli
 ```bash
 webmcp-cli tabs open https://excalidraw.com    # 打开新网页
 webmcp-cli tabs close <tabid>                  # 关闭指定标签页
+webmcp-cli tabs switch <tabid>                 # 切换到指定标签页
+webmcp-cli tabs back                           # 当前标签页后退
+webmcp-cli tabs back <tabid>                   # 指定标签页后退
+webmcp-cli tabs forward                        # 当前标签页前进
+webmcp-cli tabs forward <tabid>                # 指定标签页前进
 ```
 
 ### 2. 查询浏览器当前状态 `webmcp-cli state`
@@ -73,11 +78,11 @@ webmcp-cli run system-overview '{}'
 
 #### 何时必须调用 state
 
-| 时机                  | 是否必须先 `state` | 说明                                                                                |
-| --------------------- | ------------------ | ----------------------------------------------------------------------------------- |
-| 执行 `tabs open` 之前 | 否                 | `tabs open` 是唯一可在未先 `state` 的情况下直接执行的命令                           |
-| 执行 `tabs` 之后      | **是**             | 新页面加载并注入工具后，须用 `state` 获取新页面的 `webmcpTools`                     |
-| 执行 `run` 之前       | **是**             | 须先通过 `state` 确认工具列表，再用 `browserState` 或 `searchTree` 获取页面可交互元素 |
+| 时机                  | 是否必须先 `state` | 说明                                                                                                         |
+| --------------------- | ------------------ | ------------------------------------------------------------------------------------------------------------ |
+| 执行 `tabs open` 之前 | 否                 | `tabs open` 是唯一可在未先 `state` 的情况下直接执行的命令                                                    |
+| 执行 `tabs` 之后      | **是**             | 新页面加载并注入工具后，须用 `state` 获取新页面的 `webmcpTools`                                              |
+| 执行 `run` 之前       | **是**             | 须先通过 `state` 确认工具列表，再用 `browserState` 或 `searchTree` 获取页面可交互元素                        |
 | 连续多次 `run` 之间   | 视情况             | 若需重新确认工具列表或当前页面，才需再次 `state`；仅获取 DOM 变化直接使用 `page-agent-tool` 相关 action 即可 |
 
 **推荐工作流：**
@@ -92,7 +97,6 @@ webmcp-cli run system-overview '{}'
 4. **执行交互**：拿到上一步返回的元素索引（`index`）后，再执行 `click`、`fill` 等具体操作。
 
 执行 `page-agent-tool` 操作（点击、填写、滚动等）时，**必须** 依据 `browserState` 或 `searchTree` 返回的元素索引确定元素 `index`，切勿沿用过期猜测的索引。
-
 
 ### 3. 执行页面上的工具 `webmcp-cli run <tool-name> '<json-args>'`
 
@@ -111,30 +115,83 @@ webmcp-cli run system-overview '{}'
 
 ### 3.1 `page-agent-tool`
 
-它是一个自动化操作网页的工具，每一个页面都会存在，可以直接调用，它支持以下动作：
+它是一个自动化操作网页的工具，每一个页面都会存在，可以直接调用。支持以下动作（`action`）：
+`browserState`、`searchTree`、`click`、`fill`、`select`、`scroll`、`executeJavascript`。
+
+此外，该工具接收配置参数 **`responseMode`**，用于控制操作后返回的页面状态形式：
+
+- **`diff`**（默认）：仅返回自上一次状态以来的增量 DOM 差异，极大节省 Token。
+- **`full`**：返回当前视口中完整的语义化 ARIA YAML 树。
+- **`both`**：同时返回全量树和增量差异。
+
+执行 `click`、`fill`、`select`、`scroll` 等操作后，工具会自动以指定 `responseMode`（默认 `diff`）返回最新页面状态，**无须再次手动调用 `browserState`**。
+
+#### 示例：
 
 ```bash
-# Click element at index 18
+# 1. 首次获取全量页面状态
+webmcp-cli run page-agent-tool '{"action": "browserState", "responseMode": "full"}'
+
+# 2. 点击索引为 18 的元素，自动返回 diff
 webmcp-cli run page-agent-tool '{"action": "click", "index": 18}'
 
-# Fill text into input at index 13
+# 3. 填充文本框
 webmcp-cli run page-agent-tool '{"action": "fill", "index": 13, "text": "Hello"}'
 
-# Scroll the page
-webmcp-cli run page-agent-tool '{"action": "scroll", "down": true, "numPages": 1}'
+# 4. 选择下拉框选项
+webmcp-cli run page-agent-tool '{"action": "select", "index": 7, "value": "option_value"}'
 
-# Execute JavaScript
+# 5. 滚动页面，同时获取全量与增量
+webmcp-cli run page-agent-tool '{"action": "scroll", "down": true, "numPages": 1, "responseMode": "both"}'
+
+# 6. 执行 JavaScript
 webmcp-cli run page-agent-tool '{"action": "executeJavascript", "script": "document.title"}'
 
-# Target a specific tab
+# 7. 对指定标签页操作
 webmcp-cli run page-agent-tool '{"action": "browserState"}' -t <targetId>
 ```
 
-#### 3.1.1 `searchTree`：按关键词精准搜索无障碍树（优先使用）
+#### 3.1.1 Browser State：页面无障碍树格式说明
 
-> 与业界 AI 编辑器（Cursor / Windsurf / Copilot）**按需读取文件**的策略完全一致：
-> 不要每次都拉取全量的无障碍树（等价于把整个项目代码全部发给模型），
-> 而是**先用关键词搜索定位**，只把命中行及上下文发给模型，节省 80%+ 的 token。
+`browserState` 返回当前页面的语义化 YAML 无障碍树，格式如下：
+
+```yaml
+- region:
+    - main:
+        - button #9 [cursor=pointer] "产品文档"
+        - button #47 [selected] [cursor=pointer] "40元/月 2核CPU 2GB内存"
+        - radio #53 [checked] [cursor=pointer] "自动生成密码"
+        - button #74 [cursor=pointer] "立即购买"
+        - generic #6 [cf-uba="serviceList..Flexus云服务"] "Flexus云服务"
+```
+
+**节点格式**：`- role #N [token1] [token2] "accessible name"`
+
+| 字段              | 说明                                                                                   |
+| ----------------- | -------------------------------------------------------------------------------------- |
+| `role`            | ARIA 语义角色（button / link / radio / heading / listitem / generic 等）             |
+| `#N`              | 可交互元素的唯一操作索引，**只有带 `#N` 的节点才能被操作**，操作时将 N 作为 `index` 参数传入 |
+| `[token]`         | 可选 token：状态标记（`[checked]` `[selected]` `[disabled]` `[cursor=pointer]`）或定制属性（`[cf-uba="..."]`） |
+| `"accessible name"` | 元素的语义化名称，**用双引号包裹**（通过 aria-label / aria-labelledby / innerText 等计算得出）；无名称节点此字段省略 |
+| 缩进              | 表示父子关系                                                                           |
+
+> ⚠️ **每次操作后 `#N` 索引会重新分配，不要复用旧索引。**
+
+#### 3.1.2 Browser State Diff：增量差异格式说明
+
+执行交互操作后，工具默认返回增量差异（Diff）以减少 Token 消耗：
+
+```diff
+- button #9 "产品文档"
++ button #9 "产品文档 (已点击)"
+```
+
+或者当页面结构发生改变时，会展示新增或移除的节点差异。优先阅读 Diff 以快速确认操作是否生效；仅当 Diff 不足以支持下一步决策时，再显式调用 `browserState(full)`。
+
+#### 3.1.3 `searchTree`：按关键词精准搜索无障碍树（优先使用）
+
+> 与业界 AI 编辑器（Cursor / Windsurf）**按需读取文件**的策略完全一致——
+> **先精准搜索，再按需拉取全量**，将发送给模型的 token 降至最低。
 
 **决策流程（请严格遵循）：**
 
@@ -151,12 +208,12 @@ webmcp-cli run page-agent-tool '{"action": "browserState"}' -t <targetId>
 
 **支持的搜索维度（均对同一个 query 字符串做包含匹配）：**
 
-| 搜索目标 | 示例 query | 说明 |
-|---------|-----------|------|
-| 按 role 类型 | `button` / `link` / `heading` / `textbox` | 查找特定角色的节点 |
-| 按元素名称 | `提交` / `下一步` / `立即购买` | 查找 accessible name 含该文本的节点 |
-| 按状态 | `checked` / `disabled` / `expanded` | 查找特定状态的节点 |
-| 按 ref 索引 | `#5` | 精确定位某个已知 ref |
+| 搜索目标     | 示例 query                                | 说明                                |
+| ------------ | ----------------------------------------- | ----------------------------------- |
+| 按 role 类型 | `button` / `link` / `heading` / `textbox` | 查找特定角色的节点                  |
+| 按元素名称   | `提交` / `下一步` / `立即购买`            | 查找 accessible name 含该文本的节点 |
+| 按状态       | `checked` / `disabled` / `expanded`       | 查找特定状态的节点                  |
+| 按 ref 索引  | `#5`                                      | 精确定位某个已知 ref                |
 
 **参数：**
 
@@ -167,16 +224,9 @@ webmcp-cli run page-agent-tool '{"action": "browserState"}' -t <targetId>
 **示例：**
 
 ```bash
-# 查找页面上所有按钮
 webmcp-cli run page-agent-tool '{"action": "searchTree", "query": "button"}'
-
-# 查找名称含"提交"的节点（上下文 3 行）
 webmcp-cli run page-agent-tool '{"action": "searchTree", "query": "提交", "contextLines": 3}'
-
-# 查找所有已勾选的复选框
 webmcp-cli run page-agent-tool '{"action": "searchTree", "query": "checked"}'
-
-# 精确定位 ref #42
 webmcp-cli run page-agent-tool '{"action": "searchTree", "query": "#42", "contextLines": 1}'
 ```
 
@@ -197,6 +247,47 @@ webmcp-cli run page-agent-tool '{"action": "searchTree", "query": "#42", "contex
 
 `>>>` 标注的行是命中行，其余是上下文。拿到 `#N` 后直接传给 `click` / `fill` 等动作。
 
+#### 3.1.4 页面状态获取四原则
+
+1. **按关键词精准搜索（最高优先级）**：已知要找的元素类型或名称时，**优先使用 `searchTree`**，token 消耗比全量树减少 80%+。
+2. **首次获取全量**：首次进入页面、页面发生重大刷新、或 `searchTree` 无法找到所需信息时，调用 `browserState` 并指定 `responseMode` 为 `full` 或 `both`。
+3. **增量优先**：执行 `click`、`fill`、`select`、`scroll` 操作后，工具默认自动返回 `diff` 增量信息，优先阅读这些 Diff 以快速确认操作是否生效。
+4. **按需拉取全量**：如果增量 Diff 不足以支持下一步操作，或需要寻找不在 Diff 中的 `#N` 节点，且 `searchTree` 也无法定位时，再显式调用 `browserState` 拉取完整树。
+
+#### 3.1.5 Browser Rules（操作约束）
+
+在使用 `page-agent-tool` 与网页交互时，严格遵守以下规则：
+
+- **仅与具有 `#N` 索引的元素进行交互**，将 N 作为 `index` 参数传入，仅使用明确出现在树中的索引。
+- **每次操作后 `#N` 索引会重新分配**，不要使用旧索引。
+- 操作后分析返回的 Diff，判断是否需要与新出现的元素交互（如从下拉列表中选择选项）。
+- 默认仅列出**可见视口**中的元素；若需要交互的元素在屏幕外，先使用 `scroll` 操作滚动。可用 `numPages` 参数控制滚动幅度（0.5 = 半页，2.0 = 两页）。
+- 如果出现**验证码**，告知用户无法自动解决，请用户手动处理后再继续。
+- 如果缺少预期元素，尝试滚动或导航后退。
+- **不要重复同一操作超过 3 次**，除非有明确的条件变化。
+- 如果向输入框填充文本后操作被中断（如弹出下拉建议），说明页面状态已变化，需先处理新出现的元素。
+- 如果 `<user_request>` 包含具体筛选条件（产品类型、价格、位置等），优先应用过滤器提高效率。
+- 如果向输入框填写文本，可能需要按回车、点击搜索按钮或从下拉列表中选择才能完成操作。
+- **不要在无凭据的情况下尝试登录**。
+
+#### 3.1.6 Capability（能力边界）
+
+- `page-agent-tool` **只能处理单页应用**，不要跳出当前页面。
+- **不要点击 `target="_blank"` 的链接**（会在新窗口打开）；如需打开新页面，改用 `webmcp-cli tabs open`。
+- 任务失败是可以接受的：
+  - 用户的请求可能不可行、不适当，或缺少必要信息——此时告知用户并说明原因。
+  - 网页可能存在 Bug，遇到阻塞时应及时告知用户当前页面的问题。
+  - 来回重复操作可能导致副作用——**宁可失败告终，也不要盲目重试复杂流程**。
+- 如果对当前网页或任务没有足够知识，**必须要求用户提供具体说明和详细步骤**。
+
+#### 3.1.7 Task Completion Rules（任务结束条件）
+
+在以下情况时必须结束任务：
+
+1. 已完全完成用户请求。
+2. 感到困惑或无法解决请求；或请求不清晰、包含不适当内容。
+3. 绝对不可能继续（如缺少必要权限、验证码阻塞、目标元素不存在）。
+
 ---
 
 #### 3.2 领域专用工具
@@ -205,17 +296,16 @@ webmcp-cli run page-agent-tool '{"action": "searchTree", "query": "#42", "contex
 
 请查看 `webmcp-cli state` 输出中的 `webmcpTools` 以确认网页的可用工具。
 
-| 需要注入的域名            | 注入的工具                                                | 何时阅读子 Skill                                                                                                                            |
-| ------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `excalidraw.com`          | `excalidraw_execute_command`                              | **当当前页面 URL 包含 `excalidraw.com` 且需要绘制或操作画布元素时，请阅读 [domains/excalidraw.md](domains/excalidraw.md)。**                |
+| 需要注入的域名            | 注入的工具                                                    | 何时阅读子 Skill                                                                                                                                                                                                                                              |
+| ------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `excalidraw.com`          | `excalidraw_execute_command`                                  | **当当前页面 URL 包含 `excalidraw.com` 且需要绘制或操作画布元素时，请阅读 [domains/excalidraw.md](domains/excalidraw.md)。**                                                                                                                                  |
 | `juejin.cn`               | `create_article`, `publish_current_draft`, `get_article_info` | **当需要在掘金平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-juejin.md](domains/publish-article-in-juejin.md)。**<br>注意：调用 `publish_current_draft` 前必须先生成严格在 **50-100 字** 内的文章摘要，否则工具将直接报错停止发布！ |
-| `www.baidu.com`           | `baidu_search`, `baidu_get_results`                       | 无需子 Skill；工具的描述已能说明用途。                                                                                                      |
-| `my.oschina.net/`         | `create_article`                                          | **当需要在开源中国平台发布文章时，请阅读 [domains/publish-article-in-oschina.md](domains/publish-article-in-juejin.md)。**                  |
-| `xiaohongshu.com`         | `xhs_get_note_detail`, `xhs_get_feed`, `xhs_search_notes` | 无需子 Skill；工具的描述已能说明用途。                                                                                                      |
-| `creator.xiaohongshu.com` | `xhs_publish_note`                                        | 无需子 Skill；工具的描述已能说明用途。                                                                                                      |
-| `editor.csdn.net`         | `create_article`                                          | **当需要在 CSDN 平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-csdn.md](domains/publish-article-in-csdn.md)。**   |
-| `segmentfault.com`        | `segmentfault_publish_article`                            | **当需要在思否平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-segmentfault.md](domains/publish-article-in-segmentfault.md)。支持完整流程、定时发布、封面手动上传。** |
-
+| `www.baidu.com`           | `baidu_search`, `baidu_get_results`                           | 无需子 Skill；工具的描述已能说明用途。                                                                                                                                                                                                                        |
+| `my.oschina.net/`         | `create_article`                                              | **当需要在开源中国平台发布文章时，请阅读 [domains/publish-article-in-oschina.md](domains/publish-article-in-juejin.md)。**                                                                                                                                    |
+| `xiaohongshu.com`         | `xhs_get_note_detail`, `xhs_get_feed`, `xhs_search_notes`     | 无需子 Skill；工具的描述已能说明用途。                                                                                                                                                                                                                        |
+| `creator.xiaohongshu.com` | `xhs_publish_note`                                            | 无需子 Skill；工具的描述已能说明用途。                                                                                                                                                                                                                        |
+| `editor.csdn.net`         | `create_article`                                              | **当需要在 CSDN 平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-csdn.md](domains/publish-article-in-csdn.md)。**                                                                                                                     |
+| `segmentfault.com`        | `segmentfault_publish_article`                                | **当需要在思否平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-segmentfault.md](domains/publish-article-in-segmentfault.md)。支持完整流程、定时发布、封面手动上传。**                                                                 |
 
 在各自的域名中，可以调用相应的网页工具：
 
@@ -252,7 +342,6 @@ webmcp-cli run segmentfault_publish_article '{
 webmcp-cli run segmentfault_publish_article '{"action": "set_title", "title": "文章标题"}'
 webmcp-cli run segmentfault_publish_article '{"action": "set_scheduled_publish", "scheduled_time": "2026-07-01T10:00:00+08:00"}'
 webmcp-cli run segmentfault_publish_article '{"action": "publish", "confirm": true}'
-}'
 ```
 
 ### 何时阅读 `domains/excalidraw.md`

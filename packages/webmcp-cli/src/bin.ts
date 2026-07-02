@@ -199,7 +199,7 @@ program
     try {
       const result = await stateCommand(args)
       writeLog('state', args, result)
-      console.log(JSON.stringify(result, null, 2))
+      console.log(formatLogResult(result))
     } catch (error: unknown) {
       handleCommandError(error, 'state', args)
     }
@@ -242,7 +242,7 @@ program
         tabid: parseTabId(options.tabid)
       })
       writeLog('run', { ...rawArgs, finalArgsJson }, result)
-      console.log(JSON.stringify(result, null, 2))
+      console.log(formatLogResult(result))
     } catch (error: unknown) {
       handleCommandError(error, 'run', { ...rawArgs, finalArgsJson })
     }
