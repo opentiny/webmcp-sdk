@@ -34,20 +34,7 @@
   },
   "description": "A frontend intelligent application development toolkit designed to simplify WebAgent integration and usage, supporting multiple programming languages and frontend frameworks to help developers rapidly implement intelligent features",
   "scripts": {
-    "build:all": "pnpm build:cdn && pnpm build:cdn:dev && pnpm build",
-    "build": "vite build --config vite-build-tsc.ts",
-    "build:cdn": "vite build && pnpm build:webAgent && pnpm build:webMcp && pnpm build:mcpSdk && pnpm build:zod && pnpm build:webMcpFull",
-    "build:cdn:dev": "vite build --mode dev && pnpm build:webAgent:dev && pnpm build:webMcp:dev && pnpm build:mcpSdk:dev && pnpm build:zod:dev && pnpm build:webMcpFull:dev",
-    "build:webAgent": "vite build --config vite.config.webAgent.ts",
-    "build:webAgent:dev": "vite build --config vite.config.webAgent.ts --mode dev",
-    "build:webMcp": "vite build --config vite.config.webMcp.ts",
-    "build:webMcp:dev": "vite build --config vite.config.webMcp.ts --mode dev",
-    "build:mcpSdk": "vite build --config vite.config.mcpSdk.ts",
-    "build:mcpSdk:dev": "vite build --config vite.config.mcpSdk.ts --mode dev",
-    "build:zod": "vite build --config vite.config.zod.ts",
-    "build:zod:dev": "vite build --config vite.config.zod.ts --mode dev",
-    "build:webMcpFull": "vite build --config vite.config.webMcpFull.ts",
-    "build:webMcpFull:dev": "vite build --config vite.config.webMcpFull.ts --mode dev"
+    "build": "vite build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "catalog:",
