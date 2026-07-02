@@ -66,7 +66,8 @@
     "dom-accessibility-api": "catalog:",
     "aria-query": "catalog:",
     "tabbable": "catalog:",
-    "diff": "catalog:"
+    "diff": "catalog:",
+    "ai-motion": "^0.4.8"
   },
   "devDependencies": {
     "typescript": "catalog:",

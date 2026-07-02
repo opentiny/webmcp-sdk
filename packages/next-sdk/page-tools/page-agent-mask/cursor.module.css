@@ -1,0 +1,71 @@
+/* AI 光标样式 */
+.cursor {
+	position: absolute;
+	width: var(--cursor-size, 75px);
+	height: var(--cursor-size, 75px);
+	pointer-events: none;
+	z-index: 10000;
+}
+
+.cursorBorder {
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	background: linear-gradient(45deg, rgb(57, 182, 255), rgb(189, 69, 251));
+	mask-image: url(./cursor-border.svg);
+	mask-size: 100% 100%;
+	mask-repeat: no-repeat;
+
+	transform-origin: center;
+	transform: rotate(-90deg) scale(0.8);
+	margin-left: -10px;
+	margin-top: -18px;
+}
+
+.cursorFilling {
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	background: url(./cursor-fill.svg);
+	background-size: 100% 100%;
+	background-repeat: no-repeat;
+
+	transform-origin: center;
+	transform: rotate(-90deg) scale(0.8);
+	margin-left: -10px;
+	margin-top: -18px;
+}
+
+.cursorRipple {
+	position: absolute;
+	width: 100%;
+	height: 100%;
+	pointer-events: none;
+	margin-left: -50%;
+	margin-top: -50%;
+
+	&::after {
+		content: '';
+		opacity: 0;
+		position: absolute;
+		inset: 0;
+		border: 4px solid rgba(57, 182, 255, 1);
+		border-radius: 50%;
+	}
+}
+
+.cursor.clicking .cursorRipple::after {
+	animation: cursor-ripple 300ms ease-out forwards;
+}
+
+@keyframes cursor-ripple {
+	0% {
+		transform: scale(0);
+		opacity: 1;
+	}
+
+	100% {
+		transform: scale(2);
+		opacity: 0;
+	}
+}
