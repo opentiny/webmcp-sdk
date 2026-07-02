@@ -5,6 +5,7 @@ import pageAgentPrompt from './page-agent-prompt.md?raw'
 import { PageController, clickElement, inputTextElement, selectOptionElement } from '@page-agent/page-controller'
 import { buildA11yTree, searchA11yTree, type RefMap } from './a11y-tree'
 import { PageStateCache } from './page-state-cache'
+import { SimulatorMask } from './page-agent-mask/SimulatorMask'
 
 declare global {
   interface Window {
@@ -22,8 +23,12 @@ export function registerPageAgentTool() {
   window.__webmcpcli_interactiveBlacklist = [] // 黑名单，反之
   window.__webmcpcli_beforeGetBrowserState = null // 指定网站覆盖该函数，用于设置当前网站的黑白名单
 
-  // 保留 PageController 仅用于 showMask/hideMask（UX 遮罩层）
-  const pageController = new PageController({ enableMask: true })
+  // 保留 PageController ，先关闭内置mask, 再手工绑定当前项目的mask类
+  const pageController = new PageController({ enableMask: false })
+
+  pageController.maskReady = (async () => {
+    pageController.mask = new SimulatorMask()
+  })()
 
   // ─── 状态 Diff 缓存
   const stateCache = new PageStateCache()
@@ -43,7 +48,11 @@ export function registerPageAgentTool() {
         executeJavascript: '执行javascript代码'
         searchTree: '按关键词搜索无障碍树，返回带行号的匹配节点及上下文，无需获取全量树。适合快速定位特定元素（如所有按钮、特定名称的链接等），显著减少上下文消耗。必须提供 query 参数。'
     `),
-    index: z.number().min(0).optional().describe('执行动作 of the element index, 动作为 click,fill,select时，必须提供元素索引'),
+    index: z
+      .number()
+      .min(0)
+      .optional()
+      .describe('执行动作 of the element index, 动作为 click,fill,select时，必须提供元素索引'),
     text: z.string().optional().describe('执行动作的文本内容, 动作为 fill,select 时，必须提供文本内容'),
     down: z.boolean().optional().describe('执行上下滚动时，必须提供down参数'),
     right: z.boolean().optional().describe('执行水平滚动方向, 必须提供right参数'),
@@ -53,13 +62,27 @@ export function registerPageAgentTool() {
       .describe('执行动作的滚动页数, 动作为 scroll时，可以提供滚动页数，建议每次滚动0.1页，该值不要大于5.'),
     pixels: z.number().int().min(0).optional().describe('执行动作的滚动像素数，动作为 scroll时，可以提供滚动像素数'),
     script: z.string().optional().describe('执行的javascript代码，动作为 executeJavascript时，必须提供script参数'),
-    query: z.string().optional().describe('搜索关键词，动作为 searchTree 时必须提供。支持按 role（如 button、link）、节点名称、状态（如 checked）或 ref 索引（如 #3）搜索'),
-    contextLines: z.number().int().min(0).max(10).default(2).describe('searchTree 时每个命中行前后保留的上下文行数，默认 2'),
+    query: z
+      .string()
+      .optional()
+      .describe(
+        '搜索关键词，动作为 searchTree 时必须提供。支持按 role（如 button、link）、节点名称、状态（如 checked）或 ref 索引（如 #3）搜索'
+      ),
+    contextLines: z
+      .number()
+      .int()
+      .min(0)
+      .max(10)
+      .default(2)
+      .describe('searchTree 时每个命中行前后保留的上下文行数，默认 2'),
     maxMatches: z.number().int().min(1).max(50).default(20).describe('searchTree 时最大返回分组数，默认 20'),
-    responseMode: z.enum(['full', 'diff', 'both'] as const)
+    responseMode: z
+      .enum(['full', 'diff', 'both'] as const)
       .optional()
       .default('diff')
-      .describe('返回浏览器状态的模式。full: 仅返回当前全量 A11y 树；diff: 仅返回与上一次状态的增量差异；both: 同时返回全量 A11y 树与增量差异。默认值为 diff。')
+      .describe(
+        '返回浏览器状态的模式。full: 仅返回当前全量 A11y 树；diff: 仅返回与上一次状态的增量差异；both: 同时返回全量 A11y 树与增量差异。默认值为 diff。'
+      )
   })
 
   // ─── 辅助：构建错误响应 ───────────────────────────────────────────────────
@@ -82,7 +105,9 @@ export function registerPageAgentTool() {
   }
 
   // ─── 核心：构建 browserState 响应（全量 or 增量 Diff）────────────────────
-  async function buildBrowserStateResponse(responseMode: 'full' | 'diff' | 'both' = 'diff'): Promise<{ content: Array<{ type: string; text: string }> }> {
+  async function buildBrowserStateResponse(
+    responseMode: 'full' | 'diff' | 'both' = 'diff'
+  ): Promise<{ content: Array<{ type: string; text: string }> }> {
     const url = window.location.href
     const title = document.title
 
@@ -136,7 +161,7 @@ export function registerPageAgentTool() {
           }
           return buildBrowserStateResponse(mode)
 
-        // ── click：用底层 clickElement(el) 操作，操作后自动返回 diff ───────
+          // ── click：用底层 clickElement(el) 操作，操作后自动返回 diff ───────
         } else if (args.action === 'click') {
           if (args.index === undefined) return errContent('点击结果: 缺少元素索引')
           const el = currentRefMap.get(args.index)
@@ -145,12 +170,12 @@ export function registerPageAgentTool() {
           // 操作成功后自动返回 diff/both/full
           return buildBrowserStateResponse(mode)
 
-        // ── fill：输入文本，操作后自动返回 diff ───────────────────────────
+          // ── fill：输入文本，操作后自动返回 diff ───────────────────────────
         } else if (args.action === 'fill') {
           if (args.index === undefined || !args.text) return errContent('填写结果: 缺少元素索引或文本内容')
           const el = currentRefMap.get(args.index)
           if (!el) return errContent(`填写结果: 无效的 ref 索引 ${args.index}，请先调用 browserState 刷新页面状态`)
-          
+
           let targetEl = el
           if (!(targetEl instanceof HTMLInputElement) && !(targetEl instanceof HTMLTextAreaElement)) {
             // querySelector 不穿透 shadow boundary，对 shadow host 补查其 shadowRoot
@@ -175,7 +200,7 @@ export function registerPageAgentTool() {
           }
           return buildBrowserStateResponse(mode)
 
-        // ── select：选择下拉框，操作后自动返回 diff ───────────────────────
+          // ── select：选择下拉框，操作后自动返回 diff ───────────────────────
         } else if (args.action === 'select') {
           if (args.index === undefined || !args.text) return errContent('选择结果: 缺少元素索引或文本内容')
           let el = currentRefMap.get(args.index) as HTMLSelectElement | HTMLElement | undefined
@@ -195,14 +220,12 @@ export function registerPageAgentTool() {
           }
           return buildBrowserStateResponse(mode)
 
-        // ── scroll：滚动页面，操作后自动返回 diff ─────────────────────────
+          // ── scroll：滚动页面，操作后自动返回 diff ─────────────────────────
         } else if (args.action === 'scroll') {
           if (!args.down && !args.right) return errContent('滚动结果: 缺少滚动方向参数')
 
           // 确定滚动目标（有 index 时滚动该元素容器，否则滚动整个文档）
-          const scrollTarget = args.index !== undefined
-            ? (currentRefMap.get(args.index) ?? window)
-            : window
+          const scrollTarget = args.index !== undefined ? (currentRefMap.get(args.index) ?? window) : window
 
           if (args.right) {
             const pixels = args.pixels ?? 300
@@ -213,9 +236,9 @@ export function registerPageAgentTool() {
           }
 
           // 等待滚动动画完成后再采集状态
-          await new Promise(r => setTimeout(r, 400))
+          await new Promise((r) => setTimeout(r, 400))
           return buildBrowserStateResponse(mode)
-        // ── executeJavascript：执行任意 JS ────────────────────────────────
+          // ── executeJavascript：执行任意 JS ────────────────────────────────
         } else if (args.action === 'executeJavascript') {
           if (!args.script) return errContent('脚本执行异常: 缺少javascript代码')
           // eslint-disable-next-line no-new-func
@@ -225,21 +248,15 @@ export function registerPageAgentTool() {
             content: [{ type: 'text', text: `脚本执行结果: ${JSON.stringify(result)}` }]
           }
 
-        // ── searchTree：关键词搜索无障碍树，返回带行号的精准结果 ──────────
+          // ── searchTree：关键词搜索无障碍树，返回带行号的精准结果 ──────────
         } else if (args.action === 'searchTree') {
           if (!args.query) return errContent('搜索失败: 缺少 query 参数')
           const blacklist = (window.__webmcpcli_interactiveBlacklist ?? []) as Element[]
           const whitelist = (window.__webmcpcli_interactiveWhitelist ?? []) as Element[]
-          const { text } = searchA11yTree(
-            args.query,
-            document.body,
-            blacklist,
-            whitelist,
-            {
-              contextLines: args.contextLines,
-              maxMatches: args.maxMatches,
-            },
-          )
+          const { text } = searchA11yTree(args.query, document.body, blacklist, whitelist, {
+            contextLines: args.contextLines,
+            maxMatches: args.maxMatches
+          })
           await pageController.hideMask()
           return {
             content: [{ type: 'text', text }]

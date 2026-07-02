@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+  </defs>
+  <g xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(light-dark(rgba(0, 0, 0, 0.4), rgba(237, 237, 237, 0.4)) 3px 4px 4px);"><path d="M 15 42 L 15 36.99 Q 15 31.99 23.7 31.99 L 28.05 31.99 Q 32.41 31.99 32.41 21.99 L 32.41 17 Q 32.41 12 41.09 16.95 L 76.31 37.05 Q 85 42 76.31 46.95 L 41.09 67.05 Q 32.41 72 32.41 62.01 L 32.41 57.01 Q 32.41 52.01 23.7 52.01 L 19.35 52.01 Q 15 52.01 15 47.01 Z" fill="#ffffff" stroke="none" style="fill: #ffffff;"/></g>
+</svg>
