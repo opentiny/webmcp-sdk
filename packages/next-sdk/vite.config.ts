@@ -41,18 +41,8 @@ export default defineConfig(() => {
         },
         name: 'NEXT-SDK',
         formats: ['es'],
-        fileName: (format, entryName) => `${entryName}.js`,
-
-        // -------  打包 page-agent 光标组件，需要把 css, svg 等资源内联  -------
-        assetsInlineLimit: 4096, // 小于 4KB 的资源自动内联为 base64
-        cssCodeSplit: false // 确保 CSS 被打包到 JS 中
+        fileName: (format, entryName) => `${entryName}.js`
       },
-      css: {
-        modules: {
-          localsConvention: 'camelCase'
-        }
-      },
-      // ---------  把 css, svg 等资源内联结束  ---------
       rollupOptions: {
         // 排除第三方依赖，保留本地文件
         external: (id) => {

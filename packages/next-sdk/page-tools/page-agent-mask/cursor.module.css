@@ -1,5 +1,4 @@
-/* AI 光标样式 */
-.cursor {
+.webmcp-page-agent-cursor {
 	position: absolute;
 	width: var(--cursor-size, 75px);
 	height: var(--cursor-size, 75px);
@@ -7,12 +6,12 @@
 	z-index: 10000;
 }
 
-.cursorBorder {
+.webmcp-page-agent-cursorBorder {
 	position: absolute;
 	width: 100%;
 	height: 100%;
 	background: linear-gradient(45deg, rgb(57, 182, 255), rgb(189, 69, 251));
-	mask-image: url(./cursor-border.svg);
+	mask-image: url("data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%20fill='none'%3e%3cg%3e%3cpath%20d='M%2015%2042%20L%2015%2036.99%20Q%2015%2031.99%2023.7%2031.99%20L%2028.05%2031.99%20Q%2032.41%2031.99%2032.41%2021.99%20L%2032.41%2017%20Q%2032.41%2012%2041.09%2016.95%20L%2076.31%2037.05%20Q%2085%2042%2076.31%2046.95%20L%2041.09%2067.05%20Q%2032.41%2072%2032.41%2062.01%20L%2032.41%2057.01%20Q%2032.41%2052.01%2023.7%2052.01%20L%2019.35%2052.01%20Q%2015%2052.01%2015%2047.01%20Z'%20fill='none'%20stroke='%23000000'%20stroke-width='6'%20stroke-miterlimit='10'%20style='stroke:%20light-dark(rgb(0,%200,%200),%20rgb(255,%20255,%20255));'/%3e%3c/g%3e%3c/svg%3e");
 	mask-size: 100% 100%;
 	mask-repeat: no-repeat;
 
@@ -22,11 +21,11 @@
 	margin-top: -18px;
 }
 
-.cursorFilling {
+.webmcp-page-agent-cursorFilling {
 	position: absolute;
 	width: 100%;
 	height: 100%;
-	background: url(./cursor-fill.svg);
+	background: url("data:image/svg+xml,%3csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%20100%20100'%3e%3cdefs%3e%3c/defs%3e%3cg%20xmlns='http://www.w3.org/2000/svg'%20style='filter:%20drop-shadow(light-dark(rgba(0,%200,%200,%200.4),%20rgba(237,%20237,%20237,%200.4))%203px%204px%204px);'%3e%3cpath%20d='M%2015%2042%20L%2015%2036.99%20Q%2015%2031.99%2023.7%2031.99%20L%2028.05%2031.99%20Q%2032.41%2031.99%2032.41%2021.99%20L%2032.41%2017%20Q%2032.41%2012%2041.09%2016.95%20L%2076.31%2037.05%20Q%2085%2042%2076.31%2046.95%20L%2041.09%2067.05%20Q%2032.41%2072%2032.41%2062.01%20L%2032.41%2057.01%20Q%2032.41%2052.01%2023.7%2052.01%20L%2019.35%2052.01%20Q%2015%2052.01%2015%2047.01%20Z'%20fill='%23ffffff'%20stroke='none'%20style='fill:%20%23ffffff;'/%3e%3c/g%3e%3c/svg%3e");
 	background-size: 100% 100%;
 	background-repeat: no-repeat;
 
@@ -36,7 +35,7 @@
 	margin-top: -18px;
 }
 
-.cursorRipple {
+.webmcp-page-agent-cursorRipple {
 	position: absolute;
 	width: 100%;
 	height: 100%;
@@ -54,11 +53,11 @@
 	}
 }
 
-.cursor.clicking .cursorRipple::after {
-	animation: cursor-ripple 300ms ease-out forwards;
+.webmcp-page-agent-cursor.clicking .webmcp-page-agent-cursorRipple::after {
+	animation: webmcp-page-agent-cursor-ripple 300ms ease-out forwards;
 }
 
-@keyframes cursor-ripple {
+@keyframes webmcp-page-agent-cursor-ripple {
 	0% {
 		transform: scale(0);
 		opacity: 1;
