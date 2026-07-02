@@ -20,9 +20,6 @@ export type * from '@modelcontextprotocol/sdk/server/mcp.js'
 export * from './WebMcpServer'
 export * from './WebMcpClient'
 
-// 浏览器扩展自定义传输层（不包含对 window 依赖的模块）
-export * from './transport/ExtensionClientTransport'
-
 export { AgentModelProvider } from './agent/AgentModelProvider'
 export { getAISDKTools } from './agent/utils/getAISDKTools'
 export type * from './agent/type'
