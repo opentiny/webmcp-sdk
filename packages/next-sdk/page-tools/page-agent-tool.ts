@@ -33,10 +33,15 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
   // 保留 PageController ，先关闭内置mask, 再手工绑定当前项目的mask类
   const pageController = new PageController({ enableMask: false })
 
+<<<<<<< HEAD
   // @ts-ignore
   pageController.maskReady = (async () => {
     // @ts-ignore
     pageController.mask = new SimulatorMask()
+=======
+  ;(pageController as any).maskReady = (async () => {
+    ;(pageController as any).mask = new SimulatorMask()
+>>>>>>> 7a7850d (feat: 支持属性白名单，可以让结构树的节点添加制定属性和对应属性的值)
   })()
 
   // ─── 状态 Diff 缓存
@@ -264,17 +269,11 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
           const blacklist = (window.__webmcpcli_interactiveBlacklist ?? []) as Element[]
           const whitelist = (window.__webmcpcli_interactiveWhitelist ?? []) as Element[]
           const exposedAttributes = (window.__webmcpcli_exposedAttributes ?? []) as string[]
-          const { text } = searchA11yTree(
-            args.query,
-            document.body,
-            blacklist,
-            whitelist,
-            {
-              contextLines: args.contextLines,
-              maxMatches: args.maxMatches,
-              exposedAttributes,
-            },
-          )
+          const { text } = searchA11yTree(args.query, document.body, blacklist, whitelist, {
+            contextLines: args.contextLines,
+            maxMatches: args.maxMatches,
+            exposedAttributes
+          })
           await pageController.hideMask()
           return {
             content: [{ type: 'text', text }]
