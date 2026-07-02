@@ -280,7 +280,8 @@ function getStateTokens(el: Element, exposedAttributes?: string[]): string[] {
   )
   // 只对有 cursor=pointer 或明确角色的元素输出 active token，避免太多噪音
   const roleForActive = el.getAttribute('role') || el.tagName.toLowerCase()
-  const isTabLike = ['tab', 'button', 'option', 'a', 'li', 'generic'].some(r => roleForActive.includes(r))
+  const roles = roleForActive.split(/\s+/)
+  const isTabLike = roles.some(r => ['button', 'option', 'a', 'li', 'generic'].includes(r) || r.startsWith('tab'))
   if (hasActiveClass && isTabLike && !tokens.includes('checked') && !tokens.includes('selected')) {
     tokens.push('active')
   }
