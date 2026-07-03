@@ -9,7 +9,6 @@ import { ProviderV2 } from '@ai-sdk/provider'
 import { OpenAIProvider } from '@ai-sdk/openai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createDeepSeek, DeepSeekProvider } from '@ai-sdk/deepseek'
-import { ExtensionClientTransport } from '../transport/ExtensionClientTransport'
 import { MessageChannelTransport } from '@opentiny/next'
 import { WebMcpClient } from '../WebMcpClient'
 import { getAISDKTools } from './utils/getAISDKTools'
@@ -101,8 +100,6 @@ export class AgentModelProvider {
         const configWithHeaders = serverConfig as { url: string; headers?: Record<string, string> }
         const requestInit = configWithHeaders.headers ? { headers: configWithHeaders.headers } : undefined
         transport = new SSEClientTransport(new URL(configWithHeaders.url), { requestInit })
-      } else if ('type' in serverConfig && serverConfig.type === 'extension') {
-        transport = new ExtensionClientTransport(serverConfig.sessionId)
       } else if ('transport' in serverConfig) {
         transport = serverConfig.transport
       } else {
@@ -307,7 +304,7 @@ export class AgentModelProvider {
   /** 创建临时允许调用的 tools 集合，合并 mcpTools 与 extraTool */
   private _tempMergeTools(extraTool: ToolSet = {} as ToolSet, deleteIgnored = true): ToolSet {
     const toolsResult: ToolSet = Object.values(this.mcpTools).reduce(
-      (acc, curr) => ({ ...acc, ...curr } as ToolSet),
+      (acc, curr) => ({ ...acc, ...curr }) as ToolSet,
       {} as ToolSet
     )
     Object.assign(toolsResult, extraTool)
