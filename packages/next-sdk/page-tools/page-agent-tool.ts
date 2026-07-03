@@ -299,14 +299,18 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
           const blacklist = (window.__webmcpcli_interactiveBlacklist ?? []) as Element[]
           const whitelist = (window.__webmcpcli_interactiveWhitelist ?? []) as Element[]
           const exposedAttributes = (window.__webmcpcli_exposedAttributes ?? []) as string[]
-          const { text } = searchA11yTree(args.query, document.body, blacklist, whitelist, {
+          const result = searchA11yTree(args.query, document.body, blacklist, whitelist, {
             contextLines: args.contextLines,
             maxMatches: args.maxMatches,
             exposedAttributes
           })
+          
+          currentRefMap = result.refMap
+          stateCache.update(window.location.href, result.yaml)
+          
           await pageController.hideMask()
           return {
-            content: [{ type: 'text', text }]
+            content: [{ type: 'text', text: result.text }]
           }
         }
       } catch (error) {
