@@ -13,8 +13,54 @@ declare global {
     __webmcpcli_interactiveBlacklist?: Element[]
     __webmcpcli_exposedAttributes?: string[]
     __webmcpcli_beforeGetBrowserState?: (() => void) | null
+    /** 校验错误元素 CSS 选择器列表（覆盖默认，用于检测页面可见的校验错误） */
+    __webmcpcli_errorSelectors?: string[]
+    /** 模态弹窗元素 CSS 选择器列表（覆盖默认，用于检测阻塞交互的弹窗） */
+    __webmcpcli_dialogSelectors?: string[]
   }
 }
+
+/** 校验错误默认选择器：ARIA 标准 + 主流 UI 框架 */
+const DEFAULT_ERROR_SELECTORS: string[] = [
+  // W3C ARIA 标准（最可靠，框架无关）
+  '[role="alert"]',
+  '[aria-invalid="true"]',
+  // Tiny3 / Lego（华为云）
+  '.ti3-unifyvalid-error', '.ti3-error', '.ti-error',
+  '.lego-text-error', '.lego-error',
+  // Element UI / Element Plus
+  '.el-form-item__error',
+  // Ant Design
+  '.ant-form-item-explain-error',
+  // Bootstrap
+  '.is-invalid', '.invalid-feedback',
+  // Angular
+  '.ng-invalid',
+  // 通用命名约定
+  '.error-msg', '.error-message', '.error-text',
+  '.field-error', '.form-error',
+  '.is-error', '.has-error',
+  '.validate-error', '.valid-error',
+]
+
+/** 模态弹窗默认选择器：ARIA 标准 + 主流 UI 框架 */
+const DEFAULT_DIALOG_SELECTORS: string[] = [
+  // W3C ARIA 标准
+  '[role="dialog"]',
+  '[role="alertdialog"]',
+  // Tiny3 / Lego（华为云）
+  '[class*="ti3-modal"]', '[class*="ti3-message-box"]',
+  // Element UI / Element Plus
+  '[class*="el-dialog"]', '[class*="el-message-box"]',
+  // Ant Design
+  '[class*="ant-modal"]',
+  // Bootstrap
+  '[class*="modal-content"]',
+  // Vuetify
+  '[class*="v-dialog"]',
+  // Naive UI
+  '[class*="n-modal"]',
+]
 
 export interface PageAgentToolOptions {
   /** 允许在无障碍树节点中额外暴露的 DOM 属性白名单 */
@@ -29,6 +75,10 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
   window.__webmcpcli_interactiveBlacklist = window.__webmcpcli_interactiveBlacklist || [] // 黑名单，反之
   window.__webmcpcli_exposedAttributes = window.__webmcpcli_exposedAttributes || options?.exposedAttributes || [] // 额外暴露的自定义属性白名单
   window.__webmcpcli_beforeGetBrowserState = window.__webmcpcli_beforeGetBrowserState || null // 指定网站覆盖该函数，用于设置当前网站的黑白名单
+  // 校验错误选择器：默认覆盖 ARIA 标准 + 主流框架，网站可通过 window.__webmcpcli_errorSelectors 覆盖
+  window.__webmcpcli_errorSelectors = window.__webmcpcli_errorSelectors || DEFAULT_ERROR_SELECTORS
+  // 模态弹窗选择器：同上
+  window.__webmcpcli_dialogSelectors = window.__webmcpcli_dialogSelectors || DEFAULT_DIALOG_SELECTORS
 
   // 保留 PageController ，先关闭内置mask, 再手工绑定当前项目的mask类
   const pageController = new PageController({ enableMask: false })
@@ -113,6 +163,142 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
     }
   }
 
+  // ─── 辅助：等待 DOM 变更稳定 ────────────────────────────────────────────
+  // click/fill/select 操作后，框架（Angular/React/Vue）可能异步插入校验错误、
+  // 条件渲染选项等动态内容。用 MutationObserver 监听 DOM 变更，等待变更平息后
+  // 再构建 A11y 树，确保动态插入的内容（如 ng-star-inserted 校验提示）被捕获。
+  function waitForDomSettled(timeout = 600, settleTime = 150): Promise<void> {
+    return new Promise<void>((resolve) => {
+      let settled = false
+      let settleTimer: ReturnType<typeof setTimeout> | undefined
+      const finish = () => {
+        if (settled) return
+        settled = true
+        observer.disconnect()
+        if (settleTimer) clearTimeout(settleTimer)
+        resolve()
+      }
+      // 每次有 DOM 变更时重置 settle 计时器；变更平息 settleTime 后视为稳定
+      const observer = new MutationObserver(() => {
+        if (settleTimer) clearTimeout(settleTimer)
+        settleTimer = setTimeout(finish, settleTime)
+      })
+      // 若无任何变更，settleTime 后直接结束
+      settleTimer = setTimeout(finish, settleTime)
+      // 超时保护：timeout 后强制结束，避免无限等待
+      setTimeout(finish, timeout)
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class', 'style', 'hidden'],
+      })
+    })
+  }
+
+  // ─── 辅助：检测页面级模态弹窗/遮罩层 ────────────────────────────────────
+  // 仅检测真正阻塞交互的模态弹窗（确认框、提交对话框等），
+  // 不检测顶部通知横幅、站内消息等非模态提示，避免误报导致 AI 循环
+  function detectPageDialog(): string {
+    const seen = new Set<Element>()
+    const dialogs: string[] = []
+    // 仅匹配明确的模态弹窗选择器，避免宽泛子串匹配误报
+    const selectors = (window.__webmcpcli_dialogSelectors ?? DEFAULT_DIALOG_SELECTORS)
+
+    for (const selector of selectors) {
+      try {
+        for (const el of document.querySelectorAll(selector)) {
+          if (seen.has(el)) continue
+          // 跳过 SDK 自身遮罩
+          if (el.id?.includes('page-agent-runtime')) continue
+          if (el.closest('#page-agent-runtime_simulator-mask')) continue
+
+          const rect = el.getBoundingClientRect()
+          if (rect.width < 50 || rect.height < 50) continue
+          const style = window.getComputedStyle(el as HTMLElement)
+          if (style.display === 'none' || style.visibility === 'hidden') continue
+
+          // 模态性验证：必须是 fixed/absolute 且 z-index 较高
+          const isFixed = style.position === 'fixed' || style.position === 'absolute'
+          const zIndex = parseInt(style.zIndex || '0', 10)
+          if (!isFixed || zIndex < 100) continue
+
+          // 必须覆盖视口中心区域（真正的模态弹窗会遮挡页面中心）
+          const vw = window.innerWidth
+          const vh = window.innerHeight
+          const coversCenter = rect.left < vw * 0.6 && rect.right > vw * 0.4 &&
+                               rect.top < vh * 0.6 && rect.bottom > vh * 0.4
+          if (!coversCenter) continue
+
+          seen.add(el)
+          const text = (el.textContent || '').trim().replace(/\s+/g, ' ')
+          if (text.length > 5) {
+            // 提取弹窗内的可交互按钮，帮助 AI 快速决策
+            const btns = el.querySelectorAll('button, [role="button"], a')
+            const btnTexts = Array.from(btns)
+              .map(b => (b.textContent || '').trim())
+              .filter(t => t.length > 0 && t.length < 20)
+              .slice(0, 5)
+            const btnInfo = btnTexts.length ? ` [可操作按钮: ${btnTexts.join(' / ')}]` : ''
+            dialogs.push(`${text.substring(0, 300)}${btnInfo}`)
+          }
+        }
+      } catch {
+        // 忽略选择器异常
+      }
+    }
+
+    if (dialogs.length === 0) return ''
+    return `\n[页面弹窗检测] 检测到 ${dialogs.length} 个模态弹窗，请优先处理:\n${dialogs.map((d, i) => `${i + 1}. ${d}`).join('\n')}\n`
+  }
+
+  // ─── 辅助：检测页面可见的表单校验错误 ──────────────────────────────────
+  // 操作后自动扫描页面中的校验错误提示，提取文本并提醒 AI，
+  // 避免 AI 卡住时不知道是因为有校验错误未处理
+  function detectValidationErrors(): string {
+    const seen = new Set<Element>()
+    const errors: string[] = []
+    // 校验错误选择器：ARIA 标准 + 主流 UI 框架（可配置）
+    const selectors = (window.__webmcpcli_errorSelectors ?? DEFAULT_ERROR_SELECTORS)
+
+    for (const selector of selectors) {
+      try {
+        for (const el of document.querySelectorAll(selector)) {
+          if (seen.has(el)) continue
+          // 跳过嵌套在已收集的错误元素内的子元素，避免重复
+          if (Array.from(seen).some(s => s.contains(el))) continue
+
+          const rect = el.getBoundingClientRect()
+          if (rect.width < 1 || rect.height < 1) continue
+          const style = window.getComputedStyle(el as HTMLElement)
+          if (style.display === 'none' || style.visibility === 'hidden') continue
+
+          const text = (el.textContent || '').trim().replace(/\s+/g, ' ')
+          if (text.length > 2 && text.length < 200) {
+            seen.add(el)
+            errors.push(text)
+          }
+        }
+      } catch {
+        // 忽略选择器异常
+      }
+    }
+
+    if (errors.length === 0) return ''
+    return `\n[校验提示] 检测到 ${errors.length} 个表单校验错误，请先修复后再继续:\n${errors.map((e, i) => `${i + 1}. ${e}`).join('\n')}\n`
+  }
+
+
+  // AI 使用过期 ref 时，自动重建 A11y 树并返回全量状态，
+  // 避免 AI 额外往返调用 browserState，减少操作轮次
+  async function refreshOnStaleRef(action: string, index: number) {
+    const refreshResult = await buildBrowserStateResponse('full')
+    const warning = `⚠️ ${action}失败: ref 索引 ${index} 已失效（页面可能已刷新），已自动重新加载页面状态，请使用新的 ref 索引重试。\n`
+    return {
+      content: [{ type: 'text' as const, text: warning + refreshResult.content[0].text }]
+    }
+  }
+
   // ─── 核心：构建 browserState 响应（全量 or 增量 Diff）────────────────────
   async function buildBrowserStateResponse(
     responseMode: 'full' | 'diff' | 'both' = 'diff'
@@ -126,13 +312,21 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
     const exposedAttributes = (window.__webmcpcli_exposedAttributes ?? []) as string[]
 
     // 生成语义化 ARIA YAML 树 + 刷新 refMap
-    const { yaml, refMap } = buildA11yTree(document.body, blacklist, whitelist, { exposedAttributes })
+    const { yaml, refMap } = buildA11yTree(document.body, blacklist, whitelist, {
+      exposedAttributes,
+      errorSelectors: (window.__webmcpcli_errorSelectors ?? DEFAULT_ERROR_SELECTORS).join(', '),
+    })
     currentRefMap = refMap
 
     // 计算 Diff
     const diff = stateCache.update(url, yaml)
 
     await pageController.hideMask()
+
+    // 检测页面弹窗/遮罩层（确认框、提示框等），让 AI 优先处理
+    const dialogAlert = detectPageDialog()
+    // 检测表单校验错误，提醒 AI 优先修复
+    const validationErrors = detectValidationErrors()
 
     // 根据 responseMode 组装 content
     let displayContent = ''
@@ -150,7 +344,7 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
       title,
       content: displayContent
     }
-    const text = `浏览器状态: ${JSON.stringify(stateObj)}`
+    const text = `浏览器状态: ${JSON.stringify(stateObj)}${dialogAlert}${validationErrors}`
     return { content: [{ type: 'text', text }] }
   }
 
@@ -175,8 +369,22 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
         } else if (args.action === 'click') {
           if (args.index === undefined) return errContent('点击结果: 缺少元素索引')
           const el = currentRefMap.get(args.index)
-          if (!el) return errContent(`点击结果: 无效的 ref 索引 ${args.index}，请先调用 browserState 刷新页面状态`)
-          await clickElement(el)
+          if (!el) return refreshOnStaleRef('点击', args.index)
+          // 若 ref 指向 shadow host，解析其内部真正的可点击元素（与 fill/select 一致）
+          // clickElement 派发的合成 pointer/mouse 事件 composed:false 无法穿透 shadow boundary，
+          // 需定位到 shadow 树内部的真实可点击元素，使事件在 shadow 树内被组件监听器接收
+          let targetEl = el as HTMLElement
+          if (el.shadowRoot && !(el instanceof HTMLButtonElement) && !(el instanceof HTMLAnchorElement)) {
+            const innerClickable = el.shadowRoot.querySelector(
+              'button, a, [role="button"], [role="link"]'
+            ) as HTMLElement | null
+            if (innerClickable) {
+              targetEl = innerClickable
+            }
+          }
+          await clickElement(targetEl)
+          // 等待框架异步插入的校验错误/条件渲染内容稳定后再采集状态
+          await waitForDomSettled()
           // 操作成功后自动返回 diff/both/full
           return buildBrowserStateResponse(mode)
 
@@ -184,7 +392,7 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
         } else if (args.action === 'fill') {
           if (args.index === undefined || !args.text) return errContent('填写结果: 缺少元素索引或文本内容')
           const el = currentRefMap.get(args.index)
-          if (!el) return errContent(`填写结果: 无效的 ref 索引 ${args.index}，请先调用 browserState 刷新页面状态`)
+          if (!el) return refreshOnStaleRef('填写', args.index)
 
           let targetEl = el
           if (!(targetEl instanceof HTMLInputElement) && !(targetEl instanceof HTMLTextAreaElement)) {
@@ -232,13 +440,15 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
               dispatchComposedEvents(targetEl, 'input', 'change')
             }
           }
+          // 等待框架异步插入的校验错误/条件渲染内容稳定后再采集状态
+          await waitForDomSettled()
           return buildBrowserStateResponse(mode)
 
           // ── select：选择下拉框，操作后自动返回 diff ───────────────────────
         } else if (args.action === 'select') {
           if (args.index === undefined || !args.text) return errContent('选择结果: 缺少元素索引或文本内容')
           let el = currentRefMap.get(args.index) as HTMLSelectElement | HTMLElement | undefined
-          if (!el) return errContent(`选择结果: 无效的 ref 索引 ${args.index}，请先调用 browserState 刷新页面状态`)
+          if (!el) return refreshOnStaleRef('选择', args.index)
           // 若 ref 指向 shadow host，解析其内部真正的 <select>（与 fill 一致）
           if (!(el instanceof HTMLSelectElement)) {
             const innerSelect = el.querySelector('select')
@@ -252,6 +462,8 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
           if (isInShadowDom(el)) {
             dispatchComposedEvents(el, 'change')
           }
+          // 等待框架异步插入的校验错误/条件渲染内容稳定后再采集状态
+          await waitForDomSettled()
           return buildBrowserStateResponse(mode)
 
           // ── scroll：滚动页面，操作后自动返回 diff ─────────────────────────
@@ -302,15 +514,21 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
           const result = searchA11yTree(args.query, document.body, blacklist, whitelist, {
             contextLines: args.contextLines,
             maxMatches: args.maxMatches,
-            exposedAttributes
+            exposedAttributes,
+            errorSelectors: (window.__webmcpcli_errorSelectors ?? DEFAULT_ERROR_SELECTORS).join(', '),
           })
           
           currentRefMap = result.refMap
           stateCache.update(window.location.href, result.yaml)
           
           await pageController.hideMask()
+          // 检测页面弹窗/遮罩层，帮助 AI 发现可能遮挡目标的确认弹窗
+          const dialogAlert = detectPageDialog()
+          // 检测表单校验错误，提醒 AI 优先修复
+          const validationErrors = detectValidationErrors()
+          const alerts = `${dialogAlert}${validationErrors}`
           return {
-            content: [{ type: 'text', text: result.text }]
+            content: [{ type: 'text', text: alerts ? `${alerts}\n${result.text}` : result.text }]
           }
         }
       } catch (error) {
