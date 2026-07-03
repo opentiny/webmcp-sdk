@@ -102,6 +102,10 @@ export interface SearchA11yTreeResult {
   totalLines: number
   /** 原始命中行数（去重前） */
   matchCount: number
+  /** 返回搜索时的 ref 映射 */
+  refMap: RefMap
+  /** 返回搜索时的 yaml 状态，用于更新缓存 */
+  yaml: string
 }
 
 // ─── ARIA 隐式角色静态映射表（覆盖页面 95%+ 的常用标签）───────────────────────
@@ -581,7 +585,7 @@ export function searchA11yTree(
   } = options ?? {}
 
   // 复用 buildA11yTree 生成完整树，直接取 lines 数组（不重复构建 DOM 遍历）
-  const { lines } = buildA11yTree(root, blacklist, whitelist, treeOptions)
+  const { lines, refMap, yaml } = buildA11yTree(root, blacklist, whitelist, treeOptions)
 
   const needle = caseInsensitive ? query.toLowerCase() : query
   const totalLines = lines.length
@@ -665,5 +669,7 @@ export function searchA11yTree(
     matches,
     totalLines,
     matchCount: hitIndices.length,
+    refMap,
+    yaml,
   }
 }
