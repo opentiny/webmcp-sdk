@@ -95,14 +95,20 @@ function formatLogResult(result: any): string {
     ) {
       const text = clone.content[0].text
       if (text.startsWith('浏览器状态: ')) {
-        const jsonStr = text.substring('浏览器状态: '.length)
+        let jsonStr = text.substring('浏览器状态: '.length)
+        let extraAlerts = ''
+        const firstNewline = jsonStr.indexOf('\n')
+        if (firstNewline !== -1) {
+          extraAlerts = jsonStr.substring(firstNewline)
+          jsonStr = jsonStr.substring(0, firstNewline)
+        }
         try {
           const parsed = JSON.parse(jsonStr)
           if (parsed && typeof parsed.content === 'string') {
             a11yTreeStr = parsed.content
             // 替换 clone 中的 content 部分，避免在 JSON 序列化时产生超长难读的字符串
             parsed.content = '[Formatted A11y Tree - See details below]'
-            clone.content[0].text = `浏览器状态: ${JSON.stringify(parsed, null, 2)}`
+            clone.content[0].text = `浏览器状态: ${JSON.stringify(parsed, null, 2)}${extraAlerts}`
           }
         } catch {
           // JSON 解析失败则不处理
