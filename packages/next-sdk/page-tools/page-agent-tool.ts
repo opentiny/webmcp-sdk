@@ -330,6 +330,24 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
     }
   }
 
+  // 等待 smooth scroll 结束：优先监听 scrollend，超时兜底（边界无位移时 scrollend 可能不触发）
+  function waitForScrollEnd(target: Window | Element, timeout = 2000): Promise<void> {
+    return new Promise((resolve) => {
+      let settled = false
+      const el = target === window ? document : (target as Element)
+      const finish = () => {
+        if (settled) return
+        settled = true
+        el.removeEventListener('scrollend', onScrollEnd)
+        clearTimeout(timer)
+        resolve()
+      }
+      const onScrollEnd = () => finish()
+      const timer = setTimeout(finish, timeout)
+      el.addEventListener('scrollend', onScrollEnd, { once: true })
+    })
+  }
+
   // AI 使用过期 ref 时，自动重建 A11y 树并返回全量状态，
   // 避免 AI 额外往返调用 browserState，减少操作轮次
   async function refreshOnStaleRef(action: string, index: number) {
@@ -525,26 +543,33 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
             scrollTarget.scrollBy({ top: args.down ? pixels : -pixels, behavior: 'smooth' })
           }
 
-          // 等待滚动动画完成后再采集状态
-          await new Promise((r) => setTimeout(r, 400))
+          // 等待滚动动画完成后再采集状态（scrollend + 超时兜底）
+          await waitForScrollEnd(scrollTarget)
 
           // 滚动后快照，计算实际位移
           const after = getScrollInfo(scrollTarget)
           const deltaY = Math.round(after.scrollY - before.scrollY)
           const deltaX = Math.round(after.scrollX - before.scrollX)
+          const isHorizontal = args.right !== undefined
 
           let scrollMsg: string
           if (Math.abs(deltaY) < 1 && Math.abs(deltaX) < 1) {
             // 实际未发生位移，说明已到达边界
-            if (args.right !== undefined) {
+            if (isHorizontal) {
               scrollMsg = args.right ? '⚠️ 已到达右边界，无法继续向右滚动' : '⚠️ 已到达左边界，无法继续向左滚动'
             } else {
               scrollMsg = args.down ? '⚠️ 已到达底部，无法继续向下滚动' : '⚠️ 已到达顶部，无法继续向上滚动'
             }
           } else {
-            const axis = deltaY !== 0 ? `垂直滚动 ${deltaY}px` : `水平滚动 ${deltaX}px`
-            const boundary = after.atBottom ? '，已到达底部' : after.atTop ? '，已到达顶部'
-              : after.atRight ? '，已到达右边界' : after.atLeft ? '，已到达左边界' : ''
+            const axis = isHorizontal ? `水平滚动 ${deltaX}px` : `垂直滚动 ${deltaY}px`
+            let boundary = ''
+            if (isHorizontal) {
+              if (args.right && after.atRight) boundary = '，已到达右边界'
+              else if (!args.right && after.atLeft) boundary = '，已到达左边界'
+            } else {
+              if (args.down && after.atBottom) boundary = '，已到达底部'
+              else if (!args.down && after.atTop) boundary = '，已到达顶部'
+            }
             scrollMsg = `✅ ${axis}${boundary}`
           }
 
