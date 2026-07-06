@@ -289,6 +289,47 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
   }
 
 
+  // ─── 辅助：获取滚动目标的当前位置信息（仿 page-agent getPageInfo）────────
+  // 同时支持 window（文档滚动）和任意 Element（容器滚动）
+  function getScrollInfo(target: Window | Element = window) {
+    if (target === window) {
+      const pageHeight = Math.max(document.documentElement.scrollHeight, document.body.scrollHeight)
+      const pageWidth = Math.max(document.documentElement.scrollWidth, document.body.scrollWidth)
+      const scrollY = window.scrollY
+      const scrollX = window.scrollX
+      const pixelsBelow = Math.max(0, pageHeight - (window.innerHeight + scrollY))
+      const pixelsRight = Math.max(0, pageWidth - (window.innerWidth + scrollX))
+      return {
+        scrollY, scrollX,
+        pixelsAbove: scrollY, pixelsBelow,
+        pixelsLeft: scrollX, pixelsRight,
+        pagesAbove: window.innerHeight > 0 ? scrollY / window.innerHeight : 0,
+        pagesBelow: window.innerHeight > 0 ? pixelsBelow / window.innerHeight : 0,
+        atTop: scrollY <= 1,
+        atBottom: pixelsBelow <= 1,
+        atLeft: scrollX <= 1,
+        atRight: pixelsRight <= 1,
+      }
+    } else {
+      const el = target as Element
+      const scrollTop = el.scrollTop
+      const scrollLeft = el.scrollLeft
+      const pixelsBelow = el.scrollHeight - el.clientHeight - scrollTop
+      const pixelsRight = el.scrollWidth - el.clientWidth - scrollLeft
+      return {
+        scrollY: scrollTop, scrollX: scrollLeft,
+        pixelsAbove: scrollTop, pixelsBelow: Math.max(0, pixelsBelow),
+        pixelsLeft: scrollLeft, pixelsRight: Math.max(0, pixelsRight),
+        pagesAbove: el.clientHeight > 0 ? scrollTop / el.clientHeight : 0,
+        pagesBelow: el.clientHeight > 0 ? Math.max(0, pixelsBelow) / el.clientHeight : 0,
+        atTop: scrollTop <= 1,
+        atBottom: pixelsBelow <= 1,
+        atLeft: scrollLeft <= 1,
+        atRight: pixelsRight <= 1,
+      }
+    }
+  }
+
   // AI 使用过期 ref 时，自动重建 A11y 树并返回全量状态，
   // 避免 AI 额外往返调用 browserState，减少操作轮次
   async function refreshOnStaleRef(action: string, index: number) {
@@ -466,14 +507,17 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
           await waitForDomSettled()
           return buildBrowserStateResponse(mode)
 
-          // ── scroll：滚动页面，操作后自动返回 diff ─────────────────────────
+          // ── scroll：滚动页面，操作后自动返回位置信息 + diff ───────────────
         } else if (args.action === 'scroll') {
-          if (!args.down && !args.right) return errContent('滚动结果: 缺少滚动方向参数')
+          if (args.down === undefined && args.right === undefined) return errContent('滚动结果: 缺少滚动方向参数')
 
           // 确定滚动目标（有 index 时滚动该元素容器，否则滚动整个文档）
           const scrollTarget = args.index !== undefined ? (currentRefMap.get(args.index) ?? window) : window
 
-          if (args.right) {
+          // 滚动前快照
+          const before = getScrollInfo(scrollTarget)
+
+          if (args.right !== undefined) {
             const pixels = args.pixels ?? 300
             scrollTarget.scrollBy({ left: args.right ? pixels : -pixels, behavior: 'smooth' })
           } else {
@@ -483,7 +527,36 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
 
           // 等待滚动动画完成后再采集状态
           await new Promise((r) => setTimeout(r, 400))
-          return buildBrowserStateResponse(mode)
+
+          // 滚动后快照，计算实际位移
+          const after = getScrollInfo(scrollTarget)
+          const deltaY = Math.round(after.scrollY - before.scrollY)
+          const deltaX = Math.round(after.scrollX - before.scrollX)
+
+          let scrollMsg: string
+          if (Math.abs(deltaY) < 1 && Math.abs(deltaX) < 1) {
+            // 实际未发生位移，说明已到达边界
+            if (args.right !== undefined) {
+              scrollMsg = args.right ? '⚠️ 已到达右边界，无法继续向右滚动' : '⚠️ 已到达左边界，无法继续向左滚动'
+            } else {
+              scrollMsg = args.down ? '⚠️ 已到达底部，无法继续向下滚动' : '⚠️ 已到达顶部，无法继续向上滚动'
+            }
+          } else {
+            const axis = deltaY !== 0 ? `垂直滚动 ${deltaY}px` : `水平滚动 ${deltaX}px`
+            const boundary = after.atBottom ? '，已到达底部' : after.atTop ? '，已到达顶部'
+              : after.atRight ? '，已到达右边界' : after.atLeft ? '，已到达左边界' : ''
+            scrollMsg = `✅ ${axis}${boundary}`
+          }
+
+          // 附加位置信息（参考 page-agent getPageInfo 格式）
+          const posInfo = args.right !== undefined
+            ? `当前水平滚动位置: scrollX=${Math.round(after.scrollX)}px，左侧 ${after.pagesAbove.toFixed(1)} 屏，右侧 ${after.pagesBelow.toFixed(1)} 屏`
+            : `当前滚动位置: scrollY=${Math.round(after.scrollY)}px，上方 ${after.pagesAbove.toFixed(1)} 屏，下方 ${after.pagesBelow.toFixed(1)} 屏`
+          const scrollResult = `[滚动结果] ${scrollMsg}\n${posInfo}`
+
+          const stateResult = await buildBrowserStateResponse(mode)
+          stateResult.content[0].text = `${scrollResult}\n\n${stateResult.content[0].text}`
+          return stateResult
           // ── executeJavascript：执行任意 JS ────────────────────────────────
         } else if (args.action === 'executeJavascript') {
           if (!args.script) return errContent('脚本执行异常: 缺少javascript代码')
