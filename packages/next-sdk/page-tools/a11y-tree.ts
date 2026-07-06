@@ -18,6 +18,27 @@
 import { computeAccessibleName } from 'dom-accessibility-api'
 import { isFocusable } from 'tabbable'
 
+// ─── 默认校验错误/警告选择器（ARIA 标准 + 主流 UI 框架） ──────────────────
+
+const DEFAULT_ERROR_SELECTORS = [
+  '[role="alert"]', '[aria-invalid="true"]',
+  '.ti3-unifyvalid-error', '.ti3-error', '.ti-error',
+  '.lego-text-error', '.lego-error',
+  '.el-form-item__error',
+  '.ant-form-item-explain-error',
+  '.is-invalid', '.invalid-feedback',
+  '.ng-invalid',
+  '.error-msg', '.error-message', '.error-text',
+  '.field-error', '.form-error',
+  '.is-error', '.has-error',
+  '.validate-error', '.valid-error',
+].join(', ')
+
+const DEFAULT_WARNING_SELECTORS = [
+  '.ti3-warning', '.ti-warning', '.lego-text-warning',
+  '.warning-msg', '.warning-text', '.is-warning', '.has-warning',
+].join(', ')
+
 // ─── 类型定义 ────────────────────────────────────────────────────────────────
 
 /** ref 索引 → HTMLElement 映射，供 click/fill/select 操作使用 */
@@ -52,6 +73,15 @@ export interface A11yTreeOptions {
    * 且属性及其值会显示在节点的 token 列表中，如 [cf-uba="cloudShell"]
    */
   exposedAttributes?: string[]
+  /**
+   * 校验错误元素 CSS 选择器（逗号分隔），用于在 token 中标记 [error]
+   * 默认覆盖 ARIA 标准 + 主流 UI 框架
+   */
+  errorSelectors?: string
+  /**
+   * 校验警告元素 CSS 选择器（逗号分隔）
+   */
+  warningSelectors?: string
 }
 
 export interface A11yTreeResult {
@@ -215,13 +245,37 @@ function inferRole(el: Element): string {
  * 收集节点的 ARIA 状态 token
  * 格式：[checked] [selected] [disabled] [hasPopup] [cursor=pointer] [value="..."]
  */
-function getStateTokens(el: Element, exposedAttributes?: string[]): string[] {
+function getStateTokens(
+  el: Element,
+  exposedAttributes?: string[],
+  errorSelectors?: string,
+  warningSelectors?: string,
+): string[] {
   const tokens: string[] = []
   const aria = (k: string) => el.getAttribute(k)
 
-  const checked = aria('aria-checked')
-  if (checked === 'true') tokens.push('checked')
-  else if (checked === 'false') tokens.push('unchecked')
+  // 选中状态：优先 aria-checked，其次原生 input.checked
+  // 对 <label for="X"> 检测关联 checkbox/radio 的选中状态，帮助 AI 识别复选框当前状态
+  const ariaChecked = aria('aria-checked')
+  if (ariaChecked === 'true') {
+    tokens.push('checked')
+  } else if (ariaChecked === 'false') {
+    tokens.push('unchecked')
+  } else {
+    const elTag = el.tagName.toLowerCase()
+    let nativeChecked: boolean | undefined
+    if (elTag === 'input' && ((el as HTMLInputElement).type === 'checkbox' || (el as HTMLInputElement).type === 'radio')) {
+      nativeChecked = (el as HTMLInputElement).checked
+    } else if (elTag === 'label' && el.hasAttribute('for')) {
+      const target = document.getElementById(el.getAttribute('for')!)
+      if (target instanceof HTMLInputElement && (target.type === 'checkbox' || target.type === 'radio')) {
+        nativeChecked = target.checked
+      }
+    }
+    if (nativeChecked !== undefined) {
+      tokens.push(nativeChecked ? 'checked' : 'unchecked')
+    }
+  }
 
   if (aria('aria-selected') === 'true') tokens.push('selected')
 
@@ -288,6 +342,21 @@ function getStateTokens(el: Element, exposedAttributes?: string[]): string[] {
   const isTabLike = roles.some(r => ['button', 'option', 'a', 'li', 'generic'].includes(r) || r.startsWith('tab'))
   if (hasActiveClass && isTabLike && !tokens.includes('checked') && !tokens.includes('selected')) {
     tokens.push('active')
+  }
+
+  // 检测校验错误/警告状态（ARIA 标准 + 主流 UI 框架，可配置）
+  // 输出 [error] / [warning] token，让 AI 能区分校验错误与普通说明文字
+  // 使用 closest() 向上查找，确保嵌套在错误容器内的子元素也能获得 error 语义
+  const errorSelector = errorSelectors || DEFAULT_ERROR_SELECTORS
+  const warningSelector = warningSelectors || DEFAULT_WARNING_SELECTORS
+  const errorAncestor = errorSelector ? el.closest(errorSelector) : null
+  if (errorAncestor) {
+    tokens.push('error')
+  } else {
+    const warningAncestor = warningSelector ? el.closest(warningSelector) : null
+    if (warningAncestor) {
+      tokens.push('warning')
+    }
   }
 
   // 额外暴露的自定义属性白名单
@@ -403,17 +472,22 @@ function buildVNode(
   blacklistSet: Set<Element>,
   whitelistSet: Set<Element>,
   exposedAttributes?: string[],
+  errorSelectors?: string,
+  warningSelectors?: string,
 ): VNode | null {
   if (isHidden(el) || blacklistSet.has(el)) return null
 
   const role = inferRole(el)
-  const tokens = getStateTokens(el, exposedAttributes)
+  const tokens = getStateTokens(el, exposedAttributes, errorSelectors, warningSelectors)
   
   let name = computeAccessibleName(el as HTMLElement)
   const isTrulyInteractive = isFocusable(el as HTMLElement)
   const isVisuallyClickable = tokens.includes('cursor=pointer')
   // 包含白名单属性的节点也视为白名单节点（确保不被剪枝并分配 ref 操作索引）
   const isWhitelisted = whitelistSet.has(el) || (exposedAttributes?.some(attr => el.hasAttribute(attr)) ?? false)
+  // <label for="..."> 原生可点击：浏览器将点击转发到关联的表单控件（checkbox/radio 等）
+  // Angular/React 自定义组件常隐藏原生 input，仅暴露 label 文本和自定义 skin
+  const isLabelFor = el.tagName.toLowerCase() === 'label' && el.hasAttribute('for')
 
   // 兜底方案：如果 AccName 计算结果为空，但该节点具有明显的交互性或属于结构性列表项，
   // 我们从其子树收集纯文本作为其 fallback name，以防 AI 丢失可读上下文。
@@ -422,16 +496,30 @@ function buildVNode(
     const tag = el.tagName.toLowerCase()
     const isDropdown = tag === 'select' || role === 'combobox' || role === 'listbox'
     if (!isDropdown) {
-      const isInteractiveTag = ['button', 'a', 'input', 'textarea', 'li'].includes(tag)
+      const isInteractiveTag = ['button', 'a', 'input', 'textarea', 'li', 'label'].includes(tag)
       if (isTrulyInteractive || isWhitelisted || isVisuallyClickable || isInteractiveTag || role === 'listitem' || role === 'option') {
         name = collectDescendantText(el)
       }
     }
   }
 
+  // 最终兜底：非交互元素（如错误提示 ti-error-msg、状态信息）的纯文本捕获。
+  // 仅当元素没有有价值的子元素时触发，避免与子节点文本重复：
+  // - 叶子 span（只有文本节点）→ 捕获文本作为 name
+  // - 容器元素（有 element 子节点）→ 不触发，由子节点各自捕获
+  if (!name.trim()) {
+    const hasElementChildren = getComposedChildren(el).length > 0
+    if (!hasElementChildren) {
+      const text = collectDescendantText(el)
+      if (text) {
+        name = text
+      }
+    }
+  }
+
   // generic 无 name 时，即使有 cursor=pointer 也不分配 ref：
   // cursor 通常是 CSS 继承传播的，这类 div 本身无法被有意义地操作
-  const interactive = isTrulyInteractive || isWhitelisted || (isVisuallyClickable && (role !== 'generic' || name !== ''))
+  const interactive = isTrulyInteractive || isWhitelisted || isLabelFor || (isVisuallyClickable && (role !== 'generic' || name !== ''))
 
   let ref: number | undefined
   if (interactive) {
@@ -442,7 +530,7 @@ function buildVNode(
 
   const children: VNode[] = []
   for (const child of getComposedChildren(el)) {
-    const childVNode = buildVNode(child, refCounter, refMap, blacklistSet, whitelistSet, exposedAttributes)
+    const childVNode = buildVNode(child, refCounter, refMap, blacklistSet, whitelistSet, exposedAttributes, errorSelectors, warningSelectors)
     if (childVNode) children.push(childVNode)
   }
 
@@ -513,6 +601,8 @@ const DEFAULT_OPTIONS: Required<A11yTreeOptions> = {
   pruneUnnamed: true,
   preserveRoles: [],
   exposedAttributes: [],
+  errorSelectors: DEFAULT_ERROR_SELECTORS,
+  warningSelectors: DEFAULT_WARNING_SELECTORS,
 }
 
 /**
@@ -538,7 +628,7 @@ export function buildA11yTree(
   const lines: string[] = []
 
   for (const child of getComposedChildren(root)) {
-    const vnode = buildVNode(child, refCounter, refMap, blacklistSet, whitelistSet, opts.exposedAttributes)
+    const vnode = buildVNode(child, refCounter, refMap, blacklistSet, whitelistSet, opts.exposedAttributes, opts.errorSelectors, opts.warningSelectors)
     if (vnode) {
       lines.push(...serializeVNode(vnode, 0, opts))
     }
