@@ -343,6 +343,24 @@ function getCodeMirrorContentLength(): number {
   return 0;
 }
 
+function getArticleFullContent(): string {
+  const cm = getCodeMirrorInstance();
+  if (cm?.getValue) return cm.getValue();
+  if (cm?.state?.doc) return cm.state.doc.toString();
+  const ta = findElement(SELECTORS.editor.markdownTextarea) as HTMLTextAreaElement | null;
+  if (ta?.value) return ta.value;
+  const rich = document.querySelector('[contenteditable="true"]') as HTMLElement | null;
+  return rich?.textContent || '';
+}
+
+function decodeBase64Content(content: string): string | null {
+  try {
+    return decodeURIComponent(escape(atob(content)));
+  } catch {
+    return null;
+  }
+}
+
 function clearCodeMirror(): boolean {
   return setCodeMirrorContent('');
 }
@@ -650,6 +668,111 @@ async function discardDraft(): Promise<ToolResult> {
   if (existingTags.length > 0) results.push(`已移除 ${existingTags.length} 个标签`);
 
   return { success: true, data: { cleared_items: results.length }, message: `草稿已舍弃\n${results.join('\n')}` };
+}
+
+// ============================================================
+// 掘金风格：获取文章信息 / 一键发布
+// ============================================================
+
+async function getArticleInfo(): Promise<ToolResult> {
+  const pageType = detectPageType();
+  if (pageType !== 'editor') {
+    return {
+      success: false,
+      error: 'NOT_EDITOR',
+      errorCode: 'NOT_EDITOR',
+      message: `当前不在编辑器页面（${pageType}），请先导航到写文章页面`
+    };
+  }
+
+  const titleInput = findElement(SELECTORS.editor.titleInput) as HTMLInputElement;
+  const title = titleInput?.value?.trim() || '';
+  const content = getArticleFullContent();
+
+  const tags = findElements(SELECTORS.editor.selectedTags)
+    .map((el) => el.textContent?.trim().replace(/\s*[×x]$/, ''))
+    .filter(Boolean);
+
+  const catSelect = findElement(SELECTORS.editor.categorySelect) as HTMLSelectElement;
+  const category = catSelect?.options[catSelect.selectedIndex]?.textContent?.trim() || '';
+
+  return {
+    success: true,
+    data: { title, contentLength: content.length, content, tags, category },
+    message: '已获取当前文章标题和正文'
+  };
+}
+
+async function createArticle(title: string, contentBase64: string): Promise<ToolResult> {
+  if (!title?.trim()) {
+    return { success: false, error: 'EMPTY', errorCode: 'EMPTY', message: '标题不能为空' };
+  }
+  const content = decodeBase64Content(contentBase64);
+  if (!content) {
+    return {
+      success: false,
+      error: 'INVALID_BASE64',
+      errorCode: 'INVALID_BASE64',
+      message: 'content 不是有效的 Base64 编码，请使用 @base64file: 引用文件'
+    };
+  }
+
+  if (detectPageType() !== 'editor') {
+    return {
+      success: false,
+      error: 'NOT_EDITOR',
+      errorCode: 'NOT_EDITOR',
+      message: '当前不在编辑器页面，请先打开 https://segmentfault.com/write'
+    };
+  }
+
+  const r1 = await setTitle(title);
+  if (!r1.success) return r1;
+  const r2 = await setContent(content);
+  if (!r2.success) return r2;
+  await sleep(CONFIG.autoSaveDelay);
+
+  return {
+    success: true,
+    data: { title: title.trim(), contentLength: content.length, draft_url: 'https://segmentfault.com/user/draft' },
+    message: '文章标题和正文已填写，思否将自动保存草稿'
+  };
+}
+
+async function publishCurrentDraft(params: {
+  category: string;
+  tags: string[];
+  type?: string;
+  copyright?: boolean;
+}): Promise<ToolResult> {
+  if (!params.category?.trim()) {
+    return { success: false, error: 'EMPTY', errorCode: 'EMPTY', message: '参数 category 不能为空' };
+  }
+  if (!params.tags?.length) {
+    return { success: false, error: 'EMPTY', errorCode: 'EMPTY', message: '参数 tags 不能为空，请至少提供一个标签' };
+  }
+  if (params.tags.length > 5) {
+    return { success: false, error: 'TOO_MANY', errorCode: 'TOO_MANY', message: '最多 5 个标签' };
+  }
+
+  if (detectPageType() !== 'editor') {
+    return {
+      success: false,
+      error: 'NOT_EDITOR',
+      errorCode: 'NOT_EDITOR',
+      message: '当前不在编辑器页面，请先 tabs switch 到编辑器标签页'
+    };
+  }
+
+  await setArticleType(params.type || 'original');
+  await setPublishScope('personal');
+  await addTags(params.tags, true);
+  const catResult = await setCategory(params.category);
+  if (!catResult.success) return catResult;
+  await setCopyright(params.copyright !== false);
+  await sleep(CONFIG.autoSaveDelay);
+
+  return publish(true);
 }
 
 // ============================================================
@@ -962,6 +1085,9 @@ function registerTool(): void {
             'set_scheduled_publish',
             'discard_draft',
             'get_state',
+            'get_article_info',
+            'create_article',
+            'publish_current_draft',
             'publish'
           ],
           description: '操作类型'
@@ -996,6 +1122,15 @@ function registerTool(): void {
           case 'set_scheduled_publish': return await setScheduledPublish(args.scheduled_time);
           case 'discard_draft': return await discardDraft();
           case 'get_state': return await getState();
+          case 'get_article_info': return await getArticleInfo();
+          case 'create_article': return await createArticle(args.title, args.content);
+          case 'publish_current_draft':
+            return await publishCurrentDraft({
+              category: args.category,
+              tags: args.tags,
+              type: args.type,
+              copyright: args.copyright
+            });
           case 'publish': return await publish(args.confirm);
           default: return { success: false, error: 'UNKNOWN_ACTION', errorCode: 'UNKNOWN_ACTION', message: `未知操作: ${args.action}` };
         }
@@ -1006,7 +1141,63 @@ function registerTool(): void {
     }
   });
 
-  console.log('[SF Tool] ✅ 已注册 segmentfault_publish_article v6（精简快速版）');
+  console.log('[SF Tool] ✅ 已注册 segmentfault_publish_article v7（掘金风格三件套）');
+
+  // 与掘金对齐的独立工具（create_article / get_article_info / publish_current_draft）
+  const sfMcp = (navigator as any).modelContext;
+  if (sfMcp?.registerTool && !(window as any).__webmcptools_segmentfault_unified) {
+    (window as any).__webmcptools_segmentfault_unified = true;
+
+    sfMcp.registerTool({
+      name: 'create_article',
+      title: '填写思否文章',
+      description: '接收文章标题和正文（Base64），填写到 SegmentFault 编辑器中。须先处于 /write 编辑器页面。',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          title: { type: 'string', description: '文章标题，5-100 字符' },
+          content: { type: 'string', description: '正文 Base64 编码，支持 @base64file:' }
+        },
+        required: ['title', 'content']
+      },
+      execute: async (args: { title: string; content: string }) => createArticle(args.title, args.content)
+    });
+
+    sfMcp.registerTool({
+      name: 'get_article_info',
+      title: '获取当前思否文章信息',
+      description: '获取编辑器中当前文章的标题和正文，供 AI 推断分类与标签。',
+      inputSchema: { type: 'object', properties: {} },
+      execute: async () => getArticleInfo()
+    });
+
+    sfMcp.registerTool({
+      name: 'publish_current_draft',
+      title: '一键发布当前思否草稿',
+      description:
+        '自动设置分类、标签并发布。调用前 AI 必须先 get_article_info，智能推断 category 与 tags，切勿盲目使用默认值。',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          category: { type: 'string', description: '分类，如「前端」「后端」「人工智能」' },
+          tags: {
+            type: 'array',
+            items: { type: 'string' },
+            description: '标签数组，1~5 个，须基于文章内容推断'
+          },
+          type: { type: 'string', enum: ['original', 'repost', 'translate'], description: '文章类型，默认原创' },
+          copyright: { type: 'boolean', description: '版权开关，默认 true' }
+        },
+        required: ['category', 'tags']
+      },
+      execute: async (args: {
+        category: string;
+        tags: string[];
+        type?: string;
+        copyright?: boolean;
+      }) => publishCurrentDraft(args)
+    });
+  }
 }
 
 if (document.readyState === 'loading') {
@@ -1015,4 +1206,17 @@ if (document.readyState === 'loading') {
   registerTool();
 }
 
-export { registerTool, publishFullFlow, writeArticle, setTitle, setContent, setScheduledPublish, navigateToWrite, discardDraft, getState };
+export {
+  registerTool,
+  publishFullFlow,
+  writeArticle,
+  setTitle,
+  setContent,
+  setScheduledPublish,
+  navigateToWrite,
+  discardDraft,
+  getState,
+  getArticleInfo,
+  createArticle,
+  publishCurrentDraft
+};
