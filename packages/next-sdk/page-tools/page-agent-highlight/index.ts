@@ -153,7 +153,7 @@ export const highlight = (refMap: RefMap, parentIframe: HTMLIFrameElement | null
 
 /** 移除高亮， 可反复调用 */
 export const unhighlight = () => {
-  document.querySelector(HIGHLIGHT_CONTAINER_ID)?.remove()
+  document.getElementById(HIGHLIGHT_CONTAINER_ID)?.remove()
 
   const cleanupFunctions = (window as any)._highlightCleanupFunctions || []
   for (const cleanup of cleanupFunctions) {
