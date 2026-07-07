@@ -2,14 +2,14 @@
 
 本文档将详细介绍如何在 AI Extension 中为特定域名开发专属的 MCP 工具。
 
-通过利用原生 `navigator.modelContext.registerTool` API，开发者可以极低成本地将前端页面的业务能力暴露给 AI 助手，从而实现“大模型直接操作业务后台”。
+通过利用原生 `document.modelContext.registerTool` API，开发者可以极低成本地将前端页面的业务能力暴露给 AI 助手，从而实现“大模型直接操作业务后台”。
 
 ## 一、架构流转原理
 
 1. 插件监控用户访问的 URL（如 `opentiny.design`）。
 2. 在 `mcp-servers/` 目录下寻找对应的域名文件夹（例如 `mcp-servers/opentiny.design/`）。
 3. 如果存在，插件会将该目录下的 `index.ts` 脚本**直接注入到页面的 MAIN World（主世界）**中。
-4. 脚本执行时调用 `navigator.modelContext.registerTool` 注册工具。
+4. 脚本执行时调用 `document.modelContext.registerTool` 注册工具。
 5. 插件通过 Content Script 收集页面注册的工具，并发送 `list_changed` 动态刷新 MCP 工具列表，告知远端/本地 Agent 当前页面可用的专属能力。
 
 ## 二、开发步骤
@@ -29,8 +29,8 @@
  * 拥有完整的页面执行权限，不受 CSP 限制。
  */
 
-if (navigator.modelContext) {
-  navigator.modelContext.registerTool({
+if ((document as any).modelContext) {
+  (document as any).modelContext.registerTool({
     name: 'claim-coupon',
     title: '抢优惠券',
     description: '帮助用户在活动页面一键领取专属优惠券。',

@@ -1,5 +1,9 @@
 # WebMcpServer 类
 
+> [!NOTE]
+> **推荐方案：**
+> 从最新版本起，我们主推使用基于浏览器原生标准的 `document.modelContext` 及提供的 `initializeBuiltinWebMCP()` Polyfill 来注册工具，这种方式更简洁且符合规范。手动实例化 `WebMcpServer` 仅作为底层原理了解或定制化需求时的降级方案参考。
+
 ```typescript
 import { WebMcpServer } from '@opentiny/next-sdk'
 ```

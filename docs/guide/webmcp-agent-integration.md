@@ -82,7 +82,7 @@ Agent 解析用户需求后，首先生成终端命令，通过 `webmcp-cli` 在
 ```bash
 webmcp-cli tabs open "http://127.0.0.1:3003/login"
 ```
-**底层机制**：`webmcp-cli` 接收到指令后，会通过 CDP 驱动 Puppeteer 自动拉起带有 `9222` 调试端口的 Chrome，并在该页面上自动注入 `navigator.modelContext` Polyfill 及操控代理 `page-agent-tool`。
+**底层机制**：`webmcp-cli` 接收到指令后，会通过 CDP 驱动 Puppeteer 自动拉起带有 `9222` 调试端口的 Chrome，并在该页面上自动注入 `document.modelContext` Polyfill 及操控代理 `page-agent-tool`。
 
 ### 第三步：感知并获取当前 DOM 状态
 Agent 执行 `state` 命令来感知页面结构：

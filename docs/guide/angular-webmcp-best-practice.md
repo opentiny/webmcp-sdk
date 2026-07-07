@@ -170,7 +170,7 @@ import registerFinanceTools from './finance/tools'
 export { useWebAgentServer } from './useWebAgentServer'
 
 export const createMcpServer = async () => {
-  registerNavigateTool((navigator as any).modelContext)
+  registerNavigateTool((document as any).modelContext)
 
   // 仅保留财务工具在 mcp-servers 侧声明（其余工具已迁移到业务页面内一体化定义）
   registerFinanceTools()
@@ -188,7 +188,7 @@ export const createMcpServer = async () => {
 import { Component, OnInit, OnDestroy } from '@angular/core'
 
 const ORDER_QUERY_TOOL = 'order_query'
-const modelContext = (navigator as any).modelContext
+const modelContext = (document as any).modelContext
 
 @Component({
   selector: 'app-orders',
@@ -197,8 +197,11 @@ const modelContext = (navigator as any).modelContext
   styleUrl: './orders.component.scss'
 })
 export class OrdersComponent implements OnInit, OnDestroy {
+  private abortController = new AbortController()
 
   ngOnInit() {
+    if (!modelContext) return
+
     modelContext.registerTool({
       name: ORDER_QUERY_TOOL,
       title: '查询订单',
@@ -215,11 +218,11 @@ export class OrdersComponent implements OnInit, OnDestroy {
       execute: async ({ id }: { id: string }) => {
         return { content: [{ type: 'text', text: `商品 ${id} 的状态：销售中` }] }
       }
-    })
+    }, { signal: this.abortController.signal })
   }
 
   ngOnDestroy() {
-    modelContext.unregisterTool(ORDER_QUERY_TOOL)
+    this.abortController.abort()
   }
 }
 ```

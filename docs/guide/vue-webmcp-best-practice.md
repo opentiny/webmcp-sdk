@@ -2,7 +2,7 @@
 
 本文根据最新的 WebMCP 标准与 `doc-ai` 示例项目，带你一步步把普通 Vue 工程升级为 AI 驱动的智能应用。
 
-> **核心变化**：我们现在**统一使用浏览器原生的 `document.modelContext` 接口**（同时兼容老标准的 `navigator.modelContext`）。通过调用 SDK 提供的初始化函数，低版本浏览器也能获得完全一致的 Polyfill 支持，实现 AI 工具的自动注册与路由同步。
+> **核心变化**：我们现在**统一使用浏览器原生的 `document.modelContext` 接口**。通过调用 SDK 提供的初始化函数，低版本浏览器也能获得完全一致的 Polyfill 支持，实现 AI 工具的自动注册与路由同步。
 > **示例工程仓库**：[`packages/doc-ai`](https://github.com/opentiny/webmcp-sdk/tree/dev/packages/doc-ai)
 
 ---
@@ -340,7 +340,7 @@ const skillMdModules = import.meta.glob('./skills/**/*', {
 
 ### 1. 为什么不用从 SDK 导入 `modelContext`？
 
-通过 `initializeBuiltinWebMCP()` 已经为全局环境注入了 `document.modelContext`（并向后兼容 `navigator.modelContext`）。直接使用原生 API 可以保持代码的简洁性。
+通过 `initializeBuiltinWebMCP()` 已经为全局环境注入了 `document.modelContext`。直接使用原生 API 可以保持代码的简洁性。
 
 ### 2. 路由跳转失败怎么办？
 

@@ -23,15 +23,6 @@ export default defineConfig({
           items: [{ text: '开始', link: '/guide/' }]
         },
         {
-          text: '指引',
-          items: [
-            { text: '接入三方 AI 应用', link: '/guide/mcp-host' },
-            { text: 'Electron 应用接入', link: '/guide/electron' },
-            { text: 'uni-app 应用接入', link: '/guide/uni-app' },
-            { text: '本地连接', link: '/guide/connect-local' }
-          ]
-        },
-        {
           text: 'WebMCP&WebSkills 最佳实践',
           items: [
             { text: '总览', link: '/guide/webmcp-webskills' },

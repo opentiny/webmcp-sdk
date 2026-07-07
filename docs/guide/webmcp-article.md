@@ -36,11 +36,11 @@ WebMCP 的核心创新在于它从“逆向推导”转向了**“正向显式�
 
 ### 1. 业务端：工具注册 (Server)
 
-通过 `navigator.modelContext` 接口，开发者可以在页面中注册业务逻辑。
+通过 `document.modelContext` 接口，开发者可以在页面中注册业务逻辑。
 
 ```javascript
 // 业务页面：注册一个财务汇总查询工具
-navigator.modelContext.registerTool({
+document.modelContext.registerTool({
   name: 'finance_summary',
   description: '查询本月核心财务指标',
   inputSchema: {
@@ -71,7 +71,7 @@ const result = await navigator.modelContextTesting.executeTool('finance_summary'
 
 ### 1. 全平台 Polyfill 支持
 
-目前原生 WebMCP 仅在 Chrome Canary 等特定版本可用。通过在应用入口调用 `initializeBuiltinWebMCP()`，`next-sdk` 会为所有浏览器自动注入符合规范的 `navigator.modelContext` 接口。
+目前原生 WebMCP 仅在 Chrome Canary 等特定版本可用。通过在应用入口调用 `initializeBuiltinWebMCP()`，`next-sdk` 会为所有浏览器自动注入符合规范的 `document.modelContext` 接口。
 
 ```ts
 // src/main.ts
