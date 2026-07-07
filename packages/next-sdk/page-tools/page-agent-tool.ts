@@ -6,6 +6,7 @@ import { PageController, clickElement, inputTextElement, selectOptionElement } f
 import { buildA11yTree, searchA11yTree, type RefMap } from './a11y-tree'
 import { PageStateCache } from './page-state-cache'
 import { SimulatorMask } from './page-agent-mask/SimulatorMask'
+import { highlight, unhighlight } from './page-agent-highlight'
 
 declare global {
   interface Window {
@@ -26,21 +27,30 @@ const DEFAULT_ERROR_SELECTORS: string[] = [
   '[role="alert"]',
   '[aria-invalid="true"]',
   // Tiny3 / Lego（华为云）
-  '.ti3-unifyvalid-error', '.ti3-error', '.ti-error',
-  '.lego-text-error', '.lego-error',
+  '.ti3-unifyvalid-error',
+  '.ti3-error',
+  '.ti-error',
+  '.lego-text-error',
+  '.lego-error',
   // Element UI / Element Plus
   '.el-form-item__error',
   // Ant Design
   '.ant-form-item-explain-error',
   // Bootstrap
-  '.is-invalid', '.invalid-feedback',
+  '.is-invalid',
+  '.invalid-feedback',
   // Angular
   '.ng-invalid',
   // 通用命名约定
-  '.error-msg', '.error-message', '.error-text',
-  '.field-error', '.form-error',
-  '.is-error', '.has-error',
-  '.validate-error', '.valid-error',
+  '.error-msg',
+  '.error-message',
+  '.error-text',
+  '.field-error',
+  '.form-error',
+  '.is-error',
+  '.has-error',
+  '.validate-error',
+  '.valid-error'
 ]
 
 /** 模态弹窗默认选择器：ARIA 标准 + 主流 UI 框架 */
@@ -49,9 +59,11 @@ const DEFAULT_DIALOG_SELECTORS: string[] = [
   '[role="dialog"]',
   '[role="alertdialog"]',
   // Tiny3 / Lego（华为云）
-  '[class*="ti3-modal"]', '[class*="ti3-message-box"]',
+  '[class*="ti3-modal"]',
+  '[class*="ti3-message-box"]',
   // Element UI / Element Plus
-  '[class*="el-dialog"]', '[class*="el-message-box"]',
+  '[class*="el-dialog"]',
+  '[class*="el-message-box"]',
   // Ant Design
   '[class*="ant-modal"]',
   // Bootstrap
@@ -59,7 +71,7 @@ const DEFAULT_DIALOG_SELECTORS: string[] = [
   // Vuetify
   '[class*="v-dialog"]',
   // Naive UI
-  '[class*="n-modal"]',
+  '[class*="n-modal"]'
 ]
 
 export interface PageAgentToolOptions {
@@ -191,7 +203,7 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
         childList: true,
         subtree: true,
         attributes: true,
-        attributeFilter: ['class', 'style', 'hidden'],
+        attributeFilter: ['class', 'style', 'hidden']
       })
     })
   }
@@ -203,7 +215,7 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
     const seen = new Set<Element>()
     const dialogs: string[] = []
     // 仅匹配明确的模态弹窗选择器，避免宽泛子串匹配误报
-    const selectors = (window.__webmcpcli_dialogSelectors ?? DEFAULT_DIALOG_SELECTORS)
+    const selectors = window.__webmcpcli_dialogSelectors ?? DEFAULT_DIALOG_SELECTORS
 
     for (const selector of selectors) {
       try {
@@ -226,8 +238,8 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
           // 必须覆盖视口中心区域（真正的模态弹窗会遮挡页面中心）
           const vw = window.innerWidth
           const vh = window.innerHeight
-          const coversCenter = rect.left < vw * 0.6 && rect.right > vw * 0.4 &&
-                               rect.top < vh * 0.6 && rect.bottom > vh * 0.4
+          const coversCenter =
+            rect.left < vw * 0.6 && rect.right > vw * 0.4 && rect.top < vh * 0.6 && rect.bottom > vh * 0.4
           if (!coversCenter) continue
 
           seen.add(el)
@@ -236,8 +248,8 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
             // 提取弹窗内的可交互按钮，帮助 AI 快速决策
             const btns = el.querySelectorAll('button, [role="button"], a')
             const btnTexts = Array.from(btns)
-              .map(b => (b.textContent || '').trim())
-              .filter(t => t.length > 0 && t.length < 20)
+              .map((b) => (b.textContent || '').trim())
+              .filter((t) => t.length > 0 && t.length < 20)
               .slice(0, 5)
             const btnInfo = btnTexts.length ? ` [可操作按钮: ${btnTexts.join(' / ')}]` : ''
             dialogs.push(`${text.substring(0, 300)}${btnInfo}`)
@@ -259,14 +271,14 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
     const seen = new Set<Element>()
     const errors: string[] = []
     // 校验错误选择器：ARIA 标准 + 主流 UI 框架（可配置）
-    const selectors = (window.__webmcpcli_errorSelectors ?? DEFAULT_ERROR_SELECTORS)
+    const selectors = window.__webmcpcli_errorSelectors ?? DEFAULT_ERROR_SELECTORS
 
     for (const selector of selectors) {
       try {
         for (const el of document.querySelectorAll(selector)) {
           if (seen.has(el)) continue
           // 跳过嵌套在已收集的错误元素内的子元素，避免重复
-          if (Array.from(seen).some(s => s.contains(el))) continue
+          if (Array.from(seen).some((s) => s.contains(el))) continue
 
           const rect = el.getBoundingClientRect()
           if (rect.width < 1 || rect.height < 1) continue
@@ -288,7 +300,6 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
     return `\n[校验提示] 检测到 ${errors.length} 个表单校验错误，请先修复后再继续:\n${errors.map((e, i) => `${i + 1}. ${e}`).join('\n')}\n`
   }
 
-
   // ─── 辅助：获取滚动目标的当前位置信息（仿 page-agent getPageInfo）────────
   // 同时支持 window（文档滚动）和任意 Element（容器滚动）
   function getScrollInfo(target: Window | Element = window) {
@@ -300,15 +311,18 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
       const pixelsBelow = Math.max(0, pageHeight - (window.innerHeight + scrollY))
       const pixelsRight = Math.max(0, pageWidth - (window.innerWidth + scrollX))
       return {
-        scrollY, scrollX,
-        pixelsAbove: scrollY, pixelsBelow,
-        pixelsLeft: scrollX, pixelsRight,
+        scrollY,
+        scrollX,
+        pixelsAbove: scrollY,
+        pixelsBelow,
+        pixelsLeft: scrollX,
+        pixelsRight,
         pagesAbove: window.innerHeight > 0 ? scrollY / window.innerHeight : 0,
         pagesBelow: window.innerHeight > 0 ? pixelsBelow / window.innerHeight : 0,
         atTop: scrollY <= 1,
         atBottom: pixelsBelow <= 1,
         atLeft: scrollX <= 1,
-        atRight: pixelsRight <= 1,
+        atRight: pixelsRight <= 1
       }
     } else {
       const el = target as Element
@@ -317,15 +331,18 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
       const pixelsBelow = el.scrollHeight - el.clientHeight - scrollTop
       const pixelsRight = el.scrollWidth - el.clientWidth - scrollLeft
       return {
-        scrollY: scrollTop, scrollX: scrollLeft,
-        pixelsAbove: scrollTop, pixelsBelow: Math.max(0, pixelsBelow),
-        pixelsLeft: scrollLeft, pixelsRight: Math.max(0, pixelsRight),
+        scrollY: scrollTop,
+        scrollX: scrollLeft,
+        pixelsAbove: scrollTop,
+        pixelsBelow: Math.max(0, pixelsBelow),
+        pixelsLeft: scrollLeft,
+        pixelsRight: Math.max(0, pixelsRight),
         pagesAbove: el.clientHeight > 0 ? scrollTop / el.clientHeight : 0,
         pagesBelow: el.clientHeight > 0 ? Math.max(0, pixelsBelow) / el.clientHeight : 0,
         atTop: scrollTop <= 1,
         atBottom: pixelsBelow <= 1,
         atLeft: scrollLeft <= 1,
-        atRight: pixelsRight <= 1,
+        atRight: pixelsRight <= 1
       }
     }
   }
@@ -373,9 +390,12 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
     // 生成语义化 ARIA YAML 树 + 刷新 refMap
     const { yaml, refMap } = buildA11yTree(document.body, blacklist, whitelist, {
       exposedAttributes,
-      errorSelectors: (window.__webmcpcli_errorSelectors ?? DEFAULT_ERROR_SELECTORS).join(', '),
+      errorSelectors: (window.__webmcpcli_errorSelectors ?? DEFAULT_ERROR_SELECTORS).join(', ')
     })
     currentRefMap = refMap
+
+    // 高亮交互元素
+    highlight(refMap)
 
     // 计算 Diff
     const diff = stateCache.update(url, yaml)
@@ -456,8 +476,9 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
           let targetEl = el
           if (!(targetEl instanceof HTMLInputElement) && !(targetEl instanceof HTMLTextAreaElement)) {
             // querySelector 不穿透 shadow boundary，对 shadow host 补查其 shadowRoot
-            const innerInput = el.querySelector('input, textarea')
-              ?? (el.shadowRoot?.querySelector('input, textarea') as HTMLElement | null)
+            const innerInput =
+              el.querySelector('input, textarea') ??
+              (el.shadowRoot?.querySelector('input, textarea') as HTMLElement | null)
             if (innerInput) {
               targetEl = innerInput as HTMLElement
             }
@@ -480,7 +501,10 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
                 (targetEl instanceof HTMLTextAreaElement ? HTMLTextAreaElement : HTMLInputElement).prototype,
                 'value'
               )?.set
-              if (nativeInputValueSetter && (targetEl instanceof HTMLInputElement || targetEl instanceof HTMLTextAreaElement)) {
+              if (
+                nativeInputValueSetter &&
+                (targetEl instanceof HTMLInputElement || targetEl instanceof HTMLTextAreaElement)
+              ) {
                 nativeInputValueSetter.call(targetEl, args.text)
                 // 发送完整事件序列，触发 Angular ngModel / React 合成事件的变更检测
                 targetEl.dispatchEvent(new Event('focus', { bubbles: true, composed: true }))
@@ -510,8 +534,8 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
           if (!el) return refreshOnStaleRef('选择', args.index)
           // 若 ref 指向 shadow host，解析其内部真正的 <select>（与 fill 一致）
           if (!(el instanceof HTMLSelectElement)) {
-            const innerSelect = el.querySelector('select')
-              ?? (el.shadowRoot?.querySelector('select') as HTMLSelectElement | null)
+            const innerSelect =
+              el.querySelector('select') ?? (el.shadowRoot?.querySelector('select') as HTMLSelectElement | null)
             if (innerSelect) {
               el = innerSelect
             }
@@ -574,9 +598,10 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
           }
 
           // 附加位置信息（参考 page-agent getPageInfo 格式）
-          const posInfo = args.right !== undefined
-            ? `当前水平滚动位置: scrollX=${Math.round(after.scrollX)}px，左侧 ${after.pagesAbove.toFixed(1)} 屏，右侧 ${after.pagesBelow.toFixed(1)} 屏`
-            : `当前滚动位置: scrollY=${Math.round(after.scrollY)}px，上方 ${after.pagesAbove.toFixed(1)} 屏，下方 ${after.pagesBelow.toFixed(1)} 屏`
+          const posInfo =
+            args.right !== undefined
+              ? `当前水平滚动位置: scrollX=${Math.round(after.scrollX)}px，左侧 ${after.pagesAbove.toFixed(1)} 屏，右侧 ${after.pagesBelow.toFixed(1)} 屏`
+              : `当前滚动位置: scrollY=${Math.round(after.scrollY)}px，上方 ${after.pagesAbove.toFixed(1)} 屏，下方 ${after.pagesBelow.toFixed(1)} 屏`
           const scrollResult = `[滚动结果] ${scrollMsg}\n${posInfo}`
 
           const stateResult = await buildBrowserStateResponse(mode)
@@ -613,12 +638,12 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
             contextLines: args.contextLines,
             maxMatches: args.maxMatches,
             exposedAttributes,
-            errorSelectors: (window.__webmcpcli_errorSelectors ?? DEFAULT_ERROR_SELECTORS).join(', '),
+            errorSelectors: (window.__webmcpcli_errorSelectors ?? DEFAULT_ERROR_SELECTORS).join(', ')
           })
-          
+
           currentRefMap = result.refMap
           stateCache.update(window.location.href, result.yaml)
-          
+
           await pageController.hideMask()
           // 检测页面弹窗/遮罩层，帮助 AI 发现可能遮挡目标的确认弹窗
           const dialogAlert = detectPageDialog()

@@ -17,26 +17,42 @@
 
 import { computeAccessibleName } from 'dom-accessibility-api'
 import { isFocusable } from 'tabbable'
+import { HIGHLIGHT_CONTAINER_ID } from './page-agent-highlight'
 
 // ─── 默认校验错误/警告选择器（ARIA 标准 + 主流 UI 框架） ──────────────────
 
 const DEFAULT_ERROR_SELECTORS = [
-  '[role="alert"]', '[aria-invalid="true"]',
-  '.ti3-unifyvalid-error', '.ti3-error', '.ti-error',
-  '.lego-text-error', '.lego-error',
+  '[role="alert"]',
+  '[aria-invalid="true"]',
+  '.ti3-unifyvalid-error',
+  '.ti3-error',
+  '.ti-error',
+  '.lego-text-error',
+  '.lego-error',
   '.el-form-item__error',
   '.ant-form-item-explain-error',
-  '.is-invalid', '.invalid-feedback',
+  '.is-invalid',
+  '.invalid-feedback',
   '.ng-invalid',
-  '.error-msg', '.error-message', '.error-text',
-  '.field-error', '.form-error',
-  '.is-error', '.has-error',
-  '.validate-error', '.valid-error',
+  '.error-msg',
+  '.error-message',
+  '.error-text',
+  '.field-error',
+  '.form-error',
+  '.is-error',
+  '.has-error',
+  '.validate-error',
+  '.valid-error'
 ].join(', ')
 
 const DEFAULT_WARNING_SELECTORS = [
-  '.ti3-warning', '.ti-warning', '.lego-text-warning',
-  '.warning-msg', '.warning-text', '.is-warning', '.has-warning',
+  '.ti3-warning',
+  '.ti-warning',
+  '.lego-text-warning',
+  '.warning-msg',
+  '.warning-text',
+  '.is-warning',
+  '.has-warning'
 ].join(', ')
 
 // ─── 类型定义 ────────────────────────────────────────────────────────────────
@@ -170,7 +186,7 @@ const TAG_ROLE_MAP: Record<string, string> = {
   header: 'banner',
   hr: 'separator',
   img: 'img',
-  input: 'textbox',         // 默认，具体 type 下面会覆盖
+  input: 'textbox', // 默认，具体 type 下面会覆盖
   li: 'listitem',
   link: 'link',
   main: 'main',
@@ -200,7 +216,7 @@ const TAG_ROLE_MAP: Record<string, string> = {
   thead: 'rowgroup',
   time: 'time',
   tr: 'row',
-  ul: 'list',
+  ul: 'list'
 }
 
 // input[type=*] 的角色覆盖
@@ -219,7 +235,7 @@ const INPUT_TYPE_ROLE: Record<string, string> = {
   submit: 'button',
   tel: 'textbox',
   text: 'textbox',
-  url: 'textbox',
+  url: 'textbox'
 }
 
 // ─── 工具函数 ────────────────────────────────────────────────────────────────
@@ -249,7 +265,7 @@ function getStateTokens(
   el: Element,
   exposedAttributes?: string[],
   errorSelectors?: string,
-  warningSelectors?: string,
+  warningSelectors?: string
 ): string[] {
   const tokens: string[] = []
   const aria = (k: string) => el.getAttribute(k)
@@ -264,7 +280,10 @@ function getStateTokens(
   } else {
     const elTag = el.tagName.toLowerCase()
     let nativeChecked: boolean | undefined
-    if (elTag === 'input' && ((el as HTMLInputElement).type === 'checkbox' || (el as HTMLInputElement).type === 'radio')) {
+    if (
+      elTag === 'input' &&
+      ((el as HTMLInputElement).type === 'checkbox' || (el as HTMLInputElement).type === 'radio')
+    ) {
       nativeChecked = (el as HTMLInputElement).checked
     } else if (elTag === 'label' && el.hasAttribute('for')) {
       const target = document.getElementById(el.getAttribute('for')!)
@@ -323,23 +342,28 @@ function getStateTokens(
   // 若元素携带常见激活类名，输出 [active] token，帮助 Agent 判断当前选中项
   const cls = typeof el.className === 'string' ? el.className : ''
   const ACTIVE_CLASS_PATTERNS = [
-    'is-active', 'isActive',
-    'is-selected', 'isSelected',
-    'is-current', 'isCurrent',
-    'active-item', 'activeItem',
-    'tab-active', 'tabActive',
+    'is-active',
+    'isActive',
+    'is-selected',
+    'isSelected',
+    'is-current',
+    'isCurrent',
+    'active-item',
+    'activeItem',
+    'tab-active',
+    'tabActive',
     // 仅当作为独立 class 词或有连字符前缀时匹配 "active"，避免误匹配 "interactive" 等
     /\bactive\b/,
     /\bselected\b/,
-    /\bcurrent\b/,
+    /\bcurrent\b/
   ]
-  const hasActiveClass = ACTIVE_CLASS_PATTERNS.some(p =>
+  const hasActiveClass = ACTIVE_CLASS_PATTERNS.some((p) =>
     typeof p === 'string' ? cls.split(/\s+/).includes(p) : p.test(cls)
   )
   // 只对有 cursor=pointer 或明确角色的元素输出 active token，避免太多噪音
   const roleForActive = el.getAttribute('role') || el.tagName.toLowerCase()
   const roles = roleForActive.split(/\s+/)
-  const isTabLike = roles.some(r => ['button', 'option', 'a', 'li', 'generic'].includes(r) || r.startsWith('tab'))
+  const isTabLike = roles.some((r) => ['button', 'option', 'a', 'li', 'generic'].includes(r) || r.startsWith('tab'))
   if (hasActiveClass && isTabLike && !tokens.includes('checked') && !tokens.includes('selected')) {
     tokens.push('active')
   }
@@ -400,7 +424,17 @@ function collectDescendantText(el: Element): string {
         const tag = element.tagName.toLowerCase()
         const role = inferRole(element)
         const isInteractiveTag = ['button', 'a', 'input', 'select', 'textarea', 'li', 'option'].includes(tag)
-        const isInteractiveRole = ['button', 'link', 'checkbox', 'radio', 'textbox', 'listitem', 'option', 'combobox', 'listbox'].includes(role)
+        const isInteractiveRole = [
+          'button',
+          'link',
+          'checkbox',
+          'radio',
+          'textbox',
+          'listitem',
+          'option',
+          'combobox',
+          'listbox'
+        ].includes(role)
         const isTrulyInteractive = isFocusable(element as HTMLElement)
 
         let isVisuallyClickable = false
@@ -473,18 +507,18 @@ function buildVNode(
   whitelistSet: Set<Element>,
   exposedAttributes?: string[],
   errorSelectors?: string,
-  warningSelectors?: string,
+  warningSelectors?: string
 ): VNode | null {
   if (isHidden(el) || blacklistSet.has(el)) return null
 
   const role = inferRole(el)
   const tokens = getStateTokens(el, exposedAttributes, errorSelectors, warningSelectors)
-  
+
   let name = computeAccessibleName(el as HTMLElement)
   const isTrulyInteractive = isFocusable(el as HTMLElement)
   const isVisuallyClickable = tokens.includes('cursor=pointer')
   // 包含白名单属性的节点也视为白名单节点（确保不被剪枝并分配 ref 操作索引）
-  const isWhitelisted = whitelistSet.has(el) || (exposedAttributes?.some(attr => el.hasAttribute(attr)) ?? false)
+  const isWhitelisted = whitelistSet.has(el) || (exposedAttributes?.some((attr) => el.hasAttribute(attr)) ?? false)
   // <label for="..."> 原生可点击：浏览器将点击转发到关联的表单控件（checkbox/radio 等）
   // Angular/React 自定义组件常隐藏原生 input，仅暴露 label 文本和自定义 skin
   const isLabelFor = el.tagName.toLowerCase() === 'label' && el.hasAttribute('for')
@@ -497,7 +531,14 @@ function buildVNode(
     const isDropdown = tag === 'select' || role === 'combobox' || role === 'listbox'
     if (!isDropdown) {
       const isInteractiveTag = ['button', 'a', 'input', 'textarea', 'li', 'label'].includes(tag)
-      if (isTrulyInteractive || isWhitelisted || isVisuallyClickable || isInteractiveTag || role === 'listitem' || role === 'option') {
+      if (
+        isTrulyInteractive ||
+        isWhitelisted ||
+        isVisuallyClickable ||
+        isInteractiveTag ||
+        role === 'listitem' ||
+        role === 'option'
+      ) {
         name = collectDescendantText(el)
       }
     }
@@ -519,7 +560,8 @@ function buildVNode(
 
   // generic 无 name 时，即使有 cursor=pointer 也不分配 ref：
   // cursor 通常是 CSS 继承传播的，这类 div 本身无法被有意义地操作
-  const interactive = isTrulyInteractive || isWhitelisted || isLabelFor || (isVisuallyClickable && (role !== 'generic' || name !== ''))
+  const interactive =
+    isTrulyInteractive || isWhitelisted || isLabelFor || (isVisuallyClickable && (role !== 'generic' || name !== ''))
 
   let ref: number | undefined
   if (interactive) {
@@ -530,7 +572,16 @@ function buildVNode(
 
   const children: VNode[] = []
   for (const child of getComposedChildren(el)) {
-    const childVNode = buildVNode(child, refCounter, refMap, blacklistSet, whitelistSet, exposedAttributes, errorSelectors, warningSelectors)
+    const childVNode = buildVNode(
+      child,
+      refCounter,
+      refMap,
+      blacklistSet,
+      whitelistSet,
+      exposedAttributes,
+      errorSelectors,
+      warningSelectors
+    )
     if (childVNode) children.push(childVNode)
   }
 
@@ -572,17 +623,11 @@ function shouldPassThrough(vnode: VNode, opts: Required<A11yTreeOptions>): boole
  * 将 VNode 序列化为 YAML 行数组
  * 穿透节点时，子节点在当前 depth 平铺输出（不增加缩进层级）
  */
-function serializeVNode(
-  vnode: VNode,
-  depth: number,
-  opts: Required<A11yTreeOptions>,
-): string[] {
+function serializeVNode(vnode: VNode, depth: number, opts: Required<A11yTreeOptions>): string[] {
   if (shouldPassThrough(vnode, opts)) {
     // 透明穿透：跳过本节点，子节点保持当前 depth（层级不增加）
     // 同时过滤掉整棵子树都无价值的空容器，避免输出无意义的嵌套
-    return vnode.children
-      .filter(c => hasValue(c))
-      .flatMap(c => serializeVNode(c, depth, opts))
+    return vnode.children.filter((c) => hasValue(c)).flatMap((c) => serializeVNode(c, depth, opts))
   }
 
   const indent = '  '.repeat(depth)
@@ -591,7 +636,7 @@ function serializeVNode(
   const nameStr = vnode.name ? ` "${vnode.name}"` : ''
   const line = `${indent}- ${vnode.role}${refStr}${tokenStr}${nameStr}`
 
-  const childLines = vnode.children.flatMap(c => serializeVNode(c, depth + 1, opts))
+  const childLines = vnode.children.flatMap((c) => serializeVNode(c, depth + 1, opts))
   return [line, ...childLines]
 }
 
@@ -602,7 +647,7 @@ const DEFAULT_OPTIONS: Required<A11yTreeOptions> = {
   preserveRoles: [],
   exposedAttributes: [],
   errorSelectors: DEFAULT_ERROR_SELECTORS,
-  warningSelectors: DEFAULT_WARNING_SELECTORS,
+  warningSelectors: DEFAULT_WARNING_SELECTORS
 }
 
 /**
@@ -617,7 +662,7 @@ export function buildA11yTree(
   root: Element = document.body,
   blacklist: Element[] = [],
   whitelist: Element[] = [],
-  options?: A11yTreeOptions,
+  options?: A11yTreeOptions
 ): A11yTreeResult {
   const opts: Required<A11yTreeOptions> = { ...DEFAULT_OPTIONS, ...options }
   // 使用对象引用避免全局可变状态，消除并发调用隐患
@@ -627,8 +672,20 @@ export function buildA11yTree(
   const whitelistSet = new Set(whitelist)
   const lines: string[] = []
 
+  // 永远过滤高亮容器
+  blacklistSet.add(document.getElementById(HIGHLIGHT_CONTAINER_ID)!)
+
   for (const child of getComposedChildren(root)) {
-    const vnode = buildVNode(child, refCounter, refMap, blacklistSet, whitelistSet, opts.exposedAttributes, opts.errorSelectors, opts.warningSelectors)
+    const vnode = buildVNode(
+      child,
+      refCounter,
+      refMap,
+      blacklistSet,
+      whitelistSet,
+      opts.exposedAttributes,
+      opts.errorSelectors,
+      opts.warningSelectors
+    )
     if (vnode) {
       lines.push(...serializeVNode(vnode, 0, opts))
     }
@@ -640,7 +697,7 @@ export function buildA11yTree(
     yaml,
     refMap,
     interactiveCount: refMap.size,
-    lines,
+    lines
   }
 }
 
@@ -665,14 +722,9 @@ export function searchA11yTree(
   root: Element = document.body,
   blacklist: Element[] = [],
   whitelist: Element[] = [],
-  options?: SearchA11yTreeOptions,
+  options?: SearchA11yTreeOptions
 ): SearchA11yTreeResult {
-  const {
-    contextLines = 2,
-    caseInsensitive = true,
-    maxMatches = 20,
-    ...treeOptions
-  } = options ?? {}
+  const { contextLines = 2, caseInsensitive = true, maxMatches = 20, ...treeOptions } = options ?? {}
 
   // 复用 buildA11yTree 生成完整树，直接取 lines 数组（不重复构建 DOM 遍历）
   const { lines, refMap, yaml } = buildA11yTree(root, blacklist, whitelist, treeOptions)
@@ -724,14 +776,14 @@ export function searchA11yTree(
     line: lines[range.hits[0]],
     context: Array.from({ length: range.end - range.start + 1 }, (_, k) => ({
       lineNumber: range.start + k + 1,
-      line: lines[range.start + k],
-    })),
+      line: lines[range.start + k]
+    }))
   }))
 
   // 格式化为可读文本（模仿 grep -n -C 风格，便于 LLM 直接理解）
   const textParts: string[] = [
     `无障碍树搜索结果 — 关键词: "${query}" | 总行数: ${totalLines} | 命中: ${hitIndices.length} 行 | 返回分组: ${matches.length}`,
-    '',
+    ''
   ]
 
   if (matches.length === 0) {
@@ -760,6 +812,6 @@ export function searchA11yTree(
     totalLines,
     matchCount: hitIndices.length,
     refMap,
-    yaml,
+    yaml
   }
 }
