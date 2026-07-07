@@ -140,8 +140,10 @@ export function serializeVNode(
 
   const indent = '  '.repeat(depth)
   const refStr = vnode.ref !== undefined ? ` #${vnode.ref}` : ''
-  const tokenStr = vnode.tokens.length > 0 ? ` [${vnode.tokens.join(' ')}]` : ''
-  const nameStr = vnode.name ? ` "${vnode.name}"` : ''
+  const safeTokens = vnode.tokens.map(t => t.replace(/[\r\n]+/g, ' ').replace(/"/g, '\\"'))
+  const tokenStr = safeTokens.length > 0 ? ` [${safeTokens.join(' ')}]` : ''
+  const safeName = vnode.name ? vnode.name.replace(/[\r\n]+/g, ' ').replace(/"/g, '\\"') : ''
+  const nameStr = safeName ? ` "${safeName}"` : ''
   const line = `${indent}- ${vnode.role}${refStr}${tokenStr}${nameStr}`
 
   const childLines = vnode.children.flatMap(c => serializeVNode(c, depth + 1, opts))

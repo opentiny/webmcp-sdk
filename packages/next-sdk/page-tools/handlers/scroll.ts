@@ -6,7 +6,12 @@ export async function handleScroll(args: any, ctx: ActionContext) {
   if (args.down === undefined && args.right === undefined) return ctx.errContent('滚动结果: 缺少滚动方向参数')
 
   // 确定滚动目标（有 index 时滚动该元素容器，否则滚动整个文档）
-  const scrollTarget = args.index !== undefined ? (ctx.getRefMap().get(args.index) ?? window) : window
+  let scrollTarget: Element | Window = window
+  if (args.index !== undefined) {
+    const el = ctx.getRefMap().get(args.index)
+    if (!el) return ctx.refreshOnStaleRef('滚动', args.index)
+    scrollTarget = el
+  }
 
   // 滚动前快照
   const before = getScrollInfo(scrollTarget)

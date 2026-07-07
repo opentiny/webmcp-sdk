@@ -35,6 +35,9 @@ export function searchA11yTree(
     ...treeOptions
   } = options ?? {}
 
+  const safeContextLines = Math.max(0, contextLines)
+  const safeMaxMatches = Math.max(1, maxMatches)
+
   // 复用 buildA11yTree 生成完整树，直接取 lines 数组（不重复构建 DOM 遍历）
   const { lines, refMap, yaml } = buildA11yTree(root, blacklist, whitelist, treeOptions)
 
@@ -63,15 +66,15 @@ export function searchA11yTree(
   const mergedRanges: Array<{ start: number; end: number; hits: number[] }> = []
   let isTruncated = false
   for (const idx of hitIndices) {
-    const start = Math.max(0, idx - contextLines)
-    const end = Math.min(totalLines - 1, idx + contextLines)
+    const start = Math.max(0, idx - safeContextLines)
+    const end = Math.min(totalLines - 1, idx + safeContextLines)
     const last = mergedRanges[mergedRanges.length - 1]
     if (last && start <= last.end + 1) {
       // 区间重叠或紧邻，合并
       last.end = Math.max(last.end, end)
       last.hits.push(idx)
     } else {
-      if (mergedRanges.length >= maxMatches) {
+      if (mergedRanges.length >= safeMaxMatches) {
         isTruncated = true
         break
       }
@@ -110,7 +113,7 @@ export function searchA11yTree(
       textParts.push('')
     })
     if (isTruncated) {
-      textParts.push(`⚠️ 命中过多，已截断至前 ${maxMatches} 个分组，建议缩小搜索范围`)
+      textParts.push(`⚠️ 命中过多，已截断至前 ${safeMaxMatches} 个分组，建议缩小搜索范围`)
     }
     textParts.push(`提示：如需操作命中元素，使用其 #N 索引；如需查看完整树，请使用 browserState。`)
   }

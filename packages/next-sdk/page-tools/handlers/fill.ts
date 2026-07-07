@@ -4,7 +4,7 @@ import type { ActionContext } from '../context'
 
 export async function handleFill(args: any, ctx: ActionContext) {
   const mode = args.responseMode ?? 'diff'
-  if (args.index === undefined || !args.text) return ctx.errContent('填写结果: 缺少元素索引或文本内容')
+  if (args.index === undefined || typeof args.text !== 'string') return ctx.errContent('填写结果: 缺少元素索引或文本内容')
   const el = ctx.getRefMap().get(args.index)
   if (!el) return ctx.refreshOnStaleRef('填写', args.index)
 

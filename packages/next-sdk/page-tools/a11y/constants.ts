@@ -18,12 +18,12 @@ export const DEFAULT_ERROR_SELECTORS = [
   '.field-error', '.form-error',
   '.is-error', '.has-error',
   '.validate-error', '.valid-error',
-].join(', ')
+]
 
 export const DEFAULT_WARNING_SELECTORS = [
   '.ti3-warning', '.ti-warning', '.lego-text-warning',
   '.warning-msg', '.warning-text', '.is-warning', '.has-warning',
-].join(', ')
+]
 
 // ─── ARIA 隐式角色静态映射表（覆盖页面 95%+ 的常用标签）───────────────────────
 

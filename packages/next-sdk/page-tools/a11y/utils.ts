@@ -130,13 +130,28 @@ export function getStateTokens(
   // 检测校验错误/警告状态（ARIA 标准 + 主流 UI 框架，可配置）
   // 输出 [error] / [warning] token，让 AI 能区分校验错误与普通说明文字
   // 使用 closest() 向上查找，确保嵌套在错误容器内的子元素也能获得 error 语义
-  const errorSelector = errorSelectors || DEFAULT_ERROR_SELECTORS
-  const warningSelector = warningSelectors || DEFAULT_WARNING_SELECTORS
-  const errorAncestor = errorSelector ? el.closest(errorSelector) : null
+  const errorSelector = errorSelectors || DEFAULT_ERROR_SELECTORS.join(', ')
+  const warningSelector = warningSelectors || DEFAULT_WARNING_SELECTORS.join(', ')
+  let errorAncestor = null
+  if (errorSelector) {
+    try {
+      errorAncestor = el.closest(errorSelector)
+    } catch {
+      // ignore
+    }
+  }
+  
   if (errorAncestor) {
     tokens.push('error')
   } else {
-    const warningAncestor = warningSelector ? el.closest(warningSelector) : null
+    let warningAncestor = null
+    if (warningSelector) {
+      try {
+        warningAncestor = el.closest(warningSelector)
+      } catch {
+        // ignore
+      }
+    }
     if (warningAncestor) {
       tokens.push('warning')
     }

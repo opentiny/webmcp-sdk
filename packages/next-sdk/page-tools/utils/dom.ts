@@ -14,6 +14,21 @@ export function dispatchComposedEvents(el: Element, ...types: string[]) {
   }
 }
 
+// ─── 辅助：穿透 Shadow DOM 的查询 ─────────────────────────────────────────
+export function deepQuerySelectorAll(selector: string, root: Document | Element | ShadowRoot = document): Element[] {
+  const elements = Array.from(root.querySelectorAll(selector))
+  
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT, null)
+  let currentNode: Node | null = walker.currentNode
+  while (currentNode) {
+    if ((currentNode as Element).shadowRoot) {
+      elements.push(...deepQuerySelectorAll(selector, (currentNode as Element).shadowRoot!))
+    }
+    currentNode = walker.nextNode()
+  }
+  return elements
+}
+
 // ─── 辅助：等待 DOM 变更稳定 ────────────────────────────────────────────
 // click/fill/select 操作后，框架（Angular/React/Vue）可能异步插入校验错误、
 // 条件渲染选项等动态内容。用 MutationObserver 监听 DOM 变更，等待变更平息后
@@ -58,7 +73,7 @@ export function detectPageDialog(): string {
 
   for (const selector of selectors) {
     try {
-      for (const el of document.querySelectorAll(selector)) {
+      for (const el of deepQuerySelectorAll(selector)) {
         if (seen.has(el)) continue
         // 跳过 SDK 自身遮罩
         if (el.id?.includes('page-agent-runtime')) continue
@@ -114,7 +129,7 @@ export function detectValidationErrors(): string {
 
   for (const selector of selectors) {
     try {
-      for (const el of document.querySelectorAll(selector)) {
+      for (const el of deepQuerySelectorAll(selector)) {
         if (seen.has(el)) continue
         // 跳过嵌套在已收集的错误元素内的子元素，避免重复
         if (Array.from(seen).some(s => s.contains(el))) continue
