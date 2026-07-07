@@ -14,11 +14,11 @@ export async function stateCommand({ tabid }: { tabid?: string }) {
       const url = document.URL
       const title = document.title
 
-      const mcp = (navigator as any).modelContextTesting || (navigator as any).modelContext
+      const mcp = (document as any).modelContext
       let webmcpTools: any[] = []
 
       if (mcp && typeof mcp.listTools === 'function') {
-        const toolsResult = await mcp.listTools()
+        const toolsResult = await mcp.getTools()
         webmcpTools = toolsResult?.tools || toolsResult || []
       }
 

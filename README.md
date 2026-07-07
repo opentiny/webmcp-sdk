@@ -47,7 +47,7 @@ English | [简体中文](README.zh-CN.md)
 
 - 🔌 **Standard WebMCP Implementation**: Fully implements the browser version of MCP, making front-ends "AI-Callable" via a unified protocol.
 - 📡 **Remote AI Control**: Seamlessly connect your front-end to a **WebAgent service**, allowing AI to remotely orchestrate and control your application via a stable sessionId.
-- 🛠️ **Built-in Polyfill Support**: Provides `document.modelContext` / `navigator.modelContext` polyfill for current browsers, ensuring your code works today and is ready for tomorrow's native browser support.
+- 🛠️ **Built-in Polyfill Support**: Provides `document.modelContext` / `document.modelContext` polyfill for current browsers, ensuring your code works today and is ready for tomorrow's native browser support.
 - 🎯 **Zero-Refactor Intelligence**: Expose existing business logic and UI operations as tools without changing your app's core architecture.
 - 🧩 **WebSkills Abstraction**: Organizes tools into "Business Skills" for progressive disclosure to AI.
 - 🤖 **AI Chat Components**: Ready-to-use `@opentiny/next-remoter` for instant AI remote control.
@@ -62,7 +62,7 @@ WebMCP is an extension of the Model Context Protocol specifically for web browse
 
 Since native APIs are still experimental, **OpenTiny NEXT-SDKs provides a powerful Polyfill**. By calling `initializeBuiltinWebMCP()`, the SDK will:
 
-1.  **Injects `document.modelContext`**: Provides a standard-compliant API for tool registration (also aliases `navigator.modelContext` for backward compatibility).
+1.  **Injects `document.modelContext`**: Provides a standard-compliant API for tool registration (also aliases `document.modelContext` for backward compatibility).
 2.  **Route & Message Bridge**: Handles message routing across multiple pages, domains, and iframes automatically.
 
 This means you can write standard WebMCP code today, and it will automatically switch to the native engine when the browser supports it.
@@ -153,7 +153,7 @@ document.modelContext.registerTool({
 
 Core SDK package, providing:
 
-- **Built-in WebMCP Polyfill**: Injects `navigator.modelContext` and sets up the bridge for seamless AI-to-Page communication.
+- **Built-in WebMCP Polyfill**: Injects `document.modelContext` and sets up the bridge for seamless AI-to-Page communication.
 - **WebMcpServer**: Managed MCP server for full control over lifecycle and transports.
 - **WebMcpClient**: MCP client for connecting to WebAgents and other services.
 - **WebAgent**: High-level agent orchestration logic.

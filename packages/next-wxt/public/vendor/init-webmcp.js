@@ -33,16 +33,17 @@
         tools.delete(name)
       }
     },
-    executeTool: function (name, argsStr) {
+    executeTool: function (toolObj, argsStr) {
+      var name = typeof toolObj === 'string' ? toolObj : (toolObj && toolObj.name)
       var tool = tools.get(name)
       if (!tool) return Promise.reject(new Error('Tool "' + name + '" not found'))
       var args = typeof argsStr === 'string' ? JSON.parse(argsStr) : argsStr
       return Promise.resolve(tool.execute(args))
     },
-    listTools: function () {
-      return Array.from(tools.values()).map(function (t) {
+    getTools: function () {
+      return Promise.resolve(Array.from(tools.values()).map(function (t) {
         return { name: t.name, title: t.title, description: t.description, inputSchema: t.inputSchema }
-      })
+      }))
     }
   }
 

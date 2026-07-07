@@ -10,7 +10,7 @@ type OSCHINAToolResult = {
 
 const mcp = (navigator as any).modelContext
 if (!mcp || typeof mcp.registerTool !== 'function') {
-  console.warn('[webmcp-tools] my.oschina.net: navigator.modelContext.registerTool 未就绪，跳过注入')
+  console.warn('[webmcp-tools] my.oschina.net: document.modelContext.registerTool 未就绪，跳过注入')
 } else if (!(window as any).__webmcptools_myoschinanet) {
   ;(window as any).__webmcptools_myoschinanet = true
   try {

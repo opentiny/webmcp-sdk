@@ -76,7 +76,7 @@ webmcp-cli run <toolName> <argsJson> [-t tabid]
 ```
 
 **示例一：执行页面自带工具**
-假设网页使用 `navigator.modelContext.registerTool` 注册了一个名为 `change-color` 的工具：
+假设网页使用 `document.modelContext.registerTool` 注册了一个名为 `change-color` 的工具：
 ```bash
 webmcp-cli run change-color '{"color": "#ff0000"}'
 ```

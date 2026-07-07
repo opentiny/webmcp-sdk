@@ -21,14 +21,17 @@ export async function runCommand({
     try {
       result = await page.evaluate(async (name, inputString) => {
         // @ts-expect-error WebMCP APIs are experimental and not yet in DOM types
-        const mcp = navigator.modelContextTesting || document.modelContext || navigator.modelContext
+        const mcp = document.modelContext || document.modelContext || document.modelContext
 
         if (!mcp || typeof mcp.executeTool !== 'function') {
-          throw new Error('当前页面没有注入 WebMCP 环境 (modelContextTesting.executeTool 或 modelContext.executeTool 未找到)')
+          throw new Error('当前页面没有注入 WebMCP 环境 (document.modelContext 未找到)')
         }
 
         // executeTool 的第二个参数必须是 JSON 字符串
-        let res = await mcp.executeTool(name, inputString)
+        const tools = await mcp.getTools();
+        const toolObj = tools.find((t: any) => t.name === name);
+        if (!toolObj) throw new Error(`Tool ${name} not found`);
+        let res = await mcp.executeTool(toolObj, inputString)
 
         // executeTool 的返回值可能是普通对象，也可能是 JSON 字符串
         if (typeof res === 'string') {

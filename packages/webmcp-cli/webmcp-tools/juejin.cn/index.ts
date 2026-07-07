@@ -20,7 +20,7 @@ function isJuejinDraftEditorPage(): boolean {
 
 const mcp = (navigator as any).modelContext
 if (!mcp || typeof mcp.registerTool !== 'function') {
-  console.warn('[webmcp-tools] juejin.cn: navigator.modelContext.registerTool 未就绪，跳过注入')
+  console.warn('[webmcp-tools] juejin.cn: document.modelContext.registerTool 未就绪，跳过注入')
 } else if (!(window as any).__webmcptools_juejincn) {
   try {
     // 该函数在每次 getBrowserState 之前调用，用于设置当前网站的黑白名单
