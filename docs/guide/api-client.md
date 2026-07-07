@@ -1,5 +1,9 @@
 # WebMcpClient 类
 
+> [!NOTE]
+> **推荐方案：**
+> 从最新版本起，我们主推使用基于浏览器原生标准的 `document.modelContext` 方式接入。手动构建 `WebMcpClient` 进行连接的方案仅作为底层定制或特殊场景的备选方案，供开发者参考。
+
 ```typescript
 import { WebMcpClient } from '@opentiny/next-sdk'
 ```

@@ -19,7 +19,7 @@
 ---
 
 > [!TIP]
-> **以下是模拟小明操作的视频演示（欢迎访问 [在线演示地址](https://ai.opentiny.design/ai-vue/) 亲自体验）：**
+> **以下是模拟小明操作的视频演示：**
 > <video src="../assets/video/WebMCP+WebSkills.mov" controls width="100%" style="max-height: 500px;"></video>
 
 ---
@@ -69,11 +69,13 @@ WebSkills 能进一步增强 AI 对业务的理解能力，尤其在处理跨页
 > 源码工程：[`packages/doc-ai`](https://github.com/opentiny/next-sdk/tree/dev/packages/doc-ai)
 
 **步骤 1：安装依赖**
+
 ```bash
 pnpm add @opentiny/next-sdk @opentiny/next-remoter
 ```
 
 **步骤 2：在 `main.ts` 中激活内置 API**
+
 ```ts
 // src/main.ts
 import { createApp } from 'vue'
@@ -96,6 +98,7 @@ createApp(App).use(router).mount('#app')
 ```
 
 **步骤 3：配置业务路由**
+
 ```ts
 // src/router/index.ts
 export default createRouter({
@@ -108,6 +111,7 @@ export default createRouter({
 ```
 
 **步骤 4：配置 WebAgent 远程服务（可选：仅远程操控场景需要）**
+
 ```ts
 // src/mcp-servers/useWebAgentServer.ts
 import { WebMcpClient } from '@opentiny/next-sdk'
@@ -124,6 +128,7 @@ export const useWebAgentServer = async () => {
 ```
 
 **步骤 5：在业务页面中注册工具**
+
 ```vue
 <!-- src/views/product-list/index.vue -->
 <script setup lang="ts">
@@ -159,20 +164,17 @@ onUnmounted(() => {
 > [!TIP]
 > **进阶：分离式注册（Next-SDK 独家增强 API）**
 > 对于需要全局感知工具的场景，你可以将 Metadata 集中定义在全局，而在具体页面中仅编写对应的执行 Handler：
+>
 > 1. 全局调用 `document.modelContext.registerTool({ ...routeConfig: { route: '/path' } }, { signal: abortController.signal })`（无 execute）。
 > 2. 页面内调用 `registerPageTool({ route: '/path', handlers: { ... } })` 绑定实现逻辑。
 
 **步骤 6：在 App.vue 中挂载 Remoter + 接入远程遥控**
+
 ```vue
 <!-- src/App.vue -->
 <template>
   <router-view />
-  <TinyRemoter
-    :show="true"
-    :skills="skillMdModules"
-    :mcpServers="mcpServers"
-    :menuItems="menuItems"
-  />
+  <TinyRemoter :show="true" :skills="skillMdModules" :mcpServers="mcpServers" :menuItems="menuItems" />
 </template>
 
 <script setup lang="ts">
@@ -211,7 +213,8 @@ onMounted(async () => {
 
 > [!IMPORTANT]
 > **架构升级**：Angular 主应用激活 **内置 WebMCP (Polyfill)**，在业务页面内直接注册工具。对话组件作为 iframe 嵌入，通过 `window.parent` 访问父窗体的测试接口。
-**步骤 1：激活内置服务**
+> **步骤 1：激活内置服务**
+
 ```ts
 // src/app/app.component.ts
 import { setNavigator, initializeBuiltinWebMCP } from '@opentiny/next-sdk'
@@ -223,10 +226,11 @@ async ngOnInit() {
 ```
 
 **步骤 2：在 Angular 页面中注册工具**
+
 ```ts
 // src/app/pages/product/product.component.ts
 ngOnInit() {
-  navigator.modelContext.registerTool({
+  (document as any).modelContext.registerTool({
     name: 'product-info',
     execute: async (args) => { /* 业务逻辑 */ }
   })
@@ -234,6 +238,7 @@ ngOnInit() {
 ```
 
 **步骤 3：iframe 内连接主应用服务器**
+
 ```vue
 <!-- Remoter 子应用 App.vue -->
 <script setup lang="ts">
@@ -259,11 +264,11 @@ React 工程架构与 Angular 完全一致。主应用负责工具与页面逻�
 
 WebMCP + WebSkills + WebAgent 为前端页面操作提供了极致安全、高效且省钱的的最优解。通过 **Browser-Native First** 的理念，你只需遵循标准 API 即可在任何框架下实现智能化升级。
 
-| 特性 | 说明 |
-| --- | --- |
-| **原生标准** | `navigator.modelContext` 接口已是事实上的首选方案 |
-| **极简接入** | `initializeBuiltinWebMCP()` 一键搞定 Polyfill 与通讯 |
-| **远程遥控** | 跨设备实时同步，这是 Builtin 架构带来的天然优势 |
-| **分离式注册** | Next-SDK 提供的独家 API，专为大型复杂架构设计 |
+| 特性           | 说明                                                 |
+| -------------- | ---------------------------------------------------- |
+| **原生标准**   | `document.modelContext` 接口已是事实上的首选方案     |
+| **极简接入**   | `initializeBuiltinWebMCP()` 一键搞定 Polyfill 与通讯 |
+| **远程遥控**   | 跨设备实时同步，这是 Builtin 架构带来的天然优势      |
+| **分离式注册** | Next-SDK 提供的独家 API，专为大型复杂架构设计        |
 
 未来我们将持续迭代，致力于让每一个 Web 应用都能进化为自适应的智能体。

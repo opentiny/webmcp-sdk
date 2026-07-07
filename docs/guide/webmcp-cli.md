@@ -6,7 +6,7 @@
 
 ## 🌟 核心价值
 
-传统的 WebMCP 开发需要修改前端应用代码，利用 `initializeBuiltinWebMCP()` 和 `navigator.modelContext.registerTool()` 在应用内手动注册工具。
+传统的 WebMCP 开发需要修改前端应用代码，利用 `initializeBuiltinWebMCP()` 和 `document.modelContext.registerTool()` 在应用内手动注册工具。
 
 然而，在面对非己方开发、或无法修改源码的第三方网站（如搜索引擎、数据看板等）时，直接改造是无法实现的。**`webmcp-cli` 解决了这一难题**：
 - **无侵入注入**：只需通过命令行打开目标网页，CLI 会自动向页面中注入 `webmcp-polyfill` 和操作感知工具 `page-agent-tool`。
