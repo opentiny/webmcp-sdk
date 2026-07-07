@@ -13,7 +13,6 @@
 
 <script setup lang="ts">
 import { TinyRemoter } from '@opentiny/next-remoter'
-import { createMessageChannelClientTransport } from '@opentiny/next-sdk'
 import type { MenuItemConfig } from '@opentiny/next-sdk'
 import '@opentiny/next-remoter/dist/style.css'
 import { ref, h } from 'vue'
