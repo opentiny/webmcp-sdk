@@ -39,6 +39,7 @@ const injectStyles = `
         background-color: transparent;
         text-align: right;
         box-sizing: border-box;
+        border-radius: 4px;
       }
 
       #${HIGHLIGHT_CONTAINER_ID} div span {
@@ -150,6 +151,7 @@ export const highlight = (refMap: RefMap, parentIframe: HTMLIFrameElement | null
   ;(window._highlightCleanupFunctions = window._highlightCleanupFunctions || []).push(cleanupFn)
 }
 
+/** 移除高亮， 可反复调用 */
 export const unhighlight = () => {
   document.querySelector(HIGHLIGHT_CONTAINER_ID)?.remove()
 
@@ -161,4 +163,35 @@ export const unhighlight = () => {
   }
 
   ;(window as any)._highlightCleanupFunctions = []
+}
+
+/** 全局监听变化，随时准备移除高亮, 可反复调用 */
+export const globalRemoveListener = () => {
+  if ((window as any).__registerGlobalRemoveListener) return
+  ;(window as any).__registerGlobalRemoveListener = true
+  window.addEventListener('popstate', () => {
+    unhighlight()
+  })
+  window.addEventListener('hashchange', () => {
+    unhighlight()
+  })
+  window.addEventListener('beforeunload', () => {
+    unhighlight()
+  })
+
+  const navigation = (window as any).navigation
+  if (navigation && typeof navigation.addEventListener === 'function') {
+    navigation.addEventListener('navigate', () => {
+      unhighlight()
+    })
+  } else {
+    // 定时器
+    let currentUrl = window.location.href
+    setInterval(() => {
+      if (window.location.href !== currentUrl) {
+        currentUrl = window.location.href
+        unhighlight()
+      }
+    }, 500)
+  }
 }

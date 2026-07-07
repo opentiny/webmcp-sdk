@@ -5,7 +5,7 @@ import { PageController } from '@page-agent/page-controller'
 import { buildA11yTree, type RefMap } from './a11y-tree'
 import { PageStateCache } from './page-state-cache'
 import { SimulatorMask } from './page-agent-mask/SimulatorMask'
-import { highlight, unhighlight } from './page-agent-highlight'
+import { highlight, unhighlight, globalRemoveListener } from './page-agent-highlight'
 
 import { DEFAULT_ERROR_SELECTORS, DEFAULT_DIALOG_SELECTORS, type PageAgentToolOptions } from './constants'
 import { inputSchema, type PageAgentToolInput } from './schema'
@@ -83,8 +83,9 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
     })
     currentRefMap = refMap
 
-    // 高亮交互元素
+    // 高亮交互元素，且增加全局移除高亮的监听
     highlight(refMap)
+    globalRemoveListener()
 
     // 计算 Diff
     const diff = stateCache.update(url, yaml)
