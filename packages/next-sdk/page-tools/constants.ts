@@ -4,21 +4,30 @@ export const DEFAULT_ERROR_SELECTORS: string[] = [
   '[role="alert"]',
   '[aria-invalid="true"]',
   // Tiny3 / Lego（华为云）
-  '.ti3-unifyvalid-error', '.ti3-error', '.ti-error',
-  '.lego-text-error', '.lego-error',
+  '.ti3-unifyvalid-error',
+  '.ti3-error',
+  '.ti-error',
+  '.lego-text-error',
+  '.lego-error',
   // Element UI / Element Plus
   '.el-form-item__error',
   // Ant Design
   '.ant-form-item-explain-error',
   // Bootstrap
-  '.is-invalid', '.invalid-feedback',
+  '.is-invalid',
+  '.invalid-feedback',
   // Angular
   '.ng-invalid',
   // 通用命名约定
-  '.error-msg', '.error-message', '.error-text',
-  '.field-error', '.form-error',
-  '.is-error', '.has-error',
-  '.validate-error', '.valid-error',
+  '.error-msg',
+  '.error-message',
+  '.error-text',
+  '.field-error',
+  '.form-error',
+  '.is-error',
+  '.has-error',
+  '.validate-error',
+  '.valid-error'
 ]
 
 /** 模态弹窗默认选择器：ARIA 标准 + 主流 UI 框架 */
@@ -27,9 +36,11 @@ export const DEFAULT_DIALOG_SELECTORS: string[] = [
   '[role="dialog"]',
   '[role="alertdialog"]',
   // Tiny3 / Lego（华为云）
-  '[class*="ti3-modal"]', '[class*="ti3-message-box"]',
+  '[class*="ti3-modal"]',
+  '[class*="ti3-message-box"]',
   // Element UI / Element Plus
-  '[class*="el-dialog"]', '[class*="el-message-box"]',
+  '[class*="el-dialog"]',
+  '[class*="el-message-box"]',
   // Ant Design
   '[class*="ant-modal"]',
   // Bootstrap
@@ -37,12 +48,14 @@ export const DEFAULT_DIALOG_SELECTORS: string[] = [
   // Vuetify
   '[class*="v-dialog"]',
   // Naive UI
-  '[class*="n-modal"]',
+  '[class*="n-modal"]'
 ]
 
 export interface PageAgentToolOptions {
   /** 允许在无障碍树节点中额外暴露的 DOM 属性白名单 */
   exposedAttributes?: string[]
+  /** 是否启用元素高亮 */
+  enableHighlight?: boolean
 }
 
 declare global {

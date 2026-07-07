@@ -5,6 +5,7 @@ import { PageController } from '@page-agent/page-controller'
 import { buildA11yTree, type RefMap } from './a11y-tree'
 import { PageStateCache } from './page-state-cache'
 import { SimulatorMask } from './page-agent-mask/SimulatorMask'
+import { highlight, unhighlight, globalRemoveListener } from './page-agent-highlight'
 
 import { DEFAULT_ERROR_SELECTORS, DEFAULT_DIALOG_SELECTORS, type PageAgentToolOptions } from './constants'
 import { inputSchema, type PageAgentToolInput } from './schema'
@@ -20,8 +21,13 @@ import { handleExecuteJavascript } from './handlers/executeJavascript'
 import { handleSearchTree } from './handlers/searchTree'
 
 /** 在浏览器页面中注册 page-agent-tool, 用于页面的内容获取和操作，页面的动效 */
-export function registerPageAgentTool(options?: PageAgentToolOptions) {
+export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
   initializeBuiltinWebMCP()
+
+  // 默认启用元素高亮
+  if (typeof options.enableHighlight === 'undefined') {
+    options.enableHighlight = true
+  }
 
   window.__webmcpcli_interactiveWhitelist = window.__webmcpcli_interactiveWhitelist || [] // 白名单元素列表，存在则识别为交互元素
   window.__webmcpcli_interactiveBlacklist = window.__webmcpcli_interactiveBlacklist || [] // 黑名单，反之
@@ -78,9 +84,15 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
     // 生成语义化 ARIA YAML 树 + 刷新 refMap
     const { yaml, refMap } = buildA11yTree(document.body, blacklist, whitelist, {
       exposedAttributes,
-      errorSelectors: (window.__webmcpcli_errorSelectors ?? DEFAULT_ERROR_SELECTORS).join(', '),
+      errorSelectors: (window.__webmcpcli_errorSelectors ?? DEFAULT_ERROR_SELECTORS).join(', ')
     })
     currentRefMap = refMap
+
+    // 高亮交互元素，且增加全局移除高亮的监听
+    if (options?.enableHighlight) {
+      highlight(refMap)
+      globalRemoveListener()
+    }
 
     // 计算 Diff
     const diff = stateCache.update(url, yaml)
@@ -117,10 +129,12 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
     pageController,
     stateCache,
     getRefMap: () => currentRefMap,
-    setRefMap: (map: RefMap) => { currentRefMap = map },
+    setRefMap: (map: RefMap) => {
+      currentRefMap = map
+    },
     buildBrowserStateResponse,
     refreshOnStaleRef,
-    errContent,
+    errContent
   }
 
   // ─── 工具注册（名称与 inputSchema 与原版完全一致）────────────────────────

@@ -8,13 +8,14 @@ import type { A11yTreeOptions, A11yTreeResult, RefMap } from './types'
 import { DEFAULT_ERROR_SELECTORS, DEFAULT_WARNING_SELECTORS } from './constants'
 import { buildVNode, serializeVNode } from './vnode'
 import { getComposedChildren } from './utils'
+import { HIGHLIGHT_CONTAINER_ID } from '../page-agent-highlight'
 
 const DEFAULT_OPTIONS: Required<A11yTreeOptions> = {
   pruneUnnamed: true,
   preserveRoles: [],
   exposedAttributes: [],
   errorSelectors: DEFAULT_ERROR_SELECTORS,
-  warningSelectors: DEFAULT_WARNING_SELECTORS,
+  warningSelectors: DEFAULT_WARNING_SELECTORS
 }
 
 /**
@@ -29,7 +30,7 @@ export function buildA11yTree(
   root: Element = document.body,
   blacklist: Element[] = [],
   whitelist: Element[] = [],
-  options?: A11yTreeOptions,
+  options?: A11yTreeOptions
 ): A11yTreeResult {
   const opts: Required<A11yTreeOptions> = { ...DEFAULT_OPTIONS, ...options }
   // 使用对象引用避免全局可变状态，消除并发调用隐患
@@ -39,8 +40,20 @@ export function buildA11yTree(
   const whitelistSet = new Set(whitelist)
   const lines: string[] = []
 
+  // 永远过滤高亮容器
+  blacklistSet.add(document.getElementById(HIGHLIGHT_CONTAINER_ID)!)
+
   for (const child of getComposedChildren(root)) {
-    const vnode = buildVNode(child, refCounter, refMap, blacklistSet, whitelistSet, opts.exposedAttributes, opts.errorSelectors, opts.warningSelectors)
+    const vnode = buildVNode(
+      child,
+      refCounter,
+      refMap,
+      blacklistSet,
+      whitelistSet,
+      opts.exposedAttributes,
+      opts.errorSelectors,
+      opts.warningSelectors
+    )
     if (vnode) {
       lines.push(...serializeVNode(vnode, 0, opts))
     }
@@ -52,6 +65,6 @@ export function buildA11yTree(
     yaml,
     refMap,
     interactiveCount: refMap.size,
-    lines,
+    lines
   }
 }
