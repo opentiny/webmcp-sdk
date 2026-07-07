@@ -18,6 +18,8 @@
 import { computeAccessibleName } from 'dom-accessibility-api'
 import { isFocusable } from 'tabbable'
 
+const PAGE_AGENT_HIGHLIGHT_CONTAINER_ID = 'page-agent-highlight-container'
+
 // ─── 默认校验错误/警告选择器（ARIA 标准 + 主流 UI 框架） ──────────────────
 
 const DEFAULT_ERROR_SELECTORS = [
@@ -385,6 +387,14 @@ function isHidden(el: Element): boolean {
   return false
 }
 
+/** SDK 自身运行层元素不应进入无障碍树，避免污染 ref 编号与语义信息 */
+function isAgentOverlay(el: Element): boolean {
+  if ((el as HTMLElement).id === PAGE_AGENT_HIGHLIGHT_CONTAINER_ID) return true
+  const dataset = (el as HTMLElement).dataset
+  if (dataset?.browserUseIgnore === 'true' || dataset?.pageAgentIgnore === 'true') return true
+  return false
+}
+
 /** 收集子孙节点的文本内容，用作无障碍名字的兜底 */
 function collectDescendantText(el: Element): string {
   let text = ''
@@ -475,7 +485,7 @@ function buildVNode(
   errorSelectors?: string,
   warningSelectors?: string,
 ): VNode | null {
-  if (isHidden(el) || blacklistSet.has(el)) return null
+  if (isAgentOverlay(el) || isHidden(el) || blacklistSet.has(el)) return null
 
   const role = inferRole(el)
   const tokens = getStateTokens(el, exposedAttributes, errorSelectors, warningSelectors)

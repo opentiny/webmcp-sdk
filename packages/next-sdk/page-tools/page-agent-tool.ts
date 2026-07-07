@@ -6,6 +6,8 @@ import { PageController, clickElement, inputTextElement, selectOptionElement } f
 import { buildA11yTree, searchA11yTree, type RefMap } from './a11y-tree'
 import { PageStateCache } from './page-state-cache'
 import { SimulatorMask } from './page-agent-mask/SimulatorMask'
+import { createPageAgentRuntime } from './highlight/page-agent-runtime'
+import { DEFAULT_PAGE_AGENT_HIGHLIGHT_OPTIONS, type PageAgentHighlightOptions } from './highlight/highlight-config'
 
 declare global {
   interface Window {
@@ -17,6 +19,12 @@ declare global {
     __webmcpcli_errorSelectors?: string[]
     /** 模态弹窗元素 CSS 选择器列表（覆盖默认，用于检测阻塞交互的弹窗） */
     __webmcpcli_dialogSelectors?: string[]
+    /** page-agent 节点高亮开关（默认 true） */
+    __webmcpcli_highlightEnabled?: boolean
+    /** page-agent 节点高亮配置（可覆盖默认配置） */
+    __webmcpcli_highlightConfig?: PageAgentHighlightOptions
+    /** 运行时切换高亮开关 */
+    __webmcpcli_setHighlightEnabled?: ((enabled: boolean) => void) | null
   }
 }
 
@@ -65,10 +73,17 @@ const DEFAULT_DIALOG_SELECTORS: string[] = [
 export interface PageAgentToolOptions {
   /** 允许在无障碍树节点中额外暴露的 DOM 属性白名单 */
   exposedAttributes?: string[]
+  /** 节点高亮配置，默认开启 */
+  highlight?: PageAgentHighlightOptions
+}
+
+export interface PageAgentRuntimeController {
+  setHighlightEnabled: (enabled: boolean) => void
+  clearHighlights: () => void
 }
 
 /** 在浏览器页面中注册 page-agent-tool, 用于页面的内容获取和操作，页面的动效 */
-export function registerPageAgentTool(options?: PageAgentToolOptions) {
+export function registerPageAgentTool(options?: PageAgentToolOptions): PageAgentRuntimeController {
   initializeBuiltinWebMCP()
 
   window.__webmcpcli_interactiveWhitelist = window.__webmcpcli_interactiveWhitelist || [] // 白名单元素列表，存在则识别为交互元素
@@ -79,6 +94,13 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
   window.__webmcpcli_errorSelectors = window.__webmcpcli_errorSelectors || DEFAULT_ERROR_SELECTORS
   // 模态弹窗选择器：同上
   window.__webmcpcli_dialogSelectors = window.__webmcpcli_dialogSelectors || DEFAULT_DIALOG_SELECTORS
+  // 高亮开关默认开启，可通过 options/window 覆盖
+  window.__webmcpcli_highlightEnabled = window.__webmcpcli_highlightEnabled ?? options?.highlight?.enabled ?? true
+  window.__webmcpcli_highlightConfig = {
+    ...window.__webmcpcli_highlightConfig,
+    ...options?.highlight,
+    enabled: window.__webmcpcli_highlightEnabled,
+  }
 
   // 保留 PageController ，先关闭内置mask, 再手工绑定当前项目的mask类
   const pageController = new PageController({ enableMask: false })
@@ -94,6 +116,14 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
 
   // 当前 ref 索引 → HTMLElement 映射（每次 buildA11yTree 后更新）
   let currentRefMap: RefMap = new Map()
+  const runtime = createPageAgentRuntime({
+    ...DEFAULT_PAGE_AGENT_HIGHLIGHT_OPTIONS,
+    ...window.__webmcpcli_highlightConfig,
+  })
+  window.__webmcpcli_setHighlightEnabled = (enabled: boolean) => {
+    window.__webmcpcli_highlightEnabled = enabled
+    runtime.setHighlightEnabled(enabled)
+  }
 
   // ─── inputSchema 与原版完全一致（对外 API 不变）──────────────────────────
   const inputSchema = z.object({
@@ -207,7 +237,7 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
 
     for (const selector of selectors) {
       try {
-        for (const el of document.querySelectorAll(selector)) {
+        for (const el of Array.from(document.querySelectorAll(selector))) {
           if (seen.has(el)) continue
           // 跳过 SDK 自身遮罩
           if (el.id?.includes('page-agent-runtime')) continue
@@ -236,7 +266,7 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
             // 提取弹窗内的可交互按钮，帮助 AI 快速决策
             const btns = el.querySelectorAll('button, [role="button"], a')
             const btnTexts = Array.from(btns)
-              .map(b => (b.textContent || '').trim())
+              .map((b: Element) => (b.textContent || '').trim())
               .filter(t => t.length > 0 && t.length < 20)
               .slice(0, 5)
             const btnInfo = btnTexts.length ? ` [可操作按钮: ${btnTexts.join(' / ')}]` : ''
@@ -263,7 +293,7 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
 
     for (const selector of selectors) {
       try {
-        for (const el of document.querySelectorAll(selector)) {
+        for (const el of Array.from(document.querySelectorAll(selector))) {
           if (seen.has(el)) continue
           // 跳过嵌套在已收集的错误元素内的子元素，避免重复
           if (Array.from(seen).some(s => s.contains(el))) continue
@@ -376,6 +406,7 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
       errorSelectors: (window.__webmcpcli_errorSelectors ?? DEFAULT_ERROR_SELECTORS).join(', '),
     })
     currentRefMap = refMap
+    runtime.renderHighlights(currentRefMap)
 
     // 计算 Diff
     const diff = stateCache.update(url, yaml)
@@ -617,6 +648,7 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
           })
           
           currentRefMap = result.refMap
+          runtime.renderHighlights(currentRefMap)
           stateCache.update(window.location.href, result.yaml)
           
           await pageController.hideMask()
@@ -635,4 +667,12 @@ export function registerPageAgentTool(options?: PageAgentToolOptions) {
       }
     }
   })
+
+  return {
+    setHighlightEnabled: (enabled: boolean) => {
+      window.__webmcpcli_highlightEnabled = enabled
+      runtime.setHighlightEnabled(enabled)
+    },
+    clearHighlights: () => runtime.clearHighlights(),
+  }
 }
