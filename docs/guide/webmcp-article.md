@@ -59,8 +59,12 @@ document.modelContext.registerTool({
 
 ```javascript
 // 对话组件：发现并调用
-const tools = await await document.modelContext.getTools()
-const result = await document.modelContext.executeTool('finance_summary', {})
+const toolsList = await document.modelContext.getTools()
+console.log('toolsList = ', toolsList)
+
+// 执行工具：必须传入工具对象 + 参数对象的 JSON 字符串
+const toolResult = await document.modelContext.executeTool(toolsList[0], JSON.stringify({}))
+console.log('查询工具的执行结果: toolResult = ', toolResult)
 ```
 
 ---

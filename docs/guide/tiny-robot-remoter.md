@@ -20,20 +20,6 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 
 总之，已安装插件中的所有Tool都可以在与 `LLM` 对话时被调用。
 
-## 破坏性变更（Breaking Change）
-
-> 自 `@opentiny/next-remoter` / `@opentiny/next-sdk` 新版本起，`pageToolsOnDemand` 属性已移除。
-
-- 旧写法 `:pageToolsOnDemand="true"` 不再生效，需从业务代码中删除；
-- TinyRemoter 统一基于 MCP 的 `listTools` 实时获取工具列表，不再提供“按路由过滤工具可见性”的开关；
-- 页面工具调用链路不变：`withPageTools + RouteConfig.route` 仍会自动跳转目标路由并等待页面就绪。
-
-迁移建议：
-
-1. 删除所有 `:pageToolsOnDemand="..."` 配置。
-2. 若使用“分离式工具定义”（`mcp-servers`）：保持 `withPageTools + registerPageTool` 即可。
-3. 若使用“页面内一体化定义”：在页面 `mounted/onMounted` 调用 `server.registerTool`，在 `unmounted/onUnmounted` 调用 `server.unregisterTool`。
-
 ## 属性
 
 - `v-model:show` 双向绑定是否显示，内部关闭是 emit('update:show',false)
@@ -57,7 +43,6 @@ import { TinyRemoter } from '@opentiny/next-remoter'
 - `genUiComponents` 生成式 UI 内置了一批组件，如果需要引入新组件，需要通过这里导入。参考示例：`shallowReactive({ TinyUser, TinyAlert })`
 - `customMarketMcpServers` 自定义 MCP 市场服务列表（`PluginInfo[]`）。组件内部不再内置任何默认市场服务，若需使用官方默认的 MCP 工具集，需从应用层导入并传入。**一般对应后台的 MCP 服务，可常驻存在。**
 - `mcpServers` 预置 MCP 服务器配置（业界格式 `Record<string, McpServerConfig>`）。键为服务器名称，值为单台服务器配置；组件初始化时会自动加载并出现在「已添加MCP服务」中。**一般对应前端的 MCP 服务，页面关闭后即不存在。** 支持配置自定义 `name`（插件显示名称）和 `description`（插件功能描述），配置说明见 [预置 MCP 服务器（mcpServers）](#预置-mcp-服务器mcpservers)
-- `pageToolsOnDemand` 已移除（破坏性变更），请勿继续传该属性
 - `skills` 设置技能的配置对象（`Record<string, string>` 类型）。通常配合 Vite 的 `import.meta.glob` 导入标准 `SKILL.md` 文件。AI 助手会自动识别用户意图并调用相应的技能，无需手动触发。
 - `layout-mode` 布局模式，支持所有 CSS position 属性值：`'static' | 'relative' | 'absolute' | 'fixed' | 'sticky'`，默认值为 `'fixed'`。用于控制组件的定位方式
 - `role-avatar` 设置角色user/assistant的头像, 值为 {user: VNode, assistant: VNode }, VNode 可以通过h函数创建，比如： h(IconUser, { style: { fontSize: '32px' } })

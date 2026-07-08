@@ -21,7 +21,7 @@ declare global {
      */
     modelContext: {
       listTools: () => Promise<WebMcpToolDefinition[]>
-      executeTool: (name: string, argsJson: string) => Promise<unknown>
+      executeTool: (tool: any, argsJson: string) => Promise<unknown>
       registerToolsChangedCallback?: (cb: () => void) => void
     }
   }

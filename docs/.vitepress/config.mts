@@ -20,7 +20,10 @@ export default defineConfig({
       '/guide/': [
         {
           text: '介绍',
-          items: [{ text: '开始', link: '/guide/' }]
+          items: [
+            { text: '快速开始', link: '/guide/' },
+            { text: '浏览器内置 WebMCP', link: '/guide/webmcp-article' }
+          ]
         },
         {
           text: 'WebMCP&WebSkills 最佳实践',
@@ -28,8 +31,7 @@ export default defineConfig({
             { text: '总览', link: '/guide/webmcp-webskills' },
             { text: 'Vue 工程最佳实践', link: '/guide/vue-webmcp-best-practice' },
             { text: 'Angular 工程最佳实践', link: '/guide/angular-webmcp-best-practice' },
-            { text: 'React 工程最佳实践', link: '/guide/react-webmcp-best-practice' },
-            { text: '浏览器内置 WebMCP', link: '/guide/webmcp-article' }
+            { text: 'React 工程最佳实践', link: '/guide/react-webmcp-best-practice' }
           ]
         },
         {

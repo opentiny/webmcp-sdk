@@ -24,7 +24,7 @@ type BuiltinModelContextTesting = {
  * 将浏览器内置 WebMCP 的 `document.modelContext` 适配为 ai-sdk 的 ToolSet。
  *
  * 类似 getAISDKTools，但数据源是浏览器原生 API 而非 MCP client。
- * 工具执行时通过 `executeTool(name, JSON.stringify(args))` 代理给浏览器。
+ * 工具执行时通过 `executeTool(toolObj, JSON.stringify(args))` 代理给浏览器。
  *
  * @param client - `document.modelContext` 对象
  * @returns ai-sdk 格式的 ToolSet，可直接传入 streamText/generateText 的 tools 参数
