@@ -65,7 +65,7 @@ document.modelContext.registerTool({
     type: 'object',
     properties: {
       value: {
-        type: 'number',
+        type: 'integer',
         description: '待增加的值，必须是整数'
       }
     },
