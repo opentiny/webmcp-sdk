@@ -52,5 +52,6 @@ export const SUPPORTED_DOMAINS: string[] = [
   'editor.csdn.net',
   'xiaohongshu.com',
   'creator.xiaohongshu.com',
-  'segmentfault.com'
+  'segmentfault.com',
+  'zhuanlan.zhihu.com'
 ]
