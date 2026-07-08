@@ -13,7 +13,6 @@
 
 <script setup lang="ts">
 import { TinyRemoter } from '@opentiny/next-remoter'
-import { createMessageChannelClientTransport } from '@opentiny/next-sdk'
 import type { MenuItemConfig } from '@opentiny/next-sdk'
 import '@opentiny/next-remoter/dist/style.css'
 import { ref, h } from 'vue'
@@ -100,12 +99,12 @@ const skillMdModules = import.meta.glob('./skills/**/*', {
   eager: true
 }) as Record<string, string>
 
-const nav = window.parent.navigator as Navigator & { modelContextTesting?: any }
+const doc = window.parent.document as Document & { modelContext?: any }
 
 const mcpServers = {
   'local-mcp-server': {
     type: 'builtin' as const,
-    client: nav?.modelContextTesting
+    client: doc?.modelContext
   }
 }
 </script>

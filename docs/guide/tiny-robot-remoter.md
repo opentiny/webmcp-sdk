@@ -530,7 +530,7 @@ const mcpServers = {
 - `type: 'streamableHttp'` 或 `type: 'sse'`：需提供 `url`，可选 `useAISdkClient` 和 `headers`
 - `type: 'extension'`：需提供 `url`、`sessionId`，可选 `useAISdkClient` 和 `headers`
 - `type: 'local'`：需提供 `transport`（MCP 传输层），可选 `useAISdkClient`
-- `type: 'builtin'`：浏览器内置 WebMCP（如 Chrome 146+）。需提供 `client` 对象，通常设为 `navigator.modelContextTesting`。**建议配合 `@opentiny/next-sdk` 的 `modelContext` 使用，以获得完美的 SPA 路由握手支持。**
+- `type: 'builtin'`：浏览器内置 WebMCP（如 Chrome 146+）。需提供 `client` 对象，通常设为 `document.modelContext`。**建议配合 `@opentiny/next-sdk` 的 `modelContext` 使用，以获得完美的 SPA 路由握手支持。**
 
 #### 浏览器内置 WebMCP 配置示例
 

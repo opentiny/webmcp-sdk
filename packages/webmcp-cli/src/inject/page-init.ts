@@ -17,10 +17,9 @@ declare global {
 }
 
 async function syncTools(): Promise<void> {
-  const ctx = (navigator as Navigator & { modelContextTesting?: { listTools?: () => Promise<unknown[]> } })
-    .modelContextTesting
-  if (ctx?.listTools) {
-    window.__webmcpcli_tools = (await ctx.listTools()) as Window['__webmcpcli_tools']
+  const ctx = (document as any).modelContext
+  if (ctx?.getTools) {
+    window.__webmcpcli_tools = (await ctx.getTools()) as Window['__webmcpcli_tools']
   }
 }
 
@@ -34,15 +33,13 @@ function initWebMcpCliPage(): void {
 
   window.__webmcpcli_tools = []
 
-  const ctx = (
-    navigator as Navigator & {
-      modelContextTesting?: {
-        registerToolsChangedCallback?: (cb: () => void) => void
-      }
-    }
-  ).modelContextTesting
+  const ctx = (document as any).modelContext
 
-  if (ctx?.registerToolsChangedCallback) {
+  if (ctx?.addEventListener) {
+    ctx.addEventListener('toolchange', () => {
+      void syncTools()
+    })
+  } else if (ctx?.registerToolsChangedCallback) {
     ctx.registerToolsChangedCallback(() => {
       void syncTools()
     })

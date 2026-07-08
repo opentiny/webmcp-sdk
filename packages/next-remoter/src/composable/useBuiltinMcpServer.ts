@@ -1,29 +1,29 @@
 import type { AgentModelProvider } from '@opentiny/next-sdk'
 
 /**
- * 扩展的 navigator 类型，包含浏览器内置 WebMCP 测试 API
+ * 扩展的 document 类型，包含浏览器内置 WebMCP API
  */
-type NavigatorWithModelContextTesting = Navigator & {
-  modelContextTesting?: object
+type DocumentWithModelContext = Document & {
+  modelContext?: object
 }
 
 /**
- * 检测当前浏览器是否支持内置 WebMCP（`navigator.modelContextTesting`）。
+ * 检测当前浏览器是否支持内置 WebMCP（`document.modelContext`）。
  */
 export function isBuiltinMcpSupported(): boolean {
-  if (typeof navigator === 'undefined') return false
-  const nav = navigator as NavigatorWithModelContextTesting
-  return !!nav.modelContextTesting
+  if (typeof document === 'undefined') return false
+  const doc = document as DocumentWithModelContext
+  return !!doc.modelContext
 }
 
 /**
- * 将浏览器内置 WebMCP（`navigator.modelContextTesting`）作为一个 MCP Server
+ * 将浏览器内置 WebMCP（`document.modelContext`）作为一个 MCP Server
  * 注入到 AgentModelProvider，使 AI 可以调用浏览器原生工具。
  *
  * 特点：
- * - 类型为 `{ type: 'builtin', client: navigator.modelContextTesting }`
- * - 工具列表通过 `modelContextTesting.listTools()` / `getTools()` 获取
- * - 工具执行通过 `modelContextTesting.executeTool(name, input)` 代理
+ * - 类型为 `{ type: 'builtin', client: document.modelContext }`
+ * - 工具列表通过 `await document.modelContext.getTools()` 获取
+ * - 工具执行通过 `document.modelContext.executeTool(toolObj, input)` 代理
  *
  * @param agent - AgentModelProvider 实例
  * @param serverName - MCP server 名称，默认 'mcp-server-builtin-webmcp'
@@ -41,10 +41,10 @@ export async function useBuiltinMcpServer(
   agent: AgentModelProvider,
   serverName = 'mcp-server-builtin-webmcp'
 ): Promise<boolean> {
-  if (typeof navigator === 'undefined') return false
+  if (typeof document === 'undefined') return false
 
-  const nav = navigator as NavigatorWithModelContextTesting
-  const client = nav.modelContextTesting
+  const doc = document as DocumentWithModelContext
+  const client = doc.modelContext
 
   if (!client) {
     return false

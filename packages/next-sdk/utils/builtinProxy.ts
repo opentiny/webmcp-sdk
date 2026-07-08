@@ -2,13 +2,13 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 
 /**
  * 建立原生的 JSON-RPC 拦截层：
- * 将发向 remote 的 MCP 请求拦截，代理给所在浏览器的 navigator.modelContextTesting 上执行。
+ * 将发向 remote 的 MCP 请求拦截，代理给所在浏览器的 document.modelContext 上执行。
  */
 export const setupBuiltinProxy = (transport: Transport) => {
   const getNativeCtx = () => {
     if (typeof navigator === 'undefined') return null
     const nav = navigator as any
-    return nav.modelContextTesting || null
+    return (document as any).modelContext || null
   }
 
   transport.onmessage = async (message: any) => {
@@ -37,7 +37,7 @@ export const setupBuiltinProxy = (transport: Transport) => {
       } else if (method === 'tools/list') {
         const nativeCtx = getNativeCtx()
         if (nativeCtx && nativeCtx.listTools) {
-          const rawTools = await nativeCtx.listTools()
+          const rawTools = await nativeCtx.getTools()
           const tools = rawTools.map((t: any) => {
             let schemaObj: any = {}
             if (typeof t.inputSchema === 'string') {
@@ -72,7 +72,10 @@ export const setupBuiltinProxy = (transport: Transport) => {
             throw error
           }
           const { name, arguments: args } = message.params
-          const result = await nativeCtx.executeTool(name, JSON.stringify(args || {}))
+          const tools = await (nativeCtx.getTools ? nativeCtx.getTools() : []);
+          const toolObj = tools.find((t: any) => t.name === name);
+          if (!toolObj) throw new Error(`Tool ${name} not found`);
+          const result = await nativeCtx.executeTool(toolObj, JSON.stringify(args || {}))
           const finalResult =
             result && typeof result === 'object' && 'content' in result
               ? result

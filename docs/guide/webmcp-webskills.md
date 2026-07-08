@@ -185,7 +185,7 @@ import { useWebAgentServer } from './mcp-servers/useWebAgentServer'
 const skillMdModules = import.meta.glob('./skills/**/*', { query: '?raw', import: 'default', eager: true })
 
 const mcpServers = {
-  'builtin-webmcp': { type: 'builtin' as const, client: navigator.modelContextTesting }
+  'builtin-webmcp': { type: 'builtin' as const, client: document.modelContext }
 }
 
 const menuItems = ref<any[]>([])
@@ -246,7 +246,7 @@ const mcpServers = {
   'builtin-webmcp': {
     type: 'builtin' as const,
     // ⚠️ 核心点：跨 iframe 访问父窗口的测试接口
-    client: (window.parent as any).navigator.modelContextTesting
+    client: (window.parent as any).document.modelContext
   }
 }
 </script>

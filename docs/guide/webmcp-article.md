@@ -55,12 +55,12 @@ document.modelContext.registerTool({
 
 ### 2. 客户端：工具发现与调用 (Client)
 
-通过 `navigator.modelContextTesting` 接口，对话系统（Client）可以发现当前环境下的工具并执行。
+通过 `document.modelContext` 接口，对话系统（Client）可以发现当前环境下的工具并执行。
 
 ```javascript
 // 对话组件：发现并调用
-const tools = await navigator.modelContextTesting.listTools()
-const result = await navigator.modelContextTesting.executeTool('finance_summary', {})
+const tools = await await document.modelContext.getTools()
+const result = await document.modelContext.executeTool('finance_summary', {})
 ```
 
 ---

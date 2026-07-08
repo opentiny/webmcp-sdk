@@ -2,7 +2,7 @@ import { getCurrentTabId } from './utils/utils'
 import { useExtraTools } from './extraTools'
 
 /**
- * 注册侧边栏本地工具及页面代理工具到内置 WebMCP（navigator.modelContext）。
+ * 注册侧边栏本地工具及页面代理工具到内置 WebMCP（document.modelContext）。
  * 无需 WebMcpServer 或 Zod 转换，直接使用原生 JSON Schema。
  */
 export const setupLocalTools = () => {

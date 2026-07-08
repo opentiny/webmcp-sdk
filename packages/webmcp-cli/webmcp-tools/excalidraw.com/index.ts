@@ -3,12 +3,12 @@
  * 由 browser.ts 通过 page.evaluate() 注入到 excalidraw.com 页面的 JS 上下文中执行
  * 可直接访问页面 DOM 和 React Fiber 树
  *
- * 注意：工具注册使用 navigator.modelContext（polyfill 服务端接口）
+ * 注意：工具注册使用 document.modelContext（polyfill 服务端接口）
  */
 
 const _excalidrawMcp = (navigator as any).modelContext
 if (!_excalidrawMcp || typeof _excalidrawMcp.registerTool !== 'function') {
-  console.warn('[webmcp-tools] excalidraw.com: navigator.modelContext.registerTool 未就绪，跳过注入')
+  console.warn('[webmcp-tools] excalidraw.com: document.modelContext.registerTool 未就绪，跳过注入')
 } else if (!(window as any).__webmcptools_excalidrawcom) {
   ;(window as any).__webmcptools_excalidrawcom = true
   const mcp = _excalidrawMcp

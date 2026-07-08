@@ -48,7 +48,7 @@ if (typeof browser !== 'undefined' && browser.runtime) {
  *
  * 运行在 background service worker 里，通过 browser.tabs + browser.scripting
  * 获取当前激活页面（MAIN world）注册的工具，并代理 tools/call 调用。
- * 不依赖 sidepanel 的 navigator.modelContextTesting，解决了跨环境工具获取问题。
+ * 不依赖 sidepanel 的 document.modelContext，解决了跨环境工具获取问题。
  */
 const setupPageToolsProxy = (transport: Transport) => {
   _currentTransport = transport
@@ -168,10 +168,13 @@ const setupPageToolsProxy = (transport: Transport) => {
           target: { tabId: tab.id },
           world: 'MAIN',
           func: async (toolName: string, argsStr: string) => {
-            const ctx = (navigator as any).modelContextTesting || (navigator as any).modelContext
+            const ctx = (document as any).modelContext
             if (!ctx?.executeTool) return { content: [{ type: 'text', text: 'executeTool not available' }] }
             try {
-              const r = await ctx.executeTool(toolName, argsStr)
+              const tools = await ctx.getTools();
+              const toolObj = tools.find((t: any) => t.name === toolName);
+              if (!toolObj) throw new Error("Tool not found");
+              const r = await ctx.executeTool(toolObj, argsStr)
               return r && typeof r === 'object' && 'content' in r
                 ? r
                 : { content: [{ type: 'text', text: typeof r === 'string' ? r : JSON.stringify(r) }] }

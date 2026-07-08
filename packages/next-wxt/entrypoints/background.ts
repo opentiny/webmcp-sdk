@@ -58,12 +58,12 @@ export default defineBackground(() => {
           target: { tabId },
           world: 'MAIN',
           func: () => {
-            // 优先使用 bridge.ts 暴露的全局函数（拦截 navigator.modelContext 注册的工具）
+            // 优先使用 bridge.ts 暴露的全局函数（拦截 document.modelContext 注册的工具）
             if (typeof (window as any).__nextSdkRegisteredTools === 'function') {
               return (window as any).__nextSdkRegisteredTools()
             }
-            // Fallback：尝试通过 modelContextTesting.listTools()
-            return (navigator as any).modelContextTesting?.listTools?.() || []
+            // Fallback：尝试通过 modelContext.getTools()
+            return (document as any).modelContext?.getTools?.() || []
           }
         })
         .then((res) => {
@@ -85,9 +85,12 @@ export default defineBackground(() => {
           world: 'MAIN',
           func: async (name: string, inputStr: string) => {
             try {
-              const ctx = (navigator as any).modelContextTesting || (navigator as any).modelContext
+              const ctx = (document as any).modelContext
               if (!ctx) throw new Error('WebMCP is not initialized on this page')
-              const res = await ctx.executeTool(name, inputStr)
+              const tools = await ctx.getTools()
+              const toolObj = tools.find((t: any) => t.name === name)
+              if (!toolObj) throw new Error(`Tool ${name} not found`)
+              const res = await ctx.executeTool(toolObj, inputStr)
               return { success: true, result: res }
             } catch (e: any) {
               return { success: false, error: e.message }

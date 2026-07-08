@@ -82,7 +82,7 @@ export class AgentModelProvider {
   private async _createOneClient(serverConfig: McpServerConfig) {
     try {
       let transport: MCPClientConfig['transport']
-      // builtin 类型：使用 navigator.modelContextTesting 作为工具数据源
+      // builtin 类型：使用 document.modelContext 作为工具数据源
       if ('type' in serverConfig && serverConfig.type === 'builtin') {
         const builtinClient = serverConfig.client
         // 包装成与 ai-sdk MCPClient 相同接口：提供 tools() 方法

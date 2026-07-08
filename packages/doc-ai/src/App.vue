@@ -227,13 +227,13 @@ const skillMdModules = import.meta.glob('./skills/**/*.md', {
 }) as Record<string, string | (() => Promise<string>)>
 
 // Setup MCP Servers
-const nav = navigator as Navigator & { modelContextTesting?: object }
+const doc = document as Document & { modelContext?: object }
 const mcpServers: Record<string, McpServerConfig> = {
   'mcp-server-builtin-webmcp': {
     type: 'builtin' as const,
-    client: nav.modelContextTesting,
+    client: doc.modelContext,
     name: '浏览器内置工具',
-    description: '通过 navigator.modelContextTesting 暴露的浏览器原生 MCP 工具'
+    description: '通过 document.modelContext 暴露的浏览器原生 MCP 工具'
   }
 }
 

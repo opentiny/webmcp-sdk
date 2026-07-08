@@ -211,7 +211,7 @@ export function usePlugin(
       } else if ('type' in mcpServer && mcpServer.type === 'builtin') {
         // 浏览器内置 WebMCP（Chrome 146+）：没有 url，使用固定名称标识
         pluginName = pluginName || '浏览器内置工具'
-        description = description || '通过 navigator.modelContextTesting 暴露的浏览器原生 MCP 工具'
+        description = description || '通过 document.modelContext 暴露的浏览器原生 MCP 工具'
       } else if ('url' in mcpServer) {
         try {
           const url = new URL(mcpServer.url)
