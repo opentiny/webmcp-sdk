@@ -33,7 +33,7 @@ export const useBrowserExtensions = async (remoterRef: Ref<InstanceType<typeof T
   // 初始化侧边栏的内置 WebMCP（注册 document.modelContext / modelContextTesting）
   initializeBuiltinWebMCP()
 
-  // 注册插件内置工具（tabs-manager、accessibility、visual）及当前页面代理工具
+  // 注册插件内置工具（tabs-manager、page-agent-tool）及当前页面代理工具
   setupLocalTools()
 
   // 监听后台主动推送的 UI 更新事件

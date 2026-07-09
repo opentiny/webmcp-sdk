@@ -30,7 +30,11 @@ export default defineContentScript({
     //    background 通过 sendMessage({ type: 'PAGE_CONTROL' }) 调用页面 DOM 操作
     initPageController()
 
-    // 4. 注入域名专属工具（mcp-servers/ 目录下的 WebMCP 工具脚本，只对配置了的域名生效）
+    // 4. 始终注入 vendor/runtime.js（含 initializeBuiltinWebMCP + registerPageAgentTool）
+    //    并在 MAIN world 调用 registerPageAgentTool()，将内置工具注册到 document.modelContext
+    await injectRuntimeAndRegister(tabId)
+
+    // 5. 如有域名专属工具，额外注入 mcp-servers 脚本
     const hostname = window.location.hostname
     const meta = getMcpMetaInfo(hostname)
     if (meta) {
@@ -39,12 +43,9 @@ export default defineContentScript({
       } else {
         await injectMcpServerTools(hostname, tabId)
       }
-    } else {
-      // 无域名专属工具时，仍通知侧边栏刷新（page-agent-tool 是内置工具，不依赖此消息）
-      browser.runtime.sendMessage({ type: 'page-tools-updated', tabId }).catch(() => {})
     }
 
-    // 5. 挂载页面浮层 UI（工具调用动效等）
+    // 6. 挂载页面浮层 UI（工具调用动效等）
     mountPageApp(ctx, tabId)
   }
 })
@@ -114,8 +115,8 @@ function initPageController() {
 
 /**
  * 从 ISOLATED world 注入单个脚本文件（<script src="chrome-extension://...">）。
- * 适用于 mcp-servers 域名专属工具脚本的注入，这类脚本需要在 MAIN world 运行。
- * 注意：此方式依赖 web_accessible_resources 声明，vendor/next-sdk.js 也是通过此方式注入的。
+ * 脚本在 MAIN world 运行，可访问页面的 window 对象。
+ * 依赖 web_accessible_resources 声明（vendor/runtime.js、mcp-servers 等）。
  */
 function injectScript(path: string): Promise<void> {
   return new Promise((resolve) => {
@@ -134,29 +135,28 @@ function injectScript(path: string): Promise<void> {
   })
 }
 
-/** vendor 基础脚本幂等注入（只注入一次） */
-let vendorInjected: Promise<void> | null = null
-function injectVendorScripts(): Promise<void> {
-  if (!vendorInjected) {
-    vendorInjected = (async () => {
-      await injectScript('vendor/next-sdk.js')
-      await injectScript('vendor/init-webmcp.js')
-    })()
+/**
+ * 注入 vendor/runtime.js 到页面 MAIN world。
+ * runtime.js 内部会自动调用 registerPageAgentTool()，完成工具注册。
+ * 幂等：只注入一次（registerPageAgentTool/initializeBuiltinWebMCP 内部有守卫）。
+ */
+let runtimeInjected: Promise<void> | null = null
+async function injectRuntimeAndRegister(tabId: number): Promise<void> {
+  if (!runtimeInjected) {
+    runtimeInjected = injectScript('vendor/runtime.js')
   }
-  return vendorInjected
+  await runtimeInjected
+  browser.runtime.sendMessage({ type: 'page-tools-updated', tabId }).catch(() => {})
 }
 
 /**
- * 为有 mcp-servers 配置的域名注入 WebMCP 专属工具脚本（MAIN world）。
- * page-agent-tool 已作为 sidepanel 内置工具注册，此函数只处理域名专属工具。
+ * 为有 mcp-servers 配置的域名额外注入 WebMCP 专属工具脚本（MAIN world）。
+ * vendor/runtime.js 已由 injectRuntimeAndRegister 注入，此函数只追加域名工具。
  */
 async function injectMcpServerTools(hostname: string, tabId: number): Promise<void> {
   try {
-    await injectVendorScripts()
     await injectScript(`mcp-servers/${hostname}/index.js`)
-
     console.log(`[next-wxt] 已为 ${hostname} 注入 WebMCP 工具`)
-
     browser.runtime.sendMessage({ type: 'page-tools-updated', tabId }).catch(() => {})
   } catch (error) {
     console.warn(`[next-wxt] 注入 mcp-servers 工具失败 (${hostname}):`, error)
