@@ -5,7 +5,7 @@
  */
 
 import { computeAccessibleName } from 'dom-accessibility-api'
-import { isFocusable } from 'tabbable'
+import { isFocusable, isTabbable } from 'tabbable'
 import type { VNode, RefMap, A11yTreeOptions } from './types'
 import { isHidden, inferRole, getStateTokens, collectDescendantText, getComposedChildren } from './utils'
 
@@ -29,6 +29,8 @@ export function buildVNode(
   exposedAttributes?: string[],
   errorSelectors?: string | string[],
   warningSelectors?: string | string[],
+  /** 祖先节点是否已是可交互节点（已分配 ref）。为 true 时，纯 CSS 继承的 cursor=pointer 不再额外分配 ref */
+  ancestorIsInteractive = false,
 ): VNode | null {
   if (isHidden(el) || blacklistSet.has(el)) return null
 
@@ -36,7 +38,7 @@ export function buildVNode(
   const tokens = getStateTokens(el, exposedAttributes, errorSelectors, warningSelectors)
   
   let name = computeAccessibleName(el as HTMLElement)
-  const isTrulyInteractive = isFocusable(el as HTMLElement)
+  const isTrulyInteractive = isTabbable(el as HTMLElement)
   const isVisuallyClickable = tokens.includes('cursor=pointer')
   // 包含白名单属性的节点也视为白名单节点（确保不被剪枝并分配 ref 操作索引）
   const isWhitelisted = whitelistSet.has(el) || (exposedAttributes?.some(attr => el.hasAttribute(attr)) ?? false)
@@ -73,8 +75,26 @@ export function buildVNode(
   }
 
   // generic 无 name 时，即使有 cursor=pointer 也不分配 ref：
-  // cursor 通常是 CSS 继承传播的，这类 div 本身无法被有意义地操作
-  const interactive = isTrulyInteractive || isWhitelisted || isLabelFor || (isVisuallyClickable && (role !== 'generic' || name !== ''))
+  // cursor 通常是 CSS 继承传播的，这类 div 本身无法被有意义地操作。
+  // 此外，当祖先节点已是可交互节点时，子节点仅凭 isVisuallyClickable（CSS 继承）
+  // 不再额外分配 ref，避免父节点 cursor:pointer 传染给所有子孙导致高亮泛滥。
+  //
+  // 例外：<a>/<button>/<input> 等语义性交互标签，无论祖先是否已有 ref，
+  // 始终强制分配 ref，因为它们在 HTML 语义上就是独立的操作单元。
+  const isSemanticInteractiveTag = ['a', 'button', 'input', 'select', 'textarea'].includes(
+    el.tagName.toLowerCase()
+  )
+
+  // 虽然有些元素有 tabindex="0" (isTrulyInteractive)，但如果它是 generic 且没有 cursor:pointer，
+  // 往往是开发者加的结构化 focus 容器（如 tp-card），而非真正的可交互按钮，我们在此过滤掉它们。
+  const isMeaningfullyInteractive = isTrulyInteractive && !(role === 'generic' && !isVisuallyClickable)
+
+  const interactive =
+    isMeaningfullyInteractive ||
+    isWhitelisted ||
+    isLabelFor ||
+    isSemanticInteractiveTag ||
+    (!ancestorIsInteractive && isVisuallyClickable && (role !== 'generic' || name !== ''))
 
   let ref: number | undefined
   if (interactive) {
@@ -85,7 +105,18 @@ export function buildVNode(
 
   const children: VNode[] = []
   for (const child of getComposedChildren(el)) {
-    const childVNode = buildVNode(child, refCounter, refMap, blacklistSet, whitelistSet, exposedAttributes, errorSelectors, warningSelectors)
+    const childVNode = buildVNode(
+      child,
+      refCounter,
+      refMap,
+      blacklistSet,
+      whitelistSet,
+      exposedAttributes,
+      errorSelectors,
+      warningSelectors,
+      // 将当前节点的交互性向下传递，子节点据此决定是否抑制 cursor=pointer
+      interactive || ancestorIsInteractive,
+    )
     if (childVNode) children.push(childVNode)
   }
 
@@ -99,6 +130,29 @@ export function buildVNode(
 export function hasValue(vnode: VNode): boolean {
   if (vnode.ref !== undefined || vnode.name.trim() !== '') return true
   return vnode.children.some(hasValue)
+}
+
+/**
+ * 检查节点子树中是否存在任何有 ref 的可交互子节点。
+ * 用于判断父节点是否可以安全省略其子节点输出。
+ */
+function hasInteractiveDescendant(vnode: VNode): boolean {
+  return vnode.children.some(c => c.ref !== undefined || hasInteractiveDescendant(c))
+}
+
+/**
+ * 找到子树中恰好唯一一个有 ref 的节点，若有多个则返回 null。
+ * 用于判断是否可将该子节点与父节点合并输出。
+ */
+function findSingleRefDescendant(vnode: VNode): VNode | null {
+  const refs: VNode[] = []
+  const collect = (v: VNode) => {
+    if (v.ref !== undefined) refs.push(v)
+    if (refs.length > 1) return  // 超过一个就提前退出
+    v.children.forEach(collect)
+  }
+  vnode.children.forEach(collect)
+  return refs.length === 1 ? refs[0] : null
 }
 
 /**
@@ -132,7 +186,7 @@ export function serializeVNode(
 ): string[] {
   if (shouldPassThrough(vnode, opts)) {
     // 透明穿透：跳过本节点，子节点保持当前 depth（层级不增加）
-    // 同时过滤掉整棵子树都无价值的空容器，避免输出无意义的嵌套
+    // 同时过滤掉整棵子树都无价値的空容器，避免输出无意义的嵌套
     return vnode.children
       .filter(c => hasValue(c))
       .flatMap(c => serializeVNode(c, depth, opts))
@@ -142,6 +196,29 @@ export function serializeVNode(
   const refStr = vnode.ref !== undefined ? ` #${vnode.ref}` : ''
   const safeTokens = vnode.tokens.map(t => t.replace(/[\r\n]+/g, ' ').replace(/"/g, '\\"'))
   const tokenStr = safeTokens.length > 0 ? ` [${safeTokens.join(' ')}]` : ''
+
+  if (vnode.ref !== undefined) {
+    if (!hasInteractiveDescendant(vnode)) {
+      // 子树无任何 ref 节点 → 直接省略子节点
+      // 父节点的 name 已由 computeAccessibleName 汇总了子树文本，信息不会丢失
+      const safeName = vnode.name ? vnode.name.replace(/[\r\n]+/g, ' ').replace(/"/g, '\\"') : ''
+      const nameStr = safeName ? ` "${safeName}"` : ''
+      return [`${indent}- ${vnode.role}${refStr}${tokenStr}${nameStr}`]
+    }
+
+    // 子树中唯一一个 ref 节点且是无子 ref 的 generic 时，将其 name 提升到父节点，省略子节点输出。
+    // 场景：`listitem #22 [active]` 内部只有 `generic #23 "总览"`，
+    //       点击意义相同时，就展示为一行 `- listitem #22 [active] "总览"`。
+    const singleChild = findSingleRefDescendant(vnode)
+    if (singleChild && singleChild.role === 'generic' && !hasInteractiveDescendant(singleChild)) {
+      const mergedName = (vnode.name.trim() || singleChild.name.trim())
+        .replace(/[\r\n]+/g, ' ')
+        .replace(/"/g, '\\"')
+      const nameStr = mergedName ? ` "${mergedName}"` : ''
+      return [`${indent}- ${vnode.role}${refStr}${tokenStr}${nameStr}`]
+    }
+  }
+
   const safeName = vnode.name ? vnode.name.replace(/[\r\n]+/g, ' ').replace(/"/g, '\\"') : ''
   const nameStr = safeName ? ` "${safeName}"` : ''
   const line = `${indent}- ${vnode.role}${refStr}${tokenStr}${nameStr}`
