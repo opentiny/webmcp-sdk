@@ -304,7 +304,7 @@ const show = ref(true)
 
 const mcpServers = {
   'builtin-webmcp': {
-    type: 'builtin' as const,s
+    type: 'builtin' as const,
     client: document.modelContext
   }
 }
