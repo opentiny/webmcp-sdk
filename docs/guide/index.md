@@ -22,16 +22,21 @@ npm i @opentiny/next-sdk
 
 **第二步：初始化浏览器内置 WebMCP（Polyfill）**
 
-在 Web 应用的主入口（比如：Vue 项目的 `main.ts` 或 `App.vue` 文件）调用 `initializeBuiltinWebMCP`。这会为不支持 WebMCP 的低版本浏览器注入 `document.modelContext` 实现。
+在 Web 应用的主入口调用 `initializeBuiltinWebMCP`。这会为不支持 WebMCP 的浏览器注入 `document.modelContext` 实现。
+
+> **提示：** 本文档的代码示例均以 **Vue** 技术栈为例。如果你使用的是 Angular 或 React 等其他前端框架，核心逻辑是完全相同的，只需参考对应框架的最佳实践，在应用全局入口和组件生命周期中执行相应的代码即可。
+
+对于 Vue 项目，我们推荐直接在 `main.ts` 中进行全局初始化：
 
 ```typescript
-import { onMounted } from 'vue'
+import { createApp } from 'vue'
+import App from './App.vue'
 import { initializeBuiltinWebMCP } from '@opentiny/next-sdk'
 
-onMounted(() => {
-  // 激活浏览器内置 WebMCP 服务 (含低版本浏览器 Polyfill)
-  initializeBuiltinWebMCP()
-})
+// 激活浏览器内置 WebMCP 服务 (抹平浏览器兼容性)
+initializeBuiltinWebMCP()
+
+createApp(App).mount('#app')
 ```
 
 **第三步：在页面中按需注册工具**
@@ -99,7 +104,9 @@ const show = ref(true)
 const mcpServers = {
   'builtin-webmcp': {
     type: 'builtin' as const,
-    client: document.modelContext
+    client: document.modelContext,
+    name: '浏览器内置工具',
+    description: '通过 document.modelContext 暴露的浏览器原生 MCP 工具'
   }
 }
 </script>
@@ -111,5 +118,45 @@ const mcpServers = {
 
 这时你的前端应用右下角会出现一个遥控器入口，你可以将鼠标悬浮到这个图标上，弹出 AI 对话框并要求 AI 调用刚才注册的 `demo_tool` 工具。
 
-> **底层进阶方案：**  
-> 早期版本中，我们介绍过通过手动实例化 `WebMcpServer` 和 `WebMcpClient` 并结合 `createMessageChannelPairTransport` 建立通信层的方法。这种方式依然可用，但现在更推荐上述原生接入方式。关于手动构建通信层的方法，您可以参考相关的 API 手册。
+### 进阶：连接第三方 Agent (可选)
+
+通过 `@opentiny/next-sdk` 提供的 `WebMcpClient`，你可以将前端工具暴露给第三方代理（如 Coze、Cursor、Codex 等）。这需要连接到 `web-agent` 后台代理服务。
+
+```typescript
+import { WebMcpClient } from '@opentiny/next-sdk'
+
+const client = new WebMcpClient()
+
+// 连接 web-agent 后台代理
+const { sessionId, transport } = await client.connect({
+  sessionId: localStorage.getItem('web-agent-session-id') ?? undefined,
+  agent: true,
+  builtin: true,
+  url: 'http://localhost:3000/api/v1/webmcp/mcp'
+})
+
+// 持久化 session，以便刷新页面后复用
+if (sessionId) {
+  localStorage.setItem('web-agent-session-id', sessionId)
+}
+```
+
+#### 第三方 Agent 接入指南
+
+对于第三方 Agent（如 Coze、Cursor 等大模型开发平台或编辑器），接入 `web-agent` 暴露出来的 MCP Server 接口与接入普通的后端 MCP Server 完全一样（例如使用标准的 SSE Transport）。
+
+唯一的区别在于：由于后台代理需要知道把工具调用请求路由给哪一个具体的浏览器前端实例，**第三方 Agent 在连接 MCP 服务地址时，必须在 URL 或参数中附带上述代码获取到的 `sessionId`**。
+
+例如，在 Cursor 或 Coze 等平台配置 MCP 服务（SSE 类型）时，你可以将连接的 URL 配置为类似如下格式：
+```text
+http://localhost:3000/api/v1/webmcp/mcp?sessionId=YOUR_SESSION_ID
+```
+通过附带这个 `sessionId`，第三方 Agent 就可以精准地与你当前正在操作的特定前端页面进行交互，并双向调用页面上注册的工具了。
+
+关于如何启动和部署 `web-agent` 后台代理服务，请参考官方仓库：[https://github.com/opentiny/web-agent](https://github.com/opentiny/web-agent)。
+
+#### 另一种接入方式：使用 webmcp-cli
+
+除了通过远端的 `web-agent` 代理服务外，第三方 Agent 还可以通过 `webmcp-cli` 来接入和调用网页中的 WebMCP 工具。
+
+`webmcp-cli` 作为一个可以在本地运行的命令行 MCP Server，无需额外部署后台网络服务。它非常适合本地开发调试阶段，或者配合运行在本地桌面端的大模型工具（如 Cursor 或本地的 Claude Desktop 等）快速与当前浏览器页面建立通信链路。有关 `webmcp-cli` 的详细使用与安装方法，请参考本项目的相关 CLI 文档。
