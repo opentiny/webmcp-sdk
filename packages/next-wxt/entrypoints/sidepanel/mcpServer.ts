@@ -13,7 +13,7 @@ export const setupLocalTools = () => {
     return
   }
 
-  // 1. 注册插件内置辅助工具（tabs-manager, accessibility, visual 等）
+  // 1. 注册插件内置辅助工具（tabs-manager、page-agent-tool 等）
   useExtraTools(nativeCtx)
 
   // 2. 记录已注册的页面代理工具，防止重复注册

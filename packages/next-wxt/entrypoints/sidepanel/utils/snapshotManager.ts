@@ -1,7 +1,8 @@
 import { connect, ExtensionTransport } from 'puppeteer-core/lib/esm/puppeteer/puppeteer-core-browser.js'
 import type { Page, ElementHandle } from 'puppeteer-core'
-import { delay } from './utils'
+import { delay, getCurrentTabId } from './utils'
 import { highlightNodeByUid } from './snapshotOperations'
+import { snapshotManagerPool } from './snapshotManagerPool'
 
 /**
  * 无障碍树节点类型（SerializedAXNode）
@@ -242,4 +243,23 @@ export class SnapshotManager {
       }
     }
   }
+}
+
+/**
+ * 获取快照管理器
+ */
+export async function getSnapshotManager(tabId?: number): Promise<{
+  manager: SnapshotManager
+  currentTabId: number
+}> {
+  const currentTabId = tabId || (await getCurrentTabId())
+  const manager = await snapshotManagerPool.getManager(currentTabId)
+  return { manager, currentTabId }
+}
+
+/**
+ * 释放快照管理器
+ */
+export async function releaseSnapshotManager(tabId: number): Promise<void> {
+  await snapshotManagerPool.releaseManager(tabId)
 }

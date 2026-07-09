@@ -27,8 +27,8 @@ export function buildVNode(
   blacklistSet: Set<Element>,
   whitelistSet: Set<Element>,
   exposedAttributes?: string[],
-  errorSelectors?: string,
-  warningSelectors?: string,
+  errorSelectors?: string | string[],
+  warningSelectors?: string | string[],
 ): VNode | null {
   if (isHidden(el) || blacklistSet.has(el)) return null
 

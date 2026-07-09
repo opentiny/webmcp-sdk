@@ -31,8 +31,8 @@ export function inferRole(el: Element): string {
 export function getStateTokens(
   el: Element,
   exposedAttributes?: string[],
-  errorSelectors?: string,
-  warningSelectors?: string,
+  errorSelectors?: string | string[],
+  warningSelectors?: string | string[],
 ): string[] {
   const tokens: string[] = []
   const aria = (k: string) => el.getAttribute(k)
@@ -130,8 +130,12 @@ export function getStateTokens(
   // 检测校验错误/警告状态（ARIA 标准 + 主流 UI 框架，可配置）
   // 输出 [error] / [warning] token，让 AI 能区分校验错误与普通说明文字
   // 使用 closest() 向上查找，确保嵌套在错误容器内的子元素也能获得 error 语义
-  const errorSelector = errorSelectors || DEFAULT_ERROR_SELECTORS.join(', ')
-  const warningSelector = warningSelectors || DEFAULT_WARNING_SELECTORS.join(', ')
+  const errorSelector = Array.isArray(errorSelectors)
+    ? errorSelectors.join(', ')
+    : (errorSelectors || DEFAULT_ERROR_SELECTORS.join(', '))
+  const warningSelector = Array.isArray(warningSelectors)
+    ? warningSelectors.join(', ')
+    : (warningSelectors || DEFAULT_WARNING_SELECTORS.join(', '))
   let errorAncestor = null
   if (errorSelector) {
     try {
