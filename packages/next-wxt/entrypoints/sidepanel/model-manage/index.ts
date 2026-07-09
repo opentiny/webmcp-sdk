@@ -12,7 +12,7 @@ import type { Component } from 'vue'
 import { markRaw } from 'vue'
 
 import { AGENT_ROOT } from '../const'
-export const DEFAULT_WEB_AGENT_URL = (AGENT_ROOT || 'https://agent.opentiny.design/api/v1/webmcp-trial').replace(/\/$/, '')
+export const DEFAULT_WEB_AGENT_URL = (AGENT_ROOT || 'http://127.0.0.1:3000/api/v1/webmcp').replace(/\/$/, '')
 
 import IconModelDeepseek from '../icons/icon-model-deepseek.svg'
 import IconModelAliyunBailian from '../icons/icon-model-aliyun-bailian.svg'

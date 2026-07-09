@@ -137,8 +137,8 @@ export default defineBackground(() => {
 
   onRuntimeMessage('active-pre-tab', async () => tabHistory.activePreTab(), 'side->bg')
 
-  // 点击扩展图标显示 Popup
+  // 点击扩展图标显示右侧面板 (SidePanel)
   if ((browser.sidePanel as any).setPanelBehavior) {
-    ;(browser.sidePanel as any).setPanelBehavior({ openPanelOnActionClick: false }).catch(() => {})
+    ;(browser.sidePanel as any).setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {})
   }
 })
