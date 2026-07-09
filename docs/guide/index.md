@@ -78,9 +78,7 @@ onUnmounted(() => {
 })
 ```
 
-完成以上步骤，你的前端应用就变成了一个智能应用，你可以[通过各类 MCP Host 操控智能应用](mcp-host)。
-
-我们还提供了一个网页版本的 AI 对话框，它就像一个遥控器，你可以通过这个遥控器直接在页面上与你的前端应用交互。
+完成以上步骤，你的前端应用就变成了一个智能应用，我们提供了一个网页版本的 AI 对话框，它就像一个遥控器，你可以通过这个遥控器直接在页面上与你的前端应用交互。
 
 **第四步：引入并使用遥控器**
 
@@ -148,9 +146,11 @@ if (sessionId) {
 唯一的区别在于：由于后台代理需要知道把工具调用请求路由给哪一个具体的浏览器前端实例，**第三方 Agent 在连接 MCP 服务地址时，必须在 URL 或参数中附带上述代码获取到的 `sessionId`**。
 
 例如，在 Cursor 或 Coze 等平台配置 MCP 服务（SSE 类型）时，你可以将连接的 URL 配置为类似如下格式：
+
 ```text
 http://localhost:3000/api/v1/webmcp/mcp?sessionId=YOUR_SESSION_ID
 ```
+
 通过附带这个 `sessionId`，第三方 Agent 就可以精准地与你当前正在操作的特定前端页面进行交互，并双向调用页面上注册的工具了。
 
 关于如何启动和部署 `web-agent` 后台代理服务，请参考官方仓库：[https://github.com/opentiny/web-agent](https://github.com/opentiny/web-agent)。
