@@ -1,25 +1,16 @@
 /**
  * zhuanlan.zhihu.com 工具适配层（知乎专栏文章编辑器）
+ *
+ * create_article 的正文填写由 CLI Node 端（src/zhihu/create-article.ts）完成，
+ * 浏览器内仅注册工具元数据供发现，以及 get_article_info / publish_current_draft 的执行逻辑。
  */
-
-type ToolResult = {
-  success: true
-  message: string
-  title: string
-  contentLength: number
-}
 
 /** 知乎专栏编辑器：新建 / 编辑草稿 */
 function isZhihuWritePage(): boolean {
   return /^https:\/\/zhuanlan\.zhihu\.com\/(write|p\/\d+\/edit)/.test(location.href)
 }
 
-/** Base64 解码（兼容中文） */
-function decodeBase64Content(content: string): string {
-  return decodeURIComponent(escape(atob(content)))
-}
-
-/** 触发 React/Vue 双向绑定的 input 赋值 */
+/** 触发 React 双向绑定的 input 赋值 */
 function setNativeInputValue(input: HTMLInputElement | HTMLTextAreaElement, value: string): void {
   const setter = Object.getOwnPropertyDescriptor(
     input instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
@@ -42,10 +33,13 @@ function findTitleInput(): HTMLTextAreaElement | HTMLInputElement | null {
   )
 }
 
-/** 查找正文 Draft.js / ProseMirror 编辑器 */
+/** 查找正文 Draft.js 编辑器 */
 function findContentEditor(): HTMLElement | null {
+  const draftEditor = document.querySelector('.public-DraftEditor-content') as HTMLElement | null
+  if (draftEditor) return draftEditor
+
   const candidates = Array.from(
-    document.querySelectorAll('.ProseMirror, [contenteditable="true"], [contenteditable]')
+    document.querySelectorAll('[contenteditable="true"], [contenteditable]')
   ) as HTMLElement[]
 
   const visible = candidates.filter(el => {
@@ -54,35 +48,6 @@ function findContentEditor(): HTMLElement | null {
   })
 
   return visible[0] || candidates[0] || null
-}
-
-/** 通过 ClipboardEvent 向 Draft.js 编辑器批量粘贴正文 */
-function pasteTextToEditor(editor: HTMLElement, text: string): boolean {
-  editor.focus()
-
-  try {
-    const dt = new DataTransfer()
-    dt.setData('text/plain', text)
-    const pasted = editor.dispatchEvent(
-      new ClipboardEvent('paste', { clipboardData: dt, bubbles: true, cancelable: true })
-    )
-    if (pasted) return true
-  } catch {
-    // 部分浏览器不支持构造 ClipboardEvent，走降级方案
-  }
-
-  try {
-    const selection = window.getSelection()
-    if (selection) {
-      const range = document.createRange()
-      range.selectNodeContents(editor)
-      selection.removeAllRanges()
-      selection.addRange(range)
-    }
-    return document.execCommand('insertText', false, text)
-  } catch {
-    return false
-  }
 }
 
 function getEditorText(editor: HTMLElement): string {
@@ -146,7 +111,8 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
     mcp.registerTool({
       name: 'create_article',
       title: '填写知乎专栏文章',
-      description: '接收文章的标题和正文，将它们填写到知乎专栏编辑器中。',
+      description:
+        '接收文章的标题和 Markdown 正文，填写到知乎专栏编辑器。正文 Markdown 转 HTML 粘贴由 webmcp-cli CLI 在 Node 端完成，请通过 webmcp-cli run create_article 调用。',
       inputSchema: {
         type: 'object',
         properties: {
@@ -156,80 +122,15 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
           },
           content: {
             type: 'string',
-            description: '文章内容的 base64 编码后的字符串，必填。支持 Markdown 纯文本，将通过粘贴方式填入 Draft.js 编辑器。'
+            description: '文章 Markdown 正文的 Base64 编码字符串，必填。CLI 会自动转换为 HTML 后粘贴到 Draft.js 编辑器。'
           }
         },
         required: ['title', 'content']
       },
-      execute: async ({ title, content }: { title: string; content: string }) => {
-        if (!title?.trim()) {
-          throw new Error('参数 title 不能为空')
-        }
-        if (!content?.trim()) {
-          throw new Error('参数 content 不能为空')
-        }
-
-        if (!isZhihuWritePage()) {
-          throw new Error(
-            '当前页面不是知乎专栏编辑器，请先打开 https://zhuanlan.zhihu.com/write'
-          )
-        }
-
-        let decodeContent: string
-        try {
-          decodeContent = decodeBase64Content(content)
-        } catch {
-          throw new Error('content 不是有效的 Base64 编码，请检查参数或使用 @base64file: 引用文件')
-        }
-
-        const titleInput = findTitleInput()
-        if (!titleInput) {
-          throw new Error('未找到标题输入框，请确认编辑器页面已完全加载')
-        }
-
-        titleInput.focus()
-        setNativeInputValue(titleInput, title)
-        titleInput.blur()
-
-        if (titleInput.value.trim() !== title.trim()) {
-          throw new Error('标题填写失败，请刷新页面后重试')
-        }
-
-        await delay(500)
-
-        const editor = findContentEditor()
-        if (!editor) {
-          throw new Error('未找到正文编辑器（Draft.js），请确认编辑器页面已完全加载')
-        }
-
-        editor.click()
-        await delay(300)
-
-        const pasted = pasteTextToEditor(editor, decodeContent)
-        if (!pasted) {
-          throw new Error('正文填写失败（Draft.js 粘贴未生效），请刷新页面后重试')
-        }
-
-        await delay(500)
-
-        const written = getEditorText(editor)
-        if (!written && decodeContent.trim()) {
-          throw new Error('正文填写失败，编辑器内容为空，请刷新页面后重试')
-        }
-
-        const result: ToolResult = {
-          success: true,
-          message: '文章标题和正文已成功填写到知乎专栏编辑器，草稿将自动保存',
-          title: title.trim(),
-          contentLength: decodeContent.length
-        }
-
-        return {
-          content: [{
-            type: 'text',
-            text: JSON.stringify(result)
-          }]
-        }
+      execute: async () => {
+        throw new Error(
+          'create_article 正文填写由 webmcp-cli CLI 在 Node 端执行（Markdown 转 HTML + 系统剪贴板粘贴），请使用 webmcp-cli run create_article 命令'
+        )
       }
     })
 
@@ -299,7 +200,6 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
         const allTopics = [topic.trim(), ...topics.map(t => t.trim()).filter(Boolean)]
         const uniqueTopics = [...new Set(allTopics)].slice(0, 3)
 
-        // 1. 点击顶部「发布」或「发布设置」打开发布面板
         const headerButtons = Array.from(document.querySelectorAll('button')) as HTMLButtonElement[]
         let publishEntryBtn =
           headerButtons.find(btn => btn.textContent?.trim() === '发布' && btn.offsetParent !== null) ||
@@ -318,14 +218,12 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
         const dialogScope =
           document.querySelector('.PublishPanel, .Modal, [role="dialog"], .WriteIndex-main') || document
 
-        // 2. 依次添加话题
         for (const t of uniqueTopics) {
           await addTopic(t, dialogScope)
         }
 
         await delay(500)
 
-        // 3. 点击确认发布（面板内的「发布」按钮，优先匹配 PublishPanel-submitButton）
         let confirmBtn =
           (dialogScope.querySelector('.PublishPanel-submitButton') as HTMLButtonElement | null) ||
           Array.from(dialogScope.querySelectorAll('button')).find(

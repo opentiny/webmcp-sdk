@@ -13,7 +13,7 @@
 
 | 工具名 | 描述 | 参数 |
 |--------|------|------|
-| `create_article` | 填写文章标题和正文 | `title`（标题字符串）、`content`（正文的 **Base64** 编码） |
+c| `create_article` | 填写文章标题和 Markdown 正文（CLI Node 端自动转 HTML 粘贴） | `title`（标题字符串）、`content`（正文的 **Base64** 编码） |
 | `get_article_info` | 在编辑器中获取当前草稿的标题和正文 | 无 |
 | `publish_current_draft` | 在编辑器中自动添加话题并发布文章 | `topic`（主话题，必填）、`topics`（可选，额外话题数组，最多共 3 个） |
 
@@ -43,6 +43,9 @@ webmcp-cli state
 
 ### 第二步：填写标题和正文
 
+> [!NOTE]
+> `create_article` 会自动将 Markdown 正文转换为 HTML，并通过系统剪贴板粘贴到知乎 Draft.js 编辑器，正确渲染标题、加粗、列表、代码块、表格、引用等格式。正文首个 `# 标题` 会自动移除（标题请通过 `title` 参数传入）。
+
 将文章内容写入 `.md` 文件后，通过 `@base64file:` 内联引用传入。**请使用上一步返回的 tabid**：
 
 ```bash
@@ -53,7 +56,7 @@ webmcp-cli run create_article -t TAB_ID '{"title":"你的文章标题","content"
 > [!WARNING]
 > - `title` 不能含有特殊引号等字符，否则 CLI 的 JSON 解析会失败
 > - `@base64file:` 占位符会被 CLI 自动展开为 Base64 编码内容，无需手动处理
-> - 知乎编辑器使用 Draft.js 富文本，正文通过 **剪贴板粘贴** 方式批量填入，支持 Markdown 纯文本
+> - 知乎编辑器使用 Draft.js 富文本，CLI 在 Node 端将 Markdown 转为 HTML，经系统剪贴板粘贴填入
 
 如果需要传 JSON 文件（高级用法）：
 
@@ -94,7 +97,7 @@ webmcp-cli run publish_current_draft -t TAB_ID '{"topic":"前端","topics":["Vue
 | 对比项 | 掘金 | 知乎 |
 |--------|------|------|
 | 编辑器 | CodeMirror (Markdown) | Draft.js (富文本) |
-| 正文填入 | `setValue` / `dispatch` | ClipboardEvent 粘贴 |
+| 正文填入 | `setValue` / `dispatch` | CLI Node 端 Markdown→HTML，临时页面 + 系统剪贴板粘贴 |
 | 发布元数据 | 分类 + 标签 + 摘要（50~100 字） | 话题（1~3 个） |
 | 编辑器 URL | `juejin.cn/editor/drafts/new` | `zhuanlan.zhihu.com/write` |
 

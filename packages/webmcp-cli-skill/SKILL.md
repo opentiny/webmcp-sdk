@@ -317,7 +317,7 @@ webmcp-cli run excalidraw_execute_command '{"eventName": "getSceneElements"}'
 # 在掘金上发布新文章的工具
 webmcp-cli run create_article '{"title": "文章标题", "content": "文章的正文的base64编码"}'
 
-# 在知乎专栏上填写新文章
+# 在知乎专栏上填写新文章（CLI Node 端自动将 Markdown 转为 HTML 粘贴）
 webmcp-cli run create_article '{"title": "文章标题", "content": "文章的正文的base64编码"}'
 
 # 在 CSDN 上填写新文章（需先关闭模版库弹窗，见 publish-article-in-csdn.md）
