@@ -191,7 +191,6 @@ server.registerTool(
   <TinyRemoter
     ref="myRemoter"
     v-model:show="show"
-    sessionId="your-session-id"
     title="我的AI助手"
     systemPrompt="你是一个智能助手"
     :llmConfig="llmConfig"

@@ -4,28 +4,28 @@ outline: [2, 3]
 
 # 自定义LLM
 
-TinyRemoter 组件支持自定义大模型接口和自定义 WebAgent 代理服务，让你可以灵活配置使用自己的 LLM 服务和代理服务。
+TinyRemoter 组件必须传入有效的大模型接口，才能正确进行大模型问答。在选择大模型时，要使用兼容 `Chat API`协议的模型。本组件在内部依赖`ai-sdk`库来兼容不同大模型的接口协议，在`ai-sdk V5`版本之后 ， `openai provider`默认使用 `Response API`协议 ，需要切换为`Chat API`协议，详见
 
 ## 自定义大模型接口
 
-通过 `llmConfig` 属性，你可以配置自定义的大模型接口。TinyRemoter 支持两种配置方式：
+通过 `llmConfig` 属性，你可以配置自定义的大模型接口。
 
-### 方式一：使用 Provider 工厂配置
+### 方式一：显式的设置LLM接口
 
 通过 `apiKey`、`baseURL` 和 `providerType` 配置大模型：
 
 ```vue
 <template>
-  <TinyRemoter v-model:show="show" sessionId="your-session-id" title="我的AI助手" :llmConfig="llmConfig" />
+  <TinyRemoter v-model:show="show" title="我的AI助手" :llmConfig="llmConfig" />
 </template>
 
 <script setup>
 import { ref } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
+import '@opentiny/next-remoter/dist/style.css'
 
 const show = ref(false)
 
-// 使用 Provider 工厂配置
 const llmConfig = {
   apiKey: '',
   baseURL: 'https://api.custom-llm.com/v1',
@@ -42,12 +42,13 @@ const llmConfig = {
 
 ```vue
 <template>
-  <TinyRemoter v-model:show="show" sessionId="your-session-id" title="我的AI助手" :llmConfig="llmConfig" />
+  <TinyRemoter v-model:show="show" title="我的AI助手" :llmConfig="llmConfig" />
 </template>
 
 <script setup>
 import { ref } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
+import '@opentiny/next-remoter/dist/style.css'
 import { createOpenAI } from '@ai-sdk/openai'
 
 const show = ref(false)
@@ -55,13 +56,8 @@ const show = ref(false)
 // 使用 Provider 实例配置
 const llmConfig = {
   llm: createOpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-    baseURL: 'https://api.openai.com/v1',
-    fetch: (...args) => {
-      // 可以自定义请求拦截器，修改请求地址或添加参数
-      args[0] = args[0] + '?custom=param'
-      return fetch(...args)
-    }
+    apiKey: '',
+    baseURL: 'https://api.openai.com/v1'
   }),
   model: 'gpt-4o',
   maxSteps: 10
@@ -69,18 +65,19 @@ const llmConfig = {
 </script>
 ```
 
-### 使用自定义 Provider 函数
+### 方式三：使用自定义 Provider 函数
 
 如果你需要使用自定义的 Provider 函数，可以这样配置：
 
 ```vue
 <template>
-  <TinyRemoter v-model:show="show" sessionId="your-session-id" title="我的AI助手" :llmConfig="customConfig" />
+  <TinyRemoter v-model:show="show" title="我的AI助手" :llmConfig="customConfig" />
 </template>
 
 <script setup>
 import { ref } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
+import '@opentiny/next-remoter/dist/style.css'
 import { createCustomProvider } from '@ai-sdk/custom'
 
 const show = ref(false)
@@ -96,7 +93,7 @@ const customConfig = {
 </script>
 ```
 
-### 自定义请求 Header（headers）
+### 自定义请求 Header
 
 `headers` 字段允许你在每次向 LLM 发起请求时，携带自定义的 HTTP 请求头。常见用途包括：
 
@@ -110,18 +107,13 @@ const customConfig = {
 
 ```vue
 <template>
-  <TinyRemoter
-    v-model:show="show"
-    sessionId="your-session-id"
-    title="我的AI助手"
-    systemPrompt="你是一个智能助手"
-    :llmConfig="llmConfig"
-  />
+  <TinyRemoter v-model:show="show" title="我的AI助手" systemPrompt="你是一个智能助手" :llmConfig="llmConfig" />
 </template>
 
 <script setup>
 import { ref } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
+import '@opentiny/next-remoter/dist/style.css'
 
 const show = ref(false)
 
@@ -158,6 +150,7 @@ const llmConfig = {
 <script setup>
 import { ref } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
+import '@opentiny/next-remoter/dist/style.css'
 
 const show = ref(false)
 const selectedModelId = ref('gpt-4o')
@@ -196,160 +189,11 @@ const modelConfigs = [
 </script>
 ```
 
-## 自定义 WebAgent 代理服务
+## 自定义大模型选择列表
 
-通过 `agentRoot` 属性，你可以配置自定义的 WebAgent 代理服务地址。这对于私有化部署或使用自建代理服务非常有用。
+通过属性 `llmConfigs` 可以提前定义一组大模型接口，这组大模型会显示在输入框的底下供用户切换使用。同时设置`llmConfig` 和 `llmConfigs`时， `llmConfig`配置的大模型优先生效，然后在用户手动切换后，再使用用户选择的大模型。不建议同时配置这2个属性。
 
-### 基本配置
-
-```vue
-<template>
-  <TinyRemoter
-    v-model:show="show"
-    sessionId="your-session-id"
-    title="我的AI助手"
-    agentRoot="https://your-agent-server.com/api/v1/webmcp/"
-  />
-</template>
-
-<script setup>
-import { ref } from 'vue'
-import { TinyRemoter } from '@opentiny/next-remoter'
-
-const show = ref(false)
-</script>
-```
-
-### 本地开发环境配置
-
-在本地开发时，可以配置本地代理服务地址：
-
-```vue
-<template>
-  <TinyRemoter
-    v-model:show="show"
-    sessionId="your-session-id"
-    title="我的AI助手"
-    agentRoot="http://localhost:3000/api/v1/webmcp/"
-  />
-</template>
-```
-
-### 私有化部署配置
-
-如果你已经完成了 WebAgent 的私有化部署，可以配置你的私有化服务地址：
-
-```vue
-<template>
-  <TinyRemoter
-    v-model:show="show"
-    sessionId="your-session-id"
-    title="我的AI助手"
-    agentRoot="https://your-domain.com/api/v1/webmcp/"
-  />
-</template>
-```
-
-### agentRoot 配置说明
-
-- **默认值**：`https://agent.opentiny.design/api/v1/webmcp-trial/`
-- **格式要求**：必须以 `/` 结尾
-- **用途**：用于连接 WebAgent 服务，实现 MCP 工具的调用和会话管理
-
-## 完整示例：同时配置自定义 LLM 和代理服务
-
-以下示例展示了如何同时配置自定义大模型接口和自定义 WebAgent 代理服务：
-
-```vue
-<template>
-  <TinyRemoter
-    v-model:show="show"
-    sessionId="your-session-id"
-    title="我的AI助手"
-    systemPrompt="你是一个智能助手"
-    :llmConfig="llmConfig"
-    agentRoot="https://your-agent-server.com/api/v1/webmcp/"
-  />
-</template>
-
-<script setup>
-import { ref } from 'vue'
-import { TinyRemoter } from '@opentiny/next-remoter'
-import { createOpenAI } from '@ai-sdk/openai'
-
-const show = ref(false)
-
-// 配置自定义大模型
-const llmConfig = {
-  llm: createOpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-    baseURL: 'https://api.openai.com/v1'
-  }),
-  model: 'gpt-4o',
-  maxSteps: 30
-}
-</script>
-```
-
-## 环境变量配置
-
-为了安全地管理敏感信息，建议使用环境变量：
-
-```vue
-<template>
-  <TinyRemoter
-    v-model:show="show"
-    sessionId="your-session-id"
-    title="我的AI助手"
-    :llmConfig="llmConfig"
-    :agentRoot="agentRoot"
-  />
-</template>
-
-<script setup>
-import { ref } from 'vue'
-import { TinyRemoter } from '@opentiny/next-remoter'
-
-const show = ref(false)
-
-// 从环境变量读取配置
-const llmConfig = {
-  apiKey: import.meta.env.VITE_LLM_API_KEY,
-  baseURL: import.meta.env.VITE_LLM_BASE_URL || 'https://api.openai.com/v1',
-  providerType: import.meta.env.VITE_LLM_PROVIDER_TYPE || 'openai',
-  model: import.meta.env.VITE_LLM_MODEL || 'gpt-4o',
-  maxSteps: 10
-}
-
-const agentRoot = import.meta.env.VITE_AGENT_ROOT || 'https://agent.opentiny.design/api/v1/webmcp-trial/'
-</script>
-```
-
-在 `.env` 文件中配置：
-
-```env
-VITE_LLM_API_KEY=your-api-key
-VITE_LLM_BASE_URL=https://api.openai.com/v1
-VITE_LLM_PROVIDER_TYPE=openai
-VITE_LLM_MODEL=gpt-4o
-VITE_AGENT_ROOT=https://your-agent-server.com/api/v1/webmcp/
-```
-
-## 生成式 UI
-
-若需在输入框旁显示「生成式 UI」开关，请在模型配置中同时提供 `baseURL` 与 `genuiUrl`。开关的显示由当前生效的模型配置决定，与是否在浏览器扩展中运行（`inBrowserExt`）无关。启用后可通过 `v-model:genUiAble` 控制是否渲染生成式 UI 内容。
-
-## 注意事项
-
-1. **优先级**：`llmConfig.llm` 的优先级高于 `llmConfig.providerType`，如果同时配置，将使用 `llm` 配置
-2. **agentRoot 格式**：`agentRoot` 必须以 `/` 结尾，否则可能导致连接失败
-3. **跨域问题**：如果使用自定义代理服务，请确保服务端已配置正确的 CORS 策略
-4. **安全性**：API Key 等敏感信息建议使用环境变量管理，不要直接写在代码中
-
-## 相关文档
-
-- [TinyRemoter for Vue](./tiny-robot-remoter.md) - TinyRemoter 组件完整文档
-- [AgentModelProvider API](./api-agentModelProvider.md) - AgentModelProvider 类详细说明
+`llmConfigs`的数据项的属性额外包含 `id`、`label`、`icon`、`isDefault`、`useReActMode` 字段，用于渲染大模型选择列表。
 
 **模型切换机制说明：**
 
@@ -359,36 +203,104 @@ VITE_AGENT_ROOT=https://your-agent-server.com/api/v1/webmcp/
 2. **更新 LLM 实例**：`updateLLMConfig()` 方法会根据新的模型配置创建新的 Provider 实例，并更新到 `agent.llm`
 3. **支持的条件**：只有当模型配置中包含 `providerType` 时才会自动更新（如果使用 `llm` 实例配置，则不会自动更新）
 
-### 自定义AI, USER的头像
+### 基本设置
 
 ```vue
 <template>
   <TinyRemoter
     v-model:show="show"
-    sessionId="your-session-id"
+    v-model:selected-model-id="selectedModelId"
+    :llmConfigs="modelConfigs"
     title="我的AI助手"
     systemPrompt="你是一个智能助手"
-    :llmConfig="llmConfig"
-    :roleAvatar="roleAvatar"
   />
 </template>
 
 <script setup>
-import { ref, h } from 'vue'
+import { ref } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
-import { createOpenAI } from '@ai-sdk/openai'
+import '@opentiny/next-remoter/dist/style.css'
 
 const show = ref(false)
-const llmConfig = {
-  apiKey: '',
-  baseURL: 'https://api.openai.com/v1',
-  providerType: 'openai',
-  model: 'gpt-4o'
-}
+const selectedModelId = ref('gpt-4o')
 
-const roleAvatar = {
-  user: h('div', { style: { fontSize: '32px' } }, 'U'),
-  assistant: h('img', { src: 'https://play.vuejs.org/logo.svg', width: '32px', height: '32px' })
-}
+const modelConfigs = [
+  {
+    id: 'gpt-4o',
+    label: 'GPT-4o',
+    isDefault: true,
+    apiKey: '',
+    baseURL: 'https://api.openai.com/v1',
+    providerType: 'openai',
+    model: 'gpt-4o',
+    maxSteps: 10
+  },
+  {
+    id: 'deepseek-v3',
+    label: 'DeepSeek V3',
+    apiKey: '',
+    baseURL: 'https://api.deepseek.com',
+    providerType: 'deepseek',
+    model: 'deepseek-chat',
+    maxSteps: 30
+  }
+]
+</script>
+```
+
+### 自定义请求 Header
+
+当使用多模型切换（`llmConfigs`）时，每个模型可以配置各自独立的 `headers`，切换模型时组件会自动同步对应的 Headers：
+
+```vue
+<template>
+  <TinyRemoter
+    v-model:show="show"
+    v-model:selected-model-id="selectedModelId"
+    :llmConfigs="modelConfigs"
+    title="我的AI助手"
+    systemPrompt="你是一个智能助手"
+  />
+</template>
+
+<script setup>
+import { ref } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
+import '@opentiny/next-remoter/dist/style.css'
+
+const show = ref(false)
+const selectedModelId = ref('gpt-4o')
+
+const modelConfigs = [
+  {
+    id: 'gpt-4o',
+    label: 'GPT-4o',
+    isDefault: true,
+    apiKey: '',
+    baseURL: 'https://api.openai.com/v1',
+    providerType: 'openai',
+    model: 'gpt-4o',
+    maxSteps: 10,
+    // 为 GPT-4o 配置专属请求头
+    headers: {
+      'X-Business-Token': 'openai-business-token',
+      'X-User-Id': 'user-123'
+    }
+  },
+  {
+    id: 'deepseek-v3',
+    label: 'DeepSeek V3',
+    apiKey: '',
+    baseURL: 'https://api.deepseek.com',
+    providerType: 'deepseek',
+    model: 'deepseek-chat',
+    maxSteps: 30,
+    // 为 DeepSeek 配置专属请求头
+    headers: {
+      'X-Business-Token': 'deepseek-business-token',
+      'X-Tenant-Id': 'tenant-456'
+    }
+  }
+]
 </script>
 ```

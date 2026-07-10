@@ -301,6 +301,39 @@ button:hover {
 - **`relative`**：适合需要在原位置基础上微调的场景
 - **`sticky`**：适合需要在滚动时保持可见，但不完全固定的场景
 
+### 自定义AI, USER的头像
+
+```vue
+<template>
+  <TinyRemoter
+    v-model:show="show"
+    title="我的AI助手"
+    systemPrompt="你是一个智能助手"
+    :llmConfig="llmConfig"
+    :roleAvatar="roleAvatar"
+  />
+</template>
+
+<script setup>
+import { ref, h } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
+import { createOpenAI } from '@ai-sdk/openai'
+
+const show = ref(false)
+const llmConfig = {
+  apiKey: '',
+  baseURL: 'https://api.openai.com/v1',
+  providerType: 'openai',
+  model: 'gpt-4o'
+}
+
+const roleAvatar = {
+  user: h('div', { style: { fontSize: '32px' } }, 'U'),
+  assistant: h('img', { src: 'https://play.vuejs.org/logo.svg', width: '32px', height: '32px' })
+}
+</script>
+```
+
 ### 自定义流消息的渲染
 
 有的场景是让大模型返回指定格式的文本内容，对这些内容进行特别渲染,适用于生成式UI 等。 下面举一个简单的例子说明如何使用自定义流消息的渲染。
