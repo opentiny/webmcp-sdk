@@ -44,11 +44,10 @@ export default defineConfig({
         {
           text: 'NEXT-SDKs API',
           items: [
+            { text: '全局 API', link: '/guide/api-tools' },
             { text: 'WebMcpServer 类', link: '/guide/api-server' },
             { text: 'WebMcpClient 类', link: '/guide/api-client' },
-            { text: 'AgentModelProvider 类', link: '/guide/api-agentModelProvider' },
-            { text: 'createRemoter 函数', link: '/guide/api-createRemoter' },
-            { text: '工具函数', link: '/guide/api-tools' }
+            { text: 'createRemoter 函数', link: '/guide/api-createRemoter' }
           ]
         },
         {
