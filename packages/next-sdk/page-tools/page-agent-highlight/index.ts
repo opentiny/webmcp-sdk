@@ -17,7 +17,7 @@ const colors = [
   '#4682B4'
 ]
 // border + label opacity
-const opacity = Math.floor(0.1 * 255)
+const opacity = Math.floor(0.3 * 255)
   .toString(16)
   .padStart(2, '0')
 
