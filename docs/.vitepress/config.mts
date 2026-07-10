@@ -52,12 +52,14 @@ export default defineConfig({
           ]
         },
         {
-          text: 'TinyRemoter for Vue',
+          text: 'TinyRemoter 组件',
           items: [
-            { text: 'TinyRobot 版本', link: '/guide/tiny-robot-remoter' },
-            { text: 'Skills 技能配置指南', link: '/guide/tiny-remoter-skills' },
-            { text: 'Custom llm 自定义大模型', link: '/guide/custom-llm' },
-            { text: '自定义AI对话框组件', link: '/guide/use-next-agent' }
+            { text: '基本用法', link: '/guide/remoter/basic' },
+            { text: '自定义LLM大模型指南', link: '/guide/remoter/custom-llm' },
+            { text: '远程遥控模式指南', link: '/guide/remoter/remoter-mode' },
+            { text: 'Mcp Server与工具指南', link: '/guide/remoter/mcp-server-tool' },
+            { text: 'Skills 技能配置指南', link: '/guide/remoter/skills' },
+            { text: '自定义AI对话框组件', link: '/guide/remoter/use-next-agent' }
           ]
         },
         {

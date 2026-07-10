@@ -1,68 +1,67 @@
-# TinyRobot 版本
+# TinyRemoter 组件
+
+`TinyRemoter` 是一个Vue3 组件，底层依赖`@opentiny/tiny-robot` 组件库，它内置了一系列的功能，方便开发者迅速接入AI 对话能力！
 
 ```javascript
 import { TinyRemoter } from '@opentiny/next-remoter'
 ```
 
-该组件为使用 `@opentiny/tiny-robot` 开发的 `TinyRemoter`, 仅支持 `Vue3` 。
-
 主要功能：
 
-- 对话LLM
-- 欢迎界面以及suggestions的展示
-- 多角色展示消息以及MD, TOOL调用等展示
-- 支持新建会话
-- 支持扫码添加应用
-- 支持MCP市场
+- 支持与对话LLM
+- 欢迎界面展示
+- AI消息的流式渲染 markdown, 工具调用等展示
+- 支持会话管理
+- 支持MCP市场与自定义添加McpServer
 
-> 1、扫码应用的 `sessionId` 后，它会自动创建一个 `streamableHTTP` 类型的 `MCPServer`，之后自动创建 `MCPClient`连接并查询所有的 TOOLS, 并展示在"已安装插件"列表中。
-> 2、市场应用的插件，通常都是 `streamableHTTP` 或 `SSE` 类型的 `MCPServer`。 选择添加后，也是自动创建 `MCPClient`连接并查询所有的 TOOLS, 并展示在"已安装插件"列表中。
+## 一、属性
 
-总之，已安装插件中的所有Tool都可以在与 `LLM` 对话时被调用。
+- `mode` 展示模式，可选值为：'remoter' | 'chat-dialog'，默认值为 `remoter`。
+  - 遥控器模式： 自动在右下角显示一个AI图标，点击展开多个菜单项；
+  - 对话框模式： 直接显示一个对话框界面
 
-## 属性
+### 1.1 `chat-dialog` 模式的属性
 
 - `v-model:show` 双向绑定是否显示，内部关闭是 emit('update:show',false)
 - `v-model:fullscreen` 双向绑定是否全屏
-- `v-model:selectedModelId` 双向绑定当前选中的模型 ID（字符串类型），当传入 `llmConfigs` 时，可通过此属性控制模型切换
-- `v-model:enabledTools` 双向绑定默认启用的工具状态（`Record<string, boolean>` 类型），键为工具名称，值为是否启用。主要用于控制本地工具的默认启用状态
-- `sessionId` 必须传
-- `title` 左上角的 container.title
-- `agentRoot` 后端代理的地址，有默认值 `https://agent.opentiny.design/api/v1/webmcp-trial/`
-- `locale` 国际化key, 可选值为：'zh-CN' | 'en-US' 。一些默认描述，placeholder的国际化的key： lang=zh-CN
-- `mode` 展示模式，可选值为：'remoter' | 'chat-dialog'。遥控器模式： 自动在右下角显示一个AI图标，点击展开多个菜单项； 对话框模式： 直接显示一个对话框界面
-- `remoteUrl` 远程URL，用于显示在遥控器模式下，点击遥控器图标后，显示的菜单项。
-- `qrCodeUrl` 二维码URL，用于显示在遥控器模式下，点击遥控器图标后，弹出二维码对应的链接 url。
-- `AILogoUrl` AI图标的 url 地址。
+- `title` `chat-dialog` 模式时，左上角的标题。
+- `locale` 选择国际化语言, 可选值为：`'zh-CN' | 'en-US'` 。
+  > 组件内置的欢迎界面，建议按钮等文字有中英文的2个版本，默认为`zh-CN`。
+- `role-avatar` 设置角色user/assistant的头像。
+  > 格式为 {user: VNode, assistant: VNode }, VNode 可以通过h函数创建，比如： h(IconUser, { style: { fontSize: '32px' } })
+- `promptItems` 自定义欢迎区建议卡片数据，类型为 `PromptProps[]`。
+  > 用于覆盖默认的三张欢迎卡片（标题 + 描述 + 图标 + badge），建议用户修改掉默认值。
+- `pillItems` 自定义输入框上方的快捷操作按钮数据，类型为 `{ id: string; text: string; menus: { id: string | number; text: string; inputMessage: string }[] }[]`。用
+  > 于覆盖默认的三个胶囊按钮组（如「办公助手」「开发支持」等），建议用户修改掉默认值。
+- `layout-mode` 布局模式，支持所有 CSS position 属性值：`'static' | 'relative' | 'absolute' | 'fixed' | 'sticky'`，默认值为 `'fixed'`。
+  > 用于控制组件在网页上定位方式。
+
+### 1.2 远程遥控模式属性
+
+- `AILogoUrl` 悬浮AI图标的 url 地址。
+- `agentRoot` 后端代理`Web Agent`的服务地址。
+- `sessionId` 用户应用向`Web Agent`的服务端注册后生成的id, 用于标识当前页面。如果不使用远程遥控模式，可以忽略该值。
+- `remoteUrl` 远程遥控的URL地址，用于显示在遥控器模式下，点击`遥控器链接`菜单时，要跳转的远程遥控网页。
+- `qrCodeUrl` 远程遥控的URL地址，用于显示在遥控器模式下，点击 `扫码登录`菜单时，会弹出二维码让用户扫码，扫码成功后进入的地址。
 - `menuItems` 菜单项配置数组，用于显示在遥控器模式下，点击遥控器图标后，显示的菜单项。具体配置项见 [api-createRemoter](./api-createRemoter.md)。 它默认情况下显示全部菜单，若传入空数组，则不显示菜单。
-- `systemPrompt` 对话llm 时，传入的 system message: system-prompt=你是一个智能助手，工作地点是深圳
-- `llmConfig` 大语言模型配置对象，支持配置 `apiKey`、`baseURL` 、 `model` 、`maxSteps` 、 `providerType` 、 `providerOptions`、`extraTools`，其中 `apiKey/baseURL/providerType` 与 `llmConfig.llm` 二选一
-- `llmConfigs` LLM 配置数组（`UnifiedModelConfig[]` 类型），每一项基于 `llmConfig` 格式，额外包含 `id`、`label`、`icon`、`isDefault`、`useReActMode` 字段。传入此属性后，会在头部显示模型切换组件，支持通过 `v-model:selectedModelId` 控制选中的模型
-- `inBrowserExt` 设置组件运行在普通页面还是浏览器的扩展中，默认值为：false（与生成式 UI 开关的显示无关）
-- `genUiAble` 双向绑定是否启用生成式 UI 的渲染，默认值为：false。输入框旁的「生成式 UI 开关」是否显示由**当前模型配置**决定：仅当配置中同时包含 `baseURL` 和 `genuiUrl` 时才会显示该开关
-- `genUiComponents` 生成式 UI 内置了一批组件，如果需要引入新组件，需要通过这里导入。参考示例：`shallowReactive({ TinyUser, TinyAlert })`
-- `customMarketMcpServers` 自定义 MCP 市场服务列表（`PluginInfo[]`）。组件内部不再内置任何默认市场服务，若需使用官方默认的 MCP 工具集，需从应用层导入并传入。**一般对应后台的 MCP 服务，可常驻存在。**
-- `mcpServers` 预置 MCP 服务器配置（业界格式 `Record<string, McpServerConfig>`）。键为服务器名称，值为单台服务器配置；组件初始化时会自动加载并出现在「已添加MCP服务」中。**一般对应前端的 MCP 服务，页面关闭后即不存在。** 支持配置自定义 `name`（插件显示名称）和 `description`（插件功能描述），配置说明见 [预置 MCP 服务器（mcpServers）](#预置-mcp-服务器mcpservers)
+
+### 1.3 大模型属性
+
+- `llmConfig` 大语言模型配置对象，详见下面类型声明。
+- `llmConfigs` LLM 配置数组，每一项基于 `llmConfig` 格式，额外包含 `id`、`label`、`icon`、`isDefault`、`useReActMode` 字段。传入此属性后，会在输入框底部部显示模型切换组件，支持通过 `v-model:selectedModelId` 控制选中的模型。
+- `v-model:selectedModelId` 双向绑定当前选中的模型 ID（字符串类型），当传入 `llmConfigs` 时，可通过此属性控制选择的模型
+- `v-model:enabledTools` 双向绑定默认启用的工具状态（`Record<string, boolean>` 类型），键为工具名称，值为是否启用。主要用于控制本地工具的默认启用状态
+- `systemPrompt` 对话的系统提示词，默认值为`'你是一个智能助手，擅长通过工具调用帮助用户解决问题和满足用户需求'`
 - `skills` 设置技能的配置对象（`Record<string, string>` 类型）。通常配合 Vite 的 `import.meta.glob` 导入标准 `SKILL.md` 文件。AI 助手会自动识别用户意图并调用相应的技能，无需手动触发。
-- `layout-mode` 布局模式，支持所有 CSS position 属性值：`'static' | 'relative' | 'absolute' | 'fixed' | 'sticky'`，默认值为 `'fixed'`。用于控制组件的定位方式
-- `role-avatar` 设置角色user/assistant的头像, 值为 {user: VNode, assistant: VNode }, VNode 可以通过h函数创建，比如： h(IconUser, { style: { fontSize: '32px' } })
-- `promptItems` 自定义欢迎区建议卡片数据，类型为 `PromptProps[]`。用于覆盖默认的三张欢迎卡片（标题 + 描述 + 图标 + badge），常用于根据业务场景（如电商、办公、运维）改写欢迎区的快捷入口文案。
-- `pillItems` 自定义输入框上方的快捷操作按钮数据，类型为 `{ id: string; text: string; menus: { id: string | number; text: string; inputMessage: string }[] }[]`。用于覆盖默认的三个药丸按钮组（如「办公助手」「开发支持」等），可以将其改成「订单管理」「库存与销售」等业务快捷操作；点击菜单项会自动把 `inputMessage` 填入输入框。
+- `mcpServers` 预置 MCP 服务器配置（业界格式 `Record<string, McpServerConfig>`）。键为服务器名称，值为单台服务器配置；组件初始化时会自动加载并出现在「已添加MCP服务」中。**一般对应前端的 MCP 服务，页面关闭后即不存在。** 支持配置自定义 `name`（插件显示名称）和 `description`（插件功能描述），配置说明见 [预置 MCP 服务器（mcpServers）](#预置-mcp-服务器mcpservers)
+- `customMarketMcpServers` 自定义 MCP 市场服务列表（`PluginInfo[]`）。组件内部不再内置任何默认市场服务，若需使用官方默认的 MCP 工具集，需从应用层导入并传入。**一般对应后台的 MCP 服务，可常驻存在。**
 
-## 事件
-
-- `before-ai-render` 在 AI 消息渲染之前触发，用户此时可以修改消息内容。 参数的`uiContent`属性中，包含当前流返回的消息类型：markdown, reasoning,tool,或其它自定义的消息，用户可以自由编排`uiContent`属性。 它配合组件暴露的`registerContentRenderer`方法，可以实现自定义流消息的渲染。
-
-### customMarketMcpServers 与 mcpServers 的区别
-
-| 属性                     | 典型场景                                    | 生命周期                                   |
-| ------------------------ | ------------------------------------------- | ------------------------------------------ |
-| `customMarketMcpServers` | **后台** MCP 服务，由后端/代理常驻提供      | 可常驻存在，不随页面关闭而消失             |
-| `mcpServers`             | **前端** MCP 服务，随当前页面或本地环境提供 | 与页面一致，页面关闭后连接即断开、不再存在 |
-
-### llmConfig 配置详情
+::: tip
+`llmConfig` 和 `llmConfigs`同时设置时，`llmConfig`优先生效。当手动切换`llmConfigs`中的模型时，会切换为选择的模型。 不建议同时传入这2个属性。
+:::
 
 ```typescript
+// llmConfig 类型声明
 type ProviderFactoryConfig = {
   /** API密钥 */
   apiKey: string
@@ -95,163 +94,99 @@ type ICustomAgentModelProviderLlmConfig = (ProviderFactoryConfig | ProviderInsta
    */
   headers?: Record<string, string>
 }
-```
 
-### 通过 llmConfig.llm 使用自定义 Provider
+// llmConfigs 的数据项的类型声明
 
-`llmConfig.llm` 可以接受任何符合 ai-sdk Provider 规范的实例，例如：
+type UnifiedModelConfig = ICustomAgentModelProviderLlmConfig & {
+  /** 模型唯一标识 Model unique identifier */
+  id: string
 
-```typescript
-import { createOpenAI } from '@ai-sdk/openai'
-import { createAnthropic } from '@ai-sdk/anthropic'
+  /** 显示名称 Display name */
+  label: string
 
-const llmConfig = {
-  // OpenAI Provider
-  llm: createOpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
-    baseURL: 'https://api.openai.com/v1'
-  })
+  /** 模型图标组件 Icon component */
+  icon?: Component
+
+  /** 是否为默认模型 Is default model */
+  isDefault?: boolean
+
+  /** 模型描述（可选）Description (optional) */
+  description?: string
+
+  /** 多模态能力配置 Multimodal capability configuration */
+  multimodal?: MultimodalCapability
+
+  // 生成式UI 的 url
+  genuiUrl?: string
 }
-
-const claudeConfig = {
-  // Anthropic Provider
-  llm: createAnthropic({
-    apiKey: process.env.ANTHROPIC_API_KEY
-  })
-}
 ```
 
-### 自定义请求 Header（headers）
+#### customMarketMcpServers 与 mcpServers 的区别
 
-`headers` 字段允许你在每次向 LLM 发起请求时，携带自定义的 HTTP 请求头。常见用途包括：
+| 属性                     | 典型场景                                    | 生命周期                                   |
+| ------------------------ | ------------------------------------------- | ------------------------------------------ |
+| `customMarketMcpServers` | **后台** MCP 服务，由后端/代理常驻提供      | 可常驻存在，不随页面关闭而消失             |
+| `mcpServers`             | **前端** MCP 服务，随当前页面或本地环境提供 | 与页面一致，页面关闭后连接即断开、不再存在 |
 
-- **鉴权**：传递业务系统的 Token 或 Session 信息
-- **链路追踪**：传递 `X-Request-Id`、`X-Trace-Id` 等追踪头
-- **多租户路由**：传递租户标识，让代理网关按租户转发
+### 1.4 杂项属性
 
-> **注意**：`headers` 仅在使用 `providerType`（工厂模式）时生效，内部会将其透传给 ai-sdk 的 Provider 工厂函数（如 `createOpenAI`、`createDeepSeek`）。若使用 `llm` 实例配置，请在构造 Provider 实例时自行处理 Headers。
+- `inBrowserExt` 设置组件运行在普通页面还是浏览器的扩展中，默认值为：false
+- `genUiAble` 双向绑定是否启用生成式 UI 的渲染，默认值为：false。输入框旁的「生成式 UI 开关」是否显示由**当前模型配置**决定：仅当配置中同时包含 `baseURL` 和 `genuiUrl` 时才会显示该开关
+- `genUiComponents` 生成式 UI 内置了一批组件，如果需要引入新组件，需要通过这里导入。参考示例：`shallowReactive({ TinyUser, TinyAlert })`
 
-#### 在 llmConfig 中使用自定义 Header
+## 二、事件
 
-```vue
-<template>
-  <TinyRemoter
-    v-model:show="show"
-    sessionId="your-session-id"
-    title="我的AI助手"
-    systemPrompt="你是一个智能助手"
-    :llmConfig="llmConfig"
-  />
-</template>
+- `before-ai-render` 在 AI 消息渲染之前触发，用户此时可以修改消息内容。 参数的`uiContent`属性中，包含当前流返回的消息类型：markdown, reasoning,tool,或其它自定义的消息，用户可以自由编排`uiContent`属性。 它配合组件暴露的`registerContentRenderer`方法，可以实现自定义流消息的渲染，详见底部示例。
 
-<script setup>
-import { ref } from 'vue'
-import { TinyRemoter } from '@opentiny/next-remoter'
-
-const show = ref(false)
-
-const llmConfig = {
-  apiKey: '',
-  baseURL: 'https://api.openai.com/v1',
-  providerType: 'openai',
-  model: 'gpt-4o',
-  maxSteps: 10,
-  // 自定义请求头，每次 LLM 请求都会携带
-  headers: {
-    'X-Custom-Token': 'your-business-token',
-    'X-Trace-Id': 'trace-001'
-  }
-}
-</script>
-```
-
-#### 在 llmConfigs 中为每个模型配置独立 Header
-
-当使用多模型切换（`llmConfigs`）时，每个模型可以配置各自独立的 `headers`，切换模型时组件会自动同步对应的 Headers：
-
-```vue
-<template>
-  <TinyRemoter
-    v-model:show="show"
-    v-model:selected-model-id="selectedModelId"
-    sessionId="your-session-id"
-    title="我的AI助手"
-    systemPrompt="你是一个智能助手"
-    :llmConfigs="modelConfigs"
-  />
-</template>
-
-<script setup>
-import { ref } from 'vue'
-import { TinyRemoter } from '@opentiny/next-remoter'
-
-const show = ref(false)
-const selectedModelId = ref('gpt-4o')
-
-const modelConfigs = [
-  {
-    id: 'gpt-4o',
-    label: 'GPT-4o',
-    isDefault: true,
-    apiKey: '',
-    baseURL: 'https://api.openai.com/v1',
-    providerType: 'openai',
-    model: 'gpt-4o',
-    maxSteps: 10,
-    // 为 GPT-4o 配置专属请求头
-    headers: {
-      'X-Business-Token': 'openai-business-token',
-      'X-User-Id': 'user-123'
-    }
-  },
-  {
-    id: 'deepseek-v3',
-    label: 'DeepSeek V3',
-    apiKey: '',
-    baseURL: 'https://api.deepseek.com',
-    providerType: 'deepseek',
-    model: 'deepseek-chat',
-    maxSteps: 30,
-    // 为 DeepSeek 配置专属请求头
-    headers: {
-      'X-Business-Token': 'deepseek-business-token',
-      'X-Tenant-Id': 'tenant-456'
-    }
-  }
-]
-</script>
-```
-
-#### 使用 llm 实例时自行处理 Header
-
-如果使用 `llm` 实例配置（`ProviderInstanceConfig`），需要在构造 Provider 实例时自行传入 Headers：
-
-```vue
-<script setup>
-import { createOpenAI } from '@ai-sdk/openai'
-import { TinyRemoter } from '@opentiny/next-remoter'
-
-const llmConfig = {
-  // 在 createOpenAI 中直接传入 headers，效果等同于上面的 headers 字段
-  llm: createOpenAI({
-    apiKey: '',
-    baseURL: 'https://api.openai.com/v1',
-    headers: {
-      'X-Custom-Token': 'your-business-token',
-      'X-Trace-Id': 'trace-001'
-    }
-  }),
-  model: 'gpt-4o'
-}
-</script>
-```
-
-## 插槽
+## 三、插槽
 
 - `#welcome`: 没有对话消息时，展示在组件中间的 `Welcome & Promts` 等内容。设计成插槽可以让用户有完全的定制能力。
 - `#suggestions`: 展示在输入框上面的提示性组件。可以使用 `@opentiny/tiny-robot` 中的 `SuggestionPills` 等强大功能的组件。
 - `#operations`: 容器头部右侧的操作区域，默认包含新建会话按钮、历史会话按钮和扫码组件。可以通过此插槽自定义头部操作按钮。
 - `#header-actions`: MCP 服务器选择器（插件市场）头部的操作区域，可以在此处添加自定义操作按钮，如自定义添加插件的按钮等。
+
+## 四、导出变量
+
+```typescript
+defineExpose({
+  /** 大模型代理（AgentModelProvider 实例） */
+  agent,
+  /** 欢迎图标 */
+  welcomeIcon,
+  /** 对话消息 */
+  messages,
+  /** 对话消息状态 */
+  messageState,
+  /** 对话卡片的角色配置 */
+  roles,
+  /** 输入框的文本 */
+  inputMessage,
+  /** 输入框组件的实例 */
+  senderRef,
+  /** 取消发送 */
+  abortRequest,
+  /** 发送消息 */
+  sendMessage,
+  /** 向插件市场添加一个server */
+  loadMcpServerToPlugin,
+  /** mcp client断开时，自动清理已断开的插件和资源 */
+  handleClientDisconnected,
+  /** 添加消息 */
+  addMessage
+})
+```
+
+导出变量是方便在插槽中使用内部的功能，比如 `#welcome 插槽` 中点击后 `Promts` ,发出固定的请求:
+
+```typescript
+const robotRef = ref<InstanceType<typeof TinyRemoter>>()
+
+function promtClick(item) {
+  robotRef.sendMessage(item.description)
+}
+```
+
+## 五、插槽示例
 
 ### 插槽使用示例
 
@@ -378,48 +313,7 @@ function handleSuggestionClick(suggestion) {
 </script>
 ```
 
-## 导出变量
-
-```typescript
-defineExpose({
-  /** 大模型代理（AgentModelProvider 实例） */
-  agent,
-  /** 欢迎图标 */
-  welcomeIcon,
-  /** 对话消息 */
-  messages,
-  /** 对话消息状态 */
-  messageState,
-  /** 对话卡片的角色配置 */
-  roles,
-  /** 输入框的文本 */
-  inputMessage,
-  /** 输入框组件的实例 */
-  senderRef,
-  /** 取消发送 */
-  abortRequest,
-  /** 发送消息 */
-  sendMessage,
-  /** 向插件市场添加一个server */
-  loadMcpServerToPlugin,
-  /** mcp client断开时，自动清理已断开的插件和资源 */
-  handleClientDisconnected,
-  /** 添加消息 */
-  addMessage
-})
-```
-
-导出变量是方便在插槽中使用内部的功能，比如 `#welcome 插槽` 中点击后 `Promts` ,发出固定的请求:
-
-```typescript
-const robotRef = ref<InstanceType<typeof TinyRemoter>>()
-
-function promtClick(item) {
-  robotRef.sendMessage(item.description)
-}
-```
-
-## 自定义市场 MCP 插件（customMarketMcpServers）
+## 六、自定义市场 MCP 插件（customMarketMcpServers）
 
 `customMarketMcpServers` 属性让你可以在 TinyRemoter 的“插件市场”中动态追加自有 MCP 服务。**一般用于接入后台的 MCP 服务，这类服务可常驻存在。** 数组结构遵循 `PluginInfo` 定义，常用字段如下：
 
@@ -483,7 +377,7 @@ const customMarketMcpServers = [
 ]
 ```
 
-## 预置 MCP 服务器（mcpServers）
+## 七、设置 MCP 服务器（mcpServers）
 
 `mcpServers` 属性用于在组件初始化时预置一批 MCP 服务器，采用业界通用的对象格式：**键为服务器名称，值为 `McpServerConfig`**。**一般用于接入前端的 MCP 服务，生命周期与页面一致，页面关闭后连接即断开。** 这些服务器会在启动时自动加载并出现在「已添加MCP服务」中，无需用户从市场手动添加。
 
@@ -517,7 +411,7 @@ const mcpServers = {
 - `type: 'local'`：需提供 `transport`（MCP 传输层），可选 `useAISdkClient`
 - `type: 'builtin'`：浏览器内置 WebMCP（如 Chrome 146+）。需提供 `client` 对象，通常设为 `document.modelContext`。**建议配合 `@opentiny/next-sdk` 的 `modelContext` 使用，以获得完美的 SPA 路由握手支持。**
 
-#### 浏览器内置 WebMCP 配置示例
+## 八、浏览器内置 WebMCP 配置示例
 
 ```ts
 const nav = navigator as any
