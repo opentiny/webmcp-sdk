@@ -132,63 +132,6 @@ const llmConfig = {
 </script>
 ```
 
-#### 2. 在 llmConfigs 中为每个模型配置独立 Header
-
-当使用多模型切换（`llmConfigs`）时，每个模型可以配置各自独立的 `headers`，切换模型时组件会自动同步对应的 Headers：
-
-```vue
-<template>
-  <TinyRemoter
-    v-model:show="show"
-    v-model:selected-model-id="selectedModelId"
-    :llmConfigs="modelConfigs"
-    title="我的AI助手"
-    systemPrompt="你是一个智能助手"
-  />
-</template>
-
-<script setup>
-import { ref } from 'vue'
-import { TinyRemoter } from '@opentiny/next-remoter'
-import '@opentiny/next-remoter/dist/style.css'
-
-const show = ref(false)
-const selectedModelId = ref('gpt-4o')
-
-const modelConfigs = [
-  {
-    id: 'gpt-4o',
-    label: 'GPT-4o',
-    isDefault: true,
-    apiKey: '',
-    baseURL: 'https://api.openai.com/v1',
-    providerType: 'openai',
-    model: 'gpt-4o',
-    maxSteps: 10,
-    // 为 GPT-4o 配置专属请求头
-    headers: {
-      'X-Business-Token': 'openai-business-token',
-      'X-User-Id': 'user-123'
-    }
-  },
-  {
-    id: 'deepseek-v3',
-    label: 'DeepSeek V3',
-    apiKey: '',
-    baseURL: 'https://api.deepseek.com',
-    providerType: 'deepseek',
-    model: 'deepseek-chat',
-    maxSteps: 30,
-    // 为 DeepSeek 配置专属请求头
-    headers: {
-      'X-Business-Token': 'deepseek-business-token',
-      'X-Tenant-Id': 'tenant-456'
-    }
-  }
-]
-</script>
-```
-
 ## 自定义大模型选择列表
 
 通过属性 `llmConfigs` 可以提前定义一组大模型接口，这组大模型会显示在输入框的底下供用户切换使用。同时设置`llmConfig` 和 `llmConfigs`时， `llmConfig`配置的大模型优先生效，然后在用户手动切换后，再使用用户选择的大模型。不建议同时配置这2个属性。

@@ -139,7 +139,7 @@ type UnifiedModelConfig = ICustomAgentModelProviderLlmConfig & {
 
 - `inBrowserExt` 设置组件运行在普通页面还是浏览器的扩展中，默认值为：false
 - `genUiAble` 双向绑定是否启用生成式 UI 的渲染，默认值为：false。输入框旁的「生成式 UI 开关」是否显示由**当前模型配置**决定：仅当配置中同时包含 `baseURL` 和 `genuiUrl` 时才会显示该开关
-- `genUiComponents` 生成式 UI 内置了一批组件，如果需要引入新组件，需要通过这里导入。参考示例：`shallowReactive({ TinyUser, TinyAlert })`
+- `genUiComponents` 生成式 UI 已经内置了一批组件。如果希望它支持额外的新组件，需要通过这里导入。参考示例：`shallowReactive({ TinyUser, TinyAlert })`
 
 ## 二、事件
 
@@ -538,5 +538,45 @@ function handleCustomAction() {
 function handleExport() {
   console.log('导出对话')
 }
+</script>
+```
+
+## 七、生成式 UI 示例
+
+生成式UI 又叫 `Gen UI`， 为了让大模型LLM能返回正确的`Gen UI`的有效格式的响应，需要本地化部署专用的 `GenUI LLM 服务`, 请参考[Gen UI文档](https://docs.opentiny.design/genui-sdk/guide/quick-start.html)。
+
+本地化部署 `GenUI LLM 服务` 之后，在配置使用的 `llmConfig` 或 `llmConfigs` 中，需要配置`genuiUrl`属性指向私有化部署的服务地址，然后在对话框的底部的 `生成式UI` 的按钮激活，或者直接设置组件的 `v-model:genUiAble` 直接控制，启用生成式UI的输出。 当启用生成式UI时，对话会使用 `genuiUrl`的地址以及自动处理`生成式UI`的流消息，渲染正确的卡片组件。
+
+::: warning
+建议用户直接使用`Gen UI`的完整方案，使用最新的`Gen UI`特性。
+:::
+
+```vue
+<template>
+  <TinyRemoter
+    v-model:show="show"
+    title="我的AI助手"
+    systemPrompt="你是一个智能助手"
+    :llmConfig="llmConfig"
+    :genUiComponents="genUiComponents"
+  />
+</template>
+
+<script setup>
+import { ref, shallowReactive } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
+import { TinyUser, TinyAlert } from '@opentiny/vue'
+import '@opentiny/next-remoter/dist/style.css'
+
+const show = ref(false)
+
+const llmConfig = {
+  apiKey: '',
+  baseURL: 'https://xxx.com/v1',
+  genuiUrl: 'https://xxx.com/v1/prompt',
+  providerType: 'deepseek'
+}
+
+const genUiComponents = shallowReactive({ TinyUser, TinyAlert })
 </script>
 ```
