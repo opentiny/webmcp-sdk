@@ -81,9 +81,10 @@ export function buildVNode(
   //
   // 例外：<a>/<button>/<input> 等语义性交互标签，无论祖先是否已有 ref，
   // 始终强制分配 ref，因为它们在 HTML 语义上就是独立的操作单元。
-  const isSemanticInteractiveTag = ['a', 'button', 'input', 'select', 'textarea'].includes(
-    el.tagName.toLowerCase()
-  )
+  const tagName = el.tagName.toLowerCase()
+  const isSemanticInteractiveTag =
+    (tagName === 'a' && el.hasAttribute('href')) ||
+    (['button', 'input', 'select', 'textarea'].includes(tagName) && !el.hasAttribute('disabled'))
 
   // 虽然有些元素有 tabindex="0" (isTrulyInteractive)，但如果它是 generic 且没有 cursor:pointer，
   // 往往是开发者加的结构化 focus 容器（如 tp-card），而非真正的可交互按钮，我们在此过滤掉它们。
