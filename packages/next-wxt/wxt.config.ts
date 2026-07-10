@@ -32,7 +32,6 @@ export default defineConfig({
     ],
     host_permissions: ['*://*/*'],
     action: {
-      default_popup: 'popup.html',
       default_title: 'Web Agent 遥控器'
     },
     // 配置 options 页面在新标签页中打开，而不是弹窗

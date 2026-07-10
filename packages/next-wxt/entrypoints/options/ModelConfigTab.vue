@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, reactive, nextTick } from 'vue'
+import { ref, onMounted, reactive, nextTick, computed } from 'vue'
 import {
   setCustomModels,
   getWebAgentUrl,
@@ -12,6 +12,8 @@ import { storage } from '@wxt-dev/storage'
 import { DEFAULT_WEB_AGENT_URL, initializeDefaultModelsIfNeeded } from '../sidepanel/model-manage'
 import { iconEdit, iconDel, iconAdd } from '@opentiny/vue-icon'
 import { TinyForm, Modal, TinyOption } from '@opentiny/vue'
+import { AGENT_ROOT } from '../sidepanel/const'
+import { StorageKeys } from '../sidepanel/utils/storage-keys'
 
 const IconEditComp = iconEdit()
 const IconDelComp = iconDel()
@@ -28,7 +30,7 @@ async function loadData() {
     getWebAgentUrl(),
     getConnectType()
   ])
-  webAgentUrl.value = storedUrl || DEFAULT_WEB_AGENT_URL
+  webAgentUrl.value = typeof storedUrl === 'string' ? storedUrl : ''
   connectType.value = storedType
 
   const models = await initializeDefaultModelsIfNeeded()
@@ -195,6 +197,73 @@ async function confirmDelete() {
   deleteDialogVisible.value = false
 }
 
+
+// ====================
+// Web Agent Session Logic
+// ====================
+const sessionId = ref('')
+const connectionStatus = ref('connecting')
+
+browser.runtime
+  .sendMessage({ type: 'get-mcp-session-id' })
+  .then((res) => {
+    if (res) {
+      if (res.sessionId) sessionId.value = res.sessionId
+      if (res.status) connectionStatus.value = res.status
+    }
+  })
+  .catch(() => {
+    connectionStatus.value = 'error'
+  })
+
+const sessionChangesHandler = (changes) => {
+  if (changes[StorageKeys.MCP_SESSION_ID]) {
+    sessionId.value = changes[StorageKeys.MCP_SESSION_ID].newValue || ''
+  }
+  if (changes[StorageKeys.MCP_STATUS]) {
+    connectionStatus.value = changes[StorageKeys.MCP_STATUS].newValue || 'connecting'
+  }
+}
+browser.storage.local.onChanged.addListener(sessionChangesHandler)
+
+const sessionIdStr = computed(() => (typeof sessionId.value === 'string' ? sessionId.value : ''))
+const shortCode = computed(() => (sessionIdStr.value ? sessionIdStr.value.slice(-6) : '-'))
+
+const agentRoot = computed(() => {
+  let root = AGENT_ROOT
+  if (webAgentUrl.value && webAgentUrl.value.trim() !== '') {
+    try {
+      const customUrl = new URL(webAgentUrl.value)
+      if (customUrl.pathname && customUrl.pathname.length > 1) {
+        root = webAgentUrl.value.trim()
+        if (!root.endsWith('/')) {
+          root += '/'
+        }
+      } else {
+        root = root.replace(/^https?:\/\/[^\/]+/, customUrl.origin)
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return connectType.value === 'sse' ? root + 'sse' : root + 'mcp'
+})
+const agentUrl = computed(() => (sessionIdStr.value ? `${agentRoot.value}/?sessionId=${sessionIdStr.value}` : '-'))
+
+const copyToClipboard = async (text) => {
+  if (!text || text === '-') {
+    Modal.message({ message: '暂无有效内容可复制', status: 'warning' })
+    return
+  }
+  try {
+    await navigator.clipboard.writeText(text)
+    Modal.message({ message: '已复制到剪贴板', status: 'success' })
+  } catch (err) {
+    Modal.message({ message: '复制失败', status: 'error' })
+  }
+}
+// ====================
+
 function notifyReload() {
   void browser.runtime.sendMessage({ type: 'reload-sidepanel' }).catch(() => {})
 }
@@ -205,8 +274,7 @@ function notifyReload() {
     <div class="section-block">
       <div class="section-title">全局配置</div>
       <p class="section-desc">
-        修改全局 Web-Agent 服务地址。留空则使用内置默认地址:
-        <code class="default-val">{{ DEFAULT_WEB_AGENT_URL }}</code>
+        配置全局 Web-Agent 服务地址，用于连接远程的第三方智能体（例如 Cursor、Codex 等）。
       </p>
       <div class="agent-url-form">
         <TinyForm label-width="120px" label-position="left">
@@ -229,6 +297,31 @@ function notifyReload() {
           </TinyFormItem>
         </TinyForm>
       </div>
+    
+      <div class="session-info-card">
+        <div class="session-header">Web Agent 会话状态</div>
+        <div v-if="connectionStatus === 'error'" class="status-alert error">连接 Web Agent 失败，请检查服务地址或网络。</div>
+        <div v-else-if="connectionStatus === 'connecting'" class="status-alert warning">正在连接 Web Agent...</div>
+        <div v-else class="status-alert success">Web Agent 已连接</div>
+
+        <div class="info-list">
+          <div class="info-item">
+            <span class="info-label">识别码</span>
+            <div class="info-val-wrap">
+              <span class="info-val">{{ shortCode }}</span>
+              <TinyButton type="text" size="mini" @click="copyToClipboard(shortCode)">复制</TinyButton>
+            </div>
+          </div>
+          <div class="info-item">
+            <span class="info-label">连接端点</span>
+            <div class="info-val-wrap">
+              <span class="info-val" :title="agentUrl">{{ agentUrl }}</span>
+              <TinyButton type="text" size="mini" @click="copyToClipboard(agentUrl)">复制</TinyButton>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
 
     <div class="section-block">
@@ -542,4 +635,68 @@ function notifyReload() {
 .dialog-footer {
   text-align: right;
 }
+
+.session-info-card {
+  margin-top: 16px;
+  background: #fcfcfc;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 16px;
+}
+.session-header {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: #303133;
+}
+.status-alert {
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  margin-bottom: 16px;
+}
+.status-alert.error {
+  background: #fef0f0;
+  color: #f56c6c;
+}
+.status-alert.warning {
+  background: #fdf6ec;
+  color: #e6a23c;
+}
+.status-alert.success {
+  background: #f0f9eb;
+  color: #67c23a;
+}
+.info-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.info-item {
+  display: flex;
+  align-items: center;
+  font-size: 13px;
+}
+.info-label {
+  width: 80px;
+  color: #909399;
+}
+.info-val-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  background: #f5f7fa;
+  padding: 4px 12px;
+  border-radius: 4px;
+}
+.info-val {
+  color: #303133;
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 </style>
