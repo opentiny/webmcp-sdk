@@ -3,6 +3,7 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 import { StorageKeys } from '../utils/storage-keys'
 import { AGENT_ROOT } from '../const'
 import { getWebAgentUrl, getConnectType } from '../model-manage/model-storage'
+import { forceRefreshTools, setupLocalTools } from '../mcpServer'
 
 const MAX_RETRY_COUNT = 5
 const RETRY_DELAY = 3000
@@ -32,9 +33,7 @@ const notifyToolsListChanged = async () => {
 }
 
 // 注册全局监听器（只注册一次）
-if (typeof browser !== 'undefined' && browser.tabs) {
-  browser.tabs.onActivated.addListener(() => notifyToolsListChanged())
-}
+// 移除过早的 tabs.onActivated 监听，统一依靠 mcpServer.ts 发出的 page-tools-updated 消息来保证工具已同步完毕
 if (typeof browser !== 'undefined' && browser.runtime) {
   browser.runtime.onMessage.addListener((message) => {
     if (message && message.type === 'page-tools-updated') {
@@ -43,177 +42,12 @@ if (typeof browser !== 'undefined' && browser.runtime) {
   })
 }
 
-/**
- * 为 transport 设置页面工具代理。
- *
- * 运行在 background service worker 里，通过 browser.tabs + browser.scripting
- * 获取当前激活页面（MAIN world）注册的工具，并代理 tools/call 调用。
- * 不依赖 sidepanel 的 document.modelContext，解决了跨环境工具获取问题。
- */
-const setupPageToolsProxy = (transport: Transport) => {
-  _currentTransport = transport
-  
-  transport.onmessage = async (message: any) => {
-    if (!message || typeof message !== 'object') return
-    const { id, method } = message
-
-    try {
-      // ── MCP 握手 ──
-      if (method === 'initialize') {
-        await transport.send({
-          jsonrpc: '2.0',
-          id,
-          result: {
-            protocolVersion: '2024-11-05',
-            capabilities: { tools: { listChanged: true }, logging: {} },
-            serverInfo: { name: 'browser-ext-page-proxy', version: '1.0.0' }
-          }
-        })
-        return
-      }
-
-      if (method === 'notifications/initialized') return
-
-      if (method === 'ping' || method === 'custom_ping') {
-        await transport.send({ jsonrpc: '2.0', id, result: {} })
-        return
-      }
-
-      if (method === 'logging/setLevel') {
-        if (id !== undefined) await transport.send({ jsonrpc: '2.0', id, result: {} })
-        return
-      }
-
-      // ── 获取工具列表 ──
-      // 来源1：background 侧内置工具（从 extraTools.ts 提取，如 page-agent-tool、tabs-manager 等）
-      // 来源2：当前激活页面 MAIN world 注册的域名专属工具（__nextSdkRegisteredTools）
-      if (method === 'tools/list') {
-        const { getBuiltinExtensionTools } = await import('../extraTools')
-        const builtinToolsDef = getBuiltinExtensionTools()
-        
-        // 内置工具描述
-        const builtinTools = builtinToolsDef.map((t: any) => ({
-          name: t.name,
-          description: t.description || '',
-          inputSchema: t.inputSchema || { type: 'object', properties: {} }
-        }))
-
-        // 尝试合并当前激活页面 MAIN world 里注册的域名专属工具
-        let pageTools: any[] = []
-        const [tab] = await browser.tabs.query({ active: true, currentWindow: true })
-        if (tab?.id && tab.url?.startsWith('http')) {
-          try {
-            const injected = await browser.scripting.executeScript({
-              target: { tabId: tab.id },
-              world: 'MAIN',
-              func: () => {
-                const fn = (window as any).__nextSdkRegisteredTools
-                return typeof fn === 'function' ? fn() : []
-              }
-            })
-            const rawTools: any[] = injected[0]?.result ?? []
-            // 过滤掉与内置工具同名的（避免重复）
-            const builtinNames = new Set(builtinTools.map((t) => t.name))
-            pageTools = rawTools
-              .filter((t: any) => !builtinNames.has(t.name))
-              .map((t: any) => {
-                let schemaObj: any = {}
-                if (typeof t.inputSchema === 'string') {
-                  try { schemaObj = JSON.parse(t.inputSchema) } catch {}
-                } else if (t.inputSchema && typeof t.inputSchema === 'object') {
-                  schemaObj = t.inputSchema
-                }
-                return {
-                  name: t.name,
-                  description: t.description || '',
-                  inputSchema: { type: 'object', properties: schemaObj.properties || {}, required: schemaObj.required || [] }
-                }
-              })
-          } catch { /* 页面可能不支持，忽略 */ }
-        }
-
-        await transport.send({ jsonrpc: '2.0', id, result: { tools: [...builtinTools, ...pageTools] } })
-        return
-      }
-
-      // ── 执行工具 ──
-      if (method === 'tools/call') {
-        const { name, arguments: args } = message.params || {}
-        if (!name) throw Object.assign(new Error('Missing tool name'), { code: -32602 })
-
-        // 优先匹配 background 侧内置工具（tabs-manager, page-agent-tool 等）
-        const { getBuiltinExtensionTools } = await import('../extraTools')
-        const builtinToolsDef = getBuiltinExtensionTools()
-        const targetTool = builtinToolsDef.find((t: any) => t.name === name)
-
-        if (targetTool) {
-          try {
-            const result = await targetTool.execute(args || {})
-            // 如果 execute() 已经返回了 { content: [...] } 格式，则直接返回；否则包装一层
-            const finalResult = result && typeof result === 'object' && 'content' in result
-              ? result
-              : { content: [{ type: 'text', text: typeof result === 'string' ? result : JSON.stringify(result) }] }
-            await transport.send({ jsonrpc: '2.0', id, result: finalResult })
-          } catch (e: any) {
-            await transport.send({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: `工具 ${name} 异常: ${e.message}` }] } })
-          }
-          return
-        }
-
-        // 如果不是内置工具，则尝试通过 MAIN world 的 executeTool 执行（域名专属工具）
-        const [tab] = await browser.tabs.query({ active: true, currentWindow: true })
-        if (!tab?.id || !tab.url?.startsWith('http')) throw new Error('当前页面不支持工具调用（非 http/https）')
-
-        const result = await browser.scripting.executeScript({
-          target: { tabId: tab.id },
-          world: 'MAIN',
-          func: async (toolName: string, argsStr: string) => {
-            const ctx = (document as any).modelContext
-            if (!ctx?.executeTool) return { content: [{ type: 'text', text: 'executeTool not available' }] }
-            try {
-              const tools = await ctx.getTools();
-              const toolObj = tools.find((t: any) => t.name === toolName);
-              if (!toolObj) throw new Error("Tool not found");
-              const r = await ctx.executeTool(toolObj, argsStr)
-              return r && typeof r === 'object' && 'content' in r
-                ? r
-                : { content: [{ type: 'text', text: typeof r === 'string' ? r : JSON.stringify(r) }] }
-            } catch (e: any) {
-              return { content: [{ type: 'text', text: `工具执行失败: ${e.message}` }] }
-            }
-          },
-          args: [name, JSON.stringify(args || {})]
-        })
-        const finalResult = result[0]?.result ?? { content: [{ type: 'text', text: 'No result' }] }
-        await transport.send({ jsonrpc: '2.0', id, result: finalResult })
-        return
-      }
-
-
-      // ── 其他方法返回空 ──
-      if (method === 'prompts/list') {
-        await transport.send({ jsonrpc: '2.0', id, result: { prompts: [] } })
-        return
-      }
-      if (method === 'resources/list') {
-        await transport.send({ jsonrpc: '2.0', id, result: { resources: [] } })
-        return
-      }
-
-      if (id !== undefined) {
-        await transport.send({ jsonrpc: '2.0', id, error: { code: -32601, message: `Method not found: ${method}` } })
-      }
-    } catch (err: any) {
-      if (id !== undefined) {
-        await transport.send({ jsonrpc: '2.0', id, error: { code: err.code || -32000, message: err.message || String(err) } })
-      }
-    }
-  }
-}
-
 
 
 export const useWebAgentServer = async (): Promise<string> => {
+  // 无论是在 Background 还是 Sidepanel，都需要确保当前上下文的 modelContext 就绪
+  setupLocalTools()
+
   const getDynamicFinalAgentRoot = async () => {
     const customWebAgentUrl = await getWebAgentUrl()
     let finalAgentRoot = AGENT_ROOT
@@ -247,7 +81,7 @@ export const useWebAgentServer = async (): Promise<string> => {
   const storageResult = await browser.storage.local.get(StorageKeys.MCP_SESSION_ID)
   let latestSessionId: string | null = (storageResult[StorageKeys.MCP_SESSION_ID] as string) || null
 
-  // 创建连接配置（不再使用 builtin: true，由 setupPageToolsProxy 自定义处理）
+  // 创建连接配置
   const createConnectOptions = (url: string, type: 'sse' | 'socket' | 'stream', onError: (error: Error) => void) => {
     const baseUrl = url.endsWith('/') ? url : url + '/'
     const suffix = type === 'sse' ? 'sse' : 'mcp'
@@ -255,6 +89,7 @@ export const useWebAgentServer = async (): Promise<string> => {
       url: baseUrl + suffix,
       sessionId: latestSessionId || undefined,
       agent: true,
+      builtin: true,
       type,
       onError
     }
@@ -266,6 +101,11 @@ export const useWebAgentServer = async (): Promise<string> => {
     latestSessionId = sessionId
     retryCount = 0
     isReconnecting = false
+    
+    // 连接成功后主动刷新一次工具，确保 Agent 获取到的是绝对最新的
+    if (typeof forceRefreshTools === 'function') {
+      forceRefreshTools().catch(() => {})
+    }
   }
 
   const setStatus = (status: 'connecting' | 'connected' | 'error') => {
@@ -275,13 +115,21 @@ export const useWebAgentServer = async (): Promise<string> => {
   const connectToAgent = async (isRetry: boolean = false, forceFresh: boolean = false): Promise<string> => {
     if (!isRetry) setStatus('connecting')
     try {
-      if (forceFresh) latestSessionId = null
+      if (forceFresh) {
+        latestSessionId = null
+      } else {
+        // 先去读取 localstorage 中的 sessionid
+        const storageResult = await browser.storage.local.get(StorageKeys.MCP_SESSION_ID)
+        if (storageResult[StorageKeys.MCP_SESSION_ID]) {
+          latestSessionId = storageResult[StorageKeys.MCP_SESSION_ID] as string
+        }
+      }
       const finalUrl = await getDynamicFinalAgentRoot()
       const type = await getConnectType()
       const { transport, sessionId } = await client.connect(createConnectOptions(finalUrl, type, handleError))
 
       // 连接成功后，设置页面工具代理（拦截 tools/list 和 tools/call）
-      setupPageToolsProxy(transport)
+      _currentTransport = transport
 
       await handleConnectSuccess(sessionId, isRetry)
       setStatus('connected')
@@ -321,18 +169,24 @@ export const useWebAgentServer = async (): Promise<string> => {
     // 重置自动重连状态，防止与手动重连竞态
     isReconnecting = false
     retryCount = 0
-    try { await client.close() } catch (e) {}
-    await browser.storage.local.remove(StorageKeys.MCP_SESSION_ID)
+    try {
+      await client.close()
+    } catch (e) {}
+
+    // 先去读取 localstorage 中的 sessionid
+    const storageResult = await browser.storage.local.get(StorageKeys.MCP_SESSION_ID)
+    if (storageResult[StorageKeys.MCP_SESSION_ID]) {
+      latestSessionId = storageResult[StorageKeys.MCP_SESSION_ID] as string
+    }
 
     // 使用独立逻辑：直接尝试连接，成功返回 sessionId，失败直接 throw（供 UI 感知）
     // 不复用 connectToAgent(false, ...) —— 那会在失败时同时触发 reconnect() 自动重试，造成竞态
     setStatus('connecting')
-    latestSessionId = null
     try {
       const finalUrl = await getDynamicFinalAgentRoot()
       const type = await getConnectType()
       const { transport, sessionId } = await client.connect(createConnectOptions(finalUrl, type, handleError))
-      setupPageToolsProxy(transport)
+      _currentTransport = transport
       await handleConnectSuccess(sessionId, false)
       setStatus('connected')
       return sessionId
@@ -359,4 +213,3 @@ export const useWebAgentServer = async (): Promise<string> => {
 
   return latestSessionId
 }
-

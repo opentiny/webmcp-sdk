@@ -2,17 +2,18 @@ import { useWebAgentServer, forceWebAgentReconnect } from './sidepanel/composabl
 import { tabHistory } from './background/tab-history'
 
 export default defineBackground(() => {
-  // 初始化 Web Agent 连接
-  const initPromise = useWebAgentServer()
-    .then((sessionId) => {
-      console.log('【Background】MCP 服务端启动成功，sessionId:', sessionId)
-      return sessionId
-    })
-    .catch((error: any) => {
-      // 初始连接失败是可控的预期行为（如默认 URL 不可达），不再 rethrow
-      // 避免产生 Uncaught (in promise) 污染扩展错误面板
-      console.warn('【Background】初始化 useWebAgentServer 失败:', error)
-    })
+  // ─────────────────────────────────────────
+  // 延迟初始化 Web Agent 连接，确保消息监听器已就绪
+  // ─────────────────────────────────────────
+  setTimeout(() => {
+    useWebAgentServer()
+      .then((sessionId) => {
+        console.log('【Background】MCP 服务端启动成功，sessionId:', sessionId)
+      })
+      .catch((error: any) => {
+        console.warn('【Background】初始化 useWebAgentServer 失败:', error)
+      })
+  }, 0)
 
   // ─────────────────────────────────────────
   // Tab 生命周期：清理握手状态
@@ -49,64 +50,7 @@ export default defineBackground(() => {
       return true
     }
 
-    // ── 浏览器内置 WebMCP 代理通信（代替原有的复杂消息桥接） ──
-    // 侧边栏查询：直接在目标页面执行脚本，调用 __nextSdkRegisteredTools 或 listTools()
-    if (message.type === 'get-page-tools') {
-      const { tabId } = message
-      browser.scripting
-        .executeScript({
-          target: { tabId },
-          world: 'MAIN',
-          func: () => {
-            // 优先使用 bridge.ts 暴露的全局函数（拦截 document.modelContext 注册的工具）
-            if (typeof (window as any).__nextSdkRegisteredTools === 'function') {
-              return (window as any).__nextSdkRegisteredTools()
-            }
-            // Fallback：尝试通过 modelContext.getTools()
-            return (document as any).modelContext?.getTools?.() || []
-          }
-        })
-        .then((res) => {
-          sendResponse(res[0]?.result || [])
-        })
-        .catch((err) => {
-          console.warn('【Background】get-page-tools 失败:', err)
-          sendResponse([])
-        })
-      return true
-    }
-
-    // 侧边栏调用：直接在目标页面执行脚本，调用 executeTool
-    if (message.type === 'execute-page-tool') {
-      const { tabId, toolName, args } = message
-      browser.scripting
-        .executeScript({
-          target: { tabId },
-          world: 'MAIN',
-          func: async (name: string, inputStr: string) => {
-            try {
-              const ctx = (document as any).modelContext
-              if (!ctx) throw new Error('WebMCP is not initialized on this page')
-              const tools = await ctx.getTools()
-              const toolObj = tools.find((t: any) => t.name === name)
-              if (!toolObj) throw new Error(`Tool ${name} not found`)
-              const res = await ctx.executeTool(toolObj, inputStr)
-              return { success: true, result: res }
-            } catch (e: any) {
-              return { success: false, error: e.message }
-            }
-          },
-          args: [toolName, JSON.stringify(args)]
-        })
-        .then((res) => {
-          sendResponse(res[0]?.result)
-        })
-        .catch((err) => {
-          console.warn('【Background】execute-page-tool 失败:', err)
-          sendResponse({ success: false, error: err.message })
-        })
-      return true
-    }
+    // ── PAGE_CONTROL 等后续消息处理 ──
     // PAGE_CONTROL：由 sidepanel 发起，转发给目标 tab 的 content script 执行 DOM 操作
     // content script 里的 PageController 在 ISOLATED world 运行，完全不受页面 CSP 限制
     if (message.type === 'PAGE_CONTROL') {

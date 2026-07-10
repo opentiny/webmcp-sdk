@@ -6,9 +6,11 @@ import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
  */
 export const setupBuiltinProxy = (transport: Transport) => {
   const getNativeCtx = () => {
-    if (typeof navigator === 'undefined') return null
-    const nav = navigator as any
-    return (document as any).modelContext || null
+    let ctx = null
+    if (typeof document !== 'undefined') ctx = ctx || (document as any).modelContext
+    if (typeof navigator !== 'undefined') ctx = ctx || (navigator as any).modelContext
+    ctx = ctx || (globalThis as any).modelContext
+    return ctx || null
   }
 
   transport.onmessage = async (message: any) => {
@@ -36,7 +38,7 @@ export const setupBuiltinProxy = (transport: Transport) => {
         await transport.send({ jsonrpc: '2.0', id, result: {} })
       } else if (method === 'tools/list') {
         const nativeCtx = getNativeCtx()
-        if (nativeCtx && nativeCtx.listTools) {
+        if (nativeCtx && nativeCtx.getTools) {
           const rawTools = await nativeCtx.getTools()
           const tools = rawTools.map((t: any) => {
             let schemaObj: any = {}
@@ -72,9 +74,9 @@ export const setupBuiltinProxy = (transport: Transport) => {
             throw error
           }
           const { name, arguments: args } = message.params
-          const tools = await (nativeCtx.getTools ? nativeCtx.getTools() : []);
-          const toolObj = tools.find((t: any) => t.name === name);
-          if (!toolObj) throw new Error(`Tool ${name} not found`);
+          const tools = await (nativeCtx.getTools ? nativeCtx.getTools() : [])
+          const toolObj = tools.find((t: any) => t.name === name)
+          if (!toolObj) throw new Error(`Tool ${name} not found`)
           const result = await nativeCtx.executeTool(toolObj, JSON.stringify(args || {}))
           const finalResult =
             result && typeof result === 'object' && 'content' in result
