@@ -1,3 +1,7 @@
+---
+outline: [2, 3]
+---
+
 # useNextAgent 通用的智能体
 
 ```javascript

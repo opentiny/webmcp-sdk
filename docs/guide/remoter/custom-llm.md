@@ -1,3 +1,7 @@
+---
+outline: [2, 3]
+---
+
 # 自定义LLM
 
 TinyRemoter 组件支持自定义大模型接口和自定义 WebAgent 代理服务，让你可以灵活配置使用自己的 LLM 服务和代理服务。
@@ -145,10 +149,9 @@ const llmConfig = {
   <TinyRemoter
     v-model:show="show"
     v-model:selected-model-id="selectedModelId"
-    sessionId="your-session-id"
+    :llmConfigs="modelConfigs"
     title="我的AI助手"
     systemPrompt="你是一个智能助手"
-    :llmConfigs="modelConfigs"
   />
 </template>
 
@@ -347,3 +350,45 @@ VITE_AGENT_ROOT=https://your-agent-server.com/api/v1/webmcp/
 
 - [TinyRemoter for Vue](./tiny-robot-remoter.md) - TinyRemoter 组件完整文档
 - [AgentModelProvider API](./api-agentModelProvider.md) - AgentModelProvider 类详细说明
+
+**模型切换机制说明：**
+
+当 `selectedModelId` 发生变化时，组件内部会自动执行以下操作：
+
+1. **自动更新模型配置**：组件会监听 `selectedModel` 的变化，自动调用 `customAgentProvider.updateLLMConfig()` 方法
+2. **更新 LLM 实例**：`updateLLMConfig()` 方法会根据新的模型配置创建新的 Provider 实例，并更新到 `agent.llm`
+3. **支持的条件**：只有当模型配置中包含 `providerType` 时才会自动更新（如果使用 `llm` 实例配置，则不会自动更新）
+
+### 自定义AI, USER的头像
+
+```vue
+<template>
+  <TinyRemoter
+    v-model:show="show"
+    sessionId="your-session-id"
+    title="我的AI助手"
+    systemPrompt="你是一个智能助手"
+    :llmConfig="llmConfig"
+    :roleAvatar="roleAvatar"
+  />
+</template>
+
+<script setup>
+import { ref, h } from 'vue'
+import { TinyRemoter } from '@opentiny/next-remoter'
+import { createOpenAI } from '@ai-sdk/openai'
+
+const show = ref(false)
+const llmConfig = {
+  apiKey: '',
+  baseURL: 'https://api.openai.com/v1',
+  providerType: 'openai',
+  model: 'gpt-4o'
+}
+
+const roleAvatar = {
+  user: h('div', { style: { fontSize: '32px' } }, 'U'),
+  assistant: h('img', { src: 'https://play.vuejs.org/logo.svg', width: '32px', height: '32px' })
+}
+</script>
+```

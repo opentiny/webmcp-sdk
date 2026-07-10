@@ -1,3 +1,7 @@
+---
+outline: [2, 3]
+---
+
 # TinyRemoter Skills 技能配置指南
 
 本文档详细介绍如何在 `TinyRemoter` 组件中配置和使用 Skills 技能系统。
