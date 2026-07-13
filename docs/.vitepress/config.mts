@@ -35,10 +35,10 @@ export default defineConfig({
           ]
         },
         {
-          text: 'WebMCP CLI & Skills',
+          text: 'WebMCP CLI & Skill',
           items: [
-            { text: 'WebMCP CLI 工具介绍', link: '/guide/webmcp-cli' },
-            { text: '第三方 Agent 接入指南', link: '/guide/webmcp-agent-integration' }
+            { text: 'CLI 使用指南', link: '/guide/webmcp-cli' },
+            { text: 'Skill 使用指南', link: '/guide/webmcp-agent-integration' }
           ]
         },
         {
@@ -62,11 +62,11 @@ export default defineConfig({
         {
           text: 'AI Extension',
           items: [
-            { text: '技术架构', link: '/guide/ai-extension-architecture' },
-            { text: 'MCP Servers 工具开发指南', link: '/guide/ai-extension-next-wxt' },
+            { text: '快速入门', link: '/guide/ai-extension-install' },
+            { text: '配置大模型', link: '/guide/ai-extension-model-config' },
+            { text: 'MCP工具开发指南', link: '/guide/ai-extension-next-wxt' },
             { text: 'Skills 技能开发指南', link: '/guide/ai-extension-skills' },
-            { text: 'AI Extension 插件安装指南', link: '/guide/ai-extension-install' },
-            { text: '配置大模型', link: '/guide/ai-extension-model-config' }
+            { text: '工作原理', link: '/guide/ai-extension-architecture' }
           ]
         }
       ]
