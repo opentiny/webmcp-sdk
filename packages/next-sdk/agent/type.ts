@@ -63,15 +63,12 @@ export type McpServerConfig =
       description?: string
     }
   | {
-      type: 'extension'
-      url: string
-      sessionId: string
+      type: 'local'
+      transport: MCPTransport
       useAISdkClient?: boolean
-      headers?: Record<string, string>
       name?: string
       description?: string
     }
-  | { type: 'local'; transport: MCPTransport; useAISdkClient?: boolean; name?: string; description?: string }
   | {
       /**
        * 浏览器内置 WebMCP 类型。

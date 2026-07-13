@@ -155,7 +155,7 @@ type UnifiedModelConfig = ICustomAgentModelProviderLlmConfig & {
 
 ```typescript
 defineExpose({
-  /** 大模型代理（AgentModelProvider 实例） */
+  /** 大模型代理 */
   agent,
   /** 欢迎图标 */
   welcomeIcon,
@@ -168,17 +168,30 @@ defineExpose({
   /** 输入框的文本 */
   inputMessage,
   /** 输入框组件的实例 */
-  senderRef,
+  senderRef: senderRef as Ref<ComponentInstance<typeof TrSender>>,
   /** 取消发送 */
   abortRequest,
   /** 发送消息 */
   sendMessage,
   /** 向插件市场添加一个server */
   loadMcpServerToPlugin,
-  /** mcp client断开时，自动清理已断开的插件和资源 */
+  /** 处理客户端断开连接 */
   handleClientDisconnected,
   /** 添加消息 */
-  addMessage
+  addMessage,
+  /** 已安装的插件 */
+  installedPlugins,
+  /** 添加插件核心方法 */
+  addPluginCore,
+  /** 删除插件核心方法 */
+  deletePlugin,
+  /** 注册内容渲染器 */
+  registerContentRenderer,
+  /**
+   * 刷新已安装插件的工具列表（从 agent.mcpTools 同步到 UI）
+   * 适用于 builtin client 工具变化后的快速刷新，避免 remove + reload 导致的 UI 闪烁
+   */
+  c
 })
 ```
 
