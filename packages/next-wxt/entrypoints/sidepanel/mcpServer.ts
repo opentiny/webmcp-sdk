@@ -59,14 +59,14 @@ export const setupLocalTools = () => {
 
   const syncPageProxy = async (tabId: number): Promise<void> => {
     const tabInfo = await browser.tabs.get(tabId)
+    // 先检查 staleness，再做任何副作用，避免 TOCTOU 问题
+    if (currentSyncTabId !== tabId) {
+      console.log('syncPageProxy: drop stale tabId', tabId)
+      return
+    }
     if (tabInfo.url && (tabInfo.url.startsWith('chrome://') || tabInfo.url.startsWith('edge://') || tabInfo.url.startsWith('about:'))) {
       console.log('syncPageProxy: cannot access chrome/edge/about URL')
       clearProxyTools()
-      return
-    }
-
-    if (currentSyncTabId !== tabId) {
-      console.log('syncPageProxy: drop stale tabId', tabId)
       return
     }
 
@@ -91,8 +91,9 @@ export const setupLocalTools = () => {
               description: t.description,
               inputSchema: t.inputSchema
             }))
-          } catch (e: any) {
-            return [{ name: '__error_in_page', description: e.message }]
+          } catch (e: unknown) {
+            // 发生错误时返回空数组，不注册假工具
+            return []
           }
         }
       })
@@ -123,16 +124,17 @@ export const setupLocalTools = () => {
         title: tool.title,
         description: tool.description,
         inputSchema: tool.inputSchema,
-        execute: async (args: any) => {
-          const activeTabId = currentSyncTabId
-          if (!activeTabId) {
+        execute: async (args: unknown) => {
+          // 闭包捕获注册时的 tabId，而不是执行时可能已变的 currentSyncTabId
+          const registeredTabId = tabId
+          if (!registeredTabId) {
             return { content: [{ type: 'text', text: 'Error: No active tab found' }] }
           }
 
-          let res: any = null
+          let res: { success: boolean; result?: unknown; error?: string } | null = null
           try {
             const execRes = await browser.scripting.executeScript({
-              target: { tabId: activeTabId },
+              target: { tabId: registeredTabId },
               world: 'MAIN',
               func: async (name: string, inputStr: string) => {
                 try {
@@ -188,6 +190,8 @@ export const setupLocalTools = () => {
 
       // 工具已就绪，通知 Cursor 发来 tools/list，此时 getTools() 立即返回
       onPageToolsUpdated.forEach((cb) => cb(tabId))
+      // 将 page-tools-updated 事件广播到所有监听方（waitForPageTools.ts、useBrowserExtensions.ts 等）
+      browser.runtime.sendMessage({ type: 'page-tools-updated', tabId }).catch(() => {})
     } catch (err) {
       console.warn('refreshPageTools failed:', err)
     }

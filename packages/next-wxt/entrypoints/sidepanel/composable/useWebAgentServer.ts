@@ -10,6 +10,8 @@ const RETRY_DELAY = 3000
 
 let _reconnectFn: (() => Promise<string>) | null = null
 let _currentTransport: Transport | null = null
+/** 记录待触发的自动重连计时器，手动重连前应先取消 */
+let _reconnectTimer: ReturnType<typeof setTimeout> | null = null
 
 export const forceWebAgentReconnect = async () => {
   if (_reconnectFn) {
@@ -95,7 +97,7 @@ export const useWebAgentServer = async (): Promise<string> => {
   }
 
   const handleConnectSuccess = async (sessionId: string, isRetry: boolean = false) => {
-    console.log(`【useWebAgentServer】${isRetry ? '重连' : '连接'}成功，sessionId:`, sessionId)
+    console.log(`【useWebAgentServer】${isRetry ? '重连' : '连接'}成功`)
     await browser.storage.local.set({ [StorageKeys.MCP_SESSION_ID]: sessionId })
     latestSessionId = sessionId
     retryCount = 0
@@ -141,8 +143,8 @@ export const useWebAgentServer = async (): Promise<string> => {
         setStatus('error')
         throw error
       }
-      // isRetry 时调用方（setTimeout）不关心返回值，直接 return 避免 Uncaught (in promise)
-      return
+      // isRetry 失败时同样抛出错误，保持 Promise<string> 类型契约
+      throw error
     }
   }
 
@@ -157,7 +159,8 @@ export const useWebAgentServer = async (): Promise<string> => {
     isReconnecting = true
     retryCount++
     console.log(`【useWebAgentServer】准备第 ${retryCount} 次重连，延迟 ${RETRY_DELAY}ms`)
-    setTimeout(() => {
+    _reconnectTimer = setTimeout(() => {
+      _reconnectTimer = null
       console.log(`【useWebAgentServer】开始第 ${retryCount} 次重连`)
       connectToAgent(true).catch(() => {}) // 失败已在内部处理，不需要冒泡
     }, RETRY_DELAY)
@@ -165,6 +168,11 @@ export const useWebAgentServer = async (): Promise<string> => {
 
   _reconnectFn = async () => {
     console.log('【useWebAgentServer】主动断开并重连...')
+    // 取消待触发的自动重连计时器，防止与手动重连并发
+    if (_reconnectTimer !== null) {
+      clearTimeout(_reconnectTimer)
+      _reconnectTimer = null
+    }
     // 重置自动重连状态，防止与手动重连竞态
     isReconnecting = false
     retryCount = 0

@@ -1,19 +1,45 @@
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js'
 
+/** 浏览器内置 WebMCP 原生上下文接口 */
+interface NativeModelContext {
+  getTools(): Promise<NativeTool[]> | NativeTool[]
+  executeTool(tool: NativeTool, argsStr: string): Promise<unknown>
+}
+
+/** 原生工具描述 */
+interface NativeTool {
+  name: string
+  description?: string
+  title?: string
+  inputSchema?: unknown
+}
+
+/** JSON-RPC 消息基础结构 */
+interface JsonRpcMessage {
+  jsonrpc: string
+  id?: string | number
+  method?: string
+  params?: {
+    name?: string
+    arguments?: Record<string, unknown>
+    [key: string]: unknown
+  }
+}
+
 /**
  * 建立原生的 JSON-RPC 拦截层：
  * 将发向 remote 的 MCP 请求拦截，代理给所在浏览器的 document.modelContext 上执行。
  */
 export const setupBuiltinProxy = (transport: Transport) => {
-  const getNativeCtx = () => {
-    let ctx = null
-    if (typeof document !== 'undefined') ctx = ctx || (document as any).modelContext
-    if (typeof navigator !== 'undefined') ctx = ctx || (navigator as any).modelContext
-    ctx = ctx || (globalThis as any).modelContext
+  const getNativeCtx = (): NativeModelContext | null => {
+    let ctx: NativeModelContext | null = null
+    if (typeof document !== 'undefined') ctx = ctx || ((document as unknown as Record<string, unknown>).modelContext as NativeModelContext | null)
+    if (typeof navigator !== 'undefined') ctx = ctx || ((navigator as unknown as Record<string, unknown>).modelContext as NativeModelContext | null)
+    ctx = ctx || ((globalThis as unknown as Record<string, unknown>).modelContext as NativeModelContext | null)
     return ctx || null
   }
 
-  transport.onmessage = async (message: any) => {
+  transport.onmessage = async (message: JsonRpcMessage) => {
     if (!message || typeof message !== 'object') return
     const id = message.id
     const method = message.method
@@ -69,7 +95,7 @@ export const setupBuiltinProxy = (transport: Transport) => {
         const nativeCtx = getNativeCtx()
         if (nativeCtx && nativeCtx.executeTool) {
           if (!message.params || typeof message.params !== 'object' || !message.params.name) {
-            const error: any = new Error('Invalid params: "name" is required and params must be an object')
+            const error: Error & { code?: number } = new Error('Invalid params: "name" is required and params must be an object')
             error.code = -32602 // Invalid params
             throw error
           }
@@ -84,7 +110,7 @@ export const setupBuiltinProxy = (transport: Transport) => {
               : { content: [{ type: 'text', text: typeof result === 'string' ? result : JSON.stringify(result) }] }
           await transport.send({ jsonrpc: '2.0', id, result: finalResult })
         } else {
-          const error: any = new Error('executeTool not implemented in Browser built-in WebMCP')
+          const error: Error & { code?: number } = new Error('executeTool not implemented in Browser built-in WebMCP')
           error.code = -32601 // Method not found
           throw error
         }
@@ -104,12 +130,13 @@ export const setupBuiltinProxy = (transport: Transport) => {
           error: { code: -32601, message: `Method not found: ${method}` }
         })
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (id !== undefined) {
+        const errObj = err as { code?: number; message?: string }
         await transport.send({
           jsonrpc: '2.0',
           id,
-          error: { code: err.code || -32000, message: err.message || String(err) }
+          error: { code: errObj.code || -32000, message: errObj.message || String(err) }
         })
       }
     }
