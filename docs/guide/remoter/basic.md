@@ -143,7 +143,7 @@ type UnifiedModelConfig = ICustomAgentModelProviderLlmConfig & {
 
 ## 二、事件
 
-- `before-ai-render` 在 AI 消息渲染之前触发，用户此时可以修改消息内容。 参数的`uiContent`属性中，包含当前流返回的消息类型：markdown, reasoning,tool,或其它自定义的消息，用户可以自由编排`uiContent`属性。 它配合组件暴露的`registerContentRenderer`方法，可以实现自定义流消息的渲染，详见底部示例。
+- `before-ai-render` 在 AI 消息渲染之前触发，用户此时可以修改消息内容。 参数的`uiContent`属性中，包含当前流返回的消息类型：markdown, reasoning,tool,或其它自定义的消息，用户可以自由编排`uiContent`属性。 它配合组件暴露的`registerContentRenderer`方法，可以实现自定义流消息的渲染，详见`自定义流消息的渲染`的示例。
 
 ## 三、插槽
 
@@ -347,13 +347,15 @@ const roleAvatar = {
 </script>
 ```
 
-### 自定义流消息的渲染
+## 六、自定义流消息的渲染
 
-有的场景是让大模型返回指定格式的文本内容，对这些内容进行特别渲染,适用于生成式UI 等。 下面举一个简单的例子说明如何使用自定义流消息的渲染。
+有的场景是让大模型返回`特定格式`的内容，混在普通文本内容中，还需要对`特定内容`进行特别渲染,比如生成卡片交互等。此时就需要对流消息进行处理，将`特定格式`的内容截取出来，再插回一个特殊类型的格式。
 
-当大模型返回的文本中包含 `HEART` 时，将它渲染为 emoji ❤️ 。我们分2步来实现：
+下面举一个简单的例子说明这个过程-----如何使用自定义流消息的渲染。
 
-1. 监听所有流消息中，包含`HEART`的文本，并分隔成多个消息段。 比如：
+需求： 当大模型返回的文本中包含 `HEART` 时，将它渲染为 emoji ❤️ 。我们分2步来实现：
+
+1. 监听所有流消息中，包含`HEART`的文本时分隔成多个消息段，插回一个 `type='heart' `的消息。 比如：
 
 ```javascript
 // 拆分前
@@ -371,7 +373,7 @@ const roleAvatar = {
 }
 ```
 
-2. 注册一个 heart 类型的渲染器,渲染所有的heart消息。
+2. 注册一个 `heart 类型`的渲染器,渲染heart消息。
 
 ```javascript
   remoterRef.value?.registerContentRenderer('heart', (content: any) => {
@@ -402,6 +404,7 @@ const llmConfig = {
 
 const myRemoter = useTemplateRef('myRemoter')
 
+// 1、监听流消息进行数据截取
 function beforeAiRender(currMessage: any) {
   if (!currMessage?.uiContent || !Array.isArray(currMessage.uiContent)) {
     return
@@ -451,6 +454,7 @@ function beforeAiRender(currMessage: any) {
 }
 
 onMounted(()=>{
+  // 2. 注册 heart 渲染类型
   myRemoter.value?.registerContentRenderer('heart', (content: any) => {
     return h('span', {}, content)
   })
@@ -458,7 +462,7 @@ onMounted(()=>{
 </script>
 ```
 
-## 六、插槽示例
+## 七、插槽示例
 
 ### 自定义欢迎界面和提示建议（welcome 和 suggestions 插槽）
 
@@ -554,14 +558,16 @@ function handleExport() {
 </script>
 ```
 
-## 七、生成式 UI 示例
+## 八、生成式 UI 示例
 
-生成式UI 又叫 `Gen UI`， 为了让大模型LLM能返回正确的`Gen UI`的有效格式的响应，需要本地化部署专用的 `GenUI LLM 服务`, 请参考[Gen UI文档](https://docs.opentiny.design/genui-sdk/guide/quick-start.html)。
+生成式UI 又叫 `Gen UI`， 为了让大模型LLM能返回正确的`Gen UI`的特殊格式的响应，需要本地化部署专用的 `GenUI LLM 服务`, 请参考[Gen UI文档](https://docs.opentiny.design/genui-sdk/guide/quick-start.html)。
 
-本地化部署 `GenUI LLM 服务` 之后，在配置使用的 `llmConfig` 或 `llmConfigs` 中，需要配置`genuiUrl`属性指向私有化部署的服务地址，然后在对话框的底部的 `生成式UI` 的按钮激活，或者直接设置组件的 `v-model:genUiAble` 直接控制，启用生成式UI的输出。 当启用生成式UI时，对话会使用 `genuiUrl`的地址以及自动处理`生成式UI`的流消息，渲染正确的卡片组件。
+本地化部署 `GenUI LLM 服务` 之后，在配置使用的 `llmConfig` 或 `llmConfigs` 中，需要配置`genuiUrl`属性指向私有化部署的服务地址，然后在对话框的底部的 `生成式UI` 的按钮激活，或者直接设置组件的 `v-model:genUiAble` 属性来启用生成式UI的输出模式。
+
+当启用生成式UI后，`TinyRemoter`发起新对话时，会使用 `genuiUrl`的地址以及自动处理的流消息渲染，从而输出正确的卡片组件。
 
 ::: warning
-建议用户直接使用`Gen UI`的完整方案，使用最新的`Gen UI`特性。
+建议用户直接使用`Gen UI`的完整方案，可以获得最新的`Gen UI`特性。
 :::
 
 ```vue
@@ -586,10 +592,11 @@ const show = ref(false)
 const llmConfig = {
   apiKey: '',
   baseURL: 'https://xxx.com/v1',
-  genuiUrl: 'https://xxx.com/v1/prompt',
+  genuiUrl: 'https://xxx.com/v1/gen',
   providerType: 'deepseek'
 }
 
+// 让GenUI 额外支持一些组件
 const genUiComponents = shallowReactive({ TinyUser, TinyAlert })
 </script>
 ```
