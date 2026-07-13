@@ -7,6 +7,12 @@ import { useExtraTools } from './extraTools'
  */
 let isSetupLocalToolsCalled = false
 
+/**
+ * 页面工具同步完成后的回调集合。
+ * 工具已注册到 nativeCtx 之后才触发，订阅方可以安全地发送 notifications/tools/list_changed。
+ */
+export const onPageToolsUpdated = new Set<(tabId: number) => void>()
+
 export const setupLocalTools = () => {
   if (isSetupLocalToolsCalled) return
   isSetupLocalToolsCalled = true
@@ -17,7 +23,7 @@ export const setupLocalTools = () => {
   nativeCtx = nativeCtx || (globalThis as any).modelContext
 
   if (!nativeCtx) {
-    console.log('【setupLocalTools】初始化 fallback modelContext (针对 Background Service Worker)')
+    console.log('setupLocalTools: init fallback modelContext')
     nativeCtx = {
       _tools: new Map(),
       getTools: async () => Array.from(nativeCtx._tools.values()),
@@ -31,23 +37,19 @@ export const setupLocalTools = () => {
     ;(globalThis as any).modelContext = nativeCtx
   }
 
-  // 1. 注册插件内置辅助工具（tabs-manager、page-agent-tool 等）
+  // 1. 注册插件内置辅助工具
   useExtraTools(nativeCtx)
 
   // 2. 记录已注册的页面代理工具，防止重复注册
   const registeredProxyTools = new Set<string>()
 
-  /**
-   * 清除所有已注册的页面代理工具（Tab 切换时调用）
-   * 从 nativeCtx 取消注册，并清空 Set，确保旧 Tab 工具不残留
-   */
   const clearProxyTools = () => {
     if (registeredProxyTools.size === 0) return
     registeredProxyTools.forEach((name) => {
       try {
         nativeCtx.unregisterTool?.(name)
       } catch {
-        // 忽略取消注册错误
+        // ignore
       }
     })
     registeredProxyTools.clear()
@@ -55,22 +57,28 @@ export const setupLocalTools = () => {
 
   let currentSyncTabId: number | null = null
 
-  /**
-   * 从 background 获取指定 Tab 的页面工具，代理注册到 nativeCtx。
-   * 纯数据同步，不发送任何消息通知 —— 供外部（useBrowserExtensions）调用，
-   * 调用方自行决定何时刷新 UI。
-   */
   const syncPageProxy = async (tabId: number): Promise<void> => {
-    currentSyncTabId = tabId
+    const tabInfo = await browser.tabs.get(tabId)
+    if (tabInfo.url && (tabInfo.url.startsWith('chrome://') || tabInfo.url.startsWith('edge://') || tabInfo.url.startsWith('about:'))) {
+      console.log('syncPageProxy: cannot access chrome/edge/about URL')
+      clearProxyTools()
+      return
+    }
+
+    if (currentSyncTabId !== tabId) {
+      console.log('syncPageProxy: drop stale tabId', tabId)
+      return
+    }
+
     let tools: any[] = []
     try {
-      console.log('【syncPageProxy】开始执行 executeScript, tabId:', tabId)
+      console.log('syncPageProxy: executeScript tabId', tabId)
       const execRes = await browser.scripting.executeScript({
         target: { tabId },
         world: 'MAIN',
         func: () => {
           try {
-            let pageTools = []
+            let pageTools: any[] = []
             if (typeof (window as any).__nextSdkRegisteredTools === 'function') {
               pageTools = (window as any).__nextSdkRegisteredTools()
             } else if ((document as any).modelContext?.getTools) {
@@ -89,20 +97,20 @@ export const setupLocalTools = () => {
         }
       })
       tools = execRes[0]?.result || []
-      console.log('【syncPageProxy】获取到了页面工具:', tools)
+      console.log('syncPageProxy: got tools', tools)
     } catch (err) {
-      console.warn('【syncPageProxy】获取页面工具失败:', err)
+      console.warn('syncPageProxy: executeScript failed', err)
     }
 
     if (currentSyncTabId !== tabId) {
-      console.log('【syncPageProxy】并发调用丢弃旧的 tabId:', tabId)
+      console.log('syncPageProxy: drop stale tabId after script', tabId)
       return
     }
 
     clearProxyTools()
 
     if (!tools || !Array.isArray(tools) || tools.length === 0) {
-      console.log('【syncPageProxy】页面工具为空或无效')
+      console.log('syncPageProxy: no tools')
       return
     }
 
@@ -116,7 +124,7 @@ export const setupLocalTools = () => {
         description: tool.description,
         inputSchema: tool.inputSchema,
         execute: async (args: any) => {
-          let activeTabId = currentSyncTabId
+          const activeTabId = currentSyncTabId
           if (!activeTabId) {
             return { content: [{ type: 'text', text: 'Error: No active tab found' }] }
           }
@@ -143,7 +151,7 @@ export const setupLocalTools = () => {
             })
             res = execRes[0]?.result
           } catch (err: any) {
-            console.warn('【syncPageProxy】执行页面工具失败:', err)
+            console.warn('syncPageProxy: tool exec failed', err)
             res = { success: false, error: err.message }
           }
 
@@ -166,33 +174,36 @@ export const setupLocalTools = () => {
     })
   }
 
-  // 3. 动态获取当前 Tab 工具并代理，完成后通知 UI 刷新
-  //    由 tabs.onActivated / tabs.onUpdated 驱动，此路径负责发消息通知 UI
+  // 3. 先同步工具到 nativeCtx，完成后再通知 Cursor
+  //    保证 Cursor 发来 tools/list 时 nativeCtx 已有最新工具，无需再等待
   const refreshPageTools = async (targetTabId?: number) => {
     try {
       const tabId = targetTabId || (await getCurrentTabId())
       if (!tabId) return
 
+      currentSyncTabId = tabId
+
+      // 等工具同步完毕
       await syncPageProxy(tabId)
 
-      // 通知侧边栏 UI 刷新
-      browser.runtime.sendMessage({ type: 'page-tools-updated', tabId }).catch(() => {})
+      // 工具已就绪，通知 Cursor 发来 tools/list，此时 getTools() 立即返回
+      onPageToolsUpdated.forEach((cb) => cb(tabId))
     } catch (err) {
-      console.warn('【setupLocalTools】刷新页面工具代理失败:', err)
+      console.warn('refreshPageTools failed:', err)
     }
   }
 
   // 初始加载
   refreshPageTools()
 
-  // 监听内容脚本工具注入完成事件，这是最准确的获取时机
+  // 监听内容脚本工具注入完成事件
   browser.runtime.onMessage.addListener((message) => {
     if (message.type === 'page-tools-injected') {
       refreshPageTools(message.tabId)
     }
   })
 
-  // 监听 Tab 切换，清除旧工具并加载新 Tab 的工具
+  // 监听 Tab 切换
   browser.tabs.onActivated.addListener((activeInfo) => refreshPageTools(activeInfo.tabId))
   browser.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
     if (changeInfo.status === 'complete' && tab.active) {
@@ -200,19 +211,10 @@ export const setupLocalTools = () => {
     }
   })
 
-  // 导出刷新函数供其他模块主动调用
   forceRefreshTools = refreshPageTools
-
-  // 将 syncPageProxy 挂到模块级变量，供 useBrowserExtensions 访问
-  // 这样 page-tools-updated 消息到来时，可以先同步代理工具再刷新 UI
   exportedSyncPageProxy = syncPageProxy
 }
 
-/**
- * 模块级暴露：同步当前 Tab 的页面工具到 nativeCtx，但不发通知消息。
- * 由 useBrowserExtensions 在收到 content.ts 的 page-tools-updated 时调用，
- * 确保 nativeCtx 里的代理工具是最新的，再让 refreshPluginTools 刷新 UI。
- */
 export let exportedSyncPageProxy: ((tabId: number) => Promise<void>) | null = null
 
 export let forceRefreshTools: (() => Promise<void>) | null = null

@@ -22,25 +22,24 @@ export const forceWebAgentReconnect = async () => {
 const notifyToolsListChanged = async () => {
   if (_currentTransport) {
     try {
+      console.log('【notifyToolsListChanged】发送 notifications/tools/list_changed');
       await _currentTransport.send({
         jsonrpc: '2.0',
         method: 'notifications/tools/list_changed'
       })
     } catch (e) {
-      // 忽略报错
+      console.warn('【notifyToolsListChanged】发送失败:', e);
     }
+  } else {
+    console.warn('【notifyToolsListChanged】_currentTransport为空，无法发送通知');
   }
 }
 
-// 注册全局监听器（只注册一次）
-// 移除过早的 tabs.onActivated 监听，统一依靠 mcpServer.ts 发出的 page-tools-updated 消息来保证工具已同步完毕
-if (typeof browser !== 'undefined' && browser.runtime) {
-  browser.runtime.onMessage.addListener((message) => {
-    if (message && message.type === 'page-tools-updated') {
-      notifyToolsListChanged()
-    }
-  })
-}
+// 工具同步完成后才触发通知，确保 Cursor 来 tools/list 时 nativeCtx 已有最新工具
+import { onPageToolsUpdated } from '../mcpServer'
+onPageToolsUpdated.add(() => {
+  notifyToolsListChanged()
+})
 
 
 
