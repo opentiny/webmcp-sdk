@@ -4,67 +4,67 @@ outline: [2, 3]
 
 # TinyRemoter 组件
 
-`TinyRemoter` 是一个Vue3 组件，底层依赖`@opentiny/tiny-robot` 组件库，它内置了一系列的功能，方便开发者迅速接入AI 对话能力！
+`TinyRemoter` 是一个基于 Vue 3 的 AI 对话组件，底层依赖 `@opentiny/tiny-robot`，内置常用能力，可帮助开发者快速接入智能对话功能。
 
-快速引入：
+## 快速引入
 
 ```javascript
 import { TinyRemoter } from '@opentiny/next-remoter'
 import '@opentiny/next-remoter/dist/style.css'
 ```
 
-主要功能：
+## 主要功能
 
-- 支持与对话LLM
+- 支持与大语言模型对话
 - 欢迎界面展示
-- AI消息的流式渲染 markdown, 工具调用等展示
-- 支持会话管理
-- 支持MCP市场与自定义添加McpServer
+- AI 消息流式渲染，支持 Markdown、工具调用等展示
+- 会话管理
+- MCP 市场与自定义 MCP Server 接入
 
 ## 一、属性
 
-- `mode` 展示模式，可选值为：'remoter' | 'chat-dialog'，默认值为 `remoter`。
-  - 遥控器模式： 自动在右下角显示一个AI图标，点击展开多个菜单项；
-  - 对话框模式： 直接显示一个对话框界面
+- `mode` 展示模式，可选值为 `'remoter' | 'chat-dialog'`，默认值为 `remoter`。
+  - **遥控器模式**：自动在右下角显示 AI 图标，点击后展开菜单项
+  - **对话框模式**：直接显示对话框界面
 
-### 1.1 `chat-dialog` 模式的属性
+### 1.1 `chat-dialog` 模式属性
 
-- `v-model:show` 双向绑定是否显示，内部关闭是 emit('update:show',false)
+- `v-model:show` 双向绑定是否显示
 - `v-model:fullscreen` 双向绑定是否全屏
-- `title` `chat-dialog` 模式时，左上角的标题。
-- `locale` 选择国际化语言, 可选值为：`'zh-CN' | 'en-US'` 。
-  > 组件内置的欢迎界面，建议按钮等文字有中英文的2个版本，默认为`zh-CN`。
-- `role-avatar` 设置角色user/assistant的头像。
-  > 格式为 {user: VNode, assistant: VNode }, VNode 可以通过h函数创建，比如： h(IconUser, { style: { fontSize: '32px' } })
-- `promptItems` 自定义欢迎区建议卡片数据，类型为 `PromptProps[]`。
-  > 用于覆盖默认的三张欢迎卡片（标题 + 描述 + 图标 + badge），建议用户修改掉默认值。
-- `pillItems` 自定义输入框上方的快捷操作按钮数据，类型为 `{ id: string; text: string; menus: { id: string | number; text: string; inputMessage: string }[] }[]`。用
-  > 于覆盖默认的三个胶囊按钮组（如「办公助手」「开发支持」等），建议用户修改掉默认值。
-- `layout-mode` 布局模式，支持所有 CSS position 属性值：`'static' | 'relative' | 'absolute' | 'fixed' | 'sticky'`，默认值为 `'fixed'`。
-  > 用于控制组件在网页上定位方式。
+- `title` 对话框模式左上角标题
+- `locale` 国际化语言，可选值为 `'zh-CN' | 'en-US'`
+  > 组件内置欢迎界面、建议按钮等文案提供中英文版本，默认为 `zh-CN`。
+- `role-avatar` 设置 `user` / `assistant` 角色头像
+  > 格式为 `{ user: VNode, assistant: VNode }`，VNode 可通过 `h` 函数创建，例如：`h(IconUser, { style: { fontSize: '32px' } })`
+- `promptItems` 自定义欢迎区建议卡片数据，类型为 `PromptProps[]`
+  > 用于覆盖默认的三张欢迎卡片（标题 + 描述 + 图标 + badge），建议按需修改默认值。
+- `pillItems` 自定义输入框上方快捷操作按钮数据，类型为 `{ id: string; text: string; menus: { id: string | number; text: string; inputMessage: string }[] }[]`
+  > 用于覆盖默认的三个胶囊按钮组（如「办公助手」「开发支持」等），建议按需修改默认值。
+- `layout-mode` 布局模式，支持所有 CSS `position` 属性值：`'static' | 'relative' | 'absolute' | 'fixed' | 'sticky'`，默认值为 `'fixed'`
+  > 用于控制组件在页面中的定位方式。
 
 ### 1.2 远程遥控模式属性
 
-- `AILogoUrl` 悬浮AI图标的 url 地址。
-- `agentRoot` 后端代理`Web Agent`的服务地址。
-- `sessionId` 用户应用向`Web Agent`的服务端注册后生成的id, 用于标识当前页面。如果不使用远程遥控模式，可以忽略该值。
-- `remoteUrl` 远程遥控的URL地址，用于显示在遥控器模式下，点击`遥控器链接`菜单时，要跳转的远程遥控网页。
-- `qrCodeUrl` 远程遥控的URL地址，用于显示在遥控器模式下，点击 `扫码登录`菜单时，会弹出二维码让用户扫码，扫码成功后进入的地址。
-- `menuItems` 菜单项配置数组，用于显示在遥控器模式下，点击遥控器图标后，显示的菜单项。具体配置项见 [api-createRemoter](./api-createRemoter.md)。 它默认情况下显示全部菜单，若传入空数组，则不显示菜单。
+- `AILogoUrl` 悬浮 AI 图标的 URL 地址
+- `agentRoot` 后端 `Web Agent` 代理服务地址
+- `sessionId` 应用向 `Web Agent` 注册后生成的 ID，用于标识当前页面；若不使用远程遥控模式，可忽略该值
+- `remoteUrl` 远程遥控页面 URL；在遥控器模式下点击「遥控器链接」菜单时跳转至该地址
+- `qrCodeUrl` 远程遥控页面 URL；在遥控器模式下点击「扫码登录」菜单时弹出二维码，扫码成功后进入该地址
+- `menuItems` 菜单项配置数组，用于遥控器模式下点击图标后展示的菜单项，具体配置见 [createRemoter 函数](../api-createRemoter)。默认显示全部菜单，传入空数组则不显示菜单
 
 ### 1.3 大模型属性
 
-- `llmConfig` 大语言模型配置对象，详见下面类型声明。
-- `llmConfigs` LLM 配置数组，每一项基于 `llmConfig` 格式，额外包含 `id`、`label`、`icon`、`isDefault`、`useReActMode` 字段。传入此属性后，会在输入框底部部显示模型切换组件，支持通过 `v-model:selectedModelId` 控制选中的模型。
-- `v-model:selectedModelId` 双向绑定当前选中的模型 ID（字符串类型），当传入 `llmConfigs` 时，可通过此属性控制选择的模型
-- `v-model:enabledTools` 双向绑定默认启用的工具状态（`Record<string, boolean>` 类型），键为工具名称，值为是否启用。主要用于控制本地工具的默认启用状态
-- `systemPrompt` 对话的系统提示词，默认值为`'你是一个智能助手，擅长通过工具调用帮助用户解决问题和满足用户需求'`
-- `skills` 设置技能的配置对象（`Record<string, string>` 类型）。通常配合 Vite 的 `import.meta.glob` 导入标准 `SKILL.md` 文件。AI 助手会自动识别用户意图并调用相应的技能，无需手动触发。
-- `mcpServers` 预置 MCP 服务器配置（业界格式 `Record<string, McpServerConfig>`）。键为服务器名称，值为单台服务器配置；组件初始化时会自动加载并出现在「已添加MCP服务」中。**一般对应前端的 MCP 服务，页面关闭后即不存在。** 支持配置自定义 `name`（插件显示名称）和 `description`（插件功能描述），配置说明见 [预置 MCP 服务器（mcpServers）](#预置-mcp-服务器mcpservers)
-- `customMarketMcpServers` 自定义 MCP 市场服务列表（`PluginInfo[]`）。组件内部不再内置任何默认市场服务，若需使用官方默认的 MCP 工具集，需从应用层导入并传入。**一般对应后台的 MCP 服务，可常驻存在。**
+- `llmConfig` 大语言模型配置对象，详见下方类型声明
+- `llmConfigs` LLM 配置数组，每一项基于 `llmConfig` 格式，额外包含 `id`、`label`、`icon`、`isDefault`、`useReActMode` 字段。传入后会在输入框底部显示模型切换组件，可通过 `v-model:selectedModelId` 控制当前选中模型
+- `v-model:selectedModelId` 双向绑定当前选中的模型 ID（字符串类型）；传入 `llmConfigs` 时，可通过该属性控制所选模型
+- `v-model:enabledTools` 双向绑定默认启用的工具状态（`Record<string, boolean>` 类型），键为工具名称，值为是否启用，主要用于控制本地工具的默认启用状态
+- `systemPrompt` 对话系统提示词，默认值为 `'你是一个智能助手，擅长通过工具调用帮助用户解决问题和满足用户需求'`
+- `skills` 技能配置对象（`Record<string, string>` 类型），通常配合 Vite 的 `import.meta.glob` 导入标准 `SKILL.md` 文件；AI 助手会自动识别用户意图并调用相应技能，无需手动触发
+- `mcpServers` 预置 MCP 服务器配置（业界格式 `Record<string, McpServerConfig>`），键为服务器名称，值为单台服务器配置；组件初始化时会自动加载并出现在「已添加 MCP 服务」中。**一般对应前端 MCP 服务，页面关闭后即不存在。** 支持配置自定义 `name`（插件显示名称）和 `description`（插件功能描述），详见 [MCP Server 与工具指南](./mcp-server-tool.md)
+- `customMarketMcpServers` 自定义 MCP 市场服务列表（`PluginInfo[]`）。组件内部不再内置默认市场服务，若需使用官方 MCP 工具集，需从应用层导入并传入。**一般对应后台 MCP 服务，可常驻存在。**
 
 ::: tip
-`llmConfig` 和 `llmConfigs`同时设置时，`llmConfig`优先生效。当手动切换`llmConfigs`中的模型时，会切换为选择的模型。 不建议同时传入这2个属性。
+同时设置 `llmConfig` 和 `llmConfigs` 时，`llmConfig` 优先生效；用户手动切换 `llmConfigs` 中的模型后，所选模型生效。不建议同时传入这两个属性。
 :::
 
 ```typescript
@@ -137,19 +137,19 @@ type UnifiedModelConfig = ICustomAgentModelProviderLlmConfig & {
 
 ### 1.4 杂项属性
 
-- `inBrowserExt` 设置组件运行在普通页面还是浏览器的扩展中，默认值为：false
-- `genUiAble` 双向绑定是否启用生成式 UI 的渲染，默认值为：false。输入框旁的「生成式 UI 开关」是否显示由**当前模型配置**决定：仅当配置中同时包含 `baseURL` 和 `genuiUrl` 时才会显示该开关
-- `genUiComponents` 生成式 UI 已经内置了一批组件。如果希望它支持额外的新组件，需要通过这里导入。参考示例：`shallowReactive({ TinyUser, TinyAlert })`
+- `inBrowserExt` 设置组件运行于普通页面还是浏览器扩展，默认值为 `false`
+- `genUiAble` 双向绑定是否启用生成式 UI 渲染，默认值为 `false`。输入框旁的「生成式 UI」开关是否显示由**当前模型配置**决定：仅当配置中同时包含 `baseURL` 和 `genuiUrl` 时才会显示
+- `genUiComponents` 生成式 UI 已内置一批组件；如需支持额外组件，可通过该属性导入，例如：`shallowReactive({ TinyUser, TinyAlert })`
 
 ## 二、事件
 
-- `before-ai-render` 在 AI 消息渲染之前触发，用户此时可以修改消息内容。 参数的`uiContent`属性中，包含当前流返回的消息类型：markdown, reasoning,tool,或其它自定义的消息，用户可以自由编排`uiContent`属性。 它配合组件暴露的`registerContentRenderer`方法，可以实现自定义流消息的渲染，详见`自定义流消息的渲染`的示例。
+- `before-ai-render` 在 AI 消息渲染前触发，可用于修改消息内容。参数中的 `uiContent` 包含当前流式返回的消息类型（如 `markdown`、`reasoning`、`tool` 或自定义类型），可自由编排。配合组件暴露的 `registerContentRenderer` 方法，可实现自定义流消息渲染，详见 [自定义流消息的渲染](#六、自定义流消息的渲染)。
 
 ## 三、插槽
 
-- `#welcome`: 没有对话消息时，展示在组件中间的 `Welcome & Promts` 等内容。设计成插槽可以让用户有完全的定制能力。
-- `#suggestions`: 展示在输入框上面的提示性组件。可以使用 `@opentiny/tiny-robot` 中的 `SuggestionPills` 等强大功能的组件。
-- `#operations`: 容器头部右侧的操作区域，默认包含新建会话按钮、历史会话按钮和扫码组件。可以通过此插槽自定义头部操作按钮。
+- `#welcome`：无对话消息时，展示在组件中间的 Welcome、Prompts 等内容，提供完全自定义能力
+- `#suggestions`：展示在输入框上方的提示组件，可使用 `@opentiny/tiny-robot` 中的 `SuggestionPills` 等组件
+- `#operations`：容器头部右侧操作区域，默认包含新建会话、历史会话和扫码组件，可通过该插槽自定义头部操作按钮
 
 ## 四、导出变量
 
@@ -191,11 +191,11 @@ defineExpose({
    * 刷新已安装插件的工具列表（从 agent.mcpTools 同步到 UI）
    * 适用于 builtin client 工具变化后的快速刷新，避免 remove + reload 导致的 UI 闪烁
    */
-  c
+  refreshPluginTools
 })
 ```
 
-导出变量是方便在插槽中使用内部的功能，比如 `#welcome 插槽` 中点击后 `Promts` ,发出固定的请求:
+导出变量便于在插槽中调用组件内部能力，例如在 `#welcome` 插槽中点击 Prompt 后发送固定请求：
 
 ```typescript
 const robotRef = ref<InstanceType<typeof TinyRemoter>>()
@@ -226,7 +226,7 @@ const fullscreen = ref(false)
 
 ### 设置布局模式（layout-mode）
 
-`layout-mode` 属性用于控制组件的定位方式，支持所有 CSS position 属性值。这在不同的使用场景下非常有用：
+`layout-mode` 属性用于控制组件的定位方式，支持所有 CSS `position` 属性值，在不同使用场景下非常实用：
 
 #### 静态定位模式
 
@@ -314,7 +314,7 @@ button:hover {
 - **`relative`**：适合需要在原位置基础上微调的场景
 - **`sticky`**：适合需要在滚动时保持可见，但不完全固定的场景
 
-### 自定义AI, USER的头像
+### 自定义 AI、USER 头像
 
 ```vue
 <template>
@@ -349,13 +349,13 @@ const roleAvatar = {
 
 ## 六、自定义流消息的渲染
 
-有的场景是让大模型返回`特定格式`的内容，混在普通文本内容中，还需要对`特定内容`进行特别渲染,比如生成卡片交互等。此时就需要对流消息进行处理，将`特定格式`的内容截取出来，再插回一个特殊类型的格式。
+部分场景下，大模型会在普通文本中混入**特定格式**的内容，需要对这些内容进行单独渲染（例如生成卡片交互）。此时需要对流消息进行处理：截取特定格式内容，再插入为独立消息类型。
 
-下面举一个简单的例子说明这个过程-----如何使用自定义流消息的渲染。
+下面通过一个简单的例子说明如何使用自定义流消息渲染。
 
-需求： 当大模型返回的文本中包含 `HEART` 时，将它渲染为 emoji ❤️ 。我们分2步来实现：
+**需求**：当大模型返回的文本中包含 `HEART` 时，将其渲染为 emoji ❤️。分两步实现：
 
-1. 监听所有流消息中，包含`HEART`的文本时分隔成多个消息段，插回一个 `type='heart' `的消息。 比如：
+1. 监听流消息，将包含 `HEART` 的文本拆分为多个消息段，并插入 `type='heart'` 的消息。例如：
 
 ```javascript
 // 拆分前
@@ -373,7 +373,7 @@ const roleAvatar = {
 }
 ```
 
-2. 注册一个 `heart 类型`的渲染器,渲染heart消息。
+2. 注册 `heart` 类型的渲染器，用于渲染 heart 消息。
 
 ```javascript
   remoterRef.value?.registerContentRenderer('heart', (content: any) => {
@@ -560,14 +560,14 @@ function handleExport() {
 
 ## 八、生成式 UI 示例
 
-生成式UI 又叫 `Gen UI`， 为了让大模型LLM能返回正确的`Gen UI`的特殊格式的响应，需要本地化部署专用的 `GenUI LLM 服务`, 请参考[Gen UI文档](https://docs.opentiny.design/genui-sdk/guide/quick-start.html)。
+生成式 UI（Gen UI）要求大模型返回特定格式的响应。为此需要本地化部署专用的 GenUI LLM 服务，详见 [Gen UI 文档](https://docs.opentiny.design/genui-sdk/guide/quick-start.html)。
 
-本地化部署 `GenUI LLM 服务` 之后，在配置使用的 `llmConfig` 或 `llmConfigs` 中，需要配置`genuiUrl`属性指向私有化部署的服务地址，然后在对话框的底部的 `生成式UI` 的按钮激活，或者直接设置组件的 `v-model:genUiAble` 属性来启用生成式UI的输出模式。
+部署 GenUI LLM 服务后，在 `llmConfig` 或 `llmConfigs` 中配置 `genuiUrl` 指向私有化服务地址，然后在对话框底部激活「生成式 UI」按钮，或直接设置 `v-model:genUiAble` 启用生成式 UI 输出模式。
 
-当启用生成式UI后，`TinyRemoter`发起新对话时，会使用 `genuiUrl`的地址以及自动处理的流消息渲染，从而输出正确的卡片组件。
+启用生成式 UI 后，`TinyRemoter` 发起新对话时会使用 `genuiUrl` 地址，并自动处理流消息渲染，从而输出正确的卡片组件。
 
 ::: warning
-建议用户直接使用`Gen UI`的完整方案，可以获得最新的`Gen UI`特性。
+建议直接使用 Gen UI 完整方案，以获得最新的 Gen UI 特性。
 :::
 
 ```vue

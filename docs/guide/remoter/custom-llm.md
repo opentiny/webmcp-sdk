@@ -2,15 +2,15 @@
 outline: [2, 3]
 ---
 
-# 自定义LLM
+# 自定义 LLM
 
-TinyRemoter 组件必须传入有效的大模型接口，才能正确进行大模型问答。在选择大模型时，要使用兼容 `Chat API`协议的模型。本组件在内部依赖`ai-sdk`库来兼容不同大模型的接口协议，在`ai-sdk V5`版本之后 ， `openai provider`默认使用 `Response API`协议 ，需要切换为`Chat API`协议，详见
+`TinyRemoter` 组件必须传入有效的大模型接口，才能正常进行问答。选择大模型时，需使用兼容 **Chat API** 协议的模型。组件内部依赖 `ai-sdk` 库兼容不同大模型的接口协议。在 ai-sdk V5 之后，`openai` provider 默认使用 **Response API** 协议，需切换为 **Chat API** 协议，详见 [ai-sdk OpenAI Provider 文档](https://ai-sdk.dev/providers/ai-sdk-providers/openai)。
 
 ## 自定义大模型接口
 
-通过 `llmConfig` 属性，你可以配置自定义的大模型接口。
+通过 `llmConfig` 属性，可配置自定义大模型接口。
 
-### 方式一：显式的设置LLM接口
+### 方式一：显式设置 LLM 接口
 
 通过 `apiKey`、`baseURL` 和 `providerType` 配置大模型：
 
@@ -38,7 +38,7 @@ const llmConfig = {
 
 ### 方式二：使用 Provider 实例配置
 
-在`llm`中直接传入符合 ai-sdk Provider 规范的实例，这种方式优先级最高：
+在 `llm` 中直接传入符合 ai-sdk Provider 规范的实例，该方式优先级最高：
 
 ```vue
 <template>
@@ -67,7 +67,7 @@ const llmConfig = {
 
 ### 方式三：使用自定义 Provider 函数
 
-如果你需要使用自定义的 Provider 函数，可以这样配置：
+如需使用自定义 Provider 函数，可按如下方式配置：
 
 ```vue
 <template>
@@ -95,7 +95,7 @@ const customConfig = {
 
 ### 自定义请求 Header
 
-`headers` 字段允许你在每次向 LLM 发起请求时，携带自定义的 HTTP 请求头。常见用途包括：
+`headers` 字段允许在每次向 LLM 发起请求时携带自定义 HTTP 请求头。常见用途包括：
 
 - **鉴权**：传递业务系统的 Token 或 Session 信息
 - **链路追踪**：传递 `X-Request-Id`、`X-Trace-Id` 等追踪头
@@ -134,17 +134,17 @@ const llmConfig = {
 
 ## 自定义大模型选择列表
 
-通过属性 `llmConfigs` 可以提前定义一组大模型接口，这组大模型会显示在输入框的底下供用户切换使用。同时设置`llmConfig` 和 `llmConfigs`时， `llmConfig`配置的大模型优先生效，然后在用户手动切换后，再使用用户选择的大模型。不建议同时配置这2个属性。
+通过 `llmConfigs` 属性可预先定义一组大模型接口，模型列表会显示在输入框底部供用户切换。同时设置 `llmConfig` 和 `llmConfigs` 时，`llmConfig` 配置的大模型优先生效；用户手动切换后，再使用所选模型。不建议同时配置这两个属性。
 
-`llmConfigs`的数据项的属性额外包含 `id`、`label`、`icon`、`isDefault`、`useReActMode` 字段，用于渲染大模型选择列表。
+`llmConfigs` 数据项在 `llmConfig` 基础上额外包含 `id`、`label`、`icon`、`isDefault`、`useReActMode` 字段，用于渲染大模型选择列表。
 
 **模型切换机制说明：**
 
 当 `selectedModelId` 发生变化时，组件内部会自动执行以下操作：
 
-1. **自动更新模型配置**：组件会监听 `selectedModel` 的变化，自动调用 `customAgentProvider.updateLLMConfig()` 方法
-2. **更新 LLM 实例**：`updateLLMConfig()` 方法会根据新的模型配置创建新的 Provider 实例，并更新到 `agent.llm`
-3. **支持的条件**：只有当模型配置中包含 `providerType` 时才会自动更新（如果使用 `llm` 实例配置，则不会自动更新）
+1. **自动更新模型配置**：组件监听 `selectedModel` 的变化，自动调用 `customAgentProvider.updateLLMConfig()` 方法
+2. **更新 LLM 实例**：`updateLLMConfig()` 根据新模型配置创建 Provider 实例，并更新到 `agent.llm`
+3. **支持的条件**：仅当模型配置包含 `providerType` 时才会自动更新（若使用 `llm` 实例配置，则不会自动更新）
 
 ### 基本设置
 
@@ -193,7 +193,7 @@ const modelConfigs = [
 
 ### 自定义请求 Header
 
-当使用多模型切换（`llmConfigs`）时，每个模型可以配置各自独立的 `headers`，切换模型时组件会自动同步对应的 Headers：
+使用多模型切换（`llmConfigs`）时，每个模型可配置独立的 `headers`，切换模型时组件会自动同步对应 Headers：
 
 ```vue
 <template>
