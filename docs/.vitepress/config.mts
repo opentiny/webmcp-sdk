@@ -58,8 +58,7 @@ export default defineConfig({
             { text: '自定义LLM大模型指南', link: '/guide/remoter/custom-llm' },
             { text: '远程遥控模式指南', link: '/guide/remoter/remoter-mode' },
             { text: 'Mcp Server与工具指南', link: '/guide/remoter/mcp-server-tool' },
-            { text: 'Skills 技能配置指南', link: '/guide/remoter/skills' },
-            { text: '自定义AI对话框组件', link: '/guide/remoter/use-next-agent' }
+            { text: 'Skills 技能配置指南', link: '/guide/remoter/skills' }
           ]
         },
         {
