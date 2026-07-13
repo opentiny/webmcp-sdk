@@ -11,10 +11,35 @@ export const useCustomMarketMcpServers: () => Ref<ICustomMarketMcpServers> = () 
       const tabId = await getCurrentTabId()
       if (!tabId) return
 
-      const tools: any[] = await browser.runtime.sendMessage({
-        type: 'get-page-tools',
-        tabId
-      })
+      let tools: any[] = []
+      try {
+        const execRes = await browser.scripting.executeScript({
+          target: { tabId },
+          world: 'MAIN',
+          func: () => {
+            try {
+              let pageTools = []
+              if (typeof (window as any).__nextSdkRegisteredTools === 'function') {
+                pageTools = (window as any).__nextSdkRegisteredTools()
+              } else if ((document as any).modelContext?.getTools) {
+                const res = (document as any).modelContext.getTools()
+                pageTools = Array.isArray(res) ? res : []
+              }
+              return pageTools.map((t: any) => ({
+                name: t.name,
+                title: t.title,
+                description: t.description,
+                inputSchema: t.inputSchema
+              }))
+            } catch (e) {
+              return []
+            }
+          }
+        })
+        tools = execRes[0]?.result || []
+      } catch (err) {
+        console.warn('【useCustomMarketMcpServers】获取页面工具失败:', err)
+      }
 
       if (tools && Array.isArray(tools) && tools.length > 0) {
         // 映射为 UI 所需的 ICustomMarketMcpServers 格式

@@ -146,7 +146,7 @@ async function injectRuntimeAndRegister(tabId: number): Promise<void> {
     runtimeInjected = injectScript('vendor/runtime.js')
   }
   await runtimeInjected
-  browser.runtime.sendMessage({ type: 'page-tools-updated', tabId }).catch(() => {})
+  browser.runtime.sendMessage({ type: 'page-tools-injected', tabId }).catch(() => {})
 }
 
 /**
@@ -157,7 +157,7 @@ async function injectMcpServerTools(hostname: string, tabId: number): Promise<vo
   try {
     await injectScript(`mcp-servers/${hostname}/index.js`)
     console.log(`[next-wxt] 已为 ${hostname} 注入 WebMCP 工具`)
-    browser.runtime.sendMessage({ type: 'page-tools-updated', tabId }).catch(() => {})
+    browser.runtime.sendMessage({ type: 'page-tools-injected', tabId }).catch(() => {})
   } catch (error) {
     console.warn(`[next-wxt] 注入 mcp-servers 工具失败 (${hostname}):`, error)
   }
