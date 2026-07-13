@@ -306,6 +306,7 @@ webmcp-cli run page-agent-tool '{"action": "searchTree", "query": "#42", "contex
 | `creator.xiaohongshu.com` | `xhs_publish_note`                                            | 无需子 Skill；工具的描述已能说明用途。                                                                                                                                                                                                                        |
 | `editor.csdn.net`         | `create_article`                                              | **当需要在 CSDN 平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-csdn.md](domains/publish-article-in-csdn.md)。**                                                                                                                     |
 | `segmentfault.com`        | `segmentfault_publish_article`                                | **当需要在思否平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-segmentfault.md](domains/publish-article-in-segmentfault.md)。支持完整流程、定时发布、封面手动上传。**                                                                 |
+| `zhuanlan.zhihu.com`      | `create_article`, `publish_current_draft`, `get_article_info` | **当需要在知乎专栏发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-zhihu.md](domains/publish-article-in-zhihu.md)。**<br>注意：调用 `publish_current_draft` 前必须先通过 `get_article_info` 分析文章内容并选择合适的话题！ |
 
 在各自的域名中，可以调用相应的网页工具：
 
@@ -314,6 +315,9 @@ webmcp-cli run page-agent-tool '{"action": "searchTree", "query": "#42", "contex
 webmcp-cli run excalidraw_execute_command '{"eventName": "getSceneElements"}'
 
 # 在掘金上发布新文章的工具
+webmcp-cli run create_article '{"title": "文章标题", "content": "文章的正文的base64编码"}'
+
+# 在知乎专栏上填写新文章（CLI Node 端自动将 Markdown 转为 HTML 粘贴）
 webmcp-cli run create_article '{"title": "文章标题", "content": "文章的正文的base64编码"}'
 
 # 在 CSDN 上填写新文章（需先关闭模版库弹窗，见 publish-article-in-csdn.md）

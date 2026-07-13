@@ -35,20 +35,19 @@ export default defineConfig({
           ]
         },
         {
-          text: 'WebMCP CLI & Skills',
+          text: 'WebMCP CLI & Skill',
           items: [
-            { text: 'WebMCP CLI 工具介绍', link: '/guide/webmcp-cli' },
-            { text: '第三方 Agent 接入指南', link: '/guide/webmcp-agent-integration' }
+            { text: 'CLI 使用指南', link: '/guide/webmcp-cli' },
+            { text: 'Skill 使用指南', link: '/guide/webmcp-agent-integration' }
           ]
         },
         {
           text: 'NEXT-SDKs API',
           items: [
+            { text: '全局 API', link: '/guide/api-tools' },
             { text: 'WebMcpServer 类', link: '/guide/api-server' },
             { text: 'WebMcpClient 类', link: '/guide/api-client' },
-            { text: 'AgentModelProvider 类', link: '/guide/api-agentModelProvider' },
-            { text: 'createRemoter 函数', link: '/guide/api-createRemoter' },
-            { text: '工具函数', link: '/guide/api-tools' }
+            { text: 'createRemoter 函数', link: '/guide/api-createRemoter' }
           ]
         },
         {
@@ -64,11 +63,11 @@ export default defineConfig({
         {
           text: 'AI Extension',
           items: [
-            { text: '技术架构', link: '/guide/ai-extension-architecture' },
-            { text: 'MCP Servers 工具开发指南', link: '/guide/ai-extension-next-wxt' },
+            { text: '快速入门', link: '/guide/ai-extension-install' },
+            { text: '配置大模型', link: '/guide/ai-extension-model-config' },
+            { text: 'MCP工具开发指南', link: '/guide/ai-extension-next-wxt' },
             { text: 'Skills 技能开发指南', link: '/guide/ai-extension-skills' },
-            { text: 'AI Extension 插件安装指南', link: '/guide/ai-extension-install' },
-            { text: '配置大模型', link: '/guide/ai-extension-model-config' }
+            { text: '工作原理', link: '/guide/ai-extension-architecture' }
           ]
         }
       ]

@@ -305,7 +305,6 @@ const show = ref(true)
 const mcpServers = {
   'builtin-webmcp': {
     type: 'builtin' as const,
-    // 【重要】Client 端仅连接 modelContextTesting 接口
     client: document.modelContext
   }
 }

@@ -42,14 +42,14 @@ export interface A11yTreeOptions {
    */
   exposedAttributes?: string[]
   /**
-   * 校验错误元素 CSS 选择器（逗号分隔），用于在 token 中标记 [error]
+   * 校验错误元素 CSS 选择器（逗号分隔或选择器数组），用于在 token 中标记 [error]
    * 默认覆盖 ARIA 标准 + 主流 UI 框架
    */
-  errorSelectors?: string
+  errorSelectors?: string | string[]
   /**
-   * 校验警告元素 CSS 选择器（逗号分隔）
+   * 校验警告元素 CSS 选择器（逗号分隔或选择器数组）
    */
-  warningSelectors?: string
+  warningSelectors?: string | string[]
 }
 
 /** 构建无障碍树的返回结果 */

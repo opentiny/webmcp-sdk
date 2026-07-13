@@ -17,7 +17,7 @@ const colors = [
   '#4682B4'
 ]
 // border + label opacity
-const opacity = Math.floor(0.1 * 255)
+const opacity = Math.floor(0.3 * 255)
   .toString(16)
   .padStart(2, '0')
 
@@ -148,7 +148,8 @@ export const highlight = (refMap: RefMap, parentIframe: HTMLIFrameElement | null
     window.removeEventListener('scroll', throttledUpdatePositions, true)
     window.removeEventListener('resize', throttledUpdatePositions)
   }
-  ;(window._highlightCleanupFunctions = window._highlightCleanupFunctions || []).push(cleanupFn)
+  const win = window as any
+  ;(win._highlightCleanupFunctions = win._highlightCleanupFunctions || []).push(cleanupFn)
 }
 
 /** 移除高亮， 可反复调用 */

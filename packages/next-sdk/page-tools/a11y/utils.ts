@@ -4,7 +4,7 @@
  * 存放生成无障碍树时的通用工具函数：节点解析、状态获取、角色推断及纯文本兜底等。
  */
 
-import { isFocusable } from 'tabbable'
+import { isFocusable, isTabbable } from 'tabbable'
 import { TAG_ROLE_MAP, INPUT_TYPE_ROLE, DEFAULT_ERROR_SELECTORS, DEFAULT_WARNING_SELECTORS } from './constants'
 
 /**
@@ -31,8 +31,8 @@ export function inferRole(el: Element): string {
 export function getStateTokens(
   el: Element,
   exposedAttributes?: string[],
-  errorSelectors?: string,
-  warningSelectors?: string,
+  errorSelectors?: string | string[],
+  warningSelectors?: string | string[],
 ): string[] {
   const tokens: string[] = []
   const aria = (k: string) => el.getAttribute(k)
@@ -130,8 +130,12 @@ export function getStateTokens(
   // 检测校验错误/警告状态（ARIA 标准 + 主流 UI 框架，可配置）
   // 输出 [error] / [warning] token，让 AI 能区分校验错误与普通说明文字
   // 使用 closest() 向上查找，确保嵌套在错误容器内的子元素也能获得 error 语义
-  const errorSelector = errorSelectors || DEFAULT_ERROR_SELECTORS.join(', ')
-  const warningSelector = warningSelectors || DEFAULT_WARNING_SELECTORS.join(', ')
+  const errorSelector = Array.isArray(errorSelectors)
+    ? errorSelectors.join(', ')
+    : (errorSelectors || DEFAULT_ERROR_SELECTORS.join(', '))
+  const warningSelector = Array.isArray(warningSelectors)
+    ? warningSelectors.join(', ')
+    : (warningSelectors || DEFAULT_WARNING_SELECTORS.join(', '))
   let errorAncestor = null
   if (errorSelector) {
     try {
@@ -177,11 +181,20 @@ export function isHidden(el: Element): boolean {
   try {
     const style = window.getComputedStyle(el as HTMLElement)
     if (style.display === 'none' || style.visibility === 'hidden') return true
+    // opacity:0 是常见的视觉隐藏方式，元素对用户不可见
+    if (style.opacity === '0') return true
+    // 宽或高为 0 且有 overflow 裁剪时，子内容实际不可见（如折叠的侧边栏 width:0 !important）
+    // 若 overflow 为 visible，子内容仍然溢出可见，不能过滤
+    const isClipX = style.overflowX !== 'visible'
+    const isClipY = style.overflowY !== 'visible'
+    if (parseFloat(style.width) === 0 && isClipX) return true
+    if (parseFloat(style.height) === 0 && isClipY) return true
   } catch {
-    // 忽略
+    // 忽略跨域 iframe 等无法访问 style 的场景
   }
   return false
 }
+
 
 /**
  * 收集子孙节点的文本内容，用作无障碍名字的兜底。
@@ -202,19 +215,14 @@ export function collectDescendantText(el: Element): string {
         const role = inferRole(element)
         const isInteractiveTag = ['button', 'a', 'input', 'select', 'textarea', 'li', 'option'].includes(tag)
         const isInteractiveRole = ['button', 'link', 'checkbox', 'radio', 'textbox', 'listitem', 'option', 'combobox', 'listbox'].includes(role)
-        const isTrulyInteractive = isFocusable(element as HTMLElement)
-
-        let isVisuallyClickable = false
+        const isTrulyInteractive = isTabbable(element as HTMLElement)
+        let isCursorPointer = false
         try {
-          const style = window.getComputedStyle(element as HTMLElement)
-          if (style.cursor === 'pointer') {
-            isVisuallyClickable = true
-          }
-        } catch {
-          // 忽略
-        }
-
-        if (isTrulyInteractive || isVisuallyClickable || isInteractiveTag || isInteractiveRole) {
+          isCursorPointer = window.getComputedStyle(element as HTMLElement).cursor === 'pointer'
+        } catch { /* ignore */ }
+        const isMeaningfullyInteractive = isTrulyInteractive && !(role === 'generic' && !isCursorPointer)
+        
+        if (isMeaningfullyInteractive || isInteractiveTag || isInteractiveRole) {
           return
         }
       }

@@ -1,4 +1,6 @@
 import { connectBrowser, getTargetPage } from '../browser'
+import { zhihuCreateArticle } from '../zhihu/create-article'
+import { isZhihuWriteUrl } from '../zhihu/markdown'
 
 export async function runCommand({
   toolName,
@@ -16,6 +18,19 @@ export async function runCommand({
 
     // argsJson 已在 bin.ts 中完成 @base64file 展开与 JSON 校验
     const cleanedArgs = argsJson.trim()
+
+    // 知乎专栏：在 Node 端完成 Markdown→HTML 转换 + 真实剪贴板粘贴（Draft.js 兼容）
+    if (toolName === 'create_article') {
+      let parsedArgs: { title?: string; content?: string }
+      try {
+        parsedArgs = JSON.parse(cleanedArgs)
+      } catch {
+        throw new Error('参数不是有效的 JSON')
+      }
+      if (isZhihuWriteUrl(page.url())) {
+        return await zhihuCreateArticle(page, parsedArgs)
+      }
+    }
 
     let result: any
     try {
