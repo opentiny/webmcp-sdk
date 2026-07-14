@@ -142,6 +142,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
     // @ts-ignore
     inputSchema: zodToJsonSchema(inputSchema) as any,
     async execute(args: PageAgentToolInput) {
+      let ret: any
       try {
         switch (args.action) {
           case 'browserState':
@@ -149,14 +150,14 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
           case 'click':
             await pageController.showMask()
             pageController.mask.borderElement(currentRefMap.get(args.index))
-            const ret = await handleClick(args, actionContext)
+            ret = await handleClick(args, actionContext)
             pageController.mask.removeBorderElement()
             await pageController.hideMask()
             return ret
           case 'fill':
             await pageController.showMask()
             pageController.mask.borderElement(currentRefMap.get(args.index))
-            const ret = await handleFill(args, actionContext)
+            ret = await handleFill(args, actionContext)
             pageController.mask.removeBorderElement()
 
             await pageController.hideMask()
@@ -164,13 +165,13 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
           case 'select':
             await pageController.showMask()
             pageController.mask.borderElement(currentRefMap.get(args.index))
-            const ret = await handleSelect(args, actionContext)
+            ret = await handleSelect(args, actionContext)
             pageController.mask.removeBorderElement()
             await pageController.hideMask()
             return ret
           case 'scroll':
             await pageController.showMask()
-            const ret = await handleScroll(args, actionContext)
+            ret = await handleScroll(args, actionContext)
             await pageController.hideMask()
             return ret
           case 'executeJavascript':
