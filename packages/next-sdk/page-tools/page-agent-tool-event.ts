@@ -1,8 +1,10 @@
+import { inputSchema, type PageAgentToolInput, type PageAgentToolRawInput } from './schema'
+
 export const PAGE_AGENT_TOOL_CALL_EVENT = 'page-agent-tool-call'
 export const PAGE_AGENT_TOOL_RESULT_EVENT = 'page-agent-tool-result'
 
 export type PageAgentToolCallEventDetail = {
-  data?: Record<string, unknown>
+  data?: PageAgentToolRawInput
   requestId: string
 }
 
@@ -15,7 +17,7 @@ export type PageAgentToolResultEventDetail = {
   requestId: string
 }
 
-type ExecutePageAgentTool = (data: Record<string, unknown>) => Promise<unknown>
+type ExecutePageAgentTool = (data: PageAgentToolInput) => Promise<unknown>
 
 declare global {
   interface Window {
@@ -46,7 +48,8 @@ export function setupPageAgentToolEventBridge(executePageAgentTool: ExecutePageA
     }
 
     try {
-      const result = await executePageAgentTool(detail.data ?? {})
+      const data = inputSchema.parse(detail.data)
+      const result = await executePageAgentTool(data)
       dispatchPageAgentToolResult({
         requestId,
         data: {

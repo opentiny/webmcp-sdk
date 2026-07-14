@@ -166,20 +166,24 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
       }
     } catch (error) {
       await pageController.hideMask()
-      return { content: [{ type: 'text', text: `异常: ${String(error)}` }] }
+      throw error
     }
   }
 
-  setupPageAgentToolEventBridge(executePageAgentTool)
-
-    // ─── 工具注册（名称与 inputSchema 与原版完全一致）────────────────────────
-    ; (document as any).modelContext.registerTool({
-      name: 'page-agent-tool',
-      description: pageAgentPrompt,
-      // @ts-ignore
-      inputSchema: zodToJsonSchema(inputSchema) as any,
-      async execute(args: PageAgentToolInput) {
+  // ─── 工具注册（名称与 inputSchema 与原版完全一致）────────────────────────
+  ; (document as any).modelContext.registerTool({
+    name: 'page-agent-tool',
+    description: pageAgentPrompt,
+    // @ts-ignore
+    inputSchema: zodToJsonSchema(inputSchema) as any,
+    async execute(args: PageAgentToolInput) {
+      try {
         return executePageAgentTool(args)
+      } catch (error) {
+        return { content: [{ type: 'text' as const, text: `异常: ${String(error)}` }] }
       }
-    })
+    }
+  })
+
+  setupPageAgentToolEventBridge(executePageAgentTool)
 }

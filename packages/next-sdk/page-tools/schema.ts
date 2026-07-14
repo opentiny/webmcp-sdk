@@ -49,3 +49,4 @@ export const inputSchema = z.object({
 })
 
 export type PageAgentToolInput = z.infer<typeof inputSchema>
+export type PageAgentToolRawInput = z.input<typeof inputSchema>
