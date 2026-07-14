@@ -299,14 +299,13 @@ webmcp-cli run page-agent-tool '{"action": "searchTree", "query": "#42", "contex
 | 需要注入的域名            | 注入的工具                                                    | 何时阅读子 Skill                                                                                                                                                                                                                                              |
 | ------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `excalidraw.com`          | `excalidraw_execute_command`                                  | **当当前页面 URL 包含 `excalidraw.com` 且需要绘制或操作画布元素时，请阅读 [domains/excalidraw.md](domains/excalidraw.md)。**                                                                                                                                  |
-| `juejin.cn`               | `create_article`, `publish_current_draft`, `get_article_info` | **当需要在掘金平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-juejin.md](domains/publish-article-in-juejin.md)。**<br>注意：调用 `publish_current_draft` 前必须先生成严格在 **50-100 字** 内的文章摘要，否则工具将直接报错停止发布！ |
+| `juejin.cn`               | `create_article`, `publish_current_draft`, `get_article_info` | **当需要在掘金平台发布文章时，请阅读 [domains/publish-article-in-juejin.md](domains/publish-article-in-juejin.md)。**<br>注意：调用 `publish_current_draft` 前必须先生成严格在 **50-100 字** 内的文章摘要，否则工具将直接报错停止发布！ |
 | `www.baidu.com`           | `baidu_search`, `baidu_get_results`                           | 无需子 Skill；工具的描述已能说明用途。                                                                                                                                                                                                                        |
-| `my.oschina.net/`         | `create_article`                                              | **当需要在开源中国平台发布文章时，请阅读 [domains/publish-article-in-oschina.md](domains/publish-article-in-juejin.md)。**                                                                                                                                    |
+| `my.oschina.net/`         | `create_article`, `get_article_info`, `publish_current_draft` | **当需要在开源中国平台发布文章时，请阅读 [domains/publish-article-in-oschina.md](domains/publish-article-in-oschina.md)。**<br>注意：调用 `publish_current_draft` 前须先 `get_article_info` 并生成 **50~200 字** 摘要。                                                                                                                                    |
 | `xiaohongshu.com`         | `xhs_get_note_detail`, `xhs_get_feed`, `xhs_search_notes`     | 无需子 Skill；工具的描述已能说明用途。                                                                                                                                                                                                                        |
 | `creator.xiaohongshu.com` | `xhs_publish_note`                                            | 无需子 Skill；工具的描述已能说明用途。                                                                                                                                                                                                                        |
-| `editor.csdn.net`         | `create_article`                                              | **当需要在 CSDN 平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-csdn.md](domains/publish-article-in-csdn.md)。**                                                                                                                     |
-| `segmentfault.com`        | `segmentfault_publish_article`                                | **当需要在思否平台发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-segmentfault.md](domains/publish-article-in-segmentfault.md)。支持完整流程、定时发布、封面手动上传。**                                                                 |
-| `zhuanlan.zhihu.com`      | `create_article`, `publish_current_draft`, `get_article_info` | **当需要在知乎专栏发布文章、填充内容或操作编辑器时，请阅读 [domains/publish-article-in-zhihu.md](domains/publish-article-in-zhihu.md)。**<br>注意：调用 `publish_current_draft` 前必须先通过 `get_article_info` 分析文章内容并选择合适的话题！ |
+| `editor.csdn.net`         | `create_article`, `get_article_info`, `publish_current_draft` | **当需要在 CSDN 平台发布文章时，请阅读 [domains/publish-article-in-csdn.md](domains/publish-article-in-csdn.md)。**<br>注意：调用 `publish_current_draft` 前须先 `get_article_info` 并生成 **100 字以内** 摘要。                                                                                                                     |
+| `segmentfault.com`        | `create_article`, `get_article_info`, `publish_current_draft`, `segmentfault_publish_article` | **当需要在思否平台发布文章时，请阅读 [domains/publish-article-in-segmentfault.md](domains/publish-article-in-segmentfault.md)。** 推荐掘金风格三步流程；高级场景可用 `segmentfault_publish_article`。                                                                 |
 
 在各自的域名中，可以调用相应的网页工具：
 
@@ -314,14 +313,17 @@ webmcp-cli run page-agent-tool '{"action": "searchTree", "query": "#42", "contex
 # 在excalidraw网页中，获取画布元素
 webmcp-cli run excalidraw_execute_command '{"eventName": "getSceneElements"}'
 
-# 在掘金上发布新文章的工具
+# 在掘金上发布新文章
 webmcp-cli run create_article '{"title": "文章标题", "content": "文章的正文的base64编码"}'
 
-# 在知乎专栏上填写新文章（CLI Node 端自动将 Markdown 转为 HTML 粘贴）
-webmcp-cli run create_article '{"title": "文章标题", "content": "文章的正文的base64编码"}'
+# 在 CSDN 上填写并发布（须先 get_article_info 推断分类/标签/摘要）
+webmcp-cli run create_article '{"title": "文章标题", "content": "@base64file:./article.md"}'
+webmcp-cli run get_article_info
+webmcp-cli run publish_current_draft '{"category":"前端","tags":["Vue.js","JavaScript"],"summary":"100字以内的文章摘要..."}'
 
-# 在 CSDN 上填写新文章（需先关闭模版库弹窗，见 publish-article-in-csdn.md）
-webmcp-cli run create_article '{"title": "文章标题", "content": "文章的正文的base64编码"}'
+# 在开源中国上填写并发布
+webmcp-cli run create_article '{"title": "文章标题", "content": "@base64file:./article.md"}'
+webmcp-cli run publish_current_draft '{"category":"开源资讯","tags":["Vue.js","AI"],"summary":"50~200字的文章摘要..."}'
 
 # 搜索小红书笔记（自动触发滚动加载）
 webmcp-cli run xhs_search_notes '{"keyword": "AI Agent", "limit": 10}'
@@ -329,7 +331,12 @@ webmcp-cli run xhs_search_notes '{"keyword": "AI Agent", "limit": 10}'
 # 小红书发布图文笔记
 webmcp-cli run xhs_publish_note '{"title": "第一条笔记", "content": "内容极其精彩...", "images": [{"name": "1.jpg", "mimeType": "image/jpeg", "base64": "..."}]}'
 
-# 思否平台完整流程（导航→过引导→填内容→保存草稿）
+# 思否平台：掘金风格三步流程（推荐）
+webmcp-cli run create_article '{"title": "你的文章标题", "content": "@base64file:./article.md"}'
+webmcp-cli run get_article_info
+webmcp-cli run publish_current_draft '{"category": "前端", "tags": ["前端", "AI", "WebMCP"]}'
+
+# 思否高级流程（导航→过引导→填内容→保存草稿）
 webmcp-cli run segmentfault_publish_article '{
   "action": "publish_full_flow",
   "title": "你的文章标题",
