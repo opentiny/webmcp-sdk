@@ -19,8 +19,10 @@
 |------|------|---------|
 | 掘金 (Juejin) | ✅ 已支持 | [publish-article-in-juejin.md](./publish-article-in-juejin.md) |
 | CSDN | ✅ 已支持 | [publish-article-in-csdn.md](./publish-article-in-csdn.md) |
+| 开源中国 (OSChina) | ✅ 已支持 | [publish-article-in-oschina.md](./publish-article-in-oschina.md) |
+| 思否 (SegmentFault) | ✅ 已支持 | [publish-article-in-segmentfault.md](./publish-article-in-segmentfault.md) |
 | 小红书 (XiaoHongShu) | 🚧 规划中 | 见下方"平台扩展规划" |
-| 思否（SegmentFault）| 已支持 | [publish-article-in-segmentfault.md](./publish-article-in-segmentfault.md) |
+| 思否（SegmentFault）| ✅ 已支持 | [publish-article-in-segmentfault.md](./publish-article-in-segmentfault.md) |
 | 知乎 (Zhihu) | ✅ 已支持 | [publish-article-in-zhihu.md](./publish-article-in-zhihu.md) |
 ---
 
