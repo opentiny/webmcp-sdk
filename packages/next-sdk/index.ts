@@ -54,3 +54,5 @@ export * from '@mcp-b/webmcp-polyfill'
 
 export { initializeBuiltinWebMCP } from './page-tools/initialize-builtin-WebMCP'
 export { registerPageAgentTool } from './page-tools/page-agent-tool'
+export { PAGE_AGENT_TOOL_CALL_EVENT, PAGE_AGENT_TOOL_RESULT_EVENT } from './page-tools/page-agent-tool-event'
+export type { PageAgentToolCallEventDetail, PageAgentToolResultEventDetail } from './page-tools/page-agent-tool-event'

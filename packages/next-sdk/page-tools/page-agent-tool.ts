@@ -6,6 +6,7 @@ import { buildA11yTree, type RefMap } from './a11y-tree'
 import { PageStateCache } from './page-state-cache'
 import { SimulatorMask } from './page-agent-mask/SimulatorMask'
 import { highlight, unhighlight, globalRemoveListener } from './page-agent-highlight'
+import { setupPageAgentToolEventBridge } from './page-agent-tool-event'
 
 import { DEFAULT_ERROR_SELECTORS, DEFAULT_DIALOG_SELECTORS, type PageAgentToolOptions } from './constants'
 import { inputSchema, type PageAgentToolInput } from './schema'
@@ -137,39 +138,52 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
     errContent
   }
 
+  async function executePageAgentTool(args: PageAgentToolInput) {
+    const isReadOnlyAction = ['browserState', 'searchTree'].includes(args.action)
+    if (!isReadOnlyAction) {
+      await pageController.showMask()
+    }
+    try {
+      switch (args.action) {
+        case 'browserState':
+          return await handleBrowserState(args, actionContext)
+        case 'click':
+          return await handleClick(args, actionContext)
+        case 'fill':
+          return await handleFill(args, actionContext)
+        case 'select':
+          return await handleSelect(args, actionContext)
+        case 'scroll':
+          return await handleScroll(args, actionContext)
+        case 'executeJavascript':
+          return await handleExecuteJavascript(args, actionContext)
+        case 'searchTree':
+          return await handleSearchTree(args, actionContext)
+        default:
+          await pageController.hideMask()
+          // @ts-ignore
+          return { content: [{ type: 'text', text: `未知操作: ${args.action}` }] }
+      }
+    } catch (error) {
+      await pageController.hideMask()
+      throw error
+    }
+  }
+
   // ─── 工具注册（名称与 inputSchema 与原版完全一致）────────────────────────
-  ;(document as any).modelContext.registerTool({
+  ; (document as any).modelContext.registerTool({
     name: 'page-agent-tool',
     description: pageAgentPrompt,
     // @ts-ignore
     inputSchema: zodToJsonSchema(inputSchema) as any,
     async execute(args: PageAgentToolInput) {
-      await pageController.showMask()
       try {
-        switch (args.action) {
-          case 'browserState':
-            return await handleBrowserState(args, actionContext)
-          case 'click':
-            return await handleClick(args, actionContext)
-          case 'fill':
-            return await handleFill(args, actionContext)
-          case 'select':
-            return await handleSelect(args, actionContext)
-          case 'scroll':
-            return await handleScroll(args, actionContext)
-          case 'executeJavascript':
-            return await handleExecuteJavascript(args, actionContext)
-          case 'searchTree':
-            return await handleSearchTree(args, actionContext)
-          default:
-            await pageController.hideMask()
-            // @ts-ignore
-            return { content: [{ type: 'text', text: `未知操作: ${args.action}` }] }
-        }
+        return executePageAgentTool(args)
       } catch (error) {
-        await pageController.hideMask()
-        return { content: [{ type: 'text', text: `异常: ${String(error)}` }] }
+        return { content: [{ type: 'text' as const, text: `异常: ${String(error)}` }] }
       }
     }
   })
+
+  setupPageAgentToolEventBridge(executePageAgentTool)
 }
