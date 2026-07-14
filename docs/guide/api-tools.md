@@ -1,346 +1,114 @@
-# 工具函数
+# 全局 API
+
+主要介绍 `@opentiny/next-sdk` 导出的全局 API，包括内置 WebMCP 初始化、Page Agent 自动操作工具注册以及 AI SDK 兼容转换方法。
+
+---
+
+## initializeBuiltinWebMCP()
+
+在浏览器环境中初始化内置的 WebMCP 运行环境。该函数会自动注入 `modelContext` Polyfill，并设置页面与宿主环境（如浏览器插件或父页面）的桥接通信通道。
+
+**类型签名**
 
 ```typescript
-import {
-  // WebMcpClient 相关方法
-  createSSEClientTransport,
-  createStreamableHTTPClientTransport,
-  createMessageChannelClientTransport,
-  isSSEClientTransport,
-  isStreamableHTTPClientTransport,
-  isMessageChannelClientTransport,
-  isMcpClient,
-
-  // WebMcpServer 相关方法
-  createMessageChannelServerTransport,
-  createMessageChannelPairTransport,
-  isMessageChannelServerTransport,
-  isMcpServer
-} from '@opentiny/next-sdk'
+export function initializeBuiltinWebMCP(): void
 ```
 
-## createSSEClientTransport()
-
-创建一个基于 SSE (Server-Sent Events) 的 MCP 客户端传输实例。
-
-**类型**
+**代码示例**
 
 ```typescript
-function createSSEClientTransport(url: URL, opts?: SSEClientTransportOptions): SSEClientTransport
+import { initializeBuiltinWebMCP } from '@opentiny/next-sdk'
+
+// 在页面入口处调用，用于初始化浏览器环境的 modelContext 桥接
+initializeBuiltinWebMCP()
 ```
 
-**参数**
+---
 
-- `url: URL` - SSE 服务器的 URL
-- `opts?: SSEClientTransportOptions` - SSE 客户端传输配置选项(可选)
+## registerPageAgentTool()
 
-**返回值**
+在浏览器环境中注册 `page-agent-tool` 工具。该工具供 AI Agent 自动读取当前页面状态（自动生成 ARIA 无障碍树并支持增量 Diff），以及在页面上执行自动点击、输入填单、下拉选择、滚动和自定义 JS 执行等操作。
 
-返回一个新的 SSEClientTransport 实例
+调用此方法会自动触发 `initializeBuiltinWebMCP()`。
 
-**示例**
+**类型签名**
 
 ```typescript
-const url = new URL('http://localhost:3000/sse')
-const transport = createSSEClientTransport(url)
+import { PageAgentToolOptions } from '@opentiny/next-sdk'
+
+export function registerPageAgentTool(options?: PageAgentToolOptions): void
 ```
 
-## createStreamableHTTPClientTransport()
+### PageAgentToolOptions 配置项说明
 
-创建一个基于 HTTP 流的 MCP 客户端传输实例。
+| 属性名 | 类型 | 默认值 | 说明 |
+| :--- | :--- | :--- | :--- |
+| `enableHighlight` | `boolean` | `true` | 是否在页面中高亮标注可交互的元素。 |
+| `exposedAttributes` | `string[]` | `[]` | 允许在无障碍树（A11y Tree）节点中额外暴露的自定义 DOM 属性白名单。 |
 
-**类型**
+### 高级全局配置 (`window` 属性)
+
+如果需要针对特定的站点或页面微调 `page-agent-tool` 的行为，可以通过配置全局 `window` 对象上的属性来进行精细化控制：
+
+- **`window.__webmcpcli_interactiveWhitelist`**: `Element[]` - 白名单元素列表。即便默认没有被识别为可交互的元素，若在此列表中也会被强制识别为可交互。
+- **`window.__webmcpcli_interactiveBlacklist`**: `Element[]` - 黑名单元素列表。强制排除在可交互元素外。
+- **`window.__webmcpcli_exposedAttributes`**: `string[]` - 额外暴露的自定义属性白名单，等同于 `options.exposedAttributes`。
+- **`window.__webmcpcli_beforeGetBrowserState`**: `(() => void) | null` - 获取浏览器状态前的钩子函数，可在此动态更新黑白名单。
+- **`window.__webmcpcli_errorSelectors`**: `string[]` - 表单校验错误元素的 CSS 选择器列表（用于检测页面中当前存在的表单报错信息，提醒 AI 优先修复）。
+- **`window.__webmcpcli_dialogSelectors`**: `string[]` - 模态弹窗/遮罩层的 CSS 选择器列表（用于检测阻塞页面交互的弹窗，方便 AI 优先处理）。
+
+**代码示例**
 
 ```typescript
-function createStreamableHTTPClientTransport(
-  url: URL,
-  opts?: StreamableHTTPClientTransportOptions
-): StreamableHTTPClientTransport
+import { registerPageAgentTool } from '@opentiny/next-sdk'
+
+// 注册工具并开启高亮，同时暴露 data-v-id 自定义属性
+registerPageAgentTool({
+  enableHighlight: true,
+  exposedAttributes: ['data-v-id']
+})
 ```
 
-**参数**
-
-url: URL - HTTP 服务器的 URL
-opts?: StreamableHTTPClientTransportOptions - HTTP 客户端传输配置选项(可选)
-
-**返回值**
-
-返回一个新的 StreamableHTTPClientTransport 实例
-
-**示例**
-
-```typescript
-const url = new URL('http://localhost:3000/stream')
-const transport = createStreamableHTTPClientTransport(url)
-```
-
-## createMessageChannelClientTransport()
-
-创建一个基于 MessageChannel 的 MCP 客户端传输实例。
-
-**类型**
-
-```typescript
-function createMessageChannelClientTransport(endpoint: string, globalObject?: object): MessageChannelClientTransport
-```
-
-**参数**
-
-endpoint: string - MessageChannel 服务端点
-globalObject?: object - 全局对象(可选)
-
-**返回值**
-
-返回一个新的 MessageChannelClientTransport 实例
-
-**示例**
-
-```typescript
-const transport = createMessageChannelClientTransport('ws://localhost:3000')
-```
-
-## isSSEClientTransport()
-
-检查传入的传输实例是否为 SSE 客户端传输。
-
-**类型**
-
-```typescript
-function isSSEClientTransport(transport: unknown): transport is SSEClientTransport
-```
-
-**参数**
-
-transport: unknown - 要检查的传输实例
-
-**返回值**
-
-返回 boolean - 如果是 SSE 客户端传输则返回 true
-
-**示例**
-
-```typescript
-const transport = createSSEClientTransport(new URL('http://localhost:3000'))
-if (isSSEClientTransport(transport)) {
-  // 处理 SSE 传输
-}
-```
-
-## isStreamableHTTPClientTransport()
-
-检查传入的传输实例是否为 HTTP 流客户端传输。
-
-**类型**
-
-```typescript
-function isStreamableHTTPClientTransport(transport: unknown): transport is StreamableHTTPClientTransport
-```
-
-**参数**
-
-transport: unknown - 要检查的传输实例
-
-**返回值**
-
-返回 boolean - 如果是 HTTP 流客户端传输则返回 true
-
-**示例**
-
-```typescript
-const transport = createStreamableHTTPClientTransport(new URL('http://localhost:3000'))
-if (isStreamableHTTPClientTransport(transport)) {
-  // 处理 HTTP 流传输
-}
-```
-
-## isMessageChannelClientTransport()
-
-检查传入的传输实例是否为 MessageChannel 客户端传输。
-
-**类型**
-
-```typescript
-function isMessageChannelClientTransport(transport: unknown): transport is MessageChannelClientTransport
-```
-
-**参数**
-
-transport: unknown - 要检查的传输实例
-
-**返回值**
-
-返回 boolean - 如果是 MessageChannel 客户端传输则返回 true
-
-**示例**
-
-```typescript
-function isMessageChannelClientTransport(transport: unknown): transport is MessageChannelClientTransport
-```
-
-## isMcpClient()
-
-检查传入的实例是否为 MCP 客户端。
-
-**类型**
-
-```typescript
-function isMcpClient(client: unknown): client is Client
-```
-
-**参数**
-
-client: unknown - 要检查的客户端实例
-
-**返回值**
-
-返回 boolean - 如果是 MCP 客户端则返回 true
-
-**示例**
-
-```typescript
-if (isMcpClient(client)) {
-  // 处理 MCP 客户端
-}
-```
-
-## createMessageChannelServerTransport()
-
-创建一个基于 MessageChannel 的 MCP 服务端传输实例。
-
-**类型**
-
-```typescript
-function createMessageChannelServerTransport(endpoint: string, globalObject?: object): MessageChannelServerTransport
-```
-
-**参数**
-
-endpoint: string - MessageChannel 服务端点
-globalObject?: object - 全局对象(可选)
-
-**返回值**
-
-返回一个新的 MessageChannelServerTransport 实例
-
-**示例**
-
-```typescript
-const transport = createMessageChannelServerTransport('ws://localhost:3000')
-```
-
-## createMessageChannelPairTransport()
-
-创建一对用于服务端和客户端之间通信的 MessageChannel 传输实例。
-
-**类型**
-
-```typescript
-function createMessageChannelPairTransport(): [Transport, Transport]
-```
-
-**返回值**
-
-返回一个包含两个 Transport 实例的数组,分别用于服务端和客户端
-
-**示例**
-
-```typescript
-const [serverTransport, clientTransport] = createMessageChannelPairTransport()
-```
-
-## isMessageChannelServerTransport()
-
-检查传入的传输实例是否为 MessageChannel 服务端传输。
-
-**类型**
-
-```typescript
-function isMessageChannelServerTransport(transport: unknown): transport is MessageChannelServerTransport
-```
-
-**参数**
-
-transport: unknown - 要检查的传输实例
-
-**返回值**
-
-返回 boolean - 如果是 MessageChannel 服务端传输则返回 true
-
-**示例**
-
-```typescript
-const transport = createMessageChannelServerTransport('ws://localhost:3000')
-if (isMessageChannelServerTransport(transport)) {
-  // 处理 MessageChannel 服务端传输
-}
-```
-
-## isMcpServer()
-
-检查传入的实例是否为 MCP 服务端。
-
-**类型**
-
-```typescript
-function isMcpServer(server: unknown): server is McpServer
-```
-
-**参数**
-
-server: unknown - 要检查的服务端实例
-
-**返回值**
-
-返回 boolean - 如果是 MCP 服务端则返回 true
-
-**示例**
-
-```typescript
-if (isMcpServer(server)) {
-  // 处理 MCP 服务端
-}
-```
+---
 
 ## getAISDKTools()
 
-用来对接 `AgentModelProvider` 返回一个工具集对象, 对接后可以让 `AgentModelProvider` 实例直接调用 MCP 工具。
+将 `WebMcpClient` 的工具列表快速转换成 Vercel AI SDK 兼容的格式，方便大模型（如 `AgentModelProvider` 等）直接调用 MCP 暴露的工具。
 
-**类型**
+**类型签名**
 
 ```typescript
-async getAISDKTools(client: WebMcpClient): Promise<ToolSet>
+import { WebMcpClient } from '@opentiny/next-sdk'
+import { ToolSet } from 'ai'
+
+export function getAISDKTools(client: WebMcpClient): Promise<ToolSet>
 ```
 
-**参数**
+**参数说明**
 
-- `client: WebMcpClient`: WebMcpClient 实例
-  **返回值**
+- `client: WebMcpClient` - 一个已连接并准备就绪的 `WebMcpClient` 实例。
 
-- `Promise<ToolSet>`: 工具集对象
-  **示例**
+**返回值**
+
+- `Promise<ToolSet>` - 返回转换后的 Vercel AI SDK `dynamicTool` 工具集对象。
+
+**代码示例**
 
 ```typescript
-import { AgentModelProvider, getAISDKTools, WebMcpClient } from '@opentiny/next-sdk'
-
-const webAgent = new AgentModelProvider({
-  llmConfig: {
-    apiKey: '',
-    baseURL: 'https://xxxxx',
-    providerType: 'deepseek'
-  }
-})
+import { getAISDKTools, WebMcpClient } from '@opentiny/next-sdk'
+import { generateText } from 'ai'
 
 const client = new WebMcpClient()
+// 连接到 MCP Server...
+await client.connect(transport)
 
+// 将 MCP 工具转换为 AI SDK 兼容工具
 const tools = await getAISDKTools(client)
 
-const generateTextResult = webAgent.chat({
-  model: 'deepseek-ai/DeepSeek-V3',
-  messages: [
-    { role: 'system', content: '你是xxx' },
-    { role: 'user', content: '1+1 等于多少？' }
-  ],
+// 直接配合 AI SDK 使用
+const result = await generateText({
+  model: yourModelProvider,
+  messages: [{ role: 'user', content: '请帮我查询当前的系统状态' }],
   tools
-  // .......
 })
 ```

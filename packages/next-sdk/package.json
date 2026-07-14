@@ -1,6 +1,6 @@
 {
   "name": "@opentiny/next-sdk",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "type": "module",
   "homepage": "https://docs.opentiny.design/next-sdk/guide/",
   "repository": {
@@ -34,7 +34,8 @@
   },
   "description": "A frontend intelligent application development toolkit designed to simplify WebAgent integration and usage, supporting multiple programming languages and frontend frameworks to help developers rapidly implement intelligent features",
   "scripts": {
-    "build": "vite build"
+    "build": "vite build && vite build --config vite.config.runtime.ts",
+    "build:runtime": "vite build --config vite.config.runtime.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "catalog:",

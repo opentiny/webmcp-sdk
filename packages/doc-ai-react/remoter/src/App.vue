@@ -27,11 +27,11 @@ const skillMdModules = import.meta.glob('./skills/**/*', {
   eager: true
 }) as Record<string, string>
 
-const nav = window.parent.navigator as Navigator & { modelContextTesting?: object }
+const doc = window.parent.document as Document & { modelContext?: object }
 const mcpServers: Record<string, McpServerConfig> = {
   'mcp-server-builtin-webmcp': {
     type: 'builtin' as const,
-    client: nav.modelContextTesting
+    client: doc.modelContext
   }
 }
 

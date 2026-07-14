@@ -8,7 +8,7 @@ declare global {
   interface Navigator {
     /**
      * WebMCP polyfill 注入的服务端接口（工具提供方使用）
-     * 用于注册/注销工具，对应 next-wxt 插件注入的 navigator.modelContext
+     * 用于注册/注销工具，对应 next-wxt 插件注入的 document.modelContext
      */
     modelContext: {
       registerTool: (tool: WebMcpToolDefinition) => void
@@ -19,9 +19,9 @@ declare global {
      * WebMCP polyfill 注入的客户端查询接口（工具调用方使用）
      * 用于列举和调用已注册的工具
      */
-    modelContextTesting: {
+    modelContext: {
       listTools: () => Promise<WebMcpToolDefinition[]>
-      executeTool: (name: string, argsJson: string) => Promise<unknown>
+      executeTool: (tool: any, argsJson: string) => Promise<unknown>
       registerToolsChangedCallback?: (cb: () => void) => void
     }
   }

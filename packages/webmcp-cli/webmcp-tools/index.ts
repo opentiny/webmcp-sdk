@@ -9,7 +9,7 @@
  *   ├── index.ts          <- 本文件，提供域名 → 工具文件的映射
  *   ├── types.d.ts        <- 全局类型声明
  *   └── {hostname}/
- *       ├── index.ts      <- 工具实现（注册到 navigator.modelContextTesting）
+ *       ├── index.ts      <- 工具实现（注册到 document.modelContext）
  *       └── meta.ts       <- 元数据（name、description），供运行时按域名索引
  *
  * 使用方式：
@@ -52,5 +52,6 @@ export const SUPPORTED_DOMAINS: string[] = [
   'editor.csdn.net',
   'xiaohongshu.com',
   'creator.xiaohongshu.com',
-  'segmentfault.com'
+  'segmentfault.com',
+  'zhuanlan.zhihu.com'
 ]

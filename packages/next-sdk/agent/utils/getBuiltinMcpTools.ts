@@ -1,7 +1,7 @@
 import { dynamicTool, jsonSchema, Tool, ToolSet } from 'ai'
 
 /**
- * 浏览器内置 WebMCP 测试 API 的工具描述格式（Chrome navigator.modelContextTesting）
+ * 浏览器内置 WebMCP 测试 API 的工具描述格式（Chrome document.modelContext）
  */
 type BuiltinToolDescriptor = {
   name: string
@@ -17,16 +17,16 @@ type BuiltinToolDescriptor = {
 type BuiltinModelContextTesting = {
   listTools?: () => Promise<BuiltinToolDescriptor[]>
   getTools?: () => Promise<BuiltinToolDescriptor[]>
-  executeTool?: (name: string, input: string) => Promise<unknown>
+  executeTool?: (tool: { name: string }, input: string) => Promise<unknown>
 }
 
 /**
- * 将浏览器内置 WebMCP 的 `navigator.modelContext` 适配为 ai-sdk 的 ToolSet。
+ * 将浏览器内置 WebMCP 的 `document.modelContext` 适配为 ai-sdk 的 ToolSet。
  *
  * 类似 getAISDKTools，但数据源是浏览器原生 API 而非 MCP client。
- * 工具执行时通过 `executeTool(name, JSON.stringify(args))` 代理给浏览器。
+ * 工具执行时通过 `executeTool(toolObj, JSON.stringify(args))` 代理给浏览器。
  *
- * @param client - `navigator.modelContext` 对象
+ * @param client - `document.modelContext` 对象
  * @returns ai-sdk 格式的 ToolSet，可直接传入 streamText/generateText 的 tools 参数
  */
 export const getBuiltinMcpTools = async (client: object | undefined | null): Promise<ToolSet> => {
@@ -75,9 +75,9 @@ export const getBuiltinMcpTools = async (client: object | undefined | null): Pro
       inputSchema: jsonSchema(normalizedSchema as Parameters<typeof jsonSchema>[0]),
       async execute(args) {
         if (!testing.executeTool) {
-          throw new Error(`navigator.modelContextTesting.executeTool is not available`)
+          throw new Error(`document.modelContext.executeTool is not available`)
         }
-        return testing.executeTool(name, JSON.stringify(args ?? {}))
+        return testing.executeTool(descriptor, JSON.stringify(args ?? {}))
       }
     })
   }

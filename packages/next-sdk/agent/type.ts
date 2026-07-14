@@ -5,12 +5,12 @@ import type { MCPClientConfig } from '@ai-sdk/mcp'
 export type MCPTransport = MCPClientConfig['transport']
 
 /**
- * 浏览器内置 WebMCP 测试 API 接口 (如 navigator.modelContextTesting)
+ * 浏览器内置 WebMCP 测试 API 接口 (如 document.modelContext)
  */
 export interface BuiltinMcpClient {
   listTools?: () => Promise<any[]>
   getTools?: () => Promise<any[]>
-  executeTool: (name: string, input: string) => Promise<any>
+  executeTool: (tool: any, input: string) => Promise<any>
   registerTool?: (config: { name: string; execute: (input: any) => Promise<any> | any; [key: string]: any }) => void
   unregisterTool?: (name: string) => void
 }
@@ -63,23 +63,20 @@ export type McpServerConfig =
       description?: string
     }
   | {
-      type: 'extension'
-      url: string
-      sessionId: string
+      type: 'local'
+      transport: MCPTransport
       useAISdkClient?: boolean
-      headers?: Record<string, string>
       name?: string
       description?: string
     }
-  | { type: 'local'; transport: MCPTransport; useAISdkClient?: boolean; name?: string; description?: string }
   | {
       /**
        * 浏览器内置 WebMCP 类型。
-       * 将 `navigator.modelContextTesting` 作为 MCP 工具数据源，
+       * 将 `document.modelContext` 作为 MCP 工具数据源，
        * 通过 `getBuiltinMcpTools` 适配为 ai-sdk 可调用的 ToolSet。
        */
       type: 'builtin'
-      /** 传入 `navigator.modelContextTesting` 对象 */
+      /** 传入 `document.modelContext` 对象 */
       client: BuiltinMcpClient
       name?: string
       description?: string

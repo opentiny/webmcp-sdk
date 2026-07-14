@@ -344,7 +344,7 @@ async function initXhsCreatorTools() {
       })
 
       if (typeof mcp.listTools === 'function') {
-        mcp.listTools().then((list: any) => {
+        mcp.getTools().then((list: any) => {
           (window as any).__webmcpcli_tools = list
         }).catch(() => {})
       }

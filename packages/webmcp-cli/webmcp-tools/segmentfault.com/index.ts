@@ -1058,7 +1058,7 @@ async function publishFullFlow(params: FullFlowParams): Promise<ToolResult> {
 
 function registerTool(): void {
   if (typeof navigator === 'undefined' || !(navigator as any).modelContext) {
-    console.warn('[SF Tool] navigator.modelContext 不可用');
+    console.warn('[SF Tool] document.modelContext 不可用');
     return;
   }
 

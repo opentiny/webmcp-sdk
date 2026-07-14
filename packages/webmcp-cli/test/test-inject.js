@@ -33,9 +33,9 @@ const fs = require('fs');
   });
   
   const tools = await page.evaluate(async () => {
-    const mcp = navigator.modelContextTesting || navigator.modelContext;
+    const mcp = document.modelContext;
     if (!mcp) return 'no mcp';
-    const res = await mcp.listTools();
+    const res = await mcp.getTools();
     return res;
   });
   

@@ -1,13 +1,9 @@
 <template>
-  <tr-container
-    v-model:show="show"
-    v-model:fullscreen="fullscreen"
-    :style="{
-      position: layoutMode,
-      width: layoutMode !== 'fixed' ? 'unset' : undefined,
-      height: layoutMode !== 'fixed' ? '100%' : undefined
-    }"
-  >
+  <tr-container v-model:show="show" v-model:fullscreen="fullscreen" :style="{
+    position: layoutMode,
+    width: layoutMode !== 'fixed' ? 'unset' : undefined,
+    height: layoutMode !== 'fixed' ? '100%' : undefined
+  }">
     <template #title>
       <h3 class="tr-container__title">{{ title }}</h3>
     </template>
@@ -22,16 +18,10 @@
           <div v-if="showHistory" class="drawer-overlay" @click="showHistory = false">
             <div class="drawer-container" @click.stop style="--tr-history-item-selected-bg: #ebeeff">
               <h4>历史会话</h4>
-              <TrHistory
-                class="tr-history-demo"
-                :selected="conversationState.currentId"
-                :data="conversationState.conversations"
-                :showRenameControls="true"
-                @close="showHistory = false"
-                @item-click="handleHistorySelect"
-                @item-title-change="handleHistoryUpdateTitle"
-                @item-action="handleHistoryDelete"
-              ></TrHistory>
+              <TrHistory class="tr-history-demo" :selected="conversationState.currentId"
+                :data="conversationState.conversations" :showRenameControls="true" @close="showHistory = false"
+                @item-click="handleHistorySelect" @item-title-change="handleHistoryUpdateTitle"
+                @item-action="handleHistoryDelete"></TrHistory>
             </div>
           </div>
         </Transition>
@@ -45,15 +35,8 @@
           <tr-prompts :items="promptItems" :wrap="true" class="tiny-prompts" item-class="prompt-item"></tr-prompts>
         </div>
       </slot>
-      <tr-bubble-list
-        v-else
-        style="flex: 1"
-        :items="messages"
-        :roles="roles"
-        auto-scroll
-        :loading="messageState.status === STATUS.PROCESSING"
-        loading-role="assistant"
-      >
+      <tr-bubble-list v-else style="flex: 1" :items="messages" :roles="roles" auto-scroll
+        :loading="messageState.status === STATUS.PROCESSING" loading-role="assistant">
       </tr-bubble-list>
     </tr-bubble-provider>
 
@@ -61,31 +44,17 @@
       <div class="chat-input">
         <slot name="suggestions">
           <div class="chat-input-pills">
-            <tr-dropdown-menu
-              v-for="pill in pillItems"
-              :key="pill.id"
-              :items="pill.menus"
-              @item-click="handlePillItemClick"
-              trigger="click"
-            >
+            <tr-dropdown-menu v-for="pill in pillItems" :key="pill.id" :items="pill.menus"
+              @item-click="handlePillItemClick" trigger="click">
               <template #trigger>
                 <TrSuggestionPillButton>{{ pill.text }}</TrSuggestionPillButton>
               </template>
             </tr-dropdown-menu>
           </div>
         </slot>
-        <tr-sender
-          ref="senderRef"
-          mode="multiple"
-          v-model="inputMessage"
-          :placeholder="senderPlaceholder"
-          :clearable="!!inputMessage"
-          :loading="senderLoading"
-          :showWordLimit="true"
-          :maxLength="20000"
-          @submit="handleSendMessageCustom"
-          @cancel="abortRequest"
-        >
+        <tr-sender ref="senderRef" mode="multiple" v-model="inputMessage" :placeholder="senderPlaceholder"
+          :clearable="!!inputMessage" :loading="senderLoading" :showWordLimit="true" :maxLength="20000"
+          @submit="handleSendMessageCustom" @cancel="abortRequest">
           <template #header v-if="attachments.length > 0">
             <div class="attachments-container">
               <TrAttachments v-model:items="attachments" />
@@ -96,43 +65,24 @@
               <!-- 插件开关 Plugin toggle button -->
               <PluginToggleButton :installed-plugins="installedPlugins" @click="pluginVisible = !pluginVisible" />
               <!-- 模型切换组件 Model switch component, 是否显示依赖于 props.llmConfigs, 所以无需 hasXXx 属性 -->
-              <ModelSwitch
-                v-if="llmConfigsRef && llmConfigsRef.length > 0"
-                :model-configs="llmConfigsRef"
-                v-model:selected-model-id="selectedModelId"
-              />
+              <ModelSwitch v-if="llmConfigsRef && llmConfigsRef.length > 0" :model-configs="llmConfigsRef"
+                v-model:selected-model-id="selectedModelId" />
               <!-- 生成式UI开关：仅当当前模型配置同时包含 genuiUrl 和 baseURL 时显示 -->
               <GenUISwitch v-if="showGenUISwitch" v-model:genui-enabled="genUiAble" />
               <!-- 文件上传按钮 File upload button (v0.4.x 新API)， hasMultimodalSupport 值依赖于用户选中模型，而非简单的props 传入。-->
-              <TrUploadButton
-                v-if="hasMultimodalSupport"
-                accept="image/*,application/pdf,.doc,.docx,.txt"
-                :multiple="true"
-                @select="onFilesSelected"
-              />
+              <TrUploadButton v-if="hasMultimodalSupport" accept="image/*,application/pdf,.doc,.docx,.txt"
+                :multiple="true" @select="onFilesSelected" />
             </div>
           </template>
         </tr-sender>
 
         <!-- 插件面板 -->
-        <TrMcpServerPicker
-          v-model:visible="pluginVisible"
-          :popup-config="{ type: 'drawer' }"
-          :show-custom-add-button="true"
-          marketTabTitle="MCP市场"
-          installedTabTitle="已添加MCP服务"
-          title="扩展"
-          :installedPlugins="installedPlugins"
-          :marketPlugins="marketPlugins"
-          :market-category-options="marketCategoryOptions"
-          :installed-search-fn="searchPlugin"
-          :market-search-fn="searchPlugin"
-          @plugin-toggle="togglePlugin"
-          @plugin-add="addPluginFromMarket"
-          @plugin-delete="deletePlugin"
-          @tool-toggle="toggleTool"
-          @plugin-create="handleCustomAdd"
-        >
+        <TrMcpServerPicker v-model:visible="pluginVisible" :popup-config="{ type: 'drawer' }"
+          :show-custom-add-button="true" marketTabTitle="MCP市场" installedTabTitle="已添加MCP服务" title="扩展"
+          :installedPlugins="installedPlugins" :marketPlugins="marketPlugins"
+          :market-category-options="marketCategoryOptions" :installed-search-fn="searchPlugin"
+          :market-search-fn="searchPlugin" @plugin-toggle="togglePlugin" @plugin-add="addPluginFromMarket"
+          @plugin-delete="deletePlugin" @tool-toggle="toggleTool" @plugin-create="handleCustomAdd">
           <template #header-actions>
             <slot name="header-actions" />
           </template>
@@ -197,16 +147,27 @@ defineOptions({
 })
 
 const props = defineProps({
-  /** 会话 id，可选；未传时仅显示「打开对话框」，不展示扫码等菜单 */
-  sessionId: {
-    type: String,
-    default: undefined
-  },
   /** 后端的代理服务器地址 */
   agentRoot: {
     type: String,
     default: 'https://agent.opentiny.design/api/v1/webmcp-trial/'
   },
+  /** 会话 id，可选；未传时仅显示「打开对话框」，不展示扫码等菜单 */
+  sessionId: {
+    type: String,
+    default: undefined
+  },
+  menuItems: {
+    type: Array as () => MenuItemConfig[]
+  },
+  remoteUrl: {
+    type: String
+  },
+  qrCodeUrl: {
+    type: String
+  },
+
+
   /** 系统提示词 */
   systemPrompt: {
     type: String,
@@ -222,15 +183,7 @@ const props = defineProps({
     type: String,
     default: 'zh-CN'
   },
-  remoteUrl: {
-    type: String
-  },
-  menuItems: {
-    type: Array as () => MenuItemConfig[]
-  },
-  qrCodeUrl: {
-    type: String
-  },
+
   /** 悬浮AI图标的地址 */
   AILogoUrl: {
     type: String
@@ -758,12 +711,14 @@ defineExpose({
   padding: 0 6px;
   border-radius: 6px;
   cursor: pointer;
+
   & svg {
     font-size: 20px;
   }
 
   &:hover {
     background-color: #f5f5f5;
+
     svg {
       color: #1476ff;
     }

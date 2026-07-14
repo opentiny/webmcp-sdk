@@ -1,4 +1,6 @@
 import { connectBrowser, getTargetPage } from '../browser'
+import { zhihuCreateArticle } from '../zhihu/create-article'
+import { isZhihuWriteUrl } from '../zhihu/markdown'
 
 export async function runCommand({
   toolName,
@@ -17,18 +19,34 @@ export async function runCommand({
     // argsJson 已在 bin.ts 中完成 @base64file 展开与 JSON 校验
     const cleanedArgs = argsJson.trim()
 
+    // 知乎专栏：在 Node 端完成 Markdown→HTML 转换 + 真实剪贴板粘贴（Draft.js 兼容）
+    if (toolName === 'create_article') {
+      let parsedArgs: { title?: string; content?: string }
+      try {
+        parsedArgs = JSON.parse(cleanedArgs)
+      } catch {
+        throw new Error('参数不是有效的 JSON')
+      }
+      if (isZhihuWriteUrl(page.url())) {
+        return await zhihuCreateArticle(page, parsedArgs)
+      }
+    }
+
     let result: any
     try {
       result = await page.evaluate(async (name, inputString) => {
         // @ts-expect-error WebMCP APIs are experimental and not yet in DOM types
-        const mcp = navigator.modelContextTesting || document.modelContext || navigator.modelContext
+        const mcp = document.modelContext || document.modelContext || document.modelContext
 
         if (!mcp || typeof mcp.executeTool !== 'function') {
-          throw new Error('当前页面没有注入 WebMCP 环境 (modelContextTesting.executeTool 或 modelContext.executeTool 未找到)')
+          throw new Error('当前页面没有注入 WebMCP 环境 (document.modelContext 未找到)')
         }
 
         // executeTool 的第二个参数必须是 JSON 字符串
-        let res = await mcp.executeTool(name, inputString)
+        const tools = await mcp.getTools();
+        const toolObj = tools.find((t: any) => t.name === name);
+        if (!toolObj) throw new Error(`Tool ${name} not found`);
+        let res = await mcp.executeTool(toolObj, inputString)
 
         // executeTool 的返回值可能是普通对象，也可能是 JSON 字符串
         if (typeof res === 'string') {

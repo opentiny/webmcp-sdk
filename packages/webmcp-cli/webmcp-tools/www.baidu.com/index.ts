@@ -3,14 +3,14 @@
  * 由 browser.ts 通过 page.evaluate() 注入到 www.baidu.com 页面的 JS 上下文中执行
  * 可直接访问页面 DOM 和 window
  *
- * 注意：工具注册使用 navigator.modelContext（polyfill 服务端接口），
- * 而非 navigator.modelContextTesting（客户端查询接口）。
+ * 注意：工具注册使用 document.modelContext（polyfill 服务端接口），
+ * 而非 document.modelContext（客户端查询接口）。
  */
 
-// navigator.modelContext 不存在时不设 flag，允许下次重试
+// document.modelContext 不存在时不设 flag，允许下次重试
 const _baiduMcp = (navigator as any).modelContext
 if (!_baiduMcp || typeof _baiduMcp.registerTool !== 'function') {
-  console.warn('[webmcp-tools] www.baidu.com: navigator.modelContext.registerTool 未就绪，跳过注入')
+  console.warn('[webmcp-tools] www.baidu.com: document.modelContext.registerTool 未就绪，跳过注入')
 } else if (!(window as any).__webmcptools_wwwbaiducom) {
   ;(window as any).__webmcptools_wwwbaiducom = true
   try {

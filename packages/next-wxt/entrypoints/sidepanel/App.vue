@@ -5,15 +5,13 @@ import { useBrowserExtensions } from './composable/useBrowserExtensions'
 
 import TinyUser from '@opentiny/vue-user'
 import { useCustomMarketMcpServers } from './composable/useCustomMarketMcpServers'
-import { useGenerateCode } from './composable/useGenerateCode'
-import RecordModal from './components/RecordModal.vue'
 import { getUnifiedSkills } from '@/utils/skills-unified'
 import { RENDERER_SETTINGS_KEY } from '@opentiny/genui-sdk-vue'
 import { CustomFunction } from '@/utils/customFunction'
 import { getModelConfigsWithToken } from './model-manage'
 import { getStorageItem, setStorageItem } from './utils/local-storage'
 import { StorageKeys } from './utils/storage-keys'
-import { getSnapshotManager } from './accessibility/utils'
+import { getSnapshotManager } from './utils/snapshotManager'
 import { getWebAgentUrl } from './model-manage/model-storage'
 // 从统一入口读取 skills（built-in + 用户在 Options 中的覆盖）
 const skills = ref<Record<string, string>>({})
@@ -91,35 +89,6 @@ watch(
   },
   { deep: true }
 )
-const { isRecording, startRecording, stopRecording, toggleRecording } = useGenerateCode()
-const isRecordModalVisible = ref(false)
-const openRecordModal = () => {
-  isRecordModalVisible.value = true
-}
-
-const closeRecordModal = () => {
-  isRecordModalVisible.value = false
-}
-
-const handleStartRecording = async () => {
-  try {
-    await startRecording()
-    showToast('录制操作成功: 已开始录制')
-  } catch (error: any) {
-    console.error('handleStartRecording error', error)
-    showToast(`录制操作失败: ${error?.message || '未知错误'}`)
-  }
-}
-
-const handleStopRecording = async () => {
-  try {
-    await stopRecording()
-    showToast('录制操作成功: 已停止录制')
-  } catch (error: any) {
-    console.error('handleStopRecording error', error)
-    showToast(`录制操作失败: ${error?.message || '未知错误'}`)
-  }
-}
 
 browser.runtime.onMessage.addListener((message) => {
   if (message.type === 'reload-sidepanel') {
@@ -158,20 +127,7 @@ const clearHighlightPage = async () => {
       @chat-stream-finish="clearHighlightPage"
       :agent-root="webAgentUrl"
     >
-      <template #header-actions>
-        <button v-if="false" class="record-button" type="button" @click="openRecordModal">
-          <span class="record-button__icon">+</span>
-          自定义添加
-        </button>
-      </template>
     </TinyRemoter>
-    <RecordModal
-      :visible="isRecordModalVisible"
-      :isRecording="isRecording"
-      @close="closeRecordModal"
-      @start-recording="handleStartRecording"
-      @stop-recording="handleStopRecording"
-    />
   </div>
 </template>
 
@@ -225,40 +181,5 @@ const clearHighlightPage = async () => {
 
 .sidepanel-wrapper {
   position: relative;
-}
-
-.record-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: 1px solid rgba(79, 140, 255, 0.4);
-  background: rgba(79, 140, 255, 0.08);
-  color: #2b5bd9;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition:
-    background 0.2s ease,
-    box-shadow 0.2s ease;
-}
-
-.record-button__icon {
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
-  background: #2b5bd9;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 16px;
-  line-height: 1;
-}
-
-.record-button:hover {
-  background: rgba(79, 140, 255, 0.16);
-  box-shadow: 0 4px 12px rgba(43, 91, 217, 0.2);
 }
 </style>

@@ -1,5 +1,9 @@
 # WebMcpClient 类
 
+> [!NOTE]
+> **推荐方案：**
+> 从最新版本起，我们主推使用基于浏览器原生标准的 `document.modelContext` 方式接入。手动构建 `WebMcpClient` 进行连接的方案仅作为底层定制或特殊场景的备选方案，供开发者参考。
+
 ```typescript
 import { WebMcpClient } from '@opentiny/next-sdk'
 ```
@@ -54,7 +58,7 @@ const client = new WebMcpClient({ name: 'my-app-client', version: '1.0.0' }, { c
 
    代理成功后，当前的 `WebMcpServer` 网页将变为受控端，并作为一个标准的 `MCP Server` 部署在 `Web Agent` 服务上，供其他 `MCP Client` 进行远程连接和操控。
 
-   如果同时开启了 `builtin: true`，则会自动建立原生的 JSON-RPC 拦截层，将部分 MCP 请求（如 `tools/list`, `tools/call`）拦截并分发给所在浏览器的 `navigator.modelContextTesting` 原生上下文执行。这样可以让浏览器内置的能力（通过扩展或原生支持）直接透传给 Web Agent。
+   如果同时开启了 `builtin: true`，则会自动建立原生的 JSON-RPC 拦截层，将部分 MCP 请求（如 `tools/list`, `tools/call`）拦截并分发给所在浏览器的 `document.modelContext` 原生上下文执行。这样可以让浏览器内置的能力（通过扩展或原生支持）直接透传给 Web Agent。
 
 **类型声明**
 
@@ -63,7 +67,7 @@ const client = new WebMcpClient({ name: 'my-app-client', version: '1.0.0' }, { c
 interface ClientConnectOptions {
   /** 是否代理模式 */
   agent?: boolean
-  /** 是否开启浏览器内置 WebMCP 代理，拦截请求并代理给 navigator.modelContextTesting 执行。*/
+  /** 是否开启浏览器内置 WebMCP 代理，拦截请求并代理给 document.modelContext 执行。*/
   builtin?: boolean
   /** Transport类型。*/
   type?: 'channel' | 'sse' | 'stream' | 'socket'
@@ -154,7 +158,7 @@ client.connect({
 
 6. 开启内置代理模式示例
 
-开启 `builtin: true` 后，当前 Client 会拦截发向 Server 的请求，将其代理给浏览器的 `navigator.modelContextTesting` 原生上下文。
+开启 `builtin: true` 后，当前 Client 会拦截发向 Server 的请求，将其代理给浏览器的 `document.modelContext` 原生上下文。
 
 ```typescript
 client.connect({
@@ -605,7 +609,7 @@ async listTools(params?: ListToolsRequest['params'], options?: RequestOptions)
 **示例**
 
 ```typescript
-const tools = await client.listTools()
+const tools = await client.getTools()
 console.log('Available tools:', tools)
 ```
 

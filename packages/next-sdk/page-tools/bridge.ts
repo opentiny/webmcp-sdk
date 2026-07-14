@@ -605,7 +605,7 @@ export function registerPageTool(options: RegisterPageToolByHandlersOptions): ()
 
 /**
  * 建立浏览器原生或 polyfill 与 next-sdk 页面工具桥接的联系。
- * 若用户或第三方库直接操作 navigator.modelContext 进行工具注册，
+ * 若用户或第三方库直接操作 document.modelContext 进行工具注册，
  * 我们通过此函数进行拦截劫持，并同步到 next-sdk 的握手线路 (MSG_TOOL_REGISTERED / MSG_TOOL_UNREGISTERED)，
  * 从而保证无论浏览器是否原生支持，均能正常完成 WebMCP 握手交互。
  */

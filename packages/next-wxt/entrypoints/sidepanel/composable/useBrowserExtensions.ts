@@ -1,4 +1,4 @@
-import { type McpServerConfig, initializeBuiltinWebMCP } from '@opentiny/next-sdk'
+import { type McpServerConfig } from '@opentiny/next-sdk'
 import { onMounted } from 'vue'
 import { setupLocalTools, exportedSyncPageProxy } from '../mcpServer'
 import { TinyRemoter } from '@opentiny/next-remoter'
@@ -7,7 +7,7 @@ import { showToast } from 'vant'
 export const useBrowserExtensions = async (remoterRef: Ref<InstanceType<typeof TinyRemoter>>) => {
   onMounted(async () => {
     // 注册内置 WebMCP 工具（依赖 remoterRef，必须在 mount 后执行）
-    const nativeCtx = (navigator as any).modelContextTesting
+    const nativeCtx = (document as any).modelContext
     if (nativeCtx) {
       registerQueue = registerQueue.then(async () => {
         try {
@@ -15,7 +15,7 @@ export const useBrowserExtensions = async (remoterRef: Ref<InstanceType<typeof T
             type: 'builtin',
             client: nativeCtx,
             name: '浏览器内置工具',
-            description: '插件内置工具及当前网页通过 navigator.modelContextTesting 暴露的 MCP 工具'
+            description: '插件内置工具及当前网页通过 document.modelContext 暴露的 MCP 工具'
           }
           await remoterRef.value.loadMcpServerToPlugin('mcp-server-builtin', mcpServer)
         } catch (error) {
@@ -23,17 +23,14 @@ export const useBrowserExtensions = async (remoterRef: Ref<InstanceType<typeof T
         }
       })
     } else {
-      console.warn('【useBrowserExt】navigator.modelContextTesting 未就绪，跳过内置工具注册')
+      console.warn('【useBrowserExt】document.modelContext 未就绪，跳过内置工具注册')
     }
   })
 
   // 注册队列：确保 MCP server 注册操作串行执行
   let registerQueue = Promise.resolve()
 
-  // 初始化侧边栏的内置 WebMCP（注册 navigator.modelContext / modelContextTesting）
-  initializeBuiltinWebMCP()
-
-  // 注册插件内置工具（tabs-manager、accessibility、visual）及当前页面代理工具
+  // 注册插件内置工具（tabs-manager）及当前页面代理工具
   setupLocalTools()
 
   // 监听后台主动推送的 UI 更新事件

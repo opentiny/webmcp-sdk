@@ -1,153 +1,179 @@
-# 第三方 Agent 接入与操作全流程
+# Skill 使用指南
 
-本指南将详细介绍第三方 AI Agent（如 Claude、Gemini 或其他大模型代理）如何通过 `webmcp-skill` 的规范接入 `webmcp-cli`，并最终实现对 Chrome 浏览器中任意网页的感知与自动化操控。
+## 概述
 
----
+本指南介绍如何让 AI 大模型通过 `webmcp-cli` 控制浏览器。整个过程不需要写代码，核心只有一步：
 
-## 🧭 系统定位与联动关系
+**将 `SKILL.md` 技能文件提供给 AI 大模型作为系统指令。**
 
-要实现 AI 对网页的自动驾驶，需要以下三个核心组件协同工作：
+`SKILL.md` 位于 `packages/webmcp-cli-skill/SKILL.md`，其中详细描述了 `webmcp-cli` 的命令格式、参数说明和操作规范。AI 读取后即可自主调用 CLI 命令来打开网页、获取页面元素、执行点击和输入等操作。
 
-```text
-┌─────────────────┐        系统指令注入        ┌──────────────────┐
-│  webmcp-skill   ├──────────────────────────►│  第三方 AI Agent │
-│  (AI 操作指南)  │                           │   (决策与推理)   │
-└─────────────────┘                           └────────┬─────────┘
-                                                       │
-                                                 终端命令  │ (state / run)
-                                                       ▼
-┌─────────────────┐         CDP 调试协议      ┌──────────────────┐
-│   Chrome 浏览器 ◄───────────────────────────┤   webmcp-cli     │
-│   (运行与呈现)  │                           │ (环境注入与驱动) │
-└─────────────────┘                           └──────────────────┘
-```
+可以理解为：Skill 文件是给 AI 的操作手册，AI 读完就能像人一样用命令行操控浏览器。
 
-1. **`webmcp-skill`**：充当 AI Agent 的“操作手册”。它以标准 Markdown 指令集（如 `SKILL.md`）的形式存在，告诉 AI Agent 必须遵守的浏览器交互规范与调用命令的参数格式。
-2. **`webmcp-cli`**：充当 AI Agent 的“眼”和“手”。它负责实际拉起/接管 Chrome 浏览器，注入运行环境，获取页面结构并执行 Agent 发送过来的指令。
-3. **`第三方 AI Agent`**：充当系统的“大脑”。它负责解析用户的宏观指令，阅读页面状态，并根据技能手册自主决策何时点击、何时输入、何时滚动，直至任务完成。
+## 前置准备
 
----
+开始之前，请确保已完成以下准备：
 
-## 🔄 网页操控全生命周期
+1. **安装 webmcp-cli**：这是 AI 操作浏览器的"手"，没装就用不了。安装方法见 [CLI 使用指南](./webmcp-cli#安装)。
+2. **获取 SKILL.md**：这是教 AI 怎么用 CLI 的"操作手册"，位于 `packages/webmcp-cli-skill/SKILL.md`。如果你是通过 npm 安装的 skill 包，文件会在 `node_modules/@opentiny/webmcp-cli-skill/SKILL.md`。
+3. **准备一个 AI Agent**：支持读取系统提示词的 AI 大模型（如 DeepSeek、通义千问、ChatGPT 等）。
 
-下图展示了一个第三方 Agent 接收到用户任务后，从读取技能手册开始，到最终在 Chrome 中完成操控的完整生命周期：
+## 核心组件
 
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User as 用户
-    participant Agent as AI Agent (第三方)
-    participant SK as webmcp-skill (指令集)
-    participant CLI as webmcp-cli (命令行)
-    participant Browser as Chrome 浏览器
+![系统组件关系](../assets/images/mermaid/cli-components.svg)
 
-    User->>Agent: 1. 提出任务 (如 "在百度搜索 OpenTiny 并打开官网")
-    Agent->>SK: 2. 读取技能指南 (SKILL.md)
-    Note over Agent: 载入操作手册，获取操作规范和命令行参数限制
-    Agent->>CLI: 3. 执行 webmcp-cli tabs open <url>
-    CLI->>Browser: 启动/接管 Chrome 并导航至百度，自动注入环境
-    
-    rect rgb(240, 248, 255)
-        Note over Agent, Browser: 核心操作循环
-        Agent->>CLI: 4. 执行 webmcp-cli state (获取当前页面树与工具)
-        CLI-->>Agent: 返回 JSON 格式状态及 DOM 索引树 (如 "[13]<input placeholder=搜索 />")
-        Note over Agent: 5. 决策与推理：匹配输入框和按钮的数字索引
-        Agent->>CLI: 6. 执行输入命令 (run page-agent-tool '{"action": "fill", "index": 13, "text": "OpenTiny"}')
-        CLI->>Browser: 驱动页面在输入框内填入文本
-        Agent->>CLI: 7. 再次执行 webmcp-cli state (获取点击搜索后的最新 DOM)
-        CLI-->>Agent: 返回更新后的 DOM 树 (如 "[18]<button>百度一下</button>")
-        Agent->>CLI: 8. 执行点击动作 (run page-agent-tool '{"action": "click", "index": 18}')
-        CLI->>Browser: 触发点击，完成搜索
-    end
-    
-    Agent-->>User: 9. 汇报任务完成结果
-```
+| 角色 | 说明 | 类比 |
+| :--- | :--- | :--- |
+| **AI 大模型**（如 DeepSeek、通义千问、ChatGPT 等） | 负责理解用户意图、做决策、发命令 | 大脑 |
+| **webmcp-cli** | 命令行工具，负责控制 Chrome 浏览器 | 手 |
+| **webmcp-cli-skill**（SKILL.md） | 说明书，告诉 AI 有哪些命令、怎么用 | 操作手册 |
 
----
+用户跟 AI 说"帮我搜一下 OpenTiny"，AI 读完说明书后知道要执行 `webmcp-cli tabs open "https://baidu.com"` 打开百度，然后用 `webmcp-cli run page-agent-tool` 在搜索框里输入文字、点搜索按钮。
 
-## 📝 详细操控步骤分解
+**AI 全程在终端里执行命令来完成操作，无需额外的 API 对接。**
 
-以下我们以一个具体的任务：**“帮我登录系统并提交表单”** 为例，拆解第三方 Agent 的真实操作步骤。
+## 操作流程
 
-### 第一步：大模型载入 `webmcp-skill` 系统指令
-在启动任务前，第三方 Agent 必须载入位于 `packages/webmcp-skill/SKILL.md` 中的指令系统。
-该文件内规定了极其严格的 **Browser Rules（浏览器规则）**，限制了大模型的行为：
-- **无状态不操作**：绝对不能凭空猜测页面上的按钮或输入框。在进行 `click`、`fill`、`select` 动作前，**必须先执行一次 `state` 查询**。
-- **参数闭环**：传递给操作工具 `page-agent-tool` 的动作参数必须是合法的 JSON 字符串，且必须用单引号包裹（例如：`'{"action": "click", "index": 18}'`）。
-- **非侵入式特权**：对于复杂交互网站（例如 Excalidraw 画图页面），优先使用页面专属的子技能（`excalidraw_execute_command`）而非通用的页面鼠标模拟，以保障交互的高成功率。
+![Agent 操作流程](../assets/images/mermaid/cli-workflow.svg)
 
-### 第二步：开启目标网页
-Agent 解析用户需求后，首先生成终端命令，通过 `webmcp-cli` 在 Chrome 中开启页面：
+核心循环很简单：**打开页面 → 看看页面有什么 → 决定做什么 → 做完再看变化 → 重复直到完成**。
+
+下面时序图展示了一个完整任务的全过程：
+
+![Agent 交互时序图](../assets/images/mermaid/agent-integration-seq.svg)
+
+## 实操示例：登录系统
+
+假设用户说："帮我登录 http://127.0.0.1:3003/login，账号 admin，密码 password123"。
+
+AI 读完 SKILL.md 后，会这样操作：
+
+### 第 1 步：打开页面
 
 ```bash
 webmcp-cli tabs open "http://127.0.0.1:3003/login"
 ```
-**底层机制**：`webmcp-cli` 接收到指令后，会通过 CDP 驱动 Puppeteer 自动拉起带有 `9222` 调试端口的 Chrome，并在该页面上自动注入 `navigator.modelContext` Polyfill 及操控代理 `page-agent-tool`。
 
-### 第三步：感知并获取当前 DOM 状态
-Agent 执行 `state` 命令来感知页面结构：
+CLI 启动 Chrome 并打开登录页，同时自动注入操作工具。
+
+### 第 2 步：查看可用工具
 
 ```bash
 webmcp-cli state
 ```
-**返回的 JSON 数据结构示例**：
+
+返回：
+
 ```json
 {
   "url": "http://127.0.0.1:3003/login",
   "title": "系统登录",
-  "content": "[0]<input placeholder='用户名' />\n[1]<input type='password' placeholder='密码' />\n[2]<button>登录</button>",
+  "webmcpTools": [{ "name": "page-agent-tool" }],
+  "activeTabid": "2EA73ED3..."
+}
+```
+
+AI 发现页面有 `page-agent-tool` 这个万能工具可用。
+
+> [!NOTE]
+> `state` 只告诉你"有哪些工具"，不告诉你"页面上有哪些按钮和输入框"。要获取页面元素，需要下一步。
+
+### 第 3 步：搜索页面元素
+
+AI 知道要找输入框和登录按钮，所以用 `searchTree` 精准搜索，不用拉取整棵树：
+
+```bash
+# 搜索输入框
+webmcp-cli run page-agent-tool '{"action": "searchTree", "query": "textbox"}'
+```
+
+返回类似：
+
+```yaml
+无障碍树搜索结果 — 关键词: "textbox" | 命中: 2 行
+    1 | - main:
+    2 |   - textbox #0 "用户名"
+    3 |   - textbox #1 "密码"
+    4 |   - button #2 "登录"
+```
+
+AI 看到：用户名输入框是 `#0`，密码输入框是 `#1`，登录按钮是 `#2`。
+
+### 第 4 步：填写表单
+
+```bash
+# 填用户名
+webmcp-cli run page-agent-tool '{"action": "fill", "index": 0, "text": "admin"}'
+
+# 填密码
+webmcp-cli run page-agent-tool '{"action": "fill", "index": 1, "text": "password123"}'
+```
+
+每次 `fill` 后，工具会自动返回页面变化（diff），AI 可以确认操作是否成功。
+
+### 第 5 步：点击登录
+
+填完后，AI 重新确认按钮编号（因为操作后编号可能变），然后点击：
+
+```bash
+# 搜索"登录"按钮，拿到当前编号
+webmcp-cli run page-agent-tool '{"action": "searchTree", "query": "登录"}'
+# 用搜索结果返回的 index 点击（示例中是 2，实际以搜索结果为准）
+webmcp-cli run page-agent-tool '{"action": "click", "index": 2}'
+```
+
+页面跳转，登录成功。AI 看到返回的 URL 变成了首页，就知道任务完成了。
+
+## 领域专用技能
+
+有些网站有专属工具，比万能的 `page-agent-tool` 更好用。比如打开 Excalidraw 后，`state` 会返回一个 `excalidraw_execute_command` 工具：
+
+```json
+{
   "webmcpTools": [
-    { "name": "page-agent-tool" }
+    { "name": "page-agent-tool" },
+    { "name": "excalidraw_execute_command" }
   ]
 }
 ```
 
-### 第四步：智能推理与决策
-第三方 Agent 读取到 `state` 返回的数据后，在自身的上下文（Context）中进行推理和决策：
-- 观察到 `content` 中，用户名输入框的索引为 `0`，密码输入框的索引为 `1`，登录按钮的索引为 `2`。
-- 确认当前暴露的可调用工具只有内置的 `page-agent-tool`。
-- 决策出第一步：应当在用户名输入框中填写文本。
+这时 AI 应该优先用专属工具。`webmcp-cli-skill` 的 `domains/` 目录下有详细的子技能文档，指导 AI 怎么用这些专属工具：
 
-### 第五步：动作执行（写入用户名与密码）
-Agent 发送命令，在输入框中填入信息：
+| 子技能文档 | 适用网站 | 告诉 AI 什么 |
+| :--- | :--- | :--- |
+| `excalidraw.md` | Excalidraw 白板 | 怎么用 JSON 画矩形、箭头、文字 |
+| `publish-article.md` | 通用发文章 | 转义规则、表单处理技巧 |
+| `publish-article-in-csdn.md` | CSDN | 怎么关弹窗、填标签、点对按钮 |
+| `publish-article-in-juejin.md` | 掘金 | 摘要必须 50-100 字、分类推断 |
+| `publish-article-in-oschina.md` | 开源中国 | 草稿创建和审核流程 |
+| `publish-article-in-segmentfault.md` | 思否 | 15 种操作、定时发布、错误码 |
 
-```bash
-# 写入用户名
-webmcp-cli run page-agent-tool '{"action": "fill", "index": 0, "text": "admin"}'
+AI 会根据当前页面 URL，自动判断该读哪个子技能文档。
 
-# 写入密码
-webmcp-cli run page-agent-tool '{"action": "fill", "index": 1, "text": "password123"}'
-```
+## 操作规范
 
-### 第六步：重新查询并点击登录
-由于输入密码后，页面状态或焦点可能发生微小改变，Agent 严格遵守“无状态不操作”原则，在点击前重新获取页面树：
+SKILL.md 给 AI 定了几条核心规则，保证操作不出错：
 
-```bash
-webmcp-cli state
-```
-确认登录按钮的索引依然为 `2`。下发点击登录的指令：
+| 规则 | 为什么 |
+| :--- | :--- |
+| **操作前先看状态** | 不能凭记忆猜元素编号，页面可能已经变了 |
+| **searchTree 优先** | 已知要找什么就搜索，别拉整棵树浪费 Token |
+| **编号用完即失效** | 每次操作后元素编号会重新分配，不能复用 |
+| **有专属工具就用** | 专属工具比鼠标模拟靠谱得多 |
+| **JSON 参数格式要对** | 不同终端（Bash/CMD/PowerShell）引号规则不同 |
+| **避免无效重试** | 同一个操作失败 3 次就停止，告知用户遇到问题 |
 
-```bash
-webmcp-cli run page-agent-tool '{"action": "click", "index": 2}'
-```
-此时浏览器接收到 CDP 发送的原生点击事件，执行登录逻辑并发生页面跳转。
+## 接入方式
 
-### 第七步：特定领域技能的高级调用 (以 Excalidraw 为例)
-当页面发生跳转，进入到一个更加复杂且交互密集的系统（如白板系统）中时：
-1. Agent 再次执行 `state` 命令，发现 `url` 已经变更为 `https://excalidraw.com`，并且在 `webmcpTools` 中多出了一个专属的页面工具 `excalidraw_execute_command`。
-2. 根据 `webmcp-skill` 中关于域名的判定规则，Agent 会自动加载子技能描述文件 `domains/excalidraw.md`。
-3. 此时，Agent 不再依赖 `page-agent-tool` 的鼠标模拟点击来作画，而是直接调用专属的 MCP 工具，发送符合契约的 `eventName` 和序列化后为字符串的 `payload` 参数：
-   ```bash
-   # 示例：清空画布
-   webmcp-cli run excalidraw_execute_command '{"eventName": "cleanup"}'
+取决于你用的 AI Agent 平台：
 
-   # 示例：向画布中添加一个矩形框
-   webmcp-cli run excalidraw_execute_command '{"eventName": "addElement", "payload": "{\"eles\": [{\"id\": \"rect-1\", \"type\": \"rectangle\", \"x\": 100, \"y\": 100, \"width\": 200, \"height\": 80}]}"}'
-   ```
-4. Excalidraw 画布底层接收到由 WebMCP 桥接传来的内部调用，零延迟、零失误地在白板上执行对应指令。
+- **DeepSeek / 通义千问 / ChatGPT 等对话型 AI**：把 SKILL.md 的内容作为系统提示词（System Prompt）粘贴进去，或者作为附件上传
+- **Cursor / Windsurf 等编程 AI**：把 `packages/webmcp-cli-skill/` 目录放在项目里，AI 会自动读取
+- **自定义 Agent 平台**：通过 API 把 SKILL.md 内容注入到系统提示中
 
-### 第八步：终结与结果汇报
-当 Agent 在 `state` 中观测到页面已成功呈现最终所需的目标，或已经满足了用户“提交表单”的要求后，向用户返回成功报告：
-> **Agent**: "我已成功为您登录系统，并在白板上绘制了您所需的开始节点。目前操作已完成。"
+只要 AI 能读到这份说明书，并且终端装了 `webmcp-cli`，就能开始用了。
 
-任务圆满结束。
+---
+
+- 想了解 CLI 命令完整用法 → 看 [CLI 使用指南](./webmcp-cli)
+- 想了解浏览器插件版 → 看 [快速入门](./ai-extension-install)

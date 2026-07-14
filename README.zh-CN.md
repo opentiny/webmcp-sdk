@@ -47,7 +47,7 @@
 
 - 🔌 **标准 WebMCP 实现**：完整实现 MCP 协议的浏览器版本，通过统一协议让前端变得“可被 AI 调用”。
 - 📡 **远程 AI 操控**：通过对接 **WebAgent 服务**，让 AI 能够轻松、稳定地远程调起和指挥你的前端工具，实现跨时空的“遥控”。
-- 🛠️ **内置 Polyfill 支持**：为当前浏览器提供 `document.modelContext` / `navigator.modelContext` 补丁，确保代码在今天可用，并随浏览器的更新无缝切换至原生支持。
+- 🛠️ **内置 Polyfill 支持**：为当前浏览器提供 `document.modelContext` / `document.modelContext` 补丁，确保代码在今天可用，并随浏览器的更新无缝切换至原生支持。
 - 🎯 **零改造智能化**：像定义 API 一样定义工具，无需改变应用核心架构即可暴露业务逻辑和 UI 操作。
 - 🧩 **WebSkills 抽象**：以“业务技能”方式组织工具，实现能力的渐进式披露。
 - 🤖 **AI 对话组件**：提供开箱即用的 `@opentiny/next-remoter`，瞬间拥有 AI 遥控器。
@@ -62,7 +62,7 @@ WebMCP 是 Model Context Protocol 在浏览器端的扩展。它定义了网页�
 
 由于原生 API 仍处于实验阶段，**OpenTiny NEXT-SDKs 提供了一套强大的 Polyfill**。通过调用 `initializeBuiltinWebMCP()`，SDK 会：
 
-1.  **注入 `document.modelContext`**：提供符合标准规范的工具注册接口（同时也为向后兼容挂载了 `navigator.modelContext` 别名）。
+1.  **注入 `document.modelContext`**：提供符合标准规范的工具注册接口（同时也为向后兼容挂载了 `document.modelContext` 别名）。
 2.  **自动化路由与桥接**：自动处理不同页面路径、iframe 之间的消息同步与工具调用导航。
 
 这意味着你今天编写的标准 WebMCP 代码，在未来浏览器原生支持时将自动平滑切换到原生引擎。
@@ -177,7 +177,7 @@ server.registerTool(
 
 核心 SDK 包，提供：
 
-- **内置 WebMCP Polyfill**：注入 `navigator.modelContext` 并建立桥接机制，实现 AI 与页面的无缝通信。
+- **内置 WebMCP Polyfill**：注入 `document.modelContext` 并建立桥接机制，实现 AI 与页面的无缝通信。
 - **WebMcpServer**：受管 MCP 服务端，用于完全控制服务生命周期与传输层。
 - **WebMcpClient**：MCP 客户端，用于连接 WebAgent 或其他远程服务。
 - **WebAgent**：高层级智能代理编排逻辑。

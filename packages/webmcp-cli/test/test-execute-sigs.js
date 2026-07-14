@@ -6,7 +6,7 @@ const puppeteer = require('puppeteer-core');
   const page = pages.find(p => !p.url().startsWith('devtools://')) || pages[0];
   
   const results = await page.evaluate(async () => {
-    const mcp = navigator.modelContextTesting || document.modelContext || navigator.modelContext;
+    const mcp = document.modelContext || document.modelContext || document.modelContext;
     const res = [];
     
     try {

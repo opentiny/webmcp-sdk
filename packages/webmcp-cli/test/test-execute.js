@@ -6,7 +6,7 @@ const puppeteer = require('puppeteer-core');
   const page = pages.find(p => !p.url().startsWith('devtools://')) || pages[0];
   
   const stateRes = await page.evaluate(async () => {
-    const mcp = navigator.modelContextTesting || navigator.modelContext;
+    const mcp = document.modelContext;
     try {
       return await mcp.executeTool('page-agent-tool', { action: 'browserState' });
     } catch (e1) {

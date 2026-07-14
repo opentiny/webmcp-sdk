@@ -31,8 +31,8 @@ const parseMcpConfigFromJson = (jsonString: string): Array<{ name: string; confi
 }
 
 /**
- * 标准化 MCP 配置为 McpServerConfig 格式
- * 支持: { "type": "streamableHttp" | "sse" | "extension", "url": "...", "sessionId"?: "..." }
+ * 仅自定义添加的操作时，标准化 用户输入的MCP 配置为 McpServerConfig 格式。 （所以不考虑build-in）
+ * 支持: { "type": "streamableHttp" | "sse" , "url": "...", "sessionId"?: "..." }
  */
 const normalizeMcpConfig = (config: any): McpServerConfig | null => {
   if (!config || typeof config !== 'object' || !config.url) {
@@ -40,20 +40,6 @@ const normalizeMcpConfig = (config: any): McpServerConfig | null => {
   }
 
   const { type, url, sessionId, headers } = config
-
-  // extension 类型需要 sessionId
-  if (type === 'extension') {
-    if (!sessionId) {
-      return null
-    }
-    return {
-      type: 'extension',
-      url,
-      sessionId,
-      headers,
-      useAISdkClient: true
-    } as McpServerConfig
-  }
 
   // streamableHttp 或 sse 类型
   if (type === 'streamableHttp' || type === 'sse') {
