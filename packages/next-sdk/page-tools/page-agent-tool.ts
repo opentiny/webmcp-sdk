@@ -97,8 +97,6 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
     // 计算 Diff
     const diff = stateCache.update(url, yaml)
 
-    await pageController.hideMask()
-
     // 检测页面弹窗/遮罩层（确认框、提示框等），让 AI 优先处理
     const dialogAlert = detectPageDialog()
     // 检测表单校验错误，提醒 AI 优先修复
@@ -144,30 +142,46 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
     // @ts-ignore
     inputSchema: zodToJsonSchema(inputSchema) as any,
     async execute(args: PageAgentToolInput) {
-      await pageController.showMask()
       try {
         switch (args.action) {
           case 'browserState':
             return await handleBrowserState(args, actionContext)
           case 'click':
-            return await handleClick(args, actionContext)
+            await pageController.showMask()
+            pageController.mask.borderElement(currentRefMap.get(args.index))
+            const ret = await handleClick(args, actionContext)
+            pageController.mask.removeBorderElement()
+            await pageController.hideMask()
+            return ret
           case 'fill':
-            return await handleFill(args, actionContext)
+            await pageController.showMask()
+            pageController.mask.borderElement(currentRefMap.get(args.index))
+            const ret = await handleFill(args, actionContext)
+            pageController.mask.removeBorderElement()
+
+            await pageController.hideMask()
+            return ret
           case 'select':
-            return await handleSelect(args, actionContext)
+            await pageController.showMask()
+            pageController.mask.borderElement(currentRefMap.get(args.index))
+            const ret = await handleSelect(args, actionContext)
+            pageController.mask.removeBorderElement()
+            await pageController.hideMask()
+            return ret
           case 'scroll':
-            return await handleScroll(args, actionContext)
+            await pageController.showMask()
+            const ret = await handleScroll(args, actionContext)
+            await pageController.hideMask()
+            return ret
           case 'executeJavascript':
             return await handleExecuteJavascript(args, actionContext)
           case 'searchTree':
             return await handleSearchTree(args, actionContext)
           default:
-            await pageController.hideMask()
             // @ts-ignore
             return { content: [{ type: 'text', text: `未知操作: ${args.action}` }] }
         }
       } catch (error) {
-        await pageController.hideMask()
         return { content: [{ type: 'text', text: `异常: ${String(error)}` }] }
       }
     }
