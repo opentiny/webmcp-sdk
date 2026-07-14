@@ -7,6 +7,7 @@
 
 export * from './a11y/types'
 export * from './a11y/constants'
+export * from './a11y/config'
 export * from './a11y/utils'
 export * from './a11y/vnode'
 export * from './a11y/build'

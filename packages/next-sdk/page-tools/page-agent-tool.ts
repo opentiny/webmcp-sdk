@@ -8,10 +8,11 @@ import { SimulatorMask } from './page-agent-mask/SimulatorMask'
 import { highlight, unhighlight, globalRemoveListener } from './page-agent-highlight'
 import { setupPageAgentToolEventBridge } from './page-agent-tool-event'
 
-import { DEFAULT_ERROR_SELECTORS, DEFAULT_DIALOG_SELECTORS, type PageAgentToolOptions } from './constants'
+import type { PageAgentToolOptions } from './constants'
 import { inputSchema, type PageAgentToolInput } from './schema'
 import type { ActionContext } from './context'
 import { detectPageDialog, detectValidationErrors } from './utils/dom'
+import { getA11yConfig, setA11yConfig } from './a11y/config'
 
 import { handleBrowserState } from './handlers/browserState'
 import { handleClick } from './handlers/click'
@@ -30,14 +31,11 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
     options.enableHighlight = true
   }
 
-  window.__webmcpcli_interactiveWhitelist = window.__webmcpcli_interactiveWhitelist || [] // 白名单元素列表，存在则识别为交互元素
-  window.__webmcpcli_interactiveBlacklist = window.__webmcpcli_interactiveBlacklist || [] // 黑名单，反之
-  window.__webmcpcli_exposedAttributes = window.__webmcpcli_exposedAttributes || options?.exposedAttributes || [] // 额外暴露的自定义属性白名单
-  window.__webmcpcli_beforeGetBrowserState = window.__webmcpcli_beforeGetBrowserState || null // 指定网站覆盖该函数，用于设置当前网站的黑白名单
-  // 校验错误选择器：默认覆盖 ARIA 标准 + 主流框架，网站可通过 window.__webmcpcli_errorSelectors 覆盖
-  window.__webmcpcli_errorSelectors = window.__webmcpcli_errorSelectors || DEFAULT_ERROR_SELECTORS
-  // 模态弹窗选择器：同上
-  window.__webmcpcli_dialogSelectors = window.__webmcpcli_dialogSelectors || DEFAULT_DIALOG_SELECTORS
+  window.__webmcpcli_beforeGetBrowserState = window.__webmcpcli_beforeGetBrowserState || null // 指定网站覆盖该函数，可在其中调用 setA11yConfig 动态调整当前页面的无障碍配置
+
+  // 统一无障碍配置：与默认配置合并后得到运行期唯一生效的配置（存于 window.__webmcpcli_a11yConfig），
+  // 后续可通过 setA11yConfig 在运行期继续修改（追加式合并/函数式过滤/整体替换）
+  setA11yConfig(options?.a11yConfig ?? {}, { mode: 'replace' })
 
   // 保留 PageController ，先关闭内置mask, 再手工绑定当前项目的mask类
   const pageController = new PageController({ enableMask: false })
@@ -77,16 +75,8 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
     const url = window.location.href
     const title = document.title
 
-    // 获取用户自定义黑名单与白名单及额外暴露的属性
-    const blacklist = (window.__webmcpcli_interactiveBlacklist ?? []) as Element[]
-    const whitelist = (window.__webmcpcli_interactiveWhitelist ?? []) as Element[]
-    const exposedAttributes = (window.__webmcpcli_exposedAttributes ?? []) as string[]
-
-    // 生成语义化 ARIA YAML 树 + 刷新 refMap
-    const { yaml, refMap } = buildA11yTree(document.body, blacklist, whitelist, {
-      exposedAttributes,
-      errorSelectors: (window.__webmcpcli_errorSelectors ?? DEFAULT_ERROR_SELECTORS).join(', ')
-    })
+    // 生成语义化 ARIA YAML 树 + 刷新 refMap（统一读取运行期生效的无障碍配置，支持 setA11yConfig 动态修改）
+    const { yaml, refMap } = buildA11yTree(document.body, getA11yConfig())
     currentRefMap = refMap
 
     // 高亮交互元素，且增加全局移除高亮的监听

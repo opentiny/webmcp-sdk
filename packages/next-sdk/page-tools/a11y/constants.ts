@@ -25,6 +25,27 @@ export const DEFAULT_WARNING_SELECTORS = [
   '.warning-msg', '.warning-text', '.is-warning', '.has-warning',
 ]
 
+/** 模态弹窗默认选择器：ARIA 标准 + 主流 UI 框架（唯一来源，顶层 constants.ts 从此处重新导出） */
+export const DEFAULT_DIALOG_SELECTORS = [
+  // W3C ARIA 标准
+  '[role="dialog"]',
+  '[role="alertdialog"]',
+  // Tiny3 / Lego（华为云）
+  '[class*="ti3-modal"]',
+  '[class*="ti3-message-box"]',
+  // Element UI / Element Plus
+  '[class*="el-dialog"]',
+  '[class*="el-message-box"]',
+  // Ant Design
+  '[class*="ant-modal"]',
+  // Bootstrap
+  '[class*="modal-content"]',
+  // Vuetify
+  '[class*="v-dialog"]',
+  // Naive UI
+  '[class*="n-modal"]',
+]
+
 // ─── ARIA 隐式角色静态映射表（覆盖页面 95%+ 的常用标签）───────────────────────
 
 export const TAG_ROLE_MAP: Record<string, string> = {

@@ -44,29 +44,129 @@ export function registerPageAgentTool(options?: PageAgentToolOptions): void
 | 属性名 | 类型 | 默认值 | 说明 |
 | :--- | :--- | :--- | :--- |
 | `enableHighlight` | `boolean` | `true` | 是否在页面中高亮标注可交互的元素。 |
-| `exposedAttributes` | `string[]` | `[]` | 允许在无障碍树（A11y Tree）节点中额外暴露的自定义 DOM 属性白名单。 |
+| `a11yConfig` | `A11yConfig` | - | 统一无障碍配置，见下文「统一无障碍配置 `a11yConfig`」。 |
 
-### 高级全局配置 (`window` 属性)
+---
 
-如果需要针对特定的站点或页面微调 `page-agent-tool` 的行为，可以通过配置全局 `window` 对象上的属性来进行精细化控制：
+## 统一无障碍配置 `a11yConfig`
 
-- **`window.__webmcpcli_interactiveWhitelist`**: `Element[]` - 白名单元素列表。即便默认没有被识别为可交互的元素，若在此列表中也会被强制识别为可交互。
-- **`window.__webmcpcli_interactiveBlacklist`**: `Element[]` - 黑名单元素列表。强制排除在可交互元素外。
-- **`window.__webmcpcli_exposedAttributes`**: `string[]` - 额外暴露的自定义属性白名单，等同于 `options.exposedAttributes`。
-- **`window.__webmcpcli_beforeGetBrowserState`**: `(() => void) | null` - 获取浏览器状态前的钩子函数，可在此动态更新黑白名单。
-- **`window.__webmcpcli_errorSelectors`**: `string[]` - 表单校验错误元素的 CSS 选择器列表（用于检测页面中当前存在的表单报错信息，提醒 AI 优先修复）。
-- **`window.__webmcpcli_dialogSelectors`**: `string[]` - 模态弹窗/遮罩层的 CSS 选择器列表（用于检测阻塞页面交互的弹窗，方便 AI 优先处理）。
+许多站点的无障碍信息并不完整：自定义 Tab 组件没有 `role="tab"`，按钮组的选中态是通过特殊 class 名标记而非 `aria-selected`，报错文字用特定颜色而非 `role="alert"`……这些"隐藏的语义"如果不补齐，`page-agent-tool` 生成的无障碍树就会丢失大量信息，导致 AI 误判。
 
-**代码示例**
+`a11yConfig` 就是为了解决这个问题：通过声明式规则（按角色 `roles`、按状态 `states`）+ 白名单/黑名单/自定义属性/弹窗选择器，把这些"隐藏语义"显式地告诉 `page-agent-tool`。所有规则与内置默认值（ARIA 标准 + 主流 UI 框架的错误/警告/选中态检测）按数组拼接合并，只需要写"新增的规则"，不会丢失内置行为。
+
+### A11yConfig 类型
 
 ```typescript
-import { registerPageAgentTool } from '@opentiny/next-sdk'
+interface A11yMatcher {
+  /** CSS 选择器（用 closest 判断元素自身或祖先是否命中，支持 Shadow DOM 穿透）。
+   *  不局限于类名：标签选择器（li）、属性选择器（[data-role="tab"]）、id 选择器、组合选择器均可 */
+  selector?: string
+  /** 自定义判断函数，优先级高于 selector，用于读取计算样式等选择器表达不了的场景 */
+  match?: (el: Element) => boolean
+}
 
-// 注册工具并开启高亮，同时暴露 data-v-id 自定义属性
+interface A11yRoleRule extends A11yMatcher {
+  /** 命中后赋予的 ARIA 角色，如 'tab' | 'tabpanel' | 'switch' */
+  role: string
+  /** 为 true 时覆盖元素已有的显式 role 属性，默认 false */
+  force?: boolean
+}
+
+interface A11yConfig {
+  /** 角色推断规则：弥补页面缺失的语义 role */
+  roles?: A11yRoleRule[]
+  /** 状态推断规则：key 为状态名（checked/selected/pressed/current/expanded/disabled/
+   *  readonly/required/invalid/busy/error/warning，也支持任意自定义状态名），
+   *  value 为一条或多条规则（命中任意一条即成立），与标准 aria-* 检测结果取"或" */
+  states?: Partial<Record<string, A11yMatcher | A11yMatcher[]>>
+  /** 白名单：强制识别为可交互元素并纳入无障碍树。支持 Element 引用或 CSS 选择器字符串 */
+  whitelist?: Array<Element | string>
+  /** 黑名单：强制从无障碍树中排除，规则同上 */
+  blacklist?: Array<Element | string>
+  /** 额外暴露的自定义 DOM 属性（作为 token 输出，如 [data-testid="xxx"]） */
+  exposedAttributes?: string[]
+  /** 模态弹窗 CSS 选择器（用于检测阻塞交互的弹窗） */
+  dialogSelectors?: string[]
+}
+```
+
+> `whitelist`/`blacklist` 中的字符串选择器每次构建无障碍树时都会动态解析（而非在注册时固化 `Element[]`），因此天然适配 SPA 路由切换、列表重渲染等场景。
+
+### 使用示例：Tab、按钮组选中、报错文字颜色
+
+```typescript
+import { registerPageAgentTool, defineA11yConfig } from '@opentiny/next-sdk'
+
+const a11yConfig = defineA11yConfig({
+  roles: [
+    { role: 'tab', selector: '.my-tabs .tab-item' },      // 自定义 Tab 组件没有 role=tab
+    { role: 'tablist', selector: '.my-tabs__nav' },
+  ],
+  states: {
+    selected: { selector: '.btn-group .btn.is-checked' }, // 按钮组选中态：特殊类名标记，而非 aria-selected
+    current: { selector: '[data-step-status="current"]' }, // 向导当前步骤：属性选择器
+    warning: { selector: '.form-tip--warn' },
+    error: { match: (el) => getComputedStyle(el).color === 'rgb(245, 34, 45)' }, // 通过文字颜色判断报错
+  },
+  whitelist: ['.custom-clickable-card'],
+  blacklist: ['.tracking-pixel'],
+})
+
+registerPageAgentTool({ a11yConfig })
+```
+
+### 底层解析函数：`resolveA11yInfo` / `resolveA11yRole` / `resolveA11yStates`
+
+`page-agent-tool` 内部对每个 DOM 节点也是调用这些函数来计算角色和状态 token，它们同样导出给用户直接调用，可用于调试规则是否命中，或在业务代码（埋点、自定义面板等）中复用同一套判断逻辑：
+
+```typescript
+import { resolveA11yInfo } from '@opentiny/next-sdk'
+
+resolveA11yInfo(document.querySelector('.tab-item')!, a11yConfig)
+// { role: 'tab', tokens: ['selected'] }
+```
+
+### 运行期动态读写：`getA11yConfig` / `setA11yConfig`
+
+除了在 `registerPageAgentTool({ a11yConfig })` 时初始化一次，也可以在页面运行期随时读取/修改当前生效的配置（例如路由切换后为新页面追加规则）：
+
+```typescript
+import { setA11yConfig, getA11yConfig } from '@opentiny/next-sdk'
+
+// 中途追加/修改规则，自动与已有配置合并（数组拼接，不丢已有规则）
+setA11yConfig({
+  states: { selected: { selector: '.new-page .btn.is-checked' } },
+})
+
+// 函数式更新：入参为当前生效配置，可用于按条件移除某条旧规则后再合并
+setA11yConfig((current) => ({
+  roles: current.roles.filter((r) => r.role !== 'tab'),
+}))
+
+// 完全推倒重来：mode: 'replace' 不与当前配置合并，而是与默认配置重新合并
+setA11yConfig({ roles: [{ role: 'tab', selector: '.v2-tabs .item' }] }, { mode: 'replace' })
+
+// 随时读取当前最终生效的合并结果，用于调试
+getA11yConfig()
+```
+
+### `window.__webmcpcli_beforeGetBrowserState` 钩子
+
+`window.__webmcpcli_beforeGetBrowserState`（类型 `(() => void) | null`）会在每次获取浏览器状态前触发，是"中途动态修改配置"的天然接入点，可在其中根据当前路由/页面状态调用 `setA11yConfig`：
+
+```typescript
+import { registerPageAgentTool, setA11yConfig } from '@opentiny/next-sdk'
+
 registerPageAgentTool({
   enableHighlight: true,
-  exposedAttributes: ['data-v-id']
+  a11yConfig: { exposedAttributes: ['data-v-id'] },
 })
+
+// 某些列表在每次渲染后 DOM 结构才能确定，可以在这里用选择器声明式地追加白名单，
+// 而不需要手动收集 Element 引用（whitelist 支持的选择器字符串本身就是动态解析的）
+window.__webmcpcli_beforeGetBrowserState = () => {
+  setA11yConfig({ whitelist: ['.dynamic-list .row'] })
+}
 ```
 
 ---
