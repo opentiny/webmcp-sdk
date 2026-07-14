@@ -19,6 +19,17 @@ export type PageAgentToolResultEventDetail = {
 
 type ExecutePageAgentTool = (data: PageAgentToolInput) => Promise<unknown>
 
+function isPageAgentToolErrorResult(result: unknown): result is { isError: true; error: string } {
+  return (
+    typeof result === 'object' &&
+    result !== null &&
+    'isError' in result &&
+    result.isError === true &&
+    'error' in result &&
+    typeof result.error === 'string'
+  )
+}
+
 declare global {
   interface Window {
     __nextSdkPageAgentToolEventCleanup?: () => void
@@ -50,6 +61,17 @@ export function setupPageAgentToolEventBridge(executePageAgentTool: ExecutePageA
     try {
       const data = inputSchema.parse(detail.data)
       const result = await executePageAgentTool(data)
+      if (isPageAgentToolErrorResult(result)) {
+        dispatchPageAgentToolResult({
+          requestId,
+          data: {
+            success: false,
+            error: result.error,
+            result
+          }
+        })
+        return
+      }
       dispatchPageAgentToolResult({
         requestId,
         data: {

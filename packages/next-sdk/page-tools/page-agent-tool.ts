@@ -10,7 +10,7 @@ import { setupPageAgentToolEventBridge } from './page-agent-tool-event'
 
 import { DEFAULT_ERROR_SELECTORS, DEFAULT_DIALOG_SELECTORS, type PageAgentToolOptions } from './constants'
 import { inputSchema, type PageAgentToolInput } from './schema'
-import type { ActionContext } from './context'
+import { createActionErrorResult, type ActionContext } from './context'
 import { detectPageDialog, detectValidationErrors } from './utils/dom'
 
 import { handleBrowserState } from './handlers/browserState'
@@ -58,6 +58,12 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
   async function errContent(msg: string) {
     await pageController.hideMask()
     return { content: [{ type: 'text' as const, text: msg }] }
+  }
+
+  async function actionError(msg: string) {
+    const result = await createActionErrorResult(msg, buildBrowserStateResponse)
+    await pageController.hideMask()
+    return result
   }
 
   // AI 使用过期 ref 时，自动重建 A11y 树并返回全量状态，
@@ -135,7 +141,8 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
     },
     buildBrowserStateResponse,
     refreshOnStaleRef,
-    errContent
+    errContent,
+    actionError
   }
 
   async function executePageAgentTool(args: PageAgentToolInput) {
@@ -165,13 +172,23 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
           return { content: [{ type: 'text', text: `未知操作: ${args.action}` }] }
       }
     } catch (error) {
+      const actionNames = {
+        click: '点击',
+        fill: '填写',
+        select: '选择'
+      } as const
+      if (args.action in actionNames) {
+        return actionError(
+          `${actionNames[args.action as keyof typeof actionNames]}执行异常: ${error instanceof Error ? error.message : String(error)}`
+        )
+      }
       await pageController.hideMask()
       throw error
     }
   }
 
   // ─── 工具注册（名称与 inputSchema 与原版完全一致）────────────────────────
-  ; (document as any).modelContext.registerTool({
+  ;(document as any).modelContext.registerTool({
     name: 'page-agent-tool',
     description: pageAgentPrompt,
     // @ts-ignore
