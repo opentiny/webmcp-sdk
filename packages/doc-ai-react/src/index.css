@@ -5,9 +5,10 @@
 }
 
 .main-content {
-  width: 70vw;
+  width: 70%;
   min-height: 100vh;
   overflow: auto;
+  transition: width 0.3s ease;
 }
 
 .remoter-sidebar {
@@ -19,6 +20,7 @@
   border-left: 1px solid #eee;
   background: #fff;
   z-index: 10;
+  transition: width 0.3s ease;
 }
 
 .remoter-frame {
@@ -27,4 +29,15 @@
   min-height: 100vh;
   border: none;
   display: block;
+}
+
+/* 收起状态：主内容撑满，侧栏保留最小宽度让 Remoter 展开按钮可点击 */
+.app-container.remoter-collapsed .main-content {
+  width: 100%;
+}
+
+.app-container.remoter-collapsed .remoter-sidebar {
+  width: 100px;
+  border-left: none;
+  background: transparent;
 }
