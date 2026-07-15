@@ -36,9 +36,9 @@ describe('getPageAgentToolConfig / setPageAgentToolConfig', () => {
   })
 
   it('replace 模式丢弃之前的运行期状态，只与默认值重新合并', () => {
-    setPageAgentToolConfig({ enableHighlight: false })
+    setPageAgentToolConfig({ enableHighlight: true })
     setPageAgentToolConfig({}, { mode: 'replace' })
-    expect(getPageAgentToolConfig().enableHighlight).toBe(true)
+    expect(getPageAgentToolConfig().enableHighlight).toBe(false)
   })
 
   it('setPageAgentToolConfig 后 getPageAgentToolConfig 读到最新值', () => {

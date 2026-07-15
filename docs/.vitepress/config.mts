@@ -44,6 +44,7 @@ export default defineConfig({
         {
           text: 'NEXT-SDKs API',
           items: [
+            { text: 'registerPageAgentTool', link: '/guide/api-page-agent-tool' },
             { text: '全局 API', link: '/guide/api-tools' },
             { text: 'WebMcpServer 类', link: '/guide/api-server' },
             { text: 'WebMcpClient 类', link: '/guide/api-client' },

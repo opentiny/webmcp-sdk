@@ -58,15 +58,15 @@ describe('registerPageAgentTool - 统一无障碍配置接入', () => {
 })
 
 describe('registerPageAgentTool - 顶层工具配置（PageAgentToolConfig）接入', () => {
-  it('不传 enableHighlight 时默认启用元素高亮', () => {
+  it('不传 enableHighlight 时默认关闭元素高亮', () => {
     registerPageAgentTool()
-    expect(getPageAgentToolConfig().enableHighlight).toBe(true)
+    expect(getPageAgentToolConfig().enableHighlight).toBe(false)
   })
 
-  it('options.enableHighlight = false 时运行期配置同步生效', () => {
-    registerPageAgentTool({ enableHighlight: false })
-    expect(getPageAgentToolConfig().enableHighlight).toBe(false)
-    expect(window.__webmcpcli_toolConfig?.enableHighlight).toBe(false)
+  it('options.enableHighlight = true 时运行期配置同步生效', () => {
+    registerPageAgentTool({ enableHighlight: true })
+    expect(getPageAgentToolConfig().enableHighlight).toBe(true)
+    expect(window.__webmcpcli_toolConfig?.enableHighlight).toBe(true)
   })
 
   it('注册后可通过 setPageAgentToolConfig 在运行期动态修改，无需重新 registerPageAgentTool', () => {

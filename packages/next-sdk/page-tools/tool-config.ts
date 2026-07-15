@@ -35,7 +35,7 @@ export type PageAgentToolOptions = PageAgentToolConfigPatch
 
 /** 默认生效的完整工具配置 */
 export const DEFAULT_PAGE_AGENT_TOOL_CONFIG: PageAgentToolConfig = {
-  enableHighlight: true,
+  enableHighlight: false,
   a11yConfig: DEFAULT_A11Y_CONFIG,
 }
 

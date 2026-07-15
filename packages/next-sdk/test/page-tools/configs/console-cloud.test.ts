@@ -34,7 +34,7 @@ describe('isConsoleCloudHost', () => {
 
 describe('consoleCloudPageAgentToolOptions', () => {
   it('导出完整 PageAgentToolOptions，并暴露 cf-uba', () => {
-    expect(consoleCloudPageAgentToolOptions.enableHighlight).toBe(true)
+    expect(consoleCloudPageAgentToolOptions.enableHighlight).toBe(false)
     expect(a11yConfig.exposedAttributes).toContain('cf-uba')
   })
 
