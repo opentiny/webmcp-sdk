@@ -16,7 +16,7 @@ export async function runCommand({
     const page = await getTargetPage(browser, tabid)
     const urlBefore = page.url()
 
-    // 执行前强制重注入，确保页面上的 page-agent-tool 与当前 CLI 构建一致
+    // 仅在尚未注入时注入一次，保留 page-agent-tool 的 refMap
     await injectIntoPage(page)
 
     // argsJson 已在 bin.ts 中完成 @base64file 展开与 JSON 校验
