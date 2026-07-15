@@ -1,0 +1,62 @@
+# 在 PR 评论中展示 CI 测试结果（参考 tiny-vue test-e2e-pr-comment.yml）
+# 使用 workflow_run，以便 fork PR 也能写入评论
+name: CI Test PR Comment
+
+on:
+  workflow_run:
+    workflows: ['CI Test']
+    types:
+      - completed
+
+jobs:
+  comment:
+    name: Comment Test Result
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.event == 'pull_request' }}
+    permissions:
+      pull-requests: write
+      actions: read
+    steps:
+      - name: Download PR Artifact
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: ${{ github.event.workflow_run.workflow_id }}
+          run_id: ${{ github.event.workflow_run.id }}
+          name: pr
+          if_no_artifact_found: ignore
+
+      - name: Save PR Id
+        id: pr
+        run: |
+          if [ -f pr-id.txt ]; then
+            echo "id=$(cat pr-id.txt)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Download user-tip.txt
+        if: steps.pr.outputs.id
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: ${{ github.event.workflow_run.workflow_id }}
+          run_id: ${{ github.event.workflow_run.id }}
+          name: user-tip
+          if_no_artifact_found: ignore
+
+      - name: Read tip text
+        id: tip
+        if: steps.pr.outputs.id
+        run: |
+          if [ -f user-tip.txt ]; then
+            DELIMITER=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+            echo "text<<$DELIMITER" >> "$GITHUB_OUTPUT"
+            cat user-tip.txt >> "$GITHUB_OUTPUT"
+            echo "$DELIMITER" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Comment result on PR
+        if: steps.pr.outputs.id && steps.tip.outputs.text
+        uses: thollander/actions-comment-pull-request@v2
+        with:
+          message: |
+            ${{ steps.tip.outputs.text }}
+          comment_tag: ci-test-tip
+          pr_number: ${{ steps.pr.outputs.id }}

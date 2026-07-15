@@ -1,0 +1,122 @@
+# PR 测试门禁：全部测试通过后才允许合入
+name: CI Test
+run-name: CI Test--${{ github.event.pull_request.title || github.ref_name }}
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited, ready_for_review]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.number || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: pnpm test
+    runs-on: ubuntu-latest
+    steps:
+      - name: CheckOut Code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      # 仓库未提交 pnpm-lock.yaml，无法使用 setup-node 的 cache: pnpm
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: |
+          echo "pnpm_cache_dir=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.pnpm_cache_dir }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      # 仓库未提交 lockfile，需允许解析依赖树
+      - name: Install dependencies
+        run: pnpm i --no-frozen-lockfile
+
+      - name: Run tests
+        id: run-tests
+        run: |
+          set -o pipefail
+          pnpm test 2>&1 | tee test-output.log
+
+      # 无论成败都写入 tip，便于 sticky 评论在失败后再次通过时被覆盖
+      - name: Generate PR tip
+        if: always() && github.event_name == 'pull_request'
+        run: |
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          SHA="${{ github.event.pull_request.head.sha || github.sha }}"
+
+          if [ "${{ steps.run-tests.outcome }}" = "success" ]; then
+            {
+              echo '**[ci-test-pass]**'
+              echo
+              echo 'CI 测试已通过。'
+              echo
+              echo "- Workflow: [查看日志](${RUN_URL})"
+              echo "- Commit: \`${SHA}\`"
+            } > user-tip.txt
+          else
+            {
+              echo '**[ci-test-fail]**'
+              echo
+              echo 'CI 测试未通过，请修复后再合入。'
+              echo
+              echo "- Workflow: [查看完整日志](${RUN_URL})"
+              echo "- Commit: \`${SHA}\`"
+              echo
+              echo '<details><summary>失败日志摘要（末尾 80 行）</summary>'
+              echo
+              echo '```text'
+              if [ -f test-output.log ]; then
+                tail -n 80 test-output.log
+              else
+                echo '（未能捕获测试输出，请点击上方链接查看完整日志）'
+              fi
+              echo '```'
+              echo
+              echo '</details>'
+            } > user-tip.txt
+          fi
+
+          echo "${{ github.event.number }}" > pr-id.txt
+
+      - name: Upload user tip
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: user-tip
+          path: user-tip.txt
+          retention-days: 1
+          overwrite: true
+
+      - name: Upload PR number
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: pr
+          path: pr-id.txt
+          retention-days: 1
+          overwrite: true
+
+      - name: Upload full test log
+        if: failure() && steps.run-tests.conclusion == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-output
+          path: test-output.log
+          retention-days: 3
+          overwrite: true
