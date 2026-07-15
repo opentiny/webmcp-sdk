@@ -50,7 +50,6 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
 
   // ─── 辅助：构建错误响应 ───────────────────────────────────────────────────
   async function errContent(msg: string) {
-    await pageController.hideMask()
     return { content: [{ type: 'text' as const, text: msg }] }
   }
 
@@ -89,8 +88,6 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
 
     // 计算 Diff
     const diff = stateCache.update(url, yaml)
-
-    await pageController.hideMask()
 
     // 检测页面弹窗/遮罩层（确认框、提示框等），让 AI 优先处理
     const dialogAlert = detectPageDialog()
@@ -132,31 +129,42 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
   }
 
   async function executePageAgentTool(args: PageAgentToolInput) {
-    const isReadOnlyAction = ['browserState', 'searchTree'].includes(args.action)
-    if (!isReadOnlyAction) {
-      await pageController.showMask()
-    }
     try {
+      let ret: any
+
       switch (args.action) {
         case 'browserState':
-          return await handleBrowserState(args, actionContext)
+          ret = await handleBrowserState(args, actionContext)
         case 'click':
-          return await handleClick(args, actionContext)
-        case 'fill':
-          return await handleFill(args, actionContext)
-        case 'select':
-          return await handleSelect(args, actionContext)
-        case 'scroll':
-          return await handleScroll(args, actionContext)
-        case 'executeJavascript':
-          return await handleExecuteJavascript(args, actionContext)
-        case 'searchTree':
-          return await handleSearchTree(args, actionContext)
-        default:
+          await pageController.showMask()
+          pageController.mask.borderElement(currentRefMap.get(args.index))
+          ret = await handleClick(args, actionContext)
+          pageController.mask.removeBorderElement()
           await pageController.hideMask()
-          // @ts-ignore
-          return { content: [{ type: 'text', text: `未知操作: ${args.action}` }] }
+        case 'fill':
+          await pageController.showMask()
+          pageController.mask.borderElement(currentRefMap.get(args.index))
+          ret = await handleFill(args, actionContext)
+          pageController.mask.removeBorderElement()
+          await pageController.hideMask()
+        case 'select':
+          await pageController.showMask()
+          pageController.mask.borderElement(currentRefMap.get(args.index))
+          ret = await handleSelect(args, actionContext)
+          pageController.mask.removeBorderElement()
+          await pageController.hideMask()
+        case 'scroll':
+          await pageController.showMask()
+          ret = await handleScroll(args, actionContext)
+          await pageController.hideMask()
+        case 'executeJavascript':
+          ret = await handleExecuteJavascript(args, actionContext)
+        case 'searchTree':
+          ret = await handleSearchTree(args, actionContext)
+        default:
+          ret = { content: [{ type: 'text' as const, text: `未知操作: ${args.action}` }] }
       }
+      return ret
     } catch (error) {
       const actionNames = {
         click: '点击',
