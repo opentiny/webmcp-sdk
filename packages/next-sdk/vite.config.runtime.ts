@@ -9,7 +9,7 @@ export default defineConfig(() => {
       emptyOutDir: false,
       lib: {
         entry: 'runtime.ts',
-        name: 'NextSDK',
+        name: 'WebMCPSDK',
         formats: ['iife'] as any,
         fileName: () => 'runtime.js'
       },

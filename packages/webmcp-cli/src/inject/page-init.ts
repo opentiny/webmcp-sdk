@@ -1,5 +1,10 @@
 import { initializeWebMCPPolyfill } from '@mcp-b/webmcp-polyfill'
-import { registerPageAgentTool } from '@opentiny/next-sdk'
+import {
+  registerPageAgentTool,
+  consoleCloudPageAgentToolOptions,
+  isConsoleCloudHost,
+  type PageAgentToolOptions,
+} from '@opentiny/next-sdk'
 
 declare global {
   interface Window {
@@ -9,9 +14,6 @@ declare global {
       description?: string
       inputSchema?: string | object
     }>
-    __webmcpcli_interactiveWhitelist: Array<Element>
-    __webmcpcli_interactiveBlacklist: Array<Element>
-    __webmcpcli_exposedAttributes?: Array<string>
     __webmcpcli_beforeGetBrowserState: () => void
   }
 }
@@ -23,13 +25,22 @@ async function syncTools(): Promise<void> {
   }
 }
 
+/** 按域名选择 page-agent-tool 配置（云控制台使用 consoleCloud 无障碍补齐规则） */
+function resolvePageAgentToolOptions(): PageAgentToolOptions {
+  if (isConsoleCloudHost(location.hostname)) {
+    return consoleCloudPageAgentToolOptions
+  }
+  // 其它站点保持轻量默认；cf-uba 常见于控制台体系页面，一并暴露无害
+  return { a11yConfig: { exposedAttributes: ['cf-uba'] } }
+}
+
 function initWebMcpCliPage(): void {
   if (window.__webmcpcli_init) {
     return
   }
 
   initializeWebMCPPolyfill()
-  registerPageAgentTool({ exposedAttributes: ['cf-uba'] })
+  registerPageAgentTool(resolvePageAgentToolOptions())
 
   window.__webmcpcli_tools = []
 

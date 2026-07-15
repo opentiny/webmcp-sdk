@@ -8,10 +8,11 @@ import { SimulatorMask } from './page-agent-mask/SimulatorMask'
 import { highlight, unhighlight, globalRemoveListener } from './page-agent-highlight'
 import { setupPageAgentToolEventBridge } from './page-agent-tool-event'
 
-import { DEFAULT_ERROR_SELECTORS, DEFAULT_DIALOG_SELECTORS, type PageAgentToolOptions } from './constants'
+import type { PageAgentToolOptions } from './constants'
 import { inputSchema, type PageAgentToolInput } from './schema'
-import type { ActionContext } from './context'
+import { createActionErrorResult, type ActionContext } from './context'
 import { detectPageDialog, detectValidationErrors } from './utils/dom'
+import { getPageAgentToolConfig, setPageAgentToolConfig } from './tool-config'
 
 import { handleBrowserState } from './handlers/browserState'
 import { handleClick } from './handlers/click'
@@ -25,19 +26,12 @@ import { handleSearchTree } from './handlers/searchTree'
 export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
   initializeBuiltinWebMCP()
 
-  // 默认启用元素高亮
-  if (typeof options.enableHighlight === 'undefined') {
-    options.enableHighlight = true
-  }
+  // 完整工具配置（顶层选项 enableHighlight + 统一无障碍配置 a11yConfig）：与默认配置合并后
+  // 得到运行期唯一生效的配置（存于 window.__webmcpcli_toolConfig），后续可通过
+  // setPageAgentToolConfig 在运行期继续修改（追加式合并/函数式过滤/整体替换）
+  setPageAgentToolConfig(options, { mode: 'replace' })
 
-  window.__webmcpcli_interactiveWhitelist = window.__webmcpcli_interactiveWhitelist || [] // 白名单元素列表，存在则识别为交互元素
-  window.__webmcpcli_interactiveBlacklist = window.__webmcpcli_interactiveBlacklist || [] // 黑名单，反之
-  window.__webmcpcli_exposedAttributes = window.__webmcpcli_exposedAttributes || options?.exposedAttributes || [] // 额外暴露的自定义属性白名单
-  window.__webmcpcli_beforeGetBrowserState = window.__webmcpcli_beforeGetBrowserState || null // 指定网站覆盖该函数，用于设置当前网站的黑白名单
-  // 校验错误选择器：默认覆盖 ARIA 标准 + 主流框架，网站可通过 window.__webmcpcli_errorSelectors 覆盖
-  window.__webmcpcli_errorSelectors = window.__webmcpcli_errorSelectors || DEFAULT_ERROR_SELECTORS
-  // 模态弹窗选择器：同上
-  window.__webmcpcli_dialogSelectors = window.__webmcpcli_dialogSelectors || DEFAULT_DIALOG_SELECTORS
+  window.__webmcpcli_beforeGetBrowserState = window.__webmcpcli_beforeGetBrowserState || null // 指定网站覆盖该函数，可在其中调用 setPageAgentToolConfig 动态调整当前页面的配置
 
   // 保留 PageController ，先关闭内置mask, 再手工绑定当前项目的mask类
   const pageController = new PageController({ enableMask: false })
@@ -59,6 +53,12 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
     return { content: [{ type: 'text' as const, text: msg }] }
   }
 
+  async function actionError(msg: string) {
+    const result = await createActionErrorResult(msg, buildBrowserStateResponse)
+    await pageController.hideMask()
+    return result
+  }
+
   // AI 使用过期 ref 时，自动重建 A11y 树并返回全量状态，
   // 避免 AI 额外往返调用 browserState，减少操作轮次
   async function refreshOnStaleRef(action: string, index: number) {
@@ -76,20 +76,12 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
     const url = window.location.href
     const title = document.title
 
-    // 获取用户自定义黑名单与白名单及额外暴露的属性
-    const blacklist = (window.__webmcpcli_interactiveBlacklist ?? []) as Element[]
-    const whitelist = (window.__webmcpcli_interactiveWhitelist ?? []) as Element[]
-    const exposedAttributes = (window.__webmcpcli_exposedAttributes ?? []) as string[]
-
-    // 生成语义化 ARIA YAML 树 + 刷新 refMap
-    const { yaml, refMap } = buildA11yTree(document.body, blacklist, whitelist, {
-      exposedAttributes,
-      errorSelectors: (window.__webmcpcli_errorSelectors ?? DEFAULT_ERROR_SELECTORS).join(', ')
-    })
+    // 生成语义化 ARIA YAML 树 + 刷新 refMap（统一读取运行期生效的配置，支持 setPageAgentToolConfig 动态修改）
+    const { yaml, refMap } = buildA11yTree(document.body, getPageAgentToolConfig().a11yConfig)
     currentRefMap = refMap
 
-    // 高亮交互元素，且增加全局移除高亮的监听
-    if (options?.enableHighlight) {
+    // 高亮交互元素，且增加全局移除高亮的监听（读取运行期生效的配置，支持 setPageAgentToolConfig 动态修改）
+    if (getPageAgentToolConfig().enableHighlight) {
       highlight(refMap)
       globalRemoveListener()
     }
@@ -132,7 +124,8 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
     },
     buildBrowserStateResponse,
     refreshOnStaleRef,
-    errContent
+    errContent,
+    actionError
   }
 
   async function executePageAgentTool(args: PageAgentToolInput) {
@@ -173,6 +166,16 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
       }
       return ret
     } catch (error) {
+      const actionNames = {
+        click: '点击',
+        fill: '填写',
+        select: '选择'
+      } as const
+      if (args.action in actionNames) {
+        return actionError(
+          `${actionNames[args.action as keyof typeof actionNames]}执行异常: ${error instanceof Error ? error.message : String(error)}`
+        )
+      }
       await pageController.hideMask()
       throw error
     }

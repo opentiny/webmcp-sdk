@@ -6,19 +6,20 @@
 
 import { computeAccessibleName } from 'dom-accessibility-api'
 import { isFocusable, isTabbable } from 'tabbable'
-import type { VNode, RefMap, A11yTreeOptions } from './types'
-import { isHidden, inferRole, getStateTokens, collectDescendantText, getComposedChildren } from './utils'
+import type { VNode, RefMap, A11yTreeShapeOptions } from './types'
+import type { ResolvedA11yConfig } from './config'
+import { resolveA11yInfo } from './config'
+import { isHidden, collectDescendantText, collectTitleLabel, getComposedChildren } from './utils'
 
 /**
  * 递归将 DOM 元素转换为 VNode 中间表示
  * @param el 当前 DOM 元素
  * @param refCounter 引用计数器（使用对象引用避免全局可变状态）
  * @param refMap ref 索引 → 元素映射
- * @param blacklistSet 用户自定义黑名单
- * @param whitelistSet 用户自定义白名单
- * @param exposedAttributes 需要暴露的自定义属性
- * @param errorSelectors 错误选择器
- * @param warningSelectors 警告选择器
+ * @param blacklistSet 已解析的黑名单元素集合
+ * @param whitelistSet 已解析的白名单元素集合
+ * @param config 已与默认值合并的统一无障碍配置
+ * @param ancestorIsInteractive 祖先节点是否已是可交互节点（已分配 ref）。为 true 时，纯 CSS 继承的 cursor=pointer 不再额外分配 ref
  */
 export function buildVNode(
   el: Element,
@@ -26,22 +27,18 @@ export function buildVNode(
   refMap: RefMap,
   blacklistSet: Set<Element>,
   whitelistSet: Set<Element>,
-  exposedAttributes?: string[],
-  errorSelectors?: string | string[],
-  warningSelectors?: string | string[],
-  /** 祖先节点是否已是可交互节点（已分配 ref）。为 true 时，纯 CSS 继承的 cursor=pointer 不再额外分配 ref */
+  config: ResolvedA11yConfig,
   ancestorIsInteractive = false,
 ): VNode | null {
   if (isHidden(el) || blacklistSet.has(el)) return null
 
-  const role = inferRole(el)
-  const tokens = getStateTokens(el, exposedAttributes, errorSelectors, warningSelectors)
-  
+  const { role, tokens } = resolveA11yInfo(el, config)
+
   let name = computeAccessibleName(el as HTMLElement)
   const isTrulyInteractive = isTabbable(el as HTMLElement)
   const isVisuallyClickable = tokens.includes('cursor=pointer')
   // 包含白名单属性的节点也视为白名单节点（确保不被剪枝并分配 ref 操作索引）
-  const isWhitelisted = whitelistSet.has(el) || (exposedAttributes?.some(attr => el.hasAttribute(attr)) ?? false)
+  const isWhitelisted = whitelistSet.has(el) || (config.exposedAttributes?.some(attr => el.hasAttribute(attr)) ?? false)
   // <label for="..."> 原生可点击：浏览器将点击转发到关联的表单控件（checkbox/radio 等）
   // Angular/React 自定义组件常隐藏原生 input，仅暴露 label 文本和自定义 skin
   const isLabelFor = el.tagName.toLowerCase() === 'label' && el.hasAttribute('for')
@@ -55,9 +52,23 @@ export function buildVNode(
     if (!isDropdown) {
       const isInteractiveTag = ['button', 'a', 'input', 'textarea', 'li', 'label'].includes(tag)
       if (isTrulyInteractive || isWhitelisted || isVisuallyClickable || isInteractiveTag || role === 'listitem' || role === 'option') {
-        name = collectDescendantText(el)
+        name = collectDescendantText(el, config)
       }
     }
+  }
+
+  // 图标按钮常见：可点击容器本身无文本，title/aria 挂在子节点上（如控制台服务列表按钮）
+  if (!name.trim() && (isTrulyInteractive || isWhitelisted || isVisuallyClickable || role === 'button')) {
+    name = collectTitleLabel(el)
+  }
+
+  // 结构性交互角色（tab/menuitem 等）的标签文字常落在可聚焦子节点内，
+  // collectDescendantText 会因“遇交互子节点即停”而拿不到 name，这里用 textContent 再兜一层
+  if (
+    !name.trim() &&
+    ['tab', 'menuitem', 'option', 'treeitem', 'button'].includes(role)
+  ) {
+    name = (el.textContent ?? '').replace(/\s+/g, ' ').trim()
   }
 
   // 最终兜底：非交互元素（如错误提示 ti-error-msg、状态信息）的纯文本捕获。
@@ -67,7 +78,7 @@ export function buildVNode(
   if (!name.trim()) {
     const hasElementChildren = getComposedChildren(el).length > 0
     if (!hasElementChildren) {
-      const text = collectDescendantText(el)
+      const text = collectDescendantText(el, config)
       if (text) {
         name = text
       }
@@ -112,9 +123,7 @@ export function buildVNode(
       refMap,
       blacklistSet,
       whitelistSet,
-      exposedAttributes,
-      errorSelectors,
-      warningSelectors,
+      config,
       // 将当前节点的交互性向下传递，子节点据此决定是否抑制 cursor=pointer
       interactive || ancestorIsInteractive,
     )
@@ -164,7 +173,7 @@ function findSingleRefDescendant(vnode: VNode): VNode | null {
  * - 去掉 generic/list/listitem 等纯布局噪音（无 name 时穿透）
  * - 保留有 name 的 listitem（有 name 时保留，兼顾内容理解场景）
  */
-export function shouldPassThrough(vnode: VNode, opts: Required<A11yTreeOptions>): boolean {
+export function shouldPassThrough(vnode: VNode, opts: A11yTreeShapeOptions): boolean {
   if (!opts.pruneUnnamed) return false
   // preserveRoles 中的角色强制保留
   if (opts.preserveRoles.includes(vnode.role)) return false
@@ -183,7 +192,7 @@ export function shouldPassThrough(vnode: VNode, opts: Required<A11yTreeOptions>)
 export function serializeVNode(
   vnode: VNode,
   depth: number,
-  opts: Required<A11yTreeOptions>,
+  opts: A11yTreeShapeOptions,
 ): string[] {
   if (shouldPassThrough(vnode, opts)) {
     // 透明穿透：跳过本节点，子节点保持当前 depth（层级不增加）

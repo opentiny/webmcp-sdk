@@ -1,6 +1,7 @@
 /**
  * juejin.cn 工具适配层
  */
+import { setPageAgentToolConfig } from '@opentiny/next-sdk'
 
 type ToolResult = {
   success: true
@@ -23,13 +24,9 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
   console.warn('[webmcp-tools] juejin.cn: document.modelContext.registerTool 未就绪，跳过注入')
 } else if (!(window as any).__webmcptools_juejincn) {
   try {
-    // 该函数在每次 getBrowserState 之前调用，用于设置当前网站的黑白名单
-    //  掘金的草稿箱使用div开发的列表， 无法统计为索引。  这样处理后就可以了。
-    window.__webmcpcli_beforeGetBrowserState = () => {
-      window.__webmcpcli_interactiveWhitelist.length = 0
-      const whites = document.querySelectorAll('.link[target]')
-      window.__webmcpcli_interactiveWhitelist.push(...whites)
-    }
+    // 掘金草稿箱列表用 div 开发，默认规则无法识别为可交互元素。
+    // whitelist 支持 CSS 选择器字符串，每次构建无障碍树时动态解析，无需手动维护元素引用或轮询钩子。
+    setPageAgentToolConfig({ a11yConfig: { whitelist: ['.link[target]'] } })
 
     // 注册创建文章工具
     mcp.registerTool({

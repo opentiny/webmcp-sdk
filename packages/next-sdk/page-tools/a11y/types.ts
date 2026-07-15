@@ -4,6 +4,8 @@
  * 定义无障碍树模块（A11y Tree）的核心接口和类型。
  */
 
+import type { A11yConfig } from './config'
+
 /** ref 索引 → HTMLElement 映射，供 click/fill/select 操作使用 */
 export type RefMap = Map<number, HTMLElement>
 
@@ -23,8 +25,12 @@ export interface VNode {
   children: VNode[]
 }
 
-/** 构建无障碍树时的配置选项 */
-export interface A11yTreeOptions {
+/**
+ * 构建无障碍树时的配置选项。
+ * 继承统一的 A11yConfig（角色/状态规则、白/黑名单、自定义暴露属性、弹窗选择器），
+ * 并额外提供两个控制树"形状"（而非无障碍语义）的选项。
+ */
+export interface A11yTreeOptions extends A11yConfig {
   /**
    * 是否启用剪枝：无 ref 且无 accessible name 的节点透明穿透
    * 默认 true（推荐）
@@ -35,21 +41,12 @@ export interface A11yTreeOptions {
    * 例如：['table', 'row'] 用于保留表格结构
    */
   preserveRoles?: string[]
-  /**
-   * 允许在无障碍树节点中作为 token 额外输出的 DOM 属性白名单
-   * 包含这些属性的节点会被自动视为需要暴露/交互的节点（分配 ref 并保留），
-   * 且属性及其值会显示在节点的 token 列表中，如 [cf-uba="cloudShell"]
-   */
-  exposedAttributes?: string[]
-  /**
-   * 校验错误元素 CSS 选择器（逗号分隔或选择器数组），用于在 token 中标记 [error]
-   * 默认覆盖 ARIA 标准 + 主流 UI 框架
-   */
-  errorSelectors?: string | string[]
-  /**
-   * 校验警告元素 CSS 选择器（逗号分隔或选择器数组）
-   */
-  warningSelectors?: string | string[]
+}
+
+/** 序列化 YAML 树时实际用到的形状选项（与无障碍语义解析无关，独立于 A11yConfig） */
+export interface A11yTreeShapeOptions {
+  pruneUnnamed: boolean
+  preserveRoles: string[]
 }
 
 /** 构建无障碍树的返回结果 */
