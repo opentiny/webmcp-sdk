@@ -135,32 +135,39 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
       switch (args.action) {
         case 'browserState':
           ret = await handleBrowserState(args, actionContext)
+          break
         case 'click':
           await pageController.showMask()
           pageController.mask.borderElement(currentRefMap.get(args.index))
           ret = await handleClick(args, actionContext)
           pageController.mask.removeBorderElement()
           await pageController.hideMask()
+          break
         case 'fill':
           await pageController.showMask()
           pageController.mask.borderElement(currentRefMap.get(args.index))
           ret = await handleFill(args, actionContext)
           pageController.mask.removeBorderElement()
           await pageController.hideMask()
+          break
         case 'select':
           await pageController.showMask()
           pageController.mask.borderElement(currentRefMap.get(args.index))
           ret = await handleSelect(args, actionContext)
           pageController.mask.removeBorderElement()
           await pageController.hideMask()
+          break
         case 'scroll':
           await pageController.showMask()
           ret = await handleScroll(args, actionContext)
           await pageController.hideMask()
+          break
         case 'executeJavascript':
           ret = await handleExecuteJavascript(args, actionContext)
+          break
         case 'searchTree':
           ret = await handleSearchTree(args, actionContext)
+          break
         default:
           ret = { content: [{ type: 'text' as const, text: `未知操作: ${args.action}` }] }
       }

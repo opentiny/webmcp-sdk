@@ -613,13 +613,33 @@ export function registerPageTool(options: RegisterPageToolByHandlersOptions): ()
 // 供 content.ts 通过 window.__nextSdkRegisteredTools() 跨沙箱查询完整工具定义
 const _registeredTools = new Map<string, any>()
 
+/** 浏览器全局对象上可能挂载的 modelContext 接口 */
+interface ModelContextHost {
+  modelContext?: BridgeableModelContext
+}
+
+/** 可被 bridge 拦截的原生 modelContext 接口 */
+interface BridgeableModelContext {
+  registerTool?(config: unknown, options?: unknown): unknown
+  unregisterTool?(name: string): unknown
+  __isNextSdkBridgeSetup?: boolean
+}
+
 export function setupModelContextBridge() {
   if (typeof document === 'undefined') return
-  const doc = document as any
-  const nativeCtx = doc.modelContext
+  const doc = document as unknown as ModelContextHost
+  const nav = typeof navigator !== 'undefined' ? (navigator as unknown as ModelContextHost) : undefined
+
+  // 兼容 document.modelContext 与 navigator.modelContext（不同浏览器/polyfill 挂载位置不同）
+  const nativeCtx = doc.modelContext || nav?.modelContext
 
   // 如果不存在或者已经被拦截过，则不处理
   if (!nativeCtx || nativeCtx.__isNextSdkBridgeSetup) return
+
+  // 若 modelContext 仅存在于 navigator 上，同步挂载到 document 以保持向后兼容
+  if (!doc.modelContext && nav?.modelContext) {
+    doc.modelContext = nav.modelContext
+  }
 
   // 挂载全局查询函数，供 content script（隔离沙箱）访问
   // 注意：必须强制覆盖，不检查是否已存在。

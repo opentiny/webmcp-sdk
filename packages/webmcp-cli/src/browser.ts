@@ -463,15 +463,16 @@ export async function getTargetPage(browser: Browser, tabid?: string): Promise<P
 }
 
 /**
- * 供 tabs open / back / forward 命令在导航完成后调用：强制注入（不做 flag 检查，因为 goto 后页面上下文已清空）
+ * 供 tabs open / back / forward / state / run 等命令调用：仅在尚未注入时注入一次（幂等）。
+ * 导航后页面 JS 上下文会清空，`__webmcpcli_init` 自然失效，下次调用会重新注入。
  */
 export async function injectIntoPage(page: Page): Promise<void> {
-  await injectWebMCPPolyfillAndTools(page, true)
+  await injectWebMCPPolyfillAndTools(page)
 }
 
-async function injectWebMCPPolyfillAndTools(page: Page, force = false) {
-  // 检查 polyfill 是否已注入（force=true 时跳过，用于 goto 之后的强制重注入）
-  const polyfillReady = !force && await page.evaluate(() => {
+async function injectWebMCPPolyfillAndTools(page: Page) {
+  // 已注入则跳过，避免覆盖 page-agent-tool 闭包内的 refMap
+  const polyfillReady = await page.evaluate(() => {
     return !!(window as any).__webmcpcli_init
   }).catch(() => false)
 

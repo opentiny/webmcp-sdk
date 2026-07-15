@@ -1,4 +1,4 @@
-import { connectBrowser, getTargetPage } from '../browser'
+import { connectBrowser, getTargetPage, injectIntoPage } from '../browser'
 import { zhihuCreateArticle } from '../zhihu/create-article'
 import { isZhihuWriteUrl } from '../zhihu/markdown'
 
@@ -15,6 +15,9 @@ export async function runCommand({
   try {
     const page = await getTargetPage(browser, tabid)
     const urlBefore = page.url()
+
+    // 仅在尚未注入时注入一次，保留 page-agent-tool 的 refMap
+    await injectIntoPage(page)
 
     // argsJson 已在 bin.ts 中完成 @base64file 展开与 JSON 校验
     const cleanedArgs = argsJson.trim()

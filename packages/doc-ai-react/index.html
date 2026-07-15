@@ -8,7 +8,7 @@
   </head>
   <body>
     <!-- 左右分栏：左侧 70% 主内容，右侧 30% AI 助手 -->
-    <div class="app-container">
+    <div class="app-container" id="appContainer">
       <div class="main-content">
         <div id="root"></div>
       </div>
@@ -23,6 +23,22 @@
         ></iframe>
       </aside>
     </div>
+
+    <!-- 监听 Remoter 收起/展开，同步主窗口布局 -->
+    <script>
+      window.addEventListener('message', function (e) {
+        if (e.origin !== window.location.origin) return
+        if (e.data && e.data.type === 'remoter-toggle') {
+          var container = document.getElementById('appContainer')
+          if (!container) return
+          if (e.data.show) {
+            container.classList.remove('remoter-collapsed')
+          } else {
+            container.classList.add('remoter-collapsed')
+          }
+        }
+      })
+    </script>
 
     <script type="module" src="/src/main.tsx"></script>
   </body>

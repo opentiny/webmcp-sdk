@@ -1,6 +1,6 @@
 <template>
   <tiny-remoter
-    show
+    v-model:show="show"
     :fullscreen="true"
     :menuItems="menuItems"
     :mcpServers="mcpServers"
@@ -15,7 +15,14 @@
 import { TinyRemoter } from '@opentiny/next-remoter'
 import type { McpServerConfig, MenuItemConfig } from '@opentiny/next-sdk'
 import '@opentiny/next-remoter/dist/style.css'
-import { ref, h } from 'vue'
+import { ref, watch, h } from 'vue'
+
+const show = ref(true)
+
+// 收起/展开时通知父窗口同步布局
+watch(show, (val) => {
+  window.parent.postMessage({ type: 'remoter-toggle', show: val }, window.location.origin)
+})
 
 // 第五步：在 App.vue 接入 TinyRemoter
 const menuItems = ref<MenuItemConfig[]>([])
