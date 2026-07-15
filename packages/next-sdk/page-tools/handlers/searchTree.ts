@@ -1,12 +1,12 @@
 import { searchA11yTree } from '../a11y-tree'
 import { detectPageDialog, detectValidationErrors } from '../utils/dom'
-import { getA11yConfig } from '../a11y/config'
+import { getPageAgentToolConfig } from '../tool-config'
 import type { ActionContext } from '../context'
 
 export async function handleSearchTree(args: any, ctx: ActionContext) {
   if (!args.query) return ctx.errContent('搜索失败: 缺少 query 参数')
   const result = searchA11yTree(args.query, document.body, {
-    ...getA11yConfig(),
+    ...getPageAgentToolConfig().a11yConfig,
     contextLines: args.contextLines,
     maxMatches: args.maxMatches,
   })

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { detectPageDialog, detectValidationErrors, deepQuerySelectorAll } from '../../../page-tools/utils/dom'
-import { setA11yConfig } from '../../../page-tools/a11y/config'
+import { setPageAgentToolConfig } from '../../../page-tools/tool-config'
 
 function mockRect(el: Element, rect: Partial<DOMRect>) {
   const full = { x: 0, y: 0, width: 0, height: 0, top: 0, left: 0, right: 0, bottom: 0, toJSON: () => ({}), ...rect }
@@ -8,7 +8,7 @@ function mockRect(el: Element, rect: Partial<DOMRect>) {
 }
 
 function resetWindowGlobals() {
-  delete (window as any).__webmcpcli_a11yConfig
+  delete (window as any).__webmcpcli_toolConfig
 }
 
 beforeEach(() => {
@@ -34,8 +34,8 @@ describe('detectValidationErrors', () => {
     expect(result).toContain('[校验提示]')
   })
 
-  it('通过 setA11yConfig 追加的自定义 states.error 选择器检出', () => {
-    setA11yConfig({ states: { error: { selector: '.my-custom-error' } } })
+  it('通过 setPageAgentToolConfig 追加的自定义 states.error 选择器检出', () => {
+    setPageAgentToolConfig({ a11yConfig: { states: { error: { selector: '.my-custom-error' } } } })
     const err = document.createElement('div')
     err.className = 'my-custom-error'
     err.textContent = '自定义错误文案'
@@ -65,8 +65,8 @@ describe('detectPageDialog', () => {
     expect(result).toContain('确认删除该记录吗')
   })
 
-  it('通过 setA11yConfig 追加的自定义 dialogSelectors 检出', () => {
-    setA11yConfig({ dialogSelectors: ['.my-modal'] })
+  it('通过 setPageAgentToolConfig 追加的自定义 dialogSelectors 检出', () => {
+    setPageAgentToolConfig({ a11yConfig: { dialogSelectors: ['.my-modal'] } })
     const dialog = document.createElement('div')
     dialog.className = 'my-modal'
     dialog.textContent = '自定义配置检测到的模态弹窗内容'

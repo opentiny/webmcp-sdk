@@ -12,7 +12,7 @@ import type { PageAgentToolOptions } from './constants'
 import { inputSchema, type PageAgentToolInput } from './schema'
 import type { ActionContext } from './context'
 import { detectPageDialog, detectValidationErrors } from './utils/dom'
-import { getA11yConfig, setA11yConfig } from './a11y/config'
+import { getPageAgentToolConfig, setPageAgentToolConfig } from './tool-config'
 
 import { handleBrowserState } from './handlers/browserState'
 import { handleClick } from './handlers/click'
@@ -26,16 +26,12 @@ import { handleSearchTree } from './handlers/searchTree'
 export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
   initializeBuiltinWebMCP()
 
-  // 默认启用元素高亮
-  if (typeof options.enableHighlight === 'undefined') {
-    options.enableHighlight = true
-  }
+  // 完整工具配置（顶层选项 enableHighlight + 统一无障碍配置 a11yConfig）：与默认配置合并后
+  // 得到运行期唯一生效的配置（存于 window.__webmcpcli_toolConfig），后续可通过
+  // setPageAgentToolConfig 在运行期继续修改（追加式合并/函数式过滤/整体替换）
+  setPageAgentToolConfig(options, { mode: 'replace' })
 
-  window.__webmcpcli_beforeGetBrowserState = window.__webmcpcli_beforeGetBrowserState || null // 指定网站覆盖该函数，可在其中调用 setA11yConfig 动态调整当前页面的无障碍配置
-
-  // 统一无障碍配置：与默认配置合并后得到运行期唯一生效的配置（存于 window.__webmcpcli_a11yConfig），
-  // 后续可通过 setA11yConfig 在运行期继续修改（追加式合并/函数式过滤/整体替换）
-  setA11yConfig(options?.a11yConfig ?? {}, { mode: 'replace' })
+  window.__webmcpcli_beforeGetBrowserState = window.__webmcpcli_beforeGetBrowserState || null // 指定网站覆盖该函数，可在其中调用 setPageAgentToolConfig 动态调整当前页面的配置
 
   // 保留 PageController ，先关闭内置mask, 再手工绑定当前项目的mask类
   const pageController = new PageController({ enableMask: false })
@@ -75,12 +71,12 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
     const url = window.location.href
     const title = document.title
 
-    // 生成语义化 ARIA YAML 树 + 刷新 refMap（统一读取运行期生效的无障碍配置，支持 setA11yConfig 动态修改）
-    const { yaml, refMap } = buildA11yTree(document.body, getA11yConfig())
+    // 生成语义化 ARIA YAML 树 + 刷新 refMap（统一读取运行期生效的配置，支持 setPageAgentToolConfig 动态修改）
+    const { yaml, refMap } = buildA11yTree(document.body, getPageAgentToolConfig().a11yConfig)
     currentRefMap = refMap
 
-    // 高亮交互元素，且增加全局移除高亮的监听
-    if (options?.enableHighlight) {
+    // 高亮交互元素，且增加全局移除高亮的监听（读取运行期生效的配置，支持 setPageAgentToolConfig 动态修改）
+    if (getPageAgentToolConfig().enableHighlight) {
       highlight(refMap)
       globalRemoveListener()
     }

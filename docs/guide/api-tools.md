@@ -46,6 +46,33 @@ export function registerPageAgentTool(options?: PageAgentToolOptions): void
 | `enableHighlight` | `boolean` | `true` | 是否在页面中高亮标注可交互的元素。 |
 | `a11yConfig` | `A11yConfig` | - | 统一无障碍配置，见下文「统一无障碍配置 `a11yConfig`」。 |
 
+`PageAgentToolOptions` 中的所有配置项（含 `enableHighlight` 与 `a11yConfig`）都由同一个 `PageAgentToolConfig` 类型描述，只有唯一一套运行期读写 API：`getPageAgentToolConfig`/`setPageAgentToolConfig`。除了在 `registerPageAgentTool(options)` 时初始化一次，也可以在页面运行期随时读取/修改（例如路由切换后为新页面追加规则、临时关闭高亮）：
+
+```typescript
+import { registerPageAgentTool, getPageAgentToolConfig, setPageAgentToolConfig } from '@opentiny/next-sdk'
+
+registerPageAgentTool({ enableHighlight: true, a11yConfig: { exposedAttributes: ['data-v-id'] } })
+
+// 中途关闭高亮（例如进入某个不希望展示高亮框的页面/场景）
+setPageAgentToolConfig({ enableHighlight: false })
+
+// a11yConfig 会与当前生效配置按数组拼接合并（不丢已有规则），enableHighlight 则是覆盖式更新，两者互不影响
+setPageAgentToolConfig({
+  a11yConfig: { states: { selected: { selector: '.new-page .btn.is-checked' } } },
+})
+
+// 函数式更新：入参为当前生效配置，可用于按条件移除某条旧规则后再合并（不会因再次合并而复活）
+setPageAgentToolConfig((current) => ({
+  a11yConfig: { roles: current.a11yConfig.roles.filter((r) => r.role !== 'tab') },
+}))
+
+// 完全推倒重来：mode: 'replace' 不与当前配置合并，而是与默认配置重新合并
+setPageAgentToolConfig({ a11yConfig: { roles: [{ role: 'tab', selector: '.v2-tabs .item' }] } }, { mode: 'replace' })
+
+// 随时读取当前最终生效的合并结果，用于调试
+getPageAgentToolConfig() // { enableHighlight: false, a11yConfig: { roles: [...], states: {...}, ... } }
+```
+
 ---
 
 ## 统一无障碍配置 `a11yConfig`
@@ -59,8 +86,9 @@ export function registerPageAgentTool(options?: PageAgentToolOptions): void
 ```typescript
 interface A11yMatcher {
   /** CSS 选择器（用 closest 判断元素自身或祖先是否命中，支持 Shadow DOM 穿透）。
-   *  不局限于类名：标签选择器（li）、属性选择器（[data-role="tab"]）、id 选择器、组合选择器均可 */
-  selector?: string
+   *  不局限于类名：标签选择器（li）、属性选择器（[data-role="tab"]）、id 选择器、组合选择器均可。
+   *  也支持字符串数组，数组内任意一个命中即算命中，适合同一状态存在多个互不相关 class 命名的场景 */
+  selector?: string | string[]
   /** 自定义判断函数，优先级高于 selector，用于读取计算样式等选择器表达不了的场景 */
   match?: (el: Element) => boolean
 }
@@ -103,7 +131,8 @@ const a11yConfig = defineA11yConfig({
     { role: 'tablist', selector: '.my-tabs__nav' },
   ],
   states: {
-    selected: { selector: '.btn-group .btn.is-checked' }, // 按钮组选中态：特殊类名标记，而非 aria-selected
+    // 按钮组选中态：新旧版本混用了两套 class 命名，selector 传数组，命中任意一个即可，而非 aria-selected
+    selected: { selector: ['.btn-group .btn.is-checked', '.btn-group .btn.is-active'] },
     current: { selector: '[data-step-status="current"]' }, // 向导当前步骤：属性选择器
     warning: { selector: '.form-tip--warn' },
     error: { match: (el) => getComputedStyle(el).color === 'rgb(245, 34, 45)' }, // 通过文字颜色判断报错
@@ -126,36 +155,14 @@ resolveA11yInfo(document.querySelector('.tab-item')!, a11yConfig)
 // { role: 'tab', tokens: ['selected'] }
 ```
 
-### 运行期动态读写：`getA11yConfig` / `setA11yConfig`
-
-除了在 `registerPageAgentTool({ a11yConfig })` 时初始化一次，也可以在页面运行期随时读取/修改当前生效的配置（例如路由切换后为新页面追加规则）：
-
-```typescript
-import { setA11yConfig, getA11yConfig } from '@opentiny/next-sdk'
-
-// 中途追加/修改规则，自动与已有配置合并（数组拼接，不丢已有规则）
-setA11yConfig({
-  states: { selected: { selector: '.new-page .btn.is-checked' } },
-})
-
-// 函数式更新：入参为当前生效配置，可用于按条件移除某条旧规则后再合并
-setA11yConfig((current) => ({
-  roles: current.roles.filter((r) => r.role !== 'tab'),
-}))
-
-// 完全推倒重来：mode: 'replace' 不与当前配置合并，而是与默认配置重新合并
-setA11yConfig({ roles: [{ role: 'tab', selector: '.v2-tabs .item' }] }, { mode: 'replace' })
-
-// 随时读取当前最终生效的合并结果，用于调试
-getA11yConfig()
-```
+> `a11yConfig` 的运行期读写统一走上文「PageAgentToolOptions 配置项说明」中介绍的 `getPageAgentToolConfig`/`setPageAgentToolConfig`，不再有单独的 `getA11yConfig`/`setA11yConfig`。
 
 ### `window.__webmcpcli_beforeGetBrowserState` 钩子
 
-`window.__webmcpcli_beforeGetBrowserState`（类型 `(() => void) | null`）会在每次获取浏览器状态前触发，是"中途动态修改配置"的天然接入点，可在其中根据当前路由/页面状态调用 `setA11yConfig`：
+`window.__webmcpcli_beforeGetBrowserState`（类型 `(() => void) | null`）会在每次获取浏览器状态前触发，是"中途动态修改配置"的天然接入点，可在其中根据当前路由/页面状态调用 `setPageAgentToolConfig`：
 
 ```typescript
-import { registerPageAgentTool, setA11yConfig } from '@opentiny/next-sdk'
+import { registerPageAgentTool, setPageAgentToolConfig } from '@opentiny/next-sdk'
 
 registerPageAgentTool({
   enableHighlight: true,
@@ -165,7 +172,7 @@ registerPageAgentTool({
 // 某些列表在每次渲染后 DOM 结构才能确定，可以在这里用选择器声明式地追加白名单，
 // 而不需要手动收集 Element 引用（whitelist 支持的选择器字符串本身就是动态解析的）
 window.__webmcpcli_beforeGetBrowserState = () => {
-  setA11yConfig({ whitelist: ['.dynamic-list .row'] })
+  setPageAgentToolConfig({ a11yConfig: { whitelist: ['.dynamic-list .row'] } })
 }
 ```
 

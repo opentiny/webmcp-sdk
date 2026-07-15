@@ -5,7 +5,9 @@
  * 弹窗选择器等配置项收敛为一个对象，并提供：
  * 1. 声明式规则（roles/states）的合并与匹配逻辑
  * 2. 底层的逐元素解析函数（resolveA11yRole/resolveA11yStates/resolveA11yInfo）
- * 3. 运行期读写 API（getA11yConfig/setA11yConfig），支持初始化一次 + 中途修改
+ *
+ * 运行期读写 API 统一由 ../tool-config.ts 的 getPageAgentToolConfig/setPageAgentToolConfig 提供
+ * （a11yConfig 是其中一个字段），这里不再单独维护一套 get/set。
  */
 
 import { TAG_ROLE_MAP, INPUT_TYPE_ROLE, DEFAULT_ERROR_SELECTORS, DEFAULT_WARNING_SELECTORS, DEFAULT_DIALOG_SELECTORS } from './constants'
@@ -14,11 +16,13 @@ import { TAG_ROLE_MAP, INPUT_TYPE_ROLE, DEFAULT_ERROR_SELECTORS, DEFAULT_WARNING
 
 export interface A11yMatcher {
   /**
-   * 标准 CSS 选择器字符串（用 closest 判断元素自身或祖先是否命中，支持 Shadow DOM 穿透）。
+   * 标准 CSS 选择器（用 closest 判断元素自身或祖先是否命中，支持 Shadow DOM 穿透）。
    * 不局限于类名，标签选择器（`li`）、属性选择器（`[data-role="tab"]`、`[aria-selected]`）、
    * id 选择器、组合选择器（`.btn-group > .btn[data-checked="true"]`）等合法 CSS 选择器均可使用。
+   * 也支持传入字符串数组，数组内任意一个选择器命中即算命中（等价于用逗号拼接成选择器列表），
+   * 便于同一状态存在多个互不相关的 class 命名场景（如新旧版本混用 `is-active` / `active-item`）。
    */
-  selector?: string
+  selector?: string | string[]
   /** 自定义判断函数，优先级高于 selector，用于 CSS 选择器表达不了的场景（如读取计算样式、比较多个属性组合逻辑） */
   match?: (el: Element) => boolean
 }
@@ -57,6 +61,20 @@ export interface A11yInfo {
   tokens: string[]
 }
 
+/**
+ * 合并/规整后的完整无障碍配置：与用户书写的 {@link A11yConfig} 的唯一区别是
+ * states 的每个状态名都统一规范化为数组（不再是 `A11yMatcher | A11yMatcher[]`）。
+ * resolveA11yInfo 内部与 getPageAgentToolConfig().a11yConfig 读取到的都是这个类型。
+ */
+export interface ResolvedA11yConfig {
+  roles: A11yRoleRule[]
+  states: Partial<Record<A11yStateName, A11yMatcher[]>>
+  whitelist: Array<Element | string>
+  blacklist: Array<Element | string>
+  exposedAttributes: string[]
+  dialogSelectors: string[]
+}
+
 /** 内置已知状态名（用于区分"标准状态"与"用户自定义状态"，避免重复输出 token） */
 const STANDARD_STATE_NAMES: string[] = [
   'checked', 'selected', 'pressed', 'current', 'expanded', 'hasPopup',
@@ -79,12 +97,12 @@ function defaultSelectedMatch(el: Element): boolean {
 }
 
 /** 默认生效的无障碍配置：零配置即可覆盖 ARIA 标准 + 主流 UI 框架的常见错误/警告/选中态检测 */
-export const DEFAULT_A11Y_CONFIG: Required<A11yConfig> = {
+export const DEFAULT_A11Y_CONFIG: ResolvedA11yConfig = {
   roles: [],
   states: {
-    selected: { match: defaultSelectedMatch },
-    error: { selector: DEFAULT_ERROR_SELECTORS.join(', ') },
-    warning: { selector: DEFAULT_WARNING_SELECTORS.join(', ') },
+    selected: [{ match: defaultSelectedMatch }],
+    error: [{ selector: DEFAULT_ERROR_SELECTORS }],
+    warning: [{ selector: DEFAULT_WARNING_SELECTORS }],
   },
   whitelist: [],
   blacklist: [],
@@ -94,6 +112,13 @@ export const DEFAULT_A11Y_CONFIG: Required<A11yConfig> = {
 
 // ─── 匹配辅助 ────────────────────────────────────────────────────────────
 
+/** 将 selector 规整为单个 CSS 选择器字符串：数组按逗号拼接为选择器列表，语义等价于"任意一个命中即可" */
+function normalizeSelector(selector?: string | string[]): string | undefined {
+  if (!selector) return undefined
+  const joined = Array.isArray(selector) ? selector.filter(Boolean).join(', ') : selector
+  return joined || undefined
+}
+
 function matchesRule(el: Element, rule: A11yMatcher): boolean {
   if (rule.match) {
     try {
@@ -102,9 +127,10 @@ function matchesRule(el: Element, rule: A11yMatcher): boolean {
       return false
     }
   }
-  if (rule.selector) {
+  const selector = normalizeSelector(rule.selector)
+  if (selector) {
     try {
-      return !!el.closest(rule.selector)
+      return !!el.closest(selector)
     } catch {
       // 忽略非法选择器
       return false
@@ -119,11 +145,11 @@ function matchesAnyRule(el: Element, rules?: A11yMatcher | A11yMatcher[]): boole
   return list.some((rule) => matchesRule(el, rule))
 }
 
-/** 从状态规则中提取纯 CSS 选择器（忽略只有 match 函数、没有 selector 的规则），供页面级选择器扫描场景复用 */
+/** 从状态规则中提取纯 CSS 选择器列表（忽略只有 match 函数、没有 selector 的规则；数组 selector 会被展开），供页面级选择器扫描场景复用 */
 export function extractSelectors(rules?: A11yMatcher | A11yMatcher[]): string[] {
   if (!rules) return []
   const list = Array.isArray(rules) ? rules : [rules]
-  return list.map((r) => r.selector).filter((s): s is string => !!s)
+  return list.flatMap((r) => (Array.isArray(r.selector) ? r.selector.filter(Boolean) : r.selector ? [r.selector] : []))
 }
 
 // ─── 合并逻辑 ────────────────────────────────────────────────────────────
@@ -140,8 +166,8 @@ function normalizeMatcherList(value?: A11yMatcher | A11yMatcher[]): A11yMatcher[
 function mergeStates(
   base?: A11yConfig['states'],
   patch?: A11yConfig['states'],
-): Required<A11yConfig>['states'] {
-  const result: NonNullable<A11yConfig['states']> = {}
+): ResolvedA11yConfig['states'] {
+  const result: NonNullable<ResolvedA11yConfig['states']> = {}
   // 无论某个状态名是否被 patch 触及，都统一规范化为数组，保证 states.<name> 的返回类型一致，
   // 避免"只有被 patch 过的 key 才是数组，其余仍是单个 matcher 对象"的不一致行为
   const keys = new Set<string>([...Object.keys(base ?? {}), ...Object.keys(patch ?? {})])
@@ -152,7 +178,7 @@ function mergeStates(
 }
 
 /** 合并两份 A11yConfig：数组类字段拼接（additive，不丢失 base 中已有的规则），states 按 key 独立合并 */
-export function mergeA11yConfigs(base: A11yConfig, patch: A11yConfig): Required<A11yConfig> {
+export function mergeA11yConfigs(base: A11yConfig, patch: A11yConfig): ResolvedA11yConfig {
   return {
     roles: concatArr(base.roles, patch.roles),
     states: mergeStates(base.states, patch.states),
@@ -164,7 +190,7 @@ export function mergeA11yConfigs(base: A11yConfig, patch: A11yConfig): Required<
 }
 
 /** 将用户配置与默认配置合并（additive），得到最终生效的完整配置 */
-export function mergeA11yConfig(user?: A11yConfig): Required<A11yConfig> {
+export function mergeA11yConfig(user?: A11yConfig): ResolvedA11yConfig {
   return mergeA11yConfigs(DEFAULT_A11Y_CONFIG, user ?? {})
 }
 
@@ -175,7 +201,7 @@ export function defineA11yConfig(config: A11yConfig): A11yConfig {
 
 // ─── 角色 / 状态解析 ─────────────────────────────────────────────────────
 
-function computeRole(el: Element, resolved: Required<A11yConfig>): string {
+function computeRole(el: Element, resolved: ResolvedA11yConfig): string {
   const explicit = el.getAttribute('role')
   const hasExplicit = !!explicit && explicit !== 'presentation' && explicit !== 'none'
 
@@ -194,7 +220,7 @@ function computeRole(el: Element, resolved: Required<A11yConfig>): string {
   return TAG_ROLE_MAP[tag] ?? 'generic'
 }
 
-function computeStates(el: Element, resolved: Required<A11yConfig>): string[] {
+function computeStates(el: Element, resolved: ResolvedA11yConfig): string[] {
   const tokens: string[] = []
   const aria = (k: string) => el.getAttribute(k)
   const states = resolved.states
@@ -373,43 +399,4 @@ export function resolveA11yInfo(el: Element, config?: A11yConfig): A11yInfo {
     role: computeRole(el, resolved),
     tokens: computeStates(el, resolved),
   }
-}
-
-// ─── 运行期动态读写配置 ───────────────────────────────────────────────────
-
-const A11Y_CONFIG_KEY = '__webmcpcli_a11yConfig'
-
-/** 读取当前生效的完整配置（已与默认值合并）。未初始化时返回默认配置 */
-export function getA11yConfig(): Required<A11yConfig> {
-  const current = typeof window !== 'undefined' ? window[A11Y_CONFIG_KEY as keyof Window] : undefined
-  return (current as Required<A11yConfig> | undefined) ?? mergeA11yConfig()
-}
-
-/**
- * 更新当前生效配置。
- * - patch 为对象时：与当前配置按数组拼接合并（roles、states 下每个状态名、whitelist、blacklist、exposedAttributes、dialogSelectors 均为追加，不丢已有规则）
- * - patch 为函数时：入参为当前生效配置，返回值直接与 DEFAULT_A11Y_CONFIG 合并（而不是再与 current 相加）。
- *   这样函数体内可以对 current 做任意过滤/裁剪（如按条件"移除"某条旧规则），返回值即为最终生效的规则列表，
- *   不会因为再与 current 相加而让被过滤掉的旧规则"复活"
- * - options.mode = 'replace' 时（仅影响对象类型的 patch）：不与"当前生效配置"合并，而是与 DEFAULT_A11Y_CONFIG 重新合并（用于整体重置后再设置）
- * 返回合并后的最新完整配置，并写回运行期存储供 buildA11yTree 等读取。
- */
-export function setA11yConfig(
-  patch: A11yConfig | ((current: Required<A11yConfig>) => A11yConfig),
-  options?: { mode?: 'merge' | 'replace' },
-): Required<A11yConfig> {
-  const mode = options?.mode ?? 'merge'
-  const current = getA11yConfig()
-
-  let next: Required<A11yConfig>
-  if (typeof patch === 'function') {
-    next = mergeA11yConfig(patch(current))
-  } else {
-    next = mode === 'replace' ? mergeA11yConfig(patch) : mergeA11yConfigs(current, patch)
-  }
-
-  if (typeof window !== 'undefined') {
-    ;(window as any)[A11Y_CONFIG_KEY] = next
-  }
-  return next
 }

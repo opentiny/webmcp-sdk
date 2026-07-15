@@ -7,7 +7,7 @@
 import { computeAccessibleName } from 'dom-accessibility-api'
 import { isFocusable, isTabbable } from 'tabbable'
 import type { VNode, RefMap, A11yTreeShapeOptions } from './types'
-import type { A11yConfig } from './config'
+import type { ResolvedA11yConfig } from './config'
 import { resolveA11yInfo } from './config'
 import { isHidden, collectDescendantText, getComposedChildren } from './utils'
 
@@ -27,7 +27,7 @@ export function buildVNode(
   refMap: RefMap,
   blacklistSet: Set<Element>,
   whitelistSet: Set<Element>,
-  config: Required<A11yConfig>,
+  config: ResolvedA11yConfig,
   ancestorIsInteractive = false,
 ): VNode | null {
   if (isHidden(el) || blacklistSet.has(el)) return null

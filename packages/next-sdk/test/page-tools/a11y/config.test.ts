@@ -6,10 +6,7 @@ import {
   mergeA11yConfig,
   mergeA11yConfigs,
   defineA11yConfig,
-  getA11yConfig,
-  setA11yConfig,
   extractSelectors,
-  DEFAULT_A11Y_CONFIG,
   type A11yConfig,
 } from '../../../page-tools/a11y/config'
 
@@ -20,17 +17,11 @@ function el(html: string): Element {
   return wrapper.firstElementChild as Element
 }
 
-function resetWindowGlobals() {
-  delete (window as any).__webmcpcli_a11yConfig
-}
-
 beforeEach(() => {
-  resetWindowGlobals()
   document.body.innerHTML = ''
 })
 
 afterEach(() => {
-  resetWindowGlobals()
   document.body.innerHTML = ''
 })
 
@@ -230,6 +221,18 @@ describe('resolveA11yStates - 自定义规则', () => {
     expect(resolveA11yStates(target, config)).toContain('warning')
   })
 
+  it('selector 支持字符串数组：命中数组中任意一个 class 均视为选中', () => {
+    const legacy = el('<button class="btn is-active"></button>')
+    const modern = el('<button class="btn is-checked"></button>')
+    const none = el('<button class="btn"></button>')
+    const config = defineA11yConfig({
+      states: { selected: { selector: ['.is-active', '.is-checked'] } },
+    })
+    expect(resolveA11yStates(legacy, config)).toContain('selected')
+    expect(resolveA11yStates(modern, config)).toContain('selected')
+    expect(resolveA11yStates(none, config)).not.toContain('selected')
+  })
+
   it('error 与 warning 同时命中时只输出 error（优先级）', () => {
     const target = el('<div class="is-error is-warning">错误</div>')
     const config = defineA11yConfig({
@@ -313,52 +316,12 @@ describe('extractSelectors', () => {
     expect(selectors).toEqual(['.a', '.b'])
   })
 
+  it('数组类型的 selector 会被展开为独立的选择器字符串', () => {
+    const selectors = extractSelectors([{ selector: ['.a', '.b'] }, { selector: '.c' }])
+    expect(selectors).toEqual(['.a', '.b', '.c'])
+  })
+
   it('无规则时返回空数组', () => {
     expect(extractSelectors(undefined)).toEqual([])
-  })
-})
-
-describe('getA11yConfig / setA11yConfig', () => {
-  it('未初始化时 getA11yConfig 返回与默认配置等价的合并结果', () => {
-    const config = getA11yConfig()
-    expect(config.roles).toEqual([])
-    expect(config.whitelist).toEqual([])
-    expect(config.blacklist).toEqual([])
-    expect(config.exposedAttributes).toEqual([])
-    expect(config.dialogSelectors).toEqual(DEFAULT_A11Y_CONFIG.dialogSelectors)
-    expect(extractSelectors(config.states.error)).toEqual(extractSelectors(DEFAULT_A11Y_CONFIG.states.error))
-  })
-
-  it('merge 模式下多次调用累加合并（拼接而非覆盖）', () => {
-    setA11yConfig({ roles: [{ role: 'tab', selector: '.tab-1' }] })
-    setA11yConfig({ roles: [{ role: 'tabpanel', selector: '.panel-1' }] })
-    const current = getA11yConfig()
-    expect(current.roles).toEqual([
-      { role: 'tab', selector: '.tab-1' },
-      { role: 'tabpanel', selector: '.panel-1' },
-    ])
-  })
-
-  it('函数式 patch 可用于过滤/移除旧规则（真正移除，不会因再次合并而复活）', () => {
-    setA11yConfig({ roles: [{ role: 'tab', selector: '.tab-1' }, { role: 'keep-me', selector: '.k' }] })
-    setA11yConfig((current) => ({
-      roles: current.roles.filter((r) => r.role !== 'tab'),
-    }))
-    const result = getA11yConfig()
-    expect(result.roles.some((r) => r.role === 'tab')).toBe(false)
-    expect(result.roles.some((r) => r.role === 'keep-me')).toBe(true)
-  })
-
-  it('replace 模式丢弃之前的运行期状态，只与默认值重新合并', () => {
-    setA11yConfig({ roles: [{ role: 'tab', selector: '.old' }] })
-    setA11yConfig({ roles: [{ role: 'v2', selector: '.new' }] }, { mode: 'replace' })
-    const result = getA11yConfig()
-    expect(result.roles).toEqual([{ role: 'v2', selector: '.new' }])
-  })
-
-  it('setA11yConfig 后 getA11yConfig 读到最新值', () => {
-    const next = setA11yConfig({ dialogSelectors: ['.my-modal'] })
-    expect(getA11yConfig().dialogSelectors).toEqual(next.dialogSelectors)
-    expect(getA11yConfig().dialogSelectors).toContain('.my-modal')
   })
 })

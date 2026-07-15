@@ -1,7 +1,7 @@
 /**
  * juejin.cn 工具适配层
  */
-import { setA11yConfig } from '@opentiny/next-sdk'
+import { setPageAgentToolConfig } from '@opentiny/next-sdk'
 
 type ToolResult = {
   success: true
@@ -26,7 +26,7 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
   try {
     // 掘金草稿箱列表用 div 开发，默认规则无法识别为可交互元素。
     // whitelist 支持 CSS 选择器字符串，每次构建无障碍树时动态解析，无需手动维护元素引用或轮询钩子。
-    setA11yConfig({ whitelist: ['.link[target]'] })
+    setPageAgentToolConfig({ a11yConfig: { whitelist: ['.link[target]'] } })
 
     // 注册创建文章工具
     mcp.registerTool({
