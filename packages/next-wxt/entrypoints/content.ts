@@ -30,8 +30,7 @@ export default defineContentScript({
     //    background 通过 sendMessage({ type: 'PAGE_CONTROL' }) 调用页面 DOM 操作
     initPageController()
 
-    // 4. 始终注入 vendor/runtime.js（含 initializeBuiltinWebMCP + registerPageAgentTool）
-    //    并在 MAIN world 调用 registerPageAgentTool()，将内置工具注册到 document.modelContext
+    // 4. 注入 vendor/runtime.js（仅暴露 API），再在 MAIN world 按域名配置调用 registerPageAgentTool
     await injectRuntimeAndRegister(tabId)
 
     // 5. 如有域名专属工具，额外注入 mcp-servers 脚本
@@ -136,14 +135,32 @@ function injectScript(path: string): Promise<void> {
 }
 
 /**
- * 注入 vendor/runtime.js 到页面 MAIN world。
- * runtime.js 内部会自动调用 registerPageAgentTool()，完成工具注册。
+ * 注入 vendor/runtime.js 到页面 MAIN world，再显式调用 registerPageAgentTool(options)。
+ * runtime 不再自动注册，以便传入无障碍 / 高亮等配置。
  * 幂等：只注入一次（registerPageAgentTool/initializeBuiltinWebMCP 内部有守卫）。
  */
 let runtimeInjected: Promise<void> | null = null
 async function injectRuntimeAndRegister(tabId: number): Promise<void> {
   if (!runtimeInjected) {
-    runtimeInjected = injectScript('vendor/runtime.js')
+    runtimeInjected = (async () => {
+      await injectScript('vendor/runtime.js')
+      await browser.scripting.executeScript({
+        target: { tabId },
+        world: 'MAIN',
+        func: () => {
+          const api = (window as any).WebMCP || window
+          const register = api.registerPageAgentTool
+          if (typeof register !== 'function') return
+
+          const isConsoleCloud =
+            typeof api.isConsoleCloudHost === 'function' && api.isConsoleCloudHost(location.hostname)
+          const options = isConsoleCloud
+            ? api.consoleCloudPageAgentToolOptions || { enableHighlight: false }
+            : { a11yConfig: { exposedAttributes: ['cf-uba'] } }
+          register(options)
+        },
+      })
+    })()
   }
   await runtimeInjected
   browser.runtime.sendMessage({ type: 'page-tools-injected', tabId }).catch(() => {})
