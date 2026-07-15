@@ -476,7 +476,25 @@ async function injectWebMCPPolyfillAndTools(page: Page, force = false) {
   }).catch(() => false)
 
   if (!polyfillReady) {
-    console.log(pc.cyan('当前页面尚未注入 WebMCP 环境，正在执行自动注入...'))
+    console.log(pc.cyan(force
+      ? '正在强制重新注入 WebMCP 环境（覆盖已注册工具）...'
+      : '当前页面尚未注入 WebMCP 环境，正在执行自动注入...'))
+
+    // force 重注入时先卸载旧工具并清除 init flag，否则 page-init 会因
+    // __webmcpcli_init=true 直接 return，页面继续跑旧版 page-agent-tool
+    if (force) {
+      await page.evaluate(() => {
+        const mcp = (document as any).modelContext || (navigator as any).modelContext
+        if (mcp && typeof mcp.unregisterTool === 'function') {
+          try {
+            mcp.unregisterTool('page-agent-tool')
+          } catch {
+            // 忽略卸载失败，后续 register 会覆盖或追加
+          }
+        }
+        delete (window as any).__webmcpcli_init
+      }).catch(() => undefined)
+    }
 
     const injectScriptPath = path.resolve(__dirname, 'inject-bundle.js')
     if (!fs.existsSync(injectScriptPath)) {
