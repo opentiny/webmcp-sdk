@@ -5,7 +5,7 @@ export async function stateCommand({ tabid }: { tabid?: string }) {
   try {
     const page = await getTargetPage(browser, tabid)
 
-    // 1. 每一次 state 都重新注入一次 page-agent-tool，确保手动打开的页面也能使用工具
+    // 1. 尚未注入时注入一次，确保手动打开的页面也能使用工具
     await injectIntoPage(page)
 
     // 2. 在页面上下文中获取导航元数据和已注册的工具列表

@@ -463,38 +463,21 @@ export async function getTargetPage(browser: Browser, tabid?: string): Promise<P
 }
 
 /**
- * 供 tabs open / back / forward 命令在导航完成后调用：强制注入（不做 flag 检查，因为 goto 后页面上下文已清空）
+ * 供 tabs open / back / forward / state / run 等命令调用：仅在尚未注入时注入一次（幂等）。
+ * 导航后页面 JS 上下文会清空，`__webmcpcli_init` 自然失效，下次调用会重新注入。
  */
 export async function injectIntoPage(page: Page): Promise<void> {
-  await injectWebMCPPolyfillAndTools(page, true)
+  await injectWebMCPPolyfillAndTools(page)
 }
 
-async function injectWebMCPPolyfillAndTools(page: Page, force = false) {
-  // 检查 polyfill 是否已注入（force=true 时跳过，用于 goto 之后的强制重注入）
-  const polyfillReady = !force && await page.evaluate(() => {
+async function injectWebMCPPolyfillAndTools(page: Page) {
+  // 已注入则跳过，避免覆盖 page-agent-tool 闭包内的 refMap
+  const polyfillReady = await page.evaluate(() => {
     return !!(window as any).__webmcpcli_init
   }).catch(() => false)
 
   if (!polyfillReady) {
-    console.log(pc.cyan(force
-      ? '正在强制重新注入 WebMCP 环境（覆盖已注册工具）...'
-      : '当前页面尚未注入 WebMCP 环境，正在执行自动注入...'))
-
-    // force 重注入时先卸载旧工具并清除 init flag，否则 page-init 会因
-    // __webmcpcli_init=true 直接 return，页面继续跑旧版 page-agent-tool
-    if (force) {
-      await page.evaluate(() => {
-        const mcp = (document as any).modelContext || (navigator as any).modelContext
-        if (mcp && typeof mcp.unregisterTool === 'function') {
-          try {
-            mcp.unregisterTool('page-agent-tool')
-          } catch {
-            // 忽略卸载失败，后续 register 会覆盖或追加
-          }
-        }
-        delete (window as any).__webmcpcli_init
-      }).catch(() => undefined)
-    }
+    console.log(pc.cyan('当前页面尚未注入 WebMCP 环境，正在执行自动注入...'))
 
     const injectScriptPath = path.resolve(__dirname, 'inject-bundle.js')
     if (!fs.existsSync(injectScriptPath)) {
