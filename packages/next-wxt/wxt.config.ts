@@ -44,7 +44,7 @@ export default defineConfig({
     },
     web_accessible_resources: [
       {
-        // next-sdk runtime 包（含 initializeBuiltinWebMCP + registerPageAgentTool）
+        // next-sdk runtime 包（仅暴露 API，由调用方传入配置后 registerPageAgentTool）
         resources: ['vendor/runtime.js'],
         matches: ['*://*/*']
       },
