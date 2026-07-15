@@ -10,15 +10,27 @@ import { fileURLToPath } from 'url'
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
 
-const CDP_PORT = 9222
+function getCdpPort(): number {
+  const raw = process.env.WEBMCP_CDP_PORT
+  if (raw) {
+    const port = Number.parseInt(raw, 10)
+    if (Number.isFinite(port) && port > 0) return port
+  }
+  return 9222
+}
 
 function getWorkspaceDir(): string {
   return process.env.WEBMCP_WORKSPACE || path.join(os.homedir(), '.webmcp_chrome_profile')
 }
 
+/** CI / 自动化测试：无头 + sandbox 关闭，避免 Linux runner 缺 display / 权限问题 */
+function shouldLaunchHeadless(): boolean {
+  return process.env.WEBMCP_HEADLESS === '1' || process.env.CI === 'true' || process.env.CI === '1'
+}
+
 /**
  * 读取 Chrome 写入 user-data-dir 的 DevToolsActivePort 文件，获取该 profile 实际绑定的 CDP 端口。
- * 当 CDP_PORT（9222）被系统上其他工具占用时，Chrome 会静默切换到一个随机可用端口并记录在此文件中。
+ * 当默认 CDP 端口（9222，或 WEBMCP_CDP_PORT）被系统上其他工具占用时，Chrome 会静默切换到一个随机可用端口并记录在此文件中。
  * 注意：Chrome 136+ 起该文件在部分版本/场景下可能不再写入，因此这只是辅助检测手段，
  * 不能作为唯一依据，主逻辑仍以直接探测固定端口为准（见 candidateCdpBaseUrls）。
  */
@@ -165,6 +177,15 @@ interface BrowserInfo {
 }
 
 function getDefaultBrowserPath(): BrowserInfo | null {
+  // CI / 本地可显式指定可执行文件（browser-actions/setup-chrome 会输出 chrome-path）
+  const envPath =
+    process.env.CHROME_PATH ||
+    process.env.WEBMCP_CHROME_PATH ||
+    process.env.PUPPETEER_EXECUTABLE_PATH
+  if (envPath && fs.existsSync(envPath)) {
+    return { path: envPath, name: 'Chrome' }
+  }
+
   const platform = os.platform()
   if (platform === 'darwin') {
     // macOS：优先 Chrome，其次 Edge
@@ -215,10 +236,14 @@ async function startBrowserInBackground(): Promise<string> {
     throw new Error('无法在系统中找到 Chrome 或 Edge 浏览器的默认安装路径。')
   }
 
-  console.log(pc.yellow(`正在启动后台 ${browserInfo.name} 实例 (端口: ${CDP_PORT})...`))
+  const cdpPort = getCdpPort()
+  console.log(pc.yellow(`正在启动后台 ${browserInfo.name} 实例 (端口: ${cdpPort})...`))
   
   // 用户可以通过 --workspace CLI 选项或 WEBMCP_WORKSPACE 环境变量自定义。
   const userDataDir = getWorkspaceDir()
+  if (!fs.existsSync(userDataDir)) {
+    fs.mkdirSync(userDataDir, { recursive: true })
+  }
 
   // 启动前先清除旧的 DevToolsActivePort 记录，避免读取到上一次运行残留的过期端口
   try {
@@ -229,11 +254,21 @@ async function startBrowserInBackground(): Promise<string> {
   // CDP 服务器固定绑定 "localhost" 解析出的回环地址，具体是 IPv4 还是 IPv6 由系统决定，
   // 因此不再传递该参数，探测阶段改为同时尝试 IPv4/IPv6/localhost 三种地址形式。
   const launchArgs = [
-    `--remote-debugging-port=${CDP_PORT}`,
+    `--remote-debugging-port=${cdpPort}`,
     `--user-data-dir=${userDataDir}`,
     '--no-first-run',
     '--no-default-browser-check'
   ]
+
+  if (shouldLaunchHeadless()) {
+    launchArgs.push(
+      '--headless=new',
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-gpu',
+      '--disable-dev-shm-usage'
+    )
+  }
 
   const child = spawn(
     browserInfo.path,
@@ -246,11 +281,11 @@ async function startBrowserInBackground(): Promise<string> {
 
   child.unref() // 让子进程脱离父进程独立运行
 
-  // 轮询等待 CDP 端口就绪。优先探测固定的 CDP_PORT（IPv4/IPv6/localhost 三种地址形式都尝试，
-  // 不对地址族做假设）；同时也检查 DevToolsActivePort 文件——如果 CDP_PORT 被其他程序占用，
+  // 轮询等待 CDP 端口就绪。优先探测固定的 cdpPort（IPv4/IPv6/localhost 三种地址形式都尝试，
+  // 不对地址族做假设）；同时也检查 DevToolsActivePort 文件——如果 cdpPort 被其他程序占用，
   // 部分 Chrome 版本会自动切换到随机端口并记录在该文件中，作为额外兜底。
   for (let i = 0; i < 40; i++) {
-    const ports = new Set<number>([CDP_PORT])
+    const ports = new Set<number>([cdpPort])
     const activePort = readActivePortFromProfile(userDataDir)
     if (activePort) ports.add(activePort)
 
@@ -258,8 +293,8 @@ async function startBrowserInBackground(): Promise<string> {
       for (const baseUrl of candidateCdpBaseUrls(port)) {
         try {
           await httpGet(`${baseUrl}/json/version`, 1000)
-          if (port !== CDP_PORT) {
-            console.log(pc.yellow(`检测到端口 ${CDP_PORT} 已被其他程序占用，${browserInfo.name} 已自动切换到端口 ${port}。`))
+          if (port !== cdpPort) {
+            console.log(pc.yellow(`检测到端口 ${cdpPort} 已被其他程序占用，${browserInfo.name} 已自动切换到端口 ${port}。`))
           }
           console.log(pc.green(`${browserInfo.name} 启动并就绪（${baseUrl}）。`))
           // 额外等待 500ms，确保 CDP 完全稳定（Mac 首次启动时端口通但连接不稳定）
@@ -276,19 +311,20 @@ async function startBrowserInBackground(): Promise<string> {
 
 export async function connectBrowser(): Promise<Browser> {
   const userDataDir = getWorkspaceDir()
+  const cdpPort = getCdpPort()
 
   // 第一步：找到第一个真正可达的 CDP 地址（IPv4/IPv6/localhost 三种形式都尝试，不假设地址族）。
   // 若本工具专属 profile 上一次运行时因端口冲突被 Chrome 切换到了非默认端口，
   // 优先尝试 DevToolsActivePort 记录的真实端口，避免误判为“未运行”而重复启动新实例。
   const recordedPort = readActivePortFromProfile(userDataDir)
   const versionAddresses = [
-    ...(recordedPort && recordedPort !== CDP_PORT ? candidateCdpBaseUrls(recordedPort).map(u => `${u}/json/version`) : []),
-    ...candidateCdpBaseUrls(CDP_PORT).map(u => `${u}/json/version`)
+    ...(recordedPort && recordedPort !== cdpPort ? candidateCdpBaseUrls(recordedPort).map(u => `${u}/json/version`) : []),
+    ...candidateCdpBaseUrls(cdpPort).map(u => `${u}/json/version`)
   ]
 
   const existingUrl = await findAvailableCdpUrl(versionAddresses, 2)
   if (existingUrl) {
-    console.log(pc.yellow(`connectBrowser: 检测到端口 ${CDP_PORT} 已就绪，正在连接 ${existingUrl}...`))
+    console.log(pc.yellow(`connectBrowser: 检测到端口 ${cdpPort} 已就绪，正在连接 ${existingUrl}...`))
     try {
       const browser = await connectPuppeteer(existingUrl)
       console.log(pc.green(`connectBrowser: 成功连接 ${existingUrl}`))
@@ -303,7 +339,7 @@ export async function connectBrowser(): Promise<Browser> {
   }
 
   // 第二步：端口无响应，启动新的浏览器实例（使用独立用户数据目录，不影响用户已有浏览器）
-  console.log(pc.yellow(`connectBrowser: 端口 ${CDP_PORT} 无响应，正在启动新的浏览器实例...`))
+  console.log(pc.yellow(`connectBrowser: 端口 ${cdpPort} 无响应，正在启动新的浏览器实例...`))
   let launchedUrl: string
   try {
     launchedUrl = await startBrowserInBackground()
@@ -421,8 +457,9 @@ export async function getTargetPage(browser: Browser, tabid?: string): Promise<P
       try {
         // 与 connectBrowser 一致：若 Chrome 因端口冲突切到非默认端口，一并探测 DevToolsActivePort
         const workspaceDir = getWorkspaceDir()
+        const cdpPort = getCdpPort()
         const recordedPort = readActivePortFromProfile(workspaceDir)
-        const ports = recordedPort && recordedPort !== CDP_PORT ? [recordedPort, CDP_PORT] : [CDP_PORT]
+        const ports = recordedPort && recordedPort !== cdpPort ? [recordedPort, cdpPort] : [cdpPort]
         const urls = ports.flatMap((port) => candidateCdpBaseUrls(port).map((u) => `${u}/json/list`))
         let activeTargetId: string | null = null
         for (const url of urls) {
