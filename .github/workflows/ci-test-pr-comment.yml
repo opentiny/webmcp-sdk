@@ -46,9 +46,10 @@ jobs:
         if: steps.pr.outputs.id
         run: |
           if [ -f user-tip.txt ]; then
-            echo 'text<<EOF' >> "$GITHUB_OUTPUT"
+            DELIMITER=$(dd if=/dev/urandom bs=15 count=1 status=none | base64)
+            echo "text<<$DELIMITER" >> "$GITHUB_OUTPUT"
             cat user-tip.txt >> "$GITHUB_OUTPUT"
-            echo 'EOF' >> "$GITHUB_OUTPUT"
+            echo "$DELIMITER" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Comment result on PR
