@@ -56,3 +56,36 @@ export { initializeBuiltinWebMCP } from './page-tools/initialize-builtin-WebMCP'
 export { registerPageAgentTool } from './page-tools/page-agent-tool'
 export { PAGE_AGENT_TOOL_CALL_EVENT, PAGE_AGENT_TOOL_RESULT_EVENT } from './page-tools/page-agent-tool-event'
 export type { PageAgentToolCallEventDetail, PageAgentToolResultEventDetail } from './page-tools/page-agent-tool-event'
+export type { PageAgentToolOptions } from './page-tools/tool-config'
+
+// registerPageAgentTool 完整运行期配置（顶层选项 enableHighlight + 统一无障碍配置 a11yConfig）
+// 的唯一一套读写 API：注册时初始化一次，之后可随时读取/修改
+export { DEFAULT_PAGE_AGENT_TOOL_CONFIG, getPageAgentToolConfig, setPageAgentToolConfig } from './page-tools/tool-config'
+export type { PageAgentToolConfig, PageAgentToolConfigPatch } from './page-tools/tool-config'
+
+// 站点预设：云控制台（consoleCloud）等 PageAgentToolOptions，可直接传给 registerPageAgentTool
+export {
+  consoleCloudPageAgentToolOptions,
+  isConsoleCloudHost,
+} from './page-tools/configs/console-cloud'
+
+// 统一无障碍配置（A11yConfig）：角色/状态规则、白/黑名单、自定义属性、弹窗选择器，
+// 以及供用户直接调用的底层解析函数（运行期读写请使用上面的 getPageAgentToolConfig/setPageAgentToolConfig）
+export {
+  DEFAULT_A11Y_CONFIG,
+  defineA11yConfig,
+  resolveA11yInfo,
+  resolveA11yRole,
+  resolveA11yStates,
+  mergeA11yConfig,
+  mergeA11yConfigs,
+  ensureResolvedA11yConfig,
+  isResolvedA11yConfig,
+  extractSelectors,
+} from './page-tools/a11y/config'
+export type { A11yConfig, ResolvedA11yConfig, A11yRoleRule, A11yMatcher, A11yStateName, A11yInfo } from './page-tools/a11y/config'
+
+// 无障碍树构建与搜索：供高级用户直接生成/搜索自定义根节点下的无障碍树
+export { buildA11yTree } from './page-tools/a11y/build'
+export { searchA11yTree } from './page-tools/a11y/search'
+export type { A11yTreeOptions, A11yTreeResult, SearchA11yTreeOptions, SearchA11yTreeResult, VNode, RefMap } from './page-tools/a11y/types'

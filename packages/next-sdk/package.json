@@ -35,35 +35,40 @@
   "description": "A frontend intelligent application development toolkit designed to simplify WebAgent integration and usage, supporting multiple programming languages and frontend frameworks to help developers rapidly implement intelligent features",
   "scripts": {
     "build": "vite build && vite build --config vite.config.runtime.ts",
-    "build:runtime": "vite build --config vite.config.runtime.ts"
+    "build:runtime": "vite build --config vite.config.runtime.ts",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
+    "@ai-sdk/deepseek": "catalog:",
+    "@ai-sdk/mcp": "catalog:",
+    "@ai-sdk/openai": "catalog:",
+    "@ai-sdk/provider": "catalog:",
+    "@mcp-b/webmcp-polyfill": "catalog:",
     "@modelcontextprotocol/sdk": "catalog:",
     "@opentiny/next": "catalog:",
-    "@ai-sdk/openai": "catalog:",
-    "@ai-sdk/deepseek": "catalog:",
-    "@ai-sdk/provider": "catalog:",
-    "@ai-sdk/mcp": "catalog:",
-    "@mcp-b/webmcp-polyfill": "catalog:",
     "@page-agent/page-controller": "catalog:",
-    "qrcode": "catalog:",
-    "zod": "catalog:",
-    "zod-to-json-schema": "^3.25.2",
-    "ajv": "catalog:",
     "ai": "catalog:",
-    "dom-accessibility-api": "catalog:",
+    "ai-motion": "^0.4.8",
+    "ajv": "catalog:",
     "aria-query": "catalog:",
-    "tabbable": "catalog:",
     "diff": "catalog:",
-    "ai-motion": "^0.4.8"
+    "dom-accessibility-api": "catalog:",
+    "qrcode": "catalog:",
+    "tabbable": "catalog:",
+    "zod": "catalog:",
+    "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
+    "@types/diff": "catalog:",
+    "@types/node": "catalog:",
+    "@types/qrcode": "catalog:",
+    "@vitest/ui": "^4.1.10",
+    "jsdom": "^29.1.1",
     "typescript": "catalog:",
     "vite": "catalog:",
     "vite-plugin-dts": "catalog:",
-    "@types/qrcode": "catalog:",
-    "@types/node": "catalog:",
-    "@types/diff": "catalog:"
+    "vitest": "^4.1.10"
   },
   "publishConfig": {
     "access": "public",

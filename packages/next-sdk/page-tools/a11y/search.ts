@@ -24,8 +24,6 @@ import { buildA11yTree } from './build'
 export function searchA11yTree(
   query: string,
   root: Element = document.body,
-  blacklist: Element[] = [],
-  whitelist: Element[] = [],
   options?: SearchA11yTreeOptions,
 ): SearchA11yTreeResult {
   const {
@@ -39,7 +37,7 @@ export function searchA11yTree(
   const safeMaxMatches = Math.max(1, maxMatches)
 
   // 复用 buildA11yTree 生成完整树，直接取 lines 数组（不重复构建 DOM 遍历）
-  const { lines, refMap, yaml } = buildA11yTree(root, blacklist, whitelist, treeOptions)
+  const { lines, refMap, yaml } = buildA11yTree(root, treeOptions)
 
   const needle = caseInsensitive ? query.toLowerCase() : query
   const totalLines = lines.length

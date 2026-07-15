@@ -1,4 +1,5 @@
-import { DEFAULT_DIALOG_SELECTORS, DEFAULT_ERROR_SELECTORS } from '../constants'
+import { extractSelectors } from '../a11y/config'
+import { getPageAgentToolConfig } from '../tool-config'
 
 // ─── 辅助：Shadow DOM 事件穿透 ───────────────────────────────────────────
 // 外部包 inputTextElement/selectOptionElement 派发的合成事件 composed:false，
@@ -69,7 +70,8 @@ export function detectPageDialog(): string {
   const seen = new Set<Element>()
   const dialogs: string[] = []
   // 仅匹配明确的模态弹窗选择器，避免宽泛子串匹配误报
-  const selectors = (window.__webmcpcli_dialogSelectors ?? DEFAULT_DIALOG_SELECTORS)
+  // 统一取 getPageAgentToolConfig().a11yConfig.dialogSelectors（已含默认值 + 用户配置）
+  const selectors = getPageAgentToolConfig().a11yConfig.dialogSelectors
 
   for (const selector of selectors) {
     try {
@@ -125,7 +127,8 @@ export function detectValidationErrors(): string {
   const seen = new Set<Element>()
   const errors: string[] = []
   // 校验错误选择器：ARIA 标准 + 主流 UI 框架（可配置）
-  const selectors = (window.__webmcpcli_errorSelectors ?? DEFAULT_ERROR_SELECTORS)
+  // 统一取 getPageAgentToolConfig().a11yConfig.states.error（已含默认值 + 用户配置）
+  const selectors = extractSelectors(getPageAgentToolConfig().a11yConfig.states.error)
 
   for (const selector of selectors) {
     try {

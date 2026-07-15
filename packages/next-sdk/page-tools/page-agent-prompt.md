@@ -43,7 +43,7 @@
 - `- role #N [token1] [token2] "accessible name"`
 - `role`：ARIA 语义角色（如 button/link/radio/heading/listitem/generic 等）
 - `#N`：可交互元素的唯一操作索引，**只有带 `#N` 的节点才能被操作**，操作时将 N 作为 `index` 参数传入
-- `[token]`：可选 token，包括状态标记（如 `[checked]` `[selected]` `[disabled]` `[cursor=pointer]`）和定制属性（如 `[cf-uba="..."]`）
+- `[token]`：可选 token，包括状态标记（如 `[checked]` `[selected]` `[pressed]` `[current]` `[expanded]` `[disabled]` `[readonly]` `[required]` `[invalid]` `[busy]` `[error]` `[warning]` `[cursor=pointer]`）和定制属性（如 `[cf-uba="..."]`）
 - `"accessible name"`：元素的语义化名称，**用双引号包裹**（通过 aria-label/aria-labelledby/innerText 等计算得出）；无名称的节点此字段省略
 - 缩进表示父子关系
 

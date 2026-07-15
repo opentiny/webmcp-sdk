@@ -1,178 +1,12 @@
 /**
  * a11y/utils.ts
  *
- * 存放生成无障碍树时的通用工具函数：节点解析、状态获取、角色推断及纯文本兜底等。
+ * 存放生成无障碍树时的通用工具函数：可见性判断、纯文本兜底、Shadow DOM 组合树遍历等。
+ * 角色推断与状态 token 解析已统一迁移到 ./config（resolveA11yRole/resolveA11yStates/resolveA11yInfo）。
  */
 
-import { isFocusable, isTabbable } from 'tabbable'
-import { TAG_ROLE_MAP, INPUT_TYPE_ROLE, DEFAULT_ERROR_SELECTORS, DEFAULT_WARNING_SELECTORS } from './constants'
-
-/**
- * 获取元素的 ARIA 角色
- * 优先级：显式 role 属性 > 标签隐式角色 > 'generic'
- */
-export function inferRole(el: Element): string {
-  const explicit = el.getAttribute('role')
-  if (explicit && explicit !== 'presentation' && explicit !== 'none') {
-    return explicit
-  }
-  const tag = el.tagName.toLowerCase()
-  if (tag === 'input') {
-    const inputType = (el as HTMLInputElement).type?.toLowerCase() ?? 'text'
-    return INPUT_TYPE_ROLE[inputType] ?? 'textbox'
-  }
-  return TAG_ROLE_MAP[tag] ?? 'generic'
-}
-
-/**
- * 收集节点的 ARIA 状态 token
- * 格式：[checked] [selected] [disabled] [hasPopup] [cursor=pointer] [value="..."]
- */
-export function getStateTokens(
-  el: Element,
-  exposedAttributes?: string[],
-  errorSelectors?: string | string[],
-  warningSelectors?: string | string[],
-): string[] {
-  const tokens: string[] = []
-  const aria = (k: string) => el.getAttribute(k)
-
-  // 选中状态：优先 aria-checked，其次原生 input.checked
-  // 对 <label for="X"> 检测关联 checkbox/radio 的选中状态，帮助 AI 识别复选框当前状态
-  const ariaChecked = aria('aria-checked')
-  if (ariaChecked === 'true') {
-    tokens.push('checked')
-  } else if (ariaChecked === 'false') {
-    tokens.push('unchecked')
-  } else {
-    const elTag = el.tagName.toLowerCase()
-    let nativeChecked: boolean | undefined
-    if (elTag === 'input' && ((el as HTMLInputElement).type === 'checkbox' || (el as HTMLInputElement).type === 'radio')) {
-      nativeChecked = (el as HTMLInputElement).checked
-    } else if (elTag === 'label' && el.hasAttribute('for')) {
-      const target = document.getElementById(el.getAttribute('for')!)
-      if (target instanceof HTMLInputElement && (target.type === 'checkbox' || target.type === 'radio')) {
-        nativeChecked = target.checked
-      }
-    }
-    if (nativeChecked !== undefined) {
-      tokens.push(nativeChecked ? 'checked' : 'unchecked')
-    }
-  }
-
-  if (aria('aria-selected') === 'true') tokens.push('selected')
-
-  const disabled = aria('aria-disabled') === 'true' || (el as HTMLInputElement).disabled
-  if (disabled) tokens.push('disabled')
-
-  const hasPopup = aria('aria-haspopup')
-  if (hasPopup && hasPopup !== 'false') tokens.push('hasPopup')
-
-  if (aria('aria-expanded') === 'true') tokens.push('expanded')
-
-  // heading level（h1-h6）
-  const headingMatch = el.tagName.match(/^H([1-6])$/)
-  if (headingMatch) tokens.push(`level=${headingMatch[1]}`)
-  const ariaLevel = aria('aria-level')
-  if (ariaLevel && !headingMatch) tokens.push(`level=${ariaLevel}`)
-
-  // cursor=pointer 表示"视觉上可点击"
-  try {
-    const style = window.getComputedStyle(el as HTMLElement)
-    if (style.cursor === 'pointer') tokens.push('cursor=pointer')
-  } catch {
-    // 某些元素 getComputedStyle 可能抛异常，忽略
-  }
-
-  // 记录输入元素的值，以便在 fill/输入后在 A11y 树中显示并产生 Diff
-  const tag = el.tagName.toLowerCase()
-  if (tag === 'input' || tag === 'textarea' || tag === 'select') {
-    const val = (el as HTMLInputElement).value
-    if (val !== undefined && val !== '') {
-      tokens.push(`value="${val}"`)
-    }
-  }
-  const valuenow = el.getAttribute('aria-valuenow')
-  if (valuenow) {
-    tokens.push(`valuenow="${valuenow}"`)
-  }
-
-  // link 元素：检测 target=_blank，提示 Agent 该链接会在新标签页打开
-  if (el.tagName.toLowerCase() === 'a' && el.getAttribute('target') === '_blank') {
-    tokens.push('opens-new-tab')
-  }
-
-  // 检测 CSS 激活/选中状态类名（用于未使用标准 ARIA 的 Tab/选项组件，如华为云镜像选择）
-  // 若元素携带常见激活类名，输出 [active] token，帮助 Agent 判断当前选中项
-  const cls = typeof el.className === 'string' ? el.className : ''
-  const ACTIVE_CLASS_PATTERNS = [
-    'is-active', 'isActive',
-    'is-selected', 'isSelected',
-    'is-current', 'isCurrent',
-    'active-item', 'activeItem',
-    'tab-active', 'tabActive',
-    // 仅当作为独立 class 词或有连字符前缀时匹配 "active"，避免误匹配 "interactive" 等
-    /\bactive\b/,
-    /\bselected\b/,
-    /\bcurrent\b/,
-  ]
-  const hasActiveClass = ACTIVE_CLASS_PATTERNS.some(p =>
-    typeof p === 'string' ? cls.split(/\s+/).includes(p) : p.test(cls)
-  )
-  // 只对有 cursor=pointer 或明确角色的元素输出 active token，避免太多噪音
-  const roleForActive = el.getAttribute('role') || el.tagName.toLowerCase()
-  const roles = roleForActive.split(/\s+/)
-  const isTabLike = roles.some(r => ['button', 'option', 'a', 'li', 'generic'].includes(r) || r.startsWith('tab'))
-  if (hasActiveClass && isTabLike && !tokens.includes('checked') && !tokens.includes('selected')) {
-    tokens.push('active')
-  }
-
-  // 检测校验错误/警告状态（ARIA 标准 + 主流 UI 框架，可配置）
-  // 输出 [error] / [warning] token，让 AI 能区分校验错误与普通说明文字
-  // 使用 closest() 向上查找，确保嵌套在错误容器内的子元素也能获得 error 语义
-  const errorSelector = Array.isArray(errorSelectors)
-    ? errorSelectors.join(', ')
-    : (errorSelectors || DEFAULT_ERROR_SELECTORS.join(', '))
-  const warningSelector = Array.isArray(warningSelectors)
-    ? warningSelectors.join(', ')
-    : (warningSelectors || DEFAULT_WARNING_SELECTORS.join(', '))
-  let errorAncestor = null
-  if (errorSelector) {
-    try {
-      errorAncestor = el.closest(errorSelector)
-    } catch {
-      // ignore
-    }
-  }
-  
-  if (errorAncestor) {
-    tokens.push('error')
-  } else {
-    let warningAncestor = null
-    if (warningSelector) {
-      try {
-        warningAncestor = el.closest(warningSelector)
-      } catch {
-        // ignore
-      }
-    }
-    if (warningAncestor) {
-      tokens.push('warning')
-    }
-  }
-
-  // 额外暴露的自定义属性白名单
-  if (exposedAttributes) {
-    for (const attr of exposedAttributes) {
-      const val = el.getAttribute(attr)
-      if (val !== null) {
-        tokens.push(`${attr}="${val}"`)
-      }
-    }
-  }
-
-  return tokens
-}
+import { isTabbable } from 'tabbable'
+import { resolveA11yRole, type ResolvedA11yConfig } from './config'
 
 /** 判断元素是否应被跳过（不可见或在黑名单中） */
 export function isHidden(el: Element): boolean {
@@ -197,10 +31,26 @@ export function isHidden(el: Element): boolean {
 
 
 /**
+ * 收集元素自身或子孙节点的 title，用作图标按钮等无文本节点的名字兜底。
+ * 云控制台常见模式：可点击容器无 aria-label，title 挂在内部 span 上。
+ */
+export function collectTitleLabel(el: Element): string {
+  const selfTitle = el.getAttribute('title')?.trim()
+  if (selfTitle) return selfTitle
+
+  const titled = el.querySelector('[title]')
+  const childTitle = titled?.getAttribute('title')?.trim()
+  if (childTitle) return childTitle
+
+  return ''
+}
+
+/**
  * 收集子孙节点的文本内容，用作无障碍名字的兜底。
  * 当普通计算无法提取文本时，遍历后代并拼接可见文本。
+ * @param config 已规整的无障碍配置；传入后角色判断会尊重页面自定义 roles 规则
  */
-export function collectDescendantText(el: Element): string {
+export function collectDescendantText(el: Element, config?: ResolvedA11yConfig): string {
   let text = ''
   const walk = (node: Node) => {
     if (node.nodeType === Node.TEXT_NODE) {
@@ -212,7 +62,7 @@ export function collectDescendantText(el: Element): string {
       // 如果遇到嵌套的列表项或其他交互/语义节点，停止向下遍历该子树，避免兜底文本重复吸收
       if (element !== el) {
         const tag = element.tagName.toLowerCase()
-        const role = inferRole(element)
+        const role = resolveA11yRole(element, config)
         const isInteractiveTag = ['button', 'a', 'input', 'select', 'textarea', 'li', 'option'].includes(tag)
         const isInteractiveRole = ['button', 'link', 'checkbox', 'radio', 'textbox', 'listitem', 'option', 'combobox', 'listbox'].includes(role)
         const isTrulyInteractive = isTabbable(element as HTMLElement)
