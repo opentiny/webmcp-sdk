@@ -173,6 +173,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
       }
       return ret
     } catch (error) {
+      await pageController.hideMask()
       throw error
     }
   }
