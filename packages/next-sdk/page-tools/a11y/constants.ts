@@ -30,7 +30,7 @@ export const DEFAULT_DIALOG_SELECTORS = [
   // W3C ARIA 标准
   '[role="dialog"]',
   '[role="alertdialog"]',
-  // Tiny3 / Lego（华为云）
+  // Tiny3 / Lego（云控制台）
   '[class*="ti3-modal"]',
   '[class*="ti3-message-box"]',
   // Element UI / Element Plus

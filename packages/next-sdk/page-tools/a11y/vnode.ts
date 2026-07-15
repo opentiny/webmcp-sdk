@@ -9,7 +9,7 @@ import { isFocusable, isTabbable } from 'tabbable'
 import type { VNode, RefMap, A11yTreeShapeOptions } from './types'
 import type { ResolvedA11yConfig } from './config'
 import { resolveA11yInfo } from './config'
-import { isHidden, collectDescendantText, getComposedChildren } from './utils'
+import { isHidden, collectDescendantText, collectTitleLabel, getComposedChildren } from './utils'
 
 /**
  * 递归将 DOM 元素转换为 VNode 中间表示
@@ -55,6 +55,20 @@ export function buildVNode(
         name = collectDescendantText(el)
       }
     }
+  }
+
+  // 图标按钮常见：可点击容器本身无文本，title/aria 挂在子节点上（如控制台服务列表按钮）
+  if (!name.trim() && (isTrulyInteractive || isWhitelisted || isVisuallyClickable || role === 'button')) {
+    name = collectTitleLabel(el)
+  }
+
+  // 结构性交互角色（tab/menuitem 等）的标签文字常落在可聚焦子节点内，
+  // collectDescendantText 会因“遇交互子节点即停”而拿不到 name，这里用 textContent 再兜一层
+  if (
+    !name.trim() &&
+    ['tab', 'menuitem', 'option', 'treeitem', 'button'].includes(role)
+  ) {
+    name = (el.textContent ?? '').replace(/\s+/g, ' ').trim()
   }
 
   // 最终兜底：非交互元素（如错误提示 ti-error-msg、状态信息）的纯文本捕获。

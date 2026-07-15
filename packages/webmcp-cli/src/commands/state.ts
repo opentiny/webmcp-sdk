@@ -14,12 +14,24 @@ export async function stateCommand({ tabid }: { tabid?: string }) {
       const url = document.URL
       const title = document.title
 
-      const mcp = (document as any).modelContext
-      let webmcpTools: any[] = []
+      const mcp = (document as any).modelContext || (navigator as any).modelContext
+      let webmcpTools: Array<{ name: string; description?: string }> = []
 
-      if (mcp && typeof mcp.listTools === 'function') {
-        const toolsResult = await mcp.getTools()
-        webmcpTools = toolsResult?.tools || toolsResult || []
+      // polyfill 暴露的是 getTools（不是 MCP SDK 的 listTools）
+      // 只回传可结构化克隆的字段，避免工具对象上的函数导致 page.evaluate 序列化失败
+      if (mcp && typeof mcp.getTools === 'function') {
+        try {
+          const toolsResult = await mcp.getTools()
+          const list = (toolsResult?.tools || toolsResult || []) as Array<{ name?: string; description?: string }>
+          webmcpTools = list
+            .filter((t) => t && typeof t.name === 'string')
+            .map((t) => ({
+              name: t.name as string,
+              description: typeof t.description === 'string' ? t.description.slice(0, 200) : undefined,
+            }))
+        } catch {
+          webmcpTools = []
+        }
       }
 
       return { url, title, webmcpTools }

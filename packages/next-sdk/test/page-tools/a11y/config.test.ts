@@ -53,6 +53,13 @@ describe('resolveA11yRole', () => {
     expect(resolveA11yRole(target, config)).toBe('tab')
   })
 
+  it('roles 的 selector 仅匹配自身，不把角色传染给子孙', () => {
+    const wrap = el('<div class="tab-item"><span class="label">总览</span></div>')
+    const config = defineA11yConfig({ roles: [{ role: 'tab', selector: '.tab-item' }] })
+    expect(resolveA11yRole(wrap, config)).toBe('tab')
+    expect(resolveA11yRole(wrap.querySelector('.label')!, config)).toBe('generic')
+  })
+
   it('自定义 match 函数规则命中后赋予新角色', () => {
     const target = el('<div data-kind="switcher"></div>')
     const config = defineA11yConfig({
@@ -213,6 +220,25 @@ describe('resolveA11yStates - 自定义规则', () => {
     const target = el('<button class="btn is-checked"></button>')
     const config = defineA11yConfig({ states: { selected: { selector: '.is-checked' } } })
     expect(resolveA11yStates(target, config)).toContain('selected')
+  })
+
+  it('states 的 selector 用 closest，子孙可继承容器选中态', () => {
+    const wrap = el('<li class="ti3-tab-li ti3-tab-active"><span class="ti3-tabs-text">总览</span></li>')
+    const config = defineA11yConfig({ states: { selected: { selector: 'li.ti3-tab-li.ti3-tab-active' } } })
+    expect(resolveA11yStates(wrap.querySelector('.ti3-tabs-text')!, config)).toContain('selected')
+  })
+
+  it('默认配置：Tiny3 按钮组 ti3-active 在容器上时，内部 button 仍输出 selected', () => {
+    const wrap = el(
+      '<div class="ti3-btn-item-container ti3-active"><button class="ti3-btn-item ti3-btn-item-radio" aria-label="竞价计费">竞价计费</button></div>',
+    )
+    const btn = wrap.querySelector('button')!
+    expect(resolveA11yStates(btn)).toContain('selected')
+    // 未激活的兄弟按钮不应误标 selected
+    const inactive = el(
+      '<div class="ti3-btn-item-container"><button class="ti3-btn-item ti3-btn-item-radio">按需计费</button></div>',
+    )
+    expect(resolveA11yStates(inactive.querySelector('button')!)).not.toContain('selected')
   })
 
   it('states.<标准名> 用 match 函数命中', () => {

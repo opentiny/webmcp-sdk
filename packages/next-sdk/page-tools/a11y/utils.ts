@@ -31,6 +31,21 @@ export function isHidden(el: Element): boolean {
 
 
 /**
+ * 收集元素自身或子孙节点的 title，用作图标按钮等无文本节点的名字兜底。
+ * 云控制台常见模式：可点击容器无 aria-label，title 挂在内部 span 上。
+ */
+export function collectTitleLabel(el: Element): string {
+  const selfTitle = el.getAttribute('title')?.trim()
+  if (selfTitle) return selfTitle
+
+  const titled = el.querySelector('[title]')
+  const childTitle = titled?.getAttribute('title')?.trim()
+  if (childTitle) return childTitle
+
+  return ''
+}
+
+/**
  * 收集子孙节点的文本内容，用作无障碍名字的兜底。
  * 当普通计算无法提取文本时，遍历后代并拼接可见文本。
  */

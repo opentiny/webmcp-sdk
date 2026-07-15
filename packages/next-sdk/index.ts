@@ -63,6 +63,12 @@ export type { PageAgentToolOptions } from './page-tools/tool-config'
 export { DEFAULT_PAGE_AGENT_TOOL_CONFIG, getPageAgentToolConfig, setPageAgentToolConfig } from './page-tools/tool-config'
 export type { PageAgentToolConfig, PageAgentToolConfigPatch } from './page-tools/tool-config'
 
+// 站点预设：云控制台（consoleCloud）等 PageAgentToolOptions，可直接传给 registerPageAgentTool
+export {
+  consoleCloudPageAgentToolOptions,
+  isConsoleCloudHost,
+} from './page-tools/configs/console-cloud'
+
 // 统一无障碍配置（A11yConfig）：角色/状态规则、白/黑名单、自定义属性、弹窗选择器，
 // 以及供用户直接调用的底层解析函数（运行期读写请使用上面的 getPageAgentToolConfig/setPageAgentToolConfig）
 export {

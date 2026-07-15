@@ -85,9 +85,10 @@ getPageAgentToolConfig() // { enableHighlight: false, a11yConfig: { roles: [...]
 
 ```typescript
 interface A11yMatcher {
-  /** CSS 选择器（用 closest 判断元素自身或祖先是否命中，支持 Shadow DOM 穿透）。
-   *  不局限于类名：标签选择器（li）、属性选择器（[data-role="tab"]）、id 选择器、组合选择器均可。
-   *  也支持字符串数组，数组内任意一个命中即算命中，适合同一状态存在多个互不相关 class 命名的场景 */
+  /** CSS 选择器（优先使用；仅当选择器表达不了时再写 match）。
+   *  - roles：用 matches 仅匹配自身（避免角色传染给子孙）
+   *  - states：用 closest 匹配自身或祖先（适合挂在容器上的 error/selected）
+   *  支持标签/属性/id/组合选择器，也支持字符串数组（任意一个命中即可） */
   selector?: string | string[]
   /** 自定义判断函数，优先级高于 selector，用于读取计算样式等选择器表达不了的场景 */
   match?: (el: Element) => boolean
@@ -143,6 +144,26 @@ const a11yConfig = defineA11yConfig({
 
 registerPageAgentTool({ a11yConfig })
 ```
+
+### 站点预设：云控制台（consoleCloud）
+
+针对云控制台（Tiny3 + Angular）缺少 role/aria 的常见结构，SDK 导出了可直接使用的预设：
+
+```typescript
+import {
+  registerPageAgentTool,
+  consoleCloudPageAgentToolOptions,
+  isConsoleCloudHost,
+} from '@opentiny/next-sdk'
+
+if (isConsoleCloudHost()) {
+  registerPageAgentTool(consoleCloudPageAgentToolOptions)
+} else {
+  registerPageAgentTool()
+}
+```
+
+预设会补齐 Tab（`.ti3-tabs-text`）、下拉（`ti3-select-dominator`）、服务列表图标按钮、区域选项等角色/选中态，并暴露 `cf-uba`。`webmcp-cli` 注入时会按域名自动选用该预设。
 
 ### 底层解析函数：`resolveA11yInfo` / `resolveA11yRole` / `resolveA11yStates`
 

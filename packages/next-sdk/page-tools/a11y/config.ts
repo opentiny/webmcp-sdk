@@ -16,14 +16,13 @@ import { TAG_ROLE_MAP, INPUT_TYPE_ROLE, DEFAULT_ERROR_SELECTORS, DEFAULT_WARNING
 
 export interface A11yMatcher {
   /**
-   * 标准 CSS 选择器（用 closest 判断元素自身或祖先是否命中，支持 Shadow DOM 穿透）。
-   * 不局限于类名，标签选择器（`li`）、属性选择器（`[data-role="tab"]`、`[aria-selected]`）、
-   * id 选择器、组合选择器（`.btn-group > .btn[data-checked="true"]`）等合法 CSS 选择器均可使用。
-   * 也支持传入字符串数组，数组内任意一个选择器命中即算命中（等价于用逗号拼接成选择器列表），
-   * 便于同一状态存在多个互不相关的 class 命名场景（如新旧版本混用 `is-active` / `active-item`）。
+   * 标准 CSS 选择器。优先使用 selector，仅当选择器表达不了时再写 match。
+   * - **states**：用 `closest` 判断自身或祖先是否命中（适合 error/selected 等挂在容器上的状态）
+   * - **roles**：用 `matches` 仅判断自身是否命中（避免角色传染给子孙节点）
+   * 支持标签/属性/id/组合选择器，也支持字符串数组（任意一个命中即可）。
    */
   selector?: string | string[]
-  /** 自定义判断函数，优先级高于 selector，用于 CSS 选择器表达不了的场景（如读取计算样式、比较多个属性组合逻辑） */
+  /** 自定义判断函数，优先级高于 selector，用于读取计算样式、组合条件等选择器表达不了的场景 */
   match?: (el: Element) => boolean
 }
 
@@ -100,7 +99,12 @@ function defaultSelectedMatch(el: Element): boolean {
 export const DEFAULT_A11Y_CONFIG: ResolvedA11yConfig = {
   roles: [],
   states: {
-    selected: [{ match: defaultSelectedMatch }],
+    selected: [
+      { match: defaultSelectedMatch },
+      // Tiny3 按钮组/单选按钮组：选中 class 在容器上（.ti3-btn-item-container.ti3-active），
+      // 内部 button 自身无 aria-selected / ti3-active，需靠 closest 命中
+      { selector: '.ti3-btn-item-container.ti3-active' },
+    ],
     error: [{ selector: DEFAULT_ERROR_SELECTORS }],
     warning: [{ selector: DEFAULT_WARNING_SELECTORS }],
   },
@@ -119,6 +123,10 @@ function normalizeSelector(selector?: string | string[]): string | undefined {
   return joined || undefined
 }
 
+/**
+ * 通用匹配：match 优先；selector 用 closest（自身或祖先）。
+ * 用于 states：容器上的 error/selected class 需要能命中内部元素。
+ */
 function matchesRule(el: Element, rule: A11yMatcher): boolean {
   if (rule.match) {
     try {
@@ -133,6 +141,29 @@ function matchesRule(el: Element, rule: A11yMatcher): boolean {
       return !!el.closest(selector)
     } catch {
       // 忽略非法选择器
+      return false
+    }
+  }
+  return false
+}
+
+/**
+ * 角色匹配：match 优先；selector 用 matches（仅自身）。
+ * 避免 `{ role: 'tab', selector: '.tab-item' }` 把 tab 角色传染给子孙节点。
+ */
+function matchesRoleRule(el: Element, rule: A11yMatcher): boolean {
+  if (rule.match) {
+    try {
+      return !!rule.match(el)
+    } catch {
+      return false
+    }
+  }
+  const selector = normalizeSelector(rule.selector)
+  if (selector) {
+    try {
+      return !!el.matches(selector)
+    } catch {
       return false
     }
   }
@@ -207,7 +238,7 @@ function computeRole(el: Element, resolved: ResolvedA11yConfig): string {
 
   for (const rule of resolved.roles) {
     if (hasExplicit && !rule.force) continue
-    if (matchesRule(el, rule)) return rule.role
+    if (matchesRoleRule(el, rule)) return rule.role
   }
 
   if (hasExplicit) return explicit as string
