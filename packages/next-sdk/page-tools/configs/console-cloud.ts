@@ -150,5 +150,6 @@ export const consoleCloudPageAgentToolOptions: PageAgentToolOptions = {
 export function isConsoleCloudHost(
   hostname: string = typeof location !== 'undefined' ? location.hostname : '',
 ): boolean {
-  return /console\.huaweicloud\.com$/i.test(hostname)
+  // 要求 console 前为域名边界（开头或 `.`），避免误匹配 xconsole.huaweicloud.com
+  return /(^|\.)console\.huaweicloud\.com$/i.test(hostname)
 }

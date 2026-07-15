@@ -5,6 +5,8 @@ import {
   resolveA11yInfo,
   mergeA11yConfig,
   mergeA11yConfigs,
+  ensureResolvedA11yConfig,
+  isResolvedA11yConfig,
   defineA11yConfig,
   extractSelectors,
   type A11yConfig,
@@ -326,6 +328,19 @@ describe('mergeA11yConfig / mergeA11yConfigs', () => {
     const b: A11yConfig = { whitelist: ['.b'] }
     const merged = mergeA11yConfigs(a, b)
     expect(merged.whitelist).toEqual(['.a', '.b'])
+  })
+
+  it('已 Resolved 的配置再次 mergeA11yConfig / ensureResolved 保持同引用且规则不翻倍', () => {
+    const once = mergeA11yConfig({ roles: [{ role: 'tab', selector: '.tab' }] })
+    const selectedLen = once.states.selected!.length
+    expect(isResolvedA11yConfig(once)).toBe(true)
+    expect(mergeA11yConfig(once)).toBe(once)
+    expect(ensureResolvedA11yConfig(once)).toBe(once)
+    expect(once.states.selected!.length).toBe(selectedLen)
+    // 未标记的普通 A11yConfig 仍会与默认合并
+    const raw: A11yConfig = { roles: [{ role: 'tab', selector: '.tab' }] }
+    expect(isResolvedA11yConfig(raw)).toBe(false)
+    expect(ensureResolvedA11yConfig(raw)).not.toBe(raw)
   })
 })
 

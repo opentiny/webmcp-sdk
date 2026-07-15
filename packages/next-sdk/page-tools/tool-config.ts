@@ -46,12 +46,11 @@ declare global {
   }
 }
 
-const TOOL_CONFIG_KEY = '__webmcpcli_toolConfig'
-
 /** 读取当前生效的完整工具配置（已与默认值合并）。未初始化时返回默认配置 */
 export function getPageAgentToolConfig(): PageAgentToolConfig {
-  const current = typeof window !== 'undefined' ? window[TOOL_CONFIG_KEY as keyof Window] : undefined
-  if (current) return current as PageAgentToolConfig
+  if (typeof window !== 'undefined' && window.__webmcpcli_toolConfig) {
+    return window.__webmcpcli_toolConfig
+  }
   return { enableHighlight: DEFAULT_PAGE_AGENT_TOOL_CONFIG.enableHighlight, a11yConfig: mergeA11yConfig() }
 }
 
@@ -83,7 +82,7 @@ export function setPageAgentToolConfig(
     : resolvePatch(patch, mode === 'replace' ? DEFAULT_PAGE_AGENT_TOOL_CONFIG : current)
 
   if (typeof window !== 'undefined') {
-    ;(window as any)[TOOL_CONFIG_KEY] = next
+    window.__webmcpcli_toolConfig = next
   }
   return next
 }

@@ -3,12 +3,26 @@ import { detectPageDialog, detectValidationErrors, deepQuerySelectorAll } from '
 import { setPageAgentToolConfig } from '../../../page-tools/tool-config'
 
 function mockRect(el: Element, rect: Partial<DOMRect>) {
-  const full = { x: 0, y: 0, width: 0, height: 0, top: 0, left: 0, right: 0, bottom: 0, toJSON: () => ({}), ...rect }
-  ;(el as any).getBoundingClientRect = () => full as DOMRect
+  const full: DOMRect = {
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    toJSON: () => ({}),
+    ...rect,
+  }
+  Object.defineProperty(el, 'getBoundingClientRect', {
+    configurable: true,
+    value: () => full,
+  })
 }
 
 function resetWindowGlobals() {
-  delete (window as any).__webmcpcli_toolConfig
+  delete window.__webmcpcli_toolConfig
 }
 
 beforeEach(() => {

@@ -13,8 +13,8 @@ import { registerPageAgentTool } from '../../page-tools/page-agent-tool'
 import { getPageAgentToolConfig, setPageAgentToolConfig } from '../../page-tools/tool-config'
 
 function resetWindowGlobals() {
-  delete (window as any).__webmcpcli_toolConfig
-  delete (window as any).__webmcpcli_beforeGetBrowserState
+  delete window.__webmcpcli_toolConfig
+  delete window.__webmcpcli_beforeGetBrowserState
   // 注意：initializeBuiltinWebMCP() 内部用模块级单例 flag 控制只初始化一次 document.modelContext，
   // 且没有对外暴露重置能力，因此这里不删除 document.modelContext，避免二次调用时因单例 flag
   // 仍为 true 而不会重新创建 modelContext，导致 registerTool 拿到 undefined

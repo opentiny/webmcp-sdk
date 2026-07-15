@@ -79,6 +79,8 @@ export {
   resolveA11yStates,
   mergeA11yConfig,
   mergeA11yConfigs,
+  ensureResolvedA11yConfig,
+  isResolvedA11yConfig,
   extractSelectors,
 } from './page-tools/a11y/config'
 export type { A11yConfig, ResolvedA11yConfig, A11yRoleRule, A11yMatcher, A11yStateName, A11yInfo } from './page-tools/a11y/config'

@@ -60,6 +60,9 @@ export interface A11yInfo {
   tokens: string[]
 }
 
+/** 标记已与默认值合并并规整过的配置，避免热路径上二次 merge 导致默认规则翻倍 */
+const RESOLVED_A11Y_BRAND = Symbol.for('@opentiny/next-sdk:ResolvedA11yConfig')
+
 /**
  * 合并/规整后的完整无障碍配置：与用户书写的 {@link A11yConfig} 的唯一区别是
  * states 的每个状态名都统一规范化为数组（不再是 `A11yMatcher | A11yMatcher[]`）。
@@ -72,6 +75,18 @@ export interface ResolvedA11yConfig {
   blacklist: Array<Element | string>
   exposedAttributes: string[]
   dialogSelectors: string[]
+  readonly [RESOLVED_A11Y_BRAND]?: true
+}
+
+function markResolved(config: ResolvedA11yConfig): ResolvedA11yConfig {
+  return Object.assign(config, { [RESOLVED_A11Y_BRAND]: true as const })
+}
+
+/** 是否为 {@link mergeA11yConfig}/{@link mergeA11yConfigs} 产出的已规整配置 */
+export function isResolvedA11yConfig(
+  config?: A11yConfig | ResolvedA11yConfig | null,
+): config is ResolvedA11yConfig {
+  return !!config && (config as ResolvedA11yConfig)[RESOLVED_A11Y_BRAND] === true
 }
 
 /** 内置已知状态名（用于区分"标准状态"与"用户自定义状态"，避免重复输出 token） */
@@ -96,7 +111,7 @@ function defaultSelectedMatch(el: Element): boolean {
 }
 
 /** 默认生效的无障碍配置：零配置即可覆盖 ARIA 标准 + 主流 UI 框架的常见错误/警告/选中态检测 */
-export const DEFAULT_A11Y_CONFIG: ResolvedA11yConfig = {
+export const DEFAULT_A11Y_CONFIG: ResolvedA11yConfig = markResolved({
   roles: [],
   states: {
     selected: [
@@ -112,7 +127,7 @@ export const DEFAULT_A11Y_CONFIG: ResolvedA11yConfig = {
   blacklist: [],
   exposedAttributes: [],
   dialogSelectors: DEFAULT_DIALOG_SELECTORS,
-}
+})
 
 // ─── 匹配辅助 ────────────────────────────────────────────────────────────
 
@@ -210,19 +225,32 @@ function mergeStates(
 
 /** 合并两份 A11yConfig：数组类字段拼接（additive，不丢失 base 中已有的规则），states 按 key 独立合并 */
 export function mergeA11yConfigs(base: A11yConfig, patch: A11yConfig): ResolvedA11yConfig {
-  return {
+  return markResolved({
     roles: concatArr(base.roles, patch.roles),
     states: mergeStates(base.states, patch.states),
     whitelist: concatArr(base.whitelist, patch.whitelist),
     blacklist: concatArr(base.blacklist, patch.blacklist),
     exposedAttributes: concatArr(base.exposedAttributes, patch.exposedAttributes),
     dialogSelectors: concatArr(base.dialogSelectors, patch.dialogSelectors),
-  }
+  })
 }
 
-/** 将用户配置与默认配置合并（additive），得到最终生效的完整配置 */
-export function mergeA11yConfig(user?: A11yConfig): ResolvedA11yConfig {
+/**
+ * 将用户配置与默认配置合并（additive），得到最终生效的完整配置。
+ * 若入参已是 {@link ResolvedA11yConfig}，直接返回（幂等，避免默认规则被再次拼接）。
+ */
+export function mergeA11yConfig(user?: A11yConfig | ResolvedA11yConfig): ResolvedA11yConfig {
+  if (isResolvedA11yConfig(user)) return user
   return mergeA11yConfigs(DEFAULT_A11Y_CONFIG, user ?? {})
+}
+
+/**
+ * 保证拿到已与默认值合并的配置：已规整则原样返回（同引用，零开销），否则与默认配置合并。
+ * buildA11yTree / resolveA11yInfo 热路径应优先走此函数，避免对运行期配置反复 merge。
+ */
+export function ensureResolvedA11yConfig(config?: A11yConfig | ResolvedA11yConfig): ResolvedA11yConfig {
+  if (isResolvedA11yConfig(config)) return config
+  return mergeA11yConfig(config)
 }
 
 /** 恒等函数，仅用于书写配置时获得 TS 类型提示/校验（风格对齐 defineConfig） */
@@ -411,21 +439,24 @@ function computeStates(el: Element, resolved: ResolvedA11yConfig): string[] {
   return Array.from(new Set(tokens))
 }
 
-export function resolveA11yRole(el: Element, config?: A11yConfig): string {
-  return computeRole(el, mergeA11yConfig(config))
+export function resolveA11yRole(el: Element, config?: A11yConfig | ResolvedA11yConfig): string {
+  return computeRole(el, ensureResolvedA11yConfig(config))
 }
 
-export function resolveA11yStates(el: Element, config?: A11yConfig): string[] {
-  return computeStates(el, mergeA11yConfig(config))
+export function resolveA11yStates(el: Element, config?: A11yConfig | ResolvedA11yConfig): string[] {
+  return computeStates(el, ensureResolvedA11yConfig(config))
 }
 
 /**
  * 统一入口（供用户直接调用的底层函数）：读取配置 -> 依据 roles/states 规则计算出该元素的
  * 完整无障碍信息（角色 + 状态 token）。buildA11yTree 内部对每个 DOM 节点也是调用这一个函数，
  * 是声明式规则与树生成结果之间唯一的桥接点；用户也可以直接调用它来调试/复用同一套解析逻辑。
+ *
+ * 若传入已是 {@link ResolvedA11yConfig}（如 getPageAgentToolConfig().a11yConfig），则跳过合并，
+ * 避免在整树遍历时对每个节点重复 array spread / 默认规则翻倍。
  */
-export function resolveA11yInfo(el: Element, config?: A11yConfig): A11yInfo {
-  const resolved = mergeA11yConfig(config)
+export function resolveA11yInfo(el: Element, config?: A11yConfig | ResolvedA11yConfig): A11yInfo {
+  const resolved = ensureResolvedA11yConfig(config)
   return {
     role: computeRole(el, resolved),
     tokens: computeStates(el, resolved),

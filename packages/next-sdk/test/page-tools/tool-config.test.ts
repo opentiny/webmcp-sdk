@@ -6,7 +6,7 @@ import {
 } from '../../page-tools/tool-config'
 
 function resetWindowGlobals() {
-  delete (window as any).__webmcpcli_toolConfig
+  delete window.__webmcpcli_toolConfig
 }
 
 beforeEach(() => {

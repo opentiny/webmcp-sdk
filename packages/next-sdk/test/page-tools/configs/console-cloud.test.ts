@@ -24,11 +24,12 @@ afterEach(() => {
 const a11yConfig = consoleCloudPageAgentToolOptions.a11yConfig!
 
 describe('isConsoleCloudHost', () => {
-  it('匹配控制台主域与子控制台', () => {
+  it('匹配控制台主域与子控制台，且要求 console 前为域名边界', () => {
     expect(isConsoleCloudHost('console.huaweicloud.com')).toBe(true)
     expect(isConsoleCloudHost('ecs.console.huaweicloud.com')).toBe(true)
     expect(isConsoleCloudHost('www.huaweicloud.com')).toBe(false)
     expect(isConsoleCloudHost('www.baidu.com')).toBe(false)
+    expect(isConsoleCloudHost('xconsole.huaweicloud.com')).toBe(false)
   })
 })
 

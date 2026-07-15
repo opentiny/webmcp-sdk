@@ -6,7 +6,7 @@
 
 import type { A11yTreeOptions, A11yTreeResult, A11yTreeShapeOptions, RefMap } from './types'
 import type { A11yConfig } from './config'
-import { mergeA11yConfig } from './config'
+import { ensureResolvedA11yConfig } from './config'
 import { buildVNode, serializeVNode } from './vnode'
 import { getComposedChildren } from './utils'
 import { deepQuerySelectorAll } from '../utils/dom'
@@ -37,7 +37,8 @@ function resolveElementList(list: Array<Element | string>, root: Element): Set<E
  */
 export function buildA11yTree(root: Element = document.body, config?: A11yConfig & A11yTreeOptions): A11yTreeResult {
   const { pruneUnnamed = true, preserveRoles = [], ...a11yConfig } = config ?? {}
-  const resolved = mergeA11yConfig(a11yConfig)
+  // 运行期 a11yConfig 通常已是 ResolvedA11yConfig，走快路径避免再次与默认配置拼接
+  const resolved = ensureResolvedA11yConfig(a11yConfig)
   const shapeOpts: A11yTreeShapeOptions = { pruneUnnamed, preserveRoles }
 
   // 使用对象引用避免全局可变状态，消除并发调用隐患
