@@ -27,11 +27,25 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'pnpm'
+          node-version: 24
 
+      # 仓库未提交 pnpm-lock.yaml，无法使用 setup-node 的 cache: pnpm
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: |
+          echo "pnpm_cache_dir=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.pnpm_cache_dir }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      # 仓库未提交 lockfile，需允许解析依赖树
       - name: Install dependencies
-        run: pnpm i --frozen-lockfile
+        run: pnpm i --no-frozen-lockfile
 
       - name: Run tests
         id: run-tests
