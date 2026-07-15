@@ -1,4 +1,14 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+
+// jsdom 无 WebGL2，避免 SimulatorMask → ai-motion 初始化刷 stderr
+vi.mock('../../page-tools/page-agent-mask/SimulatorMask', () => ({
+  SimulatorMask: class SimulatorMask {
+    show() {}
+    hide() {}
+    dispose() {}
+  },
+}))
+
 import { registerPageAgentTool } from '../../page-tools/page-agent-tool'
 import { getPageAgentToolConfig, setPageAgentToolConfig } from '../../page-tools/tool-config'
 
