@@ -52,7 +52,7 @@ export function buildVNode(
     if (!isDropdown) {
       const isInteractiveTag = ['button', 'a', 'input', 'textarea', 'li', 'label'].includes(tag)
       if (isTrulyInteractive || isWhitelisted || isVisuallyClickable || isInteractiveTag || role === 'listitem' || role === 'option') {
-        name = collectDescendantText(el)
+        name = collectDescendantText(el, config)
       }
     }
   }
@@ -78,7 +78,7 @@ export function buildVNode(
   if (!name.trim()) {
     const hasElementChildren = getComposedChildren(el).length > 0
     if (!hasElementChildren) {
-      const text = collectDescendantText(el)
+      const text = collectDescendantText(el, config)
       if (text) {
         name = text
       }

@@ -6,7 +6,7 @@
  */
 
 import { isTabbable } from 'tabbable'
-import { resolveA11yRole } from './config'
+import { resolveA11yRole, type ResolvedA11yConfig } from './config'
 
 /** 判断元素是否应被跳过（不可见或在黑名单中） */
 export function isHidden(el: Element): boolean {
@@ -48,8 +48,9 @@ export function collectTitleLabel(el: Element): string {
 /**
  * 收集子孙节点的文本内容，用作无障碍名字的兜底。
  * 当普通计算无法提取文本时，遍历后代并拼接可见文本。
+ * @param config 已规整的无障碍配置；传入后角色判断会尊重页面自定义 roles 规则
  */
-export function collectDescendantText(el: Element): string {
+export function collectDescendantText(el: Element, config?: ResolvedA11yConfig): string {
   let text = ''
   const walk = (node: Node) => {
     if (node.nodeType === Node.TEXT_NODE) {
@@ -61,7 +62,7 @@ export function collectDescendantText(el: Element): string {
       // 如果遇到嵌套的列表项或其他交互/语义节点，停止向下遍历该子树，避免兜底文本重复吸收
       if (element !== el) {
         const tag = element.tagName.toLowerCase()
-        const role = resolveA11yRole(element)
+        const role = resolveA11yRole(element, config)
         const isInteractiveTag = ['button', 'a', 'input', 'select', 'textarea', 'li', 'option'].includes(tag)
         const isInteractiveRole = ['button', 'link', 'checkbox', 'radio', 'textbox', 'listitem', 'option', 'combobox', 'listbox'].includes(role)
         const isTrulyInteractive = isTabbable(element as HTMLElement)

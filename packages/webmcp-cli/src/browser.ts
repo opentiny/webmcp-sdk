@@ -419,7 +419,11 @@ export async function getTargetPage(browser: Browser, tabid?: string): Promise<P
     // Chrome 的 /json/list 接口把当前激活 the tab 排在第一位，用它来判断激活 tab
     if (!targetPage) {
       try {
-        const urls = candidateCdpBaseUrls(CDP_PORT).map(u => `${u}/json/list`)
+        // 与 connectBrowser 一致：若 Chrome 因端口冲突切到非默认端口，一并探测 DevToolsActivePort
+        const workspaceDir = getWorkspaceDir()
+        const recordedPort = readActivePortFromProfile(workspaceDir)
+        const ports = recordedPort && recordedPort !== CDP_PORT ? [recordedPort, CDP_PORT] : [CDP_PORT]
+        const urls = ports.flatMap((port) => candidateCdpBaseUrls(port).map((u) => `${u}/json/list`))
         let activeTargetId: string | null = null
         for (const url of urls) {
           try {
