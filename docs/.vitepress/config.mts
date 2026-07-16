@@ -2,8 +2,8 @@ import { defineConfig } from 'vitepress'
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
-  title: 'OpenTiny NEXT-SDKs',
-  description: 'OpenTiny NEXT-SDKs',
+  title: 'OpenTiny WebMCP-SDKs',
+  description: 'OpenTiny WebMCP-SDKs',
   base: '/webmcp-sdk/',
   ignoreDeadLinks: [/^http:\/\/localhost:/],
   vite: {
@@ -14,15 +14,16 @@ export default defineConfig({
   themeConfig: {
     // https://vitepress.dev/reference/default-theme-config
     logo: 'logo.png',
-    nav: [{ text: '指引', link: '/guide/', activeMatch: '/guide/' }],
+    nav: [{ text: '指引', link: '/guide/quick-start', activeMatch: '/guide/quick-start' }],
 
     sidebar: {
       '/': [
         {
           text: '介绍',
           items: [
-            { text: '快速开始', link: '/guide/' },
-            { text: '浏览器内置 WebMCP', link: '/guide/webmcp-article' }
+            { text: '快速开始', link: '/guide/quick-start' },
+            { text: 'WebMCP API 文档', link: '/guide/webmcp-article' },
+            { text: '适配场景', link: '/guide/choose-scene' }
           ]
         },
         {
