@@ -8,7 +8,7 @@ import type { A11yTreeOptions, A11yTreeResult, A11yTreeShapeOptions, RefMap } fr
 import type { A11yConfig } from './config'
 import { ensureResolvedA11yConfig } from './config'
 import { buildVNode, serializeVNode } from './vnode'
-import { getComposedChildren } from './utils'
+import { getComposedChildren, collectHoverPointerElements } from './utils'
 import { deepQuerySelectorAll } from '../utils/dom'
 import { HIGHLIGHT_CONTAINER_ID } from '../page-agent-highlight'
 
@@ -52,8 +52,12 @@ export function buildA11yTree(root: Element = document.body, config?: A11yConfig
   const highlightContainer = document.getElementById(HIGHLIGHT_CONTAINER_ID)
   if (highlightContainer) blacklistSet.add(highlightContainer)
 
+  // 一次性扫描样式表，收集只在 :hover/:focus/:active 下声明 cursor:pointer 的元素。
+  // 这类元素静止态 getComputedStyle 读到 auto，需靠样式表兜底才能识别为可点击。
+  const hoverPointerSet = collectHoverPointerElements(root)
+
   for (const child of getComposedChildren(root)) {
-    const vnode = buildVNode(child, refCounter, refMap, blacklistSet, whitelistSet, resolved)
+    const vnode = buildVNode(child, refCounter, refMap, blacklistSet, whitelistSet, resolved, hoverPointerSet)
     if (vnode) {
       lines.push(...serializeVNode(vnode, 0, shapeOpts))
     }

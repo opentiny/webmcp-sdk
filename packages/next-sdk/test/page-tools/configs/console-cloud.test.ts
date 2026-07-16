@@ -4,6 +4,7 @@ import {
   consoleCloudPageAgentToolOptions,
   isConsoleCloudHost,
 } from '../../../page-tools/configs/console-cloud'
+import { buildA11yTree } from '../../../page-tools/a11y-tree'
 import { collectTitleLabel } from '../../../page-tools/a11y/utils'
 
 function el(html: string): Element {
@@ -34,9 +35,19 @@ describe('isConsoleCloudHost', () => {
 })
 
 describe('consoleCloudPageAgentToolOptions', () => {
-  it('导出完整 PageAgentToolOptions，并暴露 cf-uba', () => {
-    expect(consoleCloudPageAgentToolOptions.enableHighlight).toBe(false)
+  it('导出完整 PageAgentToolOptions，并暴露 cf-uba / data-qa-id / name', () => {
+    expect(consoleCloudPageAgentToolOptions.enableHighlight).toBe(true)
     expect(a11yConfig.exposedAttributes).toContain('cf-uba')
+    expect(a11yConfig.exposedAttributes).toContain('data-qa-id')
+    expect(a11yConfig.exposedAttributes).toContain('name')
+  })
+
+  it('data-qa-id 仅输出属性 token，不自动赋予 ref', () => {
+    const staticEl = el('<div data-qa-id="static-marker">静态文案</div>')
+    const info = resolveA11yInfo(staticEl, a11yConfig)
+    expect(info.tokens).toContain('data-qa-id="static-marker"')
+    const { refMap } = buildA11yTree(staticEl, a11yConfig)
+    expect(refMap.size).toBe(0)
   })
 
   it('Tiny3 Tab：.ti3-tabs-text → tab，选中态随父 li.ti3-tab-active', () => {
@@ -67,6 +78,40 @@ describe('consoleCloudPageAgentToolOptions', () => {
     expect(info.tokens.some((t) => t.includes('cf-uba='))).toBe(true)
   })
 
+  it(
+    '场景：帮助中心头部 ti-icon / tp-icon（固定/全屏/关闭）\n' +
+      '问题：自定义图标标签无 button 语义，Agent 无法点击固定/全屏/关闭\n' +
+      '期望：识别为 button；有 name 属性的图标输出 name token，正文可为空',
+    () => {
+      const root = el(`
+        <div class="ti-global-help-panel-header-right">
+          <tp-icon name="cloudx-action-fixed" class="ti-global-help-panel-header-icon"></tp-icon>
+          <ti-icon class="ti-global-help-panel-header-icon ti3-icon-full-screen ti3-icon"></ti-icon>
+          <ti-icon name="close" class="ti-global-help-panel-header-icon ti-global-help-panel-close ti3-icon-close ti3-icon"></ti-icon>
+        </div>
+      `)
+
+      const fixed = root.querySelector('tp-icon')!
+      const fullScreen = root.querySelector('ti-icon.ti3-icon-full-screen')!
+      const close = root.querySelector('ti-icon[name="close"]')!
+
+      expect(resolveA11yInfo(fixed, a11yConfig).role).toBe('button')
+      expect(resolveA11yInfo(fullScreen, a11yConfig).role).toBe('button')
+      expect(resolveA11yInfo(close, a11yConfig).role).toBe('button')
+
+      const { yaml, refMap, lines } = buildA11yTree(root, a11yConfig)
+      expect(refMap.size).toBeGreaterThanOrEqual(3)
+      expect(Array.from(refMap.values())).toEqual(expect.arrayContaining([fixed, fullScreen, close]))
+      expect(lines.some((l) => /button.*\[.*name=.*cloudx-action-fixed/.test(l))).toBe(true)
+      expect(lines.some((l) => /button.*\[.*name=.*close/.test(l))).toBe(true)
+      expect(lines.some((l) => /button.*\[.*name=full-screen/.test(l))).toBe(false)
+      expect(lines.some((l) => /button.*"cloudx-action-fixed"/.test(l))).toBe(false)
+      expect(lines.some((l) => /button.*"full-screen"/.test(l))).toBe(false)
+      expect(lines.some((l) => /button.*"close"/.test(l))).toBe(false)
+      expect(yaml).not.toMatch(/@font-face/i)
+    },
+  )
+
   it('区域选择触发器 → combobox', () => {
     const box = el('<div class="ti3-select-dominator-container"><span>华北-北京四</span></div>')
     expect(resolveA11yInfo(box, a11yConfig).role).toBe('combobox')
@@ -89,5 +134,22 @@ describe('collectTitleLabel', () => {
     expect(
       collectTitleLabel(el('<div class="icon"><span title="打开服务列表"></span></div>')),
     ).toBe('打开服务列表')
+  })
+})
+
+describe('consoleCloud 图标动作标识', () => {
+  it('ti-icon / tp-icon：name 属性经 exposedAttributes 输出 token', () => {
+    expect(resolveA11yInfo(el('<tp-icon name="cloudx-action-fixed"></tp-icon>'), a11yConfig).tokens).toContain(
+      'name="cloudx-action-fixed"',
+    )
+    expect(resolveA11yInfo(el('<ti-icon name="close" class="ti3-icon-close"></ti-icon>'), a11yConfig).tokens).toContain(
+      'name="close"',
+    )
+    expect(
+      resolveA11yInfo(
+        el('<ti-icon class="ti-global-help-panel-header-icon ti3-icon-full-screen ti3-icon"></ti-icon>'),
+        a11yConfig,
+      ).tokens,
+    ).not.toContain('name=full-screen')
   })
 })

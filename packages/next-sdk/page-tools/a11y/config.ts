@@ -412,9 +412,10 @@ function computeStates(el: Element, resolved: ResolvedA11yConfig): string[] {
   const valuetext = aria('aria-valuetext')
   if (valuetext) tokens.push(`valuetext="${valuetext}"`)
 
-  // link 元素：检测 target=_blank，提示 Agent 该链接会在新标签页打开
-  if (tag === 'a' && aria('target') === '_blank') {
-    tokens.push('opens-new-tab')
+  // link 元素：暴露原生 target 属性值，提示 Agent 该链接会在新标签页打开
+  if (tag === 'a') {
+    const target = aria('target')
+    if (target) tokens.push(`target=${target}`)
   }
 
   // 校验错误/警告状态（ARIA 标准 + 主流 UI 框架，可配置），error 优先于 warning
