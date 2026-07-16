@@ -6,6 +6,8 @@
  * - 下拉：`.ti3-select-dominator-container` / `.selected-label` 无 combobox 语义
  * - 图标按钮：仅有 `cf-uba` / 子节点 `title`，无 aria-label
  * - 服务列表侧栏、区域选择等用 class 表达选中态
+ * - 校验错误/警告：`.ti3-error` / `.ti3-warning` 等无 aria-invalid 语义
+ * - 帮助提示：`tp-helptip` 无 role=button，tooltip 浮层无 role=tooltip
  *
  * 书写约定：优先 selector；仅当需要计算样式等复杂判断时再用 match。
  * （roles 的 selector 为自身 matches；states 的 selector 为 closest）
@@ -16,7 +18,7 @@ import type { PageAgentToolOptions } from '../tool-config'
 
 /** 云控制台 page-agent-tool 预设配置 */
 export const consoleCloudPageAgentToolOptions: PageAgentToolOptions = {
-  enableHighlight: false,
+  enableHighlight: true,
   a11yConfig: defineA11yConfig({
     roles: [
       // Tiny3 Tabs：真正可聚焦/可点击的是内部 .ti3-tabs-text（tabindex=0）
@@ -81,9 +83,31 @@ export const consoleCloudPageAgentToolOptions: PageAgentToolOptions = {
           '.region-selector-item',
           '.modules-searchable-region-project-item-region-item',
           '.modules-searchable-region-region-panel-recent-region-item',
-          '.ti3-multiselect-box-cell'
-        ]
-      }
+          '.ti3-multiselect-box-cell',
+        ],
+      },
+      // 模态弹窗：补齐缺失的 role="dialog"（Tiny3 modal/message-box/drawer/侧栏面板）
+      {
+        role: 'dialog',
+        selector: [
+          '[class*="ti3-modal"]',
+          '[class*="ti3-message-box"]',
+          '[class*="drawer"]',
+          '.modules-layout-module-sidebar-panel',
+        ],
+      },
+
+      // Tiny3 tooltip / 帮助提示：补齐缺失的 role="tooltip"
+      {
+        role: 'tooltip',
+        selector: [
+          'tp-helptip',
+          '[class*="ti3-tooltip"]',
+          '.tp-helptip-content',
+          '.ti3-tooltip',
+          '.ti3-tooltip-popper',
+        ],
+      },
     ],
     states: {
       // 选中态：挂在容器 class 上，用 selector + closest 即可命中内部交互节点
@@ -114,6 +138,14 @@ export const consoleCloudPageAgentToolOptions: PageAgentToolOptions = {
         }
       ],
       disabled: [{ selector: '.ti3-disabled' }],
+      // Tiny3 / Lego 校验错误
+      error: [
+        { selector: ['.ti3-unifyvalid-error', '.ti3-error', '.ti-error', '.lego-text-error', '.lego-error'] },
+      ],
+      // Tiny3 / Lego 警告
+      warning: [
+        { selector: ['.ti3-warning', '.ti-warning', '.lego-text-warning'] },
+      ],
       // 展开态：需结合计算样式，选择器表达不了「可见」
       expanded: [
         {
@@ -140,6 +172,7 @@ export const consoleCloudPageAgentToolOptions: PageAgentToolOptions = {
     whitelist: [
       '.modules-service-list-menu-service-icon-container',
       '.ti3-tabs-text',
+      'tp-helptip',
       '[cf-uba="cloudShell"]',
       '[cf-uba="messageBox"]',
       '[cf-uba="helpFeedback"]',
@@ -154,13 +187,7 @@ export const consoleCloudPageAgentToolOptions: PageAgentToolOptions = {
       'ti-icon.ti3-icon-full-screen'
     ],
     blacklist: ['noscript', 'pan-gu', '#J_header'],
-    dialogSelectors: [
-      '[class*="ti3-modal"]',
-      '[class*="ti3-message-box"]',
-      '[class*="drawer"]',
-      '.modules-layout-module-sidebar-panel'
-    ]
-  })
+  }),
 }
 
 /** 判断当前页面是否应使用云控制台（consoleCloud）预设 */
