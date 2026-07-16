@@ -23,7 +23,7 @@ export default defineConfig({
           items: [
             { text: '快速开始', link: '/guide/quick-start' },
             { text: 'WebMCP API 文档', link: '/guide/webmcp-article' },
-            { text: '适配场景', link: '/guide/choose-scene' }
+            { text: 'WebMCP的适配场景', link: '/guide/choose-scene' }
           ]
         },
         {
