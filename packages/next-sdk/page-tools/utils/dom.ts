@@ -225,7 +225,6 @@ function isElementVisible(el: Element): boolean {
 function hasStaticTooltip(el: Element): boolean {
   return !!(el.getAttribute('title') || el.getAttribute('aria-describedby') ||
     el.getAttribute('data-tooltip') || el.getAttribute('data-tips') || el.getAttribute('data-tip') ||
-    el.hasAttribute('tioverflow') || el.hasAttribute('tiOverflow') ||
     el.getAttribute('mattooltip') || el.getAttribute('matTooltip'))
 }
 

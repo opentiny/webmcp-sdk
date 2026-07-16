@@ -7,6 +7,13 @@ export { DEFAULT_ROLE_OVERRIDES, type RoleOverride } from './a11y/constants'
 /** registerPageAgentTool(options) 的入参类型，定义见 tool-config.ts（与运行期 setPageAgentToolConfig 的补丁类型一致） */
 export type { PageAgentToolOptions } from './tool-config'
 
+/** CLI 端预扫描结果项：tp-helptip 索引 → 文本 + 类型 */
+export interface PreScannedTooltip {
+  index: number
+  text: string
+  type: 'tooltip' | 'button'
+}
+
 declare global {
   interface Window {
     /** 指定网站可覆盖该函数，在每次 getBrowserState 之前调用，常用于配合 setPageAgentToolConfig 动态调整当前页面的配置 */
@@ -14,6 +21,6 @@ declare global {
     /** 动态 tooltip 缓存：scanForDynamicTooltips 自动 hover 扫描结果，element → tooltip 文本 */
     __webmcpcli_dynamicTooltipCache?: WeakMap<Element, string>
     /** CLI 端预扫描结果：tp-helptip 索引 → 文本 + 类型（hover 识别 tooltip / click 识别帮助按钮弹窗） */
-    __webmcpcli_preScannedTooltips?: Array<{ index: number; text: string; type: 'tooltip' | 'button' }>
+    __webmcpcli_preScannedTooltips?: PreScannedTooltip[]
   }
 }

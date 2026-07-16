@@ -295,15 +295,8 @@ export function extractTooltipText(el: Element): string {
     }
   }
 
-  // 4b. 框架级 overflow tooltip 指令
-  // Tiny3 tioverflow: 文本截断时 hover 显示完整文本，tooltip 内容 = 元素自身文本
+  // 4b. 框架级 tooltip 内容检测
   // Angular Material matTooltip: 属性值即 tooltip 文本
-  if (el.hasAttribute('tioverflow') || el.hasAttribute('tiOverflow')) {
-    const text = (el.textContent || '').trim().replace(/\s+/g, ' ')
-    if (text) {
-      return text.replace(/"/g, '\\"').substring(0, 200)
-    }
-  }
   const matTooltip = el.getAttribute('mattooltip') || el.getAttribute('matTooltip')
   if (matTooltip && matTooltip.trim()) {
     return matTooltip.trim().replace(/"/g, '\\"').substring(0, 200)
