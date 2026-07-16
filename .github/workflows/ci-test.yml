@@ -1,4 +1,4 @@
-# PR 测试门禁：单元测试 + 浏览器 E2E 全部通过后才允许合入
+# PR 测试门禁：按改动路径按需跑单元测试 / 浏览器 E2E
 name: CI Test
 run-name: CI Test--${{ github.event.pull_request.title || github.ref_name }}
 
@@ -16,8 +16,59 @@ permissions:
   contents: read
 
 jobs:
+  # 检测是否改动了测试相关源码；仅 docs / 演示工程等变更时跳过测试
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      unit: ${{ steps.set.outputs.unit }}
+      browser: ${{ steps.set.outputs.browser }}
+    steps:
+      - name: CheckOut Code
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Path filter
+        if: github.event_name == 'pull_request'
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            # pnpm test → next-sdk + webmcp-cli 单元测试
+            unit:
+              - 'packages/next-sdk/**'
+              - 'packages/webmcp-cli/**'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - 'pnpm-lock.yaml'
+              - '.github/workflows/ci-test.yml'
+            # pnpm test:browser → webmcp-cli E2E（依赖 next-sdk）
+            browser:
+              - 'packages/webmcp-cli/**'
+              - 'packages/next-sdk/**'
+              - 'package.json'
+              - 'pnpm-workspace.yaml'
+              - 'pnpm-lock.yaml'
+              - '.github/workflows/ci-test.yml'
+
+      - name: Set outputs
+        id: set
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "unit=true" >> "$GITHUB_OUTPUT"
+            echo "browser=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "unit=${{ steps.filter.outputs.unit }}" >> "$GITHUB_OUTPUT"
+            echo "browser=${{ steps.filter.outputs.browser }}" >> "$GITHUB_OUTPUT"
+          fi
+
   unit:
     name: Unit tests
+    needs: changes
+    if: needs.changes.outputs.unit == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -69,6 +120,8 @@ jobs:
 
   browser:
     name: Browser E2E
+    needs: changes
+    if: needs.changes.outputs.browser == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -129,7 +182,7 @@ jobs:
           retention-days: 3
           overwrite: true
 
-  # 聚合结果，供 PR sticky 评论使用（与 ci-test-pr-comment.yml 兼容）
+  # 聚合结果：始终产出结论，避免 required check 因 job skipped 卡住；供 PR sticky 评论使用
   report:
     name: Report
     runs-on: ubuntu-latest
@@ -137,27 +190,51 @@ jobs:
     permissions:
       contents: read
       actions: write
-    needs: [unit, browser]
+    needs: [changes, unit, browser]
     if: always() && github.event_name == 'pull_request'
     steps:
       - name: Generate PR tip
         run: |
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           SHA="${{ github.event.pull_request.head.sha || github.sha }}"
-          UNIT="${{ needs.unit.result }}"
-          BROWSER="${{ needs.browser.result }}"
+          NEED_UNIT="${{ needs.changes.outputs.unit }}"
+          NEED_BROWSER="${{ needs.changes.outputs.browser }}"
+          UNIT_RESULT="${{ needs.unit.result }}"
+          BROWSER_RESULT="${{ needs.browser.result }}"
 
-          if [ "$UNIT" = "success" ] && [ "$BROWSER" = "success" ]; then
+          # 未改相关源码时 skipped 视为通过
+          if [ "$NEED_UNIT" = "true" ]; then
+            UNIT_STATUS="$UNIT_RESULT"
+            UNIT_OK=$([ "$UNIT_RESULT" = "success" ] && echo 1 || echo 0)
+          else
+            UNIT_STATUS="skipped"
+            UNIT_OK=1
+          fi
+
+          if [ "$NEED_BROWSER" = "true" ]; then
+            BROWSER_STATUS="$BROWSER_RESULT"
+            BROWSER_OK=$([ "$BROWSER_RESULT" = "success" ] && echo 1 || echo 0)
+          else
+            BROWSER_STATUS="skipped"
+            BROWSER_OK=1
+          fi
+
+          if [ "$UNIT_OK" = "1" ] && [ "$BROWSER_OK" = "1" ]; then
             {
               echo '**[ci-test-pass]**'
               echo
-              echo 'CI 测试已通过（单元测试 + 浏览器 E2E）。'
+              if [ "$NEED_UNIT" != "true" ] && [ "$NEED_BROWSER" != "true" ]; then
+                echo '未改动测试相关源码（next-sdk / webmcp-cli），已跳过单元测试与浏览器 E2E。'
+              else
+                echo 'CI 测试已通过。'
+              fi
               echo
               echo "- Workflow: [查看日志](${RUN_URL})"
               echo "- Commit: \`${SHA}\`"
-              echo "- Unit: \`${UNIT}\`"
-              echo "- Browser: \`${BROWSER}\`"
+              echo "- Unit: \`${UNIT_STATUS}\`"
+              echo "- Browser: \`${BROWSER_STATUS}\`"
             } > user-tip.txt
+            echo "overall=pass" >> "$GITHUB_ENV"
           else
             {
               echo '**[ci-test-fail]**'
@@ -166,11 +243,12 @@ jobs:
               echo
               echo "- Workflow: [查看完整日志](${RUN_URL})"
               echo "- Commit: \`${SHA}\`"
-              echo "- Unit: \`${UNIT}\`"
-              echo "- Browser: \`${BROWSER}\`"
+              echo "- Unit: \`${UNIT_STATUS}\`"
+              echo "- Browser: \`${BROWSER_STATUS}\`"
               echo
               echo '失败时请下载对应 artifact（unit-test-output / browser-test-output）查看完整日志。'
             } > user-tip.txt
+            echo "overall=fail" >> "$GITHUB_ENV"
           fi
 
           echo "${{ github.event.number }}" > pr-id.txt
@@ -191,6 +269,6 @@ jobs:
           retention-days: 1
           overwrite: true
 
-      - name: Fail if any test job failed
-        if: needs.unit.result != 'success' || needs.browser.result != 'success'
+      - name: Fail if required tests failed
+        if: env.overall == 'fail'
         run: exit 1

@@ -176,4 +176,4 @@ SKILL.md 给 AI 定了几条核心规则，保证操作不出错：
 ---
 
 - 想了解 CLI 命令完整用法 → 看 [CLI 使用指南](./webmcp-cli)
-- 想了解浏览器插件版 → 看 [快速入门](./ai-extension-install)
+- 想了解浏览器插件版 → 看 [快速入门](../ai-extension/install)

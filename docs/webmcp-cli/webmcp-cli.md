@@ -260,5 +260,5 @@ webmcp-cli run page-agent-tool '{"action": "searchTree", "query": "#42", "contex
 
 ---
 
-- 想让 AI Agent 通过 Skill 接入 → 看 [Skill 使用指南](./webmcp-agent-integration)
-- 想了解浏览器插件版 → 看 [快速入门](./ai-extension-install)
+- 想让 AI Agent 通过 Skill 接入 → 看 [Skill 使用指南](./webmcp-cli-skill)
+- 想了解浏览器插件版 → 看 [快速入门](../ai-extension/install)
