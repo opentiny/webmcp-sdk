@@ -69,6 +69,33 @@ vi.mock('../../page-tools/handlers/searchTree', () => ({
 import { registerPageAgentTool } from '../../page-tools/page-agent-tool'
 import type { PageAgentToolInput } from '../../page-tools/schema'
 
+interface ToolTextContent {
+  type: string
+  text: string
+}
+
+interface ToolExecuteResult {
+  content: ToolTextContent[]
+}
+
+type PageAgentExecute = (args: PageAgentToolInput) => Promise<ToolExecuteResult>
+
+interface RegisterablePageAgentTool {
+  name?: string
+  execute?: PageAgentExecute
+}
+
+interface ModelContextWithRegisterTool {
+  registerTool: (
+    tool: RegisterablePageAgentTool,
+    options?: unknown
+  ) => unknown
+}
+
+interface DocumentWithModelContext {
+  modelContext?: ModelContextWithRegisterTool
+}
+
 const ACTIONS = [
   'browserState',
   'click',
@@ -96,15 +123,15 @@ function resetWindowGlobals() {
   delete window.__webmcpcli_beforeGetBrowserState
 }
 
-function captureExecute(): (args: PageAgentToolInput) => Promise<{ content: Array<{ type: string; text: string }> }> {
-  const mcp = (document as any).modelContext
+function captureExecute(): PageAgentExecute {
+  const mcp = (document as DocumentWithModelContext).modelContext
   if (!mcp?.registerTool) {
     throw new Error('document.modelContext.registerTool unavailable')
   }
 
-  let execute: ((args: PageAgentToolInput) => Promise<any>) | null = null
+  let execute: PageAgentExecute | null = null
   const original = mcp.registerTool.bind(mcp)
-  mcp.registerTool = (tool: { name?: string; execute?: (args: PageAgentToolInput) => Promise<any> }, options?: unknown) => {
+  mcp.registerTool = (tool: RegisterablePageAgentTool, options?: unknown) => {
     if (tool?.name === 'page-agent-tool' && typeof tool.execute === 'function') {
       execute = tool.execute.bind(tool)
     }
@@ -143,7 +170,7 @@ function argsFor(action: ActionName): PageAgentToolInput {
 }
 
 describe('page-agent-tool action dispatch（防 switch fall-through）', () => {
-  let execute: (args: PageAgentToolInput) => Promise<{ content: Array<{ type: string; text: string }> }>
+  let execute: PageAgentExecute
 
   beforeAll(async () => {
     resetWindowGlobals()
