@@ -1,7 +1,9 @@
 import { inputSchema, type PageAgentToolInput, type PageAgentToolRawInput } from './schema'
+import { PageController } from '@page-agent/page-controller'
 
 export const PAGE_AGENT_TOOL_CALL_EVENT = 'page-agent-tool-call'
 export const PAGE_AGENT_TOOL_RESULT_EVENT = 'page-agent-tool-result'
+export const PAGE_AGENT_CHAT_END_EVENT = 'page-agent-chat-end'
 
 export type PageAgentToolCallEventDetail = {
   data?: PageAgentToolRawInput
@@ -40,7 +42,10 @@ function dispatchPageAgentToolResult(detail: PageAgentToolResultEventDetail) {
   window.dispatchEvent(new CustomEvent(PAGE_AGENT_TOOL_RESULT_EVENT, { detail }))
 }
 
-export function setupPageAgentToolEventBridge(executePageAgentTool: ExecutePageAgentTool) {
+export function setupPageAgentToolEventBridge(
+  executePageAgentTool: ExecutePageAgentTool,
+  pageController: PageController
+) {
   window.__nextSdkPageAgentToolEventCleanup?.()
 
   const handleToolCall = async (event: Event) => {
@@ -90,9 +95,19 @@ export function setupPageAgentToolEventBridge(executePageAgentTool: ExecutePageA
     }
   }
 
+  // 聊天结束事件，用于在聊天结束时移除遮罩
+  const handleChatEnd = async () => {
+    try {
+      await pageController.hideMask()
+    } catch (error) {}
+  }
+
   window.addEventListener(PAGE_AGENT_TOOL_CALL_EVENT, handleToolCall)
+  window.addEventListener(PAGE_AGENT_CHAT_END_EVENT, handleChatEnd)
+
   window.__nextSdkPageAgentToolEventCleanup = () => {
     window.removeEventListener(PAGE_AGENT_TOOL_CALL_EVENT, handleToolCall)
+    window.removeEventListener(PAGE_AGENT_CHAT_END_EVENT, handleChatEnd)
     window.__nextSdkPageAgentToolEventCleanup = undefined
   }
 }
