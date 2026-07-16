@@ -55,7 +55,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
 
   async function actionError(msg: string) {
     const result = await createActionErrorResult(msg, buildBrowserStateResponse)
-    await pageController.hideMask()
+    options.removeMaskAterToolCall && (await pageController.hideMask())
     return result
   }
 
@@ -203,5 +203,5 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
     }
   })
 
-  setupPageAgentToolEventBridge(executePageAgentTool,pageController)
+  setupPageAgentToolEventBridge(executePageAgentTool, pageController)
 }
