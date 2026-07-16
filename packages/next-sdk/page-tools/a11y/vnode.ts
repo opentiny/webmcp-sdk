@@ -116,8 +116,6 @@ export function buildVNode(
     const iconName = el.getAttribute('name') || ''
     if (iconName.includes('help') || iconName.includes('tip') || iconName.includes('info')) {
       name = '帮助'
-    } else if (iconName.trim()) {
-      name = iconName.trim()
     }
   }
 
