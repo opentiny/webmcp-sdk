@@ -23,8 +23,11 @@ function getWorkspaceDir(): string {
   return process.env.WEBMCP_WORKSPACE || path.join(os.homedir(), '.webmcp_chrome_profile')
 }
 
-/** CI / 自动化测试：无头 + sandbox 关闭，避免 Linux runner 缺 display / 权限问题 */
+/** CI / 自动化测试：无头 + sandbox 关闭，避免 Linux runner 缺 display / 权限问题。
+ *  WEBMCP_HEADLESS=0 可显式强制有界面（覆盖 CI 环境变量）。
+ */
 function shouldLaunchHeadless(): boolean {
+  if (process.env.WEBMCP_HEADLESS === '0') return false
   return process.env.WEBMCP_HEADLESS === '1' || process.env.CI === 'true' || process.env.CI === '1'
 }
 
@@ -184,6 +187,9 @@ function getDefaultBrowserPath(): BrowserInfo | null {
     process.env.PUPPETEER_EXECUTABLE_PATH
   if (envPath && fs.existsSync(envPath)) {
     return { path: envPath, name: 'Chrome' }
+  }
+  if (envPath) {
+    console.log(pc.yellow(`指定的浏览器路径不存在，将回退到自动检测: ${envPath}`))
   }
 
   const platform = os.platform()

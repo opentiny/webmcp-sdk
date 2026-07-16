@@ -16,8 +16,25 @@ const pkgRoot = path.resolve(__dirname, '..')
 const binPath = path.join(pkgRoot, 'dist', 'bin.js')
 const injectPath = path.join(pkgRoot, 'dist', 'inject-bundle.js')
 
+interface WebmcpTool {
+  name?: string
+  description?: string
+}
+
+interface CliResult {
+  success?: boolean
+  url?: string
+  title?: string
+  tabid?: string
+  webmcpTools?: WebmcpTool[]
+  content?: Array<{ type?: string; text?: string }> | unknown
+  text?: string
+  error?: unknown
+  [key: string]: unknown
+}
+
 /** 从混有 CDP 日志的 stdout 中提取第一个顶层 JSON 对象（CLI 结果；勿取 tabs 内嵌对象） */
-function extractJson(stdout: string): Record<string, unknown> {
+function extractJson(stdout: string): CliResult {
   const text = String(stdout || '')
   for (let i = 0; i < text.length; i++) {
     if (text[i] !== '{') continue
@@ -45,7 +62,7 @@ function extractJson(stdout: string): Record<string, unknown> {
         if (depth === 0) {
           const slice = text.slice(i, j + 1)
           try {
-            return JSON.parse(slice) as Record<string, unknown>
+            return JSON.parse(slice) as CliResult
           } catch {
             break
           }
@@ -85,7 +102,7 @@ describe('webmcp-cli browser e2e', () => {
 
   let openedTabId = ''
 
-  function runCli(args: string[], timeoutMs = 90_000) {
+  function runCli(args: string[], timeoutMs = 90_000): { stdout: string; stderr: string; json: CliResult } {
     const result = spawnSync(process.execPath, [binPath, ...args], {
       env: cliEnv,
       encoding: 'utf-8',
@@ -146,7 +163,7 @@ describe('webmcp-cli browser e2e', () => {
     expect(openedTabId).toBeTruthy()
     const { json } = runCli(['state', '-t', openedTabId])
     const tools = Array.isArray(json.webmcpTools) ? json.webmcpTools : []
-    const names = tools.map((t) => (t as { name?: string }).name)
+    const names = tools.map((t) => t.name)
     expect(names).toContain('page-agent-tool')
     expect(String(json.url || '')).toContain('example.com')
   })
@@ -163,7 +180,7 @@ describe('webmcp-cli browser e2e', () => {
     expect(json.error).toBeUndefined()
     const content = json.content
     const hasArrayContent = Array.isArray(content) && content.length > 0
-    const hasFlatText = typeof json.text === 'string' && String(json.text).includes('浏览器状态')
+    const hasFlatText = typeof json.text === 'string' && json.text.includes('浏览器状态')
     expect(hasArrayContent || hasFlatText).toBe(true)
   })
 })

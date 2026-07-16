@@ -31,7 +31,7 @@ beforeAll(() => {
 function assertParseable(input: string, baseDir = process.cwd()) {
   const expanded = expandFileRefs(input, baseDir)
   const obj = JSON5.parse(expanded) as { content?: string }
-  expect(obj.content?.length).toBeGreaterThan(0)
+  expect(obj.content?.length ?? 0).toBeGreaterThan(0)
   return obj
 }
 

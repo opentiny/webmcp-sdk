@@ -42,9 +42,8 @@ describe('parse-run-args', () => {
 
   it('invalid character T at 1:8 scenario', () => {
     const damaged = `{title:TinyVue Icon,content:"@base64file:${articlePath.replace(/\\/g, '/')}"}`
-    expect(() =>
-      parseArgsJson(expandFileRefs(normalizeShellDamagedJson(damaged), process.cwd()))
-    ).not.toThrow()
+    // 与 prepareRunArgsJson 一致：先 expand，再由 parseArgsJson 内部做 shell 损伤修复
+    expect(() => parseArgsJson(expandFileRefs(damaged, process.cwd()))).not.toThrow()
   })
 
   it('key=value format with chinese title', () => {
