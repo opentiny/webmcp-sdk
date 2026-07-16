@@ -212,8 +212,10 @@ describe('resolveA11yStates - 标准 ARIA 零配置检测', () => {
     expect(resolveA11yStates(input)).toContain('value="hello"')
   })
 
-  it('opens-new-tab：a[target=_blank]', () => {
-    expect(resolveA11yStates(el('<a target="_blank"></a>'))).toContain('opens-new-tab')
+  it('target：a[target] 输出原生属性值', () => {
+    expect(resolveA11yStates(el('<a target="_blank"></a>'))).toContain('target=_blank')
+    expect(resolveA11yStates(el('<a target="_self"></a>'))).toContain('target=_self')
+    expect(resolveA11yStates(el('<a></a>'))).not.toContain('target=_blank')
   })
 })
 

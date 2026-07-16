@@ -33,8 +33,8 @@ export const consoleCloudPageAgentToolOptions: PageAgentToolOptions = {
           '.sort-select',
           '.service-select',
           '.region-select',
-          '[cf-uba="searchableRegion..open"]',
-        ],
+          '[cf-uba="searchableRegion..open"]'
+        ]
       },
 
       // 图标型 / 无语义按钮
@@ -50,7 +50,18 @@ export const consoleCloudPageAgentToolOptions: PageAgentToolOptions = {
           '.modules-searchable-region-region-panel-close',
           '.modules-searchable-region-region-panel-search-btn',
           '[cf-uba="rightSidebar..hideBtn"]',
-        ],
+          // Tiny3 图标组件：帮助中心固定/全屏/关闭等（ti-icon / tp-icon 无原生 button 语义）
+          '.ti-global-help-panel-header-icon',
+          'ti-icon[name]',
+          'tp-icon[name]',
+          // 无 name 的箭头/操作图标（如 latest news 区 common-icon 展开箭头）
+          'tp-icon.common-icon',
+          'ti-icon.common-icon',
+          'ti-icon.ti3-icon-full-screen',
+          'ti-icon.ti3-icon-close',
+          'tp-icon.ti3-icon-full-screen',
+          'tp-icon.ti3-icon-close'
+        ]
       },
 
       // 服务列表侧栏分类 / 顶栏菜单项
@@ -59,8 +70,8 @@ export const consoleCloudPageAgentToolOptions: PageAgentToolOptions = {
         selector: [
           '.components-service-list-left-box-sidebar-visit-panel > li',
           '.modules-menus-menu-item',
-          '.components-menu-wrapper-menu-text',
-        ],
+          '.components-menu-wrapper-menu-text'
+        ]
       },
 
       // 区域筛选项 / 下拉选项
@@ -70,9 +81,9 @@ export const consoleCloudPageAgentToolOptions: PageAgentToolOptions = {
           '.region-selector-item',
           '.modules-searchable-region-project-item-region-item',
           '.modules-searchable-region-region-panel-recent-region-item',
-          '.ti3-multiselect-box-cell',
-        ],
-      },
+          '.ti3-multiselect-box-cell'
+        ]
+      }
     ],
     states: {
       // 选中态：挂在容器 class 上，用 selector + closest 即可命中内部交互节点
@@ -84,9 +95,9 @@ export const consoleCloudPageAgentToolOptions: PageAgentToolOptions = {
         {
           selector: [
             '.modules-searchable-region-project-item-region-item-selected',
-            '.components-search-content-search-select-search-select-selected',
-          ],
-        },
+            '.components-search-content-search-select-search-select-selected'
+          ]
+        }
       ],
       hasPopup: [
         {
@@ -98,9 +109,9 @@ export const consoleCloudPageAgentToolOptions: PageAgentToolOptions = {
             '.region-select',
             '[cf-uba="searchableRegion..open"]',
             '[cf-uba="serviceList..open"]',
-            '[cf-uba="userinfo"]',
-          ],
-        },
+            '[cf-uba="userinfo"]'
+          ]
+        }
       ],
       disabled: [{ selector: '.ti3-disabled' }],
       // 展开态：需结合计算样式，选择器表达不了「可见」
@@ -110,7 +121,7 @@ export const consoleCloudPageAgentToolOptions: PageAgentToolOptions = {
             try {
               if (
                 !el.matches(
-                  '.modules-layout-module-sidebar-panel, .modules-searchable-region-region-panel, .ti3-dropdown-container',
+                  '.modules-layout-module-sidebar-panel, .modules-searchable-region-region-panel, .ti3-dropdown-container'
                 )
               ) {
                 return false
@@ -120,13 +131,12 @@ export const consoleCloudPageAgentToolOptions: PageAgentToolOptions = {
             } catch {
               return false
             }
-          },
-        },
-      ],
+          }
+        }
+      ]
     },
-    // 仅暴露 cf-uba：title/data-qa-id 若放入 exposedAttributes 会被当成白名单属性，
-    // 导致 ti-tabs 容器、带 title 的段落等大量非操作节点获得 ref，污染无障碍树
-    exposedAttributes: ['cf-uba'],
+    // exposedAttributes 输出属性 token；带 name 的 ti-icon/tp-icon 可交互性由 roles/whitelist 中 ti-icon[name] 等规则判定。
+    exposedAttributes: ['cf-uba', 'data-qa-id', 'name'],
     whitelist: [
       '.modules-service-list-menu-service-icon-container',
       '.ti3-tabs-text',
@@ -135,20 +145,27 @@ export const consoleCloudPageAgentToolOptions: PageAgentToolOptions = {
       '[cf-uba="helpFeedback"]',
       '[cf-uba="globalMessage"]',
       '[cf-uba="rightSidebar..hideBtn"]',
+      // 帮助中心等区域的 ti-icon / tp-icon 图标按钮
+      '.ti-global-help-panel-header-icon',
+      'ti-icon[name]',
+      'tp-icon[name]',
+      'tp-icon.common-icon',
+      'ti-icon.common-icon',
+      'ti-icon.ti3-icon-full-screen'
     ],
-    blacklist: ['noscript'],
+    blacklist: ['noscript', 'pan-gu', '#J_header'],
     dialogSelectors: [
       '[class*="ti3-modal"]',
       '[class*="ti3-message-box"]',
       '[class*="drawer"]',
-      '.modules-layout-module-sidebar-panel',
-    ],
-  }),
+      '.modules-layout-module-sidebar-panel'
+    ]
+  })
 }
 
 /** 判断当前页面是否应使用云控制台（consoleCloud）预设 */
 export function isConsoleCloudHost(
-  hostname: string = typeof location !== 'undefined' ? location.hostname : '',
+  hostname: string = typeof location !== 'undefined' ? location.hostname : ''
 ): boolean {
   // 要求 console 前为域名边界（开头或 `.`），避免误匹配 xconsole.huaweicloud.com
   return /(^|\.)console\.huaweicloud\.com$/i.test(hostname)

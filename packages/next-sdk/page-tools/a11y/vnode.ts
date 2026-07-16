@@ -5,11 +5,42 @@
  */
 
 import { computeAccessibleName } from 'dom-accessibility-api'
-import { isFocusable, isTabbable } from 'tabbable'
+import { isTabbable } from 'tabbable'
 import type { VNode, RefMap, A11yTreeShapeOptions } from './types'
 import type { ResolvedA11yConfig } from './config'
 import { resolveA11yInfo } from './config'
-import { isHidden, collectDescendantText, collectTitleLabel, getComposedChildren } from './utils'
+import {
+  isHidden,
+  isNonContentElement,
+  collectDescendantText,
+  collectTitleLabel,
+  getComposedChildren,
+  hasOwnPointerCursor,
+} from './utils'
+
+/**
+ * 语义上即为可操作控件的 ARIA 角色。
+ * jsdom 下部分带 tabindex 的自定义控件 isTabbable 可能为 false，
+ * 若不强制分配 ref，Static-Lift 会把它们误判为静态分支并吸收进父 name。
+ */
+const INTERACTIVE_ROLES = new Set([
+  'button',
+  'link',
+  'textbox',
+  'searchbox',
+  'combobox',
+  'listbox',
+  'checkbox',
+  'radio',
+  'switch',
+  'slider',
+  'spinbutton',
+  'menuitem',
+  'menuitemcheckbox',
+  'menuitemradio',
+  'tab',
+  'treeitem',
+])
 
 /**
  * 递归将 DOM 元素转换为 VNode 中间表示
@@ -19,7 +50,7 @@ import { isHidden, collectDescendantText, collectTitleLabel, getComposedChildren
  * @param blacklistSet 已解析的黑名单元素集合
  * @param whitelistSet 已解析的白名单元素集合
  * @param config 已与默认值合并的统一无障碍配置
- * @param ancestorIsInteractive 祖先节点是否已是可交互节点（已分配 ref）。为 true 时，纯 CSS 继承的 cursor=pointer 不再额外分配 ref
+ * @param hoverPointerSet 只在 :hover/:focus/:active 下声明 cursor:pointer 的元素集合（静止态读不到手势，靠样式表扫描兜底）
  */
 export function buildVNode(
   el: Element,
@@ -28,17 +59,25 @@ export function buildVNode(
   blacklistSet: Set<Element>,
   whitelistSet: Set<Element>,
   config: ResolvedA11yConfig,
-  ancestorIsInteractive = false,
+  hoverPointerSet: Set<Element> = new Set(),
 ): VNode | null {
-  if (isHidden(el) || blacklistSet.has(el)) return null
+  // style/script 等非内容节点：不进树（避免 @font-face base64 等被当成 name）
+  if (isNonContentElement(el) || isHidden(el) || blacklistSet.has(el)) return null
 
   const { role, tokens } = resolveA11yInfo(el, config)
 
   let name = computeAccessibleName(el as HTMLElement)
   const isTrulyInteractive = isTabbable(el as HTMLElement)
+  // computed cursor 为 pointer（含继承）——仅用于「无文本时是否值得兜底收集名字」等宽松场景
   const isVisuallyClickable = tokens.includes('cursor=pointer')
-  // 包含白名单属性的节点也视为白名单节点（确保不被剪枝并分配 ref 操作索引）
-  const isWhitelisted = whitelistSet.has(el) || (config.exposedAttributes?.some(attr => el.hasAttribute(attr)) ?? false)
+  // 真正的"可点击边界元素"判定（用于是否分配 ref）：
+  // 1) 元素自身在静止态声明了 cursor:pointer（父级不是 pointer），排除 CSS 继承传染；
+  // 2) 或元素命中了 :hover/:focus/:active 下声明 cursor:pointer 的规则（hoverPointerSet）——
+  //    大量卡片只在 hover 时才显示手势，静止态 getComputedStyle 读到 auto，需靠样式表扫描兜底。
+  const hasClickableCursor = hasOwnPointerCursor(el) || hoverPointerSet.has(el)
+  // 白名单：仅由显式 whitelist 配置驱动，与 exposedAttributes（属性 token 输出）解耦，
+  // 避免把 data-qa-id 等追踪属性误当成「强制可交互」信号污染无障碍树。
+  const isWhitelisted = whitelistSet.has(el)
   // <label for="..."> 原生可点击：浏览器将点击转发到关联的表单控件（checkbox/radio 等）
   // Angular/React 自定义组件常隐藏原生 input，仅暴露 label 文本和自定义 skin
   const isLabelFor = el.tagName.toLowerCase() === 'label' && el.hasAttribute('for')
@@ -51,24 +90,25 @@ export function buildVNode(
     const isDropdown = tag === 'select' || role === 'combobox' || role === 'listbox'
     if (!isDropdown) {
       const isInteractiveTag = ['button', 'a', 'input', 'textarea', 'li', 'label'].includes(tag)
-      if (isTrulyInteractive || isWhitelisted || isVisuallyClickable || isInteractiveTag || role === 'listitem' || role === 'option') {
+      if (isTrulyInteractive || isWhitelisted || isVisuallyClickable || hasClickableCursor || isInteractiveTag || role === 'listitem' || role === 'option') {
         name = collectDescendantText(el, config)
       }
     }
   }
 
   // 图标按钮常见：可点击容器本身无文本，title/aria 挂在子节点上（如控制台服务列表按钮）
-  if (!name.trim() && (isTrulyInteractive || isWhitelisted || isVisuallyClickable || role === 'button')) {
+  if (!name.trim() && (isTrulyInteractive || isWhitelisted || isVisuallyClickable || hasClickableCursor || role === 'button')) {
     name = collectTitleLabel(el)
   }
 
   // 结构性交互角色（tab/menuitem 等）的标签文字常落在可聚焦子节点内，
-  // collectDescendantText 会因“遇交互子节点即停”而拿不到 name，这里用 textContent 再兜一层
+  // collectDescendantText 会因“遇交互子节点即停”而拿不到 name；
+  // 此处用「跳过 style/script」的文本收集，禁止 textContent 把内联 CSS/base64 吸进来
   if (
     !name.trim() &&
     ['tab', 'menuitem', 'option', 'treeitem', 'button'].includes(role)
   ) {
-    name = (el.textContent ?? '').replace(/\s+/g, ' ').trim()
+    name = collectVisiblePlainText(el)
   }
 
   // 最终兜底：非交互元素（如错误提示 ti-error-msg、状态信息）的纯文本捕获。
@@ -85,28 +125,36 @@ export function buildVNode(
     }
   }
 
-  // generic 无 name 时，即使有 cursor=pointer 也不分配 ref：
-  // cursor 通常是 CSS 继承传播的，这类 div 本身无法被有意义地操作。
-  // 此外，当祖先节点已是可交互节点时，子节点仅凭 isVisuallyClickable（CSS 继承）
-  // 不再额外分配 ref，避免父节点 cursor:pointer 传染给所有子孙导致高亮泛滥。
+  // cursor:pointer 是业界公认的"视觉可点击"通用信号（browser-use 等 DOM 提取器均以此为核心兜底判据）。
+  // 但 CSS 的 cursor 会向子孙继承，若直接以 computed cursor 判定，可点击容器（<a>、卡片等）会把
+  // ref "传染"给所有子孙，导致高亮泛滥。因此改用 hasClickableCursor（自身声明手势 + hover 态手势）来
+  // 定位真正的可点击边界元素：这样既能覆盖 <div class="card-wrapper" (click)=...> 这类无语义、无
+  // tabindex 的自定义可点击卡片（包括只在 hover 时显示手势的卡片），又能自然排除仅靠继承拿到 pointer
+  // 的内部子孙，无需再依赖祖先传播标记。
   //
-  // 例外：<a>/<button>/<input> 等语义性交互标签，无论祖先是否已有 ref，
-  // 始终强制分配 ref，因为它们在 HTML 语义上就是独立的操作单元。
+  // 例外：<a>/<button>/<input> 等语义性交互标签始终强制分配 ref，因为它们在 HTML 语义上
+  // 就是独立的操作单元，即使外层容器同样可点击也应各自暴露。
   const tagName = el.tagName.toLowerCase()
   const isSemanticInteractiveTag =
     (tagName === 'a' && el.hasAttribute('href')) ||
     (['button', 'input', 'select', 'textarea'].includes(tagName) && !el.hasAttribute('disabled'))
 
-  // 虽然有些元素有 tabindex="0" (isTrulyInteractive)，但如果它是 generic 且没有 cursor:pointer，
+  // 虽然有些元素有 tabindex="0" (isTrulyInteractive)，但如果它是 generic 且没有可点击手势，
   // 往往是开发者加的结构化 focus 容器（如 tp-card），而非真正的可交互按钮，我们在此过滤掉它们。
-  const isMeaningfullyInteractive = isTrulyInteractive && !(role === 'generic' && !isVisuallyClickable)
+  const isMeaningfullyInteractive = isTrulyInteractive && !(role === 'generic' && !hasClickableCursor)
+
+  const isDisabled = tokens.includes('disabled')
 
   const interactive =
-    isMeaningfullyInteractive ||
+    (!isDisabled && isMeaningfullyInteractive) ||
     isWhitelisted ||
     isLabelFor ||
     isSemanticInteractiveTag ||
-    (!ancestorIsInteractive && isVisuallyClickable && (role !== 'generic' || name !== ''))
+    (!isDisabled && INTERACTIVE_ROLES.has(role)) ||
+    // hasClickableCursor 已排除 CSS 继承（hasOwnPointerCursor）并覆盖 hover 态手势，
+    // 无需再要求 role≠generic 或 name≠''——否则无文本的图标按钮（tp-icon.common-icon 等）
+    // 虽是真正的可点击边界，仍会因 generic+空名被漏判。
+    (!isDisabled && hasClickableCursor)
 
   let ref: number | undefined
   if (interactive) {
@@ -124,13 +172,106 @@ export function buildVNode(
       blacklistSet,
       whitelistSet,
       config,
-      // 将当前节点的交互性向下传递，子节点据此决定是否抑制 cursor=pointer
-      interactive || ancestorIsInteractive,
+      hoverPointerSet,
     )
     if (childVNode) children.push(childVNode)
   }
 
-  return { role, name, tokens, ref, el: el as HTMLElement, children }
+  const vnode: VNode = { role, name, tokens, ref, el: el as HTMLElement, children }
+
+  // 有可交互子孙时：清空 AccName 内容汇总，仅保留自身声明名。
+  // 静态子树文案的上提（Static-Lift）改由 serializeVNode 负责，避免与交互文案混进父 name。
+  if (hasInteractiveDescendant(vnode)) {
+    vnode.name = getOwnDeclaredName(el as HTMLElement)
+  }
+
+  return vnode
+}
+
+/**
+ * 仅取元素自身声明的可访问名，不含内容汇总（name from contents）。
+ */
+function getOwnDeclaredName(el: HTMLElement): string {
+  if (el.hasAttribute('aria-label') || el.hasAttribute('aria-labelledby')) {
+    return computeAccessibleName(el).trim()
+  }
+  return ''
+}
+
+/** 子节点自身无 ref，且子树无可交互子孙 → 纯静态分支（可上提文案） */
+function isStaticBranch(vnode: VNode): boolean {
+  return vnode.ref === undefined && !hasInteractiveDescendant(vnode)
+}
+
+/**
+ * 收集元素可见纯文本，跳过 style/script 等非内容子树。
+ * 禁止使用 el.textContent：它会包含内联 @font-face base64，导致 token 爆炸。
+ */
+function collectVisiblePlainText(el: Element): string {
+  return collectDescendantText(el).replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * 收集纯静态分支的展示文案（保字用）。
+ * 优先 name，其次递归子节点，最后可见纯文本兜底（不含 style/script）。
+ */
+function getStaticDisplayText(vnode: VNode): string {
+  const childJoined =
+    vnode.children.length > 0
+      ? vnode.children
+          .map(getStaticDisplayText)
+          .filter(Boolean)
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+      : ''
+  const plain = vnode.children.length === 0 ? collectVisiblePlainText(vnode.el) : ''
+  const named = vnode.name.trim()
+
+  const parts: string[] = []
+  if (named && !isNoiseAccessibleName(named)) parts.push(named)
+  if (childJoined && !isNoiseAccessibleName(childJoined)) {
+    const normNamed = named.replace(/\s+/g, ' ').trim()
+    const normChild = childJoined.replace(/\s+/g, ' ').trim()
+    // 声明名与子孙文案不同则合并保留，避免仅有 aria-label 时丢掉静态说明
+    if (!normNamed || (normChild !== normNamed && !normNamed.includes(normChild))) {
+      parts.push(childJoined)
+    }
+  }
+  if (parts.length === 0 && plain && !isNoiseAccessibleName(plain)) parts.push(plain)
+  return parts.join(' ').replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * 名称若像 CSS/字体资源噪声（常见于误吸收的 <style> 内容），视为无效，避免输出到 YAML。
+ */
+function isNoiseAccessibleName(name: string): boolean {
+  const n = name.trim()
+  if (!n) return false
+  if (/@font-face\b/i.test(n)) return true
+  if (/data:(?:font|application|image)\//i.test(n)) return true
+  if (/base64,[A-Za-z0-9+/=]{80,}/.test(n)) return true
+  return false
+}
+
+/**
+ * 静态子节点可否省略：仅当其文案已由父 outputName 完整承载（去重且不丢字）。
+ * - 父使用自身声明名：仅当子文案与声明名完全相同才可省略
+ * - 父使用上提拼接名：子文案作为片段已包含在父名中才可省略
+ */
+function canOmitStaticChild(
+  child: VNode,
+  parentOutputName: string,
+  parentUsesOwnDeclaredName: boolean,
+): boolean {
+  const text = getStaticDisplayText(child)
+  if (!text || !parentOutputName.trim()) return false
+  const parentNorm = parentOutputName.replace(/\s+/g, ' ').trim()
+  const textNorm = text.replace(/\s+/g, ' ').trim()
+  if (parentUsesOwnDeclaredName) {
+    return textNorm === parentNorm
+  }
+  return parentNorm.includes(textNorm)
 }
 
 /**
@@ -186,53 +327,113 @@ export function shouldPassThrough(vnode: VNode, opts: A11yTreeShapeOptions): boo
 }
 
 /**
+ * 将节点 name 转义为 YAML 引号内文本；空名返回空串（调用方决定是否拼引号）。
+ */
+function formatNameAttr(name: string): string {
+  const safe = name.replace(/[\r\n]+/g, ' ').replace(/"/g, '\\"').trim()
+  return safe ? ` "${safe}"` : ''
+}
+
+/**
  * 将 VNode 序列化为 YAML 行数组
  * 穿透节点时，子节点在当前 depth 平铺输出（不增加缩进层级）
+ *
+ * 文本折叠规则（Static-Lift + Interactive-Keep，保字优先）：
+ * 1. 子树全静态 → 省略子节点，文字保留在父节点
+ * 2. 混合子树 → 静态文案上提到父 name（成功才省略静态子节点）；交互分支递归保留；
+ *    禁止把交互文案并入父 name；上提失败则静态子节点独立输出，绝不丢字
  */
 export function serializeVNode(
   vnode: VNode,
   depth: number,
   opts: A11yTreeShapeOptions,
 ): string[] {
-  if (shouldPassThrough(vnode, opts)) {
-    // 透明穿透：跳过本节点，子节点保持当前 depth（层级不增加）
-    // 同时过滤掉整棵子树都无价値的空容器，避免输出无意义的嵌套
-    return vnode.children
-      .filter(c => hasValue(c))
-      .flatMap(c => serializeVNode(c, depth, opts))
-  }
-
+  const hasInteractive = hasInteractiveDescendant(vnode)
+  const forceKeepStructure = opts.preserveRoles.includes(vnode.role)
   const indent = '  '.repeat(depth)
   const refStr = vnode.ref !== undefined ? ` #${vnode.ref}` : ''
   const safeTokens = vnode.tokens.map(t => t.replace(/[\r\n]+/g, ' ').replace(/"/g, '\\"'))
   const tokenStr = safeTokens.length > 0 ? ` [${safeTokens.join(' ')}]` : ''
 
-  if (vnode.ref !== undefined) {
-    if (!hasInteractiveDescendant(vnode)) {
-      // 子树无任何 ref 节点 → 直接省略子节点
-      // 父节点的 name 已由 computeAccessibleName 汇总了子树文本，信息不会丢失
-      const safeName = vnode.name ? vnode.name.replace(/[\r\n]+/g, ' ').replace(/"/g, '\\"') : ''
-      const nameStr = safeName ? ` "${safeName}"` : ''
-      return [`${indent}- ${vnode.role}${refStr}${tokenStr}${nameStr}`]
+  // 规则 1：子树无可交互节点，且无需强制保留结构 → 折叠为一行（文字不丢）
+  if (!hasInteractive && !forceKeepStructure) {
+    if (shouldPassThrough(vnode, opts)) {
+      return vnode.children
+        .filter(c => hasValue(c))
+        .flatMap(c => serializeVNode(c, depth, opts))
     }
+    let displayName = vnode.name.trim()
+    if (!displayName && vnode.children.length > 0) {
+      displayName = collectVisiblePlainText(vnode.el)
+    }
+    if (isNoiseAccessibleName(displayName)) displayName = ''
+    return [`${indent}- ${vnode.role}${refStr}${tokenStr}${formatNameAttr(displayName)}`]
+  }
 
+  // preserveRoles 且无交互：保留结构，父级去掉 content name，子节点照常输出
+  if (!hasInteractive && forceKeepStructure) {
+    const outputName = getOwnDeclaredName(vnode.el)
+    const line = `${indent}- ${vnode.role}${refStr}${tokenStr}${formatNameAttr(outputName)}`
+    const childLines = vnode.children.flatMap(c => serializeVNode(c, depth + 1, opts))
+    return [line, ...childLines]
+  }
+
+  // ── 混合子树：Static-Lift + Interactive-Keep ──
+  const ownDeclaredName = getOwnDeclaredName(vnode.el)
+  const parentUsesOwnDeclaredName = ownDeclaredName !== ''
+  const staticChildren = vnode.children.filter(isStaticBranch)
+  const liftedStaticName = staticChildren
+    .map(getStaticDisplayText)
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  // 父 name：声明名优先；否则上提静态子树文案（绝不吸收交互文案）
+  let outputName = parentUsesOwnDeclaredName ? ownDeclaredName : liftedStaticName
+  if (isNoiseAccessibleName(outputName)) outputName = ''
+  // vnode.name（声明名）若被污染同样丢弃
+  if (!parentUsesOwnDeclaredName && isNoiseAccessibleName(vnode.name)) {
+    outputName = liftedStaticName && !isNoiseAccessibleName(liftedStaticName) ? liftedStaticName : ''
+  }
+
+  const willEmitParent =
+    vnode.ref !== undefined ||
+    outputName !== '' ||
+    forceKeepStructure ||
+    !opts.pruneUnnamed
+
+  // 父节点不会输出时必须穿透，且不得省略静态子节点（保字）
+  if (!willEmitParent) {
+    return vnode.children
+      .filter(c => hasValue(c))
+      .flatMap(c => serializeVNode(c, depth, opts))
+  }
+
+  if (vnode.ref !== undefined) {
     // 子树中唯一一个 ref 节点且是无子 ref 的 generic 时，将其 name 提升到父节点，省略子节点输出。
-    // 场景：`listitem #22 [active]` 内部只有 `generic #23 "总览"`，
-    //       点击意义相同时，就展示为一行 `- listitem #22 [active] "总览"`。
     const singleChild = findSingleRefDescendant(vnode)
-    if (singleChild && singleChild.role === 'generic' && !hasInteractiveDescendant(singleChild)) {
-      const mergedName = (vnode.name.trim() || singleChild.name.trim())
-        .replace(/[\r\n]+/g, ' ')
-        .replace(/"/g, '\\"')
-      const nameStr = mergedName ? ` "${mergedName}"` : ''
-      return [`${indent}- ${vnode.role}${refStr}${tokenStr}${nameStr}`]
+    if (
+      singleChild &&
+      singleChild.role === 'generic' &&
+      !hasInteractiveDescendant(singleChild) &&
+      staticChildren.length === 0
+    ) {
+      const mergedName = outputName.trim() || singleChild.name.trim()
+      // 合并输出时使用子节点 ref，避免 refMap 中的 #N 在 YAML 里丢失
+      const mergedRefStr =
+        singleChild.ref !== undefined ? ` #${singleChild.ref}` : refStr
+      return [`${indent}- ${vnode.role}${mergedRefStr}${tokenStr}${formatNameAttr(mergedName)}`]
     }
   }
 
-  const safeName = vnode.name ? vnode.name.replace(/[\r\n]+/g, ' ').replace(/"/g, '\\"') : ''
-  const nameStr = safeName ? ` "${safeName}"` : ''
-  const line = `${indent}- ${vnode.role}${refStr}${tokenStr}${nameStr}`
+  // 仅省略「文案已由父 outputName 承载」的静态子节点；其余（含全部交互分支）按原序输出
+  const childrenToEmit = vnode.children.filter(c => {
+    if (!isStaticBranch(c)) return true
+    return !canOmitStaticChild(c, outputName, parentUsesOwnDeclaredName)
+  })
 
-  const childLines = vnode.children.flatMap(c => serializeVNode(c, depth + 1, opts))
+  const line = `${indent}- ${vnode.role}${refStr}${tokenStr}${formatNameAttr(outputName)}`
+  const childLines = childrenToEmit.flatMap(c => serializeVNode(c, depth + 1, opts))
   return [line, ...childLines]
 }
