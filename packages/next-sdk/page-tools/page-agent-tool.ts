@@ -26,6 +26,10 @@ import { handleSearchTree } from './handlers/searchTree'
 export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
   initializeBuiltinWebMCP()
 
+  if (typeof options.removeMaskAterToolCall === 'undefined') {
+    options.removeMaskAterToolCall = true
+  }
+
   // 完整工具配置（顶层选项 enableHighlight + 统一无障碍配置 a11yConfig）：与默认配置合并后
   // 得到运行期唯一生效的配置（存于 window.__webmcpcli_toolConfig），后续可通过
   // setPageAgentToolConfig 在运行期继续修改（追加式合并/函数式过滤/整体替换）
