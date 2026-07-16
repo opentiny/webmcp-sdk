@@ -141,26 +141,26 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
           pageController.mask.borderElement(currentRefMap.get(args.index))
           ret = await handleClick(args, actionContext)
           pageController.mask.removeBorderElement()
-          await pageController.hideMask()
+          options.removeMaskAterToolCall && (await pageController.hideMask())
           break
         case 'fill':
           await pageController.showMask()
           pageController.mask.borderElement(currentRefMap.get(args.index))
           ret = await handleFill(args, actionContext)
           pageController.mask.removeBorderElement()
-          await pageController.hideMask()
+          options.removeMaskAterToolCall && (await pageController.hideMask())
           break
         case 'select':
           await pageController.showMask()
           pageController.mask.borderElement(currentRefMap.get(args.index))
           ret = await handleSelect(args, actionContext)
           pageController.mask.removeBorderElement()
-          await pageController.hideMask()
+          options.removeMaskAterToolCall && (await pageController.hideMask())
           break
         case 'scroll':
           await pageController.showMask()
           ret = await handleScroll(args, actionContext)
-          await pageController.hideMask()
+          options.removeMaskAterToolCall && (await pageController.hideMask())
           break
         case 'executeJavascript':
           ret = await handleExecuteJavascript(args, actionContext)
@@ -183,7 +183,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
           `${actionNames[args.action as keyof typeof actionNames]}执行异常: ${error instanceof Error ? error.message : String(error)}`
         )
       }
-      await pageController.hideMask()
+      options.removeMaskAterToolCall && (await pageController.hideMask())
       throw error
     }
   }
@@ -203,5 +203,5 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
     }
   })
 
-  setupPageAgentToolEventBridge(executePageAgentTool)
+  setupPageAgentToolEventBridge(executePageAgentTool,pageController)
 }

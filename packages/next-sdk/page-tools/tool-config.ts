@@ -26,6 +26,9 @@ export interface PageAgentToolConfig {
 export interface PageAgentToolConfigPatch {
   /** 是否启用元素高亮 */
   enableHighlight?: boolean
+  /** 是否在工具调用后移除遮罩， 默认值为 false 不移除 */
+  removeMaskAterToolCall?: boolean
+  /** 是否在工具调用后移除遮罩 */
   /** 统一无障碍配置，会与当前生效的 a11yConfig 按数组拼接合并 */
   a11yConfig?: A11yConfig
 }
@@ -36,7 +39,7 @@ export type PageAgentToolOptions = PageAgentToolConfigPatch
 /** 默认生效的完整工具配置 */
 export const DEFAULT_PAGE_AGENT_TOOL_CONFIG: PageAgentToolConfig = {
   enableHighlight: false,
-  a11yConfig: DEFAULT_A11Y_CONFIG,
+  a11yConfig: DEFAULT_A11Y_CONFIG
 }
 
 declare global {
@@ -57,7 +60,7 @@ export function getPageAgentToolConfig(): PageAgentToolConfig {
 function resolvePatch(patch: PageAgentToolConfigPatch, base: PageAgentToolConfig): PageAgentToolConfig {
   return {
     enableHighlight: patch.enableHighlight ?? base.enableHighlight,
-    a11yConfig: mergeA11yConfigs(base.a11yConfig, patch.a11yConfig ?? {}),
+    a11yConfig: mergeA11yConfigs(base.a11yConfig, patch.a11yConfig ?? {})
   }
 }
 
@@ -72,14 +75,15 @@ function resolvePatch(patch: PageAgentToolConfigPatch, base: PageAgentToolConfig
  */
 export function setPageAgentToolConfig(
   patch: PageAgentToolConfigPatch | ((current: PageAgentToolConfig) => PageAgentToolConfigPatch),
-  options?: { mode?: 'merge' | 'replace' },
+  options?: { mode?: 'merge' | 'replace' }
 ): PageAgentToolConfig {
   const mode = options?.mode ?? 'merge'
   const current = getPageAgentToolConfig()
 
-  const next = typeof patch === 'function'
-    ? resolvePatch(patch(current), DEFAULT_PAGE_AGENT_TOOL_CONFIG)
-    : resolvePatch(patch, mode === 'replace' ? DEFAULT_PAGE_AGENT_TOOL_CONFIG : current)
+  const next =
+    typeof patch === 'function'
+      ? resolvePatch(patch(current), DEFAULT_PAGE_AGENT_TOOL_CONFIG)
+      : resolvePatch(patch, mode === 'replace' ? DEFAULT_PAGE_AGENT_TOOL_CONFIG : current)
 
   if (typeof window !== 'undefined') {
     window.__webmcpcli_toolConfig = next
