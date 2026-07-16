@@ -1,6 +1,7 @@
 import { connectBrowser, getTargetPage, injectIntoPage } from '../browser'
 import { zhihuCreateArticle } from '../zhihu/create-article'
 import { isZhihuWriteUrl } from '../zhihu/markdown'
+import { preScanTooltips } from '../pre-scan'
 
 export async function runCommand({
   toolName,
@@ -32,6 +33,19 @@ export async function runCommand({
       }
       if (isZhihuWriteUrl(page.url())) {
         return await zhihuCreateArticle(page, parsedArgs)
+      }
+    }
+
+    // 当调用 page-agent-tool browserState(full) 时，先执行真实鼠标 hover 预扫描
+    // 捕获 Angular tp-helptip 等需要真实 hover 才会动态插入 body 的 tooltip 文本
+    if (toolName === 'page-agent-tool') {
+      try {
+        const parsed = JSON.parse(cleanedArgs)
+        if (parsed.action === 'browserState' && parsed.responseMode === 'full') {
+          await preScanTooltips(page)
+        }
+      } catch {
+        // JSON 解析失败时跳过预扫描
       }
     }
 
@@ -109,4 +123,3 @@ export async function runCommand({
     await browser.disconnect()
   }
 }
-

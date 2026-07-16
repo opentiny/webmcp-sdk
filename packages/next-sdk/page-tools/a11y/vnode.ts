@@ -16,6 +16,7 @@ import {
   collectTitleLabel,
   getComposedChildren,
   hasOwnPointerCursor,
+  extractTooltipText,
 } from './utils'
 
 /**
@@ -66,6 +67,14 @@ export function buildVNode(
 
   const { role, tokens } = resolveA11yInfo(el, config)
 
+  // Tooltip / 帮助提示文本检测：提取 title、aria-describedby、框架级 tooltip 内容
+  // 非交互元素也可能有 tooltip，需分配 ref 使 AI 能 hover 触发动态 tip
+  const tooltipText = extractTooltipText(el)
+  if (tooltipText) {
+    tokens.push(`tooltip="${tooltipText}"`)
+  }
+  const hasTooltip = tokens.some(t => t.startsWith('tooltip='))
+
   let name = computeAccessibleName(el as HTMLElement)
   const isTrulyInteractive = isTabbable(el as HTMLElement)
   // computed cursor 为 pointer（含继承）——仅用于「无文本时是否值得兜底收集名字」等宽松场景
@@ -90,7 +99,7 @@ export function buildVNode(
     const isDropdown = tag === 'select' || role === 'combobox' || role === 'listbox'
     if (!isDropdown) {
       const isInteractiveTag = ['button', 'a', 'input', 'textarea', 'li', 'label'].includes(tag)
-      if (isTrulyInteractive || isWhitelisted || isVisuallyClickable || hasClickableCursor || isInteractiveTag || role === 'listitem' || role === 'option') {
+      if (isTrulyInteractive || isWhitelisted || isVisuallyClickable || hasClickableCursor || isInteractiveTag || role === 'listitem' || role === 'option' || role === 'button') {
         name = collectDescendantText(el, config)
       }
     }
@@ -101,8 +110,28 @@ export function buildVNode(
     name = collectTitleLabel(el)
   }
 
+  // 框架级 icon 组件（如 Tiny3 ti-icon）的 name 属性作为无障碍名称兜底。
+  // 对帮助/提示类图标使用人类可读名称，避免 AI 无法理解 "cloudx-action-help" 等框架内部命名。
+  if (!name.trim() && role === 'button') {
+    const iconName = el.getAttribute('name') || ''
+    if (iconName.includes('help') || iconName.includes('tip') || iconName.includes('info')) {
+      name = '帮助'
+    } else if (iconName.trim()) {
+      name = iconName.trim()
+    }
+  }
+
+  // 有 tooltip 的元素如果无名称，从 tooltip token 提取文本作为兜底名称，
+  // 确保 AI 在 A11y 树中能辨识该元素（非交互文本也有 tooltip 场景）
+  if (!name.trim() && hasTooltip) {
+    const tooltipToken = tokens.find(t => t.startsWith('tooltip='))
+    if (tooltipToken) {
+      name = tooltipToken.replace(/^tooltip="/, '').replace(/"$/, '')
+    }
+  }
+
   // 结构性交互角色（tab/menuitem 等）的标签文字常落在可聚焦子节点内，
-  // collectDescendantText 会因“遇交互子节点即停”而拿不到 name；
+// collectDescendantText 会因"遇交互子节点即停"而拿不到 name；
   // 此处用「跳过 style/script」的文本收集，禁止 textContent 把内联 CSS/base64 吸进来
   if (
     !name.trim() &&
@@ -134,10 +163,13 @@ export function buildVNode(
   //
   // 例外：<a>/<button>/<input> 等语义性交互标签始终强制分配 ref，因为它们在 HTML 语义上
   // 就是独立的操作单元，即使外层容器同样可点击也应各自暴露。
+  // 框架级 role 覆盖为 button 的非标准元素（如 tp-helptip ti-icon）同理：
+  // 它们语义上就是按钮，即使祖先已有 ref 也应独立可操作（hover/click）。
   const tagName = el.tagName.toLowerCase()
   const isSemanticInteractiveTag =
     (tagName === 'a' && el.hasAttribute('href')) ||
-    (['button', 'input', 'select', 'textarea'].includes(tagName) && !el.hasAttribute('disabled'))
+    (['button', 'input', 'select', 'textarea'].includes(tagName) && !el.hasAttribute('disabled')) ||
+    (role === 'button' && isVisuallyClickable && !['button', 'a', 'input', 'select', 'textarea'].includes(tagName))
 
   // 虽然有些元素有 tabindex="0" (isTrulyInteractive)，但如果它是 generic 且没有可点击手势，
   // 往往是开发者加的结构化 focus 容器（如 tp-card），而非真正的可交互按钮，我们在此过滤掉它们。
@@ -154,7 +186,9 @@ export function buildVNode(
     // hasClickableCursor 已排除 CSS 继承（hasOwnPointerCursor）并覆盖 hover 态手势，
     // 无需再要求 role≠generic 或 name≠''——否则无文本的图标按钮（tp-icon.common-icon 等）
     // 虽是真正的可点击边界，仍会因 generic+空名被漏判。
-    (!isDisabled && hasClickableCursor)
+    (!isDisabled && hasClickableCursor) ||
+    // 有 tooltip 的元素分配 ref，使 AI 能 hover 触发动态 tip
+    hasTooltip
 
   let ref: number | undefined
   if (interactive) {

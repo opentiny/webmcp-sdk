@@ -237,3 +237,87 @@ export function getComposedChildren(el: Element): Element[] {
   }
   return result
 }
+
+/**
+ * 提取元素的 tooltip / 帮助提示文本
+ *
+ * 按以下优先级查找（返回首个非空结果）：
+ * 1. title 属性
+ * 2. aria-describedby 引用的元素文本
+ * 3. data-tooltip / data-tips 自定义属性
+ * 4. 框架级 tooltip 内容（如 Tiny3 tp-helptip 内的 .tp-helptip-label 文本）
+ * 4b. 框架级 overflow 指令（Tiny3 tioverflow / Angular Material matTooltip）
+ * 5. 动态 tooltip 缓存（scanForDynamicTooltips 自动 hover 扫描发现）
+ *
+ * 即使 tooltip 容器被隐藏（display:none / opacity:0），也提取其文本内容，
+ * 让 AI 无需 hover 即可获取帮助信息。
+ */
+export function extractTooltipText(el: Element): string {
+  // 1. title 属性
+  const title = el.getAttribute('title')
+  if (title && title.trim()) {
+    return title.trim().replace(/"/g, '\\"').substring(0, 200)
+  }
+
+  // 2. aria-describedby → 查找引用元素的文本（即使隐藏也提取）
+  const describedby = el.getAttribute('aria-describedby')
+  if (describedby) {
+    for (const id of describedby.split(/\s+/)) {
+      const ref = document.getElementById(id)
+      if (ref) {
+        const text = (ref.textContent || '').trim().replace(/\s+/g, ' ')
+        if (text) {
+          return text.replace(/"/g, '\\"').substring(0, 200)
+        }
+      }
+    }
+  }
+
+  // 3. data-tooltip / data-tips 自定义属性
+  for (const attr of ['data-tooltip', 'data-tips', 'data-tip']) {
+    const val = el.getAttribute(attr)
+    if (val && val.trim()) {
+      return val.trim().replace(/"/g, '\\"').substring(0, 200)
+    }
+  }
+
+  // 4. 框架级 tooltip 内容检测
+  // Tiny3 tp-helptip: 查找子元素 .tp-helptip-label 的文本
+  const tag = el.tagName.toLowerCase()
+  if (tag === 'tp-helptip' || el.closest('tp-helptip')) {
+    const helptipRoot = tag === 'tp-helptip' ? el : el.closest('tp-helptip')!
+    const label = helptipRoot.querySelector('.tp-helptip-label, [class*="tp-helptip-label"]')
+    if (label) {
+      const text = (label.textContent || '').trim()
+      if (text) {
+        return text.replace(/"/g, '\\"').substring(0, 200)
+      }
+    }
+  }
+
+  // 4b. 框架级 overflow tooltip 指令
+  // Tiny3 tioverflow: 文本截断时 hover 显示完整文本，tooltip 内容 = 元素自身文本
+  // Angular Material matTooltip: 属性值即 tooltip 文本
+  if (el.hasAttribute('tioverflow') || el.hasAttribute('tiOverflow')) {
+    const text = (el.textContent || '').trim().replace(/\s+/g, ' ')
+    if (text) {
+      return text.replace(/"/g, '\\"').substring(0, 200)
+    }
+  }
+  const matTooltip = el.getAttribute('mattooltip') || el.getAttribute('matTooltip')
+  if (matTooltip && matTooltip.trim()) {
+    return matTooltip.trim().replace(/"/g, '\\"').substring(0, 200)
+  }
+
+  // 5. 动态 tooltip 缓存（scanForDynamicTooltips 自动 hover 扫描发现）
+  // 覆盖无任何静态标识但 hover 后会弹出 tip 的元素
+  const dynamicCache = window.__webmcpcli_dynamicTooltipCache
+  if (dynamicCache) {
+    const cached = dynamicCache.get(el)
+    if (cached) {
+      return cached.replace(/"/g, '\\"').substring(0, 200)
+    }
+  }
+
+  return ''
+}
