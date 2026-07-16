@@ -3,12 +3,12 @@
 layout: home
 
 hero:
-  name: "OpenTiny NEXT-SDKs"
+  name: 'OpenTiny NEXT-SDKs'
   tagline: 一套前端智能应用开发工具包，旨在简化 WebAgent 的集成与使用，支持多种编程语言和前端框架，帮助开发者快速实现智能化功能。
   actions:
     - theme: brand
       text: 开始
-      link: ./guide/
+      link: ./guide/quick-start
     - theme: alt
       text: GitHub
       link: https://github.com/opentiny
