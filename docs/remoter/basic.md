@@ -56,7 +56,7 @@ import '@opentiny/next-remoter/dist/style.css'
 - `sessionId` 应用向 `Web Agent` 注册后生成的 ID，用于标识当前页面；若不使用远程遥控模式，可忽略该值
 - `remoteUrl` 远程遥控页面 URL；在遥控器模式下点击「遥控器链接」菜单时跳转至该地址
 - `qrCodeUrl` 远程遥控页面 URL；在遥控器模式下点击「扫码登录」菜单时弹出二维码，扫码成功后进入该地址
-- `menuItems` 菜单项配置数组，用于遥控器模式下点击图标后展示的菜单项，具体配置见 [createRemoter 函数](../api-createRemoter)。默认显示全部菜单，传入空数组则不显示菜单
+- `menuItems` 菜单项配置数组，用于遥控器模式下点击图标后展示的菜单项，具体配置见 [createRemoter 函数](../webmcp-sdk/create-remoter)。默认显示全部菜单，传入空数组则不显示菜单
 
 ### 1.3 大模型属性
 

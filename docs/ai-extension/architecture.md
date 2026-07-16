@@ -49,6 +49,6 @@ AI Extension 的核心思路是：**把网页能力变成 AI 可以调用的工�
 
 AI Extension 的架构可以概括为一句话：**用三种方式把网页能力工具化，用三层环境保证安全隔离**。理解了这一点，再看后面的开发指南就会顺畅很多。
 
-- 想让自己的网站支持 AI 操作 → 看[MCP工具开发指南](./ai-extension-next-wxt)
-- 想给 AI 补充专业知识 → 看 [Skills 技能开发指南](./ai-extension-skills)
-- 想知道怎么装、怎么配模型 → 看[快速入门](./ai-extension-install)和[配置大模型](./ai-extension-model-config)
+- 想让自己的网站支持 AI 操作 → 看[MCP工具开发指南](./next-wxt)
+- 想给 AI 补充专业知识 → 看 [Skills 技能开发指南](./skills)
+- 想知道怎么装、怎么配模型 → 看[快速入门](./install)和[配置大模型](./model-config)

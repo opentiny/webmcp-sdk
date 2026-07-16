@@ -93,7 +93,7 @@ AI Extension 是一个浏览器扩展插件。安装后，浏览器会变成一�
 
 ## 下一步
 
-- [配置大模型](./ai-extension-model-config)：装完插件后第一件事，配置你要用的 AI 模型
-- [MCP工具开发指南](./ai-extension-next-wxt)：学习如何把自己网站的功能暴露给 AI
-- [Skills 技能开发指南](./ai-extension-skills)：学习如何给 AI 补充专业知识
-- [工作原理](./ai-extension-architecture)：想深入了解原理时阅读
+- [配置大模型](./model-config)：装完插件后第一件事，配置你要用的 AI 模型
+- [MCP工具开发指南](./next-wxt)：学习如何把自己网站的功能暴露给 AI
+- [Skills 技能开发指南](./skills)：学习如何给 AI 补充专业知识
+- [工作原理](./architecture)：想深入了解原理时阅读

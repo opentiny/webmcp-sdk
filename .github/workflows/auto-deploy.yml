@@ -4,7 +4,12 @@ on:
   push:
     branches: [dev, main]
     paths:
-      - 'docs/**/*.md'
+      - 'docs/**'
+
+  # PR 门禁：修改 docs 时先校验 VitePress 能否构建（含死链检查）
+  pull_request:
+    paths:
+      - 'docs/**'
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -15,35 +20,40 @@ permissions:
   pages: write
   id-token: write
 
-# Allow one concurrent deployment
+# PR 与部署分流并发组，避免互相取消
 concurrency:
-  group: pages
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  # Build job
+  # Build job（PR / push / 手动触发均执行，作为门禁）
   build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          version: 9
+          node-version: 24
       - name: Install deps
         run: pnpm install --no-frozen-lockfile
       - name: Build site
         run: pnpm -F next-docs build
       - name: Setup Pages
-        uses: actions/configure-pages@v2
+        if: github.event_name != 'pull_request'
+        uses: actions/configure-pages@v5
       - name: Upload artifact
+        if: github.event_name != 'pull_request'
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./docs/.vitepress/dist
 
-  # Deployment job
+  # Deployment job：仅合入后推送 / 手动触发时部署，不在 PR 上部署
   deploy:
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

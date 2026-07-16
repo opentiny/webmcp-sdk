@@ -2,7 +2,7 @@
 
 主要介绍 `@opentiny/next-sdk` 导出的其它全局 API，包括内置 WebMCP 初始化以及 AI SDK 兼容转换方法。
 
-> Page Agent 相关 API（`registerPageAgentTool`、`a11yConfig` 等）已单独成章，见 [registerPageAgentTool](./api-page-agent-tool)。
+> Page Agent 相关 API（`registerPageAgentTool`、`a11yConfig` 等）已单独成章，见 [registerPageAgentTool](./page-agent-tool)。
 
 ---
 
