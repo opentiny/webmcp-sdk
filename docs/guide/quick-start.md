@@ -182,7 +182,7 @@ if (sessionId) {
 ```json
 {
   "servers": {
-    "github": {
+    "page-tool-mcpServer": {
       "type": "http",
       "url": "http://localhost:3000/api/v1/webmcp/mcp?sessionId=SESSION_ID"
     }
