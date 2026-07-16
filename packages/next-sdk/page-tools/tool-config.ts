@@ -12,6 +12,8 @@ import { DEFAULT_A11Y_CONFIG, mergeA11yConfig, mergeA11yConfigs } from './a11y/c
 export interface PageAgentToolConfig {
   /** 是否启用元素高亮 */
   enableHighlight: boolean
+  /** 是否在工具调用后移除遮罩， 默认值为 true 移除 */
+  removeMaskAfterToolCall?: boolean
   /**
    * 统一无障碍配置：按角色（roles）、状态（states：selected/disabled/error/warning 等）自定义规则，
    * 以及白名单/黑名单/自定义暴露属性/弹窗选择器。已与默认配置合并（数组类字段是拼接结果）。
@@ -55,7 +57,11 @@ export function getPageAgentToolConfig(): PageAgentToolConfig {
   if (typeof window !== 'undefined' && window.__webmcpcli_toolConfig) {
     return window.__webmcpcli_toolConfig
   }
-  return { enableHighlight: DEFAULT_PAGE_AGENT_TOOL_CONFIG.enableHighlight, a11yConfig: mergeA11yConfig() }
+  return {
+    enableHighlight: DEFAULT_PAGE_AGENT_TOOL_CONFIG.enableHighlight,
+    removeMaskAfterToolCall: DEFAULT_PAGE_AGENT_TOOL_CONFIG.removeMaskAfterToolCall,
+    a11yConfig: mergeA11yConfig()
+  }
 }
 
 function resolvePatch(patch: PageAgentToolConfigPatch, base: PageAgentToolConfig): PageAgentToolConfig {
