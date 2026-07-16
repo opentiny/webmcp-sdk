@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import {
   getPageAgentToolConfig,
   setPageAgentToolConfig,
-  DEFAULT_PAGE_AGENT_TOOL_CONFIG,
+  DEFAULT_PAGE_AGENT_TOOL_CONFIG
 } from '../../page-tools/tool-config'
 
 function resetWindowGlobals() {
@@ -26,6 +26,18 @@ describe('getPageAgentToolConfig / setPageAgentToolConfig', () => {
     setPageAgentToolConfig({ enableHighlight: false })
     const current = getPageAgentToolConfig()
     expect(current.enableHighlight).toBe(false)
+  })
+
+  it('merge 模式下只覆盖传入的字段，removeMaskAfterToolCall字段保持原值', () => {
+    setPageAgentToolConfig({ removeMaskAfterToolCall: false })
+    const current = getPageAgentToolConfig()
+    expect(current.removeMaskAfterToolCall).toBe(false)
+  })
+
+  it('merge 模式下只覆盖传入的字段，removeMaskAfterToolCall字段保持原值', () => {
+    setPageAgentToolConfig({ removeMaskAfterToolCall: true })
+    const current = getPageAgentToolConfig()
+    expect(current.removeMaskAfterToolCall).toBe(true)
   })
 
   it('函数式 patch：入参为当前生效配置，返回值与默认配置合并', () => {
@@ -63,16 +75,21 @@ describe('setPageAgentToolConfig - a11yConfig 子字段', () => {
     const current = getPageAgentToolConfig().a11yConfig
     expect(current.roles).toEqual([
       { role: 'tab', selector: '.tab-1' },
-      { role: 'tabpanel', selector: '.panel-1' },
+      { role: 'tabpanel', selector: '.panel-1' }
     ])
   })
 
   it('函数式 patch 可用于过滤/移除旧规则（真正移除，不会因再次合并而复活）', () => {
     setPageAgentToolConfig({
-      a11yConfig: { roles: [{ role: 'tab', selector: '.tab-1' }, { role: 'keep-me', selector: '.k' }] },
+      a11yConfig: {
+        roles: [
+          { role: 'tab', selector: '.tab-1' },
+          { role: 'keep-me', selector: '.k' }
+        ]
+      }
     })
     setPageAgentToolConfig((current) => ({
-      a11yConfig: { roles: current.a11yConfig.roles.filter((r) => r.role !== 'tab') },
+      a11yConfig: { roles: current.a11yConfig.roles.filter((r) => r.role !== 'tab') }
     }))
     const result = getPageAgentToolConfig().a11yConfig
     expect(result.roles.some((r) => r.role === 'tab')).toBe(false)

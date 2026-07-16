@@ -67,6 +67,7 @@ export function getPageAgentToolConfig(): PageAgentToolConfig {
 function resolvePatch(patch: PageAgentToolConfigPatch, base: PageAgentToolConfig): PageAgentToolConfig {
   return {
     enableHighlight: patch.enableHighlight ?? base.enableHighlight,
+    removeMaskAfterToolCall: patch.removeMaskAfterToolCall ?? base.removeMaskAfterToolCall,
     a11yConfig: mergeA11yConfigs(base.a11yConfig, patch.a11yConfig ?? {})
   }
 }
