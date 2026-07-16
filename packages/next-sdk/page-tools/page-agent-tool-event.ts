@@ -96,8 +96,10 @@ export function setupPageAgentToolEventBridge(
   }
 
   // 聊天结束事件，用于在聊天结束时移除遮罩
-  const handleChatEnd = () => {
-    pageController.hideMask()
+  const handleChatEnd = async () => {
+    try {
+      await pageController.hideMask()
+    } catch (error) {}
   }
 
   window.addEventListener(PAGE_AGENT_TOOL_CALL_EVENT, handleToolCall)
