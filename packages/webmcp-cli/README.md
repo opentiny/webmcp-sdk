@@ -17,6 +17,23 @@ npm install -g .
 
 > **注意：** 在本地联调时，建议使用 `npm install -g .`，这会确保在你的 PATH 中生成有效的可执行文件（`webmcp-cli`）。
 
+## 测试
+
+统一使用 [Vitest](https://vitest.dev/)（与 `@opentiny/next-sdk` 一致）：
+
+```bash
+# 单元测试（无浏览器依赖，已接入根目录 pnpm test）
+pnpm test
+
+# 浏览器 E2E（需本机 Chrome/Edge，或设置 CHROME_PATH；默认 headless）
+pnpm build:webmcp-cli
+pnpm test:browser
+```
+
+CI 中浏览器任务使用 [browser-actions/setup-chrome](https://github.com/browser-actions/setup-chrome) 安装 Chrome，并通过 `CHROME_PATH` + `WEBMCP_HEADLESS=1` 启动。
+
+---
+
 ## 核心架构特性
 
 - **后台浏览器驻留**：如果当前没有开启带有调试端口 (`9222`) 的 Chrome，CLI 会自动在后台拉起一个基于你本地 Profile 的独立 Chrome 实例。

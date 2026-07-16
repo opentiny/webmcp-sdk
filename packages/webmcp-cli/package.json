@@ -18,7 +18,10 @@
     "build": "tsup && pnpm run build:inject",
     "prepublishOnly": "pnpm run build",
     "link:global": "npm install -g .",
-    "start": "node dist/bin.js"
+    "start": "node dist/bin.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:browser": "vitest run --config vitest.e2e.config.ts"
   },
   "keywords": [
     "chrome",
@@ -49,6 +52,7 @@
     "esbuild": "^0.25.0",
     "tsup": "^8.0.2",
     "tsx": "^4.0.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^4.1.10"
   }
 }

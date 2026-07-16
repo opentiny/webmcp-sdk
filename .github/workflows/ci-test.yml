@@ -1,4 +1,4 @@
-# PR 测试门禁：全部测试通过后才允许合入
+# PR 测试门禁：单元测试 + 浏览器 E2E 全部通过后才允许合入
 name: CI Test
 run-name: CI Test--${{ github.event.pull_request.title || github.ref_name }}
 
@@ -11,10 +11,15 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.number || github.sha }}
   cancel-in-progress: true
 
+# 测试任务仅需读仓库内容；report 上传 artifact 使用默认权限
+permissions:
+  contents: read
+
 jobs:
-  test:
-    name: pnpm test
+  unit:
+    name: Unit tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: CheckOut Code
         uses: actions/checkout@v4
@@ -47,27 +52,111 @@ jobs:
       - name: Install dependencies
         run: pnpm i --no-frozen-lockfile
 
-      - name: Run tests
+      - name: Run unit tests
         id: run-tests
         run: |
           set -o pipefail
           pnpm test 2>&1 | tee test-output.log
 
-      # 无论成败都写入 tip，便于 sticky 评论在失败后再次通过时被覆盖
+      - name: Upload unit test log
+        if: failure() && steps.run-tests.conclusion == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-output
+          path: test-output.log
+          retention-days: 3
+          overwrite: true
+
+  browser:
+    name: Browser E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: CheckOut Code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        run: |
+          echo "pnpm_cache_dir=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.pnpm_cache_dir }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm i --no-frozen-lockfile
+
+      - name: Setup Chrome
+        id: chrome
+        uses: browser-actions/setup-chrome@v2
+        with:
+          install-dependencies: true
+
+      - name: Build webmcp-cli
+        run: pnpm -F @opentiny/webmcp-cli build
+
+      - name: Run browser E2E
+        id: run-browser
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+          WEBMCP_HEADLESS: '1'
+          CI: 'true'
+        run: |
+          set -o pipefail
+          pnpm test:browser 2>&1 | tee browser-test-output.log
+
+      - name: Upload browser test log
+        if: failure() && steps.run-browser.conclusion == 'failure'
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-test-output
+          path: browser-test-output.log
+          retention-days: 3
+          overwrite: true
+
+  # 聚合结果，供 PR sticky 评论使用（与 ci-test-pr-comment.yml 兼容）
+  report:
+    name: Report
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: write
+    needs: [unit, browser]
+    if: always() && github.event_name == 'pull_request'
+    steps:
       - name: Generate PR tip
-        if: always() && github.event_name == 'pull_request'
         run: |
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           SHA="${{ github.event.pull_request.head.sha || github.sha }}"
+          UNIT="${{ needs.unit.result }}"
+          BROWSER="${{ needs.browser.result }}"
 
-          if [ "${{ steps.run-tests.outcome }}" = "success" ]; then
+          if [ "$UNIT" = "success" ] && [ "$BROWSER" = "success" ]; then
             {
               echo '**[ci-test-pass]**'
               echo
-              echo 'CI 测试已通过。'
+              echo 'CI 测试已通过（单元测试 + 浏览器 E2E）。'
               echo
               echo "- Workflow: [查看日志](${RUN_URL})"
               echo "- Commit: \`${SHA}\`"
+              echo "- Unit: \`${UNIT}\`"
+              echo "- Browser: \`${BROWSER}\`"
             } > user-tip.txt
           else
             {
@@ -77,25 +166,16 @@ jobs:
               echo
               echo "- Workflow: [查看完整日志](${RUN_URL})"
               echo "- Commit: \`${SHA}\`"
+              echo "- Unit: \`${UNIT}\`"
+              echo "- Browser: \`${BROWSER}\`"
               echo
-              echo '<details><summary>失败日志摘要（末尾 80 行）</summary>'
-              echo
-              echo '```text'
-              if [ -f test-output.log ]; then
-                tail -n 80 test-output.log
-              else
-                echo '（未能捕获测试输出，请点击上方链接查看完整日志）'
-              fi
-              echo '```'
-              echo
-              echo '</details>'
+              echo '失败时请下载对应 artifact（unit-test-output / browser-test-output）查看完整日志。'
             } > user-tip.txt
           fi
 
           echo "${{ github.event.number }}" > pr-id.txt
 
       - name: Upload user tip
-        if: always() && github.event_name == 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: user-tip
@@ -104,7 +184,6 @@ jobs:
           overwrite: true
 
       - name: Upload PR number
-        if: always() && github.event_name == 'pull_request'
         uses: actions/upload-artifact@v4
         with:
           name: pr
@@ -112,11 +191,6 @@ jobs:
           retention-days: 1
           overwrite: true
 
-      - name: Upload full test log
-        if: failure() && steps.run-tests.conclusion == 'failure'
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-output
-          path: test-output.log
-          retention-days: 3
-          overwrite: true
+      - name: Fail if any test job failed
+        if: needs.unit.result != 'success' || needs.browser.result != 'success'
+        run: exit 1
