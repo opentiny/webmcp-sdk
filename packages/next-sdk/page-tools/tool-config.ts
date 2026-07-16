@@ -27,7 +27,7 @@ export interface PageAgentToolConfigPatch {
   /** 是否启用元素高亮 */
   enableHighlight?: boolean
   /** 是否在工具调用后移除遮罩， 默认值为 true 移除 */
-  removeMaskAterToolCall?: boolean
+  removeMaskAfterToolCall?: boolean
   /** 是否在工具调用后移除遮罩 */
   /** 统一无障碍配置，会与当前生效的 a11yConfig 按数组拼接合并 */
   a11yConfig?: A11yConfig
@@ -39,6 +39,7 @@ export type PageAgentToolOptions = PageAgentToolConfigPatch
 /** 默认生效的完整工具配置 */
 export const DEFAULT_PAGE_AGENT_TOOL_CONFIG: PageAgentToolConfig = {
   enableHighlight: false,
+  removeMaskAfterToolCall: true,
   a11yConfig: DEFAULT_A11Y_CONFIG
 }
 

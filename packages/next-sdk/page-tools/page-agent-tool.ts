@@ -26,10 +26,6 @@ import { handleSearchTree } from './handlers/searchTree'
 export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
   initializeBuiltinWebMCP()
 
-  if (typeof options.removeMaskAterToolCall === 'undefined') {
-    options.removeMaskAterToolCall = true
-  }
-
   // 完整工具配置（顶层选项 enableHighlight + 统一无障碍配置 a11yConfig）：与默认配置合并后
   // 得到运行期唯一生效的配置（存于 window.__webmcpcli_toolConfig），后续可通过
   // setPageAgentToolConfig 在运行期继续修改（追加式合并/函数式过滤/整体替换）
@@ -59,7 +55,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
 
   async function actionError(msg: string) {
     const result = await createActionErrorResult(msg, buildBrowserStateResponse)
-    options.removeMaskAterToolCall && (await pageController.hideMask())
+    options.removeMaskAfterToolCall && (await pageController.hideMask())
     return result
   }
 
@@ -145,26 +141,26 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
           pageController.mask.borderElement(currentRefMap.get(args.index))
           ret = await handleClick(args, actionContext)
           pageController.mask.removeBorderElement()
-          options.removeMaskAterToolCall && (await pageController.hideMask())
+          options.removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'fill':
           await pageController.showMask()
           pageController.mask.borderElement(currentRefMap.get(args.index))
           ret = await handleFill(args, actionContext)
           pageController.mask.removeBorderElement()
-          options.removeMaskAterToolCall && (await pageController.hideMask())
+          options.removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'select':
           await pageController.showMask()
           pageController.mask.borderElement(currentRefMap.get(args.index))
           ret = await handleSelect(args, actionContext)
           pageController.mask.removeBorderElement()
-          options.removeMaskAterToolCall && (await pageController.hideMask())
+          options.removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'scroll':
           await pageController.showMask()
           ret = await handleScroll(args, actionContext)
-          options.removeMaskAterToolCall && (await pageController.hideMask())
+          options.removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'executeJavascript':
           ret = await handleExecuteJavascript(args, actionContext)
@@ -187,7 +183,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
           `${actionNames[args.action as keyof typeof actionNames]}执行异常: ${error instanceof Error ? error.message : String(error)}`
         )
       }
-      options.removeMaskAterToolCall && (await pageController.hideMask())
+      options.removeMaskAfterToolCall && (await pageController.hideMask())
       throw error
     }
   }
