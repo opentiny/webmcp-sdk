@@ -143,16 +143,18 @@ export function buildVNode(
   // 往往是开发者加的结构化 focus 容器（如 tp-card），而非真正的可交互按钮，我们在此过滤掉它们。
   const isMeaningfullyInteractive = isTrulyInteractive && !(role === 'generic' && !hasClickableCursor)
 
+  const isDisabled = tokens.includes('disabled')
+
   const interactive =
-    isMeaningfullyInteractive ||
+    (!isDisabled && isMeaningfullyInteractive) ||
     isWhitelisted ||
     isLabelFor ||
     isSemanticInteractiveTag ||
-    INTERACTIVE_ROLES.has(role) ||
+    (!isDisabled && INTERACTIVE_ROLES.has(role)) ||
     // hasClickableCursor 已排除 CSS 继承（hasOwnPointerCursor）并覆盖 hover 态手势，
     // 无需再要求 role≠generic 或 name≠''——否则无文本的图标按钮（tp-icon.common-icon 等）
     // 虽是真正的可点击边界，仍会因 generic+空名被漏判。
-    hasClickableCursor
+    (!isDisabled && hasClickableCursor)
 
   let ref: number | undefined
   if (interactive) {
@@ -214,19 +216,30 @@ function collectVisiblePlainText(el: Element): string {
  * 优先 name，其次递归子节点，最后可见纯文本兜底（不含 style/script）。
  */
 function getStaticDisplayText(vnode: VNode): string {
+  const childJoined =
+    vnode.children.length > 0
+      ? vnode.children
+          .map(getStaticDisplayText)
+          .filter(Boolean)
+          .join(' ')
+          .replace(/\s+/g, ' ')
+          .trim()
+      : ''
+  const plain = vnode.children.length === 0 ? collectVisiblePlainText(vnode.el) : ''
   const named = vnode.name.trim()
-  if (named && !isNoiseAccessibleName(named)) return named
-  if (vnode.children.length > 0) {
-    const joined = vnode.children
-      .map(getStaticDisplayText)
-      .filter(Boolean)
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim()
-    return isNoiseAccessibleName(joined) ? '' : joined
+
+  const parts: string[] = []
+  if (named && !isNoiseAccessibleName(named)) parts.push(named)
+  if (childJoined && !isNoiseAccessibleName(childJoined)) {
+    const normNamed = named.replace(/\s+/g, ' ').trim()
+    const normChild = childJoined.replace(/\s+/g, ' ').trim()
+    // 声明名与子孙文案不同则合并保留，避免仅有 aria-label 时丢掉静态说明
+    if (!normNamed || (normChild !== normNamed && !normNamed.includes(normChild))) {
+      parts.push(childJoined)
+    }
   }
-  const plain = collectVisiblePlainText(vnode.el)
-  return isNoiseAccessibleName(plain) ? '' : plain
+  if (parts.length === 0 && plain && !isNoiseAccessibleName(plain)) parts.push(plain)
+  return parts.join(' ').replace(/\s+/g, ' ').trim()
 }
 
 /**
@@ -407,7 +420,10 @@ export function serializeVNode(
       staticChildren.length === 0
     ) {
       const mergedName = outputName.trim() || singleChild.name.trim()
-      return [`${indent}- ${vnode.role}${refStr}${tokenStr}${formatNameAttr(mergedName)}`]
+      // 合并输出时使用子节点 ref，避免 refMap 中的 #N 在 YAML 里丢失
+      const mergedRefStr =
+        singleChild.ref !== undefined ? ` #${singleChild.ref}` : refStr
+      return [`${indent}- ${vnode.role}${mergedRefStr}${tokenStr}${formatNameAttr(mergedName)}`]
     }
   }
 

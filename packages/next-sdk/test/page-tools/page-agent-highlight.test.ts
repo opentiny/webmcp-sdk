@@ -3,6 +3,9 @@ import { resolveHighlightRect } from '../../page-tools/page-agent-highlight'
 
 const originalGetComputedStyle = window.getComputedStyle
 
+const originalInnerWidth = Object.getOwnPropertyDescriptor(window, 'innerWidth')
+const originalInnerHeight = Object.getOwnPropertyDescriptor(window, 'innerHeight')
+
 beforeEach(() => {
   document.body.innerHTML = ''
 })
@@ -13,6 +16,8 @@ afterEach(() => {
     configurable: true,
     value: originalGetComputedStyle,
   })
+  if (originalInnerWidth) Object.defineProperty(window, 'innerWidth', originalInnerWidth)
+  if (originalInnerHeight) Object.defineProperty(window, 'innerHeight', originalInnerHeight)
 })
 
 describe('resolveHighlightRect', () => {

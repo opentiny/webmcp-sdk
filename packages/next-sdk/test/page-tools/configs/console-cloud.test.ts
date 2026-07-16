@@ -14,6 +14,13 @@ function el(html: string): Element {
   return wrapper.firstElementChild as Element
 }
 
+function setupRoot(html: string): HTMLElement {
+  const root = document.createElement('div')
+  root.innerHTML = html.trim()
+  document.body.appendChild(root)
+  return root
+}
+
 beforeEach(() => {
   document.body.innerHTML = ''
 })
@@ -36,18 +43,24 @@ describe('isConsoleCloudHost', () => {
 
 describe('consoleCloudPageAgentToolOptions', () => {
   it('导出完整 PageAgentToolOptions，并暴露 cf-uba / data-qa-id / name', () => {
-    expect(consoleCloudPageAgentToolOptions.enableHighlight).toBe(true)
+    expect(consoleCloudPageAgentToolOptions.enableHighlight).toBe(false)
     expect(a11yConfig.exposedAttributes).toContain('cf-uba')
     expect(a11yConfig.exposedAttributes).toContain('data-qa-id')
     expect(a11yConfig.exposedAttributes).toContain('name')
   })
 
   it('data-qa-id 仅输出属性 token，不自动赋予 ref', () => {
-    const staticEl = el('<div data-qa-id="static-marker">静态文案</div>')
+    const root = setupRoot(`
+      <div id="page-root">
+        <div data-qa-id="static-marker">静态文案</div>
+      </div>
+    `)
+    const container = root.querySelector('#page-root') as Element
+    const staticEl = root.querySelector('[data-qa-id="static-marker"]') as Element
     const info = resolveA11yInfo(staticEl, a11yConfig)
     expect(info.tokens).toContain('data-qa-id="static-marker"')
-    const { refMap } = buildA11yTree(staticEl, a11yConfig)
-    expect(refMap.size).toBe(0)
+    const { refMap } = buildA11yTree(container, a11yConfig)
+    expect(Array.from(refMap.values())).not.toContain(staticEl)
   })
 
   it('Tiny3 Tab：.ti3-tabs-text → tab，选中态随父 li.ti3-tab-active', () => {

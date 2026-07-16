@@ -86,6 +86,12 @@ describe('buildA11yTree - roles 自定义角色规则', () => {
 })
 
 describe('buildA11yTree - states 自定义状态规则', () => {
+  it('aria-disabled 的 role=button 不分配 ref', () => {
+    const root = setupRoot(`<div role="button" aria-disabled="true" tabindex="0">禁用</div>`)
+    const { refMap } = buildA11yTree(root)
+    expect(refMap.size).toBe(0)
+  })
+
   it('按钮组通过 class 判定 selected', () => {
     const root = setupRoot(`<div class="btn-group"><button class="btn is-checked">选中项</button></div>`)
     const { yaml } = buildA11yTree(root, {

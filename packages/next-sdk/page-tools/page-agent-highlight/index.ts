@@ -139,7 +139,12 @@ const doHighlight = (refMap: RefMap, parentIframe: HTMLIFrameElement | null = nu
   // 3、 遍历 refMap
   for (const [index, el] of refMap.entries()) {
     const rect = resolveHighlightRect(el)
-    if (!rect || !isRectInViewport(rect)) continue
+    if (!rect) continue
+
+    const top = rect.top + iframeOffset.y
+    const left = rect.left + iframeOffset.x
+    const viewportRect = { top, left, width: rect.width, height: rect.height }
+    if (!isRectInViewport(viewportRect)) continue
 
     const color = colors[index % colors.length]
     const textColor = color + opacity
@@ -147,9 +152,6 @@ const doHighlight = (refMap: RefMap, parentIframe: HTMLIFrameElement | null = nu
     const overlay = document.createElement('div')
     overlay.style.border = `2px solid ${textColor}`
     overlay.dataset.refIndex = String(index)
-
-    const top = rect.top + iframeOffset.y
-    const left = rect.left + iframeOffset.x
 
     overlay.style.top = `${top}px`
     overlay.style.left = `${left}px`
