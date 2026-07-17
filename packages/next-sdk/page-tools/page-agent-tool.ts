@@ -11,7 +11,7 @@ import { setupPageAgentToolEventBridge } from './page-agent-tool-event'
 import type { PageAgentToolOptions } from './constants'
 import { inputSchema, type PageAgentToolInput } from './schema'
 import { createActionErrorResult, type ActionContext } from './context'
-import { detectPageDialog, detectValidationErrors, detectVisibleTooltips, scanForDynamicTooltips } from './utils/dom'
+import { detectPageDialog, detectValidationErrors, detectVisibleTooltips } from './utils/dom'
 import { getPageAgentToolConfig, setPageAgentToolConfig } from './tool-config'
 
 import { handleBrowserState } from './handlers/browserState'
@@ -76,12 +76,6 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
   ): Promise<{ content: Array<{ type: 'text'; text: string }> }> {
     const url = window.location.href
     const title = document.title
-
-    // full/both 模式时自动扫描动态 tooltip（hover 候选元素 → 检测 tip → 缓存）
-    // diff 模式跳过以保持快速响应
-    if (responseMode !== 'diff') {
-      await scanForDynamicTooltips()
-    }
 
     // 生成语义化 ARIA YAML 树 + 刷新 refMap（统一读取运行期生效的配置，支持 setPageAgentToolConfig 动态修改）
     const { yaml, refMap } = buildA11yTree(document.body, getPageAgentToolConfig().a11yConfig)

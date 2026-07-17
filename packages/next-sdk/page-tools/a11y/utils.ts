@@ -247,7 +247,6 @@ export function getComposedChildren(el: Element): Element[] {
  * 3. data-tooltip / data-tips 自定义属性
  * 4. 框架级 tooltip 内容（如 Tiny3 tp-helptip 内的 .tp-helptip-label 文本）
  * 4b. 框架级 overflow 指令（Tiny3 tioverflow / Angular Material matTooltip）
- * 5. 动态 tooltip 缓存（scanForDynamicTooltips 自动 hover 扫描发现）
  *
  * 即使 tooltip 容器被隐藏（display:none / opacity:0），也提取其文本内容，
  * 让 AI 无需 hover 即可获取帮助信息。
@@ -300,16 +299,6 @@ export function extractTooltipText(el: Element): string {
   const matTooltip = el.getAttribute('mattooltip') || el.getAttribute('matTooltip')
   if (matTooltip && matTooltip.trim()) {
     return matTooltip.trim().replace(/"/g, '\\"').substring(0, 200)
-  }
-
-  // 5. 动态 tooltip 缓存（scanForDynamicTooltips 自动 hover 扫描发现）
-  // 覆盖无任何静态标识但 hover 后会弹出 tip 的元素
-  const dynamicCache = window.__webmcpcli_dynamicTooltipCache
-  if (dynamicCache) {
-    const cached = dynamicCache.get(el)
-    if (cached) {
-      return cached.replace(/"/g, '\\"').substring(0, 200)
-    }
   }
 
   return ''
