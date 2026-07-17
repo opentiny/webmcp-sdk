@@ -244,6 +244,21 @@ function collectVisiblePlainText(el: Element): string {
 }
 
 /**
+ * 仅收集元素自身的直接文本节点（不含元素子孙）。
+ * 用于 Static-Lift：裸文本不会生成 VNode，需从此补采；不可向下穿透，
+ * 否则会把嵌套 cell 等容器内文案误提到外层 row。
+ */
+function collectDirectTextNodes(el: Element): string {
+  let text = ''
+  for (const node of Array.from(el.childNodes)) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      text += (node.textContent ?? '') + ' '
+    }
+  }
+  return text.replace(/\s+/g, ' ').trim()
+}
+
+/**
  * 收集纯静态分支的展示文案（保字用）。
  * 优先 name，其次递归子节点，最后可见纯文本兜底（不含 style/script）。
  */
@@ -420,13 +435,21 @@ export function serializeVNode(
     .join(' ')
     .replace(/\s+/g, ' ')
     .trim()
+  // 纯文字节点不会生成 VNode 子节点，仅靠 staticChildren 会丢字；
+  // 只采直接文本节点，避免穿透把内层 cell 文案误提到外层 row。
+  const liftedDirectText = collectDirectTextNodes(vnode.el)
+  const effectiveLifted = [liftedStaticName, liftedDirectText]
+    .filter(Boolean)
+    .join(' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 
   // 父 name：声明名优先；否则上提静态子树文案（绝不吸收交互文案）
-  let outputName = parentUsesOwnDeclaredName ? ownDeclaredName : liftedStaticName
+  let outputName = parentUsesOwnDeclaredName ? ownDeclaredName : effectiveLifted
   if (isNoiseAccessibleName(outputName)) outputName = ''
   // vnode.name（声明名）若被污染同样丢弃
   if (!parentUsesOwnDeclaredName && isNoiseAccessibleName(vnode.name)) {
-    outputName = liftedStaticName && !isNoiseAccessibleName(liftedStaticName) ? liftedStaticName : ''
+    outputName = effectiveLifted && !isNoiseAccessibleName(effectiveLifted) ? effectiveLifted : ''
   }
 
   const willEmitParent =

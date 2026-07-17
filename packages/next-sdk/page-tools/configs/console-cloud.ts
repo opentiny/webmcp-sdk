@@ -83,8 +83,8 @@ export const consoleCloudPageAgentToolOptions: PageAgentToolOptions = {
           '.region-selector-item',
           '.modules-searchable-region-project-item-region-item',
           '.modules-searchable-region-region-panel-recent-region-item',
-          '.ti3-multiselect-box-cell',
-        ],
+          '.ti3-multiselect-box-cell'
+        ]
       },
       // 模态弹窗：补齐缺失的 role="dialog"（Tiny3 modal/message-box/drawer/侧栏面板）
       {
@@ -93,21 +93,15 @@ export const consoleCloudPageAgentToolOptions: PageAgentToolOptions = {
           '[class*="ti3-modal"]',
           '[class*="ti3-message-box"]',
           '[class*="drawer"]',
-          '.modules-layout-module-sidebar-panel',
-        ],
+          '.modules-layout-module-sidebar-panel'
+        ]
       },
 
       // Tiny3 tooltip / 帮助提示：补齐缺失的 role="tooltip"
       {
         role: 'tooltip',
-        selector: [
-          'tp-helptip',
-          '[class*="ti3-tooltip"]',
-          '.tp-helptip-content',
-          '.ti3-tooltip',
-          '.ti3-tooltip-popper',
-        ],
-      },
+        selector: ['tp-helptip', '[class*="ti3-tooltip"]', '.tp-helptip-content', '.ti3-tooltip', '.ti3-tooltip-popper']
+      }
     ],
     states: {
       // 选中态：挂在容器 class 上，用 selector + closest 即可命中内部交互节点
@@ -139,13 +133,9 @@ export const consoleCloudPageAgentToolOptions: PageAgentToolOptions = {
       ],
       disabled: [{ selector: '.ti3-disabled' }],
       // Tiny3 / Lego 校验错误
-      error: [
-        { selector: ['.ti3-unifyvalid-error', '.ti3-error', '.ti-error', '.lego-text-error', '.lego-error'] },
-      ],
+      error: [{ selector: ['.ti3-unifyvalid-error', '.ti3-error', '.ti-error', '.lego-text-error', '.lego-error'] }],
       // Tiny3 / Lego 警告
-      warning: [
-        { selector: ['.ti3-warning', '.ti-warning', '.lego-text-warning'] },
-      ],
+      warning: [{ selector: ['.ti3-warning', '.ti-warning', '.lego-text-warning'] }],
       // 展开态：需结合计算样式，选择器表达不了「可见」
       expanded: [
         {
@@ -186,8 +176,18 @@ export const consoleCloudPageAgentToolOptions: PageAgentToolOptions = {
       'ti-icon.common-icon',
       'ti-icon.ti3-icon-full-screen'
     ],
-    blacklist: ['noscript', 'pan-gu', '#J_header'],
-  }),
+    blacklist: [
+      'noscript',
+      'pan-gu',
+      // 忽略 WebMCP 高亮容器
+      '#webmcpcli-highlight-container',
+      '#page-agent-runtime_simulator-mask',
+      // CFUI 忽略几个大区域
+      '#J_header',
+      '#J_rightSidebar',
+      '#cf_service_icon'
+    ]
+  })
 }
 
 /** 判断当前页面是否应使用云控制台（consoleCloud）预设 */
