@@ -49,10 +49,10 @@ export default defineConfig({
         {
           text: 'WebMCP&WebSkills 最佳实践',
           items: [
-            { text: '总览', link: '/best-pratice/introduce' },
-            { text: 'Vue 工程最佳实践', link: '/best-pratice/vue-practice' },
-            { text: 'Angular 工程最佳实践', link: '/best-pratice/angular-practice' },
-            { text: 'React 工程最佳实践', link: '/best-pratice/react-practice' }
+            { text: '总览', link: '/best-practice/introduce' },
+            { text: 'Vue 工程最佳实践', link: '/best-practice/vue-practice' },
+            { text: 'Angular 工程最佳实践', link: '/best-practice/angular-practice' },
+            { text: 'React 工程最佳实践', link: '/best-practice/react-practice' }
           ]
         },
         {
