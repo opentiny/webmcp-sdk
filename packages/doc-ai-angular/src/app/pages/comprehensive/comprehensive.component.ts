@@ -36,30 +36,36 @@ export class ComprehensiveComponent implements OnInit, OnDestroy {
   editingCell: { id: number; field: string } | null = null
   editingValue = ''
 
-  // 用于存储 registerPageTool 返回的 cleanup 函数
-  private cleanupPageTool!: () => void
+  modelContext = (document as any).modelContext
+  abortController = new AbortController()
 
   ngOnInit(): void {
-    /**
-     * 注册 MCP 工具处理器（框架无关的纯 JS 函数）
-     * route 省略时默认读 window.location.pathname（即 /comprehensive）
-     */
-    this.cleanupPageTool = registerPageTool({
-      handlers: {
-        'product-guide': async ({ productId }: { productId: string }) => {
+    this.modelContext.registerTool(
+      {
+        name: 'product-guide',
+        description: '根据id查询商品详情。',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            productId: { type: 'string', description: '商品 ID' }
+          },
+          required: ['id']
+        },
+        execute: async ({ productId }: { productId: string }) => {
           const product = this.products.find((p) => String(p.id) === productId)
           const text = product
             ? `产品信息：${JSON.stringify(product, null, 2)}`
             : `未找到产品 ID 为 ${productId} 的商品`
           return { content: [{ type: 'text', text }] }
         }
-      }
-    })
+      },
+      { signal: this.abortController.signal }
+    )
   }
 
   ngOnDestroy(): void {
-    // 组件销毁时取消注册，对应 Vue 版本 onUnmounted 中的 cleanupPageTool()
-    this.cleanupPageTool?.()
+    // 组件销毁时取消注册
+    this.abortController.abort()
   }
 
   // 开始行内编辑

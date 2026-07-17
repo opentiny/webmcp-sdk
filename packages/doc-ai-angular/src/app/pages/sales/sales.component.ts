@@ -94,36 +94,37 @@ export class SalesComponent implements OnInit, OnDestroy {
   private abortController = new AbortController()
 
   ngOnInit() {
-    const modelContext = (document as unknown as { modelContext?: ModelContext }).modelContext || 
-                         (navigator as unknown as { modelContext?: ModelContext }).modelContext
+    const modelContext =
+      (document as unknown as { modelContext?: ModelContext }).modelContext ||
+      (navigator as unknown as { modelContext?: ModelContext }).modelContext
     if (modelContext?.registerTool) {
       modelContext.registerTool(
         {
           name: SALES_RECORD_QUERY_TOOL,
-      title: '查询销售记录',
-      description: '【销售分析工具】查询商品销售记录，支持按时间范围筛选，返回销售趋势图表与数据总览。',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          timeRange: {
-            type: 'string',
-            enum: ['7days', '30days', 'year'],
-            description: '查询时间范围'
-          }
-        }
-      },
-      execute: async (params: { timeRange?: string }) => {
-        const range = params.timeRange || '30days'
-        this.activeRange.set(range)
+          title: '查询销售记录',
+          description: '【销售分析工具】查询商品销售记录，支持按时间范围筛选，返回销售趋势图表与数据总览。',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              timeRange: {
+                type: 'string',
+                enum: ['7days', '30days', 'year'],
+                description: '查询时间范围'
+              }
+            }
+          },
+          execute: async (params: { timeRange?: string }) => {
+            const range = params.timeRange || '30days'
+            this.activeRange.set(range)
 
-        const rangeLabel =
-          {
-            '7days': '近7天',
-            '30days': '近30天',
-            'year': '全年'
-          }[range] || '近30天'
+            const rangeLabel =
+              {
+                '7days': '近7天',
+                '30days': '近30天',
+                'year': '全年'
+              }[range] || '近30天'
 
-        const text = `已为您切换到${rangeLabel}销售记录视图。当前数据显示：
+            const text = `已为您切换到${rangeLabel}销售记录视图。当前数据显示：
 - 总销售额：¥128,450（较上月增长12.5%）
 - 订单数量：1,245笔（较上月增长8.2%）
 - 平均客单价：¥103（较上月下降3.1%）
@@ -135,11 +136,11 @@ export class SalesComponent implements OnInit, OnDestroy {
 3. AirPods Pro 2 - ¥280,000 (20%)
 
 详细图表已在左侧界面展示，可点击不同时间标签查看更多数据。`
-        return { content: [{ type: 'text', text }] }
-      }
-    },
-    { signal: this.abortController.signal }
-    )
+            return { content: [{ type: 'text', text }] }
+          }
+        },
+        { signal: this.abortController.signal }
+      )
     }
   }
 

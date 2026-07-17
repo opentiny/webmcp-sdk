@@ -1,6 +1,6 @@
 # Angular 工程接入 WebMCP + WebSkills 最佳实践
 
-本文根据最新的 WebMCP 标准与 `doc-ai` 示例项目，带你一步步把普通 Angular 工程升级为 AI 驱动的智能应用。
+本文根据最新的 WebMCP 标准与 `doc-ai` 示例项目，带你一步步把普通 Angular 工程升级为 AI 驱动的智能应用。本章核心概念与适配流程，与 Vue 工程最佳实践是一致的，可以适当结合着一起看。本文重点描述关键步骤和与 Vue 工程差异的地方。
 
 > **示例工程仓库**：[`packages/doc-ai-angular`](https://github.com/opentiny/next-sdk/tree/dev/packages/doc-ai-angular)
 
@@ -172,7 +172,7 @@ export { useWebAgentServer } from './useWebAgentServer'
 export const createMcpServer = async () => {
   registerNavigateTool((document as any).modelContext)
 
-  // 仅保留财务工具在 mcp-servers 侧声明（其余工具已迁移到业务页面内一体化定义）
+  // 仅保留财务工具在 mcp-servers 侧声明,以演示分离式注册工具
   registerFinanceTools()
 }
 ```
@@ -184,7 +184,6 @@ export const createMcpServer = async () => {
 `Angular 工程`中注册工具的方式与`Vue工程`一致的， 因为借助原生 `WebMcp API` 是不依赖于任何框架的。
 
 ```ts
-
 import { Component, OnInit, OnDestroy } from '@angular/core'
 
 const ORDER_QUERY_TOOL = 'order_query'
@@ -202,23 +201,26 @@ export class OrdersComponent implements OnInit, OnDestroy {
   ngOnInit() {
     if (!modelContext) return
 
-    modelContext.registerTool({
-      name: ORDER_QUERY_TOOL,
-      title: '查询订单',
-      description: '【订单管理工具】查询电商订单列表，可按订单号、客户姓名或状态筛选，不传参数则返回全部订单。',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          orderId: {
-            type: 'string',
-            description: '订单号（可选）'
-          },
+    modelContext.registerTool(
+      {
+        name: ORDER_QUERY_TOOL,
+        title: '查询订单',
+        description: '【订单管理工具】查询电商订单列表，可按订单号、客户姓名或状态筛选，不传参数则返回全部订单。',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            orderId: {
+              type: 'string',
+              description: '订单号（可选）'
+            }
+          }
+        },
+        execute: async ({ id }: { id: string }) => {
+          return { content: [{ type: 'text', text: `商品 ${id} 的状态：销售中` }] }
         }
       },
-      execute: async ({ id }: { id: string }) => {
-        return { content: [{ type: 'text', text: `商品 ${id} 的状态：销售中` }] }
-      }
-    }, { signal: this.abortController.signal })
+      { signal: this.abortController.signal }
+    )
   }
 
   ngOnDestroy() {
@@ -227,6 +229,67 @@ export class OrdersComponent implements OnInit, OnDestroy {
 }
 ```
 
+## 进阶：分离式全量注册 (适合轻量/小型应用)
+
+如果你的应用功能较少，或者不想编写繁琐的 WebSkills，可以使用**一次性全量注册**方案。参见第三步中调用 `registerFinanceTools`函数
+
+### 1. 声明式配置 (含 routeConfig)
+
+在独立文件中定义工具及其所属路由。这种方式下，AI 随时可见该工具，并能自动触发跳转。
+
+```ts
+// src/mcp-servers/finance/tools.ts
+export default function registerFinanceTools() {
+  const abortController = new AbortController()
+  ;(document as any).modelContext.registerTool(
+    {
+      name: 'finance_summary_query',
+      title: '查询财务数据',
+      description: '查询关键财务指标。',
+      inputSchema: {
+        /* ... */
+      },
+      // 💡 关键：无需 Skills，显式声明跳转目标
+      routeConfig: {
+        route: '/finance'
+      }
+    },
+    { signal: abortController.signal }
+  )
+}
+```
+
+### 2. 页面内绑定逻辑 (registerPageTool)
+
+在业务组件内，你只需要关注如何处理该工具的逻辑，无需再次声明或配置。
+
+```vue
+<!-- src/views/finance/index.vue -->
+<script setup lang="ts">
+import { onMounted, onUnmounted } from 'vue'
+import { registerPageTool } from '@opentiny/next-sdk'
+
+let cleanup: (() => void) | undefined
+
+onMounted(() => {
+  // 绑定具体执行逻辑，需与声明时的 route 路径对应
+  cleanup = registerPageTool({
+    route: '/finance',
+    handlers: {
+      'finance_summary_query': async ({ month }) => {
+        // 执行具体的财务查询逻辑...
+        return { content: [{ type: 'text', text: `11月净收入：¥10,000` }] }
+      }
+    }
+  })
+})
+
+onUnmounted(() => cleanup?.())
+</script>
+```
+
+---
+
 ## 第五步： 启动主应用与 Remoter
 
 ```json
@@ -234,7 +297,7 @@ export class OrdersComponent implements OnInit, OnDestroy {
   "scripts": {
     "dev": "concurrently -n ng,remoter \"ng serve\" \"pnpm -C remoter dev\"",
     "dev:ng": "ng serve",
-    "dev:remoter": "pnpm -C remoter dev",
+    "dev:remoter": "pnpm -C remoter dev"
   }
 }
 ```
