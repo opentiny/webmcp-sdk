@@ -186,7 +186,8 @@ export const consoleCloudPageAgentToolOptions: PageAgentToolOptions = {
       // CFUI 忽略几个大区域
       '#J_header',
       '#J_rightSidebar',
-      '#cf_service_icon'
+      '#cf_service_icon',
+      'tp-helptip'
     ]
   })
 }
