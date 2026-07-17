@@ -80,7 +80,7 @@ outline: [2, 3]
 
 **OpenTiny WebMCP-SDKs** 是探索WebMcp的先行者，自2025年就在浏览器上定义WebMcp Server,并进行注册工具函数，详见：[WebMcp Server](../webmcp-sdk/webmcp-server.md)。
 
-在2006.5.27号会议上， W3c 组织已经定义标准**WebMCP API**，并将在 Chrome 150 上正式推出。目前已经有成熟的 WebMcp Polyfill包，可以让我们在低版本浏览器上也能使用它，所以它目前已经是广泛可用的状态了。
+在2006.5.27号会议上， W3C 组织已经定义标准**WebMCP API**，并将在 Chrome 150 上正式推出。目前已经有成熟的 WebMcp Polyfill包，可以让我们在低版本浏览器上也能使用它，所以它目前已经是广泛可用的状态了。
 随着它成为浏览器标准API并逐渐流行后，未来大多数网页应用都会内部集成WebMCP API， AI 智能体将可以无缝操作这些网站。
 
 我们定义的WebMcp Server 与 标准WebMCP API的功能目的是一致的，用法是一致的。当WebMCP API成为标准后， 我们不建议继续使用WebMcp Server。
