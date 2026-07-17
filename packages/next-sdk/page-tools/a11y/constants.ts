@@ -8,8 +8,6 @@
 
 export const DEFAULT_ERROR_SELECTORS = [
   '[role="alert"]', '[aria-invalid="true"]',
-  '.ti3-unifyvalid-error', '.ti3-error', '.ti-error',
-  '.lego-text-error', '.lego-error',
   '.el-form-item__error',
   '.ant-form-item-explain-error',
   '.is-invalid', '.invalid-feedback',
@@ -21,7 +19,6 @@ export const DEFAULT_ERROR_SELECTORS = [
 ]
 
 export const DEFAULT_WARNING_SELECTORS = [
-  '.ti3-warning', '.ti-warning', '.lego-text-warning',
   '.warning-msg', '.warning-text', '.is-warning', '.has-warning',
 ]
 
@@ -30,9 +27,6 @@ export const DEFAULT_DIALOG_SELECTORS = [
   // W3C ARIA 标准
   '[role="dialog"]',
   '[role="alertdialog"]',
-  // Tiny3 / Lego（云控制台）
-  '[class*="ti3-modal"]',
-  '[class*="ti3-message-box"]',
   // Element UI / Element Plus
   '[class*="el-dialog"]',
   '[class*="el-message-box"]',
@@ -44,6 +38,24 @@ export const DEFAULT_DIALOG_SELECTORS = [
   '[class*="v-dialog"]',
   // Naive UI
   '[class*="n-modal"]',
+]
+
+/** 可见 tooltip / 浮层提示默认选择器：ARIA 标准 + 主流 UI 框架（唯一来源，顶层 constants.ts 从此处重新导出） */
+export const DEFAULT_TOOLTIP_SELECTORS = [
+  // W3C ARIA 标准
+  '[role="tooltip"]',
+  // Element Plus
+  '[class*="el-tooltip-popper"]',
+  '[class*="el-popper"]',
+  // Ant Design
+  '[class*="ant-tooltip"]',
+  '[class*="ant-popover"]',
+  // Naive UI
+  '[class*="n-tooltip"]',
+  '[class*="n-popover"]',
+  // Vuetify
+  '[class*="v-tooltip"]',
+  '[class*="v-menu"]',
 ]
 
 // ─── ARIA 隐式角色静态映射表（覆盖页面 95%+ 的常用标签）───────────────────────
@@ -110,6 +122,26 @@ export const TAG_ROLE_MAP: Record<string, string> = {
   tr: 'row',
   ul: 'list',
 }
+
+/**
+ * 框架级 role 覆盖规则
+ *
+ * 当元素没有显式 role 属性时，按 CSS 选择器匹配框架特有 class 模式，
+ * 推断出符合 ARIA 语义的 role，使无障碍树能正确识别非标准 UI 组件。
+ *
+ * 优先级：显式 role 属性 > 框架 role 覆盖 > 标签隐式映射 > generic
+ *
+ * 注意：框架特有规则（如 Tiny3 Tabs、tp-helptip）应放在各框架预设配置中
+ *（如 configs/console-cloud.ts），此处仅保留通用规则。
+ */
+export interface RoleOverride {
+  /** CSS 选择器，匹配则应用该 role */
+  selector: string
+  /** 覆盖后的 ARIA 角色 */
+  role: string
+}
+
+export const DEFAULT_ROLE_OVERRIDES: RoleOverride[] = []
 
 // input[type=*] 的角色覆盖
 export const INPUT_TYPE_ROLE: Record<string, string> = {

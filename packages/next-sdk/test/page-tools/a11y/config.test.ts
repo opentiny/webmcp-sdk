@@ -305,7 +305,10 @@ describe('resolveA11yInfo', () => {
 describe('mergeA11yConfig / mergeA11yConfigs', () => {
   it('默认值与用户配置按数组拼接，不丢默认规则', () => {
     const merged = mergeA11yConfig({ roles: [{ role: 'tab', selector: '.tab' }] })
-    expect(merged.roles).toEqual([{ role: 'tab', selector: '.tab' }])
+    // 默认 roles（dialog/tooltip）在前，用户 roles 累加在后
+    expect(merged.roles.some(r => r.role === 'dialog')).toBe(true)
+    expect(merged.roles.some(r => r.role === 'tooltip')).toBe(true)
+    expect(merged.roles.some(r => r.role === 'tab' && (r as any).selector === '.tab')).toBe(true)
     // 默认 states.error/warning/selected 规则仍然存在
     expect(merged.states.error?.length).toBeGreaterThan(0)
     expect(merged.states.warning?.length).toBeGreaterThan(0)

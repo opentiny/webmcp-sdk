@@ -62,18 +62,19 @@ describe('getPageAgentToolConfig / setPageAgentToolConfig', () => {
 describe('setPageAgentToolConfig - a11yConfig 子字段', () => {
   it('未初始化时 a11yConfig 与默认无障碍配置等价', () => {
     const config = getPageAgentToolConfig().a11yConfig
-    expect(config.roles).toEqual([])
+    expect(config.roles).toEqual(DEFAULT_PAGE_AGENT_TOOL_CONFIG.a11yConfig.roles)
     expect(config.whitelist).toEqual([])
     expect(config.blacklist).toEqual([])
     expect(config.exposedAttributes).toEqual([])
-    expect(config.dialogSelectors).toEqual(DEFAULT_PAGE_AGENT_TOOL_CONFIG.a11yConfig.dialogSelectors)
   })
 
   it('merge 模式下多次调用累加合并（拼接而非覆盖）', () => {
     setPageAgentToolConfig({ a11yConfig: { roles: [{ role: 'tab', selector: '.tab-1' }] } })
     setPageAgentToolConfig({ a11yConfig: { roles: [{ role: 'tabpanel', selector: '.panel-1' }] } })
     const current = getPageAgentToolConfig().a11yConfig
-    expect(current.roles).toEqual([
+    // 默认 roles（dialog/tooltip）在前，用户 roles 累加在后
+    const userRoles = current.roles.filter(r => r.role === 'tab' || r.role === 'tabpanel')
+    expect(userRoles).toEqual([
       { role: 'tab', selector: '.tab-1' },
       { role: 'tabpanel', selector: '.panel-1' }
     ])
@@ -100,13 +101,15 @@ describe('setPageAgentToolConfig - a11yConfig 子字段', () => {
     setPageAgentToolConfig({ a11yConfig: { roles: [{ role: 'tab', selector: '.old' }] } })
     setPageAgentToolConfig({ a11yConfig: { roles: [{ role: 'v2', selector: '.new' }] } }, { mode: 'replace' })
     const result = getPageAgentToolConfig().a11yConfig
-    expect(result.roles).toEqual([{ role: 'v2', selector: '.new' }])
+    // replace 模式重置为默认 + 新规则，旧规则 .old 不应存在
+    expect(result.roles.some(r => r.role === 'v2' && (r as any).selector === '.new')).toBe(true)
+    expect(result.roles.some(r => (r as any).selector === '.old')).toBe(false)
   })
 
   it('a11yConfig 与 enableHighlight 可在同一次 patch 中一起设置，互不影响', () => {
-    setPageAgentToolConfig({ enableHighlight: false, a11yConfig: { dialogSelectors: ['.my-modal'] } })
+    setPageAgentToolConfig({ enableHighlight: false, a11yConfig: { roles: [{ role: 'dialog', selector: '.my-modal' }] } })
     const current = getPageAgentToolConfig()
     expect(current.enableHighlight).toBe(false)
-    expect(current.a11yConfig.dialogSelectors).toContain('.my-modal')
+    expect(current.a11yConfig.roles.some(r => r.role === 'dialog' && r.selector === '.my-modal')).toBe(true)
   })
 })

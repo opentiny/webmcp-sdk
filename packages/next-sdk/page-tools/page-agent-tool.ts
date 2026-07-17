@@ -11,7 +11,7 @@ import { setupPageAgentToolEventBridge } from './page-agent-tool-event'
 import type { PageAgentToolOptions } from './constants'
 import { inputSchema, type PageAgentToolInput } from './schema'
 import { createActionErrorResult, type ActionContext } from './context'
-import { detectPageDialog, detectValidationErrors } from './utils/dom'
+import { detectPageDialog, detectValidationErrors, detectVisibleTooltips, scanForDynamicTooltips } from './utils/dom'
 import { getPageAgentToolConfig, setPageAgentToolConfig } from './tool-config'
 
 import { handleBrowserState } from './handlers/browserState'
@@ -21,6 +21,7 @@ import { handleSelect } from './handlers/select'
 import { handleScroll } from './handlers/scroll'
 import { handleExecuteJavascript } from './handlers/executeJavascript'
 import { handleSearchTree } from './handlers/searchTree'
+import { handleHover } from './handlers/hover'
 
 /** 在浏览器页面中注册 page-agent-tool, 用于页面的内容获取和操作，页面的动效 */
 export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
@@ -76,6 +77,12 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
     const url = window.location.href
     const title = document.title
 
+    // full/both 模式时自动扫描动态 tooltip（hover 候选元素 → 检测 tip → 缓存）
+    // diff 模式跳过以保持快速响应
+    if (responseMode !== 'diff') {
+      await scanForDynamicTooltips()
+    }
+
     // 生成语义化 ARIA YAML 树 + 刷新 refMap（统一读取运行期生效的配置，支持 setPageAgentToolConfig 动态修改）
     const { yaml, refMap } = buildA11yTree(document.body, getPageAgentToolConfig().a11yConfig)
     currentRefMap = refMap
@@ -93,6 +100,8 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
     const dialogAlert = detectPageDialog()
     // 检测表单校验错误，提醒 AI 优先修复
     const validationErrors = detectValidationErrors()
+    // 检测 hover 后可见的 tooltip / 浮层提示（框架 portal 插入 body 的内容）
+    const tooltipInfo = detectVisibleTooltips()
 
     // 根据 responseMode 组装 content
     let displayContent = ''
@@ -110,7 +119,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
       title,
       content: displayContent
     }
-    const text = `浏览器状态: ${JSON.stringify(stateObj)}${dialogAlert}${validationErrors}`
+    const text = `浏览器状态: ${JSON.stringify(stateObj)}${dialogAlert}${validationErrors}${tooltipInfo}`
     return { content: [{ type: 'text', text }] }
   }
 
@@ -167,6 +176,9 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
           break
         case 'searchTree':
           ret = await handleSearchTree(args, actionContext)
+          break
+        case 'hover':
+          ret = await handleHover(args, actionContext)
           break
         default:
           ret = { content: [{ type: 'text' as const, text: `未知操作: ${args.action}` }] }

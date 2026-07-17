@@ -10,7 +10,7 @@
  * （a11yConfig 是其中一个字段），这里不再单独维护一套 get/set。
  */
 
-import { TAG_ROLE_MAP, INPUT_TYPE_ROLE, DEFAULT_ERROR_SELECTORS, DEFAULT_WARNING_SELECTORS, DEFAULT_DIALOG_SELECTORS } from './constants'
+import { TAG_ROLE_MAP, INPUT_TYPE_ROLE, DEFAULT_ERROR_SELECTORS, DEFAULT_WARNING_SELECTORS, DEFAULT_DIALOG_SELECTORS, DEFAULT_ROLE_OVERRIDES, DEFAULT_TOOLTIP_SELECTORS } from './constants'
 
 // ─── 类型定义 ────────────────────────────────────────────────────────────
 
@@ -50,8 +50,6 @@ export interface A11yConfig {
   blacklist?: Array<Element | string>
   /** 额外暴露的自定义 DOM 属性（作为 token 输出，如 [data-testid="xxx"]） */
   exposedAttributes?: string[]
-  /** 模态弹窗 CSS 选择器（用于 detectPageDialog 检测阻塞交互的弹窗） */
-  dialogSelectors?: string[]
 }
 
 /** 单个元素解析出的完整无障碍信息 */
@@ -74,7 +72,6 @@ export interface ResolvedA11yConfig {
   whitelist: Array<Element | string>
   blacklist: Array<Element | string>
   exposedAttributes: string[]
-  dialogSelectors: string[]
   readonly [RESOLVED_A11Y_BRAND]?: true
 }
 
@@ -112,7 +109,15 @@ function defaultSelectedMatch(el: Element): boolean {
 
 /** 默认生效的无障碍配置：零配置即可覆盖 ARIA 标准 + 主流 UI 框架的常见错误/警告/选中态检测 */
 export const DEFAULT_A11Y_CONFIG: ResolvedA11yConfig = markResolved({
-  roles: [],
+  // 框架级 role 覆盖：Tiny3 Tabs、tp-helptip 等非标准 UI 组件（规则定义见 constants.ts）
+  // + dialog/tooltip 选择器转为 role 规则，统一走 roles 通道做 role 推断与 DOM 检测
+  roles: [
+    ...DEFAULT_ROLE_OVERRIDES,
+    // Dialog：补齐缺失的 role="dialog"（如 Tiny3 ti3-modal、Element Plus el-dialog）
+    ...DEFAULT_DIALOG_SELECTORS.map(s => ({ selector: s, role: 'dialog' })),
+    // Tooltip：补齐缺失的 role="tooltip"（如 Tiny3 ti3-tooltip、Element Plus el-tooltip-popper）
+    ...DEFAULT_TOOLTIP_SELECTORS.map(s => ({ selector: s, role: 'tooltip' })),
+  ] as A11yRoleRule[],
   states: {
     selected: [
       { match: defaultSelectedMatch },
@@ -126,7 +131,6 @@ export const DEFAULT_A11Y_CONFIG: ResolvedA11yConfig = markResolved({
   whitelist: [],
   blacklist: [],
   exposedAttributes: [],
-  dialogSelectors: DEFAULT_DIALOG_SELECTORS,
 })
 
 // ─── 匹配辅助 ────────────────────────────────────────────────────────────
@@ -136,6 +140,24 @@ function normalizeSelector(selector?: string | string[]): string | undefined {
   if (!selector) return undefined
   const joined = Array.isArray(selector) ? selector.filter(Boolean).join(', ') : selector
   return joined || undefined
+}
+
+/**
+ * 从 roles 规则中提取指定角色的所有 CSS 选择器（展平为一维 string[]）。
+ * 供 DOM 检测函数（detectPageDialog / getVisibleTooltipElements）复用：
+ * 这些函数需要选择器字符串做 deepQuerySelectorAll，而非 matches 判断。
+ */
+export function getSelectorsForRole(roles: A11yRoleRule[], targetRole: string): string[] {
+  const selectors: string[] = []
+  for (const rule of roles) {
+    if (rule.role !== targetRole || !rule.selector) continue
+    if (Array.isArray(rule.selector)) {
+      selectors.push(...rule.selector.filter(Boolean) as string[])
+    } else {
+      selectors.push(rule.selector)
+    }
+  }
+  return selectors
 }
 
 /**
@@ -231,7 +253,6 @@ export function mergeA11yConfigs(base: A11yConfig, patch: A11yConfig): ResolvedA
     whitelist: concatArr(base.whitelist, patch.whitelist),
     blacklist: concatArr(base.blacklist, patch.blacklist),
     exposedAttributes: concatArr(base.exposedAttributes, patch.exposedAttributes),
-    dialogSelectors: concatArr(base.dialogSelectors, patch.dialogSelectors),
   })
 }
 
