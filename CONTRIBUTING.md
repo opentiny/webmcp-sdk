@@ -19,7 +19,7 @@ When you use NEXT-SDKs and participate in many of the above contributions, as yo
 
 If you encounter problems while using OpenTiny NEXT-SDKs, you are welcome to submit an Issue. Before submitting, please read the relevant [official documentation](https://docs.opentiny.design/next-sdk/) carefully to confirm whether this is a defect or an unimplemented function.
 
-If it is a defect, select the [Bug report](https://github.com/opentiny/next-sdk/issues/new?template=bug-report.yml) template when creating a new Issue. The title follows the format `[packageName] defect description`. For example: `[next-sdk] WebMcpClient reconnect fails after connection timeout`.
+If it is a defect, select the [Bug report](https://github.com/opentiny/next-sdk/issues/new?template=bug-report.yml) template when creating a new Issue. The title follows the format `[packageName] defect description`. For example: `[next-sdk] registerPageAgentTool config not replaced on re-register`.
 
 Issue that reports defects mainly needs to fill in the following information:
 
@@ -42,7 +42,7 @@ Before submitting a pull request, please make sure that your submission is in li
 
 #### Commit Message
 
-The commit message should be in the form of `type(scope): description`, e.g. `fix(next-sdk): fix WebMcpClient reconnect logic`.
+The commit message should be in the form of `type(scope): description`, e.g. `fix(next-sdk): fix page-agent-tool a11y tree incremental diff`.
 
 1. **type**: must be one of `build`, `chore`, `ci`, `docs`, `feat`, `fix`, `perf`, `refactor`, `revert`, `release`, `style`, `test`, `improvement`.
 
@@ -56,7 +56,7 @@ The commit message should be in the form of `type(scope): description`, e.g. `fi
 
 2. Example titles:
    - Added next-sdk documentation: `docs(next-docs): add MCP transport guide`
-   - Fixed WebMcpClient bug: `fix(next-sdk): fix session timeout handling`
+   - Fixed page-agent bug: `fix(next-sdk): fix setPageAgentToolConfig merge behavior`
    - New feature for next-remoter: `feat(next-remoter): support custom theme`
 
 #### Pull Request Description

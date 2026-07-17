@@ -35,6 +35,22 @@ body:
     validations:
       required: true
   - type: textarea
+    id: chinese-repro
+    attributes:
+      label: 中文复现场景（必填）
+      description: |
+        请按 docs/ai-engineering/templates/bug-repro.md 填写：前置条件、步骤、期望、实际。
+        修复 PR 的测试用例标题须包含「复现：」关键字。
+      placeholder: |
+        前置条件：
+        复现步骤：
+        1.
+        2.
+        期望结果：
+        实际结果：
+    validations:
+      required: true
+  - type: textarea
     id: reproduce
     attributes:
       label: Step to reproduce

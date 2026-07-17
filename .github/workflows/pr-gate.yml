@@ -1,0 +1,87 @@
+# PR 合入门禁：标题 / Checklist / Gate Fields / Spec·复现路径
+name: PR Gate
+run-name: PR Gate--${{ github.event.pull_request.title || github.ref_name }}
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, edited, ready_for_review]
+  workflow_dispatch:
+
+concurrency:
+  group: pr-gate-${{ github.event.number || github.sha }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: read
+  checks: read
+
+jobs:
+  gate:
+    name: PR Checklist Gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      draft: ${{ steps.meta.outputs.draft }}
+    steps:
+      - name: CheckOut Code
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Meta
+        id: meta
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request
+            if (!pr) {
+              core.setOutput('draft', 'false')
+              core.setOutput('bypass', 'false')
+              return
+            }
+            core.setOutput('draft', pr.draft ? 'true' : 'false')
+            const labels = (pr.labels || []).map((l) => l.name)
+            const bypass = labels.includes('gate-bypass') || labels.includes('emergency')
+            core.setOutput('bypass', bypass ? 'true' : 'false')
+            core.setOutput('title', pr.title || '')
+            // body may be large; write to file via env in next step using github-script file
+            const fs = require('fs')
+            fs.writeFileSync('pr-body.md', pr.body || '')
+
+      - name: Run pr-gate
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_DRAFT: ${{ steps.meta.outputs.draft }}
+          GATE_BYPASS: ${{ steps.meta.outputs.bypass }}
+        run: |
+          if [ ! -f pr-body.md ]; then
+            # workflow_dispatch 无 PR body
+            echo "## PR Type" > pr-body.md
+            echo "- [x] Documentation-related changes" >> pr-body.md
+            echo "## Gate Fields（CI 读取，请按类型填写）" >> pr-body.md
+            echo "- Issue: " >> pr-body.md
+            echo "- Spec: " >> pr-body.md
+            echo "- Repro test: " >> pr-body.md
+            echo "- Skip reason: " >> pr-body.md
+            export PR_TITLE="${PR_TITLE:-docs(ai-engineering): workflow dispatch}"
+          fi
+          node .github/scripts/pr-gate.mjs --title "$PR_TITLE" --body-file pr-body.md
+
+  # 依赖同 PR 上 CI Test 工作流的结论较复杂；此处用路径提示 + 成功占位，
+  # Merge Ready 在「gate 通过」基础上成立；完整测试仍由 CI Test workflow 作为独立 required check。
+  merge-ready:
+    name: Merge Ready
+    needs: [gate]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Aggregate
+        run: |
+          echo "gate=${{ needs.gate.result }}"
+          if [ "${{ needs.gate.result }}" != "success" ]; then
+            echo "::error::PR Checklist Gate 未通过；请按 Job Summary / 日志修复后重试"
+            exit 1
+          fi
+          echo "Merge Ready: PR Gate passed. Ensure CI Test required checks are also green when applicable."
+          echo "See docs/ai-engineering/merge-gate.md for Branch Protection setup."

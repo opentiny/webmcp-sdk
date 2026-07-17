@@ -17,6 +17,11 @@
     "sdk",
     "agent"
   ],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "license": "MIT",
   "author": "Chunhui Mo",
   "main": "index.ts",

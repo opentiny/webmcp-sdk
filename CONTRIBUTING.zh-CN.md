@@ -19,12 +19,13 @@
 
 如果你在使用 OpenTiny NEXT-SDKs 过程中遇到问题，欢迎给我们提交 Issue。提交 Issue 之前，请先仔细阅读相关的[官方文档](https://docs.opentiny.design/next-sdk/)，确认这是一个缺陷还是尚未实现的功能。
 
-如果是一个缺陷，创建新 Issue 时选择 [Bug report](https://github.com/opentiny/next-sdk/issues/new?template=bug-report.yml) 模板，标题遵循 `[packageName] 缺陷简述` 的格式，比如：`[next-sdk] WebMcpClient 连接超时后重连失败`。
+如果是一个缺陷，创建新 Issue 时选择 [Bug report](https://github.com/opentiny/next-sdk/issues/new?template=bug-report.yml) 模板，标题遵循 `[packageName] 缺陷简述` 的格式，比如：`[next-sdk] registerPageAgentTool 重复注册后配置未按 replace 生效`。
 
 报告缺陷的 Issue 主要需要填写以下信息：
 
 - `@opentiny/next-sdk`、`@opentiny/next-remoter`（如涉及）及 Node.js 的版本号
 - 缺陷的表现，可截图辅助说明，如果有报错可贴上报错信息
+- **中文复现场景**（前置 / 步骤 / 期望 / 实际），模板见 [`docs/ai-engineering/templates/bug-repro.md`](./docs/ai-engineering/templates/bug-repro.md)
 - 缺陷的复现步骤，最好能提供一个最小可复现 demo 链接
 
 如果是一个新特性，则选择 [Feature request](https://github.com/opentiny/next-sdk/issues/new?template=feature-request.yml) 模板，标题遵循 `[packageName] 新特性简述` 的格式，比如：`[next-remoter] 希望支持自定义主题变量`。
@@ -33,6 +34,19 @@
 
 - 该特性主要解决用户的什么问题
 - 该特性的 API 是什么样的
+- 开发时在主责包创建 Spec：`packages/<pkg>/specs/REQ-YYYYMMDD-slug/`（见 [`docs/ai-engineering/`](./docs/ai-engineering/)）
+
+## AI 协作与质量闭环
+
+本仓库以根目录 [`AGENTS.md`](./AGENTS.md) 为跨工具唯一约束源。要点：
+
+1. **就近**：Spec 在 `packages/<pkg>/specs/`，测试在 `packages/<pkg>/test/`，二者不要混放。
+2. **Bugfix**：PR 须提供含「复现：」的测试路径；`pnpm test` 通过。关联 `Issue: #N` **可选**（其它途径反馈的 bug 可不填）。
+3. **Feature**：PR Gate Fields 填写 Spec 路径，且目录含 requirements/design/tasks。
+4. **Skills**：`pnpm install` 会执行 `skills:sync`；大 Skill 不进 Git。
+5. **合入**：须通过 GitHub Actions **Merge Ready**；维护者需配置 Branch Protection（见 [`docs/ai-engineering/merge-gate.md`](./docs/ai-engineering/merge-gate.md)）。
+
+本地预检：`pnpm pr-gate`（需自行传入 title/body，见脚本 `--help`）。
 
 ## 提交 PR
 
@@ -42,7 +56,7 @@
 
 #### Commit 信息
 
-commit 信息要以 `type(scope): 描述信息` 的形式填写，例如：`fix(next-sdk): 修复 WebMcpClient 重连逻辑`。
+commit 信息要以 `type(scope): 描述信息` 的形式填写，例如：`fix(next-sdk): 修复 page-agent-tool 无障碍树增量 Diff`。
 
 1. **type**：必须是 `build`、`chore`、`ci`、`docs`、`feat`、`fix`、`perf`、`refactor`、`revert`、`release`、`style`、`test`、`improvement` 其中的一个。
 
@@ -56,7 +70,7 @@ commit 信息要以 `type(scope): 描述信息` 的形式填写，例如：`fix(
 
 2. 标题示例：
    - 补充 next-sdk 文档：`docs(next-docs): 添加 MCP 传输层说明`
-   - 修复 WebMcpClient 缺陷：`fix(next-sdk): 修复 session 超时处理`
+   - 修复 page-agent 缺陷：`fix(next-sdk): 修复 setPageAgentToolConfig merge 行为`
    - next-remoter 新特性：`feat(next-remoter): 支持自定义主题`
 
 #### Pull Request 的描述

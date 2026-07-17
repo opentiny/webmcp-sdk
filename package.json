@@ -5,6 +5,8 @@
   "description": "OpenTiny NEXT MCP",
   "packageManager": "pnpm@9.15.0",
   "scripts": {
+    "prepare": "node ./scripts/skills-sync.mjs",
+    "skills:sync": "node ./scripts/skills-sync.mjs",
     "dev": "pnpm -F doc-ai dev",
     "dev:ng": "pnpm -F doc-ai-angular dev",
     "dev:react": "pnpm -F doc-ai-react dev",
@@ -26,7 +28,8 @@
     "pub:next-sdk": "pnpm -F @opentiny/next-sdk publish --no-git-checks",
     "pub:remoter": "pnpm -F @opentiny/next-remoter publish --no-git-checks",
     "dev:webmcp-cli": "pnpm -F @opentiny/webmcp-cli dev",
-    "build:webmcp-cli": "pnpm -F @opentiny/webmcp-cli build"
+    "build:webmcp-cli": "pnpm -F @opentiny/webmcp-cli build",
+    "pr-gate": "node ./.github/scripts/pr-gate.mjs"
   },
   "devDependencies": {
     "prettier": "catalog:",
