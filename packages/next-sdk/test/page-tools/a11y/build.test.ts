@@ -69,7 +69,7 @@ describe('buildA11yTree - roles 自定义角色规则', () => {
   it('无 role 属性的 .tab-item 被识别为 tab 并出现在 YAML 输出中', () => {
     const root = setupRoot(`<div class="my-tabs"><div class="tab-item">概览</div></div>`)
     const { yaml } = buildA11yTree(root, {
-      roles: [{ role: 'tab', selector: '.tab-item' }],
+      roles: [{ role: 'tab', selector: '.tab-item' }]
     })
     expect(yaml).toMatch(/-\s+tab\b.*"概览"/)
   })
@@ -95,7 +95,7 @@ describe('buildA11yTree - states 自定义状态规则', () => {
   it('按钮组通过 class 判定 selected', () => {
     const root = setupRoot(`<div class="btn-group"><button class="btn is-checked">选中项</button></div>`)
     const { yaml } = buildA11yTree(root, {
-      states: { selected: { selector: '.btn-group .btn.is-checked' } },
+      states: { selected: { selector: '.btn-group .btn.is-checked' } }
     })
     expect(yaml).toMatch(/\[selected\]/)
   })
@@ -105,7 +105,7 @@ describe('buildA11yTree - states 自定义状态规则', () => {
     const errEl = root.querySelector('.err-text') as HTMLElement
     errEl.style.color = 'rgb(245, 34, 45)'
     const { yaml } = buildA11yTree(root, {
-      states: { error: { match: (e) => window.getComputedStyle(e).color === 'rgb(245, 34, 45)' } },
+      states: { error: { match: (e) => window.getComputedStyle(e).color === 'rgb(245, 34, 45)' } }
     })
     expect(yaml).toMatch(/\[error\]/)
   })
@@ -168,7 +168,7 @@ describe('buildA11yTree - 非内容节点与 CSS 噪声过滤', () => {
       expect(yaml).not.toMatch(/data:font\//i)
       expect(lines.some((l) => /link.*"云服务器控制台"/.test(l))).toBe(true)
       expect(lines.some((l) => /button.*"包年\/包月"/.test(l))).toBe(true)
-    },
+    }
   )
 
   it(
@@ -196,7 +196,7 @@ describe('buildA11yTree - 非内容节点与 CSS 噪声过滤', () => {
       expect(lines.some((l) => /link.*"云服务器控制台"/.test(l))).toBe(true)
       expect(lines.some((l) => /link.*"弹性云服务器"/.test(l))).toBe(true)
       expect(yaml).toContain('购买弹性云服务器')
-    },
+    }
   )
 
   it(
@@ -215,7 +215,7 @@ describe('buildA11yTree - 非内容节点与 CSS 噪声过滤', () => {
       expect(yaml).not.toContain('should-not-appear-in-a11y')
       expect(yaml).not.toContain('__SECRET_MARKER__')
       expect(lines.some((l) => /button.*"提交"/.test(l))).toBe(true)
-    },
+    }
   )
 
   it(
@@ -233,7 +233,7 @@ describe('buildA11yTree - 非内容节点与 CSS 噪声过滤', () => {
 
       expect(yaml).not.toContain('请启用 JavaScript')
       expect(lines.some((l) => /button.*"立即购买"/.test(l))).toBe(true)
-    },
+    }
   )
 
   it(
@@ -251,7 +251,7 @@ describe('buildA11yTree - 非内容节点与 CSS 噪声过滤', () => {
 
       expect(yaml).not.toContain('TEMPLATE_MARKER')
       expect(lines.some((l) => /button.*"自定义购买"/.test(l))).toBe(true)
-    },
+    }
   )
 
   it(
@@ -273,7 +273,7 @@ describe('buildA11yTree - 非内容节点与 CSS 噪声过滤', () => {
       expect(yaml).not.toMatch(/base64,/i)
       expect(contentLines.some((l) => l.includes('可用区'))).toBe(true)
       expect(contentLines.some((l) => l.includes('随机分配'))).toBe(true)
-    },
+    }
   )
 })
 
@@ -318,7 +318,38 @@ describe('buildA11yTree - 父子文字去重与折叠', () => {
       expect(lines.some((l) => /button.*"按需计费"/.test(l))).toBe(true)
       // 静态 span 已上提，不应再单独输出一层 generic "计费模式"
       expect(lines.filter((l) => /"计费模式"/.test(l))).toHaveLength(1)
-    },
+    }
+  )
+
+  it(
+    '场景：纯文字节点 + 多个按钮\n' +
+      '问题：丢失文字节点\n' +
+      '期望：文字节点上提到 cell，交互按钮保留为子节点：\n' +
+      '  - cell "计费模式"\n' +
+      '    - button "包年/包月"\n' +
+      '    - button "按需计费"',
+    () => {
+      const root = setupRoot(`
+        <div role="row">
+          <div role="cell">
+            计费模式
+            <button type="button">包年/包月</button>
+            <button type="button">按需计费</button>
+          </div>
+        </div>
+      `)
+      const { yaml, lines } = buildA11yTree(root)
+
+      // 保字：裸文本「计费模式」不得丢失
+      expect(yaml.split('计费模式').length - 1).toBe(1)
+      expect(yaml.split('包年/包月').length - 1).toBe(1)
+      expect(yaml.split('按需计费').length - 1).toBe(1)
+      expect(yaml).not.toMatch(/"计费模式\s*包年\/包月\s*按需计费"/)
+      expect(lines.some((l) => /cell\s+"计费模式"/.test(l))).toBe(true)
+      expect(lines.some((l) => /button.*"包年\/包月"/.test(l))).toBe(true)
+      expect(lines.some((l) => /button.*"按需计费"/.test(l))).toBe(true)
+      expect(lines.filter((l) => /"计费模式"/.test(l))).toHaveLength(1)
+    }
   )
 
   it(
@@ -339,7 +370,7 @@ describe('buildA11yTree - 父子文字去重与折叠', () => {
       expect(contentLines).toHaveLength(1)
       expect(contentLines[0]).toMatch(/button.*"打开服务列表"/)
       expect(yamlHasDuplicateAccessibleName(lines, '打开服务列表')).toBe(false)
-    },
+    }
   )
 
   it(
@@ -366,7 +397,7 @@ describe('buildA11yTree - 父子文字去重与折叠', () => {
       expect(contentLines[0]).toMatch(/可用区/)
       expect(contentLines[0]).toMatch(/随机分配/)
       expect(contentLines.some((l) => l.includes('region'))).toBe(false)
-    },
+    }
   )
 
   it(
@@ -384,7 +415,7 @@ describe('buildA11yTree - 父子文字去重与折叠', () => {
       expect(lines.some((l) => /region.*"基础配置"/.test(l))).toBe(true)
       expect(lines.some((l) => /button.*"包年\/包月"/.test(l))).toBe(true)
       expect(yaml).not.toMatch(/"基础配置\s*包年\/包月"/)
-    },
+    }
   )
 
   it(
@@ -405,7 +436,7 @@ describe('buildA11yTree - 父子文字去重与折叠', () => {
       expect(lines.some((l) => /button.*"包年\/包月"/.test(l))).toBe(true)
       expect(yaml).not.toMatch(/"基础配置\s*以下选项/)
       expect(yaml).not.toMatch(/"基础配置\s*包年\/包月"/)
-    },
+    }
   )
 
   it(
@@ -429,7 +460,7 @@ describe('buildA11yTree - 父子文字去重与折叠', () => {
       const parentWithRef = lines.find((l) => /^\s*- generic #\d+/.test(l))
       expect(parentWithRef).toBeTruthy()
       expect(parentWithRef!).not.toMatch(/"GT-zzcr"/)
-    },
+    }
   )
 
   it(
@@ -461,7 +492,7 @@ describe('buildA11yTree - 父子文字去重与折叠', () => {
       expect(lines.some((l) => /cell\s+"区域\s+云服务器创建后无法更改区域。"/.test(l))).toBe(true)
       expect(yaml).not.toMatch(/cell\s+"[^"]*华北-北京四[^"]*"/)
       expect(yaml).not.toMatch(/cell\s+"[^"]*如何选择区域[^"]*"/)
-    },
+    }
   )
 })
 
@@ -502,7 +533,7 @@ describe('buildA11yTree - 通用 cursor:pointer 可点击元素识别', () => {
 
       expect(Array.from(refMap.values())).toContain(card)
       expect(yaml).toMatch(/#\d+.*cursor=pointer.*"[^"]*弹性云服务器 ECS[^"]*"/)
-    },
+    }
   )
 
   it(
@@ -530,7 +561,7 @@ describe('buildA11yTree - 通用 cursor:pointer 可点击元素识别', () => {
 
       expect(refElements).toContain(card)
       expect(refElements).not.toContain(inner)
-    },
+    }
   )
 
   it(
@@ -554,29 +585,25 @@ describe('buildA11yTree - 通用 cursor:pointer 可点击元素识别', () => {
 
       const { yaml, refMap } = buildA11yTree(root, {
         roles: [{ role: 'button', selector: 'tp-icon.common-icon' }],
-        exposedAttributes: ['data-qa-id'],
+        exposedAttributes: ['data-qa-id']
       })
 
       expect(Array.from(refMap.values())).toContain(icon)
       expect(yaml).toMatch(/button #\d+.*cursor=pointer.*data-qa-id=.*ecm\.ecs-dashboard\.b/)
-    },
+    }
   )
 
-  it(
-    '场景：普通静态 generic 容器（无 cursor:pointer）\n' +
-      '期望：不因本次改动误判为可交互（无 ref）',
-    () => {
-      const root = setupRoot(`
+  it('场景：普通静态 generic 容器（无 cursor:pointer）\n' + '期望：不因本次改动误判为可交互（无 ref）', () => {
+    const root = setupRoot(`
         <div class="plain-card">
           <div class="title">纯展示卡片</div>
         </div>
       `)
-      const plain = root.querySelector('.plain-card') as HTMLElement
+    const plain = root.querySelector('.plain-card') as HTMLElement
 
-      const { refMap } = buildA11yTree(root)
-      expect(Array.from(refMap.values())).not.toContain(plain)
-    },
-  )
+    const { refMap } = buildA11yTree(root)
+    expect(Array.from(refMap.values())).not.toContain(plain)
+  })
 
   it(
     '场景（华为云控制台实测）：卡片的 cursor:pointer 定义在 :hover 伪类上\n' +
@@ -609,25 +636,21 @@ describe('buildA11yTree - 通用 cursor:pointer 可点击元素识别', () => {
       expect(refElements).toContain(card)
       expect(refElements).not.toContain(info)
       expect(yaml).toMatch(/#\d+.*"[^"]*弹性云服务器 ECS[^"]*"/)
-    },
+    }
   )
 
-  it(
-    '场景：:focus 伪类下声明 cursor:pointer\n' +
-      '期望：同样识别为可点击（覆盖 focus/active 等交互态手势）',
-    () => {
-      const root = setupRoot(`
+  it('场景：:focus 伪类下声明 cursor:pointer\n' + '期望：同样识别为可点击（覆盖 focus/active 等交互态手势）', () => {
+    const root = setupRoot(`
         <style>
           .focusable-tile:focus { cursor: pointer; }
         </style>
         <div class="focusable-tile">可聚焦磁贴</div>
       `)
-      const tile = root.querySelector('.focusable-tile') as HTMLElement
+    const tile = root.querySelector('.focusable-tile') as HTMLElement
 
-      const { refMap } = buildA11yTree(root)
-      expect(Array.from(refMap.values())).toContain(tile)
-    },
-  )
+    const { refMap } = buildA11yTree(root)
+    expect(Array.from(refMap.values())).toContain(tile)
+  })
 })
 
 /** 统计某 accessible name 是否在多行 YAML 中重复出现（父子同名的典型信号） */
