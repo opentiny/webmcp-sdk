@@ -127,7 +127,8 @@ export const consoleCloudPageAgentToolOptions: PageAgentToolOptions = {
             '.region-select',
             '[cf-uba="searchableRegion..open"]',
             '[cf-uba="serviceList..open"]',
-            '[cf-uba="userinfo"]'
+            '[cf-uba="userinfo"]',
+            'tp-helptip'
           ]
         }
       ],
