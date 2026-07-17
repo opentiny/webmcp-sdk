@@ -26,6 +26,10 @@
 
 - url: 当前查看页面的 URL。
 - title: 当前查看页面的标题。
+- content: 语义化 YAML 树（或增量 Diff，取决于 responseMode）。
+- dialogs（可选）: 当前可见的模态弹窗列表，每项含 `text` 与 `buttons`；若存在请优先处理。
+- validationErrors（可选）: 当前可见的表单校验错误文案列表；若存在请先修复。
+- tooltips（可选）: 当前可见的 tooltip / 浮层提示文案列表（常见于 hover 后）。
 - 可交互元素总数：带有 `#N` 标记的元素数量。
 - YAML 树：页面的语义化结构，格式如下：
 
@@ -57,7 +61,7 @@
 - **`full`**：返回当前视口中完整的语义化 ARIA YAML 树。
 - **`both`**：同时返回全量树和增量差异。
 
-执行 `click`、`fill`、`select`、`scroll` 操作后，工具默认自动以 `diff` 模式返回最新页面状态，无需再次手动调用 `browserState`。`hover` 动作返回浮层提示文本 + 重建后的完整页面状态。
+执行 `click`、`fill`、`select`、`scroll` 操作后，工具默认自动以 `diff` 模式返回最新页面状态，无需再次手动调用 `browserState`。`hover` 动作返回重建后的页面状态（含 `tooltips` 等结构化字段）。
 
 </responseMode>
 

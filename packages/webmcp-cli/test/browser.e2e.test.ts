@@ -180,7 +180,14 @@ describe('webmcp-cli browser e2e', () => {
     expect(json.error).toBeUndefined()
     const content = json.content
     const hasArrayContent = Array.isArray(content) && content.length > 0
-    const hasFlatText = typeof json.text === 'string' && json.text.includes('浏览器状态')
-    expect(hasArrayContent || hasFlatText).toBe(true)
+    const text = hasArrayContent
+      ? content[0]?.text
+      : typeof json.text === 'string'
+        ? json.text
+        : undefined
+    const looksLikeBrowserState =
+      typeof text === 'string' &&
+      ((text.trim().startsWith('{') && text.includes('"url"')) || text.includes('浏览器状态'))
+    expect(hasArrayContent || looksLikeBrowserState).toBe(true)
   })
 })

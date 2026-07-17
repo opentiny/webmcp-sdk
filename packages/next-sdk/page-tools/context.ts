@@ -11,6 +11,16 @@ export type PageAgentToolErrorResult = PageAgentToolContentResult & {
   error: string
 }
 
+/** 将额外字段合并进 browserState JSON，保持整段可反序列化 */
+export function withStateFields(stateText: string, extra: Record<string, unknown>): string {
+  try {
+    const state = JSON.parse(stateText) as Record<string, unknown>
+    return JSON.stringify({ ...state, ...extra })
+  } catch {
+    return JSON.stringify({ ...extra, raw: stateText })
+  }
+}
+
 export async function createActionErrorResult(
   message: string,
   buildBrowserStateResponse: ActionContext['buildBrowserStateResponse']
@@ -20,7 +30,7 @@ export async function createActionErrorResult(
     return {
       isError: true,
       error: message,
-      content: [{ type: 'text', text: `${message}\n\n${browserState.content[0].text}` }]
+      content: [{ type: 'text', text: withStateFields(browserState.content[0].text, { error: message }) }]
     }
   } catch (error) {
     return {
@@ -29,7 +39,10 @@ export async function createActionErrorResult(
       content: [
         {
           type: 'text',
-          text: `${message}\n\n获取最新浏览器状态失败: ${error instanceof Error ? error.message : String(error)}`
+          text: JSON.stringify({
+            error: message,
+            stateError: error instanceof Error ? error.message : String(error)
+          })
         }
       ]
     }
