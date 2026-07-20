@@ -35,9 +35,6 @@ export async function runCommand({
       }
     }
 
-    // browserState 为只读观测：不再预扫描 hover tooltip（会 scrollIntoView + 真实鼠标移动导致页面滚动）。
-    // 动态 tooltip 由 page-agent-tool 的 hover action 按需触发。
-
     let result: any
     try {
       result = await page.evaluate(async (name, inputString) => {
