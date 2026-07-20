@@ -147,7 +147,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
 
   async function executePageAgentTool(args: PageAgentToolInput) {
     try {
-      let ret: any
+      let ret: { content: Array<{ type: 'text'; text: string }> }
 
       switch (args.action) {
         case 'browserState':
@@ -157,21 +157,18 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
           await pageController.showMask()
           borderTargetElement(args.index)
           ret = await handleClick(args, actionContext)
-          simulatorMask.removeBorderElement()
           options.removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'fill':
           await pageController.showMask()
           borderTargetElement(args.index)
           ret = await handleFill(args, actionContext)
-          simulatorMask.removeBorderElement()
           options.removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'select':
           await pageController.showMask()
           borderTargetElement(args.index)
           ret = await handleSelect(args, actionContext)
-          simulatorMask.removeBorderElement()
           options.removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'scroll':
@@ -205,6 +202,8 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
       }
       options.removeMaskAfterToolCall && (await pageController.hideMask())
       throw error
+    } finally {
+      simulatorMask.removeBorderElement()
     }
   }
 

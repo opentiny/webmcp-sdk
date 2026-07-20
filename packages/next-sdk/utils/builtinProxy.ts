@@ -133,11 +133,11 @@ export const setupBuiltinProxy = (transport: Transport) => {
         })
       }
     } catch (err: unknown) {
-      const errObj = err as { code?: number; message?: string }
+      const errObj = err as { code?: number; message?: string } | null | undefined
       await transport.send({
         jsonrpc: '2.0',
         id,
-        error: { code: errObj.code || -32000, message: errObj.message || String(err) }
+        error: { code: errObj?.code ?? -32000, message: errObj?.message || String(err) }
       })
     }
   }
