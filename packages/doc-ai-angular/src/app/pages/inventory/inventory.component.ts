@@ -17,7 +17,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
   @ViewChild(InventoryModalComponent) modal!: InventoryModalComponent
   private abortController = new AbortController()
 
-  constructor(private zone: NgZone) {}
+  constructor() {}
 
   ngOnInit() {
     const modelContext =
@@ -37,14 +37,11 @@ export class InventoryComponent implements OnInit, OnDestroy {
             },
             required: ['productName', 'quantity', 'warehouse']
           },
-          execute: (params: any) => {
-            return this.zone.run(async () => {
-              const result = await this.modal.openAiModal(params)
-              console.log(1111, result)
-              return {
-                content: [{ type: 'text', text: result }]
-              }
-            })
+          execute: async (params: { productName: string; quantity: number; warehouse: string }) => {
+            const result = await this.modal.openAiModal(params)
+            return {
+              content: [{ type: 'text', text: result }]
+            }
           }
         },
         { signal: this.abortController.signal }

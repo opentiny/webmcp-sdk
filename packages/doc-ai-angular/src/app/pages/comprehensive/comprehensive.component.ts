@@ -36,31 +36,33 @@ export class ComprehensiveComponent implements OnInit, OnDestroy {
   editingCell: { id: number; field: string } | null = null
   editingValue = ''
 
-  modelContext = (document as any).modelContext
+  modelContext = (document as any).modelContext || (navigator as any).modelContext
   abortController = new AbortController()
 
   ngOnInit(): void {
-    this.modelContext.registerTool(
-      {
-        name: 'product-guide',
-        description: '根据id查询商品详情。',
-        inputSchema: {
-          type: 'object',
-          properties: {
-            productId: { type: 'string', description: '商品 ID' }
+    if (this.modelContext?.registerTool) {
+      this.modelContext.registerTool(
+        {
+          name: 'product-guide',
+          description: '根据id查询商品详情。',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              productId: { type: 'string', description: '商品 ID' }
+            },
+            required: ['productId']
           },
-          required: ['id']
+          execute: async ({ productId }: { productId: string }) => {
+            const product = this.products.find((p) => String(p.id) === productId)
+            const text = product
+              ? `产品信息：${JSON.stringify(product, null, 2)}`
+              : `未找到产品 ID 为 ${productId} 的商品`
+            return { content: [{ type: 'text', text }] }
+          }
         },
-        execute: async ({ productId }: { productId: string }) => {
-          const product = this.products.find((p) => String(p.id) === productId)
-          const text = product
-            ? `产品信息：${JSON.stringify(product, null, 2)}`
-            : `未找到产品 ID 为 ${productId} 的商品`
-          return { content: [{ type: 'text', text }] }
-        }
-      },
-      { signal: this.abortController.signal }
-    )
+        { signal: this.abortController.signal }
+      )
+    }
   }
 
   ngOnDestroy(): void {

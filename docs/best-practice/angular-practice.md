@@ -215,8 +215,8 @@ export class OrdersComponent implements OnInit, OnDestroy {
             }
           }
         },
-        execute: async ({ id }: { id: string }) => {
-          return { content: [{ type: 'text', text: `商品 ${id} 的状态：销售中` }] }
+        execute: async ({ orderId }: { orderId: string }) => {
+          return { content: [{ type: 'text', text: `商品 ${orderId} 的状态：销售中` }] }
         }
       },
       { signal: this.abortController.signal }
@@ -263,29 +263,25 @@ export default function registerFinanceTools() {
 
 在业务组件内，你只需要关注如何处理该工具的逻辑，无需再次声明或配置。
 
-```vue
-<!-- src/views/finance/index.vue -->
-<script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
-import { registerPageTool } from '@opentiny/next-sdk'
+```ts
+<!-- src\app\pages\finance\finance.component.ts -->
+  ngOnInit() {
+    this.cleanupPageTool = registerPageTool({
+      route: '/finance',
+      handlers: {
+        'finance_summary_query': async ({ month }: { month?: string }) => {
+          const monthLabel = month ? `（${month}）` : '（当前）'
+          const text = `财务概况${monthLabel}：
+- 可用余额：¥${this.financeData.balance.toLocaleString()}
+- 待结算金额：¥${this.financeData.pending.toLocaleString()}
+- 本月总支出：¥${this.financeData.expense.toLocaleString()}
 
-let cleanup: (() => void) | undefined
-
-onMounted(() => {
-  // 绑定具体执行逻辑，需与声明时的 route 路径对应
-  cleanup = registerPageTool({
-    route: '/finance',
-    handlers: {
-      'finance_summary_query': async ({ month }) => {
-        // 执行具体的财务查询逻辑...
-        return { content: [{ type: 'text', text: `11月净收入：¥10,000` }] }
+详细流水已在左侧界面展示，可点击【发起提现】或【导出账单】进行操作。`
+          return { content: [{ type: 'text', text }] }
+        }
       }
-    }
-  })
-})
-
-onUnmounted(() => cleanup?.())
-</script>
+    })
+  }
 ```
 
 ---
