@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently -n ng,remoter \"ng serve\" \"pnpm -C remoter dev\"",
-    "dev:ng": "ng serve",
+    "dev:ng": "cross-env NG_BUILD_TYPE_CHECK=0 ng serve",
     "dev:remoter": "pnpm -C remoter dev",
     "build": "ng build",
     "build:remoter": "pnpm -C remoter build",
@@ -18,7 +18,8 @@
     "@angular/forms": "^21.2.0",
     "@angular/platform-browser": "^21.2.0",
     "@angular/router": "^21.2.0",
-    "@opentiny/next-sdk": "^0.3.1",
+    "@opentiny/next-sdk": "workspace:*",
+    "@mcp-b/webmcp-types": "^3.0.0",
     "rxjs": "^7.8.0",
     "tslib": "^2.6.0",
     "vue": "catalog:",
@@ -34,6 +35,7 @@
     "@types/node": "catalog:",
     "dotenv": "catalog:",
     "sass": "^1.80.0",
-    "typescript": "^5.9.0"
+    "typescript": "^5.9.0",
+    "cross-env": "^10.0.0"
   }
 }

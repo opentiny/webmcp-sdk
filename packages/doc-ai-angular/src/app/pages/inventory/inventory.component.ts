@@ -17,37 +17,35 @@ export class InventoryComponent implements OnInit, OnDestroy {
   @ViewChild(InventoryModalComponent) modal!: InventoryModalComponent
   private abortController = new AbortController()
 
-  constructor(private zone: NgZone) {}
+  constructor() {}
 
   ngOnInit() {
-    const modelContext = (document as unknown as { modelContext?: ModelContext }).modelContext || 
-                         (navigator as unknown as { modelContext?: ModelContext }).modelContext
+    const modelContext =
+      (document as unknown as { modelContext?: ModelContext }).modelContext ||
+      (navigator as unknown as { modelContext?: ModelContext }).modelContext
     if (modelContext?.registerTool) {
       modelContext.registerTool(
         {
-        name: 'add_inventory',
-      description: '【入库管理工具】帮助电商管理员将采购的商品新增入库存系统中',
-      inputSchema: {
-        type: 'object',
-        properties: {
-          productName: { type: 'string', description: '商品名称或型号，如：iPhone 15 Pro Max' },
-          quantity: { type: 'number', description: '要入库的数量，必须大于0' },
-          warehouse: { type: 'string', description: '入库存放的仓库名称，如：北京一号仓' }
-        },
-        required: ['productName', 'quantity', 'warehouse']
-      },
-      execute: (params: any) => {
-        return this.zone.run(async () => {
-          const result = await this.modal.openAiModal(params)
-          console.log(1111, result)
-          return {
-            content: [{ type: 'text', text: result }]
+          name: 'add_inventory',
+          description: '【入库管理工具】帮助电商管理员将采购的商品新增入库存系统中',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              productName: { type: 'string', description: '商品名称或型号，如：iPhone 15 Pro Max' },
+              quantity: { type: 'number', description: '要入库的数量，必须大于0' },
+              warehouse: { type: 'string', description: '入库存放的仓库名称，如：北京一号仓' }
+            },
+            required: ['productName', 'quantity', 'warehouse']
+          },
+          execute: async (params: { productName: string; quantity: number; warehouse: string }) => {
+            const result = await this.modal.openAiModal(params)
+            return {
+              content: [{ type: 'text', text: result }]
+            }
           }
-        })
-      }
-    },
-    { signal: this.abortController.signal }
-    )
+        },
+        { signal: this.abortController.signal }
+      )
     }
   }
 

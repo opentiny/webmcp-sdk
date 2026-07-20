@@ -22,7 +22,11 @@
             "tsConfig": "tsconfig.app.json",
             "assets": [],
             "styles": ["src/styles.scss"],
-            "scripts": []
+            "scripts": [],
+            "loader": {
+              ".md": "text",
+              ".svg": "file"
+            }
           },
           "configurations": {
             "production": {
@@ -49,7 +53,10 @@
             "production": { "buildTarget": "doc-ai-angular:build:production" },
             "development": {
               "buildTarget": "doc-ai-angular:build:development",
-              "proxyConfig": "proxy.conf.json"
+              "proxyConfig": "proxy.conf.json",
+              "prebundle": {
+                "exclude": ["@opentiny/next-sdk"]
+              }
             }
           },
           "defaultConfiguration": "development"
