@@ -7,7 +7,7 @@
 ```text
 Frontend App
   ↔ document.modelContext（浏览器 WebMCP / initializeBuiltinWebMCP polyfill）
-  ↔ page-agent-tool 及其它 registerTool
+  ↔ document.modelContext.registerTool / registerPageAgentTool
   ↔ Agent / WebAgent ↔ LLM
   ↓
 TinyRemoter / UI

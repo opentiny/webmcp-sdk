@@ -62,7 +62,15 @@ function linkSkill(name, sourceAbs) {
   }
   removeDest(dest)
   const rel = path.relative(targetDir, skillRoot)
-  fs.symlinkSync(rel, dest, 'dir')
+  try {
+    fs.symlinkSync(rel, dest, 'dir')
+  } catch (err) {
+    if (err && err.code === 'EPERM' && process.platform === 'win32') {
+      fs.symlinkSync(skillRoot, dest, 'junction')
+    } else {
+      throw err
+    }
+  }
   console.log(`[skills:sync] ${name} -> ${rel}`)
   return true
 }
@@ -105,8 +113,15 @@ for (const npm of manifest.npmSkills || []) {
     skipped++
     continue
   }
-  if (linkSkill(npm.name, pkgDir)) ok++
-  else skipped++
+  if (linkSkill(npm.name, pkgDir)) {
+    ok++
+  } else {
+    if (!npm.optional) {
+      console.error(`[skills:sync] required skill ${npm.name} lacks SKILL.md`)
+      process.exitCode = 1
+    }
+    skipped++
+  }
 }
 
 console.log(`[skills:sync] done: linked=${ok}, skipped=${skipped}, target=${manifest.targetDir}`)

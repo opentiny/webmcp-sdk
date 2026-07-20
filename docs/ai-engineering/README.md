@@ -6,7 +6,7 @@
 
 | 资产 | 位置 |
 |---|---|
-| 横切硬规则 | 根目录 [`AGENTS.md`](../../AGENTS.md) |
+| 横切硬规则 | 仓库根 [`AGENTS.md`](https://github.com/opentiny/webmcp-sdk/blob/dev/AGENTS.md)（不在本站路由内） |
 | 包约定 / API 索引 | `packages/<pkg>/AGENTS.md` |
 | Feature Spec | `packages/<pkg>/specs/REQ-*/` |
 | 可执行测试 | `packages/<pkg>/test/` |
@@ -18,8 +18,8 @@
 ## 快速入口
 
 - [原理摘要](./PRINCIPLES.md)
-- [仓级 steering](./steering/)
-- [模板](./templates/)
+- [仓级 steering](./steering/index.md)
+- [模板](./templates/index.md)
 - [合入门禁与 Branch Protection](./merge-gate.md)
 - [Skills 安装](./skills-install.md)
 
