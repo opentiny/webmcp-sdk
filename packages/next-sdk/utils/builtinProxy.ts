@@ -44,6 +44,10 @@ export const setupBuiltinProxy = (transport: Transport) => {
     const id = message.id
     const method = message.method
 
+    // 通知无需响应；其余请求必须带 id 才能回包
+    if (method === 'notifications/initialized') return
+    if (id === undefined) return
+
     try {
       if (method === 'initialize') {
         await transport.send({
@@ -58,8 +62,6 @@ export const setupBuiltinProxy = (transport: Transport) => {
             serverInfo: { name: 'browser-builtin-webmcp-proxy', version: '1.0.0' }
           }
         })
-      } else if (method === 'notifications/initialized') {
-        // Ignore
       } else if (method === 'ping' || method === 'custom_ping') {
         await transport.send({ jsonrpc: '2.0', id, result: {} })
       } else if (method === 'tools/list') {
@@ -122,7 +124,7 @@ export const setupBuiltinProxy = (transport: Transport) => {
         await transport.send({ jsonrpc: '2.0', id, result: { prompts: [] } })
       } else if (method === 'resources/list') {
         await transport.send({ jsonrpc: '2.0', id, result: { resources: [] } })
-      } else if (id !== undefined) {
+      } else {
         // 对于其他不支持但带 id 的请求，返回规范要求的 -32601 Method not found
         await transport.send({
           jsonrpc: '2.0',
@@ -131,14 +133,12 @@ export const setupBuiltinProxy = (transport: Transport) => {
         })
       }
     } catch (err: unknown) {
-      if (id !== undefined) {
-        const errObj = err as { code?: number; message?: string }
-        await transport.send({
-          jsonrpc: '2.0',
-          id,
-          error: { code: errObj.code || -32000, message: errObj.message || String(err) }
-        })
-      }
+      const errObj = err as { code?: number; message?: string }
+      await transport.send({
+        jsonrpc: '2.0',
+        id,
+        error: { code: errObj.code || -32000, message: errObj.message || String(err) }
+      })
     }
   }
 }

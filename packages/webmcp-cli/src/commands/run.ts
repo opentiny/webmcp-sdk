@@ -1,7 +1,6 @@
 import { connectBrowser, getTargetPage, injectIntoPage } from '../browser'
 import { zhihuCreateArticle } from '../zhihu/create-article'
 import { isZhihuWriteUrl } from '../zhihu/markdown'
-import { preScanTooltips } from '../pre-scan'
 
 export async function runCommand({
   toolName,
@@ -36,18 +35,8 @@ export async function runCommand({
       }
     }
 
-    // 当调用 page-agent-tool browserState(full/both) 时，先执行真实鼠标 hover 预扫描
-    // 捕获 Angular tp-helptip 等需要真实 hover 才会动态插入 body 的 tooltip 文本
-    if (toolName === 'page-agent-tool') {
-      try {
-        const parsed = JSON.parse(cleanedArgs)
-        if (parsed.action === 'browserState' && (parsed.responseMode === 'full' || parsed.responseMode === 'both')) {
-          await preScanTooltips(page)
-        }
-      } catch {
-        // JSON 解析失败时跳过预扫描
-      }
-    }
+    // browserState 为只读观测：不再预扫描 hover tooltip（会 scrollIntoView + 真实鼠标移动导致页面滚动）。
+    // 动态 tooltip 由 page-agent-tool 的 hover action 按需触发。
 
     let result: any
     try {

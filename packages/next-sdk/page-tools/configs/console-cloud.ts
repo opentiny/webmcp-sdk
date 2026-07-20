@@ -18,7 +18,7 @@ import type { PageAgentToolOptions } from '../tool-config'
 
 /** 云控制台 page-agent-tool 预设配置 */
 export const consoleCloudPageAgentToolOptions: PageAgentToolOptions = {
-  enableHighlight: false,
+  enableHighlight: true,
   a11yConfig: defineA11yConfig({
     roles: [
       // Tiny3 Tabs：真正可聚焦/可点击的是内部 .ti3-tabs-text（tabindex=0）

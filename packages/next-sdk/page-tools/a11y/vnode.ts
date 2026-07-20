@@ -193,6 +193,12 @@ export function buildVNode(
     ref = refCounter.value
     refMap.set(ref, el as HTMLElement)
     refCounter.value++
+    // 可操作元素默认保留 id（无需 exposedAttributes 配置），便于 AI 定位与跨轮次对齐
+    const idVal = (el as HTMLElement).id
+    if (idVal) {
+      const idToken = `id="${idVal}"`
+      if (!tokens.includes(idToken)) tokens.push(idToken)
+    }
   }
 
   const children: VNode[] = []

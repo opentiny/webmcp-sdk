@@ -36,11 +36,12 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
 
   // 保留 PageController ，先关闭内置mask, 再手工绑定当前项目的mask类
   const pageController = new PageController({ enableMask: false })
+  const simulatorMask = new SimulatorMask()
 
-  // @ts-ignore
+  // @ts-ignore — PageController.mask / maskReady 为 private，需替换为项目内 SimulatorMask
   pageController.maskReady = (async () => {
     // @ts-ignore
-    pageController.mask = new SimulatorMask()
+    pageController.mask = simulatorMask
   })()
 
   // ─── 状态 Diff 缓存
@@ -138,6 +139,12 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
     actionError
   }
 
+  function borderTargetElement(index: number | undefined) {
+    if (index === undefined) return
+    const el = currentRefMap.get(index)
+    if (el) simulatorMask.borderElement(el)
+  }
+
   async function executePageAgentTool(args: PageAgentToolInput) {
     try {
       let ret: any
@@ -148,23 +155,23 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
           break
         case 'click':
           await pageController.showMask()
-          pageController.mask.borderElement(currentRefMap.get(args.index))
+          borderTargetElement(args.index)
           ret = await handleClick(args, actionContext)
-          pageController.mask.removeBorderElement()
+          simulatorMask.removeBorderElement()
           options.removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'fill':
           await pageController.showMask()
-          pageController.mask.borderElement(currentRefMap.get(args.index))
+          borderTargetElement(args.index)
           ret = await handleFill(args, actionContext)
-          pageController.mask.removeBorderElement()
+          simulatorMask.removeBorderElement()
           options.removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'select':
           await pageController.showMask()
-          pageController.mask.borderElement(currentRefMap.get(args.index))
+          borderTargetElement(args.index)
           ret = await handleSelect(args, actionContext)
-          pageController.mask.removeBorderElement()
+          simulatorMask.removeBorderElement()
           options.removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'scroll':

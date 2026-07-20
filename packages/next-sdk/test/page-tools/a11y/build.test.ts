@@ -16,6 +16,41 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
+describe('buildA11yTree - 可操作元素默认保留 id', () => {
+  it('可操作元素有 id 时，默认输出 id token，无需 exposedAttributes', () => {
+    const root = setupRoot(`<button id="submit-btn">提交</button>`)
+    const { yaml, refMap } = buildA11yTree(root)
+    const btn = root.querySelector('#submit-btn') as HTMLElement
+
+    expect(Array.from(refMap.values())).toContain(btn)
+    // serializeVNode 会把 token 内的 " 转义为 \"
+    expect(yaml).toMatch(/button #\d+.*\[.*id=\\"submit-btn\\".*\]/)
+  })
+
+  it('静态（不可操作）元素即使有 id，也不输出 id token', () => {
+    const root = setupRoot(`<div id="static-panel">纯展示文案</div>`)
+    const { yaml, refMap } = buildA11yTree(root)
+    const panel = root.querySelector('#static-panel') as HTMLElement
+
+    expect(Array.from(refMap.values())).not.toContain(panel)
+    expect(yaml).not.toMatch(/id=\\"static-panel\\"/)
+  })
+
+  it('可操作元素无 id 时不输出空 id token', () => {
+    const root = setupRoot(`<button>无 id 按钮</button>`)
+    const { yaml } = buildA11yTree(root)
+    expect(yaml).toMatch(/button #\d+/)
+    expect(yaml).not.toMatch(/id=\\"/)
+  })
+
+  it('exposedAttributes 已包含 id 时不重复输出', () => {
+    const root = setupRoot(`<button id="dup-btn">按钮</button>`)
+    const { yaml } = buildA11yTree(root, { exposedAttributes: ['id'] })
+    const matches = yaml.match(/id=\\"dup-btn\\"/g) ?? []
+    expect(matches).toHaveLength(1)
+  })
+})
+
 describe('buildA11yTree - 白名单/黑名单', () => {
   it('黑名单：Element 引用会排除该元素及其子树', () => {
     const root = setupRoot(`
