@@ -10,7 +10,7 @@ import { setupPageAgentToolEventBridge } from './page-agent-tool-event'
 
 import type { PageAgentToolOptions } from './constants'
 import { inputSchema, type PageAgentToolInput } from './schema'
-import { createActionErrorResult, type ActionContext } from './context'
+import { createActionErrorResult, withStateFields, type ActionContext } from './context'
 import { detectPageDialog, detectValidationErrors, detectVisibleTooltips } from './utils/dom'
 import { getPageAgentToolConfig, setPageAgentToolConfig } from './tool-config'
 
@@ -64,9 +64,14 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
   // 避免 AI 额外往返调用 browserState，减少操作轮次
   async function refreshOnStaleRef(action: string, index: number) {
     const refreshResult = await buildBrowserStateResponse('full')
-    const warning = `⚠️ ${action}失败: ref 索引 ${index} 已失效（页面可能已刷新），已自动重新加载页面状态，请使用新的 ref 索引重试。\n`
+    const warning = `⚠️ ${action}失败: ref 索引 ${index} 已失效（页面可能已刷新），已自动重新加载页面状态，请使用新的 ref 索引重试。`
     return {
-      content: [{ type: 'text' as const, text: warning + refreshResult.content[0].text }]
+      content: [
+        {
+          type: 'text' as const,
+          text: withStateFields(refreshResult.content[0].text, { warning })
+        }
+      ]
     }
   }
 
@@ -91,11 +96,11 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
     const diff = stateCache.update(url, yaml)
 
     // 检测页面弹窗/遮罩层（确认框、提示框等），让 AI 优先处理
-    const dialogAlert = detectPageDialog()
+    const dialogs = detectPageDialog()
     // 检测表单校验错误，提醒 AI 优先修复
     const validationErrors = detectValidationErrors()
     // 检测 hover 后可见的 tooltip / 浮层提示（框架 portal 插入 body 的内容）
-    const tooltipInfo = detectVisibleTooltips()
+    const tooltips = detectVisibleTooltips()
 
     // 根据 responseMode 组装 content
     let displayContent = ''
@@ -107,14 +112,16 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
       displayContent = `【全量页面树】:\n${yaml}\n\n【增量差异】:\n${diff.isFullRefresh ? '（首次/刷新，无增量差异）' : diff.diffText}`
     }
 
-    // 拼装 JSON 格式状态，与 webmcp-cli 的 state 提取逻辑对齐
+    // 全部字段平铺进 stateObj，直接返回 JSON 便于反序列化（与 webmcp-cli 的 state 提取逻辑对齐）
     const stateObj = {
       url,
       title,
-      content: displayContent
+      content: displayContent,
+      ...(dialogs.length > 0 ? { dialogs } : {}),
+      ...(validationErrors.length > 0 ? { validationErrors } : {}),
+      ...(tooltips.length > 0 ? { tooltips } : {})
     }
-    const text = `浏览器状态: ${JSON.stringify(stateObj)}${dialogAlert}${validationErrors}${tooltipInfo}`
-    return { content: [{ type: 'text', text }] }
+    return { content: [{ type: 'text', text: JSON.stringify(stateObj) }] }
   }
 
   // 组装上下文传递给 handlers

@@ -16,12 +16,17 @@ export async function handleSearchTree(args: PageAgentToolInput, ctx: ActionCont
   ctx.stateCache.update(window.location.href, result.yaml)
 
   await ctx.pageController.hideMask()
-  // 检测页面弹窗/遮罩层，帮助 AI 发现可能遮挡目标的确认弹窗
-  const dialogAlert = detectPageDialog()
-  // 检测表单校验错误，提醒 AI 优先修复
+  // 检测页面弹窗/校验错误，平铺为结构化字段（与 browserState 对齐）
+  const dialogs = detectPageDialog()
   const validationErrors = detectValidationErrors()
-  const alerts = `${dialogAlert}${validationErrors}`
+  if (dialogs.length === 0 && validationErrors.length === 0) {
+    return { content: [{ type: 'text' as const, text: result.text }] }
+  }
+  const alerts = {
+    ...(dialogs.length > 0 ? { dialogs } : {}),
+    ...(validationErrors.length > 0 ? { validationErrors } : {})
+  }
   return {
-    content: [{ type: 'text' as const, text: alerts ? `${alerts}\n${result.text}` : result.text }]
+    content: [{ type: 'text' as const, text: `${JSON.stringify(alerts)}\n${result.text}` }]
   }
 }

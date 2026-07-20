@@ -1,5 +1,5 @@
 import { getScrollInfo, waitForScrollEnd } from '../utils/scroll'
-import type { ActionContext } from '../context'
+import { withStateFields, type ActionContext } from '../context'
 
 export async function handleScroll(args: any, ctx: ActionContext) {
   const mode = args.responseMode ?? 'diff'
@@ -61,6 +61,6 @@ export async function handleScroll(args: any, ctx: ActionContext) {
   const scrollResult = `[滚动结果] ${scrollMsg}\n${posInfo}`
 
   const stateResult = await ctx.buildBrowserStateResponse(mode)
-  stateResult.content[0].text = `${scrollResult}\n\n${stateResult.content[0].text}`
+  stateResult.content[0].text = withStateFields(stateResult.content[0].text, { scrollResult })
   return stateResult
 }

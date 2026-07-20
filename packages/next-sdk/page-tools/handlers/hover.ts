@@ -1,4 +1,4 @@
-import { waitForDomSettled, detectVisibleTooltips } from '../utils/dom'
+import { waitForDomSettled } from '../utils/dom'
 import type { ActionContext } from '../context'
 import type { PageAgentToolInput } from '../schema'
 
@@ -47,16 +47,8 @@ export async function handleHover(args: PageAgentToolInput, ctx: ActionContext) 
   // 等待框架异步插入 tooltip / 悬浮菜单等内容稳定
   await waitForDomSettled()
 
-  // 检测 hover 后出现的 tooltip
-  const tooltipInfo = detectVisibleTooltips()
   const mode = (args.responseMode as 'full' | 'diff' | 'both') ?? 'diff'
 
-  // 重建 A11y 树以捕获 hover 后新出现的交互元素（菜单项、浮层控件等）
-  const browserState = await ctx.buildBrowserStateResponse(mode)
-
-  // 在状态响应前插入 tooltip 检测结果
-  const prefix = tooltipInfo ? tooltipInfo.trim() + '\n\n' : ''
-  return {
-    content: [{ type: 'text' as const, text: prefix + browserState.content[0].text }]
-  }
+  // 重建 A11y 树；tooltips / dialogs / validationErrors 已平铺进 browserState 的 stateObj
+  return ctx.buildBrowserStateResponse(mode)
 }

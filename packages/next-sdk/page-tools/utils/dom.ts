@@ -63,12 +63,18 @@ export function waitForDomSettled(timeout = 600, settleTime = 150): Promise<void
   })
 }
 
+/** 页面级模态弹窗检测结果 */
+export interface DetectedDialog {
+  text: string
+  buttons: string[]
+}
+
 // ─── 辅助：检测页面级模态弹窗/遮罩层 ────────────────────────────────────
 // 仅检测真正阻塞交互的模态弹窗（确认框、提交对话框等），
 // 不检测顶部通知横幅、站内消息等非模态提示，避免误报导致 AI 循环
-export function detectPageDialog(): string {
+export function detectPageDialog(): DetectedDialog[] {
   const seen = new Set<Element>()
-  const dialogs: string[] = []
+  const dialogs: DetectedDialog[] = []
   // 仅匹配明确的模态弹窗选择器，避免宽泛子串匹配误报
   // 从 roles 规则中提取 role="dialog" 的选择器（已含默认值 + 用户配置）
   const selectors = getSelectorsForRole(getPageAgentToolConfig().a11yConfig.roles, 'dialog')
@@ -103,12 +109,11 @@ export function detectPageDialog(): string {
         if (text.length > 5) {
           // 提取弹窗内的可交互按钮，帮助 AI 快速决策
           const btns = el.querySelectorAll('button, [role="button"], a')
-          const btnTexts = Array.from(btns)
+          const buttons = Array.from(btns)
             .map(b => (b.textContent || '').trim())
             .filter(t => t.length > 0 && t.length < 20)
             .slice(0, 5)
-          const btnInfo = btnTexts.length ? ` [可操作按钮: ${btnTexts.join(' / ')}]` : ''
-          dialogs.push(`${text.substring(0, 300)}${btnInfo}`)
+          dialogs.push({ text: text.substring(0, 300), buttons })
         }
       }
     } catch {
@@ -116,14 +121,13 @@ export function detectPageDialog(): string {
     }
   }
 
-  if (dialogs.length === 0) return ''
-  return `\n[页面弹窗检测] 检测到 ${dialogs.length} 个模态弹窗，请优先处理:\n${dialogs.map((d, i) => `${i + 1}. ${d}`).join('\n')}\n`
+  return dialogs
 }
 
 // ─── 辅助：检测页面可见的表单校验错误 ──────────────────────────────────
 // 操作后自动扫描页面中的校验错误提示，提取文本并提醒 AI，
 // 避免 AI 卡住时不知道是因为有校验错误未处理
-export function detectValidationErrors(): string {
+export function detectValidationErrors(): string[] {
   const seen = new Set<Element>()
   const errors: string[] = []
   // 校验错误选择器：ARIA 标准 + 主流 UI 框架（可配置）
@@ -153,8 +157,7 @@ export function detectValidationErrors(): string {
     }
   }
 
-  if (errors.length === 0) return ''
-  return `\n[校验提示] 检测到 ${errors.length} 个表单校验错误，请先修复后再继续:\n${errors.map((e, i) => `${i + 1}. ${e}`).join('\n')}\n`
+  return errors
 }
 
 // ─── 辅助：检测 hover 后可见的 tooltip / 浮层提示 ────────────────────────
@@ -195,8 +198,6 @@ function getVisibleTooltipElements(): Array<{ el: Element; text: string }> {
   return tooltips
 }
 
-export function detectVisibleTooltips(): string {
-  const tooltips = getVisibleTooltipElements().map(t => t.text)
-  if (tooltips.length === 0) return ''
-  return `\n[Tooltip 检测] hover 后检测到 ${tooltips.length} 个可见浮层提示:\n${tooltips.map((t, i) => `${i + 1}. ${t}`).join('\n')}\n`
+export function detectVisibleTooltips(): string[] {
+  return getVisibleTooltipElements().map(t => t.text)
 }

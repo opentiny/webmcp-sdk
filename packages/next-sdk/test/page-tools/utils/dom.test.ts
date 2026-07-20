@@ -50,8 +50,7 @@ describe('detectValidationErrors', () => {
     mockRect(err, { width: 100, height: 20 })
 
     const result = detectValidationErrors()
-    expect(result).toContain('用户名不能为空')
-    expect(result).toContain('[校验提示]')
+    expect(result).toEqual(['用户名不能为空'])
   })
 
   it('通过 setPageAgentToolConfig 追加的自定义 states.error 选择器检出', () => {
@@ -62,11 +61,11 @@ describe('detectValidationErrors', () => {
     document.body.appendChild(err)
     mockRect(err, { width: 100, height: 20 })
 
-    expect(detectValidationErrors()).toContain('自定义错误文案')
+    expect(detectValidationErrors()).toEqual(['自定义错误文案'])
   })
 
-  it('无校验错误时返回空字符串', () => {
-    expect(detectValidationErrors()).toBe('')
+  it('无校验错误时返回空数组', () => {
+    expect(detectValidationErrors()).toEqual([])
   })
 })
 
@@ -81,8 +80,9 @@ describe('detectPageDialog', () => {
     mockRect(dialog, { width: 400, height: 200, left: 300, right: 700, top: 250, bottom: 450 })
 
     const result = detectPageDialog()
-    expect(result).toContain('[页面弹窗检测]')
-    expect(result).toContain('确认删除该记录吗')
+    expect(result).toHaveLength(1)
+    expect(result[0].text).toContain('确认删除该记录吗')
+    expect(result[0].buttons).toEqual([])
   })
 
   it('通过 setPageAgentToolConfig 追加的自定义 dialog role 规则检出', () => {
@@ -95,7 +95,9 @@ describe('detectPageDialog', () => {
     document.body.appendChild(dialog)
     mockRect(dialog, { width: 400, height: 200, left: 300, right: 700, top: 250, bottom: 450 })
 
-    expect(detectPageDialog()).toContain('自定义配置检测到的模态弹窗内容')
+    const result = detectPageDialog()
+    expect(result).toHaveLength(1)
+    expect(result[0].text).toContain('自定义配置检测到的模态弹窗内容')
   })
 
   it('非模态（非 fixed/absolute 或 z-index 过低）的弹窗不会被误报', () => {
@@ -105,11 +107,11 @@ describe('detectPageDialog', () => {
     document.body.appendChild(notModal)
     mockRect(notModal, { width: 400, height: 200, left: 300, right: 700, top: 250, bottom: 450 })
 
-    expect(detectPageDialog()).toBe('')
+    expect(detectPageDialog()).toEqual([])
   })
 
-  it('无弹窗时返回空字符串', () => {
-    expect(detectPageDialog()).toBe('')
+  it('无弹窗时返回空数组', () => {
+    expect(detectPageDialog()).toEqual([])
   })
 })
 
@@ -138,8 +140,7 @@ describe('detectVisibleTooltips', () => {
     mockRect(tip, { width: 200, height: 40 })
 
     const result = detectVisibleTooltips()
-    expect(result).toContain('提示文案')
-    expect(result).toContain('[Tooltip 检测]')
+    expect(result).toEqual(['提示文案'])
   })
 
   it('检测 Tiny3 tp-helptip 可见 tooltip', () => {
@@ -150,7 +151,7 @@ describe('detectVisibleTooltips', () => {
     mockRect(tip, { width: 24, height: 24 })
 
     const result = detectVisibleTooltips()
-    expect(result).toContain('帮助提示内容')
+    expect(result).toEqual(['帮助提示内容'])
   })
 
   it('隐藏的 tooltip 不被检测', () => {
@@ -161,11 +162,11 @@ describe('detectVisibleTooltips', () => {
     document.body.appendChild(tip)
     mockRect(tip, { width: 0, height: 0 })
 
-    expect(detectVisibleTooltips()).toBe('')
+    expect(detectVisibleTooltips()).toEqual([])
   })
 
-  it('无可见 tooltip 时返回空字符串', () => {
-    expect(detectVisibleTooltips()).toBe('')
+  it('无可见 tooltip 时返回空数组', () => {
+    expect(detectVisibleTooltips()).toEqual([])
   })
 
   it('嵌套的 tooltip 只收集父级（子元素不重复收集）', () => {
@@ -181,9 +182,9 @@ describe('detectVisibleTooltips', () => {
     mockRect(child, { width: 100, height: 20 })
 
     const result = detectVisibleTooltips()
-    // 只检测到 1 个 tooltip（父级），子级被跳过
-    expect(result).toContain('1 个可见浮层提示')
-    expect(result).toContain('外层提示')
+    // 只检测到 1 个 tooltip（父级），子级被跳过；textContent 会包含子节点文本
+    expect(result).toHaveLength(1)
+    expect(result[0]).toContain('外层提示')
   })
 })
 

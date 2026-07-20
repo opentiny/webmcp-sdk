@@ -27,6 +27,36 @@ function parseTabId(id?: string): string | undefined {
   return id
 }
 
+/** 解析 browserState 返回文本：新格式为纯 JSON；兼容旧前缀 / 尾部告警 */
+function tryParseBrowserStateText(text: string): Record<string, unknown> & { content: string } | null {
+  const tryParse = (jsonStr: string) => {
+    try {
+      const parsed = JSON.parse(jsonStr) as Record<string, unknown>
+      if (parsed && typeof parsed.content === 'string') {
+        return parsed as Record<string, unknown> & { content: string }
+      }
+    } catch {
+      // ignore
+    }
+    return null
+  }
+
+  const direct = tryParse(text)
+  if (direct) return direct
+
+  if (text.startsWith('浏览器状态: ')) {
+    let jsonStr = text.substring('浏览器状态: '.length)
+    const firstNewline = jsonStr.indexOf('\n')
+    if (firstNewline !== -1) {
+      const maybeJson = jsonStr.substring(0, firstNewline)
+      if (tryParse(maybeJson)) jsonStr = maybeJson
+    }
+    return tryParse(jsonStr)
+  }
+
+  return null
+}
+
 function cleanOldLogs(baseDir: string, logDir: string) {
   try {
     // 1. 清理原本根目录下的旧版单文件和旧版日期文件
@@ -94,25 +124,12 @@ function formatLogResult(result: any): string {
       typeof clone.content[0].text === 'string'
     ) {
       const text = clone.content[0].text
-      if (text.startsWith('浏览器状态: ')) {
-        let jsonStr = text.substring('浏览器状态: '.length)
-        let extraAlerts = ''
-        const firstNewline = jsonStr.indexOf('\n')
-        if (firstNewline !== -1) {
-          extraAlerts = jsonStr.substring(firstNewline)
-          jsonStr = jsonStr.substring(0, firstNewline)
-        }
-        try {
-          const parsed = JSON.parse(jsonStr)
-          if (parsed && typeof parsed.content === 'string') {
-            a11yTreeStr = parsed.content
-            // 替换 clone 中的 content 部分，避免在 JSON 序列化时产生超长难读的字符串
-            parsed.content = '[Formatted A11y Tree - See details below]'
-            clone.content[0].text = `浏览器状态: ${JSON.stringify(parsed, null, 2)}${extraAlerts}`
-          }
-        } catch {
-          // JSON 解析失败则不处理
-        }
+      const browserState = tryParseBrowserStateText(text)
+      if (browserState) {
+        a11yTreeStr = browserState.content
+        // 替换 clone 中的 content 部分，避免在 JSON 序列化时产生超长难读的字符串
+        browserState.content = '[Formatted A11y Tree - See details below]'
+        clone.content[0].text = JSON.stringify(browserState, null, 2)
       } else if (
         text.includes('A11y Tree 搜索结果') ||
         text.includes('无障碍树搜索结果') ||
