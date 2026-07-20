@@ -1,30 +1,32 @@
 name: ✨ Feature Request
-description: Propose new features to OpenTiny NEXT-SDKs to improve it.
+description: 向 OpenTiny NEXT-SDKs 提议新特性以改进它 (Propose new features to OpenTiny NEXT-SDKs to improve it)
 title: '✨ [Feature]: '
 labels: ['✨ feature']
 body:
   - type: textarea
     id: feature-solve
     attributes:
-      label: What problem does this feature solve
+      label: 此特性解决了什么问题 (What problem does this feature solve)
       description: |
-        Explain your use case, context, and rationale behind this feature request. More importantly, what is the end user experience you are trying to build that led to the need for this feature?
-      placeholder: Please Input
+        解释你的使用场景、上下文，以及提出这个新特性的原因。更重要的是，你正在构建什么样的终端用户体验从而需要这个特性？
+        (Explain your use case, context, and rationale behind this feature request. More importantly, what is the end user experience you are trying to build that led to the need for this feature?)
+      placeholder: 请填写 (Please Input)
     validations:
       required: true
   - type: textarea
     id: feature-api
     attributes:
-      label: What does the proposed API look like
+      label: 提议的 API 是什么样的 (What does the proposed API look like)
       description: |
-        Describe how you propose to solve the problem and provide code samples of how the API would work once implemented. Note that you can use Markdown to format your code blocks.
-      placeholder: Please Input
+        描述你打算如何解决这个问题，并提供 API 实现后的代码示例。注意可以使用 Markdown 格式化代码块。
+        (Describe how you propose to solve the problem and provide code samples of how the API would work once implemented. Note that you can use Markdown to format your code blocks.)
+      placeholder: 请填写 (Please Input)
     validations:
       required: true
   - type: input
     id: spec-path
     attributes:
-      label: Spec 路径（开发时填写）
+      label: Spec 路径 (Spec Path)（开发时填写 / Fill in during development）
       description: |
         非琐碎需求请在主责包创建 Spec：packages/<pkg>/specs/REQ-YYYYMMDD-slug/
         模板见 docs/ai-engineering/templates/。PR 的 Gate Fields 须指向该路径。
@@ -34,8 +36,8 @@ body:
   - type: input
     id: project-name
     attributes:
-      label: What is your project name
-      description: We also welcome you to fill in more detailed project information.
-      placeholder: Please Input
+      label: 项目名称 (What is your project name)
+      description: 我们也欢迎您填写更详细的项目信息。(We also welcome you to fill in more detailed project information.)
+      placeholder: 请填写 (Please Input)
     validations:
       required: true
