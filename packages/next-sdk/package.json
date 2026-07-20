@@ -1,6 +1,6 @@
 {
   "name": "@opentiny/next-sdk",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "type": "module",
   "homepage": "https://docs.opentiny.design/next-sdk/guide/",
   "repository": {
@@ -16,6 +16,11 @@
     "mcp",
     "sdk",
     "agent"
+  ],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
   ],
   "license": "MIT",
   "author": "Chunhui Mo",
