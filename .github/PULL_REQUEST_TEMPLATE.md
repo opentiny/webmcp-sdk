@@ -6,7 +6,7 @@
 
 What kind of change does this PR introduce?（有且仅有一个 `[x]`）
 
-- [ ] Bugfix
+- [ ] Bug fix
 - [ ] Feature
 - [ ] Code style update (formatting, local variables)
 - [ ] Refactoring (no functional changes, no api changes)
