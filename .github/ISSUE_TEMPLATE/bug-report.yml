@@ -10,7 +10,7 @@ body:
   - type: input
     id: next-sdk-version
     attributes:
-      label: @opentiny/next-sdk 及相关包版本 (Version of @opentiny/next-sdk and related packages)
+      label: '@opentiny/next-sdk 及相关包版本 (Version of @opentiny/next-sdk and related packages)'
       description: |
         ### **请检查问题在最新稳定版下是否可复现。(Check if the issue is reproducible with the latest stable version.)**
         你可以使用 `pnpm ls @opentiny/next-sdk` 或 `npm ls @opentiny/next-sdk` 进行查看。(You can use `pnpm ls @opentiny/next-sdk` or `npm ls @opentiny/next-sdk` to view it.)

@@ -22,7 +22,7 @@ function getArg(name) {
   return null
 }
 
-if (args.includes('--help') || args.includes('-h')) {
+if (args[0] === '--help' || args[0] === '-h') {
   console.log(`Usage:
   node .github/scripts/pr-gate.mjs --title "type(scope): subject" --body-file <path>
   node .github/scripts/pr-gate.mjs --title "..." --body "..."
