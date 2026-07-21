@@ -1,70 +1,89 @@
 name: '🐛 Bug report'
-description: Create a report to help us improve OpenTiny NEXT-SDKs
+description: 创建报告以帮助我们改进 OpenTiny NEXT-SDKs (Create a report to help us improve OpenTiny NEXT-SDKs)
 title: '🐛 [Bug]: '
 labels: ['bug']
 body:
   - type: markdown
     attributes:
       value: |
-        Please fill out the following carefully in order to better fix the problem.
+        为了更好地解决问题，请仔细填写以下内容。(Please fill out the following carefully in order to better fix the problem.)
   - type: input
     id: next-sdk-version
     attributes:
-      label: Version of @opentiny/next-sdk (and @opentiny/next-remoter if applicable)
+      label: '@opentiny/next-sdk 及相关包版本 (Version of @opentiny/next-sdk and related packages)'
       description: |
-        ### **Check if the issue is reproducible with the latest stable version.**
-        You can use `pnpm ls @opentiny/next-sdk` or `npm ls @opentiny/next-sdk` to view it.
-      placeholder: e.g. latest or 0.x.x
+        ### **请检查问题在最新稳定版下是否可复现。(Check if the issue is reproducible with the latest stable version.)**
+        你可以使用 `pnpm ls @opentiny/next-sdk` 或 `npm ls @opentiny/next-sdk` 进行查看。(You can use `pnpm ls @opentiny/next-sdk` or `npm ls @opentiny/next-sdk` to view it.)
+      placeholder: 例如 (e.g.) latest 或 0.x.x
     validations:
       required: true
   - type: input
     id: node-version
     attributes:
-      label: Node.js Version
-      description: Run `node -v` to get your Node version.
-      placeholder: e.g. 18.x or 20.x
+      label: Node.js 版本 (Node.js Version)
+      description: 运行 `node -v` 获取你的 Node 版本。(Run `node -v` to get your Node version.)
+      placeholder: 例如 (e.g.) 18.x 或 20.x
     validations:
       required: true
   - type: textarea
     id: minimal-repo
     attributes:
-      label: Link to minimal reproduction
+      label: 最小复现链接 (Link to minimal reproduction)
       description: |
-        **Provide a streamlined CodePen / CodeSandbox or GitHub repository link as much as possible. Please don't fill in a link randomly, it will only close your issue directly.**
-      placeholder: Please Input
+        **请尽可能提供精简的 CodePen / CodeSandbox 或 GitHub 仓库链接。请勿随意填写链接，否则 Issue 会被直接关闭。**
+        **(Provide a streamlined CodePen / CodeSandbox or GitHub repository link as much as possible. Please don't fill in a link randomly, it will only close your issue directly.)**
+      placeholder: 请填写 (Please Input)
+    validations:
+      required: true
+  - type: textarea
+    id: chinese-repro
+    attributes:
+      label: 中文复现场景 (Chinese Reproduction Scenario)（必填 / Required）
+      description: |
+        请按 docs/ai-engineering/templates/bug-repro.md 填写：前置条件、步骤、期望、实际。
+        修复 PR 的测试用例标题须包含「复现：」关键字。
+      placeholder: |
+        前置条件：
+        复现步骤：
+        1.
+        2.
+        期望结果：
+        实际结果：
     validations:
       required: true
   - type: textarea
     id: reproduce
     attributes:
-      label: Step to reproduce
+      label: 复现步骤 (Steps to reproduce)
       description: |
-        **After the replay is turned on, what actions do we need to perform to make the bug appear? Simple and clear steps can help us locate the problem more quickly. Please clearly describe the steps of reproducing the issue. Issues without clear reproducing steps will not be repaired. If the issue marked with 'need reproduction' does not provide relevant steps within 7 days, it will be closed directly.**
-      placeholder: Please Input
+        **打开复现链接后，我们需要执行哪些操作才能让 Bug 出现？简单明了的步骤有助于我们更快定位问题。请清晰描述复现问题的步骤。没有清晰复现步骤的 Issue 将不会被修复。如果被标记了 'need reproduction' 的 Issue 在 7 天内未提供相关步骤，将被直接关闭。**
+        **(After the replay is turned on, what actions do we need to perform to make the bug appear? Simple and clear steps can help us locate the problem more quickly. Please clearly describe the steps of reproducing the issue. Issues without clear reproducing steps will not be repaired. If the issue marked with 'need reproduction' does not provide relevant steps within 7 days, it will be closed directly.)**
+      placeholder: 请填写 (Please Input)
     validations:
       required: true
   - type: textarea
     id: expected
     attributes:
-      label: What is expected
-      placeholder: Please Input
+      label: 期望结果 (What is expected)
+      placeholder: 请填写 (Please Input)
   - type: textarea
     id: actually
     attributes:
-      label: What is actually happening
-      placeholder: Please Input
+      label: 实际结果 (What is actually happening)
+      placeholder: 请填写 (Please Input)
   - type: input
     id: project-name
     attributes:
-      label: What is your project name
-      description: We also welcome you to fill in more detailed project information.
-      placeholder: Please Input
+      label: 项目名称 (What is your project name)
+      description: 我们也欢迎您填写更详细的项目信息。(We also welcome you to fill in more detailed project information.)
+      placeholder: 请填写 (Please Input)
     validations:
       required: true
   - type: textarea
     id: additional-comments
     attributes:
-      label: Any additional comments (optional)
+      label: 附加说明 (Any additional comments)（可选 / Optional）
       description: |
-        **Some background / context of how you ran into this bug.**
-      placeholder: Please Input
+        **你遇到这个 Bug 的背景 / 上下文。**
+        **(Some background / context of how you ran into this bug.)**
+      placeholder: 请填写 (Please Input)

@@ -1,33 +1,42 @@
 # Pull Request (OpenTiny NEXT-SDKs)
 
-## PR Checklist
-
-Please check if your PR fulfills the following requirements:
-
-- [ ] The commit message follows our [Commit Message Guidelines](https://github.com/opentiny/next-sdk/blob/dev/CONTRIBUTING.md#pull-request-specification)
-- [ ] Tests for the changes have been added (for bug fixes / features)
-- [ ] Docs have been added / updated (for bug fixes / features)
+> 以下标题与勾选格式供 CI（PR Gate）解析，**请勿改章节标题文案**。
 
 ## PR Type
 
-What kind of change does this PR introduce?
+What kind of change does this PR introduce?（有且仅有一个 `[x]`）
 
-<!-- Please check the one that applies to this PR using "x". -->
-
-- [ ] Bugfix
+- [ ] Bug fix
 - [ ] Feature
 - [ ] Code style update (formatting, local variables)
 - [ ] Refactoring (no functional changes, no api changes)
 - [ ] Build-related changes
 - [ ] CI-related changes
 - [ ] Documentation-related changes
-- [ ] Other... Please describe:
+- [ ] Other
+
+## PR Checklist
+
+- [ ] Commit / PR 标题符合 `type(scope): subject`（见 CONTRIBUTING）
+- [ ] 已按类型填写下方 Gate Fields
+- [ ] Bug fix：已补充中文复现测试（`复现：`）
+- [ ] Feature：已关联包内 Spec（`packages/<pkg>/specs/REQ-.../`）
+- [ ] Docs 已按需更新
+- [ ] Refactoring：无行为变更或已补回归 / 已填 Skip reason
+- [ ] Other：已在说明中写清原因
+
+## Gate Fields（CI 读取，请按类型填写）
+
+- Issue: 
+- Spec: 
+- Repro test: 
+- Skip reason: 
+
+（Bug fix 必填 Repro test；Issue 可选。Feature 必填 Spec；豁免时填 Skip reason。）
 
 ## What is the current behavior?
 
-<!-- Please describe the current behavior that you are modifying, or link to a relevant issue. -->
-
-Issue Number: N/A
+Issue Number: 
 
 ## What is the new behavior?
 
@@ -35,7 +44,5 @@ Issue Number: N/A
 
 - [ ] Yes
 - [ ] No
-
-<!-- If this PR contains a breaking change, please describe the impact and migration path for existing applications below. -->
 
 ## Other information

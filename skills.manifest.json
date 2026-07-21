@@ -1,0 +1,24 @@
+{
+  "description": "编码 Agent Skills：大 Skill 来自 npm；薄 Skill 来自本仓 packages/*/skills",
+  "targetDir": ".agents/skills",
+  "npmSkills": [
+    {
+      "name": "tiny-vue-skill",
+      "package": "@opentiny/tiny-vue-skill",
+      "optional": true,
+      "note": "发包或配置 registry 后自动同步；缺失时 sync 跳过"
+    },
+    {
+      "name": "tiny-robot-skill",
+      "package": "@opentiny/tiny-robot-skill",
+      "optional": true,
+      "note": "发包或配置 registry 后自动同步；缺失时 sync 跳过"
+    }
+  ],
+  "localSkills": [
+    {
+      "name": "next-sdk-page-agent",
+      "path": "packages/next-sdk/skills/page-agent"
+    }
+  ]
+}
