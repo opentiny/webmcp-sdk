@@ -46,7 +46,7 @@
   "author": "",
   "license": "MIT",
   "engines": {
-    "node": ">=16",
-    "pnpm": ">=8"
+    "node": ">=18.12",
+    "pnpm": ">=9"
   }
 }

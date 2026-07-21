@@ -14,7 +14,7 @@
 
 ## 一页纸架构
 
-通信流：`App ↔ document.modelContext（浏览器内置 WebMCP / polyfill）↔ page-agent-tool 等工具 ↔ Agent / WebAgent ↔ LLM`（UI：TinyRemoter）。
+通信流：`App ↔ document.modelContext（浏览器内置 WebMCP / polyfill）↔ page-agent-tool 等工具 ↔ Agent / WebAgent ↔ LLM`（UI：TinyRobot / @opentiny/next-remoter）。
 
 主推：`initializeBuiltinWebMCP()` + `document.modelContext.registerTool` / `registerPageAgentTool`。不要在约束与新代码中再推广已不推荐的 `WebMcpServer` / `WebMcpClient`。
 
@@ -52,7 +52,7 @@ pnpm dev / pnpm dev:remoter / pnpm dev:wxt / pnpm wiki
 - 把大型 Agent Skill 目录当业务源码提交
 - 把 Spec 放进 `test/`，或把业务 Spec 堆进 `docs/ai-engineering/`
 - 无必要修改发布密钥 / 跳过 git hooks
-- 跳过 Bug 复现测试或 Feature Spec（除非豁免字段 + 维护者 label）
+- 跳过 Bug 复现测试或 Feature Spec（除非填写豁免字段）
 
 **UI**：通用组件用 TinyVue；聊天用 TinyRobot。沟通语言：**简体中文**。
 
@@ -60,7 +60,7 @@ pnpm dev / pnpm dev:remoter / pnpm dev:wxt / pnpm wiki
 
 修 Bug **必须**：
 
-1. 在主责包 `test/` 增加/更新用例，标题含中文 **`复现：`** 场景
+1. 在主责包 `test/` 增加/更新用例，文件内容须包含中文 **`复现：`** 场景关键字
 2. `pnpm test`（或包级 test）通过
 
 可选：有 GitHub Issue 时填写 `Issue: #N`；其它途径（口头、群聊、内部单等）提供的 bug **不强制**关联 Issue，可在 PR 说明来源。

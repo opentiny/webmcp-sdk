@@ -10,7 +10,7 @@ Frontend App
   ↔ document.modelContext.registerTool / registerPageAgentTool
   ↔ Agent / WebAgent ↔ LLM
   ↓
-TinyRemoter / UI
+TinyRobot / @opentiny/next-remoter
 ```
 
 约束与新实现以浏览器内置 WebMCP 为准；不要再把已不推荐的 `WebMcpServer` / `WebMcpClient` 写进 Agent 指引或默认架构说明。

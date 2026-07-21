@@ -25,5 +25,5 @@ pnpm wiki                 # VitePress 文档
 
 ## Node
 
-- Node.js >= 16
-- pnpm >= 8
+- Node.js >= 18.12
+- pnpm >= 9
