@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import type { ModelContext } from '@mcp-b/webmcp-types'
 
 export function Component() {
   useEffect(() => {
@@ -7,7 +8,7 @@ export function Component() {
     const abortController = new AbortController()
 
     const modelContext =
-      (document as any).modelContext || (navigator as any).modelContext
+      (document as unknown as { modelContext?: ModelContext }).modelContext
     if (modelContext?.registerTool) {
       modelContext.registerTool(
         {

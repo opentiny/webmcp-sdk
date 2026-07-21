@@ -19,7 +19,6 @@ export const setupLocalTools = () => {
 
   let nativeCtx: any = null
   if (typeof document !== 'undefined') nativeCtx = nativeCtx || (document as any).modelContext
-  if (typeof navigator !== 'undefined') nativeCtx = nativeCtx || (navigator as any).modelContext
   nativeCtx = nativeCtx || (globalThis as any).modelContext
 
   if (!nativeCtx) {
@@ -78,7 +77,7 @@ export const setupLocalTools = () => {
         world: 'MAIN',
         func: async () => {
           try {
-            const ctx = (document as any).modelContext || (navigator as any).modelContext
+            const ctx = (document as any).modelContext
             if (!ctx?.getTools) return []
             const res = await ctx.getTools()
             const pageTools = Array.isArray(res) ? res : []

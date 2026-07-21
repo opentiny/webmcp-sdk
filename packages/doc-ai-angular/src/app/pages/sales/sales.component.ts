@@ -95,8 +95,7 @@ export class SalesComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     const modelContext =
-      (document as unknown as { modelContext?: ModelContext }).modelContext ||
-      (navigator as unknown as { modelContext?: ModelContext }).modelContext
+      (document as unknown as { modelContext?: ModelContext }).modelContext
     if (modelContext?.registerTool) {
       modelContext.registerTool(
         {

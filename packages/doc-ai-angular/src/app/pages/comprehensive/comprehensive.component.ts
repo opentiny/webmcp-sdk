@@ -35,7 +35,7 @@ export class ComprehensiveComponent implements OnInit, OnDestroy {
   editingCell: { id: number; field: string } | null = null
   editingValue = ''
 
-  modelContext = (document as any).modelContext || (navigator as any).modelContext
+  modelContext = (document as any).modelContext
   abortController = new AbortController()
 
   ngOnInit(): void {

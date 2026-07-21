@@ -11,16 +11,7 @@ function resolveModelContext(): ModelContextLike | null {
   const isInIframe = window !== window.top
   try {
     const doc = isInIframe ? window.parent.document : document
-    const nav = isInIframe
-      ? (window.parent as unknown as { navigator?: { modelContext?: ModelContextLike } }).navigator
-      : typeof navigator !== 'undefined'
-        ? (navigator as unknown as { modelContext?: ModelContextLike })
-        : undefined
-    return (
-      ((doc as unknown as { modelContext?: ModelContextLike }).modelContext as ModelContextLike | undefined) ||
-      nav?.modelContext ||
-      null
-    )
+    return ((doc as unknown as { modelContext?: ModelContextLike }).modelContext as ModelContextLike | undefined) || null
   } catch {
     // 跨域 iframe 无法访问 parent.document
     return null

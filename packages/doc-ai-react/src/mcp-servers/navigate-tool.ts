@@ -45,8 +45,6 @@ export async function waitForRouteTools(
 
   const ready = (names: string[]) => expectedToolNames.every((n) => names.includes(n))
 
-  if (ready(await listNames())) return
-
   await new Promise<void>((resolve, reject) => {
     let settled = false
     const cleanup = () => {
@@ -73,6 +71,8 @@ export async function waitForRouteTools(
       cleanup()
       reject(new Error(`等待页面工具超时: ${expectedToolNames.join(', ')}`))
     }, timeoutMs)
+
+    void check()
   })
 }
 
@@ -80,7 +80,7 @@ type NavigateFn = (path: string) => void | Promise<void>
 
 /** 注册 navigate_to_page，供大模型主动跳转并握手等待页面工具就绪 */
 export function registerNavigateToPageTool(navigate: NavigateFn): void {
-  const modelContext = (document as any).modelContext || (navigator as any).modelContext
+  const modelContext = (document as any).modelContext
   if (!modelContext?.registerTool) {
     throw new Error('modelContext 不可用，请先 initializeBuiltinWebMCP()')
   }

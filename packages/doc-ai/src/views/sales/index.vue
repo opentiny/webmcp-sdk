@@ -199,7 +199,7 @@ const salesSummary = {
 const SALES_RECORD_QUERY_TOOL = 'sales_record_query'
 const abortController = new AbortController()
 onMounted(() => {
-  const modelContext = (document as any).modelContext || (navigator as any).modelContext
+  const modelContext = (document as any).modelContext
   if (modelContext?.registerTool) {
     modelContext.registerTool(
       {

@@ -22,8 +22,7 @@ export function Component() {
     const PRICE_PROTECTION_DETAIL_TOOL = 'price-protection-detail'
     const ADD_PRICE_PROTECTION_TOOL = 'add_price_protection'
     const controller = new AbortController()
-    const modelContext = (document as unknown as { modelContext?: ModelContext }).modelContext || 
-                         (navigator as unknown as { modelContext?: ModelContext }).modelContext
+    const modelContext = (document as unknown as { modelContext?: ModelContext }).modelContext
 
     if (modelContext?.registerTool) {
       modelContext.registerTool(

@@ -402,8 +402,7 @@ export function Component() {
     const ADD_INVENTORY_TOOL = 'add_inventory'
     const controller = new AbortController()
     // 兼容写法：同时兼容 document 和 navigator
-    const modelContext = (document as unknown as { modelContext?: ModelContext }).modelContext ||
-                         (navigator as unknown as { modelContext?: ModelContext }).modelContext
+    const modelContext = (document as unknown as { modelContext?: ModelContext }).modelContext
 
     if (modelContext?.registerTool) {
       modelContext.registerTool(
@@ -1042,8 +1041,7 @@ onUnmounted(() => {
 两者都可以。`initializeBuiltinWebMCP()` 会将 `modelContext` 同时挂载到 `document` 和 `navigator` 上。实际源码中采用兼容写法：
 
 ```ts
-const modelContext = (document as unknown as { modelContext?: ModelContext }).modelContext ||
-                     (navigator as unknown as { modelContext?: ModelContext }).modelContext
+const modelContext = (document as unknown as { modelContext?: ModelContext }).modelContext
 ```
 
 - 页面组件内注册工具使用兼容写法（`document` 优先，回退 `navigator`）

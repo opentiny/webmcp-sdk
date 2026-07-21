@@ -1,5 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core'
 import { CommonModule } from '@angular/common'
+import type { ModelContext } from '@mcp-b/webmcp-types'
 
 @Component({
   selector: 'app-finance',
@@ -44,7 +45,7 @@ export class FinanceComponent implements OnInit, OnDestroy {
 
   ngOnInit() {
     const modelContext =
-      (document as any).modelContext || (navigator as any).modelContext
+      (document as unknown as { modelContext?: ModelContext }).modelContext
     if (!modelContext?.registerTool) return
 
     modelContext.registerTool(

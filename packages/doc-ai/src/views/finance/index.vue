@@ -71,6 +71,7 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
+import type { ModelContext } from '@mcp-b/webmcp-types'
 
 // 模拟的财务数据
 const financeData = { balance: 845210, pending: 124300, expense: 45120 }
@@ -79,7 +80,8 @@ const FINANCE_SUMMARY_QUERY_TOOL = 'finance_summary_query'
 const abortController = new AbortController()
 
 onMounted(() => {
-  const modelContext = (document as any).modelContext || (navigator as any).modelContext
+  const modelContext =
+    (document as unknown as { modelContext?: ModelContext }).modelContext
   if (!modelContext?.registerTool) return
 
   modelContext.registerTool(
