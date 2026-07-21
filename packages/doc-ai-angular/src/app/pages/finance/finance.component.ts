@@ -1,6 +1,5 @@
 import { Component, OnInit, OnDestroy } from '@angular/core'
 import { CommonModule } from '@angular/common'
-import { registerPageTool } from '@opentiny/next-sdk'
 
 @Component({
   selector: 'app-finance',
@@ -41,13 +40,25 @@ export class FinanceComponent implements OnInit, OnDestroy {
     }
   ]
 
-  private cleanupPageTool?: () => void
+  private abortController = new AbortController()
 
   ngOnInit() {
-    this.cleanupPageTool = registerPageTool({
-      route: '/finance',
-      handlers: {
-        'finance_summary_query': async ({ month }: { month?: string }) => {
+    const modelContext =
+      (document as any).modelContext || (navigator as any).modelContext
+    if (!modelContext?.registerTool) return
+
+    modelContext.registerTool(
+      {
+        name: 'finance_summary_query',
+        title: '查询财务数据',
+        description: '【财务管理工具】查询电商平台的整体收入、支出和待结算金额等核心财务指标',
+        inputSchema: {
+          type: 'object',
+          properties: {
+            month: { type: 'string', description: '查询的月份，如"2023-10"' }
+          }
+        },
+        execute: async ({ month }: { month?: string }) => {
           const monthLabel = month ? `（${month}）` : '（当前）'
           const text = `财务概况${monthLabel}：
 - 可用余额：¥${this.financeData.balance.toLocaleString()}
@@ -57,12 +68,13 @@ export class FinanceComponent implements OnInit, OnDestroy {
 详细流水已在左侧界面展示，可点击【发起提现】或【导出账单】进行操作。`
           return { content: [{ type: 'text', text }] }
         }
-      }
-    })
+      },
+      { signal: this.abortController.signal }
+    )
   }
 
   ngOnDestroy() {
-    this.cleanupPageTool?.()
+    this.abortController.abort()
   }
 
   getAmountClass(amount: number): string {

@@ -16,22 +16,19 @@ export const useCustomMarketMcpServers: () => Ref<ICustomMarketMcpServers> = () 
         const execRes = await browser.scripting.executeScript({
           target: { tabId },
           world: 'MAIN',
-          func: () => {
+          func: async () => {
             try {
-              let pageTools = []
-              if (typeof (window as any).__nextSdkRegisteredTools === 'function') {
-                pageTools = (window as any).__nextSdkRegisteredTools()
-              } else if ((document as any).modelContext?.getTools) {
-                const res = (document as any).modelContext.getTools()
-                pageTools = Array.isArray(res) ? res : []
-              }
+              const ctx = (document as any).modelContext || (navigator as any).modelContext
+              if (!ctx?.getTools) return []
+              const res = await ctx.getTools()
+              const pageTools = Array.isArray(res) ? res : []
               return pageTools.map((t: any) => ({
                 name: t.name,
                 title: t.title,
                 description: t.description,
                 inputSchema: t.inputSchema
               }))
-            } catch (e) {
+            } catch {
               return []
             }
           }

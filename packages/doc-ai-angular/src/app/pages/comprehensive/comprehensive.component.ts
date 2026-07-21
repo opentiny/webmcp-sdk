@@ -1,7 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core'
 import { NgFor, NgIf } from '@angular/common'
 import { FormsModule } from '@angular/forms'
-import { registerPageTool } from '@opentiny/next-sdk'
 import productsData from './products.json'
 
 // 商品类型定义

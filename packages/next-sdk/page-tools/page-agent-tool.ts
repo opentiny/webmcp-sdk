@@ -208,7 +208,14 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
   }
 
   // ─── 工具注册（名称与 inputSchema 与原版完全一致）────────────────────────
-  ;(document as any).modelContext.registerTool({
+  // replace 语义：重复调用前先注销同名工具（polyfill 对重复 register 会抛错）
+  const modelContext = (document as any).modelContext
+  try {
+    modelContext?.unregisterTool?.('page-agent-tool')
+  } catch {
+    // 首次注册或不存在时忽略
+  }
+  modelContext.registerTool({
     name: 'page-agent-tool',
     description: pageAgentPrompt,
     // @ts-ignore

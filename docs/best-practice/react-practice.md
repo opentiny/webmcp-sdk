@@ -16,7 +16,7 @@
 | 模块                 | 职责                                                                     |
 | -------------------- | ------------------------------------------------------------------------ |
 | **Model Context**    | 浏览器原生接口，用于注册工具。对话组件（如 TinyRemoter）会自动从中读取。 |
-| **Page Tool Bridge** | 监听 AI 指令，负责路由跳转 (Navigator) 与工具调用之间的时序同步。        |
+| **navigate_to_page（业务模版）** | 用户自配路由跳转 + `routeToolsMap` 握手 |
 | **WebSkills**        | 让 AI 获得业务知识（如产品手册、SOP）的 Markdown 文档包。                |
 | **WebAgent**         | 远程代理模块，支持手机或异地 AI 通过识别码控制当前页面工具。             |
 
@@ -30,7 +30,7 @@
 | 模块               | 所在工程         | 说明                                                         |
 | ------------------ | ---------------- | ------------------------------------------------------------ |
 | **Model Context**  | React 主应用     | 由 `initializeBuiltinWebMCP()` 激活，挂在 `navigator` / `document` 上 |
-| **Page Tool Bridge** | React 主应用     | `setNavigator` 绑定 React Router，工具随路由动态加载/卸载    |
+| **navigate_to_page** | React 主应用     | 自配导航工具 + routeToolsMap 握手；业务工具随路由 mount/unmount |
 | **WebSkills**      | Vue Remoter 子工程 | Skills 目录保留在 Vue 侧，通过 `import.meta.glob` 加载       |
 | **WebAgent**       | React 主应用     | `useWebAgentServer` 建立远程连接，sessionId 传给 Remoter 展示 |
 
@@ -62,7 +62,7 @@ packages/doc-ai-react/
 ├── vite.config.ts                   # 主应用 Vite 配置（含 /remoter 代理）
 ├── package.json                     # dev 脚本同时启动主应用与 remoter
 ├── src/
-│   ├── main.tsx                     # React 入口：激活 WebMCP + 设置 Navigator
+│   ├── main.tsx                     # React 入口：激活 WebMCP + createMcpServer
 │   ├── App.tsx                      # 应用根组件：挂载 RouterProvider
 │   ├── AppLayout.tsx                # 布局组件：侧边栏 + <Outlet/> 路由出口
 │   ├── router.tsx                   # React Router v7 路由配置（lazy 懒加载）
@@ -77,12 +77,11 @@ packages/doc-ai-react/
 │   │   ├── PriceProtectionModal.tsx # 价保弹窗（Promise 化 AI 联动）
 │   │   ├── OrdersPage.tsx           # 订单管理
 │   │   ├── SalesPage.tsx            # 商品销售记录
-│   │   ├── FinancePage.tsx          # 财务管理（方案B：registerPageTool）
+│   │   ├── FinancePage.tsx          # 财务管理（页面内 registerTool）
 │   │   └── NotFoundPage.tsx         # 404 页面
-│   ├── mcp-servers/                 # MCP 工具定义（主窗口，与 app 平级）
-│   │   ├── index.ts                 # createMcpServer：注册导航工具 + 全量工具
-│   │   ├── finance/
-│   │   │   └── tools.ts             # 分离式工具声明（含 routeConfig）
+│   ├── mcp-servers/                 # MCP 工具定义（主窗口）
+│   │   ├── index.ts                 # createMcpServer：注册自配 navigate_to_page
+│   │   ├── navigate-tool.ts         # 【可复制】routeToolsMap + 握手
 │   │   └── useWebAgentServer.ts     # 远程遥控初始化逻辑
 │   └── mock/
 │       └── index.ts                 # 模拟业务数据
@@ -125,42 +124,43 @@ pnpm add @opentiny/next-sdk @opentiny/next-remoter vue
 
 ## 第一步：环境初始化 (main.tsx)
 
-在应用入口处，你需要激活内置服务器并配置导航器。与 Vue 版类似，`setNavigator` 告诉 SDK 如何跳转页面——当 AI 调用某个工具而对应页面未打开时，SDK 会调用此函数自动导航。
+SDK **不再提供** `setNavigator`。激活 Builtin WebMCP 后，通过 `createMcpServer()` 注册自配 `navigate_to_page`。
 
 ```tsx
 // src/main.tsx
 import { createRoot } from 'react-dom/client'
-import { initializeBuiltinWebMCP, setNavigator } from '@opentiny/next-sdk'
+import { initializeBuiltinWebMCP } from '@opentiny/next-sdk'
 import './index.css'
 import App from './App.tsx'
 import { router } from './router.tsx'
-import { createMcpServer, initWebAgent } from './mcp-servers/index.ts'
+import { createMcpServer } from './mcp-servers/index.ts'
 
-// 1. 注册导航器，供 page-tool-bridge 在工具调用时自动跳转到对应路由
-setNavigator(async (route) => {
-  await router.navigate(route)
-})
-
-// 2. 激活浏览器内置 WebMCP 服务 (含低版本浏览器 Polyfill)
 initializeBuiltinWebMCP()
-
-// 3. 本地 MCP Server 启动：失败则直接抛出（核心功能）
 await createMcpServer()
-
-// 4. 渲染根组件
 createRoot(document.getElementById('root')!).render(<App />)
-
-// 5. 通知 Remoter iframe：父窗口 modelContext 已就绪
-document.getElementById('remoterFrame')?.contentWindow?.postMessage(
-  { type: 'parent-ready' },
-  window.location.origin
-)
-
-// 6. 初始化 WebAgent 远程遥控（可选，异步执行不阻塞渲染）
-initWebAgent()
 ```
 
-> **与 Vue 版的差异**：Vue 版使用 `router.push(route)` 并处理 `NavigationFailure`；React 版使用 React Router 的 `router.navigate(route)`，返回 Promise，无需额外处理重复跳转。
+> **与 Vue 版的差异**：导航函数传给模版为 `(path) => router.navigate(path)`；业务工具在页面 `useEffect` 中注册。
+
+---
+
+
+
+## 自配路由跳转工具（可复制模版）
+
+完整代码请复制：[`packages/doc-ai-react/src/mcp-servers/navigate-tool.ts`](https://github.com/opentiny/next-sdk/blob/dev/packages/doc-ai-react/src/mcp-servers/navigate-tool.ts)。
+
+```ts
+// src/mcp-servers/index.ts
+import { registerNavigateToPageTool } from './navigate-tool'
+import { router } from '../router'
+
+export const createMcpServer = async () => {
+  registerNavigateToPageTool((path) => router.navigate(path))
+}
+```
+
+握手：`routeToolsMap` 声明 path→工具名；跳转后监听 `toolchange`，`getTools()` 校验齐备，短轮询 + 超时兜底。工具名须与页面 `registerTool` 的 `name` 一致。
 
 ---
 
@@ -360,77 +360,33 @@ export default defineConfig({
 
 ---
 
-## 第四步：主窗口创建 MCP Server
+## 第四步：主窗口注册自配导航工具
 
-在 React 工程中，初始化 `McpServer`，并在 `main.tsx` 中调用它。
+在 `main.tsx` 中于 `initializeBuiltinWebMCP()` 之后调用 `createMcpServer()`：
 
 ```ts
 // src/mcp-servers/index.ts
-import { registerNavigateTool } from '@opentiny/next-sdk'
-import type { ModelContext } from '@mcp-b/webmcp-types'
-import registerFinanceTools from './finance/tools'
-export { useWebAgentServer } from './useWebAgentServer'
+import { registerNavigateToPageTool } from './navigate-tool'
+import { router } from '../router'
 
 export const createMcpServer = async () => {
-  // 使用 navigator.modelContext 注册导航工具
-  const modelContext = (navigator as unknown as { modelContext?: ModelContext }).modelContext
-  registerNavigateTool(modelContext)
-
-  // 仅保留财务工具在 mcp-servers 侧声明（其余工具已迁移到业务页面内一体化定义）
-  registerFinanceTools()
+  registerNavigateToPageTool((path) => router.navigate(path))
 }
 ```
 
-> **重要**：`registerNavigateTool` 应使用 `navigator.modelContext`（而非 `document.modelContext`），这与实际源码保持一致。
-
-### 分离式工具声明 (finance/tools.ts)
-
-对于轻量/小型应用，可以在独立文件中一次性声明工具及其路由配置。注意使用兼容写法，同时兼容 `document` 和 `navigator`：
-
-```ts
-// src/mcp-servers/finance/tools.ts
-import type { ModelContext } from '@mcp-b/webmcp-types'
-
-export default function registerFinanceTools() {
-  // 兼容写法：优先取 document.modelContext，回退到 navigator.modelContext
-  const modelContext = (document as unknown as { modelContext?: ModelContext }).modelContext ||
-                       (navigator as unknown as { modelContext?: ModelContext }).modelContext
-  if (!modelContext) {
-    console.warn('[finance] modelContext not available, skip registerFinanceTools')
-    return
-  }
-  modelContext.registerTool({
-    name: 'finance_summary_query',
-    description: '【财务管理工具】查询电商平台的整体收入、支出和待结算金额等核心财务指标',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        month: { type: 'string', description: '查询的月份，如"2023-10"' }
-      }
-    },
-    // 💡 关键：无需 Skills，显式声明跳转目标
-    routeConfig: {
-      route: '/finance'
-    }
-  })
-}
-```
+完整握手模版见上文「自配路由跳转工具」及示例 [`navigate-tool.ts`](https://github.com/opentiny/next-sdk/blob/dev/packages/doc-ai-react/src/mcp-servers/navigate-tool.ts)。
 
 ---
 
 ## 第五步：在页面组件中定义工具
 
-React 工程中注册工具的方式与 Vue 工程一致，因为借助原生 `WebMcp API` 是不依赖于任何框架的。React 工程需要借助 `useEffect` 来模拟 Vue 的 `onMounted` / `onUnmounted` 生命周期。
+React 工程中注册工具的方式与 Vue 工程一致，借助原生 WebMCP API，不依赖框架。用 `useEffect` 模拟 `onMounted` / `onUnmounted`。
 
-### 方案 A：页面内按需注册（中大型应用首选）
+**强烈建议**在页面组件内部按需注册工具：
 
-对于复杂的业务系统，**强烈建议**在页面组件内部按需注册工具。
-
-#### 为什么这是最佳实践？
-
-1. **减少幻觉**：工具只在对应的业务页面挂载时存在，大模型不会在无关页面看到干扰工具。
-2. **降低负载**：工具列表随路由变化自动增减，保证上下文（Context）的高效。
-3. **配合 Skills**：通过 WebSkills 引导 AI 意图。当 AI 判定用户需要执行库存操作时，它会由 Skills 指导先跳转到 `/inventory`，随后在该页面内自动激活对应的工具。
+1. **减少幻觉**：工具只在对应业务页挂载时存在。
+2. **降低负载**：工具列表随路由变化自动增减。
+3. **配合 Skills / navigate_to_page**：先跳转到目标页并握手，再调用该页工具。
 
 ```tsx
 // src/components/InventoryPage.tsx（核心逻辑节选）
@@ -493,50 +449,7 @@ export function Component() {
 export default Component
 ```
 
-> **与 Vue 版的差异**：Vue 使用 `onMounted` / `onUnmounted`；React 使用 `useEffect` 的 setup 与 cleanup 函数。React Router v7 的 lazy 路由要求页面组件导出 `Component` 函数（而非默认导出组件本身）。
-
-### 方案 B：registerPageTool（声明式写法）
-
-如果你的应用功能较少，或者不想编写繁琐的 WebSkills，可以使用**一次性全量注册 + 页面内绑定逻辑**的方案。
-
-在 `mcp-servers/finance/tools.ts` 中声明工具 Schema 与 `routeConfig`（见第四步），然后在业务页面内只需关注如何处理该工具的逻辑，无需再次声明或配置：
-
-```tsx
-// src/components/FinancePage.tsx（核心逻辑节选）
-import { registerPageTool } from '@opentiny/next-sdk'
-import { useEffect } from 'react'
-
-export function Component() {
-  useEffect(() => {
-    // 模拟的财务数据
-    const financeData = { balance: 845210, pending: 124300, expense: 45120 }
-
-    const cleanupPageTool = registerPageTool({
-      // 显式指定路由，需与 mcp-servers 中 routeConfig.route '/finance' 保持一致
-      route: '/finance',
-      handlers: {
-        'finance_summary_query': async ({ month }: { month?: string }) => {
-          const monthLabel = month ? `（${month}）` : '（当前）'
-          const text = `财务概况${monthLabel}：\n- 可用余额：¥${financeData.balance.toLocaleString()}\n- 待结算金额：¥${financeData.pending.toLocaleString()}\n- 本月总支出：¥${financeData.expense.toLocaleString()}`
-          return { content: [{ type: 'text', text }] }
-        }
-      }
-    })
-
-    return () => {
-      cleanupPageTool()
-    }
-  }, [])
-
-  return (
-    <div className="finance-container">
-      {/* 财务看板 UI 省略 */}
-    </div>
-  )
-}
-
-export default Component
-```
+> **与 Vue 版的差异**：Vue 使用 `onMounted` / `onUnmounted`；React 使用 `useEffect` 的 setup 与 cleanup。React Router v7 的 lazy 路由要求页面组件导出 `Component`。财务等业务工具同样在页面内 `registerTool`，工具名写入 `routeToolsMap`。
 
 ---
 
@@ -1112,16 +1025,13 @@ onUnmounted(() => {
 
 ---
 
-## 方案决策对比
+## 方案要点
 
-| 特性             | 方案 A：页面内按需注册（中大型应用）     | 方案 B：分离式全量注册 + registerPageTool（小型应用） |
-| ---------------- | ---------------------------------------- | ------------------------------------------------------ |
-| **推荐段位**     | **中大型、复杂业务系统**                 | **小型、功能单一应用**                                 |
-| **AI 幻觉风险**  | **极低**（工具随页面动态上线）           | 中（工具全局常驻，上下文负载随规模增加）               |
-| **路由跳转依赖** | 依赖 **WebSkills** 指引或大模型主动跳转  | 依赖工具自身的 **routeConfig** 声明                    |
-| **实现复杂度**   | 稍高（需配置 Skills 引导词）             | 极低（一站式注册即可用）                              |
-| **工具声明位置** | 页面组件 `useEffect` 内                  | `mcp-servers/` 目录 + 页面 `registerPageTool`          |
-| **React 特殊点** | `useEffect` cleanup 中 `abort` 注销工具  | `registerPageTool` 返回 cleanup 函数                   |
+| 项 | 说明 |
+| --- | --- |
+| **业务工具** | 页面 `useEffect` 内 `registerTool` + `AbortController` |
+| **跨页跳转** | 自配 `navigate_to_page` + `routeToolsMap` 握手 |
+| **已移除** | SDK 不再提供 `setNavigator` / `routeConfig` / `registerPageTool` |
 
 ---
 
@@ -1136,12 +1046,11 @@ const modelContext = (document as unknown as { modelContext?: ModelContext }).mo
                      (navigator as unknown as { modelContext?: ModelContext }).modelContext
 ```
 
-- `registerNavigateTool` 使用 `navigator.modelContext`
 - 页面组件内注册工具使用兼容写法（`document` 优先，回退 `navigator`）
 
 ### 2. 工具注销是如何实现的？
 
-通过 `AbortController` 实现。在 `useEffect` 的 cleanup 函数中调用 `controller.abort()`，SDK 会自动注销该 signal 下注册的所有工具。对于 `registerPageTool`，调用其返回的 cleanup 函数即可注销。
+通过 `AbortController` 实现。在 `useEffect` 的 cleanup 函数中调用 `controller.abort()`，SDK 会自动注销该 signal 下注册的所有工具。页面内工具通过 `AbortController.abort()` 注销。
 
 ### 3. iframe 中的 Remoter 如何共享主窗口的 modelContext？
 
@@ -1149,7 +1058,7 @@ const modelContext = (document as unknown as { modelContext?: ModelContext }).mo
 
 ### 4. 路由跳转失败怎么办？
 
-React Router v7 的 `router.navigate(route)` 返回 Promise，如果跳转失败会 reject。确保 `setNavigator` 中的 `await router.navigate(route)` 正常执行，且路由路径与工具的 `routeConfig.route` 一致。如果 AI 报告"工具不存在"，检查是否已跳转到对应路由且工具已在页面 `useEffect` 中注册。
+React Router v7 的 `router.navigate(route)` 返回 Promise，如果跳转失败会 reject。确保自配 `navigate_to_page` 中 `router.navigate` 正常，且 `routeToolsMap` 与页面工具名一致。如果 AI 报告"工具不存在"，检查是否已跳转到对应路由且工具已在页面 `useEffect` 中注册。
 
 ### 5. 为什么 React Router v7 的 lazy 路由需要导出 `Component`？
 

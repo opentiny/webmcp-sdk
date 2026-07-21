@@ -2,79 +2,51 @@
 
 本文根据最新的 WebMCP 标准与 `doc-ai` 示例项目，带你一步步把普通 Vue 工程升级为 AI 驱动的智能应用。
 
-> **核心变化**：我们现在**统一使用浏览器原生的 `document.modelContext` 接口**。通过调用 SDK 提供的初始化函数，低版本浏览器也能获得完全一致的 Polyfill 支持，实现 AI 工具的自动注册与路由同步。
-> **示例工程仓库**：[`packages/doc-ai`](https://github.com/opentiny/webmcp-sdk/tree/dev/packages/doc-ai)
+> **核心变化**：统一使用浏览器原生的 `document.modelContext` 接口。路由跳转由业务侧**自行注册** `navigate_to_page` 工具完成，并通过 `routeToolsMap` + `toolchange`/`getTools` 握手确认目标页工具已就绪。
+> **示例工程仓库**：[`packages/doc-ai`](https://github.com/opentiny/next-sdk/tree/dev/packages/doc-ai)
 
 ---
 
 ## 核心概念
 
-在 Web 端集成 MCP 时，最重要的资产是 **“模型上下文 (Model Context)”**。
+1. **标准 API**：使用 `document.modelContext` 注册工具。
+2. **全平台 Polyfill**：`initializeBuiltinWebMCP()` 确保各浏览器可用。
+3. **自配导航 + 握手**：业务维护 `routeToolsMap`（path → 工具名[]）；跳转后监听 `toolchange`，再 `getTools()` 校验工具是否全部加载。
 
-1.  **标准 API**：使用浏览器标准的 `document.modelContext` 进行工具管理。
-2.  **全平台 Polyfill**：调用 `initializeBuiltinWebMCP` 后，SDK 会确保 `document.modelContext` 在所有浏览器中均可用。
-3.  **自动路由感知**：当 AI 在对话中判定需要调用某个页面的工具时，SDK 会自动驱动路由跳转，确保工具在调用前已就绪。
-
-| 模块                 | 职责                                                                     |
-| -------------------- | ------------------------------------------------------------------------ |
-| **Model Context**    | 浏览器原生接口，用于注册工具。对话组件（如 TinyRemoter）会自动从中读取。 |
-| **Page Tool Bridge** | 监听 AI 指令，负责路由跳转 (Navigator) 与工具调用之间的时序同步。        |
-| **WebSkills**        | 让 AI 获得业务知识（如产品手册、SOP）的 Markdown 文档包。                |
-| **WebAgent**         | 远程代理模块，支持手机或异地 AI 通过识别码控制当前页面工具。             |
+| 模块 | 职责 |
+| --- | --- |
+| **Model Context** | 浏览器原生接口，用于注册工具 |
+| **navigate_to_page（业务模版）** | 用户自配的路由跳转工具 + 握手逻辑 |
+| **WebSkills** | 业务知识 Markdown，引导跨页意图 |
+| **WebAgent** | 远程代理，手机/异地遥控当前页工具 |
 
 ---
 
 ## 推荐目录结构
 
-为了保持项目的可维护性，建议采用下方的模块化结构（参考 `doc-ai` 项目）：
-
 ```text
 src/
-├── main.ts              # 激活 Builtin WebMCP + 设置 Navigator
-├── App.vue              # 放置 TinyRemoter + 批量加载 Skills + 初始化 WebAgent
-├── mcp-servers/         # 【方案B】分离式配置目录 (简单应用)
-│   ├── finance/
-│   │   └── tools.ts     # 定义工具 Schema 与 routeConfig
-│   └── useWebAgentServer.ts # 远程遥控初始化逻辑
-├── skills/              # 【方案A】WebSkills 知识库 (大型应用)
-│   ├── inventory/
-│   │   └── SKILL.md     # 库存业务引导词
-│   └── sales/
-│       └── SKILL.md
-└── views/               # 业务页面
-    ├── inventory/
-    │   └── index.vue    # 【方案A】页面内按需注册 (onMounted)
-    └── finance/
-        └── index.vue    # 【方案B】逻辑绑定 (registerPageTool)
+├── main.ts                 # initializeBuiltinWebMCP
+├── App.vue                 # TinyRemoter + Skills + WebAgent；启动 createMcpServer
+├── mcp-servers/
+│   ├── navigate-tool.ts    # 【可复制】自配导航工具 + routeToolsMap + 握手
+│   ├── index.ts            # 调用 registerNavigateToPageTool(router)
+│   └── useWebAgentServer.ts
+├── skills/                 # WebSkills 知识库
+└── views/                  # 业务页内 onMounted registerTool
 ```
 
 ---
 
 ## 第一步：环境初始化 (main.ts)
 
-在应用入口处，你需要激活内置服务器并配置导航器。
-
 ```ts
 // src/main.ts
 import { createApp } from 'vue'
 import router from './router'
 import App from './App.vue'
-import { setNavigator, initializeBuiltinWebMCP } from '@opentiny/next-sdk'
-import { isNavigationFailure, NavigationFailureType } from 'vue-router'
+import { initializeBuiltinWebMCP } from '@opentiny/next-sdk'
 
-// 1. 注册核心导航器：告诉 SDK 如何跳转页面
-setNavigator(async (route) => {
-  const failure = await router.push(route)
-  if (failure) {
-    // 处理重复跳转：如果已经在目标页面，直接返回 true 告知 SDK
-    if (isNavigationFailure(failure, NavigationFailureType.duplicated)) {
-      return true
-    }
-    throw new Error(`页面跳转失败: ${(failure as any).message}`)
-  }
-})
-
-// 2. 激活浏览器内置 WebMCP 服务 (含低版本浏览器 Polyfill)
 initializeBuiltinWebMCP()
 
 const app = createApp(App)
@@ -82,17 +54,164 @@ app.use(router)
 app.mount('#app')
 ```
 
+在 `App.vue`（或入口逻辑）中于 Polyfill 就绪后调用 `createMcpServer()`，内部注册导航工具（见下一步）。
+
 ---
 
-## 第二步：在页面组件中定义工具 (中大型应用首选)
+## 第二步：自配路由跳转工具（可复制模版）
 
-对于复杂的业务系统，我们**强烈建议**在页面组件内部按需注册工具。
+将下列文件整体复制到工程 `src/mcp-servers/navigate-tool.ts`，按业务修改 `routeToolsMap`（工具名须全局唯一，并与页面内 `registerTool` 的 `name` 一致）。
 
-### 为什么这是最佳实践？
+完整示例见：[`packages/doc-ai/src/mcp-servers/navigate-tool.ts`](https://github.com/opentiny/next-sdk/blob/dev/packages/doc-ai/src/mcp-servers/navigate-tool.ts)
 
-1.  **减少幻觉**：工具只在对应的业务页面挂载时存在，大模型不会在无关页面看到干扰工具。
-2.  **降低负载**：工具列表随路由变化自动增减，保证上下文（Context）的高效。
-3.  **配合 Skills**：通过 WebSkills 引导 AI 意图。当 AI 判定用户需要执行库存操作时，它会由 Skills 指导先跳转到 `/inventory`，随后在该页面内自动激活对应的工具。
+```ts
+/**
+ * 可复制模版：自配路由跳转工具（Vue + vue-router）
+ */
+import type { Router } from 'vue-router'
+import { isNavigationFailure, NavigationFailureType, type NavigationFailure } from 'vue-router'
+
+/** 路由 → 该页必须就绪的工具名（按模块命名，全局唯一） */
+export const routeToolsMap: Record<string, string[]> = {
+  '/orders': ['order_query', 'order_detail'],
+  '/finance': ['finance_summary_query'],
+  '/inventory': ['add_inventory'],
+  '/sales': ['sales_record_query'],
+  '/price-protection': [
+    'price-protection-query',
+    'price-protection-review',
+    'price-protection-detail',
+    'add_price_protection'
+  ]
+}
+
+function normalizePath(path: string): string {
+  return path.replace(/\/+$/, '') || '/'
+}
+
+/**
+ * 等待目标页工具全部出现在 modelContext.getTools() 中。
+ * 主信号：toolchange；兜底：短轮询 + 超时。
+ */
+export async function waitForRouteTools(
+  expectedToolNames: string[],
+  options?: { timeoutMs?: number; pollMs?: number }
+): Promise<void> {
+  const timeoutMs = options?.timeoutMs ?? 5000
+  const pollMs = options?.pollMs ?? 100
+  const ctx = (document as any).modelContext
+  if (!ctx?.getTools) throw new Error('modelContext.getTools 不可用，请先 initializeBuiltinWebMCP()')
+
+  if (expectedToolNames.length === 0) return
+
+  const listNames = async () =>
+    ((await ctx.getTools()) as Array<{ name: string }>).map((t) => t.name)
+
+  const ready = (names: string[]) => expectedToolNames.every((n) => names.includes(n))
+
+  if (ready(await listNames())) return
+
+  await new Promise<void>((resolve, reject) => {
+    let settled = false
+    const cleanup = () => {
+      if (settled) return
+      settled = true
+      clearInterval(poll)
+      clearTimeout(timer)
+      ctx.removeEventListener?.('toolchange', onChange)
+    }
+    const check = async () => {
+      try {
+        if (ready(await listNames())) {
+          cleanup()
+          resolve()
+        }
+      } catch {
+        // getTools 瞬时失败时继续等待，由超时兜底
+      }
+    }
+    const onChange = () => void check()
+    ctx.addEventListener?.('toolchange', onChange)
+    const poll = setInterval(() => void check(), pollMs)
+    const timer = setTimeout(() => {
+      cleanup()
+      reject(new Error(`等待页面工具超时: ${expectedToolNames.join(', ')}`))
+    }, timeoutMs)
+  })
+}
+
+/** 注册 navigate_to_page */
+export function registerNavigateToPageTool(router: Router): void {
+  const modelContext = (document as any).modelContext || (navigator as any).modelContext
+  if (!modelContext?.registerTool) {
+    throw new Error('modelContext 不可用，请先 initializeBuiltinWebMCP()')
+  }
+
+  modelContext.registerTool({
+    name: 'navigate_to_page',
+    title: '页面跳转',
+    description:
+      '当需要的工具在当前页面不可用时，使用此工具跳转到特定页面。例如：查询订单跳转到 "/orders"。',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        path: {
+          type: 'string',
+          description: '目标页面路由，例如 "/orders"、"/inventory"、"/finance"'
+        }
+      },
+      required: ['path']
+    },
+    execute: async ({ path }: { path: string }) => {
+      const normalized = normalizePath(path)
+      const expected = routeToolsMap[normalized]
+      const hasMap = Array.isArray(expected)
+
+      const failure = await router.push(normalized)
+      if (failure) {
+        if (isNavigationFailure(failure, NavigationFailureType.duplicated)) {
+          // 已在目标页：仍做工具就绪检查
+        } else {
+          throw new Error(`页面跳转失败: ${(failure as NavigationFailure).message}`)
+        }
+      }
+
+      await waitForRouteTools(hasMap ? expected : [], { timeoutMs: 5000, pollMs: 100 })
+
+      const hint = hasMap
+        ? '页面工具已就绪，请继续下一步操作。'
+        : '该路由未配置工具清单（routeToolsMap），仅完成路由跳转。'
+      return {
+        content: [{ type: 'text', text: `已跳转至页面：${normalized}。${hint}` }]
+      }
+    }
+  })
+}
+```
+
+注册入口：
+
+```ts
+// src/mcp-servers/index.ts
+import { registerNavigateToPageTool } from './navigate-tool'
+import router from '../router'
+
+export const createMcpServer = async () => {
+  registerNavigateToPageTool(router)
+}
+```
+
+握手约定：
+
+1. 维护 `routeToolsMap`：键为规范化 path，值为该页工具名全集。
+2. 跳转后监听 `toolchange`，每次用 `getTools()` 判断期望工具是否齐备。
+3. 短轮询 + 超时（默认 5s）防止漏事件或竞态。
+
+---
+
+## 第三步：在页面组件中定义工具
+
+在页面内按需注册，工具名与 `routeToolsMap` 对齐：
 
 ```vue
 <!-- src/views/product-detail/index.vue -->
@@ -132,77 +251,10 @@ onUnmounted(() => {
 
 ---
 
-## 进阶：分离式全量注册 (适合轻量/小型应用)
-
-如果你的应用功能较少，或者不想编写繁琐的 WebSkills，可以使用**一次性全量注册**方案。
-
-### 1. 声明式配置 (含 routeConfig)
-
-在独立文件中定义工具及其所属路由。这种方式下，AI 随时可见该工具，并能自动触发跳转。
-
-```ts
-// src/mcp-servers/finance/tools.ts
-export default function registerFinanceTools() {
-  const abortController = new AbortController()
-  ;(document as any).modelContext.registerTool(
-    {
-      name: 'finance_summary_query',
-      title: '查询财务数据',
-      description: '查询关键财务指标。',
-      inputSchema: {
-        /* ... */
-      },
-      // 💡 关键：无需 Skills，显式声明跳转目标
-      routeConfig: {
-        route: '/finance'
-      }
-    },
-    { signal: abortController.signal }
-  )
-}
-```
-
-### 2. 页面内绑定逻辑 (registerPageTool)
-
-在业务组件内，你只需要关注如何处理该工具的逻辑，无需再次声明或配置。
-
-```vue
-<!-- src/views/finance/index.vue -->
-<script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
-import { registerPageTool } from '@opentiny/next-sdk'
-
-let cleanup: (() => void) | undefined
-
-onMounted(() => {
-  // 绑定具体执行逻辑，需与声明时的 route 路径对应
-  cleanup = registerPageTool({
-    route: '/finance',
-    handlers: {
-      'finance_summary_query': async ({ month }) => {
-        // 执行具体的财务查询逻辑...
-        return { content: [{ type: 'text', text: `11月净收入：¥10,000` }] }
-      }
-    }
-  })
-})
-
-onUnmounted(() => cleanup?.())
-</script>
-```
-
----
-
-## 第三步：接入远程遥控 (WebAgent，可选)
+## 第四步：接入远程遥控 (WebAgent，可选)
 
 > [!NOTE]
-> **适用场景**：这是增强功能。只有在你需要通过手机远程操控、或将本地工具能力暴露给远端 AI Agent 平台时才需要配置。如果仅需在当前网页中使用 AI 对话，可跳过此步。
-
-WebAgent 可以将当前页面的 WebMCP 能力桥接到远端平台，通过一个会话 ID 即可实现跨设备（如手机控制电脑）遥控。
-
-### 1. 编写 useWebAgentServer.ts
-
-该文件负责建立与远程代理服务器的 WebSocket 连接。
+> 仅在需要手机远程操控或暴露给远端 Agent 时配置。
 
 ```ts
 // src/mcp-servers/useWebAgentServer.ts
@@ -212,13 +264,12 @@ const client = new WebMcpClient()
 const SESSION_ID_KEY = 'web-agent-session-id'
 
 export const useWebAgentServer = async () => {
-  // 从本地存储读取，确保刷新页面后识别码保持不变
   const cachedSessionId = localStorage.getItem(SESSION_ID_KEY) ?? undefined
 
   const { sessionId } = await client.connect({
     sessionId: cachedSessionId,
-    agent: true, // 开启代理模式
-    builtin: true, // 代理内置的 WebMCP 工具
+    agent: true,
+    builtin: true,
     url: 'https://agent.opentiny.design/api/v1/webmcp-trial/mcp'
   })
 
@@ -229,55 +280,9 @@ export const useWebAgentServer = async () => {
 }
 ```
 
-### 2. 在 App.vue 中集成
-
-在应用根组件中初始化远程服务，并将获取到的 `sessionId` 填充到 `TinyRemoter` 的菜单中。
-
-```vue
-<!-- App.vue (部分逻辑) -->
-<script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import { useWebAgentServer } from './mcp-servers/useWebAgentServer'
-
-const menuItems = ref([])
-const AGENT_ROOT = 'https://agent.opentiny.design'
-
-onMounted(async () => {
-  try {
-    const { sessionId } = await useWebAgentServer()
-    if (sessionId) {
-      const remoteUrl = `${AGENT_ROOT}/mcp?sessionId=${sessionId}`
-
-      // 在 AI 助手的菜单中添加遥控信息
-      menuItems.value = [
-        {
-          action: 'remote-url',
-          text: '遥控器链接',
-          desc: remoteUrl, // 完整链接，点击可复制
-          active: true,
-          showCopyIcon: true
-        },
-        {
-          action: 'remote-control',
-          text: '识别码',
-          desc: sessionId.slice(-6), // 展示后 6 位作为识别码
-          know: true,
-          showCopyIcon: true
-        }
-      ]
-    }
-  } catch (err) {
-    console.warn('[WebAgent] 远程连接初始化失败，本地对话仍可正常运行：', err)
-  }
-})
-</script>
-```
-
 ---
 
-## 第四步：接入 TinyRemoter 对话面板 (App.vue)
-
-在根组件中配置面板，并加载相关的技能知识库。
+## 第五步：接入 TinyRemoter 对话面板 (App.vue)
 
 ```vue
 <!-- src/App.vue -->
@@ -299,8 +304,10 @@ onMounted(async () => {
 import { ref, onMounted } from 'vue'
 import { TinyRemoter } from '@opentiny/next-remoter'
 import '@opentiny/next-remoter/dist/style.css'
+import { createMcpServer, useWebAgentServer } from './mcp-servers'
 
 const show = ref(true)
+const menuItems = ref([])
 
 const mcpServers = {
   'builtin-webmcp': {
@@ -313,25 +320,34 @@ const llmConfig = {
   /* 模型配置... */
 }
 
-// 加载 skills 目录下所有 Markdown 文件（含子目录）
 const skillMdModules = import.meta.glob('./skills/**/*', {
   query: '?raw',
   import: 'default',
   eager: true
 }) as Record<string, string>
+
+onMounted(async () => {
+  await createMcpServer()
+  try {
+    const { sessionId } = await useWebAgentServer()
+    // 将 sessionId 填入 menuItems...
+  } catch (err) {
+    console.warn('[WebAgent] 远程连接初始化失败：', err)
+  }
+})
 </script>
 ```
 
 ---
 
-## 方案决策对比
+## 方案要点
 
-| 特性             | 原生内置 WebMCP (按需)                  | 分离式全量注册 (全局)                    |
-| ---------------- | --------------------------------------- | ---------------------------------------- |
-| **推荐段位**     | **中大型、复杂业务系统**                | **小型、功能单一应用**                   |
-| **AI 幻觉风险**  | **极低**（工具随页面动态上线）          | 中（工具全局常驻，上下文负载随规模增加） |
-| **路由跳转依赖** | 依赖 **WebSkills** 指引或大模型主动跳转 | 依赖工具自身的 **routeConfig** 声明      |
-| **实现复杂度**   | 稍高（需配置 Skills 引导词）            | 极低（一站式注册即可用）                 |
+| 项 | 说明 |
+| --- | --- |
+| **业务工具** | 页面内 `registerTool` + `AbortController` |
+| **跨页跳转** | 自配 `navigate_to_page` + `routeToolsMap` 握手 |
+| **引导** | WebSkills 描述何时应先 `navigate_to_page` |
+| **已移除** | SDK 不再提供 `setNavigator` / `routeConfig` / `registerPageTool` |
 
 ---
 
@@ -339,8 +355,12 @@ const skillMdModules = import.meta.glob('./skills/**/*', {
 
 ### 1. 为什么不用从 SDK 导入 `modelContext`？
 
-通过 `initializeBuiltinWebMCP()` 已经为全局环境注入了 `document.modelContext`。直接使用原生 API 可以保持代码的简洁性。
+`initializeBuiltinWebMCP()` 已注入 `document.modelContext`，直接使用原生 API 即可。
 
-### 2. 路由跳转失败怎么办？
+### 2. 路由跳转后工具仍不可用？
 
-请确保在 `main.ts` 的 `setNavigator` 中捕获并处理了 `NavigationFailure`。
+检查：`routeToolsMap` 是否包含该 path；页面工具 `name` 是否与 map 一致；页面是否在 `onMounted` 中完成 `registerTool`；握手是否超时（可调大 `timeoutMs`）。
+
+### 3. NavigationFailure 怎么处理？
+
+模版已在 `router.push` 后处理 `duplicated`；其它失败会抛错给工具调用方。

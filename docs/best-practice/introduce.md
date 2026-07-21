@@ -81,20 +81,13 @@ pnpm add @opentiny/next-sdk @opentiny/next-remoter
 import { createApp } from 'vue'
 import router from './router'
 import App from './App.vue'
-import { setNavigator, initializeBuiltinWebMCP } from '@opentiny/next-sdk'
-import { isNavigationFailure, NavigationFailureType } from 'vue-router'
-
-setNavigator(async (route) => {
-  const failure = await router.push(route)
-  if (failure && !isNavigationFailure(failure, NavigationFailureType.duplicated)) {
-    throw new Error(`页面跳转失败: ${(failure as any).message}`)
-  }
-})
+import { initializeBuiltinWebMCP } from '@opentiny/next-sdk'
 
 // 激活浏览器内置 WebMCP 服务 (低版本自动注入 Polyfill)
 initializeBuiltinWebMCP()
 
 createApp(App).use(router).mount('#app')
+// 路由跳转请自配 navigate_to_page（见 vue-practice「自配路由跳转工具」）
 ```
 
 **步骤 3：配置业务路由**
@@ -162,11 +155,7 @@ onUnmounted(() => {
 ```
 
 > [!TIP]
-> **进阶：分离式注册（Next-SDK 独家增强 API）**
-> 对于需要全局感知工具的场景，你可以将 Metadata 集中定义在全局，而在具体页面中仅编写对应的执行 Handler：
->
-> 1. 全局调用 `document.modelContext.registerTool({ ...routeConfig: { route: '/path' } }, { signal: abortController.signal })`（无 execute）。
-> 2. 页面内调用 `registerPageTool({ route: '/path', handlers: { ... } })` 绑定实现逻辑。
+> **跨页跳转**：SDK 不再提供 `setNavigator` / `routeConfig`。请自行注册 `navigate_to_page`，维护 `routeToolsMap`，用 `toolchange` + `getTools` 握手等待页面工具就绪。完整可复制模版见各框架实践文档。
 
 **步骤 6：在 App.vue 中挂载 Remoter + 接入远程遥控**
 
@@ -217,11 +206,12 @@ onMounted(async () => {
 
 ```ts
 // src/app/app.component.ts
-import { setNavigator, initializeBuiltinWebMCP } from '@opentiny/next-sdk'
+import { initializeBuiltinWebMCP } from '@opentiny/next-sdk'
+import { createMcpServer } from '../mcp-servers'
 // ...
 async ngOnInit() {
-  setNavigator(async (route) => { this.router.navigateByUrl(route); })
   initializeBuiltinWebMCP()
+  await createMcpServer(this.router) // 内含自配 navigate_to_page
 }
 ```
 
@@ -269,6 +259,6 @@ WebMCP + WebSkills + WebAgent 为前端页面操作提供了极致安全、高�
 | **原生标准**   | `document.modelContext` 接口已是事实上的首选方案     |
 | **极简接入**   | `initializeBuiltinWebMCP()` 一键搞定 Polyfill 与通讯 |
 | **远程遥控**   | 跨设备实时同步，这是 Builtin 架构带来的天然优势      |
-| **分离式注册** | Next-SDK 提供的独家 API，专为大型复杂架构设计        |
+| **自配导航握手** | 业务 `routeToolsMap` + `toolchange`/`getTools` 确认页面工具就绪 |
 
 未来我们将持续迭代，致力于让每一个 Web 应用都能进化为自适应的智能体。

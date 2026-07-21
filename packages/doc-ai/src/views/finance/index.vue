@@ -71,29 +71,40 @@
 
 <script setup lang="ts">
 import { onMounted, onUnmounted } from 'vue'
-import { registerPageTool } from '@opentiny/next-sdk'
 
 // 模拟的财务数据
 const financeData = { balance: 845210, pending: 124300, expense: 45120 }
 
-let cleanupPageTool: (() => void) | undefined
+const FINANCE_SUMMARY_QUERY_TOOL = 'finance_summary_query'
+const abortController = new AbortController()
 
 onMounted(() => {
-  cleanupPageTool = registerPageTool({
-    // 显式指定路由，需与 mcp-servers 中 RouteConfig.route '/finance' 保持一致
-    route: '/finance',
-    handlers: {
-      'finance_summary_query': async ({ month }: { month?: string }) => {
+  const modelContext = (document as any).modelContext || (navigator as any).modelContext
+  if (!modelContext?.registerTool) return
+
+  modelContext.registerTool(
+    {
+      name: FINANCE_SUMMARY_QUERY_TOOL,
+      title: '查询财务数据',
+      description: '【财务管理工具】查询电商平台的整体收入、支出和待结算金额等核心财务指标',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          month: { type: 'string', description: '查询的月份，如"2023-10"' }
+        }
+      },
+      execute: async ({ month }: { month?: string }) => {
         const monthLabel = month ? `（${month}）` : '（当前）'
         const text = `财务概况${monthLabel}：\n- 可用余额：¥${financeData.balance.toLocaleString()}\n- 待结算金额：¥${financeData.pending.toLocaleString()}\n- 本月总支出：¥${financeData.expense.toLocaleString()}\n\n详细流水已在左侧界面展示，可点击【发起提现】或【导出账单】进行操作。`
         return { content: [{ type: 'text', text }] }
       }
-    }
-  })
+    },
+    { signal: abortController.signal }
+  )
 })
 
 onUnmounted(() => {
-  cleanupPageTool?.()
+  abortController.abort()
 })
 </script>
 
@@ -120,93 +131,92 @@ onUnmounted(() => {
 }
 
 .finance-overview {
-  display: flex;
-  gap: 24px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
   margin-bottom: 32px;
 }
 .overview-item {
-  flex: 1;
-  padding: 24px;
-  background: linear-gradient(135deg, rgba(58, 120, 236, 0.05) 0%, rgba(58, 120, 236, 0.01) 100%);
-  border-radius: 12px;
-  border: 1px solid rgba(58, 120, 236, 0.1);
+  background: #f7f8fa;
+  padding: 20px;
+  border-radius: 8px;
 }
 .overview-item h3 {
+  font-size: 0.875rem;
+  color: #86909c;
   margin: 0 0 12px;
-  font-size: 1rem;
-  color: #4e5969;
+  font-weight: 500;
 }
 .amount {
-  font-size: 1.8rem;
-  font-weight: 700;
-  font-family: monospace;
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1d2129;
 }
 .amount.highlight {
-  color: #3a78ec;
+  color: #165dff;
 }
-.text-danger {
+.amount.text-danger {
   color: #f53f3f;
-}
-.text-success {
-  color: #00b42a;
 }
 
 .actions {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   margin-bottom: 40px;
 }
 .btn {
-  padding: 10px 24px;
+  padding: 8px 20px;
   border-radius: 6px;
-  font-size: 0.95rem;
-  font-weight: 500;
-  cursor: pointer;
   background: #f2f3f5;
-  color: #1d2129;
+  color: #4e5969;
+  font-size: 0.875rem;
+  cursor: pointer;
   transition: all 0.2s;
 }
 .btn:hover {
   background: #e5e6eb;
 }
 .btn.primary {
-  background: #3a78ec;
+  background: #165dff;
   color: white;
-  box-shadow: 0 4px 12px rgba(58, 120, 236, 0.3);
 }
 .btn.primary:hover {
-  background: #2f65ce;
+  background: #0e42d2;
 }
 
 .transactions h3 {
-  font-size: 1.2rem;
-  color: #1d2129;
+  font-size: 1.1rem;
   margin-bottom: 16px;
+  color: #1d2129;
 }
 .transaction-table {
   width: 100%;
   border-collapse: collapse;
 }
-.transaction-table th,
-.transaction-table td {
-  padding: 12px 16px;
-  text-align: left;
-  border-bottom: 1px solid #f2f3f5;
-}
 .transaction-table th {
-  background: #f7f8fc;
-  color: #4e5969;
+  text-align: left;
+  padding: 12px 16px;
+  background: #f7f8fa;
+  color: #86909c;
   font-weight: 500;
-  font-size: 0.95rem;
+  font-size: 0.875rem;
 }
 .transaction-table td {
-  color: #1d2129;
-  font-size: 0.95rem;
+  padding: 16px;
+  border-bottom: 1px solid #f2f3f5;
+  color: #4e5969;
+  font-size: 0.875rem;
+}
+.text-success {
+  color: #00b42a;
+}
+.text-danger {
+  color: #f53f3f;
 }
 .status {
-  padding: 4px 8px;
+  padding: 2px 8px;
   border-radius: 4px;
-  font-size: 0.8rem;
+  font-size: 0.75rem;
 }
 .status.success {
   background: #e8ffea;

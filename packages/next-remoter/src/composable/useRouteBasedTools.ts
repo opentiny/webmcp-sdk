@@ -1,21 +1,45 @@
 import { onMounted, onUnmounted } from 'vue'
-import { MSG_REMOTER_READY, MSG_TOOL_REGISTERED, MSG_TOOL_UNREGISTERED } from '@opentiny/next-sdk'
+
+type ModelContextLike = {
+  addEventListener?: (type: 'toolchange', listener: () => void) => void
+  removeEventListener?: (type: 'toolchange', listener: () => void) => void
+}
+
+function resolveModelContext(): ModelContextLike | null {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return null
+
+  const isInIframe = window !== window.top
+  try {
+    const doc = isInIframe ? window.parent.document : document
+    const nav = isInIframe
+      ? (window.parent as unknown as { navigator?: { modelContext?: ModelContextLike } }).navigator
+      : typeof navigator !== 'undefined'
+        ? (navigator as unknown as { modelContext?: ModelContextLike })
+        : undefined
+    return (
+      ((doc as unknown as { modelContext?: ModelContextLike }).modelContext as ModelContextLike | undefined) ||
+      nav?.modelContext ||
+      null
+    )
+  } catch {
+    // 跨域 iframe 无法访问 parent.document
+    return null
+  }
+}
 
 /**
- * 简化后的工具同步：
- * - 仅监听工具目录变化并触发 remoter 侧 refresh
+ * 监听 WebMCP 工具目录变化并触发 remoter 侧 refresh。
+ * 依赖标准 `modelContext` 的 `toolchange` 事件（同源 iframe 读 parent.document.modelContext）。
  */
 export function useRouteBasedTools(options: {
   onToolCatalogChanged?: () => void | Promise<void>
 }) {
   const { onToolCatalogChanged } = options
 
-  const isInIframe = typeof window !== 'undefined' && window !== window.top
-  const isTrustedSource = (src: MessageEvent['source']) => src === window || (isInIframe && src === window.parent)
-
   let disposed = false
   let refreshingCatalog = false
   let refreshQueued = false
+  let modelContext: ModelContextLike | null = null
 
   const flushToolCatalogChange = async () => {
     if (!onToolCatalogChanged || disposed) return
@@ -39,13 +63,7 @@ export function useRouteBasedTools(options: {
     }
   }
 
-  const handleToolCatalogChanged = (event: MessageEvent) => {
-    if (
-      !isTrustedSource(event.source) ||
-      (event.data?.type !== MSG_TOOL_REGISTERED && event.data?.type !== MSG_TOOL_UNREGISTERED)
-    ) {
-      return
-    }
+  const onToolChange = () => {
     void flushToolCatalogChange()
   }
 
@@ -54,10 +72,8 @@ export function useRouteBasedTools(options: {
     if (listenersActive) return
     disposed = false
     listenersActive = true
-    window.addEventListener('message', handleToolCatalogChanged)
-    if (isInIframe && window.parent) {
-      window.parent.postMessage({ type: MSG_REMOTER_READY }, '*')
-    }
+    modelContext = resolveModelContext()
+    modelContext?.addEventListener?.('toolchange', onToolChange)
   }
 
   const stop = () => {
@@ -65,7 +81,8 @@ export function useRouteBasedTools(options: {
     disposed = true
     refreshQueued = false
     listenersActive = false
-    window.removeEventListener('message', handleToolCatalogChanged)
+    modelContext?.removeEventListener?.('toolchange', onToolChange)
+    modelContext = null
   }
 
   onMounted(() => {

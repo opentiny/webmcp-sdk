@@ -1,29 +1,40 @@
-import { registerPageTool } from '@opentiny/next-sdk'
 import { useEffect } from 'react'
 
 export function Component() {
-  // 第四步：在业务页面内一体化定义工具:
-  // 4.1 registerPageTool的详细用法
   useEffect(() => {
-    // 模拟的财务数据
     const financeData = { balance: 845210, pending: 124300, expense: 45120 }
+    const FINANCE_SUMMARY_QUERY_TOOL = 'finance_summary_query'
+    const abortController = new AbortController()
 
-    const cleanupPageTool = registerPageTool({
-      // 显式指定路由，需与 mcp-servers 中 RouteConfig.route '/finance' 保持一致
-      route: '/finance',
-      handlers: {
-        'finance_summary_query': async ({ month }: { month?: string }) => {
-          const monthLabel = month ? `（${month}）` : '（当前）'
-          const text = `财务概况${monthLabel}：\n- 可用余额：¥${financeData.balance.toLocaleString()}\n- 待结算金额：¥${financeData.pending.toLocaleString()}\n- 本月总支出：¥${financeData.expense.toLocaleString()}\n\n详细流水已在左侧界面展示，可点击【发起提现】或【导出账单】进行操作。`
-          return { content: [{ type: 'text', text }] }
-        }
-      }
-    })
+    const modelContext =
+      (document as any).modelContext || (navigator as any).modelContext
+    if (modelContext?.registerTool) {
+      modelContext.registerTool(
+        {
+          name: FINANCE_SUMMARY_QUERY_TOOL,
+          title: '查询财务数据',
+          description: '【财务管理工具】查询电商平台的整体收入、支出和待结算金额等核心财务指标',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              month: { type: 'string', description: '查询的月份，如"2023-10"' }
+            }
+          },
+          execute: async ({ month }: { month?: string }) => {
+            const monthLabel = month ? `（${month}）` : '（当前）'
+            const text = `财务概况${monthLabel}：\n- 可用余额：¥${financeData.balance.toLocaleString()}\n- 待结算金额：¥${financeData.pending.toLocaleString()}\n- 本月总支出：¥${financeData.expense.toLocaleString()}\n\n详细流水已在左侧界面展示，可点击【发起提现】或【导出账单】进行操作。`
+            return { content: [{ type: 'text', text }] }
+          }
+        },
+        { signal: abortController.signal }
+      )
+    }
 
     return () => {
-      cleanupPageTool()
+      abortController.abort()
     }
   }, [])
+
   return (
     <div className="finance-container">
       <div className="header">
