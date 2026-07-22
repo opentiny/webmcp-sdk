@@ -130,6 +130,128 @@ describe('consoleCloudPageAgentToolOptions', () => {
     expect(resolveA11yInfo(box, a11yConfig).role).toBe('combobox')
   })
 
+  it(
+    '复现：华为云控制台 ti-app-layout 无 landmark，无障碍树侧栏与主区扁平混在一起；' +
+      '步骤：构建含 ti-app-layout-left / main / main-content / right 与交互子节点的树；' +
+      '期望：输出 navigation/main/region/complementary 分区，且带声明名，侧栏链接嵌套在侧边导航下',
+    () => {
+      const root = setupRoot(`
+        <ti-app-layout>
+          <ti-app-layout-left>
+            <a href="#/overview">总览</a>
+            <a href="#/events">事件</a>
+          </ti-app-layout-left>
+          <ti-app-layout-main class="ti-app-layout-main-host">
+            <ti-app-layout-main-header></ti-app-layout-main-header>
+            <ti-app-layout-main-content>
+              <tp-layout-content-header><h1>总览</h1></tp-layout-content-header>
+              <tp-layout-content-body>
+                <button type="button">购买弹性云服务器</button>
+              </tp-layout-content-body>
+            </ti-app-layout-main-content>
+          </ti-app-layout-main>
+          <ti-app-layout-right>
+            <button type="button">帮助</button>
+          </ti-app-layout-right>
+        </ti-app-layout>
+      `)
+
+      expect(resolveA11yInfo(root.querySelector('ti-app-layout-left')!, a11yConfig)).toMatchObject({
+        role: 'navigation',
+        name: '侧边导航',
+      })
+      expect(resolveA11yInfo(root.querySelector('ti-app-layout-main')!, a11yConfig)).toMatchObject({
+        role: 'main',
+        name: '主内容区',
+      })
+      expect(resolveA11yInfo(root.querySelector('ti-app-layout-main-content')!, a11yConfig)).toMatchObject({
+        role: 'region',
+        name: '页面内容',
+      })
+      expect(resolveA11yInfo(root.querySelector('tp-layout-content-body')!, a11yConfig)).toMatchObject({
+        role: 'region',
+        name: '页面正文',
+      })
+      expect(resolveA11yInfo(root.querySelector('ti-app-layout-right')!, a11yConfig)).toMatchObject({
+        role: 'complementary',
+        name: '右侧面板',
+      })
+
+      const { yaml, lines } = buildA11yTree(root, a11yConfig)
+      expect(lines.some((l) => /navigation.*"侧边导航"/.test(l))).toBe(true)
+      expect(lines.some((l) => /main.*"主内容区"/.test(l))).toBe(true)
+      expect(lines.some((l) => /region.*"页面内容"/.test(l))).toBe(true)
+      expect(lines.some((l) => /region.*"页面正文"/.test(l))).toBe(true)
+      expect(lines.some((l) => /complementary.*"右侧面板"/.test(l))).toBe(true)
+      expect(lines.some((l) => /banner.*"页面头部"/.test(l))).toBe(true)
+      // 复现：空/折叠右栏声明名被 Static-Lift 吸到父级 → `generic "右侧面板"` 错误包住侧栏+主区
+      expect(lines.some((l) => /generic.*"右侧面板"/.test(l))).toBe(false)
+
+      const navIdx = lines.findIndex((l) => /navigation.*"侧边导航"/.test(l))
+      const overviewIdx = lines.findIndex((l) => /link.*#\d+.*"总览"/.test(l))
+      const buyIdx = lines.findIndex((l) => /button.*#\d+.*"购买弹性云服务器"/.test(l))
+      expect(navIdx).toBeGreaterThanOrEqual(0)
+      expect(overviewIdx).toBeGreaterThan(navIdx)
+      expect(buyIdx).toBeGreaterThan(overviewIdx)
+      // 侧栏链接应比 navigation 多一层缩进
+      expect(lines[overviewIdx].startsWith('  ')).toBe(true)
+      expect(yaml).toMatch(/navigation.*"侧边导航"/)
+    },
+  )
+
+  it(
+    '复现：折叠的 ti-app-layout-right 仅有声明名、无有效子节点时，不应把「右侧面板」上提到外层 generic',
+    () => {
+      const root = setupRoot(`
+        <ti-app-layout>
+          <ti-app-layout-left>
+            <a href="#/overview">总览</a>
+          </ti-app-layout-left>
+          <ti-app-layout-main>
+            <button type="button">购买</button>
+          </ti-app-layout-main>
+          <ti-app-layout-right></ti-app-layout-right>
+        </ti-app-layout>
+      `)
+      const { lines } = buildA11yTree(root, a11yConfig)
+      expect(lines.some((l) => /generic.*"右侧面板"/.test(l))).toBe(false)
+      expect(lines.some((l) => /navigation.*"侧边导航"/.test(l))).toBe(true)
+      expect(lines.some((l) => /main.*"主内容区"/.test(l))).toBe(true)
+      // 空壳 complementary 整段省略
+      expect(lines.some((l) => /complementary.*"右侧面板"/.test(l))).toBe(false)
+    },
+  )
+
+  it(
+    '复现：真实 DOM 有 .ti-app-layout-right-container 包裹 ti-app-layout-right；' +
+      '中间层 generic 不应把 complementary 声明名吸到外层变成 generic "右侧面板"',
+    () => {
+      const root = setupRoot(`
+        <ti-app-layout>
+          <div class="ti-app-layout-left-container">
+            <ti-app-layout-left><a href="#/overview">总览</a></ti-app-layout-left>
+          </div>
+          <div class="ti-app-layout-main-container">
+            <ti-app-layout-main><button type="button">购买</button></ti-app-layout-main>
+          </div>
+          <div class="ti-app-layout-right-container">
+            <ti-app-layout-right></ti-app-layout-right>
+          </div>
+        </ti-app-layout>
+      `)
+      const { lines, yaml } = buildA11yTree(root, a11yConfig)
+      expect(lines.some((l) => /generic.*"右侧面板"/.test(l))).toBe(false)
+      expect(yaml).toMatch(/navigation.*"侧边导航"/)
+      expect(yaml).toMatch(/main.*"主内容区"/)
+      // 侧栏与主区应为兄弟，而不是挂在「右侧面板」下面
+      const navIdx = lines.findIndex((l) => /navigation.*"侧边导航"/.test(l))
+      const mainIdx = lines.findIndex((l) => /main.*"主内容区"/.test(l))
+      expect(navIdx).toBeGreaterThanOrEqual(0)
+      expect(mainIdx).toBeGreaterThan(navIdx)
+      expect(lines[navIdx].match(/^ */)?.[0].length).toBe(lines[mainIdx].match(/^ */)?.[0].length)
+    },
+  )
+
   it('服务列表侧栏项 → menuitem + selected', () => {
     const item = el(
       '<ul class="components-service-list-left-box-sidebar-visit-panel"><li class="components-service-list-left-box-active">收藏和访问</li></ul>',

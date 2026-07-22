@@ -15,6 +15,11 @@ export interface VNode {
   role: string
   /** W3C AccName 算法计算出的语义化名称 */
   name: string
+  /**
+   * 自身声明名（aria-label / aria-labelledby，或 role 规则的 name），不含内容汇总。
+   * 序列化混合子树时优先使用，避免布局 landmark 被 Static-Lift / 剪枝抹掉。
+   */
+  declaredName?: string
   /** 元素相关的状态和属性标记 (如 'checked', 'disabled', 'value="xxx"') */
   tokens: string[]
   /** 只有交互节点才有 ref (内部索引，用于标识可在其上执行交互动作的元素) */

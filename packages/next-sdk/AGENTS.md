@@ -1,6 +1,16 @@
 # @opentiny/next-sdk — Agent 指南
 
-改本包时先读本文，再按需打开 Skill / Spec / 测试。用户长文见 VitePress `docs/webmcp-sdk/`。
+改本包时先读根 [`AGENTS.md`](../../AGENTS.md)（含文首 **任务分流**），再读本文，再按需打开 Skill / Spec / 测试。用户长文见 VitePress `docs/webmcp-sdk/`。
+
+## 本包 Spec 硬提醒
+
+改 `page-tools/`、公开 a11y API、`consoleCloudPageAgentToolOptions`、树序列化/剪枝语义时，几乎总是 **非琐碎 Feature**：
+
+1. 先建或更新 `packages/next-sdk/specs/REQ-YYYYMMDD-slug/`
+2. 再改代码与 `test/page-tools/`
+3. 需要时同步 `docs/webmcp-sdk/page-agent-tool.md` 与 `skills/page-agent/SKILL.md`
+
+现有 Spec 索引见 [`specs/README.md`](./specs/README.md)。示例：[`specs/REQ-20260722-console-layout-landmark/`](./specs/REQ-20260722-console-layout-landmark/)。
 
 ## 推荐能力（主推）
 

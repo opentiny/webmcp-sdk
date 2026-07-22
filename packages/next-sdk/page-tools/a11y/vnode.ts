@@ -65,7 +65,9 @@ export function buildVNode(
   // style/script 等非内容节点：不进树（避免 @font-face base64 等被当成 name）
   if (isNonContentElement(el) || isHidden(el) || blacklistSet.has(el)) return null
 
-  const { role, tokens } = resolveA11yInfo(el, config)
+  const { role, tokens, name: ruleName } = resolveA11yInfo(el, config)
+  const declaredName =
+    (typeof ruleName === 'string' && ruleName.trim()) || getOwnDeclaredName(el as HTMLElement) || ''
 
   // Tooltip / 帮助提示文本检测：提取 title、aria-describedby、框架级 tooltip 内容
   // 非交互元素也可能有 tooltip，需分配 ref 使 AI 能 hover 触发动态 tip
@@ -75,7 +77,8 @@ export function buildVNode(
   }
   const hasTooltip = tokens.some(t => t.startsWith('tooltip='))
 
-  let name = computeAccessibleName(el as HTMLElement)
+  // 规则声明名优先于 AccName 内容汇总，保证 landmark 等布局节点输出稳定分区名
+  let name = declaredName || computeAccessibleName(el as HTMLElement)
   const isTrulyInteractive = isTabbable(el as HTMLElement)
   // computed cursor 为 pointer（含继承）——仅用于「无文本时是否值得兜底收集名字」等宽松场景
   const isVisuallyClickable = tokens.includes('cursor=pointer')
@@ -216,12 +219,20 @@ export function buildVNode(
     if (childVNode) children.push(childVNode)
   }
 
-  const vnode: VNode = { role, name, tokens, ref, el: el as HTMLElement, children }
+  const vnode: VNode = {
+    role,
+    name,
+    ...(declaredName ? { declaredName } : {}),
+    tokens,
+    ref,
+    el: el as HTMLElement,
+    children,
+  }
 
   // 有可交互子孙时：清空 AccName 内容汇总，仅保留自身声明名。
   // 静态子树文案的上提（Static-Lift）改由 serializeVNode 负责，避免与交互文案混进父 name。
   if (hasInteractiveDescendant(vnode)) {
-    vnode.name = getOwnDeclaredName(el as HTMLElement)
+    vnode.name = declaredName || getOwnDeclaredName(el as HTMLElement)
   }
 
   return vnode
@@ -229,7 +240,13 @@ export function buildVNode(
 
 /**
  * 仅取元素自身声明的可访问名，不含内容汇总（name from contents）。
+ * 优先使用 VNode 上缓存的 role 规则名 / 构建期声明名。
  */
+function resolveDeclaredName(vnode: VNode): string {
+  if (vnode.declaredName?.trim()) return vnode.declaredName.trim()
+  return getOwnDeclaredName(vnode.el)
+}
+
 function getOwnDeclaredName(el: HTMLElement): string {
   if (el.hasAttribute('aria-label') || el.hasAttribute('aria-labelledby')) {
     return computeAccessibleName(el).trim()
@@ -240,6 +257,30 @@ function getOwnDeclaredName(el: HTMLElement): string {
 /** 子节点自身无 ref，且子树无可交互子孙 → 纯静态分支（可上提文案） */
 function isStaticBranch(vnode: VNode): boolean {
   return vnode.ref === undefined && !hasInteractiveDescendant(vnode)
+}
+
+/**
+ * 带声明名的布局 / landmark 节点：禁止 Static-Lift 上提到父级，也禁止被父级省略。
+ * 否则会出现 `generic "右侧面板"` 包住侧栏+主区、真正的 complementary 节点被吃掉的问题。
+ */
+const LANDMARK_ROLES = new Set([
+  'banner',
+  'complementary',
+  'contentinfo',
+  'form',
+  'main',
+  'navigation',
+  'region',
+  'search',
+])
+
+function isStructuralNamedNode(vnode: VNode): boolean {
+  return !!vnode.declaredName?.trim() || LANDMARK_ROLES.has(vnode.role)
+}
+
+/** 子树中是否包含 landmark / 声明名节点（中间层 generic 包装器也会命中） */
+function containsStructuralNamed(vnode: VNode): boolean {
+  return vnode.children.some((c) => isStructuralNamedNode(c) || containsStructuralNamed(c))
 }
 
 /**
@@ -268,11 +309,17 @@ function collectDirectTextNodes(el: Element): string {
 /**
  * 收集纯静态分支的展示文案（保字用）。
  * 优先 name，其次递归子节点，最后可见纯文本兜底（不含 style/script）。
+ * 不穿透 landmark / 声明名节点：否则中间层 generic 容器会把「右侧面板」吸走再被父级 Static-Lift。
  */
 function getStaticDisplayText(vnode: VNode): string {
+  if (isStructuralNamedNode(vnode)) {
+    // 结构性节点自身若作为 lift 目标本应被上层排除；此处兜底避免误吸收
+    return ''
+  }
   const childJoined =
     vnode.children.length > 0
       ? vnode.children
+          .filter((c) => !isStructuralNamedNode(c))
           .map(getStaticDisplayText)
           .filter(Boolean)
           .join(' ')
@@ -318,6 +365,8 @@ function canOmitStaticChild(
   parentOutputName: string,
   parentUsesOwnDeclaredName: boolean,
 ): boolean {
+  // 布局 landmark / 规则声明名节点必须保留独立层级，绝不能被父级吸收
+  if (isStructuralNamedNode(child)) return false
   const text = getStaticDisplayText(child)
   if (!text || !parentOutputName.trim()) return false
   const parentNorm = parentOutputName.replace(/\s+/g, ' ').trim()
@@ -403,11 +452,23 @@ export function serializeVNode(
   opts: A11yTreeShapeOptions,
 ): string[] {
   const hasInteractive = hasInteractiveDescendant(vnode)
-  const forceKeepStructure = opts.preserveRoles.includes(vnode.role)
+  const forceKeepStructure =
+    opts.preserveRoles.includes(vnode.role) || isStructuralNamedNode(vnode)
   const indent = '  '.repeat(depth)
   const refStr = vnode.ref !== undefined ? ` #${vnode.ref}` : ''
   const safeTokens = vnode.tokens.map(t => t.replace(/[\r\n]+/g, ' ').replace(/"/g, '\\"'))
   const tokenStr = safeTokens.length > 0 ? ` [${safeTokens.join(' ')}]` : ''
+
+  // 空 landmark 壳（仅有声明名、无可价值子节点）：整段省略，避免 `banner "页面头部"` / 折叠右栏噪音，
+  // 也避免其声明名被父级 Static-Lift 误吸收。
+  if (
+    isStructuralNamedNode(vnode) &&
+    vnode.ref === undefined &&
+    !hasInteractive &&
+    !vnode.children.some(hasValue)
+  ) {
+    return []
+  }
 
   // 规则 1：子树无可交互节点，且无需强制保留结构 → 折叠为一行（文字不丢）
   if (!hasInteractive && !forceKeepStructure) {
@@ -424,18 +485,22 @@ export function serializeVNode(
     return [`${indent}- ${vnode.role}${refStr}${tokenStr}${formatNameAttr(displayName)}`]
   }
 
-  // preserveRoles 且无交互：保留结构，父级去掉 content name，子节点照常输出
+  // preserveRoles / 声明名 landmark 且无交互：保留结构，父级只用声明名，子节点照常输出
   if (!hasInteractive && forceKeepStructure) {
-    const outputName = getOwnDeclaredName(vnode.el)
+    const outputName = resolveDeclaredName(vnode)
     const line = `${indent}- ${vnode.role}${refStr}${tokenStr}${formatNameAttr(outputName)}`
     const childLines = vnode.children.flatMap(c => serializeVNode(c, depth + 1, opts))
     return [line, ...childLines]
   }
 
   // ── 混合子树：Static-Lift + Interactive-Keep ──
-  const ownDeclaredName = getOwnDeclaredName(vnode.el)
+  const ownDeclaredName = resolveDeclaredName(vnode)
   const parentUsesOwnDeclaredName = ownDeclaredName !== ''
-  const staticChildren = vnode.children.filter(isStaticBranch)
+  // 布局 landmark 不参与上提，避免把「右侧面板」吸到外层 generic；
+  // 中间层容器（如 .ti-app-layout-right-container）若包裹 landmark，同样排除。
+  const staticChildren = vnode.children.filter(
+    (c) => isStaticBranch(c) && !isStructuralNamedNode(c) && !containsStructuralNamed(c),
+  )
   const liftedStaticName = staticChildren
     .map(getStaticDisplayText)
     .filter(Boolean)

@@ -37,6 +37,12 @@ export interface A11yRoleRule extends A11yMatcher {
   role: string
   /** 为 true 时覆盖元素已有的显式 role 属性，默认 false（不覆盖开发者显式设置） */
   force?: boolean
+  /**
+   * 可选声明可访问名（不改 DOM）。
+   * 用于 landmark / 布局容器等无 aria-label、且子树多为交互节点时，避免被剪枝穿透，
+   * 并在 YAML 中输出可读分区名（如 navigation "侧边导航"）。
+   */
+  name?: string
 }
 
 export interface A11yConfig {
@@ -56,6 +62,8 @@ export interface A11yConfig {
 export interface A11yInfo {
   role: string
   tokens: string[]
+  /** 命中的 role 规则所声明的可访问名（若有） */
+  name?: string
 }
 
 /** 标记已与默认值合并并规整过的配置，避免热路径上二次 merge 导致默认规则翻倍 */
@@ -281,16 +289,27 @@ export function defineA11yConfig(config: A11yConfig): A11yConfig {
 
 // ─── 角色 / 状态解析 ─────────────────────────────────────────────────────
 
-function computeRole(el: Element, resolved: ResolvedA11yConfig): string {
+/** 命中的声明式 role 规则（未命中配置规则时返回 null，再走显式 role / 标签隐式映射） */
+function findMatchedRoleRule(el: Element, resolved: ResolvedA11yConfig): A11yRoleRule | null {
   const explicit = el.getAttribute('role')
   const hasExplicit = !!explicit && explicit !== 'presentation' && explicit !== 'none'
 
   for (const rule of resolved.roles) {
     if (hasExplicit && !rule.force) continue
-    if (matchesRoleRule(el, rule)) return rule.role
+    if (matchesRoleRule(el, rule)) return rule
   }
+  return null
+}
 
-  if (hasExplicit) return explicit as string
+function computeRole(
+  el: Element,
+  resolved: ResolvedA11yConfig,
+  matched: A11yRoleRule | null = findMatchedRoleRule(el, resolved),
+): string {
+  if (matched) return matched.role
+
+  const explicit = el.getAttribute('role')
+  if (explicit && explicit !== 'presentation' && explicit !== 'none') return explicit
 
   const tag = el.tagName.toLowerCase()
   if (tag === 'input') {
@@ -479,8 +498,11 @@ export function resolveA11yStates(el: Element, config?: A11yConfig | ResolvedA11
  */
 export function resolveA11yInfo(el: Element, config?: A11yConfig | ResolvedA11yConfig): A11yInfo {
   const resolved = ensureResolvedA11yConfig(config)
+  const matched = findMatchedRoleRule(el, resolved)
+  const ruleName = matched?.name?.trim()
   return {
-    role: computeRole(el, resolved),
+    role: computeRole(el, resolved, matched),
     tokens: computeStates(el, resolved),
+    ...(ruleName ? { name: ruleName } : {}),
   }
 }

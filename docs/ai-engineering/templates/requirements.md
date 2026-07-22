@@ -2,6 +2,8 @@
 
 复制到 `packages/<pkg>/specs/REQ-YYYYMMDD-slug/requirements.md`。
 
+> **Agent**：本文件应在写业务代码 **之前** 创建。若会话中已先实现，须立即补建 Spec 并将状态标为「开发中/已交付」，不得假装未发生。
+
 ## 元信息
 
 - 状态：草稿 | 评审 | 开发中 | 已交付

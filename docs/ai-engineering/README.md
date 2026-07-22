@@ -15,6 +15,8 @@
 
 任意支持 [AGENTS.md](https://github.com/openai/agents.md) / Agent Skills 的编辑器均可协作；不以某一 IDE 私有规则树为权威源。
 
+**所有编码 Agent 必须先读根 `AGENTS.md` 文首「任务分流」**：非琐碎 Feature 先 Spec 再编码；Bug 先含「复现：」的测试再修。
+
 ## 快速入口
 
 - [原理摘要](./PRINCIPLES.md)

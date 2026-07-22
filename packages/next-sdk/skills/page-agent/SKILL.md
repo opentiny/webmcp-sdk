@@ -7,6 +7,20 @@ description: >-
 
 # next-sdk Page Agent Skill
 
+## 动手前（硬门禁）
+
+先遵守根 [`AGENTS.md`](../../../../AGENTS.md)「任务分流」。本 Skill 相关改动若涉及下列任一，**必须先有 Spec** 再改代码：
+
+- 公开 API / 类型（含 `A11yRoleRule`、`A11yConfig`、`PageAgentToolOptions` 等）
+- `consoleCloudPageAgentToolOptions` 或其他默认/预设行为
+- 无障碍树构建、剪枝、Static-Lift、序列化语义
+- 需要更新 `docs/webmcp-sdk/page-agent-tool.md` 的行为说明
+
+Spec 落点：`packages/next-sdk/specs/REQ-YYYYMMDD-slug/`。  
+近期示例：[`specs/REQ-20260722-console-layout-landmark/`](../../specs/REQ-20260722-console-layout-landmark/)。
+
+拿不准是否琐碎 → **先问用户**，不要默认开写。
+
 ## 何时使用
 
 - 改 `packages/next-sdk/page-tools/**`
@@ -44,7 +58,8 @@ import {
 - `registerPageAgentTool(options?)`：注册 `page-agent-tool`，内部调用 `initializeBuiltinWebMCP()`；重复调用为 **replace** 式重新初始化。
 - 运行期唯一配置面：`getPageAgentToolConfig` / `setPageAgentToolConfig`（`a11yConfig` 数组合并；`enableHighlight` 覆盖；支持 `mode: 'replace'`）。
 - `whitelist` / `blacklist` 中的选择器字符串在构建无障碍树时 **动态解析**。
-- 站点预设：云控制台用 `consoleCloudPageAgentToolOptions` + `isConsoleCloudHost()`。
+- `A11yRoleRule.name`：可选声明可访问名（不改 DOM），用于 landmark / 布局容器在 YAML 中保留分区名。
+- 站点预设：云控制台用 `consoleCloudPageAgentToolOptions` + `isConsoleCloudHost()`（含 `ti-app-layout-*` landmark）。
 
 ## 测试落点
 

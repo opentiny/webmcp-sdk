@@ -2,6 +2,7 @@
  * 云控制台（consoleCloud）专用 PageAgentToolOptions。
  *
  * 控制台基于 Tiny3（ti3-*）+ Angular，大量自定义组件缺少 role / aria-*：
+ * - 布局：`ti-app-layout-*` / `tp-layout-*` 无 landmark 语义，AI 难以区分侧栏/主区/右栏
  * - Tab：`.ti3-tab-li` 无 role=tab，选中靠 `.ti3-tab-active`
  * - 下拉：`.ti3-select-dominator-container` / `.selected-label` 无 combobox 语义
  * - 图标按钮：仅有 `cf-uba` / 子节点 `title`，无 aria-label
@@ -21,6 +22,18 @@ export const consoleCloudPageAgentToolOptions: PageAgentToolOptions = {
   enableHighlight: false,
   a11yConfig: defineA11yConfig({
     roles: [
+      // Tiny3 App Layout / Content Layout：补齐 landmark，帮助 AI 理解分区结构
+      { role: 'navigation', selector: 'ti-app-layout-left', name: '侧边导航' },
+      { role: 'main', selector: 'ti-app-layout-main', name: '主内容区' },
+      {
+        role: 'banner',
+        selector: ['ti-app-layout-main-header', 'tp-layout-content-header'],
+        name: '页面头部'
+      },
+      { role: 'region', selector: 'ti-app-layout-main-content', name: '页面内容' },
+      { role: 'region', selector: 'tp-layout-content-body', name: '页面正文' },
+      { role: 'complementary', selector: 'ti-app-layout-right', name: '右侧面板' },
+
       // Tiny3 Tabs：真正可聚焦/可点击的是内部 .ti3-tabs-text（tabindex=0）
       { role: 'tablist', selector: 'ul.ti3-tabs' },
       { role: 'tab', selector: '.ti3-tabs-text' },
