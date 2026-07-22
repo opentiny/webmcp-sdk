@@ -38,13 +38,14 @@
 
 ## AI 协作与质量闭环
 
-本仓库以根目录 [`AGENTS.md`](./AGENTS.md) 为跨工具唯一约束源。要点：
+本仓库以根目录 [`AGENTS.md`](./AGENTS.md) 为跨工具唯一约束源（文首含 **任务分流** 硬门禁）。要点：
 
-1. **就近**：Spec 在 `packages/<pkg>/specs/`，测试在 `packages/<pkg>/test/`，二者不要混放。
-2. **Bugfix**：PR 须提供含「复现：」的测试路径；`pnpm test` 通过。关联 `Issue: #N` **可选**（其它途径反馈的 bug 可不填）。
-3. **Feature**：PR Gate Fields 填写 Spec 路径，且目录含 requirements/design/tasks。
-4. **Skills**：`pnpm install` 会执行 `skills:sync`；大 Skill 不进 Git。
-5. **合入**：须通过 GitHub Actions **Merge Ready**；维护者需配置 Branch Protection（见 [`docs/ai-engineering/merge-gate.md`](./docs/ai-engineering/merge-gate.md)）。
+1. **先分流再编码**：Bug → 复现测试；非琐碎 Feature → 先建 Spec；琐碎豁免须写明理由。判定清单见 `AGENTS.md`「必须建 Spec」。
+2. **就近**：Spec 在 `packages/<pkg>/specs/`，测试在 `packages/<pkg>/test/`，二者不要混放。
+3. **Bugfix**：PR 须提供含「复现：」的测试路径；`pnpm test` 通过。关联 `Issue: #N` **可选**（其它途径反馈的 bug 可不填）。
+4. **Feature**：PR Gate Fields 填写 Spec 路径，且目录含 requirements/design/tasks。
+5. **Skills**：`pnpm install` 会执行 `skills:sync`；大 Skill 不进 Git。
+6. **合入**：须通过 GitHub Actions **Merge Ready**；维护者需配置 Branch Protection（见 [`docs/ai-engineering/merge-gate.md`](./docs/ai-engineering/merge-gate.md)）。
 
 本地预检：`pnpm pr-gate`（需自行传入 title/body，见脚本 `--help`）。
 

@@ -19,8 +19,14 @@
 
 ## 4. 先规格再编码（非琐碎需求）
 
-Feature：`requirements.md` → `design.md` → `tasks.md`，目录在 **主责包** `packages/<pkg>/specs/`。  
-琐碎改动（文案、单行日志）可豁免 Spec，但须在 PR 说明原因。
+**编码 Agent 硬流程**：分流 →（Feature 则）写 Spec → 再改业务代码。详见根 `AGENTS.md` 文首「任务分流」。
+
+Feature：`requirements.md` → `design.md` → `tasks.md`，目录在 **主责包** `packages/<pkg>/specs/`。
+
+**必须建 Spec**（命中任一）：对外 API/类型变更、默认行为或站点预设变更、无障碍树/协议等可观察语义变更、跨模块多步需求、需要文档/迁移说明。
+
+琐碎改动（文案、注释、单行日志、纯排版）可豁免 Spec，但须在 PR / 对用户回复中说明原因。  
+**禁止**把「只改预设里几条规则」「只加一个可选字段」默认当成琐碎。
 
 ## 5. Spec ≠ 单元测试
 
@@ -39,6 +45,7 @@ Feature：`requirements.md` → `design.md` → `tasks.md`，目录在 **主责�
 
 ## 禁止事项（Agent）
 
+- 不要在未完成「任务分流 / Spec」的情况下直接写非琐碎 Feature 业务代码
 - 不要一次加载大量无关文件「以防万一」
 - 不要把 VitePress 长文整篇贴进会话
 - 不要把大型 Skill 目录当业务源码提交

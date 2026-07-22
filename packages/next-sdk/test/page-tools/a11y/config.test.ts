@@ -86,6 +86,17 @@ describe('resolveA11yRole', () => {
     })
     expect(resolveA11yRole(target, config)).toBe('first')
   })
+
+  it('role 规则可声明 name，供 landmark 等布局节点作为可访问名', () => {
+    const target = el('<ti-app-layout-left></ti-app-layout-left>')
+    const config = defineA11yConfig({
+      roles: [{ role: 'navigation', selector: 'ti-app-layout-left', name: '侧边导航' }],
+    })
+    expect(resolveA11yInfo(target, config)).toMatchObject({
+      role: 'navigation',
+      name: '侧边导航',
+    })
+  })
 })
 
 describe('resolveA11yStates - 标准 ARIA 零配置检测', () => {

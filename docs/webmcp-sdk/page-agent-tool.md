@@ -68,10 +68,17 @@ interface A11yMatcher {
 }
 
 interface A11yRoleRule extends A11yMatcher {
-  /** 命中后赋予的 ARIA 角色，如 'tab' | 'tabpanel' | 'switch' */
+  /** 命中后赋予的 ARIA 角色，如 'tab' | 'tabpanel' | 'switch' | 'navigation' */
   role: string
   /** 为 true 时覆盖元素已有的显式 role 属性，默认 false */
   force?: boolean
+  /**
+   * 可选声明可访问名（不改 DOM，不写 aria-label）。
+   * 适用于 landmark / 布局容器：页面本身无 aria-label，且子树多为交互节点时，
+   * 若缺少声明名会被剪枝穿透；写上 name 后 YAML 会保留分区结构，例如：
+   * `- navigation "侧边导航"`。
+   */
+  name?: string
 }
 
 interface A11yConfig {
@@ -103,6 +110,9 @@ const a11yConfig = defineA11yConfig({
   roles: [
     { role: 'tab', selector: '.my-tabs .tab-item' },      // 自定义 Tab 组件没有 role=tab
     { role: 'tablist', selector: '.my-tabs__nav' },
+    // 布局 landmark：补齐角色 + 声明分区名（不改 DOM）
+    { role: 'navigation', selector: 'ti-app-layout-left', name: '侧边导航' },
+    { role: 'main', selector: 'ti-app-layout-main', name: '主内容区' },
   ],
   states: {
     // 按钮组选中态：新旧版本混用了两套 class 命名，selector 传数组，命中任意一个即可，而非 aria-selected
@@ -116,6 +126,15 @@ const a11yConfig = defineA11yConfig({
 })
 
 registerPageAgentTool({ a11yConfig })
+```
+
+无障碍树中会呈现为：
+
+```yaml
+- navigation "侧边导航":
+    - link #1 "总览"
+- main "主内容区":
+    - button #2 "购买"
 ```
 
 ### 站点预设：云控制台（consoleCloud）
@@ -136,7 +155,13 @@ if (isConsoleCloudHost()) {
 }
 ```
 
-预设会补齐 Tab（`.ti3-tabs-text`）、下拉（`ti3-select-dominator`）、服务列表图标按钮、区域选项等角色/选中态，并暴露 `cf-uba`。`webmcp-cli` 注入时会按域名自动选用该预设。
+预设会补齐：
+
+- **布局 landmark**（`ti-app-layout-*` / `tp-layout-*`）：`navigation`（侧边导航）、`main`（主内容区）、`banner`（页面头部）、`region`（页面内容/正文）、`complementary`（右侧面板），均带 `name` 声明分区名
+- Tab（`.ti3-tabs-text`）、下拉（`ti3-select-dominator`）、服务列表图标按钮、区域选项等角色/选中态
+- 暴露 `cf-uba` / `data-qa-id` / `name` 等属性 token
+
+`webmcp-cli` 注入时会按域名自动选用该预设。
 
 ### 底层解析函数：`resolveA11yInfo` / `resolveA11yRole` / `resolveA11yStates`
 
@@ -147,8 +172,13 @@ import { resolveA11yInfo } from '@opentiny/next-sdk'
 
 resolveA11yInfo(document.querySelector('.tab-item')!, a11yConfig)
 // { role: 'tab', tokens: ['selected'] }
+
+resolveA11yInfo(document.querySelector('ti-app-layout-left')!, a11yConfig)
+// { role: 'navigation', tokens: [...], name: '侧边导航' }
 ```
 
+> 命中带 `name` 的 role 规则时，`resolveA11yInfo` 会多返回可选字段 `name`（与 YAML 中的声明可访问名一致）。
+>
 > `a11yConfig` 的运行期读写统一走上文「PageAgentToolOptions 配置项说明」中介绍的 `getPageAgentToolConfig`/`setPageAgentToolConfig`，不再有单独的 `getA11yConfig`/`setA11yConfig`。
 
 ### `window.__webmcpcli_beforeGetBrowserState` 钩子
