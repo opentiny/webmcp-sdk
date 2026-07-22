@@ -24,16 +24,6 @@ body:
     validations:
       required: true
   - type: input
-    id: spec-path
-    attributes:
-      label: Spec 路径 (Spec Path)（开发时填写 / Fill in during development）
-      description: |
-        非琐碎需求请在主责包创建 Spec：packages/<pkg>/specs/REQ-YYYYMMDD-slug/
-        模板见 docs/ai-engineering/templates/。PR 的 Gate Fields 须指向该路径。
-      placeholder: packages/next-sdk/specs/REQ-YYYYMMDD-slug/
-    validations:
-      required: false
-  - type: input
     id: project-name
     attributes:
       label: 项目名称 (What is your project name)
