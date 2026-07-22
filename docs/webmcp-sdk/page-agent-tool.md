@@ -178,7 +178,7 @@ resolveA11yInfo(document.querySelector('ti-app-layout-left')!, a11yConfig)
 ```
 
 > 命中带 `name` 的 role 规则时，`resolveA11yInfo` 会多返回可选字段 `name`（与 YAML 中的声明可访问名一致）。
-
+>
 > `a11yConfig` 的运行期读写统一走上文「PageAgentToolOptions 配置项说明」中介绍的 `getPageAgentToolConfig`/`setPageAgentToolConfig`，不再有单独的 `getA11yConfig`/`setA11yConfig`。
 
 ### `window.__webmcpcli_beforeGetBrowserState` 钩子

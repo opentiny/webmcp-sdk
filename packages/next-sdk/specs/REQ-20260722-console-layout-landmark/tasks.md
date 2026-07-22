@@ -18,7 +18,17 @@
   - 产物：`docs/webmcp-sdk/page-agent-tool.md`、`skills/page-agent/SKILL.md`
 
 - [x] Task 5: 实机验证（webmcp-cli 登录 Profile）
-  - 验收：ECS 总览树为并列 `navigation "侧边导航"` / `main "主内容区"`，无外层 `generic "右侧面板"`
+  - 前置：本机 Chrome 调试端口 `9222`；`~/.webmcp_chrome_profile` 已登录华为云控制台
+  - 命令：
+    ```bash
+    pnpm -F @opentiny/webmcp-cli build && npm install -g ./packages/webmcp-cli
+    # 页面需刷新以重新注入（已注入会跳过）
+    webmcp-cli run page-agent-tool '{"action":"executeJavascript","script":"location.reload()"}'
+    webmcp-cli state
+    webmcp-cli run page-agent-tool '{"action":"browserState","responseMode":"full"}'
+    ```
+  - 验收：ECS 总览（`#/ecs/dashboard`）树为并列 `navigation "侧边导航"` / `main "主内容区"`，无外层 `generic "右侧面板"`
+  - 产物：`~/.webmcp_chrome_profile/logs/webmcp-cli-2026-07-22.log`（约 15:31:29 UTC+8 条目已确认上述结构）
 
 ## 依赖顺序
 
@@ -27,5 +37,9 @@
 ## 验收命令
 
 ```bash
+# 单元测试（必跑）
 pnpm -F @opentiny/next-sdk test -- test/page-tools/configs/console-cloud.test.ts test/page-tools/a11y/config.test.ts test/page-tools/a11y/build.test.ts
+
+# 实机验证（需登录 Profile，见 Task 5）
+webmcp-cli run page-agent-tool '{"action":"browserState","responseMode":"full"}'
 ```

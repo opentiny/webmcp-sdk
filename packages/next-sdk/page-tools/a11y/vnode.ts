@@ -278,6 +278,22 @@ function isStructuralNamedNode(vnode: VNode): boolean {
   return !!vnode.declaredName?.trim() || LANDMARK_ROLES.has(vnode.role)
 }
 
+/**
+ * 空 landmark 壳：仅声明名、无交互子孙、无有价值子 VNode、无直接文本节点。
+ * 有直接文本（如 `<region>说明文案</region>`）时不得当空壳省略。
+ */
+function isEmptyLandmarkShell(vnode: VNode, hasInteractive: boolean): boolean {
+  if (!isStructuralNamedNode(vnode) || vnode.ref !== undefined || hasInteractive) return false
+  if (vnode.children.some(hasValue)) return false
+  if (collectDirectTextNodes(vnode.el).trim()) return false
+  const declared = resolveDeclaredName(vnode)
+  const name = vnode.name.trim()
+  // name 来自内容汇总且与声明名不同 → 有可读内容，保留
+  if (name && declared && name !== declared) return false
+  if (name && !declared) return false
+  return true
+}
+
 /** 子树中是否包含 landmark / 声明名节点（中间层 generic 包装器也会命中） */
 function containsStructuralNamed(vnode: VNode): boolean {
   return vnode.children.some((c) => isStructuralNamedNode(c) || containsStructuralNamed(c))
@@ -459,14 +475,9 @@ export function serializeVNode(
   const safeTokens = vnode.tokens.map(t => t.replace(/[\r\n]+/g, ' ').replace(/"/g, '\\"'))
   const tokenStr = safeTokens.length > 0 ? ` [${safeTokens.join(' ')}]` : ''
 
-  // 空 landmark 壳（仅有声明名、无可价值子节点）：整段省略，避免 `banner "页面头部"` / 折叠右栏噪音，
-  // 也避免其声明名被父级 Static-Lift 误吸收。
-  if (
-    isStructuralNamedNode(vnode) &&
-    vnode.ref === undefined &&
-    !hasInteractive &&
-    !vnode.children.some(hasValue)
-  ) {
+  // 空 landmark 壳：仅有声明名、无交互、无有价值子节点、无直接文本 → 整段省略
+  // （如空的 ti-app-layout-main-header / 折叠右栏）。有直接文本的 landmark 必须保留。
+  if (isEmptyLandmarkShell(vnode, hasInteractive)) {
     return []
   }
 

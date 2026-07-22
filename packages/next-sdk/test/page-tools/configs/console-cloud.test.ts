@@ -183,7 +183,9 @@ describe('consoleCloudPageAgentToolOptions', () => {
       expect(lines.some((l) => /region.*"页面内容"/.test(l))).toBe(true)
       expect(lines.some((l) => /region.*"页面正文"/.test(l))).toBe(true)
       expect(lines.some((l) => /complementary.*"右侧面板"/.test(l))).toBe(true)
+      // banner 来自有内容的 tp-layout-content-header；空的 ti-app-layout-main-header 为空壳应省略
       expect(lines.some((l) => /banner.*"页面头部"/.test(l))).toBe(true)
+      expect(lines.filter((l) => /banner.*"页面头部"/.test(l))).toHaveLength(1)
       // 复现：空/折叠右栏声明名被 Static-Lift 吸到父级 → `generic "右侧面板"` 错误包住侧栏+主区
       expect(lines.some((l) => /generic.*"右侧面板"/.test(l))).toBe(false)
 
@@ -249,6 +251,18 @@ describe('consoleCloudPageAgentToolOptions', () => {
       expect(navIdx).toBeGreaterThanOrEqual(0)
       expect(mainIdx).toBeGreaterThan(navIdx)
       expect(lines[navIdx].match(/^ */)?.[0].length).toBe(lines[mainIdx].match(/^ */)?.[0].length)
+    },
+  )
+
+  it(
+    '复现：landmark 仅含直接文本、无元素子节点时不得当空壳省略',
+    () => {
+      const root = setupRoot(`
+        <ti-app-layout-main-content>页面说明文案</ti-app-layout-main-content>
+      `)
+      const { lines } = buildA11yTree(root, a11yConfig)
+      expect(lines.some((l) => /region.*"页面内容"/.test(l) || /region.*"页面说明文案"/.test(l))).toBe(true)
+      expect(lines.some((l) => /region/.test(l))).toBe(true)
     },
   )
 

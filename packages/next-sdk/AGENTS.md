@@ -4,11 +4,17 @@
 
 ## 本包 Spec 硬提醒
 
-改 `page-tools/`、公开 a11y API、`consoleCloudPageAgentToolOptions`、树序列化/剪枝语义时，几乎总是 **非琐碎 Feature**：
+修改下列任一内容前，**必须**先创建或更新 `packages/next-sdk/specs/REQ-YYYYMMDD-slug/`（仅当用户明确豁免 Spec 时可例外）：
 
-1. 先建或更新 `packages/next-sdk/specs/REQ-YYYYMMDD-slug/`
-2. 再改代码与 `test/page-tools/`
-3. 需要时同步 `docs/webmcp-sdk/page-agent-tool.md` 与 `skills/page-agent/SKILL.md`
+- `page-tools/`
+- 公开 a11y API / 类型（含 `A11yRoleRule`、`A11yConfig`、`PageAgentToolOptions` 等）
+- `consoleCloudPageAgentToolOptions` 或其他默认/预设行为
+- 无障碍树构建、剪枝、Static-Lift、序列化语义
+
+然后：
+
+1. 按 Spec `tasks.md` 改代码与 `test/page-tools/`
+2. 需要时同步 `docs/webmcp-sdk/page-agent-tool.md` 与 `skills/page-agent/SKILL.md`
 
 现有 Spec 索引见 [`specs/README.md`](./specs/README.md)。示例：[`specs/REQ-20260722-console-layout-landmark/`](./specs/REQ-20260722-console-layout-landmark/)。
 

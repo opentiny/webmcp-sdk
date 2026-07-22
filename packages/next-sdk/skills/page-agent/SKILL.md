@@ -9,14 +9,13 @@ description: >-
 
 ## 动手前（硬门禁）
 
-先遵守根 [`AGENTS.md`](../../../../AGENTS.md)「任务分流」。本 Skill 相关改动若涉及下列任一，**必须先有 Spec** 再改代码：
+先遵守根 [`AGENTS.md`](../../../../AGENTS.md)「任务分流」。修改下列任一内容前，**必须**先创建或更新 `packages/next-sdk/specs/REQ-YYYYMMDD-slug/`（仅当用户明确豁免时可例外）：
 
 - 公开 API / 类型（含 `A11yRoleRule`、`A11yConfig`、`PageAgentToolOptions` 等）
 - `consoleCloudPageAgentToolOptions` 或其他默认/预设行为
 - 无障碍树构建、剪枝、Static-Lift、序列化语义
 - 需要更新 `docs/webmcp-sdk/page-agent-tool.md` 的行为说明
 
-Spec 落点：`packages/next-sdk/specs/REQ-YYYYMMDD-slug/`。  
 近期示例：[`specs/REQ-20260722-console-layout-landmark/`](../../specs/REQ-20260722-console-layout-landmark/)。
 
 拿不准是否琐碎 → **先问用户**，不要默认开写。
