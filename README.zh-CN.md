@@ -67,15 +67,18 @@ WebMCP 是 Model Context Protocol 在浏览器端的扩展。它定义了网页�
 
 这意味着你今天编写的标准 WebMCP 代码，在未来浏览器原生支持时将自动平滑切换到原生引擎。
 
-### 📡 通过 WebAgent 实现远程操控
+### 📡 跨页面与远程操控
 
-OpenTiny NEXT-SDKs 的最大亮点之一是在于通过 **WebAgent** 实现页面的“可控性”。通过使用 `WebMcpClient`，你可以：
+OpenTiny NEXT-SDKs 的核心亮点之一是支持页面的“跨环境可控性”。在内置的 WebMCP Polyfill 和 `@opentiny/next-remoter` 的帮助下，你可以：
 
+- **自动化桥接**：底层自动接管不同页面路径、iframe 之间的消息同步与工具调用导航。
 - **获取持久化的 Session ID**：与云端 AI 编排器建立长效连接。
-- **跨时空协同**：即使用户不在当前聊天窗口前，AI 也可以根据业务指令远程调用页面工具。
-- **高阶业务自动化**：配合 WebAgent，将页面上的工具转化为自动化流程中的执行单元，真正实现 AI 对应用的“远程驾驶”。
+- **跨时空协同**：即便用户没有主动操作，AI 也可根据业务系统下发的指令远程触发页面的工具。
+- **高阶业务自动化**：将前端页面的 DOM 操作和业务组件 API 转化为自动化流程中的执行单元，实现应用级“远程驾驶”。
 
 #### 连接示例
+
+通过 `WebMcpClient`，我们可以通过云端的 web-agent 远程调用和控制浏览器内置的 WebMCP 工具：
 
 ```typescript
 import { WebMcpClient } from '@opentiny/next-sdk'
@@ -146,30 +149,7 @@ document.modelContext.registerTool({
 ✅ **完成！** 你的应用现在就是一个 MCP 服务。
 你可以将其连接到任何 MCP 兼容的客户端，或使用我们的 [TinyRemoter](#-通过-webagent-实现远程操控) 直接与应用对话。
 
----
 
-### 备选方案：自定义 MCP Server（高级）
-
-如果你需要更深层次的控制或运行多个独立服务：
-
-```typescript
-import { WebMcpServer, z } from '@opentiny/next-sdk'
-
-const server = new WebMcpServer({ name: 'custom-server', version: '1.0.0' })
-
-server.registerTool(
-  'demo',
-  {
-    title: '演示工具',
-    inputSchema: { foo: z.string() }
-  },
-  async (params) => {
-    return { content: [{ type: 'text', text: `结果: ${params.foo}` }] }
-  }
-)
-
-// 连接到任意传输通道...
-```
 
 ## 📦 核心包说明
 
@@ -296,13 +276,11 @@ webmcp-cli run page-agent-tool '{"action": "fill", "index": 13, "text": "Model C
 2.  **桥接同步**：我们的桥接机制会自动将 AI 请求路由到正确的页面或 iframe，即使用户已经切换了页面。
 3.  **直接执行**：工具直接在页面环境下运行，可以访问 DOM、组件状态和本地 API。
 
-### WebMcpServer
+### 底层传输与引擎层
 
-WebMcpServer 是 MCP 服务端的实现，用于手动管理前端应用的功能声明。
+虽然日常开发直接使用 `document.modelContext.registerTool` 即可，但 NEXT-SDKs 内部依然保留了完整的 MCP 协议核心实现以供高级调度：
 
-### WebMcpClient
-
-WebMcpClient 是 MCP 客户端的实现，用于连接 WebAgent 服务和其他 MCP 服务。
+- **WebMcpServer / WebMcpClient**：负责处理底层的 JSON-RPC 消息、Schema 校验以及通道握手。建议仅在开发基础设施扩展时了解，业务应用侧应避免直接调用它们。
 
 ## 📖 使用场景
 
