@@ -2,7 +2,7 @@
 
 非琐碎 Feature 与 Bug 复现的 Markdown 模板；实例放在主责包 `packages/<pkg>/specs/` 或 `packages/<pkg>/test/`。
 
-**Agent：动手前先读根 [`AGENTS.md`](../../../AGENTS.md) 文首「任务分流」。** 非琐碎 Feature 必须先复制本目录三件套到 `packages/<pkg>/specs/REQ-YYYYMMDD-slug/`，再写代码。
+**Agent：动手前先读根 [`AGENTS.md`](https://github.com/opentiny/webmcp-sdk/blob/dev/AGENTS.md)（仓库根，不在本站路由内）文首「任务分流」。** 非琐碎 Feature 必须先复制本目录三件套到 `packages/<pkg>/specs/REQ-YYYYMMDD-slug/`，再写代码。
 
 ## 何时建 Spec
 
