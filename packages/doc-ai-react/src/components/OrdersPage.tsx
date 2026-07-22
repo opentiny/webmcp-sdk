@@ -13,8 +13,7 @@ export function Component() {
     const ORDER_QUERY_TOOL = 'order_query'
     const ORDER_DETAIL_TOOL = 'order_detail'
     const controller = new AbortController()
-    const modelContext = (document as unknown as { modelContext?: ModelContext }).modelContext || 
-                         (navigator as unknown as { modelContext?: ModelContext }).modelContext
+    const modelContext = (document as unknown as { modelContext?: ModelContext }).modelContext
 
     if (modelContext?.registerTool) {
       modelContext.registerTool(

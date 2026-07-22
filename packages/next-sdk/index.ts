@@ -34,9 +34,6 @@ export { getAISDKTools } from './agent/utils/getAISDKTools'
 export { QrCode, type QrCodeOption } from './remoter/QrCode'
 export type * from './agent/type'
 
-// Web MCP 页面工具桥接：工具调用自动导航 + 页面消息通信
-export * from './page-tools/bridge'
-
 // Web 端 Skill 公共能力：解析 skill 文档、生成 systemPrompt、内置 list_skills / get_skill_content 工具
 export {
   getSkillOverviews,
@@ -53,6 +50,8 @@ export {
 export * from '@mcp-b/webmcp-polyfill'
 
 export { initializeBuiltinWebMCP } from './page-tools/initialize-builtin-WebMCP'
+export { waitForRouteTools } from './page-tools/wait-for-route-tools'
+export type { RouteToolsMap, WaitForRouteToolsOptions } from './page-tools/wait-for-route-tools'
 export { registerPageAgentTool } from './page-tools/page-agent-tool'
 export { PAGE_AGENT_TOOL_CALL_EVENT, PAGE_AGENT_TOOL_RESULT_EVENT } from './page-tools/page-agent-tool-event'
 export type { PageAgentToolCallEventDetail, PageAgentToolResultEventDetail } from './page-tools/page-agent-tool-event'

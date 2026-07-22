@@ -90,7 +90,7 @@ const ORDER_DETAIL_TOOL = 'order_detail'
 const abortController = new AbortController()
 
 onMounted(() => {
-  const modelContext = (document as any).modelContext || (navigator as any).modelContext
+  const modelContext = (document as any).modelContext
   if (modelContext?.registerTool) {
     modelContext.registerTool(
       {

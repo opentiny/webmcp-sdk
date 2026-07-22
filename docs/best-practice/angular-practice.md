@@ -27,7 +27,7 @@ packages/doc-ai-angular/
 │   ├── app/
 │   │   ├── app.config.ts                # 应用配置（含路由）
 │   │   ├── app.routes.ts                # ① 路由定义
-│   │   ├── app.component.ts             # ② 根组件：setNavigator + 启动 MCP Server
+│   │   ├── app.component.ts             # ② 根组件：initializeBuiltinWebMCP + createMcpServer
 │   │   ├── app.component.html           # ③ 布局：主内容 + iframe 嵌入 remoter
 │   │   └── pages/
 │   │       ├── comprehensive/          # ⑤ 页面内一体化定义工具（register/unregister）
@@ -69,16 +69,16 @@ pnpm add @opentiny/next-sdk @opentiny/next-remoter
 
 ---
 
-## 第一步：在 app.component.ts 注册路由导航器
+## 第一步：在 app.component.ts 激活 WebMCP 并注册自配导航
 
-与 Vue 版类似，`setNavigator` 告诉 SDK 如何跳转页面。当 AI 调用某个工具而对应页面未打开时，SDK 会调用此函数自动导航。
+SDK **不再提供** `setNavigator`。请 `initializeBuiltinWebMCP()` 后调用 `createMcpServer(router)`，内部注册业务侧 `navigate_to_page`（见下方），跳转后用 SDK `waitForRouteTools` 握手。
 
 ```ts
 // src/app/app.component.ts
 import { Component, OnInit, inject } from '@angular/core'
 import { Router } from '@angular/router'
 import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router'
-import { setNavigator, initializeBuiltinWebMCP } from '@opentiny/next-sdk'
+import { initializeBuiltinWebMCP } from '@opentiny/next-sdk'
 import { createMcpServer } from '../mcp-servers'
 
 @Component({
@@ -91,20 +91,8 @@ import { createMcpServer } from '../mcp-servers'
 export class AppComponent implements OnInit {
   private router = inject(Router)
   async ngOnInit(): Promise<void> {
-    // 1. 注册基础 SDK 导航器（供 page-tool-bridge 和 registerNavigateTool 内部自动跳转使用）
-    // navigateByUrl 返回 false 时表示被取消或拦截，需抛出错误
-    setNavigator(async (route) => {
-      const navigated = await this.router.navigateByUrl(route)
-      if (!navigated) {
-        throw new Error(`页面跳转失败：导航至 "${route}" 被取消或拦截`)
-      }
-    })
-
-    // 2. 激活浏览器内置 WebMCP 服务 (含低版本浏览器 Polyfill)
     initializeBuiltinWebMCP()
-
-    // 3. 本地 MCP Server 启动：失败则直接抛出（核心功能）
-    await createMcpServer()
+    await createMcpServer(this.router)
   }
 }
 ```
@@ -159,27 +147,58 @@ export class AppComponent implements OnInit {
 
 ---
 
-## 第三步：主窗口创建 MCP Server
-
-在 React 工程中，初始化 `McpServer`， 并在 `app.component.ts`中调用它 。
+## 第三步：主窗口注册自配导航工具
 
 ```ts
 // src/mcp-servers/index.ts
-import { registerNavigateTool } from '@opentiny/next-sdk'
-import registerFinanceTools from './finance/tools'
+import type { Router } from '@angular/router'
+import { registerNavigateToPageTool } from './navigate-tool'
 export { useWebAgentServer } from './useWebAgentServer'
 
-export const createMcpServer = async () => {
-  registerNavigateTool((document as any).modelContext)
-
-  // 仅保留财务工具在 mcp-servers 侧声明,以演示分离式注册工具
-  registerFinanceTools()
+export const createMcpServer = async (router: Router) => {
+  registerNavigateToPageTool(router)
 }
 ```
 
+将适配文件放到 `src/mcp-servers/navigate-tool.ts`：维护 `routeToolsMap`，自行注册导航工具，跳转后调用 `waitForRouteTools`（见 [`packages/doc-ai-angular/src/mcp-servers/navigate-tool.ts`](https://github.com/opentiny/next-sdk/blob/dev/packages/doc-ai-angular/src/mcp-servers/navigate-tool.ts)）。
+
 ---
 
-## 第四步：在页面组件中定义工具
+## 自配路由跳转工具（可复制模版）
+
+```ts
+import type { Router } from '@angular/router'
+import { waitForRouteTools, type RouteToolsMap } from '@opentiny/next-sdk'
+
+export const routeToolsMap: RouteToolsMap = {
+  '/orders': ['order_query', 'order_detail'],
+  '/finance': ['finance_summary_query']
+  // ...
+}
+
+export function registerNavigateToPageTool(router: Router): void {
+  const modelContext = (document as any).modelContext
+  modelContext.registerTool({
+    name: 'navigate_to_page',
+    // ... title / description / inputSchema
+    execute: async ({ path }: { path: string }) => {
+      const normalized = path.replace(/\/+$/, '') || '/'
+      const navigated = await router.navigateByUrl(normalized)
+      if (!navigated) throw new Error(`页面跳转失败：${normalized}`)
+      await waitForRouteTools(normalized, routeToolsMap, { timeoutMs: 5000, pollMs: 100 })
+      return { content: [{ type: 'text', text: `已跳转至页面：${normalized}` }] }
+    }
+  })
+}
+```
+
+要点：
+
+1. `routeToolsMap: Record<path, toolName[]>`，工具名按模块全局唯一。
+2. 导航工具由业务侧自行 `registerTool`；SDK 只提供 `waitForRouteTools`。
+3. 可选传入 `timeoutMs` / `pollMs`（默认 5s / 100ms）。
+
+---## 第四步：在页面组件中定义工具
 
 `Angular 工程`中注册工具的方式与`Vue工程`一致的， 因为借助原生 `WebMcp API` 是不依赖于任何框架的。
 
@@ -228,63 +247,6 @@ export class OrdersComponent implements OnInit, OnDestroy {
   }
 }
 ```
-
-## 进阶：分离式全量注册 (适合轻量/小型应用)
-
-如果你的应用功能较少，或者不想编写繁琐的 WebSkills，可以使用**一次性全量注册**方案。参见第三步中调用 `registerFinanceTools`函数
-
-### 1. 声明式配置 (含 routeConfig)
-
-在独立文件中定义工具及其所属路由。这种方式下，AI 随时可见该工具，并能自动触发跳转。
-
-```ts
-// src/mcp-servers/finance/tools.ts
-export default function registerFinanceTools() {
-  const abortController = new AbortController()
-  ;(document as any).modelContext.registerTool(
-    {
-      name: 'finance_summary_query',
-      title: '查询财务数据',
-      description: '查询关键财务指标。',
-      inputSchema: {
-        /* ... */
-      },
-      // 💡 关键：无需 Skills，显式声明跳转目标
-      routeConfig: {
-        route: '/finance'
-      }
-    },
-    { signal: abortController.signal }
-  )
-}
-```
-
-### 2. 页面内绑定逻辑 (registerPageTool)
-
-在业务组件内，你只需要关注如何处理该工具的逻辑，无需再次声明或配置。
-
-```ts
-<!-- src\app\pages\finance\finance.component.ts -->
-  ngOnInit() {
-    this.cleanupPageTool = registerPageTool({
-      route: '/finance',
-      handlers: {
-        'finance_summary_query': async ({ month }: { month?: string }) => {
-          const monthLabel = month ? `（${month}）` : '（当前）'
-          const text = `财务概况${monthLabel}：
-- 可用余额：¥${this.financeData.balance.toLocaleString()}
-- 待结算金额：¥${this.financeData.pending.toLocaleString()}
-- 本月总支出：¥${this.financeData.expense.toLocaleString()}
-
-详细流水已在左侧界面展示，可点击【发起提现】或【导出账单】进行操作。`
-          return { content: [{ type: 'text', text }] }
-        }
-      }
-    })
-  }
-```
-
----
 
 ## 第五步： 启动主应用与 Remoter
 

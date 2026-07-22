@@ -2,7 +2,7 @@
  * page-tools/effects - 页面工具调用提示效果模块（框架无关）
  *
  * 作用：
- * - 在调用通过 withPageTools 注册的页面工具时，显示页面级的调用状态提示
+ * - 在调用页面工具时，显示页面级的调用状态提示
  * - 以左下角小 tip 形式展示“当前正在调用的工具”文案，尽量不打扰用户操作
  * - 纯 DOM + CSS 实现，不依赖 Vue/React 等框架
  */
@@ -324,7 +324,7 @@ export function hideToolInvokeEffect() {
 }
 
 /**
- * 将 RouteConfig 中的 invokeEffect 配置编译成运行时效果配置。
+ * 将 invokeEffect 配置编译成运行时效果配置。
  * - boolean / undefined：关闭或开启默认文案
  * - 对象：允许自定义 label
  */

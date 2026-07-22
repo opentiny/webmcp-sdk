@@ -19,7 +19,6 @@ export const setupLocalTools = () => {
 
   let nativeCtx: any = null
   if (typeof document !== 'undefined') nativeCtx = nativeCtx || (document as any).modelContext
-  if (typeof navigator !== 'undefined') nativeCtx = nativeCtx || (navigator as any).modelContext
   nativeCtx = nativeCtx || (globalThis as any).modelContext
 
   if (!nativeCtx) {
@@ -76,23 +75,19 @@ export const setupLocalTools = () => {
       const execRes = await browser.scripting.executeScript({
         target: { tabId },
         world: 'MAIN',
-        func: () => {
+        func: async () => {
           try {
-            let pageTools: any[] = []
-            if (typeof (window as any).__nextSdkRegisteredTools === 'function') {
-              pageTools = (window as any).__nextSdkRegisteredTools()
-            } else if ((document as any).modelContext?.getTools) {
-              const res = (document as any).modelContext.getTools()
-              pageTools = Array.isArray(res) ? res : []
-            }
+            const ctx = (document as any).modelContext
+            if (!ctx?.getTools) return []
+            const res = await ctx.getTools()
+            const pageTools = Array.isArray(res) ? res : []
             return pageTools.map((t: any) => ({
               name: t.name,
               title: t.title,
               description: t.description,
               inputSchema: t.inputSchema
             }))
-          } catch (e: unknown) {
-            // 发生错误时返回空数组，不注册假工具
+          } catch {
             return []
           }
         }

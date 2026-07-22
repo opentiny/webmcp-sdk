@@ -34,7 +34,6 @@ export const setupBuiltinProxy = (transport: Transport) => {
   const getNativeCtx = (): NativeModelContext | null => {
     let ctx: NativeModelContext | null = null
     if (typeof document !== 'undefined') ctx = ctx || ((document as unknown as Record<string, unknown>).modelContext as NativeModelContext | null)
-    if (typeof navigator !== 'undefined') ctx = ctx || ((navigator as unknown as Record<string, unknown>).modelContext as NativeModelContext | null)
     ctx = ctx || ((globalThis as unknown as Record<string, unknown>).modelContext as NativeModelContext | null)
     return ctx || null
   }

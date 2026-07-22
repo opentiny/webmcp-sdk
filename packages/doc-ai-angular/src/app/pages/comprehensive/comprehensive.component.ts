@@ -1,7 +1,6 @@
 import { Component, OnInit, OnDestroy } from '@angular/core'
 import { NgFor, NgIf } from '@angular/common'
 import { FormsModule } from '@angular/forms'
-import { registerPageTool } from '@opentiny/next-sdk'
 import productsData from './products.json'
 
 // 商品类型定义
@@ -36,7 +35,7 @@ export class ComprehensiveComponent implements OnInit, OnDestroy {
   editingCell: { id: number; field: string } | null = null
   editingValue = ''
 
-  modelContext = (document as any).modelContext || (navigator as any).modelContext
+  modelContext = (document as any).modelContext
   abortController = new AbortController()
 
   ngOnInit(): void {

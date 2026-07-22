@@ -56,7 +56,7 @@ const handleManualAdd = () => {
 const ADD_INVENTORY_TOOL = 'add_inventory'
 
 onMounted(() => {
-  const modelContext = (document as any).modelContext || (navigator as any).modelContext
+  const modelContext = (document as any).modelContext
   if (modelContext?.registerTool) {
     modelContext.registerTool(
       {

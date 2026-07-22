@@ -1,10 +1,8 @@
-import { registerNavigateTool } from '@opentiny/next-sdk'
-import registerFinanceTools from './finance/tools'
+import { registerNavigateToPageTool } from './navigate-tool'
+import router from '../router'
 export { useWebAgentServer } from './useWebAgentServer'
 
 export const createMcpServer = async () => {
-  registerNavigateTool((navigator as any).modelContext)
-
-  // 仅保留财务工具在 mcp-servers 侧声明（其余工具已迁移到业务页面内一体化定义）
-  registerFinanceTools()
+  // 自配导航工具：跳转后按 routeToolsMap 握手等待页面工具就绪
+  registerNavigateToPageTool(router)
 }

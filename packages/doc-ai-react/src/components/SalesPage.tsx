@@ -14,8 +14,7 @@ export function Component() {
     }
 
     const controller = new AbortController()
-    const modelContext = (document as unknown as { modelContext?: ModelContext }).modelContext || 
-                         (navigator as unknown as { modelContext?: ModelContext }).modelContext
+    const modelContext = (document as unknown as { modelContext?: ModelContext }).modelContext
 
     if (modelContext?.registerTool) {
       modelContext.registerTool(

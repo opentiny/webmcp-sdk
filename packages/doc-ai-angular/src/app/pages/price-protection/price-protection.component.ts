@@ -1,7 +1,6 @@
 import { Component, OnInit, OnDestroy, ViewChild, NgZone } from '@angular/core'
 import type { ModelContext } from '@mcp-b/webmcp-types'
 import { NgFor, NgIf, NgClass } from '@angular/common'
-import { registerPageTool, RegisterPageToolByHandlersOptions } from '@opentiny/next-sdk'
 import rawData from './price-protection.json'
 import { PriceProtectionModalComponent } from '../../components/price-protection-modal.component'
 import { priceProtectionList, type PriceProtectionOrder } from '../../../mock'
@@ -73,8 +72,7 @@ export class PriceProtectionComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     const modelContext =
-      (document as unknown as { modelContext?: ModelContext }).modelContext ||
-      (navigator as unknown as { modelContext?: ModelContext }).modelContext
+      (document as unknown as { modelContext?: ModelContext }).modelContext
     if (modelContext?.registerTool) {
       modelContext.registerTool(
         {
