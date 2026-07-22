@@ -16,7 +16,7 @@
 
 | 路径 | 职责 |
 |---|---|
-| `page-tools/` | page-agent-tool、a11y、桥接、高亮/遮罩、`initializeBuiltinWebMCP` |
+| `page-tools/` | page-agent-tool、a11y、`waitForRouteTools`、高亮/遮罩、`initializeBuiltinWebMCP` |
 | `agent/` | `AgentModelProvider`、`getAISDKTools` |
 | `remoter/` | `createRemoter`、`QrCode` |
 | `skills/index.ts` | **运行时**业务 Skill 工具（给终端用户 Agent），不是编码用 SKILL.md |

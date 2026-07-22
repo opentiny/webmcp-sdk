@@ -2,7 +2,7 @@
 
 本文根据最新的 WebMCP 标准与 `doc-ai` 示例项目，带你一步步把普通 Vue 工程升级为 AI 驱动的智能应用。
 
-> **核心变化**：统一使用浏览器原生的 `document.modelContext` 接口。路由跳转由业务侧**自行注册** `navigate_to_page` 工具完成，并通过 `routeToolsMap` + `toolchange`/`getTools` 握手确认目标页工具已就绪。
+> **核心变化**：统一使用浏览器原生的 `document.modelContext` 接口。路由跳转由业务侧**自行注册** `navigate_to_page`；跳转后调用 SDK 的 `waitForRouteTools(path, routeToolsMap)` 确认目标页工具已就绪。
 > **示例工程仓库**：[`packages/doc-ai`](https://github.com/opentiny/next-sdk/tree/dev/packages/doc-ai)
 
 ---
@@ -11,12 +11,13 @@
 
 1. **标准 API**：使用 `document.modelContext` 注册工具。
 2. **全平台 Polyfill**：`initializeBuiltinWebMCP()` 确保各浏览器可用。
-3. **自配导航 + 握手**：业务维护 `routeToolsMap`（path → 工具名[]）；跳转后监听 `toolchange`，再 `getTools()` 校验工具是否全部加载。
+3. **自配导航 + 握手**：业务维护 `routeToolsMap` 并自行注册导航工具；SDK 仅提供 `waitForRouteTools` 判断 path 对应工具是否全部加载。
 
 | 模块 | 职责 |
 | --- | --- |
 | **Model Context** | 浏览器原生接口，用于注册工具 |
-| **navigate_to_page（业务模版）** | 用户自配的路由跳转工具 + 握手逻辑 |
+| **navigate_to_page（业务模版）** | 用户自配的路由跳转工具 |
+| **waitForRouteTools（SDK）** | 按 path + routeToolsMap 握手等待页面工具就绪 |
 | **WebSkills** | 业务知识 Markdown，引导跨页意图 |
 | **WebAgent** | 远程代理，手机/异地遥控当前页工具 |
 
@@ -29,7 +30,7 @@ src/
 ├── main.ts                 # initializeBuiltinWebMCP
 ├── App.vue                 # TinyRemoter + Skills + WebAgent；启动 createMcpServer
 ├── mcp-servers/
-│   ├── navigate-tool.ts    # 【可复制】自配导航工具 + routeToolsMap + 握手
+│   ├── navigate-tool.ts    # 【可复制】自配导航 + routeToolsMap + waitForRouteTools
 │   ├── index.ts            # 调用 registerNavigateToPageTool(router)
 │   └── useWebAgentServer.ts
 ├── skills/                 # WebSkills 知识库
@@ -60,7 +61,7 @@ app.mount('#app')
 
 ## 第二步：自配路由跳转工具（可复制模版）
 
-将下列文件整体复制到工程 `src/mcp-servers/navigate-tool.ts`，按业务修改 `routeToolsMap`（工具名须全局唯一，并与页面内 `registerTool` 的 `name` 一致）。
+将下列文件复制到工程 `src/mcp-servers/navigate-tool.ts`，按业务修改 `routeToolsMap`。握手调用 SDK 的 `waitForRouteTools`，无需手写 `toolchange` / 轮询逻辑。
 
 完整示例见：[`packages/doc-ai/src/mcp-servers/navigate-tool.ts`](https://github.com/opentiny/next-sdk/blob/dev/packages/doc-ai/src/mcp-servers/navigate-tool.ts)
 
@@ -70,9 +71,10 @@ app.mount('#app')
  */
 import type { Router } from 'vue-router'
 import { isNavigationFailure, NavigationFailureType, type NavigationFailure } from 'vue-router'
+import { waitForRouteTools, type RouteToolsMap } from '@opentiny/next-sdk'
 
 /** 路由 → 该页必须就绪的工具名（按模块命名，全局唯一） */
-export const routeToolsMap: Record<string, string[]> = {
+export const routeToolsMap: RouteToolsMap = {
   '/orders': ['order_query', 'order_detail'],
   '/finance': ['finance_summary_query'],
   '/inventory': ['add_inventory'],
@@ -87,57 +89,6 @@ export const routeToolsMap: Record<string, string[]> = {
 
 function normalizePath(path: string): string {
   return path.replace(/\/+$/, '') || '/'
-}
-
-/**
- * 等待目标页工具全部出现在 modelContext.getTools() 中。
- * 主信号：toolchange；兜底：短轮询 + 超时。
- */
-export async function waitForRouteTools(
-  expectedToolNames: string[],
-  options?: { timeoutMs?: number; pollMs?: number }
-): Promise<void> {
-  const timeoutMs = options?.timeoutMs ?? 5000
-  const pollMs = options?.pollMs ?? 100
-  const ctx = (document as any).modelContext
-  if (!ctx?.getTools) throw new Error('modelContext.getTools 不可用，请先 initializeBuiltinWebMCP()')
-
-  if (expectedToolNames.length === 0) return
-
-  const listNames = async () =>
-    ((await ctx.getTools()) as Array<{ name: string }>).map((t) => t.name)
-
-  const ready = (names: string[]) => expectedToolNames.every((n) => names.includes(n))
-
-  await new Promise<void>((resolve, reject) => {
-    let settled = false
-    const cleanup = () => {
-      if (settled) return
-      settled = true
-      clearInterval(poll)
-      clearTimeout(timer)
-      ctx.removeEventListener?.('toolchange', onChange)
-    }
-    const check = async () => {
-      try {
-        if (ready(await listNames())) {
-          cleanup()
-          resolve()
-        }
-      } catch {
-        // getTools 瞬时失败时继续等待，由超时兜底
-      }
-    }
-    const onChange = () => void check()
-    ctx.addEventListener?.('toolchange', onChange)
-    const poll = setInterval(() => void check(), pollMs)
-    const timer = setTimeout(() => {
-      cleanup()
-      reject(new Error(`等待页面工具超时: ${expectedToolNames.join(', ')}`))
-    }, timeoutMs)
-
-    void check()
-  })
 }
 
 /** 注册 navigate_to_page */
@@ -164,8 +115,7 @@ export function registerNavigateToPageTool(router: Router): void {
     },
     execute: async ({ path }: { path: string }) => {
       const normalized = normalizePath(path)
-      const expected = routeToolsMap[normalized]
-      const hasMap = Array.isArray(expected)
+      const hasMap = Array.isArray(routeToolsMap[normalized])
 
       const failure = await router.push(normalized)
       if (failure) {
@@ -176,7 +126,7 @@ export function registerNavigateToPageTool(router: Router): void {
         }
       }
 
-      await waitForRouteTools(hasMap ? expected : [], { timeoutMs: 5000, pollMs: 100 })
+      await waitForRouteTools(normalized, routeToolsMap, { timeoutMs: 5000, pollMs: 100 })
 
       const hint = hasMap
         ? '页面工具已就绪，请继续下一步操作。'
@@ -201,11 +151,11 @@ export const createMcpServer = async () => {
 }
 ```
 
-握手约定：
+约定：
 
-1. 维护 `routeToolsMap`：键为规范化 path，值为该页工具名全集。
-2. 跳转后监听 `toolchange`，每次用 `getTools()` 判断期望工具是否齐备。
-3. 短轮询 + 超时（默认 5s）防止漏事件或竞态。
+1. 维护 `routeToolsMap`：键为规范化 path，值为该页工具名全集（与页面内 `registerTool` 的 `name` 一致）。
+2. 跳转后调用 `waitForRouteTools(path, routeToolsMap)`；map 无该 path 时 helper 立即返回。
+3. 可选传入 `timeoutMs` / `pollMs`（默认 5s / 100ms）。
 
 ---
 
@@ -345,7 +295,7 @@ onMounted(async () => {
 | 项 | 说明 |
 | --- | --- |
 | **业务工具** | 页面内 `registerTool` + `AbortController` |
-| **跨页跳转** | 自配 `navigate_to_page` + `routeToolsMap` 握手 |
+| **跨页跳转** | 自配 `navigate_to_page` + SDK `waitForRouteTools(path, routeToolsMap)` |
 | **引导** | WebSkills 描述何时应先 `navigate_to_page` |
 | **已移除** | SDK 不再提供 `setNavigator` / `routeConfig` / `registerPageTool` |
 

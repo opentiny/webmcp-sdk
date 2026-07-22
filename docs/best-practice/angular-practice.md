@@ -71,7 +71,7 @@ pnpm add @opentiny/next-sdk @opentiny/next-remoter
 
 ## 第一步：在 app.component.ts 激活 WebMCP 并注册自配导航
 
-SDK **不再提供** `setNavigator`。请 `initializeBuiltinWebMCP()` 后调用 `createMcpServer(router)`，内部注册可复制的 `navigate_to_page`（见下方「自配路由跳转工具」）。
+SDK **不再提供** `setNavigator`。请 `initializeBuiltinWebMCP()` 后调用 `createMcpServer(router)`，内部注册业务侧 `navigate_to_page`（见下方），跳转后用 SDK `waitForRouteTools` 握手。
 
 ```ts
 // src/app/app.component.ts
@@ -160,23 +160,45 @@ export const createMcpServer = async (router: Router) => {
 }
 ```
 
-将完整可复制模版放到 `src/mcp-servers/navigate-tool.ts`（与示例 [`packages/doc-ai-angular/src/mcp-servers/navigate-tool.ts`](https://github.com/opentiny/next-sdk/blob/dev/packages/doc-ai-angular/src/mcp-servers/navigate-tool.ts) 一致）：维护 `routeToolsMap`，跳转后用 `toolchange` + `getTools` + 轮询超时握手。
+将适配文件放到 `src/mcp-servers/navigate-tool.ts`：维护 `routeToolsMap`，自行注册导航工具，跳转后调用 `waitForRouteTools`（见 [`packages/doc-ai-angular/src/mcp-servers/navigate-tool.ts`](https://github.com/opentiny/next-sdk/blob/dev/packages/doc-ai-angular/src/mcp-servers/navigate-tool.ts)）。
 
 ---
 
 ## 自配路由跳转工具（可复制模版）
 
-完整代码请直接复制示例文件：[`navigate-tool.ts`](https://github.com/opentiny/next-sdk/blob/dev/packages/doc-ai-angular/src/mcp-servers/navigate-tool.ts)。
+```ts
+import type { Router } from '@angular/router'
+import { waitForRouteTools, type RouteToolsMap } from '@opentiny/next-sdk'
+
+export const routeToolsMap: RouteToolsMap = {
+  '/orders': ['order_query', 'order_detail'],
+  '/finance': ['finance_summary_query']
+  // ...
+}
+
+export function registerNavigateToPageTool(router: Router): void {
+  const modelContext = (document as any).modelContext
+  modelContext.registerTool({
+    name: 'navigate_to_page',
+    // ... title / description / inputSchema
+    execute: async ({ path }: { path: string }) => {
+      const normalized = path.replace(/\/+$/, '') || '/'
+      const navigated = await router.navigateByUrl(normalized)
+      if (!navigated) throw new Error(`页面跳转失败：${normalized}`)
+      await waitForRouteTools(normalized, routeToolsMap, { timeoutMs: 5000, pollMs: 100 })
+      return { content: [{ type: 'text', text: `已跳转至页面：${normalized}` }] }
+    }
+  })
+}
+```
 
 要点：
 
 1. `routeToolsMap: Record<path, toolName[]>`，工具名按模块全局唯一。
-2. `registerNavigateToPageTool(router)` 内 `router.navigateByUrl` 后调用 `waitForRouteTools`。
-3. `waitForRouteTools`：监听 `document.modelContext` 的 `toolchange`，每次 `getTools()` 校验期望工具名是否齐备；短轮询 + 超时兜底。
+2. 导航工具由业务侧自行 `registerTool`；SDK 只提供 `waitForRouteTools`。
+3. 可选传入 `timeoutMs` / `pollMs`（默认 5s / 100ms）。
 
----
-
-## 第四步：在页面组件中定义工具
+---## 第四步：在页面组件中定义工具
 
 `Angular 工程`中注册工具的方式与`Vue工程`一致的， 因为借助原生 `WebMcp API` 是不依赖于任何框架的。
 

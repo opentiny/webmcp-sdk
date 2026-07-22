@@ -16,7 +16,7 @@
 | 模块                 | 职责                                                                     |
 | -------------------- | ------------------------------------------------------------------------ |
 | **Model Context**    | 浏览器原生接口，用于注册工具。对话组件（如 TinyRemoter）会自动从中读取。 |
-| **navigate_to_page（业务模版）** | 用户自配路由跳转 + `routeToolsMap` 握手 |
+| **navigate_to_page（业务模版）** | 用户自配路由跳转；跳转后调用 SDK `waitForRouteTools` |
 | **WebSkills**        | 让 AI 获得业务知识（如产品手册、SOP）的 Markdown 文档包。                |
 | **WebAgent**         | 远程代理模块，支持手机或异地 AI 通过识别码控制当前页面工具。             |
 
@@ -29,8 +29,8 @@
 
 | 模块               | 所在工程         | 说明                                                         |
 | ------------------ | ---------------- | ------------------------------------------------------------ |
-| **Model Context**  | React 主应用     | 由 `initializeBuiltinWebMCP()` 激活，挂在 `navigator` / `document` 上 |
-| **navigate_to_page** | React 主应用     | 自配导航工具 + routeToolsMap 握手；业务工具随路由 mount/unmount |
+| **Model Context**  | React 主应用     | 由 `initializeBuiltinWebMCP()` 激活，挂在 `document.modelContext` 上 |
+| **navigate_to_page** | React 主应用     | 自配导航 + `routeToolsMap`；跳转后 `waitForRouteTools`；工具随路由 mount/unmount |
 | **WebSkills**      | Vue Remoter 子工程 | Skills 目录保留在 Vue 侧，通过 `import.meta.glob` 加载       |
 | **WebAgent**       | React 主应用     | `useWebAgentServer` 建立远程连接，sessionId 传给 Remoter 展示 |
 
@@ -81,7 +81,7 @@ packages/doc-ai-react/
 │   │   └── NotFoundPage.tsx         # 404 页面
 │   ├── mcp-servers/                 # MCP 工具定义（主窗口）
 │   │   ├── index.ts                 # createMcpServer：注册自配 navigate_to_page
-│   │   ├── navigate-tool.ts         # 【可复制】routeToolsMap + 握手
+│   │   ├── navigate-tool.ts         # 【可复制】routeToolsMap + waitForRouteTools
 │   │   └── useWebAgentServer.ts     # 远程遥控初始化逻辑
 │   └── mock/
 │       └── index.ts                 # 模拟业务数据
@@ -148,7 +148,33 @@ createRoot(document.getElementById('root')!).render(<App />)
 
 ## 自配路由跳转工具（可复制模版）
 
-完整代码请复制：[`packages/doc-ai-react/src/mcp-servers/navigate-tool.ts`](https://github.com/opentiny/next-sdk/blob/dev/packages/doc-ai-react/src/mcp-servers/navigate-tool.ts)。
+业务侧自行 `registerTool` 导航工具，跳转后调用 SDK `waitForRouteTools(path, routeToolsMap)` 做握手。
+
+完整示例：[`packages/doc-ai-react/src/mcp-servers/navigate-tool.ts`](https://github.com/opentiny/next-sdk/blob/dev/packages/doc-ai-react/src/mcp-servers/navigate-tool.ts)。
+
+```ts
+import { waitForRouteTools, type RouteToolsMap } from '@opentiny/next-sdk'
+
+export const routeToolsMap: RouteToolsMap = {
+  '/orders': ['order_query', 'order_detail'],
+  '/finance': ['finance_summary_query']
+  // ...
+}
+
+export function registerNavigateToPageTool(navigate: (path: string) => void | Promise<void>): void {
+  const modelContext = (document as any).modelContext
+  modelContext.registerTool({
+    name: 'navigate_to_page',
+    // ... title / description / inputSchema
+    execute: async ({ path }: { path: string }) => {
+      const normalized = path.replace(/\/+$/, '') || '/'
+      await navigate(normalized)
+      await waitForRouteTools(normalized, routeToolsMap, { timeoutMs: 5000, pollMs: 100 })
+      return { content: [{ type: 'text', text: `已跳转至页面：${normalized}` }] }
+    }
+  })
+}
+```
 
 ```ts
 // src/mcp-servers/index.ts
@@ -160,11 +186,9 @@ export const createMcpServer = async () => {
 }
 ```
 
-握手：`routeToolsMap` 声明 path→工具名；跳转后监听 `toolchange`，`getTools()` 校验齐备，短轮询 + 超时兜底。工具名须与页面 `registerTool` 的 `name` 一致。
+约定：`routeToolsMap` 的工具名须与页面 `registerTool` 的 `name` 一致；可选 `timeoutMs` / `pollMs`。
 
----
-
-## 第二步：路由配置
+---## 第二步：路由配置
 
 React 工程使用 **React Router v7** 的 `createBrowserRouter` 进行路由管理。确保每个有页面工具的页面都有对应路由，并与 `navigate_to_page` 的目标路径保持一致。
 
@@ -374,7 +398,7 @@ export const createMcpServer = async () => {
 }
 ```
 
-完整握手模版见上文「自配路由跳转工具」及示例 [`navigate-tool.ts`](https://github.com/opentiny/next-sdk/blob/dev/packages/doc-ai-react/src/mcp-servers/navigate-tool.ts)。
+完整模版见上文「自配路由跳转工具」及示例 [`navigate-tool.ts`](https://github.com/opentiny/next-sdk/blob/dev/packages/doc-ai-react/src/mcp-servers/navigate-tool.ts)。
 
 ---
 
@@ -1029,22 +1053,20 @@ onUnmounted(() => {
 | 项 | 说明 |
 | --- | --- |
 | **业务工具** | 页面 `useEffect` 内 `registerTool` + `AbortController` |
-| **跨页跳转** | 自配 `navigate_to_page` + `routeToolsMap` 握手 |
+| **跨页跳转** | 自配 `navigate_to_page` + SDK `waitForRouteTools(path, routeToolsMap)` |
 | **已移除** | SDK 不再提供 `setNavigator` / `routeConfig` / `registerPageTool` |
 
 ---
 
 ## 常见问题 (FAQ)
 
-### 1. modelContext 应该从 `document` 还是 `navigator` 获取？
+### 1. modelContext 应该从哪里获取？
 
-两者都可以。`initializeBuiltinWebMCP()` 会将 `modelContext` 同时挂载到 `document` 和 `navigator` 上。实际源码中采用兼容写法：
+统一使用 `document.modelContext`（`initializeBuiltinWebMCP()` 注入）。
 
 ```ts
 const modelContext = (document as unknown as { modelContext?: ModelContext }).modelContext
 ```
-
-- 页面组件内注册工具使用兼容写法（`document` 优先，回退 `navigator`）
 
 ### 2. 工具注销是如何实现的？
 

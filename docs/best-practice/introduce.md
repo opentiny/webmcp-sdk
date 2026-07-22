@@ -259,6 +259,6 @@ WebMCP + WebSkills + WebAgent 为前端页面操作提供了极致安全、高�
 | **原生标准**   | `document.modelContext` 接口已是事实上的首选方案     |
 | **极简接入**   | `initializeBuiltinWebMCP()` 一键搞定 Polyfill 与通讯 |
 | **远程遥控**   | 跨设备实时同步，这是 Builtin 架构带来的天然优势      |
-| **自配导航握手** | 业务 `routeToolsMap` + `toolchange`/`getTools` 确认页面工具就绪 |
+| **自配导航握手** | 业务自配 `navigate_to_page` + SDK `waitForRouteTools(path, routeToolsMap)` |
 
 未来我们将持续迭代，致力于让每一个 Web 应用都能进化为自适应的智能体。
