@@ -1,10 +1,16 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 // jsdom 无 WebGL2，避免 SimulatorMask → ai-motion 初始化刷 stderr
+// show/hide 委托到模块级 spy，便于在句柄测试中断言 pageController.showMask/hideMask 是否触达 mask
+const maskSpies = vi.hoisted(() => ({ show: vi.fn(), hide: vi.fn() }))
 vi.mock('../../page-tools/page-agent-mask/SimulatorMask', () => ({
   SimulatorMask: class SimulatorMask {
-    show() {}
-    hide() {}
+    show() {
+      maskSpies.show()
+    }
+    hide() {
+      maskSpies.hide()
+    }
     dispose() {}
   },
 }))
@@ -22,6 +28,8 @@ function resetWindowGlobals() {
 
 beforeEach(() => {
   resetWindowGlobals()
+  maskSpies.show.mockClear()
+  maskSpies.hide.mockClear()
 })
 
 afterEach(() => {
@@ -100,5 +108,23 @@ describe('registerPageAgentTool - 顶层工具配置（PageAgentToolConfig）接
     })
     expect(getPageAgentToolConfig().enableHighlight).toBe(false)
     expect(getPageAgentToolConfig().a11yConfig.roles.filter((r) => r.role === 'tab')).toEqual([{ role: 'tab', selector: '.tab-item' }])
+  })
+})
+
+describe('registerPageAgentTool - mask 显隐句柄', () => {
+  it('返回值包含 showMask / hideMask 两个函数', () => {
+    const handle = registerPageAgentTool()
+    expect(typeof handle.showMask).toBe('function')
+    expect(typeof handle.hideMask).toBe('function')
+  })
+
+  it('handle.showMask() 触发 SimulatorMask.show，handle.hideMask() 触发 SimulatorMask.hide', async () => {
+    const handle = registerPageAgentTool()
+    await handle.showMask()
+    expect(maskSpies.show).toHaveBeenCalledTimes(1)
+    expect(maskSpies.hide).not.toHaveBeenCalled()
+
+    await handle.hideMask()
+    expect(maskSpies.hide).toHaveBeenCalledTimes(1)
   })
 })

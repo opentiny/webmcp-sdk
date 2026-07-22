@@ -23,8 +23,14 @@ import { handleExecuteJavascript } from './handlers/executeJavascript'
 import { handleSearchTree } from './handlers/searchTree'
 import { handleHover } from './handlers/hover'
 
+/** registerPageAgentTool 返回的句柄，暴露对内部 PageController mask 显隐的控制 */
+export type PageAgentToolHandle = {
+  showMask: () => Promise<void>
+  hideMask: () => Promise<void>
+}
+
 /** 在浏览器页面中注册 page-agent-tool, 用于页面的内容获取和操作，页面的动效 */
-export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
+export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageAgentToolHandle {
   initializeBuiltinWebMCP()
 
   // 完整工具配置（顶层选项 enableHighlight + 统一无障碍配置 a11yConfig）：与默认配置合并后
@@ -234,4 +240,9 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}) {
   })
 
   setupPageAgentToolEventBridge(executePageAgentTool, pageController)
+
+  return {
+    showMask: () => pageController.showMask(),
+    hideMask: () => pageController.hideMask()
+  }
 }
