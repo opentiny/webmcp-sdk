@@ -1,35 +1,44 @@
+import { onPageToolsUpdated, forceRefreshTools } from '../mcpServer'
+
 /**
  * 等待指定 Tab 的页面工具注册完成（握手）。
  *
  * 适用于 tabs-manager open/switch 操作后，在返回结果前确保新页面的工具已进入大模型上下文。
- * 工具注册完成后，mcpServer.ts 会通过 browser.runtime.sendMessage 发出 page-tools-updated 消息。
+ * 工具同步完成后 mcpServer 会触发 onPageToolsUpdated（同页），并广播 page-tools-updated（跨上下文）。
  *
  * @param tabId - 目标 Tab ID，用于校验消息是否属于该 Tab
- * @param timeoutMs - 超时时间（ms），默认 8000ms；超时则直接放行（该页面可能没有 WebMCP 工具）
+ * @param timeoutMs - 超时时间（ms）；超时则直接放行（该页面可能没有 WebMCP 工具）
  */
 export const waitForPageToolsReady = async (tabId: number, timeoutMs = 5000): Promise<void> => {
-  // 1. 尝试主动探测：如果 content script 已经就绪（page-agent-tool 可用），直接放行
-  try {
-    const res = await browser.tabs.sendMessage(tabId, { type: 'PAGE_CONTROL', action: 'ping' })
-    if (res?.success) return
-  } catch (e) {
-    // 忽略错误，继续走被动监听逻辑
-  }
-
   return new Promise<void>((resolve) => {
-    const timer = setTimeout(() => {
-      // 超时放行：该页面没有注册 WebMCP 工具，或工具注册耗时过长
-      browser.runtime.onMessage.removeListener(listener)
+    let settled = false
+    const done = () => {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      onPageToolsUpdated.delete(onLocalUpdate)
+      browser.runtime.onMessage.removeListener(onRuntimeMessage)
       resolve()
-    }, timeoutMs)
-
-    const listener = (message: any) => {
-      if (message.type === 'page-tools-updated' && message.tabId === tabId) {
-        clearTimeout(timer)
-        browser.runtime.onMessage.removeListener(listener)
-        resolve()
-      }
     }
-    browser.runtime.onMessage.addListener(listener)
+
+    const timer = setTimeout(done, timeoutMs)
+
+    const onLocalUpdate = (updatedTabId: number) => {
+      if (updatedTabId === tabId) done()
+    }
+    onPageToolsUpdated.add(onLocalUpdate)
+
+    const onRuntimeMessage = (message: any) => {
+      if (message.type === 'page-tools-updated' && message.tabId === tabId) done()
+    }
+    browser.runtime.onMessage.addListener(onRuntimeMessage)
+
+    // content 已就绪时主动触发一次同步（避免事件在监听注册前已发出而错过）
+    browser.tabs
+      .sendMessage(tabId, { type: 'PAGE_CONTROL', action: 'ping' })
+      .then((res) => {
+        if (res?.success) return forceRefreshTools?.(tabId)
+      })
+      .catch(() => {})
   })
 }

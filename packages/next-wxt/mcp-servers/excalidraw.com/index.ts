@@ -1,6 +1,6 @@
 /**
  * excalidraw.com 工具适配层
- * 此文件由 content.ts 通过 scripting.executeScript 注入到 excalidraw.com 页面的 JS 上下文中执行
+ * 此文件由 content.ts 通过 <script src> 注入到 excalidraw.com 页面的 MAIN world 执行
  * 可直接访问页面 DOM 和 React Fiber 树
  */
 

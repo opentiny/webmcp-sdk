@@ -13,6 +13,9 @@ let isSetupLocalToolsCalled = false
  */
 export const onPageToolsUpdated = new Set<(tabId: number) => void>()
 
+/** setupLocalTools 使用的 modelContext，供 remoter 注册 builtin 时复用同一引用 */
+export let sidepanelModelContext: any = null
+
 export const setupLocalTools = () => {
   if (isSetupLocalToolsCalled) return
   isSetupLocalToolsCalled = true
@@ -34,7 +37,19 @@ export const setupLocalTools = () => {
       }
     }
     ;(globalThis as any).modelContext = nativeCtx
+    if (typeof document !== 'undefined') {
+      try {
+        Object.defineProperty(document, 'modelContext', {
+          configurable: true,
+          get: () => nativeCtx
+        })
+      } catch {
+        ;(document as any).modelContext = nativeCtx
+      }
+    }
   }
+
+  sidepanelModelContext = nativeCtx
 
   // 1. 注册插件内置辅助工具
   useExtraTools(nativeCtx)
@@ -55,6 +70,7 @@ export const setupLocalTools = () => {
   }
 
   let currentSyncTabId: number | null = null
+  let refreshSeq = 0
 
   const syncPageProxy = async (tabId: number): Promise<void> => {
     const tabInfo = await browser.tabs.get(tabId)
@@ -81,19 +97,31 @@ export const setupLocalTools = () => {
             if (!ctx?.getTools) return []
             const res = await ctx.getTools()
             const pageTools = Array.isArray(res) ? res : []
-            return pageTools.map((t: any) => ({
-              name: t.name,
-              title: t.title,
-              description: t.description,
-              inputSchema: t.inputSchema
-            }))
+            return pageTools.map((t: any) => {
+              let inputSchema: unknown = { type: 'object', properties: {} }
+              try {
+                if (typeof t.inputSchema === 'string') {
+                  inputSchema = JSON.parse(t.inputSchema)
+                } else if (t.inputSchema && typeof t.inputSchema === 'object') {
+                  inputSchema = JSON.parse(JSON.stringify(t.inputSchema))
+                }
+              } catch {
+                inputSchema = { type: 'object', properties: {} }
+              }
+              return {
+                name: String(t.name || ''),
+                title: t.title != null ? String(t.title) : undefined,
+                description: t.description != null ? String(t.description) : '',
+                inputSchema
+              }
+            })
           } catch {
             return []
           }
         }
       })
-      tools = execRes[0]?.result || []
-      console.log('syncPageProxy: got tools', tools)
+      tools = (execRes[0]?.result || []).filter((t: any) => t?.name)
+      console.log('syncPageProxy: got tools', tools.map((t: any) => t.name))
     } catch (err) {
       console.warn('syncPageProxy: executeScript failed', err)
     }
@@ -120,7 +148,6 @@ export const setupLocalTools = () => {
         description: tool.description,
         inputSchema: tool.inputSchema,
         execute: async (args: unknown) => {
-          // 闭包捕获注册时的 tabId，而不是执行时可能已变的 currentSyncTabId
           const registeredTabId = tabId
           if (!registeredTabId) {
             return { content: [{ type: 'text', text: 'Error: No active tab found' }] }
@@ -171,21 +198,25 @@ export const setupLocalTools = () => {
     })
   }
 
-  // 3. 先同步工具到 nativeCtx，完成后再通知 Cursor
-  //    保证 Cursor 发来 tools/list 时 nativeCtx 已有最新工具，无需再等待
+  // 3. 先同步工具到 nativeCtx，完成后再通知同页订阅方 / 跨上下文监听方
   const refreshPageTools = async (targetTabId?: number) => {
     try {
       const tabId = targetTabId || (await getCurrentTabId())
       if (!tabId) return
 
+      const seq = ++refreshSeq
       currentSyncTabId = tabId
 
-      // 等工具同步完毕
       await syncPageProxy(tabId)
 
-      // 工具已就绪，通知 Cursor 发来 tools/list，此时 getTools() 立即返回
+      // 已被更新的刷新请求取代，则不再通知，避免旧结果覆盖新结果
+      if (seq !== refreshSeq || currentSyncTabId !== tabId) {
+        console.log('refreshPageTools: superseded', { seq, refreshSeq, tabId, currentSyncTabId })
+        return
+      }
+
       onPageToolsUpdated.forEach((cb) => cb(tabId))
-      // 将 page-tools-updated 事件广播到所有监听方（waitForPageTools.ts、useBrowserExtensions.ts 等）
+      // 跨扩展页广播（同页监听应走 onPageToolsUpdated，runtime 不会投递给发送方页面）
       browser.runtime.sendMessage({ type: 'page-tools-updated', tabId }).catch(() => {})
     } catch (err) {
       console.warn('refreshPageTools failed:', err)
@@ -216,4 +247,4 @@ export const setupLocalTools = () => {
 
 export let exportedSyncPageProxy: ((tabId: number) => Promise<void>) | null = null
 
-export let forceRefreshTools: (() => Promise<void>) | null = null
+export let forceRefreshTools: ((tabId?: number) => Promise<void>) | null = null

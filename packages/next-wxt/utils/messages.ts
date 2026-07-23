@@ -1,15 +1,12 @@
 /**
  * 消息系统说明：
- * 1、 根据type, direction 2个条件，进行事件匹配
- * 2、 side, bg 向page 发消息，必须 content 中转一次
+ * 1、 根据 type、direction 进行事件匹配
+ * 2、 side / bg 向 page 发消息，必须经 content 中转
  */
 
 // *************************** content - page 的消息 ***************************
 type WindowDirection = 'page->content' | 'content->page' | 'page->page' | 'content->content'
 type WindowHandler = (data: any) => void
-export const sendWindowMessage = (type: string, data: any, direction: WindowDirection) => {
-  window.postMessage({ type, direction, data }, '*')
-}
 
 export const onWindowMessage = (type: string, cb: WindowHandler, direction: WindowDirection) => {
   const handler = async function (event: MessageEvent<any>) {
