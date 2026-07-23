@@ -32,13 +32,7 @@ export function markdownToHtml(markdown: string): string {
   return marked.parse(markdown) as string
 }
 
+/** Base64 → UTF-8（页面内，与掘金等站点一致） */
 export function decodeBase64Content(content: string): string {
-  return Buffer.from(content, 'base64').toString('utf-8')
-}
-
-/** 知乎专栏编辑器 URL 匹配 */
-export const ZHIHU_WRITE_PAGE_RE = /^https:\/\/zhuanlan\.zhihu\.com\/(write|p\/\d+\/edit)/
-
-export function isZhihuWriteUrl(url: string): boolean {
-  return ZHIHU_WRITE_PAGE_RE.test(url)
+  return decodeURIComponent(escape(atob(content)))
 }

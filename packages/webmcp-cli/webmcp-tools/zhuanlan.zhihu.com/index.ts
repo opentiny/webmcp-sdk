@@ -1,9 +1,9 @@
 /**
  * zhuanlan.zhihu.com 工具适配层（知乎专栏文章编辑器）
  *
- * create_article 的正文填写由 CLI Node 端（src/zhihu/create-article.ts）完成，
- * 浏览器内仅注册工具元数据供发现，以及 get_article_info / publish_current_draft 的执行逻辑。
+ * 与其它域名一致：在页面内注册并执行 create_article / get_article_info / publish_current_draft。
  */
+import { decodeBase64Content, markdownToHtml, stripLeadingH1 } from './markdown'
 
 /** 知乎专栏编辑器：新建 / 编辑草稿 */
 function isZhihuWritePage(): boolean {
@@ -56,6 +56,44 @@ function getEditorText(editor: HTMLElement): string {
 
 function delay(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+/** 通过 ClipboardEvent 将 HTML 粘贴进 Draft.js（与 CSDN 页面内粘贴策略对齐） */
+async function pasteHtmlToDraftEditor(editor: HTMLElement, html: string): Promise<void> {
+  editor.focus()
+  document.execCommand('selectAll')
+  document.execCommand('delete')
+  await delay(200)
+
+  const plain = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()
+  const dt = new DataTransfer()
+  dt.setData('text/html', html)
+  dt.setData('text/plain', plain)
+  editor.dispatchEvent(
+    new ClipboardEvent('paste', {
+      clipboardData: dt,
+      bubbles: true,
+      cancelable: true
+    })
+  )
+  await delay(800)
+
+  const probe = plain.slice(0, 15)
+  let text = getEditorText(editor)
+  const normalizedText = text.replace(/\s+/g, '')
+  const normalizedProbe = probe.replace(/\s+/g, '')
+  if (!normalizedProbe || !normalizedText.includes(normalizedProbe)) {
+    // 降级：insertHTML
+    editor.focus()
+    document.execCommand('selectAll')
+    document.execCommand('delete')
+    const inserted = document.execCommand('insertHTML', false, html)
+    await delay(500)
+    text = getEditorText(editor)
+    if (!inserted || !(text.replace(/\s+/g, '').includes(normalizedProbe))) {
+      throw new Error('正文填写失败（Markdown 转 HTML 粘贴未生效），请刷新页面后重试')
+    }
+  }
 }
 
 /** 在发布面板中添加一个话题 */
@@ -112,7 +150,7 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
       name: 'create_article',
       title: '填写知乎专栏文章',
       description:
-        '接收文章的标题和 Markdown 正文，填写到知乎专栏编辑器。正文 Markdown 转 HTML 粘贴由 webmcp-cli CLI 在 Node 端完成，请通过 webmcp-cli run create_article 调用。',
+        '接收文章的标题和 Markdown 正文，填写到知乎专栏编辑器。正文会在页面内转换为 HTML 并粘贴到 Draft.js 编辑器。',
       inputSchema: {
         type: 'object',
         properties: {
@@ -122,15 +160,60 @@ if (!mcp || typeof mcp.registerTool !== 'function') {
           },
           content: {
             type: 'string',
-            description: '文章 Markdown 正文的 Base64 编码字符串，必填。CLI 会自动转换为 HTML 后粘贴到 Draft.js 编辑器。'
+            description: '文章 Markdown 正文的 Base64 编码字符串，必填。页面内会转换为 HTML 后粘贴到 Draft.js 编辑器。'
           }
         },
         required: ['title', 'content']
       },
-      execute: async () => {
-        throw new Error(
-          'create_article 正文填写由 webmcp-cli CLI 在 Node 端执行（Markdown 转 HTML + 系统剪贴板粘贴），请使用 webmcp-cli run create_article 命令'
-        )
+      execute: async ({ title, content }: { title: string; content: string }) => {
+        if (!title?.trim()) {
+          throw new Error('参数 title 不能为空')
+        }
+        if (!content?.trim()) {
+          throw new Error('参数 content 不能为空')
+        }
+        if (!isZhihuWritePage()) {
+          throw new Error('当前页面不是知乎专栏编辑器，请先打开 https://zhuanlan.zhihu.com/write')
+        }
+
+        let markdown: string
+        try {
+          markdown = stripLeadingH1(decodeBase64Content(content))
+        } catch {
+          throw new Error('content 不是有效的 Base64 编码，请检查参数或使用 @base64file: 引用文件')
+        }
+        if (!markdown.trim()) {
+          throw new Error('正文内容为空，请检查 Markdown 文件')
+        }
+
+        const titleInput = findTitleInput()
+        if (!titleInput) {
+          throw new Error('未找到标题输入框，请确认编辑器页面已完全加载')
+        }
+        setNativeInputValue(titleInput, title.trim())
+        if (titleInput.value.trim() !== title.trim()) {
+          throw new Error('标题填写失败，请刷新页面后重试')
+        }
+
+        const editor = findContentEditor()
+        if (!editor) {
+          throw new Error('未找到正文编辑器，请确认编辑器页面已完全加载')
+        }
+
+        await delay(300)
+        await pasteHtmlToDraftEditor(editor, markdownToHtml(markdown))
+
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              success: true,
+              message: '文章标题和正文已成功填写到知乎专栏编辑器（Markdown 已转为富文本），草稿将自动保存',
+              title: title.trim(),
+              contentLength: markdown.length
+            })
+          }]
+        }
       }
     })
 
