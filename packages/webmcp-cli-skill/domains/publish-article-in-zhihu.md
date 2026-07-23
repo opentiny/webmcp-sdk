@@ -13,7 +13,7 @@
 
 | 工具名 | 描述 | 参数 |
 |--------|------|------|
-c| `create_article` | 填写文章标题和 Markdown 正文（页面内自动转 HTML 粘贴） | `title`（标题字符串）、`content`（正文的 **Base64** 编码） |
+| `create_article` | 填写文章标题和 Markdown 正文（页面内自动转 HTML 粘贴） | `title`（标题字符串）、`content`（正文的 **Base64** 编码） |
 | `get_article_info` | 在编辑器中获取当前草稿的标题和正文 | 无 |
 | `publish_current_draft` | 在编辑器中自动添加话题并发布文章 | `topic`（主话题，必填）、`topics`（可选，额外话题数组，最多共 3 个） |
 
