@@ -43,8 +43,10 @@ export const waitForTabLoad = (tabId: number, timeout = 30000): Promise<void> =>
           resolve()
         }
       })
-      .catch(() => {
-        // 获取失败则继续等待监听器
+      .catch((error) => {
+        clearTimeout(timeoutId)
+        browser.tabs.onUpdated.removeListener(listener)
+        reject(error)
       })
   })
 }

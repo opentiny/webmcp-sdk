@@ -109,7 +109,6 @@ const clearHighlightPage = async () => {
 
 <template>
   <div class="sidepanel-wrapper">
-    // App.vue 里不要再传无用的 browserExtensions prop（remoter 未消费）
     <TinyRemoter
       ref="remoterRef"
       mode="chat-dialog"

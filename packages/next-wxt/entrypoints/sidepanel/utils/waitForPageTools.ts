@@ -37,7 +37,7 @@ export const waitForPageToolsReady = async (tabId: number, timeoutMs = 5000): Pr
     browser.tabs
       .sendMessage(tabId, { type: 'PAGE_CONTROL', action: 'ping' })
       .then((res) => {
-        if (res?.success) forceRefreshTools?.(tabId)
+        if (res?.success) return forceRefreshTools?.(tabId)
       })
       .catch(() => {})
   })
