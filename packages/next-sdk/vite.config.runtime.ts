@@ -15,7 +15,10 @@ export default defineConfig(() => {
       },
       rollupOptions: {
         // 全量打包第三方依赖，便于浏览器中直接注入或运行
-        external: []
+        external: [],
+        output: {
+          inlineDynamicImports: true
+        }
       }
     }
   }
