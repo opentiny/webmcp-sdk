@@ -54,11 +54,11 @@ const client = new WebMcpClient({ name: 'my-app-client', version: '1.0.0' }, { c
    传入 `WebMcpServer` 的配置信息。内部会自动辅助创建对应的 `Transport` 对象并完成连接。这是直连 `Transport` 对象的简化写法，免去了用户手动 `new Transport()` 的步骤。
 
 3. **代理模式**
-   传入 `WebMcpServer` 的配置信息并启用代理。这是 `WebMcpClient` 的核心创新功能，允许将当前连接的 `WebMcpServer` 端代理至 `Web Agent` 服务器。
+   传入 `WebMcpServer` 的配置信息并启用代理。这是 `WebMcpClient` 的核心创新功能，允许将当前连接的 `WebMcpServer` 端代理至 `WebAgent` 服务器。
 
-   代理成功后，当前的 `WebMcpServer` 网页将变为受控端，并作为一个标准的 `MCP Server` 部署在 `Web Agent` 服务上，供其他 `MCP Client` 进行远程连接和操控。
+   代理成功后，当前的 `WebMcpServer` 网页将变为受控端，并作为一个标准的 `MCP Server` 部署在 `WebAgent` 服务上，供其他 `MCP Client` 进行远程连接和操控。
 
-   如果同时开启了 `builtin: true`，则会自动建立原生的 JSON-RPC 拦截层，将部分 MCP 请求（如 `tools/list`, `tools/call`）拦截并分发给所在浏览器的 `document.modelContext` 原生上下文执行。这样可以让浏览器内置的能力（通过扩展或原生支持）直接透传给 Web Agent。
+   如果同时开启了 `builtin: true`，则会自动建立原生的 JSON-RPC 拦截层，将部分 MCP 请求（如 `tools/list`, `tools/call`）拦截并分发给所在浏览器的 `document.modelContext` 原生上下文执行。这样可以让浏览器内置的能力（通过扩展或原生支持）直接透传给 WebAgent。
 
 **类型声明**
 
@@ -71,7 +71,7 @@ interface ClientConnectOptions {
   builtin?: boolean
   /** Transport类型。*/
   type?: 'channel' | 'sse' | 'stream' | 'socket'
-  /** 代理模式时，传入 Web Agent 服务地址。
+  /** 代理模式时，传入 WebAgent 服务地址。
     非代理模式时，传入 MCP Server的url 地址。 */
   url: string
   /** 令牌*/
@@ -94,7 +94,7 @@ async connect(options: Transport | ClientConnectOptions):
 > - `'stream'`：创建 `StreamableHTTPClientTransport` 以支持 httpstreamable MCP Server 通信。
 > - `'socket'`：创建 `WebSocketClientTransport` 以支持 Web-socket MCP Server 通信。
 >
-> 代理模式时，`type`仅支持 `'sse'` | `'stream'` | `'socket'` 选项，同时需要 `Web Agent` 服务端支持。
+> 代理模式时，`type`仅支持 `'sse'` | `'stream'` | `'socket'` 选项，同时需要 `WebAgent` 服务端支持。
 
 **返回值**
 
