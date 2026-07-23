@@ -218,7 +218,10 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
   const modelContext = (document as any).modelContext
   if (!modelContext) {
     console.warn('[next-sdk] modelContext is not available, skipping page-agent-tool registration.')
-    return
+    return {
+      showMask: () => pageController.showMask(),
+      hideMask: () => pageController.hideMask()
+    }
   }
   try {
     modelContext.unregisterTool?.('page-agent-tool')
