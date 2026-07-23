@@ -2,7 +2,7 @@
  * mcp-servers 目录索引
  *
  * 工具脚本由 vite-plugin-mcp-servers.ts 编译为独立 IIFE JS 文件，
- * 由 content.ts 通过 scripting.executeScript 注入到目标页面执行。
+ * 由 content.ts 通过 <script src="chrome-extension://..."> 注入到目标页面 MAIN world。
  *
  * 此文件只负责：根据域名查询是否有对应的工具配置（meta.ts）。
  */

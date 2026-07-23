@@ -41,7 +41,7 @@ provide(RENDERER_SETTINGS_KEY, {
 })
 
 const genUiComponents = shallowReactive({ TinyUser })
-// 汇总自定义 MCP Server 配置（中文注释：用于传给 TinyRemoter 的插件市场）
+// MCP 市场条目（与「已添加 → 浏览器内置工具」无关；页面 WebMCP 不走这里）
 const customMarketMcpServers = useCustomMarketMcpServers()
 
 // 管理选中的模型 ID（从存储读取，变化时保存）
@@ -109,10 +109,10 @@ const clearHighlightPage = async () => {
 
 <template>
   <div class="sidepanel-wrapper">
+    // App.vue 里不要再传无用的 browserExtensions prop（remoter 未消费）
     <TinyRemoter
       ref="remoterRef"
       mode="chat-dialog"
-      :browserExtensions="useBrowserExtensions"
       show
       fullscreen
       title=""

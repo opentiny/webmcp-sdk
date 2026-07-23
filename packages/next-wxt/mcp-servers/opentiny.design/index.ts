@@ -1,6 +1,6 @@
 /**
  * opentiny.design 工具适配层
- * 此文件由 content.ts 通过 scripting.executeScript 注入到 opentiny.design 页面的 JS 上下文中执行
+ * 此文件由 content.ts 通过 <script src> 注入到 opentiny.design 页面的 MAIN world 执行
  * 可直接访问页面 DOM 和 window
  */
 ;(document as any).modelContext.registerTool({

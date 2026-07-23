@@ -21,10 +21,8 @@
     "@opentiny/vue-icon": "catalog:",
     "puppeteer-core": "catalog:",
     "@built-in-ai/core": "catalog:",
-    "@page-agent/page-controller": "catalog:",
     "vant": "catalog:",
     "vue": "catalog:",
-    "zod": "catalog:",
     "jszip": "^3.10.1"
   },
   "devDependencies": {
@@ -45,7 +43,6 @@
     "vite": "7.2.4",
     "vite-svg-loader": "catalog:",
     "vue-tsc": "catalog:",
-    "webext-bridge": "catalog:",
     "wxt": "catalog:"
   }
 }

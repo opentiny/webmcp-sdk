@@ -24,10 +24,7 @@ export default defineConfig({
       'tabs',
       'activeTab',
       'scripting',
-      'contextMenus',
-      'notifications',
       'debugger',
-      'downloads',
       'sidePanel'
     ],
     host_permissions: ['*://*/*'],
@@ -44,12 +41,12 @@ export default defineConfig({
     },
     web_accessible_resources: [
       {
-        // next-sdk runtime 包（仅暴露 API，由调用方传入配置后 registerPageAgentTool）
-        resources: ['vendor/runtime.js'],
+        // next-sdk runtime + 显式注册脚本（content 经 <script src> 注入 MAIN world）
+        resources: ['vendor/runtime.js', 'vendor/register-page-agent-tool.js'],
         matches: ['*://*/*']
       },
       {
-        // mcp-servers 目录下的工具脚本（由 content.ts 通过 scripting.executeScript 注入）
+        // mcp-servers 目录下的工具脚本（由 content.ts 经 <script src> 注入 MAIN world）
         resources: ['mcp-servers/*/index.js'],
         matches: ['*://*/*']
       }

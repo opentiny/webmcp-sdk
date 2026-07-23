@@ -257,9 +257,3 @@ export async function getSnapshotManager(tabId?: number): Promise<{
   return { manager, currentTabId }
 }
 
-/**
- * 释放快照管理器
- */
-export async function releaseSnapshotManager(tabId: number): Promise<void> {
-  await snapshotManagerPool.releaseManager(tabId)
-}

@@ -145,11 +145,6 @@ export const tabsManagerTool: BuiltinExtensionTool = {
   }
 }
 
-// 供 useWebAgentServer.ts 导入使用，避免破坏其它地方的逻辑
-export const getBuiltinExtensionTools = (): BuiltinExtensionTool[] => {
-  return [tabsManagerTool]
-}
-
 export const useExtraTools = (nativeCtx: NativeModelContext) => {
   nativeCtx.registerTool(tabsManagerTool)
 }

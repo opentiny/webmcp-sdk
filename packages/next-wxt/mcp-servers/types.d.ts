@@ -1,24 +1,32 @@
 /**
  * MCP Servers 全局类型声明
- * 用于在 IIFE 格式的 mcp-server 中访问通过 vendor/next-sdk.js 注入的全局变量
+ * 域名工具脚本运行在 MAIN world，经 document.modelContext 注册工具
  */
 
-// 扩展 Window 接口
 declare global {
   interface Window {
-    /**
-     * Next SDK 全局命名空间
-     * 包含 WebMcpServer、ContentScriptServerTransport、z 等核心导出
-     */
-    NextSDK: {
-      WebMcpServer: any
-      ContentScriptServerTransport: any
-      z: any
+    /** runtime.js 暴露的 API（registerPageAgentTool 等） */
+    WebMCP?: {
+      registerPageAgentTool?: (options?: Record<string, any>) => void
+      isConsoleCloudHost?: (hostname: string) => boolean
+      consoleCloudPageAgentToolOptions?: Record<string, any>
+      [key: string]: any
+    }
+  }
+
+  interface Document {
+    /** 浏览器内置 / polyfill WebMCP */
+    modelContext?: {
+      registerTool: (def: {
+        name: string
+        title?: string
+        description?: string
+        inputSchema?: object
+        execute: (args: any) => Promise<any>
+      }) => void
+      [key: string]: any
     }
   }
 }
 
-export type McpServerType = 'pageMcpServer' | 'contentScriptMcpServer'
-
-// 确保此文件被视为模块
 export {}

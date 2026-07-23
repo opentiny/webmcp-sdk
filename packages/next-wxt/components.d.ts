@@ -7,8 +7,8 @@ export {}
 
 declare module 'vue' {
   export interface GlobalComponents {
-    RouterLink: (typeof import('vue-router'))['RouterLink']
-    RouterView: (typeof import('vue-router'))['RouterView']
+    RouterLink: typeof import('vue-router')['RouterLink']
+    RouterView: typeof import('vue-router')['RouterView']
     TinyButton: (typeof import('@opentiny/vue-button'))['default']
     TinyFormItem: (typeof import('@opentiny/vue-form-item'))['default']
     TinyInput: (typeof import('@opentiny/vue-input'))['default']
@@ -19,6 +19,6 @@ declare module 'vue' {
     TinyTabItem: (typeof import('@opentiny/vue-tab-item'))['default']
     TinyTabs: (typeof import('@opentiny/vue-tabs'))['default']
     TinyTree: (typeof import('@opentiny/vue-tree'))['default']
-    VanIcon: (typeof import('vant/es'))['Icon']
+    VanIcon: typeof import('vant/es')['Icon']
   }
 }

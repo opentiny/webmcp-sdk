@@ -1,13 +1,16 @@
-# WXT + Vue 3
+# @opentiny/next-wxt
 
-wxt: https://wxt.dev/
+基于 [WXT](https://wxt.dev/) + Vue 3 的 OpenTiny AI 浏览器扩展。
 
-webext-bridge: https://serversideup.net/open-source/webext-bridge/docs/guide/concepts
+## 架构概要
 
-1、所有的消息，在 .wxt/types/bridge.d.ts 中，添加 参数/返回值的 ts 声明
+- **页面工具**：content script 注入 `vendor/runtime.js`，在 MAIN world 调用 `registerPageAgentTool`，使用页面内置 `document.modelContext`（WebMCP）
+- **侧边栏**：TinyRemoter + 本地工具（如 `tabs-manager`），代理当前页 WebMCP 工具
+- **消息**：`utils/messages.ts` 的 `sendRuntimeMessage` / `onRuntimeMessage`
 
-- sendMessage(messageId, data, target)  
-  :target= 'devtools@devtoolId' | 'background' | 'popup' | 'options' | 'content-script@tabid' | 'window'
+## 常用命令
 
-- onMessage(messageId, ({sender,data,timestamp})=>{})  
-  2、![bridge导出变量](./public/webext-bridge包的导出说明.png)
+```bash
+pnpm --filter @opentiny/next-wxt dev
+pnpm --filter @opentiny/next-wxt build
+```
