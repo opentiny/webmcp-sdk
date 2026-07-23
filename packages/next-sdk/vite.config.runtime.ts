@@ -10,8 +10,8 @@ export default defineConfig(() => {
       lib: {
         entry: 'runtime.ts',
         name: 'WebMCPSDK',
-        formats: ['iife'] as any,
-        fileName: () => 'runtime.js'
+        formats: ['iife', 'es'],
+        fileName: (format) => format === 'es' ? 'runtime.es.js' : 'runtime.js'
       },
       rollupOptions: {
         // 全量打包第三方依赖，便于浏览器中直接注入或运行
