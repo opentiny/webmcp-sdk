@@ -65,7 +65,8 @@ The PR description uses a template. Please fill in the relevant information acco
 
 - Summary / behavior change / breaking change
 - Use a conventional title (`fix` / `feat` / `docs` / …); the gate infers type from the title (labels as fallback)
-- Bugfix: include a test with `复现：` in the PR diff; Feature: include a Spec directory (or label `skip-spec` for trivial changes)
+- Bugfix: the PR diff must include a test under `packages/*/test/**/*.{test,spec}.*` whose content contains `复现：`
+- Feature: the PR diff must include a Spec directory `packages/<pkg>/specs/REQ-*/` with `requirements.md`, `design.md`, and `tasks.md` (or label `skip-spec` for trivial changes)
 - Link Issues via GitHub when applicable
 
 ### Local Startup Steps

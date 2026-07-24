@@ -20,10 +20,14 @@
 
 标题与标签冲突时：**以标题为准**，并对标签冲突打 warning。
 
+**无约定式标题**且标签映射出多个不同 prType 时：返回 `labelConflict`，门禁**失败**（不得按标签顺序择一），须修正标题或移除冲突标签。冲突标签**不得**绕过 Repro/Spec 校验。
+
 ## 豁免
 
-- `gate-bypass` / `emergency`：跳过 artifact
-- `skip-spec`：仅 Feature 跳过 Spec
+- `gate-bypass` / `emergency`：跳过 artifact（须与 label **完整精确匹配**；`gate-bypass:pending` 之类不生效）
+- `skip-spec`：仅 Feature 跳过 Spec（同样精确匹配）
+
+Labels 由 workflow 以 JSON 数组传入，解析时不按冒号切分。
 
 ## 模块影响
 

@@ -37,7 +37,9 @@ Gate Fields / PR Type 勾选对开发者重复劳动。仓库已有约定式标�
 2. `feat:` + 变更唯一 Spec → OK
 3. `feat:` + label `skip-spec` → 跳过 Spec 校验
 4. 多候选 → fail 并列出路径（不再要求 Gate Fields 手填）
-5. 标题无法识别且无标签 → fail，提示改标题或打标签
+5. 标题无法识别且无唯一标签 → fail，提示改标题或打标签
+6. 无约定式标题且 `bug`+`documentation` 等冲突标签 → fail（任一顺序），不得择一绕过 Repro/Spec
+7. `gate-bypass:pending` 等非精确 label → 不触发豁免
 
 ## 明确不做
 

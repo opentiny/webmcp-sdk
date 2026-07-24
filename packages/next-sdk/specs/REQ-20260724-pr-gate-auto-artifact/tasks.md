@@ -7,4 +7,7 @@
 - [x] Task 3: workflow 传 labels + changed-files
 - [x] Task 4: 精简 PR 模板与文档（merge-gate / AGENTS / CONTRIBUTING）
 - [x] Task 5: 单测 `pr-gate-auto-artifact.test.ts`
-  - 命令：`pnpm -F @opentiny/next-sdk exec vitest run test/page-tools/pr-gate-auto-artifact.test.ts`
+  - 命令：
+    - `pnpm -F @opentiny/next-sdk exec vitest run test/page-tools/pr-gate-auto-artifact.test.ts`
+    - `pnpm -F @opentiny/next-sdk test`
+    - `pnpm -F @opentiny/next-sdk build`

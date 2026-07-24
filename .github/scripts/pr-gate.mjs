@@ -4,7 +4,7 @@
  *
  * 用法：
  *   node .github/scripts/pr-gate.mjs --title "fix(next-sdk): x" --changed-files-file ./changed.txt
- *   node .github/scripts/pr-gate.mjs --title "feat: y" --labels "enhancement" --changed-files-file ./changed.txt
+ *   node .github/scripts/pr-gate.mjs --title "feat: y" --labels '["enhancement"]' --changed-files-file ./changed.txt
  *
  * 环境变量：
  *   PR_TITLE / PR_LABELS / PR_DRAFT / GATE_BYPASS / SKIP_SPEC / GITHUB_WORKSPACE
@@ -18,7 +18,8 @@ import {
   resolveArtifact,
   readChangedFilesList,
   inferPrType,
-  parseLabels
+  parseLabels,
+  hasExactLabel
 } from './lib/pr-gate-artifacts.mjs'
 
 const args = process.argv.slice(2)
@@ -31,7 +32,7 @@ function getArg(name) {
 if (args[0] === '--help' || args[0] === '-h') {
   console.log(`Usage:
   node .github/scripts/pr-gate.mjs --title "type(scope): subject" --changed-files-file <path>
-  node .github/scripts/pr-gate.mjs --title "..." --labels "bug,skip-spec" --changed-files-file <path>
+  node .github/scripts/pr-gate.mjs --title "..." --labels '["bug","skip-spec"]' --changed-files-file <path>
 Env: PR_TITLE, PR_LABELS, PR_DRAFT, GATE_BYPASS, SKIP_SPEC, GITHUB_WORKSPACE`)
   process.exit(0)
 }
@@ -43,11 +44,12 @@ const isDraft = process.env.PR_DRAFT === 'true' || process.env.PR_DRAFT === '1'
 const bypass =
   process.env.GATE_BYPASS === 'true' ||
   process.env.GATE_BYPASS === '1' ||
-  labels.some((l) => ['gate-bypass', 'emergency'].includes(l.toLowerCase()))
+  hasExactLabel(labels, 'gate-bypass') ||
+  hasExactLabel(labels, 'emergency')
 const skipSpec =
   process.env.SKIP_SPEC === 'true' ||
   process.env.SKIP_SPEC === '1' ||
-  labels.some((l) => l.toLowerCase() === 'skip-spec')
+  hasExactLabel(labels, 'skip-spec')
 const changedFilesFile = getArg('--changed-files-file')
 const changedFiles = changedFilesFile ? readChangedFilesList(changedFilesFile) : []
 
@@ -64,18 +66,23 @@ function warn(msg) {
 const TITLE_RE =
   /^(build|chore|ci|docs?|feat|fix|perf|refactor|revert|release|style|test|improvement)(\([a-z0-9/_.,-]+\))?!?: .+/i
 
+const titleOk = Boolean(title.trim()) && TITLE_RE.test(title.trim())
 if (!title.trim()) {
   fail('缺少 PR 标题')
-} else if (!TITLE_RE.test(title.trim())) {
-  fail(
-    `PR 标题不符合约定式提交：type(scope): subject（当前: ${JSON.stringify(title)}）`
-  )
 }
 
 const inferred = inferPrType(title, labels)
 const prType = inferred.prType
 
-if (!prType) {
+if (inferred.labelConflict) {
+  fail(
+    `标签类型冲突（${inferred.labelTypes.join(' / ')}），无法兜底推断 PR 类型：请修正约定式标题，或只保留一个类型标签（bug / enhancement / documentation / refactoring）`
+  )
+} else if (!titleOk) {
+  fail(
+    `PR 标题不符合约定式提交：type(scope): subject（当前: ${JSON.stringify(title)}）`
+  )
+} else if (!prType) {
   fail(
     '无法判断 PR 类型：请使用约定式标题（fix/feat/docs/…），或打标签 bug / enhancement / documentation / refactoring'
   )
@@ -85,7 +92,7 @@ if (!prType) {
   )
   if (inferred.conflict) {
     warn(
-      `标题推断为 ${prType}，但标签指向 ${inferred.labelType}；以标题为准`
+      `标题推断为 ${prType}，但标签指向 ${inferred.labelTypes.join(' / ')}；以标题为准`
     )
   }
 }

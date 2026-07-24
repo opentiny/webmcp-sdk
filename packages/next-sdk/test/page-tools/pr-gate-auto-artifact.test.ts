@@ -8,7 +8,9 @@ import {
   resolveArtifactField,
   normalizeRepoPath,
   inferPrType,
-  parseConventionalTitleType
+  parseConventionalTitleType,
+  parseLabels,
+  hasExactLabel
 } from '../../../../.github/scripts/lib/pr-gate-artifacts.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..')
@@ -19,7 +21,20 @@ describe('pr-gate auto artifact', () => {
     expect(normalizeRepoPath('packages\\foo\\test\\a.test.ts')).toBe('packages/foo/test/a.test.ts')
   })
 
-  it('inferPrType：标题优先，标签兜底，冲突以标题为准', () => {
+  it('parseLabels：JSON 数组无损；逗号分隔不按冒号切开', () => {
+    expect(parseLabels('["bug","skip-spec"]')).toEqual(['bug', 'skip-spec'])
+    expect(parseLabels('bug,skip-spec')).toEqual(['bug', 'skip-spec'])
+    expect(parseLabels('gate-bypass:pending')).toEqual(['gate-bypass:pending'])
+  })
+
+  it('hasExactLabel：含冒号的近似名不触发豁免', () => {
+    expect(hasExactLabel(['gate-bypass'], 'gate-bypass')).toBe(true)
+    expect(hasExactLabel(['gate-bypass:pending'], 'gate-bypass')).toBe(false)
+    expect(hasExactLabel(['skip-spec'], 'skip-spec')).toBe(true)
+    expect(hasExactLabel(['skip-spec:ok'], 'skip-spec')).toBe(false)
+  })
+
+  it('inferPrType：标题优先；无标题时多标签冲突不得择一通过', () => {
     expect(parseConventionalTitleType('fix(next-wxt): hide mask')).toBe('fix')
     expect(inferPrType('fix(next-wxt): hide mask', [])).toMatchObject({
       prType: 'bug',
@@ -34,8 +49,14 @@ describe('pr-gate auto artifact', () => {
       prType: 'feature',
       source: 'label'
     })
-    // 非法标题（无 subject）不作为约定式
-    expect(inferPrType('fix:', ['bug']).source).not.toBe('title')
+
+    const a = inferPrType('invalid title', ['documentation', 'bug'])
+    expect(a).toMatchObject({ prType: null, labelConflict: true })
+    expect(a.labelTypes).toEqual(['docs', 'bug'])
+
+    const b = inferPrType('invalid title', ['bug', 'documentation'])
+    expect(b).toMatchObject({ prType: null, labelConflict: true })
+    expect(b.labelTypes).toEqual(['bug', 'docs'])
   })
 
   it('collectReproCandidates：仅收录含「复现：」且路径合法的测试文件', () => {
@@ -79,7 +100,6 @@ describe('pr-gate auto artifact', () => {
       expect(empty.error).toContain('skip-spec')
     }
 
-    // 兼容旧别名：explicit 仍可用
     expect(
       resolveArtifactField({
         explicit: 'packages/a/test/x.test.ts',

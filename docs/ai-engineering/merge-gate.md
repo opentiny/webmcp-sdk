@@ -20,9 +20,17 @@
 本地预检：
 
 ```bash
-git diff --name-only origin/dev...HEAD > /tmp/changed.txt
+# 与 CI 一致：只统计 Added/Copied/Modified/Renamed
+git diff --name-only --diff-filter=ACMR origin/dev...HEAD > /tmp/changed.txt
 node .github/scripts/pr-gate.mjs \
   --title "fix(next-sdk): demo" \
+  --labels '[]' \
+  --changed-files-file /tmp/changed.txt
+
+# Feature 琐碎豁免示例
+PR_LABELS='["skip-spec"]' SKIP_SPEC=true node .github/scripts/pr-gate.mjs \
+  --title "feat(docs): typo" \
+  --labels '["skip-spec"]' \
   --changed-files-file /tmp/changed.txt
 ```
 

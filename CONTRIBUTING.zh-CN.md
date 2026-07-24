@@ -50,8 +50,16 @@
 本地预检：
 
 ```bash
-git diff --name-only origin/dev...HEAD > /tmp/changed.txt
-node .github/scripts/pr-gate.mjs --title "fix(next-sdk): demo" --changed-files-file /tmp/changed.txt
+git diff --name-only --diff-filter=ACMR origin/dev...HEAD > /tmp/changed.txt
+PR_LABELS='["skip-spec"]' SKIP_SPEC=true node .github/scripts/pr-gate.mjs \
+  --title "feat(next-sdk): trivial typo" \
+  --labels '["skip-spec"]' \
+  --changed-files-file /tmp/changed.txt
+
+# Bug fix 示例
+node .github/scripts/pr-gate.mjs \
+  --title "fix(next-sdk): demo" \
+  --changed-files-file /tmp/changed.txt
 ```
 
 ## 提交 PR

@@ -49,7 +49,8 @@ jobs:
             const skipSpec = labels.includes('skip-spec')
             core.setOutput('bypass', bypass ? 'true' : 'false')
             core.setOutput('skip_spec', skipSpec ? 'true' : 'false')
-            core.setOutput('labels', labels.join(','))
+            // JSON 数组，避免逗号/冒号拆坏含特殊字符的 label
+            core.setOutput('labels', JSON.stringify(labels))
             core.setOutput('title', pr.title || '')
 
       - name: List changed files
@@ -59,13 +60,13 @@ jobs:
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           if [ -n "$BASE_SHA" ] && [ -n "$HEAD_SHA" ]; then
-            git diff --name-only --diff-filter=ACMR "$BASE_SHA...$HEAD_SHA" > changed-files.txt || true
+            git diff --name-only --diff-filter=ACMR "$BASE_SHA...$HEAD_SHA" > changed-files.txt
           else
             : > changed-files.txt
           fi
           echo "changed_count=$(wc -l < changed-files.txt | tr -d ' ')" >> "$GITHUB_OUTPUT"
           echo "Changed files ($(wc -l < changed-files.txt | tr -d ' ')):"
-          cat changed-files.txt || true
+          cat changed-files.txt
 
       - name: Run pr-gate
         env:

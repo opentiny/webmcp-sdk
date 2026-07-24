@@ -35,6 +35,8 @@ export const LABEL_TO_PR_TYPE = {
   chore: 'other'
 }
 
+export const EXEMPT_LABELS = Object.freeze(['gate-bypass', 'emergency', 'skip-spec'])
+
 /**
  * @param {string} title
  * @returns {string | null} conventional commit type（小写）
@@ -51,45 +53,100 @@ export function parseConventionalTitleType(title) {
 }
 
 /**
- * 标题优先，标签兜底。
- * @param {string} title
+ * 从标签列表收集已识别的 prType（去重，保持首次出现顺序）。
  * @param {string[]} labels
- * @returns {{ prType: string | null, source: 'title' | 'label' | null, titleType: string | null, labelType: string | null, conflict: boolean }}
+ * @returns {string[]}
  */
-export function inferPrType(title, labels = []) {
-  const titleType = parseConventionalTitleType(title)
-  const fromTitle = titleType ? TITLE_TYPE_TO_PR_TYPE[titleType] || 'other' : null
-
-  let fromLabel = null
+export function collectLabelPrTypes(labels = []) {
+  const out = []
+  const seen = new Set()
   for (const raw of labels) {
     const key = String(raw || '')
       .trim()
       .toLowerCase()
-    if (LABEL_TO_PR_TYPE[key]) {
-      fromLabel = LABEL_TO_PR_TYPE[key]
-      break
-    }
+    const t = LABEL_TO_PR_TYPE[key]
+    if (!t || seen.has(t)) continue
+    seen.add(t)
+    out.push(t)
   }
+  return out
+}
+
+/**
+ * 标题优先，标签兜底。无标题且多标签类型冲突时 prType=null 且 labelConflict=true。
+ * @param {string} title
+ * @param {string[]} labels
+ * @returns {{
+ *   prType: string | null,
+ *   source: 'title' | 'label' | null,
+ *   titleType: string | null,
+ *   labelType: string | null,
+ *   labelTypes: string[],
+ *   conflict: boolean,
+ *   labelConflict: boolean
+ * }}
+ */
+export function inferPrType(title, labels = []) {
+  const titleType = parseConventionalTitleType(title)
+  const fromTitle = titleType ? TITLE_TYPE_TO_PR_TYPE[titleType] || 'other' : null
+  const labelTypes = collectLabelPrTypes(labels)
+  const fromLabel = labelTypes.length === 1 ? labelTypes[0] : null
 
   if (fromTitle) {
     return {
       prType: fromTitle,
       source: 'title',
       titleType,
-      labelType: fromLabel,
-      conflict: Boolean(fromLabel && fromLabel !== fromTitle)
+      labelType: fromLabel || labelTypes[0] || null,
+      labelTypes,
+      conflict: Boolean(labelTypes.length && !labelTypes.every((t) => t === fromTitle)),
+      labelConflict: false
     }
   }
+
+  if (labelTypes.length > 1) {
+    return {
+      prType: null,
+      source: null,
+      titleType: null,
+      labelType: null,
+      labelTypes,
+      conflict: true,
+      labelConflict: true
+    }
+  }
+
   if (fromLabel) {
     return {
       prType: fromLabel,
       source: 'label',
       titleType: null,
       labelType: fromLabel,
-      conflict: false
+      labelTypes,
+      conflict: false,
+      labelConflict: false
     }
   }
-  return { prType: null, source: null, titleType: null, labelType: null, conflict: false }
+
+  return {
+    prType: null,
+    source: null,
+    titleType: null,
+    labelType: null,
+    labelTypes,
+    conflict: false,
+    labelConflict: false
+  }
+}
+
+/**
+ * 豁免标签须完整精确匹配（大小写不敏感），避免 `gate-bypass:pending` 误触发。
+ * @param {string[]} labels
+ * @param {string} name
+ */
+export function hasExactLabel(labels, name) {
+  const want = String(name).toLowerCase()
+  return labels.some((l) => String(l).trim().toLowerCase() === want)
 }
 
 /**
@@ -168,7 +225,7 @@ export function resolveArtifact({ candidates, kind }) {
   return {
     error:
       kind === 'Repro test'
-        ? 'Bug fix（fix:）须在本 PR 变更中包含唯一含中文「复现：」的测试文件：packages/<pkg>/test/**/*.test.ts'
+        ? 'Bug fix（fix:）须在本 PR 变更中包含唯一含中文「复现：」的测试文件：packages/<pkg>/test/**/*.{test,spec}.*'
         : 'Feature（feat:）须在本 PR 变更中包含唯一完整 Spec 目录：packages/<pkg>/specs/REQ-*/（含 requirements/design/tasks）；琐碎改动可打 label skip-spec'
   }
 }
@@ -200,13 +257,26 @@ export function readChangedFilesList(filePath) {
 }
 
 /**
- * @param {string} raw comma/空白分隔
+ * 解析标签列表。优先 JSON 数组（workflow 输出）；否则仅按逗号/换行分割（不按冒号切分，避免破坏含 `:` 的 label）。
+ * @param {string} raw
  * @returns {string[]}
  */
 export function parseLabels(raw) {
   if (!raw) return []
-  return String(raw)
-    .split(/[,:\n]/)
-    .map((s) => s.trim())
+  const s = String(raw).trim()
+  if (!s) return []
+  if (s.startsWith('[')) {
+    try {
+      const arr = JSON.parse(s)
+      if (Array.isArray(arr)) {
+        return arr.map((x) => String(x).trim()).filter(Boolean)
+      }
+    } catch {
+      // fall through
+    }
+  }
+  return s
+    .split(/[,\n]/)
+    .map((x) => x.trim())
     .filter(Boolean)
 }
