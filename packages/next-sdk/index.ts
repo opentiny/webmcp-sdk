@@ -54,7 +54,11 @@ export { waitForRouteTools } from './page-tools/wait-for-route-tools'
 export type { RouteToolsMap, WaitForRouteToolsOptions } from './page-tools/wait-for-route-tools'
 export { registerPageAgentTool } from './page-tools/page-agent-tool'
 export type { PageAgentToolHandle } from './page-tools/page-agent-tool'
-export { PAGE_AGENT_TOOL_CALL_EVENT, PAGE_AGENT_TOOL_RESULT_EVENT } from './page-tools/page-agent-tool-event'
+export {
+  PAGE_AGENT_TOOL_CALL_EVENT,
+  PAGE_AGENT_TOOL_RESULT_EVENT,
+  PAGE_AGENT_CHAT_END_EVENT
+} from './page-tools/page-agent-tool-event'
 export type { PageAgentToolCallEventDetail, PageAgentToolResultEventDetail } from './page-tools/page-agent-tool-event'
 export type { PageAgentToolOptions } from './page-tools/tool-config'
 
