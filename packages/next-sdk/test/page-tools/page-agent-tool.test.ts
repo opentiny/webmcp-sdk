@@ -16,6 +16,7 @@ vi.mock('../../page-tools/page-agent-mask/SimulatorMask', () => ({
 }))
 
 import { registerPageAgentTool } from '../../page-tools/page-agent-tool'
+import { PAGE_AGENT_CHAT_END_EVENT } from '../../page-tools/page-agent-tool-event'
 import { getPageAgentToolConfig, setPageAgentToolConfig } from '../../page-tools/tool-config'
 
 function resetWindowGlobals() {
@@ -33,6 +34,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  window.__nextSdkPageAgentToolEventCleanup?.()
   resetWindowGlobals()
 })
 
@@ -126,5 +128,17 @@ describe('registerPageAgentTool - mask 显隐句柄', () => {
 
     await handle.hideMask()
     expect(maskSpies.hide).toHaveBeenCalledTimes(1)
+  })
+
+  it('复现：WXT 聊天结束后呼吸灯与箭头未关闭 —— 前置 registerPageAgentTool 且已 showMask；步骤 dispatch page-agent-chat-end；期望 hideMask 被调用', async () => {
+    const handle = registerPageAgentTool()
+    await handle.showMask()
+    maskSpies.hide.mockClear()
+
+    window.dispatchEvent(new CustomEvent(PAGE_AGENT_CHAT_END_EVENT))
+
+    await vi.waitFor(() => {
+      expect(maskSpies.hide).toHaveBeenCalledTimes(1)
+    })
   })
 })

@@ -12,6 +12,7 @@ import { getModelConfigsWithToken } from './model-manage'
 import { getStorageItem, setStorageItem } from './utils/local-storage'
 import { StorageKeys } from './utils/storage-keys'
 import { getSnapshotManager } from './utils/snapshotManager'
+import { dispatchPageAgentChatEnd } from './utils/dispatchPageAgentChatEnd'
 import { getWebAgentUrl } from './model-manage/model-storage'
 // 从统一入口读取 skills（built-in + 用户在 Options 中的覆盖）
 const skills = ref<Record<string, string>>({})
@@ -96,13 +97,18 @@ browser.runtime.onMessage.addListener((message) => {
   }
 })
 
-// 每一轮对话，都要清除一下页面高亮
-const clearHighlightPage = async () => {
+// 每一轮对话结束：清除 snapshot 高亮，并派发 page-agent-chat-end 收起呼吸灯/箭头
+const onChatStreamFinish = async () => {
   try {
     const { manager } = await getSnapshotManager()
     await manager.highlightPage(false)
   } catch (error) {
     console.error('清除页面高亮失败', error)
+  }
+  try {
+    await dispatchPageAgentChatEnd()
+  } catch (error) {
+    console.error('派发 page-agent-chat-end 失败', error)
   }
 }
 </script>
@@ -123,7 +129,7 @@ const clearHighlightPage = async () => {
       :custom-market-mcp-servers="customMarketMcpServers"
       :gen-ui-components="genUiComponents"
       :skills="skills"
-      @chat-stream-finish="clearHighlightPage"
+      @chat-stream-finish="onChatStreamFinish"
       :agent-root="webAgentUrl"
     >
     </TinyRemoter>
