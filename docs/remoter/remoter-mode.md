@@ -8,7 +8,7 @@ outline: [2, 3]
 
 ![remoter.png](../guide/remoter.png)
 
-在 [WebMCP 的适配场景](../guide/choose-scene.md) 中已经详细介绍过远程模式的原理。普通场景下，网站应用可能不需要远程遥控功能，只需在页面中使用原生 WebMCP 编写工具，直接供页面上的 Remoter 组件对话即可。此时无需引入 `Web Agent` 服务，参考 [快速开始](../index) 实现纯前端方案。
+在 [WebMCP 的适配场景](../guide/choose-scene.md) 中已经详细介绍过远程模式的原理。普通场景下，网站应用可能不需要远程遥控功能，只需在页面中使用原生 WebMCP 编写工具，直接供页面上的 Remoter 组件对话即可。此时无需引入 `WebAgent` 服务，参考 [快速开始](../index) 实现纯前端方案。
 
 遥控模式的典型应用场景：
 
@@ -16,11 +16,11 @@ outline: [2, 3]
 2. 连接到其他智能体操作网页，例如 VS Code、CodeX、OpenCode 等
 3. 类似 Chrome DevTools MCP、Browser Use 等工具的用途，支持 AI 操作网页、自动化测试等
 
-## 二、私有化部署 Web Agent 服务
+## 二、私有化部署 WebAgent 服务
 
-部署方法详见 [Web Agent 文档](https://docs.opentiny.design/web-agent/guide/getting-started) 或 [Web Agent 仓库](https://github.com/opentiny/web-agent/blob/main/README.zh-CN.md)。
+部署方法详见 [WebAgent 文档](https://docs.opentiny.design/web-agent/guide/getting-started) 或 [WebAgent 仓库](https://github.com/opentiny/web-agent/blob/main/README.zh-CN.md)。
 
-它本质是一个 Node.js 服务，本地启动后提供一组 API 接口（如 ping、list、mcp 等）。在 `TinyRemoter` 的 `agentRoot` 属性中配置 Web Agent 代理服务地址即可，例如：`http://localhost:3000/api/v1/webmcp/`。
+它本质是一个 Node.js 服务，本地启动后提供一组 API 接口（如 ping、list、mcp 等）。在 `TinyRemoter` 的 `agentRoot` 属性中配置 WebAgent 代理服务地址即可，例如：`http://localhost:3000/api/v1/webmcp/`。
 
 ```vue
 <template>

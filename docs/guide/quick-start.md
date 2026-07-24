@@ -140,15 +140,15 @@ const llmConfig = {
 
 ## 三、增加远程遥控能力
 
-你可以将页面连接到 `Web Agent` 后台代理服务，之后就可以通过`Web Agent` 后台代理来`远程遥控`该页面。`Web Agent` 后台代理提供的是一个标准的`Mcp Server`服务，所以它可以方便接入许多智能体，实现跨应用或跨主机的`远程遥控`的功能。
+你可以将页面连接到 `WebAgent` 后台代理服务，之后就可以通过`WebAgent` 后台代理来`远程遥控`该页面。`WebAgent` 后台代理提供的是一个标准的`Mcp Server`服务，所以它可以方便接入许多智能体，实现跨应用或跨主机的`远程遥控`的功能。
 
 `sessionId` 是连接凭证，通过它可以定位到操作页面。当页面关闭后，该`sessionId`会自动失效。
 
-::: tip Web Agent 服务
-Web Agent 服务是一个提前部署的 Node.js 后端应用，部署方法详见 [Web Agent 文档](https://docs.opentiny.design/web-agent/guide/getting-started) 或 [Web Agent 仓库](https://github.com/opentiny/web-agent/blob/main/README.zh-CN.md)。
+::: tip WebAgent 服务
+WebAgent 服务是一个提前部署的 Node.js 后端应用，部署方法详见 [WebAgent 文档](https://docs.opentiny.design/web-agent/guide/getting-started) 或 [WebAgent 仓库](https://github.com/opentiny/web-agent/blob/main/README.zh-CN.md)。
 :::
 
-连接到 `Web Agent` 示例代码如下：
+连接到 `WebAgent` 示例代码如下：
 
 ```typescript
 import { WebMcpClient } from '@opentiny/next-sdk'
@@ -169,9 +169,7 @@ if (sessionId) {
 }
 ```
 
-`Web Agent` 服务向外提供的是一个标准的`Mcp Server`，通过`sessionId` 实现在AI 智能体上来遥控网页。
-
-比如：
+`WebAgent` 服务向外提供的是一个标准的`MCP Server`，通过`sessionId` 实现在AI 智能体上来遥控网页。比如：
 
 - 对接TinyRemoter对话组件
 - 对接遥控网站
