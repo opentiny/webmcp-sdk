@@ -45,7 +45,7 @@ outline: [2, 3]
 
 1.  Web Page 应用 和 WebAgent 服务 是组成一个的最小系统，并向外提供一个**标准 MCP Server 服务**。这个服务可被任意智能体访问。
 2.  Remoter 组件 和 遥控网站 均为可选角色,它们自身是前端智能体，与 AI 大模型直接对话，并可使用**标准 MCP Server 服务**。
-3.  第三方智能体 VS Code、CodeX、OpenCode 等，也可以配置 Mcp Server 来使用它。
+3.  第三方智能体 VS Code、CodeX、OpenCode 等，也可以配置 MCP Server 来使用它。
 4.  `TinyRemoter` 是整个架构的枢纽组件，Remoter 组件和遥控网站中的对话框均使用该组件开发。它一边接收页面的 `sessionId`，一边与 `WebAgent` 服务和 LLM 大模型建立连接，打通整个 AI 对话流程。
 
 ---
