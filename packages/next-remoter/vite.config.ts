@@ -1,5 +1,6 @@
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import Components from 'unplugin-vue-components/vite'
@@ -10,6 +11,14 @@ import { VantResolver } from '@vant/auto-import-resolver'
 import { visualizer } from 'rollup-plugin-visualizer'
 import dts from 'vite-plugin-dts'
 const __dirname = dirname(fileURLToPath(import.meta.url))
+
+// 读取 package.json 中的依赖列表，构建时全部 external 化
+// 库构建不应内联依赖，否则产物体积膨胀且消费方无法 tree-shake
+const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8'))
+const externalDeps = [
+  ...Object.keys(pkg.dependencies || {}),
+  ...Object.keys(pkg.peerDependencies || {})
+]
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
@@ -53,21 +62,11 @@ export default defineConfig(({ mode }) => {
         fileName: (format) => `next-remoter.${format}.js`
       },
       rollupOptions: {
-        // external 函数：排除 JS 模块，但不排除 CSS 文件
+        // external 策略：将 package.json 中声明的所有依赖外部化
+        // CSS 文件不排除（需打包到 style.css）
         external: (id) => {
-          // CSS 文件不应该被排除，需要打包到 style.css
-          if (id.endsWith('.css')) {
-            return false
-          }
-          // 排除 vue
-          if (id === 'vue') {
-            return true
-          }
-          // 排除 @opentiny/ 开头的 JS 模块，但不排除 CSS 文件
-          if (id.startsWith('@opentiny/')) {
-            return true
-          }
-          return false
+          if (id.endsWith('.css')) return false
+          return externalDeps.some(dep => id === dep || id.startsWith(dep + '/'))
         },
         output: {
           // CSS 文件使用 style.css 作为文件名，其他资源保持默认命名
