@@ -63,10 +63,10 @@ The commit message should be in the form of `type(scope): description`, e.g. `fi
 
 The PR description uses a template. Please fill in the relevant information according to the template, mainly including:
 
-- PR Checklist: Whether the commit message follows the specification, whether tests have been added, whether docs have been updated
-- PR Type: Bugfix / Feature / Code style update / Refactoring / Build / CI / Documentation, etc.
-- Issue Number
-- Does this PR introduce a breaking change?
+- Summary / behavior change / breaking change
+- Use a conventional title (`fix` / `feat` / `docs` / …); the gate infers type from the title (labels as fallback)
+- Bugfix: include a test with `复现：` in the PR diff; Feature: include a Spec directory (or label `skip-spec` for trivial changes)
+- Link Issues via GitHub when applicable
 
 ### Local Startup Steps
 

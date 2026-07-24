@@ -33,4 +33,4 @@ it('复现：<中文场景简述> —— 前置…；步骤…；期望…', () 
 })
 ```
 
-PR Gate 对 Bugfix 会检查 `Repro test` 路径及文件中含 `复现：` 关键字。
+PR Gate 对 Bugfix 会检查本 PR **变更文件**中是否含带 `复现：` 关键字的测试（见 `docs/ai-engineering/merge-gate.md`）。

@@ -4,14 +4,26 @@
 
 | 检查 | Workflow | 作用 |
 |---|---|---|
-| PR Gate | `.github/workflows/pr-gate.yml` | 标题约定、Checklist、Gate Fields、Spec/复现路径 |
+| PR Gate | `.github/workflows/pr-gate.yml` | 约定式标题定类型；变更文件校验 Spec / 复现测试 |
 | CI Test | `.github/workflows/ci-test.yml` | 按路径跑单测 / 浏览器 E2E |
 | Merge Ready | `pr-gate.yml` 汇总 job | 建议作为 Branch Protection 必填检查 |
+
+### 类型与 artifact（无需 Gate Fields）
+
+1. **类型**：PR 标题 `type(scope): subject` 优先（`fix`→bug，`feat`→feature，…）；标签兜底（`bug` / `enhancement` / `documentation` / `refactoring`，与 `labeler.yaml` 一致）。
+2. **Bug（fix）**：变更中须有且仅有一个含中文 **`复现：`** 的 `packages/*/test/**/*.{test,spec}.*`。
+3. **Feature（feat）**：变更中须有且仅有一个完整 `packages/*/specs/REQ-*/`（requirements/design/tasks）。琐碎改动打 label **`skip-spec`**。
+4. **豁免**：label **`gate-bypass`** / **`emergency`**（维护者应急）。
+
+多候选时门禁失败并列出路径：请收敛到一个 artifact，或打豁免标签。
 
 本地预检：
 
 ```bash
-node .github/scripts/pr-gate.mjs --title "fix(next-sdk): demo" --body-file /tmp/pr-body.md
+git diff --name-only origin/dev...HEAD > /tmp/changed.txt
+node .github/scripts/pr-gate.mjs \
+  --title "fix(next-sdk): demo" \
+  --changed-files-file /tmp/changed.txt
 ```
 
 ## 维护者必做：Branch Protection
@@ -28,6 +40,7 @@ node .github/scripts/pr-gate.mjs --title "fix(next-sdk): demo" --body-file /tmp/
 ## 豁免
 
 - Label `gate-bypass`：仅维护者应急，跳过 Spec/复现等 artifact 校验；须在 PR 写明原因。  
+- Label `skip-spec`：琐碎 Feature 跳过 Spec。  
 - 不提供「跳过全部测试」的默认开关。
 
 ## Draft PR

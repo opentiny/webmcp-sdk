@@ -42,12 +42,17 @@
 
 1. **先分流再编码**：Bug → 复现测试；非琐碎 Feature → 先建 Spec；琐碎豁免须写明理由。判定清单见 `AGENTS.md`「必须建 Spec」。
 2. **就近**：Spec 在 `packages/<pkg>/specs/`，测试在 `packages/<pkg>/test/`，二者不要混放。
-3. **Bugfix**：PR 须提供含「复现：」的测试路径；`pnpm test` 通过。关联 `Issue: #N` **可选**（其它途径反馈的 bug 可不填）。
-4. **Feature**：PR Gate Fields 填写 Spec 路径，且目录含 requirements/design/tasks。
+3. **Bugfix**：PR 标题 `fix:`；变更中须含带「复现：」的测试；`pnpm test` 通过。关联 Issue **可选**（其它途径反馈的 bug 可不填）。
+4. **Feature**：PR 标题 `feat:`；变更中须含完整 Spec 目录（requirements/design/tasks）。琐碎改动打 label `skip-spec`。
 5. **Skills**：`pnpm install` 会执行 `skills:sync`；大 Skill 不进 Git。
 6. **合入**：须通过 GitHub Actions **Merge Ready**；维护者需配置 Branch Protection（见 [`docs/ai-engineering/merge-gate.md`](./docs/ai-engineering/merge-gate.md)）。
 
-本地预检：`pnpm pr-gate`（需自行传入 title/body，见脚本 `--help`）。
+本地预检：
+
+```bash
+git diff --name-only origin/dev...HEAD > /tmp/changed.txt
+node .github/scripts/pr-gate.mjs --title "fix(next-sdk): demo" --changed-files-file /tmp/changed.txt
+```
 
 ## 提交 PR
 
