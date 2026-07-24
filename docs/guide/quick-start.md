@@ -169,7 +169,7 @@ if (sessionId) {
 }
 ```
 
-`WebAgent` 服务向外提供的是一个标准的`Mcp Server`，通过`sessionId` 实现在AI 智能体上来遥控网页。比如：
+`WebAgent` 服务向外提供的是一个标准的`MCP Server`，通过`sessionId` 实现在AI 智能体上来遥控网页。比如：
 
 - 对接TinyRemoter对话组件
 - 对接遥控网站

@@ -34,7 +34,7 @@ outline: [2, 3]
 从上图可以看到，整个架构包含 5 个角色，其中**WebAgent 服务**和 **遥控网站**需要额外部署，参见[私有化部署方案](../remoter/remoter-mode.md)：
 
 - **Web Page 应用**：用户正在开发的业务页面，需注册网页工具并向 `WebAgent` 服务注册，完成网页智能化改造。
-- **WebAgent 服务**：本地部署的 Node.js 后端应用，作为智能代理中枢和 MCP 代理转发服务,。它接收页面的连接信息后，生成 `sessionId` 后与目标页面建立连接，同时创建标准的 HTTP Streamable MCP Server。任意 MCP Client 均可连接并调用其工具，调用会转发至目标页面。
+- **WebAgent 服务**：本地部署的 Node.js 后端应用，作为智能代理中枢和 MCP 代理转发服务。它接收页面的连接信息后，生成 `sessionId` 后与目标页面建立连接，同时创建标准的 HTTP Streamable MCP Server。任意 MCP Client 均可连接并调用其工具，调用会转发至目标页面。
 - **Remoter 组件**：在系统中嵌入聊天界面，它本身也是前端智能体，内部可以添加 McpServer，并与 AI 大模型直接对话。当它接收当前页面的 `sessionId` 后，会创建 MCP Client 控制当前页面。
 - **遥控网站**：一个部署的 Vue 项目, 通过 URL 参数接收 `sessionId`后，创建 MCP Client 控制目标页面。
 - **LLM 大模型**：为 Remoter 组件或遥控网站提供 AI 对话能力
@@ -45,7 +45,7 @@ outline: [2, 3]
 
 1.  Web Page 应用 和 WebAgent 服务 是组成一个的最小系统，并向外提供一个**标准 MCP Server 服务**。这个服务可被任意智能体访问。
 2.  Remoter 组件 和 遥控网站 均为可选角色,它们自身是前端智能体，与 AI 大模型直接对话，并可使用**标准 MCP Server 服务**。
-3.  第三方智能体 VS Code、CodeX、OpenCode 等，也可以配置McpServer来使用它。
+3.  第三方智能体 VS Code、CodeX、OpenCode 等，也可以配置 Mcp Server 来使用它。
 4.  `TinyRemoter` 是整个架构的枢纽组件，Remoter 组件和遥控网站中的对话框均使用该组件开发。它一边接收页面的 `sessionId`，一边与 `WebAgent` 服务和 LLM 大模型建立连接，打通整个 AI 对话流程。
 
 ---
@@ -80,7 +80,7 @@ outline: [2, 3]
 
 **OpenTiny WebMCP-SDKs** 是探索WebMCP的先行者，自2025年就在浏览器上定义WebMCP Server,并进行注册工具函数，详见：[WebMCP Server](../webmcp-sdk/webmcp-server.md)。
 
-在2026.5.27号会议上， W3C 组织已经定义标准**WebMCP API**，并将在 Chrome 150 上正式推出。目前已经有成熟的 WebMCP Polyfill包，可以让我们在低版本浏览器上也能使用它，所以它目前已经是广泛可用的状态了。
+浏览器上标准**WebMCP API**目前仍是实验特性，最新标准将在 Chrome 150 上正式推出。目前已经有成熟的 WebMCP Polyfill包，可以让我们在低版本浏览器上也能使用它，所以它目前已经是广泛可用的状态了。
 随着它成为浏览器标准API并逐渐流行后，未来大多数网页应用都会内部集成WebMCP API， AI 智能体将可以无缝操作这些网站。
 
 我们定义的WebMCP Server 与 标准WebMCP API的功能目的是一致的，用法是一致的。当WebMCP API成为标准后， 我们不建议继续使用WebMCP Server。
