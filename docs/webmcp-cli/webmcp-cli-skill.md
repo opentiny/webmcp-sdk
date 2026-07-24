@@ -30,6 +30,8 @@
 
 用户跟 AI 说"帮我搜一下 OpenTiny"，AI 读完说明书后知道要执行 `webmcp-cli tabs open "https://baidu.com"` 打开百度，然后用 `webmcp-cli run page-agent-tool` 在搜索框里输入文字、点搜索按钮。
 
+若用户在页面中通过右下角 **WebMCP** 浮钮进入检视、点选元素并复制了 `webmcp-inspect:v1 …` 引用，粘贴到对话里要求改样式/结构时，AI 应调用 `inspect-element` 拉取 Cursor 同款元数据，再改本地源码（详见 Skill 中「3.2 inspect-element」）。
+
 **AI 全程在终端里执行命令来完成操作，无需额外的 API 对接。**
 
 ## 操作流程

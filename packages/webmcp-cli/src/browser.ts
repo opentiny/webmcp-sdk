@@ -546,8 +546,24 @@ async function injectWebMCPPolyfillAndTools(page: Page) {
     })
   }
 
+  // 同步当前页签的 Chrome target ID，供检视复制引用使用
+  await syncPageTabId(page)
+
   // 无论 polyfill 是否刚注入，都检查域名工具（工具内部有防重复 flag）
   await injectDomainTools(page)
+}
+
+/** 将 Chrome target UUID 写入页面，供 inspect 复制 webmcp-inspect:v1 tab=… */
+async function syncPageTabId(page: Page): Promise<void> {
+  try {
+    const tabId = await getPageTargetId(page)
+    await page.evaluate((id: string) => {
+      ;(window as any).__webmcpcli_tabid = id
+    }, tabId)
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err)
+    console.warn(pc.yellow(`写入 __webmcpcli_tabid 失败: ${msg}`))
+  }
 }
 
 function getToolsBundleName(hostname: string): string | null {

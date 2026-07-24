@@ -4,7 +4,7 @@ description: 面向第三方 AI Agent 的安装与执行指南：如何使用 we
 license: MIT
 metadata:
   author: opentiny
-  version: '1.2.0'
+  version: '1.3.0'
 ---
 
 # WebMCP CLI Skill
@@ -16,6 +16,7 @@ metadata:
 - 需要与网页交互（点击元素、填写表单、滚动页面）时。
 - 需要读取当前 DOM 结构并识别可交互元素时。
 - 在已注入领域专用工具的页面上操作时（例如 Excalidraw 绘图工具）。
+- 用户消息中粘贴了 `webmcp-inspect:v1 tab=… el=…` 检视引用，需要拉取 Cursor 同款元素元数据以修改源码时。
 
 ## 安装
 
@@ -150,6 +151,38 @@ webmcp-cli run page-agent-tool '{"action": "executeJavascript", "script": "docum
 # 7. 对指定标签页操作
 webmcp-cli run page-agent-tool '{"action": "browserState"}' -t <targetId>
 ```
+
+### 3.2 `inspect-element`（元素检视引用）
+
+用户可在 `webmcp-cli` 打开的页面看到常驻 **「WebMCP」** 悬浮按钮（表示页面已受 CLI 控制；可拖动，点 × 可收起为迷你 **W**）。点击浮钮进入检视模式（文案变为 **「检视中」**），再点一次或按 **Esc** 退出检视。`Cmd/Ctrl+Shift+C` 为次要快捷键，与浮钮等效。
+
+点选元素后会**立即复制**检视引用到剪贴板（选中框标签显示「已复制」，右下角 toast 提示），引用格式：
+
+```text
+webmcp-inspect:v1 tab=<TAB_ID> el=<ELEMENT_ID>
+```
+
+当用户消息中出现上述引用（可夹杂自然语言修改意见，如「背景改成红色」）时：
+
+1. **优先**用正则解析 `tab=` 与 `el=`（不要用 `page-agent-tool` 的 `#N` index 代替）。
+2. 调用：
+
+```bash
+webmcp-cli run inspect-element '{"elementId":"<ELEMENT_ID>"}' -t <TAB_ID>
+```
+
+3. 工具返回 Cursor 同款文本：
+
+```text
+DOM Path: div#app > ... > div.stat-card.purple
+Position: top=163px, left=606px, width=317px, height=139px
+HTML Element: <div class="stat-card purple">...</div>
+```
+
+4. 根据返回的 DOM Path / HTML Element 理解目标，再按用户意见修改**本地项目源码**。
+5. **不要**为此调用 `executeJavascript` 去改 live 样式；本工具只负责返回元数据。
+
+> 若返回「未找到 elementId」，说明页面已刷新或导航，请让用户重新检视并复制。
 
 #### 3.1.1 Browser State：页面无障碍树格式说明
 

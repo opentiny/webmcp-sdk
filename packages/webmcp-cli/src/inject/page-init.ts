@@ -5,10 +5,12 @@ import {
   isConsoleCloudHost,
   type PageAgentToolOptions,
 } from '@opentiny/next-sdk'
+import { initElementInspectWithDebug, registerInspectElementTool } from './element-inspect'
 
 declare global {
   interface Window {
     __webmcpcli_init?: boolean
+    __webmcpcli_tabid?: string
     __webmcpcli_tools?: Array<{
       name: string
       description?: string
@@ -41,6 +43,8 @@ function initWebMcpCliPage(): void {
 
   initializeWebMCPPolyfill()
   registerPageAgentTool(resolvePageAgentToolOptions())
+  registerInspectElementTool()
+  initElementInspectWithDebug()
 
   window.__webmcpcli_tools = []
 

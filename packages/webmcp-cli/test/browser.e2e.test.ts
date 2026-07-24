@@ -159,13 +159,119 @@ describe('webmcp-cli browser e2e', () => {
     openedTabId = json.tabid as string
   })
 
-  it('state includes page-agent-tool', () => {
+  it('state includes page-agent-tool and inspect-element', () => {
     expect(openedTabId).toBeTruthy()
     const { json } = runCli(['state', '-t', openedTabId])
     const tools = Array.isArray(json.webmcpTools) ? json.webmcpTools : []
     const names = tools.map((t) => t.name)
     expect(names).toContain('page-agent-tool')
+    expect(names).toContain('inspect-element')
     expect(String(json.url || '')).toContain('example.com')
+  })
+
+  it('injects WebMCP control fab on page', async () => {
+    expect(openedTabId).toBeTruthy()
+    const bases = [
+      `http://127.0.0.1:${cdpPort}`,
+      `http://[::1]:${cdpPort}`,
+      `http://localhost:${cdpPort}`,
+    ]
+    let browser: Awaited<ReturnType<typeof puppeteer.connect>> | null = null
+    for (const base of bases) {
+      try {
+        browser = await puppeteer.connect({ browserURL: base, defaultViewport: null })
+        break
+      } catch {
+        // try next
+      }
+    }
+    expect(browser).toBeTruthy()
+    try {
+      const pages = await browser!.pages()
+      const page = pages.find((p) => p.url().includes('example.com')) || pages[0]
+      const fab = await page!.evaluate(() => {
+        const el = document.getElementById('webmcp-cli-control-fab')
+        return el
+          ? {
+              text: el.textContent || '',
+              inspecting: el.getAttribute('data-inspecting'),
+            }
+          : null
+      })
+      expect(fab).toBeTruthy()
+      expect(fab!.text).toContain('WebMCP')
+      expect(fab!.inspecting).toBe('false')
+    } finally {
+      browser?.disconnect()
+    }
+  })
+
+  it('inspect-element returns Cursor metadata for registered element', async () => {
+    expect(openedTabId).toBeTruthy()
+    const bases = [
+      `http://127.0.0.1:${cdpPort}`,
+      `http://[::1]:${cdpPort}`,
+      `http://localhost:${cdpPort}`,
+    ]
+    let browser: Awaited<ReturnType<typeof puppeteer.connect>> | null = null
+    let elementId = ''
+    for (const base of bases) {
+      try {
+        browser = await puppeteer.connect({ browserURL: base, defaultViewport: null })
+        break
+      } catch {
+        // try next
+      }
+    }
+    expect(browser).toBeTruthy()
+    try {
+      const pages = await browser!.pages()
+      const page = pages.find((p) => p.url().includes('example.com')) || pages[0]
+      expect(page).toBeTruthy()
+      elementId = await page!.evaluate(() => {
+        const w = window as Window & { __webmcpcli_inspectRegister?: (s: string) => string }
+        if (typeof w.__webmcpcli_inspectRegister !== 'function') {
+          throw new Error('__webmcpcli_inspectRegister missing')
+        }
+        return w.__webmcpcli_inspectRegister('h1')
+      })
+      expect(elementId).toMatch(/^webmcp-el-\d+$/)
+    } finally {
+      browser?.disconnect()
+    }
+
+    const { json } = runCli([
+      'run',
+      'inspect-element',
+      JSON.stringify({ elementId }),
+      '-t',
+      openedTabId,
+    ])
+    const content = json.content
+    const text =
+      Array.isArray(content) && content[0] && typeof content[0].text === 'string'
+        ? content[0].text
+        : ''
+    expect(text).toContain('DOM Path:')
+    expect(text).toContain('Position:')
+    expect(text).toContain('HTML Element:')
+  })
+
+  it('inspect-element errors on unknown elementId', () => {
+    expect(openedTabId).toBeTruthy()
+    const { json } = runCli([
+      'run',
+      'inspect-element',
+      JSON.stringify({ elementId: 'webmcp-el-missing' }),
+      '-t',
+      openedTabId,
+    ])
+    const content = json.content
+    const text =
+      Array.isArray(content) && content[0] && typeof content[0].text === 'string'
+        ? content[0].text
+        : JSON.stringify(json)
+    expect(text).toMatch(/未找到|missing|不存在|重新/i)
   })
 
   it('run page-agent-tool browserState', () => {

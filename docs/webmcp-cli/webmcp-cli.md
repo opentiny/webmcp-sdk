@@ -176,6 +176,36 @@ webmcp-cli run page-agent-tool '{"action": "browserState", "responseMode": "full
 webmcp-cli run page-agent-tool '{"action": "click", "index": 18}'
 ```
 
+## 元素检视（Cursor 式）
+
+注入成功后，页面会出现常驻悬浮按钮（默认可在右下角）：
+
+| 状态 | 外观 | 含义 |
+| :--- | :--- | :--- |
+| 受控（默认） | 深色 **WebMCP** + 绿色圆点 | 页面已由 `webmcp-cli` 注入，可正常浏览 |
+| 检视中 | 蓝色 **检视中** + 闪烁圆点 | 已拦截 hover/click，可点选元素 |
+
+浮钮支持**拖动**调整位置；点右侧 **×** 可关闭（收成迷你 **W** 入口，再点即可展开）。位置与关闭状态保存在当前页 `sessionStorage`。
+
+| 操作 | 说明 |
+| :--- | :--- |
+| **点击浮钮主体** | 进入或退出检视（主入口） |
+| **拖动浮钮** | 任意放置，避免遮挡内容 |
+| **× 关闭** | 收起为迷你 **W**；点击 **W** 再展开 |
+| **Esc** | 仅退出检视，浮钮仍保留 |
+| **Cmd/Ctrl+Shift+C** | 次要快捷键，与浮钮等效 |
+| Hover | 蓝色边框 + 标签（如 `div`） |
+| Click | 选中并**立即复制**引用；标签显示「已复制」，右下角 toast 提示 |
+| 剪贴板内容 | `webmcp-inspect:v1 tab=<TAB_ID> el=<ELEMENT_ID>` |
+
+将引用粘贴到外部 AI 对话框并附上修改意见后，AI 应调用：
+
+```bash
+webmcp-cli run inspect-element '{"elementId":"webmcp-el-1"}' -t <TAB_ID>
+```
+
+返回 Cursor 同款元数据（`DOM Path` / `Position` / `HTML Element`），供 AI 修改**源码**（不会改页面 live 样式）。
+
 ### 页面结构格式
 
 `browserState` 返回的是一棵"无障碍树"（Accessibility Tree），格式是 YAML，长这样：
