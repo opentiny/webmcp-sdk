@@ -20,6 +20,7 @@
 
 | Spec | 说明 |
 |---|---|
+| [`REQ-20260724-pr-gate-auto-artifact`](./REQ-20260724-pr-gate-auto-artifact/) | PR Gate：标题定类型 + 变更文件自动校验 Repro/Spec |
 | [`REQ-20260722-console-layout-landmark`](./REQ-20260722-console-layout-landmark/) | `A11yRoleRule.name` + 云控制台 ti-app-layout landmark |
 | [`REQ-20260721-remove-set-navigator`](./REQ-20260721-remove-set-navigator/) | 移除 setNavigator / routeConfig |
 
@@ -29,4 +30,4 @@ Spec 是文档；可执行测试在 `../test/`。禁止把 Spec 放进 `test/`�
 
 ## 跨包需求
 
-若改动跨多个包，Spec 放在 **主责包** 的 `specs/`；PR Gate Fields 的 `Spec:` 指向该路径。
+若改动跨多个包，Spec 放在 **主责包** 的 `specs/`；`feat:` PR 的变更中须包含该 Spec 目录（门禁自动校验）。

@@ -107,14 +107,14 @@ pnpm dev / pnpm dev:remoter / pnpm dev:wxt / pnpm wiki
 1. 在主责包创建 `packages/<pkg>/specs/REQ-YYYYMMDD-slug/`
 2. 填写 `requirements.md` / `design.md` / `tasks.md`（模板在 `docs/ai-engineering/templates/`）
 3. `tasks.md` 须列出测试任务；实现落在 `test/`
-4. PR Gate Fields 填写 `Spec: packages/<pkg>/specs/REQ-.../`
+4. PR 标题使用 `feat(...):`；变更中须包含该 Spec 目录（门禁自动校验）。琐碎豁免可打 label `skip-spec`
 
-琐碎改动可豁免 Spec，须在 PR / 对用户回复中说明豁免理由。
+琐碎改动可豁免 Spec，须在 PR / 对用户回复中说明豁免理由（或打 `skip-spec`）。
 
 ## 合入门禁
 
-PR 须通过 **Merge Ready**（标题约定 + Checklist + Gate Fields + 测试）。  
-本地：`pnpm pr-gate` 或 `node .github/scripts/pr-gate.mjs`。  
+PR 须通过 **Merge Ready**（约定式标题定类型 + 变更文件含复现测试/Spec + 测试）。  
+本地：`pnpm pr-gate` 或 `node .github/scripts/pr-gate.mjs --help`。  
 说明：`docs/ai-engineering/merge-gate.md`。
 
 ## 知识索引

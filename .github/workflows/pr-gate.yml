@@ -1,10 +1,10 @@
-# PR 合入门禁：标题 / Checklist / Gate Fields / Spec·复现路径
+# PR 合入门禁：约定式标题定类型 + 变更文件校验 Spec/复现
 name: PR Gate
 run-name: PR Gate--${{ github.event.pull_request.title || github.ref_name }}
 
 on:
   pull_request:
-    types: [opened, reopened, synchronize, edited, ready_for_review]
+    types: [opened, reopened, synchronize, edited, ready_for_review, labeled, unlabeled]
   workflow_dispatch:
 
 concurrency:
@@ -28,6 +28,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           persist-credentials: false
+          fetch-depth: 0
 
       - name: Meta
         id: meta
@@ -38,38 +39,52 @@ jobs:
             if (!pr) {
               core.setOutput('draft', 'false')
               core.setOutput('bypass', 'false')
+              core.setOutput('skip_spec', 'false')
+              core.setOutput('labels', '')
               return
             }
             core.setOutput('draft', pr.draft ? 'true' : 'false')
             const labels = (pr.labels || []).map((l) => l.name)
             const bypass = labels.includes('gate-bypass') || labels.includes('emergency')
+            const skipSpec = labels.includes('skip-spec')
             core.setOutput('bypass', bypass ? 'true' : 'false')
+            core.setOutput('skip_spec', skipSpec ? 'true' : 'false')
+            // JSON 数组，避免逗号/冒号拆坏含特殊字符的 label
+            core.setOutput('labels', JSON.stringify(labels))
             core.setOutput('title', pr.title || '')
-            // body may be large; write to file via env in next step using github-script file
-            const fs = require('fs')
-            fs.writeFileSync('pr-body.md', pr.body || '')
+
+      - name: List changed files
+        id: changed
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ -n "$BASE_SHA" ] && [ -n "$HEAD_SHA" ]; then
+            git diff --name-only --diff-filter=ACMR "$BASE_SHA...$HEAD_SHA" > changed-files.txt
+          else
+            : > changed-files.txt
+          fi
+          echo "changed_count=$(wc -l < changed-files.txt | tr -d ' ')" >> "$GITHUB_OUTPUT"
+          echo "Changed files ($(wc -l < changed-files.txt | tr -d ' ')):"
+          cat changed-files.txt
 
       - name: Run pr-gate
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_LABELS: ${{ steps.meta.outputs.labels }}
           PR_DRAFT: ${{ steps.meta.outputs.draft }}
           GATE_BYPASS: ${{ steps.meta.outputs.bypass }}
+          SKIP_SPEC: ${{ steps.meta.outputs.skip_spec }}
         run: |
-          if [ ! -f pr-body.md ]; then
-            # workflow_dispatch 无 PR body
-            echo "## PR Type" > pr-body.md
-            echo "- [x] Documentation-related changes" >> pr-body.md
-            echo "## Gate Fields（CI 读取，请按类型填写）" >> pr-body.md
-            echo "- Issue: " >> pr-body.md
-            echo "- Spec: " >> pr-body.md
-            echo "- Repro test: " >> pr-body.md
-            echo "- Skip reason: " >> pr-body.md
-            export PR_TITLE="${PR_TITLE:-docs(ai-engineering): workflow dispatch}"
+          export PR_TITLE="${PR_TITLE:-docs(ai-engineering): workflow dispatch}"
+          if [ ! -f changed-files.txt ]; then
+            : > changed-files.txt
           fi
-          node .github/scripts/pr-gate.mjs --title "$PR_TITLE" --body-file pr-body.md
+          node .github/scripts/pr-gate.mjs \
+            --title "$PR_TITLE" \
+            --labels "$PR_LABELS" \
+            --changed-files-file changed-files.txt
 
-  # 依赖同 PR 上 CI Test 工作流的结论较复杂；此处用路径提示 + 成功占位，
-  # Merge Ready 在「gate 通过」基础上成立；完整测试仍由 CI Test workflow 作为独立 required check。
   merge-ready:
     name: Merge Ready
     needs: [gate]
