@@ -1,11 +1,12 @@
-import puppeteer, { Browser, Page } from 'puppeteer-core'
+import { spawn } from 'child_process'
 import pc from 'picocolors'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import http from 'http'
-import { spawn } from 'child_process'
 import { fileURLToPath } from 'url'
+import puppeteer, { Browser, Page } from 'puppeteer-core'
+import { ensureInjectWatcher } from './watcher-process'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -334,6 +335,7 @@ export async function connectBrowser(): Promise<Browser> {
     try {
       const browser = await connectPuppeteer(existingUrl)
       console.log(pc.green(`connectBrowser: 成功连接 ${existingUrl}`))
+      ensureInjectWatcher()
       return browser
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -360,6 +362,7 @@ export async function connectBrowser(): Promise<Browser> {
     console.log(pc.yellow(`connectBrowser: 浏览器已启动，正在连接 ${launchedUrl}...`))
     const browser = await connectPuppeteer(launchedUrl)
     console.log(pc.green(`connectBrowser: 成功连接 ${launchedUrl}`))
+    ensureInjectWatcher()
     return browser
   } catch {
     throw new Error(`无法连接到浏览器（${launchedUrl}），请检查 Chrome/Edge 是否已安装。`)
