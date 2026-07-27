@@ -26,7 +26,26 @@ export function escapeIdent(value: string): string {
   if (typeof CSS !== 'undefined' && typeof CSS.escape === 'function') {
     return CSS.escape(value)
   }
-  return value.replace(/([ !"#$%&'()*+,./:;<=>?@[\\\]^`{|}~])/g, '\\$1')
+  if (value === '') return ''
+  // 对齐 CSS.escape：前导数字、连字符+数字，以及标点需转义
+  let out = ''
+  for (let i = 0; i < value.length; i++) {
+    const ch = value[i]!
+    const code = ch.charCodeAt(0)
+    if (
+      (i === 0 && code >= 0x30 && code <= 0x39) ||
+      (i === 1 && value[0] === '-' && code >= 0x30 && code <= 0x39)
+    ) {
+      out += `\\${code.toString(16)} `
+      continue
+    }
+    if (/[ !"#$%&'()*+,./:;<=>?@[\\\]^`{|}~]/.test(ch)) {
+      out += `\\${ch}`
+      continue
+    }
+    out += ch
+  }
+  return out
 }
 
 function classList(el: Element): string[] {

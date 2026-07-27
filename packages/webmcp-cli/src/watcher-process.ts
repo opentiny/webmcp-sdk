@@ -4,6 +4,7 @@ import path from 'path'
 import { spawn } from 'child_process'
 import { fileURLToPath } from 'url'
 import pc from 'picocolors'
+import { resolveInjectBundlePath } from './inject-bundle-path'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -65,8 +66,10 @@ export function writeWatcherPid(pid: number): void {
   fs.writeFileSync(getWatcherPidPath(), String(pid), 'utf-8')
 }
 
-export function clearWatcherPid(): void {
+/** 仅当 PID 文件仍指向 expectedPid 时删除，避免并发误删新 watcher 登记 */
+export function clearWatcherPid(expectedPid?: number): void {
   try {
+    if (expectedPid !== undefined && readWatcherPid() !== expectedPid) return
     fs.unlinkSync(getWatcherPidPath())
   } catch {
     /* ignore */
@@ -86,7 +89,7 @@ export function ensureInjectWatcher(): void {
   if (existing && isProcessAlive(existing)) {
     return
   }
-  if (existing) clearWatcherPid()
+  if (existing) clearWatcherPid(existing)
 
   const binPath = path.resolve(__dirname, 'bin.js')
   if (!fs.existsSync(binPath)) {
@@ -95,7 +98,7 @@ export function ensureInjectWatcher(): void {
   }
 
   // inject-bundle 未就绪时不要拉起 watcher，否则子进程立刻失败且污染状态
-  const injectBundle = path.resolve(__dirname, 'inject-bundle.js')
+  const injectBundle = resolveInjectBundlePath()
   if (!fs.existsSync(injectBundle)) {
     console.warn(
       pc.yellow(
@@ -132,6 +135,9 @@ export function ensureInjectWatcher(): void {
           : {}),
       },
       windowsHide: true,
+    })
+    child.on('error', (err) => {
+      console.warn(pc.yellow(`inject watcher 启动失败: ${err.message}`))
     })
     child.unref()
     if (typeof logFd === 'number') {

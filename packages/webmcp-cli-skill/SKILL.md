@@ -152,20 +152,6 @@ webmcp-cli run page-agent-tool '{"action": "executeJavascript", "script": "docum
 webmcp-cli run page-agent-tool '{"action": "browserState"}' -t <targetId>
 ```
 
-### 3.2 元素检视（DOM 元数据粘贴）
-
-用户可在 `webmcp-cli` 打开的页面看到常驻 **「WebMCP」** 悬浮按钮（可拖动；点 × 收起为迷你入口）。点击浮钮进入检视模式，再点一次或按 **Esc** 退出。
-
-点选元素后会**立即把 Cursor 同款元素卡片元数据写入剪贴板**（无需再调任何 WebMCP 工具），分区包括 `ELEMENT` / `PATH` / `ATTRIBUTES` / `COMPUTED STYLES` / `POSITION & SIZE` / `INNER TEXT`。
-
-当用户消息中出现上述内容（可夹杂「背景改成红色」等修改意见）时：
-
-1. 直接根据 `PATH` / `ELEMENT` / `INNER TEXT` 定位源码中的对应节点。
-2. 按用户意见修改**本地项目源码**。
-3. **不要**再调用已移除的 `inspect-element`，也不要为此调用 `executeJavascript` 改 live 样式。
-
-> 该能力来自 `@opentiny/next-sdk` 的 `enableInspectAssist()`（Inspect Assist：点选定位区域以改样式/逻辑）；应用开发态也可直接引入使用。
-
 #### 3.1.1 Browser State：页面无障碍树格式说明
 
 `browserState` 返回当前页面的语义化 YAML 无障碍树，格式如下：
@@ -369,6 +355,20 @@ webmcp-cli run segmentfault_publish_article '{"action": "set_title", "title": "�
 webmcp-cli run segmentfault_publish_article '{"action": "set_scheduled_publish", "scheduled_time": "2026-07-01T10:00:00+08:00"}'
 webmcp-cli run segmentfault_publish_article '{"action": "publish", "confirm": true}'
 ```
+
+### 3.3 元素检视（DOM 元数据粘贴）
+
+用户可在 `webmcp-cli` 打开的页面看到常驻 **「WebMCP」** 悬浮按钮（可拖动；点 × 收起为迷你入口）。点击浮钮进入检视模式，再点一次或按 **Esc** 退出。
+
+点选元素后会**立即把 Cursor 同款元素卡片元数据写入剪贴板**（无需再调任何 WebMCP 工具），分区包括 `ELEMENT` / `PATH` / `ATTRIBUTES` / `COMPUTED STYLES` / `POSITION & SIZE` / `INNER TEXT`。
+
+当用户消息中出现上述内容（可夹杂「背景改成红色」等修改意见）时：
+
+1. 直接根据 `PATH` / `ELEMENT` / `INNER TEXT` 定位源码中的对应节点。
+2. 按用户意见修改**本地项目源码**。
+3. **不要**再调用已移除的 `inspect-element`，也不要为此调用 `executeJavascript` 改 live 样式。
+
+> 该能力来自 `@opentiny/next-sdk` 的 `enableInspectAssist()`（Inspect Assist：点选定位区域以改样式/逻辑）；应用开发态也可直接引入使用。
 
 ### 何时阅读 `domains/excalidraw.md`
 

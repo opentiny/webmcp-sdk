@@ -1,7 +1,11 @@
 import type { Browser, Page, Target } from 'puppeteer-core'
 import pc from 'picocolors'
 import { connectBrowser, injectIntoPage } from '../browser'
-import { clearWatcherPid, writeWatcherPid } from '../watcher-process'
+import {
+  clearWatcherPid,
+  shouldPrepareWatcherUrl,
+  writeWatcherPid,
+} from '../watcher-process'
 import { readInjectBundleOrThrow } from '../inject-bundle-path'
 
 const preparedPages = new WeakSet<Page>()
@@ -14,33 +18,9 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms))
 }
 
-/** 完全忽略的目标（无法/无需注入） */
-function isIgnoredUrl(url: string): boolean {
-  return (
-    url.startsWith('devtools://') ||
-    url.startsWith('chrome-extension://') ||
-    url.startsWith('chrome://extensions') ||
-    url.startsWith('chrome://settings')
-  )
-}
-
-/** 当前文档是否可执行 inject（需 http/https） */
+/** 当前文档是否可执行 inject（需 http/https；blank/newtab 仅 prepare 不 inject） */
 function canInjectNow(url: string): boolean {
   return url.startsWith('http://') || url.startsWith('https://')
-}
-
-/**
- * 新页签常先停在 chrome://newtab/ / about:blank。
- * 这类 URL 仍要挂 evaluateOnNewDocument + 导航监听，否则用户输入地址后不会注入。
- */
-function shouldPreparePage(url: string): boolean {
-  if (isIgnoredUrl(url)) return false
-  if (canInjectNow(url)) return true
-  if (url === '' || url === 'about:blank') return true
-  if (url.startsWith('chrome://newtab') || url.startsWith('chrome://new-tab-page')) return true
-  // 其它 chrome:// 也可能随后被导航走，尽量准备；失败再由 targetchanged 重试
-  if (url.startsWith('chrome://')) return true
-  return false
 }
 
 async function waitForPage(target: Target, attempts = 30): Promise<Page | null> {
@@ -63,7 +43,7 @@ async function preparePage(page: Page, script: string): Promise<void> {
   } catch {
     return
   }
-  if (!shouldPreparePage(url)) return
+  if (!shouldPrepareWatcherUrl(url)) return
 
   try {
     if (!preparedPages.has(page)) {
@@ -149,7 +129,7 @@ export async function watchCommand(): Promise<void> {
   writeWatcherPid(process.pid)
 
   const cleanup = () => {
-    clearWatcherPid()
+    clearWatcherPid(process.pid)
   }
   process.on('exit', cleanup)
   process.on('SIGINT', () => {

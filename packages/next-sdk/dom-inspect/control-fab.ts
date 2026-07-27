@@ -260,10 +260,12 @@ export class ControlFab {
     root.innerHTML = `
       <button type="button" class="dom-inspect-fab-main" aria-pressed="false">
         <span class="dom-inspect-fab-dot" aria-hidden="true"></span>
-        <span class="dom-inspect-fab-label">${this.brandLabel}</span>
+        <span class="dom-inspect-fab-label"></span>
       </button>
       <button type="button" class="dom-inspect-fab-close" aria-label="关闭浮钮" title="关闭">×</button>
     `
+    const label = root.querySelector('.dom-inspect-fab-label')
+    if (label) label.textContent = this.brandLabel
     this.bindPointer(root, {
       onActivate: (target) => {
         if (target instanceof Element && target.closest('.dom-inspect-fab-close')) {

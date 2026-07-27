@@ -40,6 +40,28 @@ describe('dom-inspect truncateHtml', () => {
 })
 
 describe('dom-inspect Cursor 元素卡片格式', () => {
+  it('复现：id/class 以数字开头时 PATH 段须转义 —— 前置 id=1box class=2col；步骤 buildDomPath；期望含 \\31 /\\32 形式', () => {
+    const css = globalThis.CSS as { escape?: (v: string) => string } | undefined
+    const hadEscape = css && typeof css.escape === 'function'
+    const original = hadEscape ? css!.escape!.bind(css) : undefined
+    if (css && hadEscape) {
+      // 强制走 fallback，覆盖无 CSS.escape 环境
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ;(css as any).escape = undefined
+    }
+    try {
+      document.body.innerHTML = `<div id="1box" class="2col"><span>x</span></div>`
+      const el = document.querySelector('span')!
+      const path = buildDomPath(el)
+      expect(path).toContain('\\31 ')
+      expect(path).toContain('\\32 ')
+    } finally {
+      if (css && hadEscape && original) {
+        css.escape = original
+      }
+    }
+  })
+
   it('复现：剪贴板应对齐 Cursor ELEMENT/PATH/ATTRIBUTES/… 分区 —— 前置同 class 列表项；步骤 buildElementMeta+format；期望含分区标题、开标签、兄弟 [n]、INNER TEXT', () => {
     document.body.innerHTML = `
       <div id="app">

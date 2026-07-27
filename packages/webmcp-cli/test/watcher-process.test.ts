@@ -1,8 +1,13 @@
 import { describe, expect, it } from 'vitest'
+import fs from 'fs'
 import {
+  clearWatcherPid,
+  getWatcherPidPath,
   isInjectableUrl,
   isProcessAlive,
+  readWatcherPid,
   shouldPrepareWatcherUrl,
+  writeWatcherPid,
 } from '../src/watcher-process'
 
 describe('watcher-process helpers', () => {
@@ -29,5 +34,24 @@ describe('watcher-process helpers', () => {
     expect(isProcessAlive(process.pid)).toBe(true)
     expect(isProcessAlive(-1)).toBe(false)
     expect(isProcessAlive(0)).toBe(false)
+  })
+
+  it('复现：clearWatcherPid 仅删除仍指向 expectedPid 的文件 —— 前置写入 pidA；步骤 clearWatcherPid(pidB)；期望文件仍在', () => {
+    const prev = process.env.WEBMCP_WORKSPACE
+    const tmp = fs.mkdtempSync('/tmp/webmcp-watcher-pid-')
+    process.env.WEBMCP_WORKSPACE = tmp
+    try {
+      writeWatcherPid(11111)
+      expect(readWatcherPid()).toBe(11111)
+      clearWatcherPid(22222)
+      expect(readWatcherPid()).toBe(11111)
+      clearWatcherPid(11111)
+      expect(readWatcherPid()).toBeNull()
+      expect(fs.existsSync(getWatcherPidPath())).toBe(false)
+    } finally {
+      if (prev === undefined) delete process.env.WEBMCP_WORKSPACE
+      else process.env.WEBMCP_WORKSPACE = prev
+      fs.rmSync(tmp, { recursive: true, force: true })
+    }
   })
 })

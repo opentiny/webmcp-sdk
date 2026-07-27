@@ -185,7 +185,7 @@ describe('webmcp-cli browser e2e', () => {
     expect(String(json.url || '')).toContain('example.com')
   })
 
-  it('injects WebMCP control fab on page', async () => {
+  it('复现：注入后页面应出现 WebMCP 控制浮钮 —— 前置 tabs open；步骤读 DOM；期望 FAB 文案含 WebMCP', async () => {
     expect(openedTabId).toBeTruthy()
     const bases = [
       `http://127.0.0.1:${cdpPort}`,
@@ -222,7 +222,7 @@ describe('webmcp-cli browser e2e', () => {
     }
   })
 
-  it('watcher auto-injects fab on newly opened page without CLI run/state', async () => {
+  it('复现：手动新开页未跑 run/state 时 FAB 不出现 —— 前置已有 watcher；步骤新开页；期望自动注入浮钮', async () => {
     expect(openedTabId).toBeTruthy()
     await new Promise((r) => setTimeout(r, 2000))
     const bases = [

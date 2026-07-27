@@ -36,10 +36,16 @@ function createHandle(ctrl: InspectModeController): InspectAssistHandle {
       ctrl.destroy()
       if (singleton === ctrl) singleton = null
     },
-    isActive: () => ctrl.isActive(),
-    enter: () => ctrl.enter(),
-    exit: () => ctrl.exit(),
-    toggle: () => ctrl.toggle(),
+    isActive: () => ctrl.isInstalled() && ctrl.isActive(),
+    enter: () => {
+      if (ctrl.isInstalled()) ctrl.enter()
+    },
+    exit: () => {
+      if (ctrl.isInstalled()) ctrl.exit()
+    },
+    toggle: () => {
+      if (ctrl.isInstalled()) ctrl.toggle()
+    },
   }
 }
 
