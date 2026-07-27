@@ -159,6 +159,22 @@ describe('dom-inspect enableInspectAssist FAB', () => {
     expect(fab!.textContent).toContain('Inspect')
   })
 
+  it('复现：已挂载 FAB 再次 enable 须 sync 检视态 —— 前置 enter 检视中；步骤再次 enableInspectAssist；期望 aria-pressed/文案仍为检视中', () => {
+    ControlFab.resetSessionStateForTests()
+    const handle = enableInspectAssist()
+    handle.enter()
+    const fab = document.getElementById(CONTROL_FAB_ID)!
+    expect(fab.dataset.inspecting).toBe('true')
+
+    enableInspectAssist({ brandLabel: 'WebMCP' })
+    const remounted = document.getElementById(CONTROL_FAB_ID)!
+    expect(remounted.dataset.inspecting).toBe('true')
+    expect(remounted.textContent).toContain('检视中')
+    expect(remounted.querySelector('.dom-inspect-fab-main')?.getAttribute('aria-pressed')).toBe(
+      'true'
+    )
+  })
+
   it('brandLabel 自定义 idle 文案', () => {
     ControlFab.resetSessionStateForTests()
     enableInspectAssist({ brandLabel: 'OpenTiny' })
@@ -199,5 +215,131 @@ describe('dom-inspect enableInspectAssist FAB', () => {
 
     nextHandle.disable()
     expect(document.getElementById(CONTROL_FAB_ID)).toBeNull()
+  })
+
+  it('复现：恢复贴边位置时先设坐标再 getBoundingClientRect 二次 clamp 会偏移 —— 前置 session 贴边坐标；步骤 mount FAB；期望按真实尺寸 clamp 后 left 不变', () => {
+    ControlFab.resetSessionStateForTests()
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 400 })
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 300 })
+
+    const fabWidth = 100
+    const savedLeft = 400 - fabWidth - 8 // 292，对真实宽度合法贴边
+    sessionStorage.setItem(
+      'opentiny-dom-inspect-pos',
+      JSON.stringify({ left: savedLeft, top: 100 })
+    )
+
+    const descW = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth')
+    const descH = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight')
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+      configurable: true,
+      get() {
+        return fabWidth
+      },
+    })
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+      configurable: true,
+      get() {
+        return 36
+      },
+    })
+
+    // 旧逻辑：先写入 left 再测量时，贴边后 getBoundingClientRect.width 被放大 → 二次 clamp 左移
+    const originalGbr = HTMLElement.prototype.getBoundingClientRect
+    HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect(this: HTMLElement) {
+      const left = parseFloat(this.style.left) || 0
+      const top = parseFloat(this.style.top) || 0
+      const width = left >= savedLeft ? 180 : fabWidth
+      return {
+        x: left,
+        y: top,
+        left,
+        top,
+        right: left + width,
+        bottom: top + 36,
+        width,
+        height: 36,
+        toJSON() {
+          return {}
+        },
+      } as DOMRect
+    }
+
+    try {
+      enableInspectAssist({ brandLabel: 'WebMCP' })
+      const el = document.getElementById(CONTROL_FAB_ID)!
+      expect(parseFloat(el.style.left)).toBe(savedLeft)
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = originalGbr
+      if (descW) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', descW)
+      else delete (HTMLElement.prototype as { offsetWidth?: number }).offsetWidth
+      if (descH) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', descH)
+      else delete (HTMLElement.prototype as { offsetHeight?: number }).offsetHeight
+    }
+  })
+
+  it('复现：关闭浮钮落盘应使用 style left/top 而非 getBoundingClientRect —— 前置手动 style 定位并 mock rect 偏差；步骤点 ×；期望 session 为 style 值', () => {
+    ControlFab.resetSessionStateForTests()
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 800 })
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 600 })
+
+    const descW = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth')
+    const descH = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetHeight')
+    Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+      configurable: true,
+      get() {
+        return 100
+      },
+    })
+    Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+      configurable: true,
+      get() {
+        return 36
+      },
+    })
+
+    const originalGbr = HTMLElement.prototype.getBoundingClientRect
+    HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect() {
+      return {
+        x: 999,
+        y: 888,
+        left: 999,
+        top: 888,
+        right: 1099,
+        bottom: 924,
+        width: 100,
+        height: 36,
+        toJSON() {
+          return {}
+        },
+      } as DOMRect
+    }
+
+    try {
+      enableInspectAssist()
+      const fab = document.getElementById(CONTROL_FAB_ID)!
+      fab.style.left = '120px'
+      fab.style.top = '80px'
+
+      fab
+        .querySelector('.dom-inspect-fab-close')!
+        .dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }))
+
+      const raw = sessionStorage.getItem('opentiny-dom-inspect-pos')
+      expect(raw).toBeTruthy()
+      const saved = JSON.parse(raw!) as { left: number; top: number }
+      expect(saved).toEqual({ left: 120, top: 80 })
+
+      const mini = document.getElementById('opentiny-dom-inspect-fab-mini')!
+      expect(mini).toBeTruthy()
+      expect(parseFloat(mini.style.left)).toBe(120)
+      expect(parseFloat(mini.style.top)).toBe(80)
+    } finally {
+      HTMLElement.prototype.getBoundingClientRect = originalGbr
+      if (descW) Object.defineProperty(HTMLElement.prototype, 'offsetWidth', descW)
+      else delete (HTMLElement.prototype as { offsetWidth?: number }).offsetWidth
+      if (descH) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', descH)
+      else delete (HTMLElement.prototype as { offsetHeight?: number }).offsetHeight
+    }
   })
 })

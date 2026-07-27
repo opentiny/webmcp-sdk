@@ -326,12 +326,12 @@ export class ControlFab {
   private applyPos(el: HTMLElement): void {
     const saved = readPos()
     const pos = saved ?? defaultPos()
-    el.style.left = `${pos.left}px`
-    el.style.top = `${pos.top}px`
     el.style.right = 'auto'
     el.style.bottom = 'auto'
-    const rect = el.getBoundingClientRect()
-    const clamped = clampPos(pos.left, pos.top, rect.width || 40, rect.height || 36)
+    // 先量尺寸再一次性 clamp+写入，避免「先贴边再 getBoundingClientRect」时尺寸失真导致二次夹紧偏移
+    const width = el.offsetWidth || 40
+    const height = el.offsetHeight || 36
+    const clamped = clampPos(pos.left, pos.top, width, height)
     el.style.left = `${clamped.left}px`
     el.style.top = `${clamped.top}px`
   }
@@ -339,8 +339,11 @@ export class ControlFab {
   private persistCurrentPos(): void {
     const el = this.root || this.mini
     if (!el) return
-    const rect = el.getBoundingClientRect()
-    writePos({ left: rect.left, top: rect.top })
+    // 与拖拽落盘一致：持久化 fixed 的 style 偏移，避免 getBoundingClientRect 在滚动/缩放下与 left/top 不一致
+    writePos({
+      left: parseFloat(el.style.left) || 0,
+      top: parseFloat(el.style.top) || 0,
+    })
   }
 
   private bindPointer(
