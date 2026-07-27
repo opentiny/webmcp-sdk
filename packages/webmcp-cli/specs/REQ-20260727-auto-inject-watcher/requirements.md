@@ -28,7 +28,7 @@
 ## 用户故事
 
 1. 作为开发者，我希望用 CLI 打开浏览器后，在地址栏进任意站点也能看到 WebMCP 浮钮，无需再执行 state/run。
-   - 验收：启动浏览器并打开新 http(s) 页后数秒内出现 `#webmcp-cli-control-fab`（或迷你入口）。
+   - 验收：启动浏览器并打开新 http(s) 页后数秒内出现 `#opentiny-dom-inspect-fab`（或迷你入口）。
 
 ## 完成定义
 

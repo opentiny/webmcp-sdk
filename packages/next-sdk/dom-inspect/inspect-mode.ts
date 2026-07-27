@@ -1,6 +1,6 @@
 import { ControlFab } from './control-fab'
 import { InspectOverlay } from './overlay'
-import { INSPECT_UI_ATTR } from './types'
+import { DOM_INSPECT_UI_ATTR, type InspectAssistOptions } from './types'
 
 function isMacPlatform(): boolean {
   return (
@@ -9,13 +9,24 @@ function isMacPlatform(): boolean {
   )
 }
 
+function resolveOptions(options?: InspectAssistOptions): Required<
+  Pick<InspectAssistOptions, 'brandLabel' | 'showFab'>
+> &
+  Pick<InspectAssistOptions, 'onCopied'> {
+  return {
+    brandLabel: options?.brandLabel ?? 'Inspect',
+    showFab: options?.showFab ?? true,
+    onCopied: options?.onCopied,
+  }
+}
+
 /**
  * 检视模式控制器：
- * - 主入口：常驻浮钮（标识受控 + 切换检视）
+ * - 主入口：常驻浮钮（可选）
  * - 次要：Cmd/Ctrl+Shift+C；Esc 仅退出检视（浮钮保留）
  *
- * 注意：pointerdown 上的 preventDefault 会取消后续 click，
- * 因此选中/复制必须在 pointerup 完成，不能依赖 click。
+ * 注意：选中/复制在 pointerup 完成（pointerdown preventDefault 可能取消后续 click）。
+ * 但 <a> 等默认导航挂在 click 上，仍须单独在 capture 阶段拦截 click/auxclick。
  */
 export class InspectModeController {
   private active = false
@@ -27,25 +38,54 @@ export class InspectModeController {
   private boundPointerDown = (e: PointerEvent) => this.onPointerDown(e)
   private boundMouseDown = (e: MouseEvent) => this.onMouseDown(e)
   private boundPointerUp = (e: PointerEvent) => this.onPointerUp(e)
+  /** 链接/按钮默认动作在 click 上触发；必须单独拦截，仅拦 pointer/mouse down 不够 */
+  private boundClick = (e: MouseEvent) => this.onClick(e)
+  private boundAuxClick = (e: MouseEvent) => this.onClick(e)
   private installed = false
+  private options = resolveOptions()
   /** pointerdown 起点，用于区分点击与轻微抖动 */
   private pressX = 0
   private pressY = 0
 
   /** 安装浮钮 + 快捷键（幂等） */
-  install(): void {
+  install(options?: InspectAssistOptions): void {
+    this.options = resolveOptions(options)
+    this.overlay.setCopyOptions({ onCopied: this.options.onCopied })
+    this.fab.setOptions({ brandLabel: this.options.brandLabel })
+
     if (this.installed) {
-      this.fab.mount(() => this.toggle())
-      this.fab.sync(this.active)
+      if (this.options.showFab) {
+        this.fab.mount(() => this.toggle())
+        this.fab.sync(this.active)
+      } else {
+        this.fab.unmount()
+      }
       return
     }
+
     this.installed = true
-    this.fab.mount(() => this.toggle())
+    if (this.options.showFab) {
+      this.fab.mount(() => this.toggle())
+      this.fab.sync(this.active)
+    }
     window.addEventListener('keydown', this.boundKeyDown, true)
+  }
+
+  /** 拆除浮钮、快捷键与检视态 */
+  destroy(): void {
+    this.exit()
+    if (!this.installed) return
+    this.installed = false
+    window.removeEventListener('keydown', this.boundKeyDown, true)
+    this.fab.unmount()
   }
 
   isActive(): boolean {
     return this.active
+  }
+
+  isInstalled(): boolean {
+    return this.installed
   }
 
   enter(): void {
@@ -59,6 +99,8 @@ export class InspectModeController {
     window.addEventListener('pointerdown', this.boundPointerDown, true)
     window.addEventListener('mousedown', this.boundMouseDown, true)
     window.addEventListener('pointerup', this.boundPointerUp, true)
+    window.addEventListener('click', this.boundClick, true)
+    window.addEventListener('auxclick', this.boundAuxClick, true)
   }
 
   exit(): void {
@@ -71,6 +113,8 @@ export class InspectModeController {
     window.removeEventListener('pointerdown', this.boundPointerDown, true)
     window.removeEventListener('mousedown', this.boundMouseDown, true)
     window.removeEventListener('pointerup', this.boundPointerUp, true)
+    window.removeEventListener('click', this.boundClick, true)
+    window.removeEventListener('auxclick', this.boundAuxClick, true)
   }
 
   toggle(): void {
@@ -96,7 +140,7 @@ export class InspectModeController {
   private resolveTarget(x: number, y: number): Element | null {
     const stack = document.elementsFromPoint(x, y)
     for (const el of stack) {
-      if (el.hasAttribute?.(INSPECT_UI_ATTR) || el.closest?.(`[${INSPECT_UI_ATTR}]`)) {
+      if (el.hasAttribute?.(DOM_INSPECT_UI_ATTR) || el.closest?.(`[${DOM_INSPECT_UI_ATTR}]`)) {
         continue
       }
       if (el === document.documentElement || el === document.body) continue
@@ -146,15 +190,13 @@ export class InspectModeController {
     if (!el) return
     void this.overlay.copyElement(el)
   }
-}
 
-let singleton: InspectModeController | null = null
-
-export function getInspectModeController(): InspectModeController {
-  if (!singleton) singleton = new InspectModeController()
-  return singleton
-}
-
-export function initElementInspect(): void {
-  getInspectModeController().install()
+  /** 阻止 <a>/按钮等在检视态下的默认导航或激活 */
+  private onClick(e: MouseEvent): void {
+    if (!this.active) return
+    if (this.overlay.isUiTarget(e.target)) return
+    e.preventDefault()
+    e.stopPropagation()
+    e.stopImmediatePropagation()
+  }
 }

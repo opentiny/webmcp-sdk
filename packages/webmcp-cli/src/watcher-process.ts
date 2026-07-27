@@ -74,7 +74,7 @@ export function clearWatcherPid(): void {
 }
 
 /**
- * 幂等拉起后台 inject watcher。
+ * 幂等拉起后台 inject watcher（已在运行则复用，避免 Windows 上反复杀进程导致 CDP 挂死）。
  * - WEBMCP_NO_WATCHER=1：禁用
  * - WEBMCP_WATCHER_CHILD=1：当前进程已是 watcher，禁止递归
  */
@@ -84,20 +84,24 @@ export function ensureInjectWatcher(): void {
 
   const existing = readWatcherPid()
   if (existing && isProcessAlive(existing)) {
-    // 每次 CLI 连接时重启 watcher，确保注入逻辑与 bin 版本一致（修复新标签 chrome://newtab 等）
-    try {
-      process.kill(existing, 'SIGTERM')
-    } catch {
-      /* ignore */
-    }
-    clearWatcherPid()
-  } else if (existing) {
-    clearWatcherPid()
+    return
   }
+  if (existing) clearWatcherPid()
 
   const binPath = path.resolve(__dirname, 'bin.js')
   if (!fs.existsSync(binPath)) {
     console.warn(pc.yellow(`inject watcher: 未找到 ${binPath}，跳过自动注入守护进程`))
+    return
+  }
+
+  // inject-bundle 未就绪时不要拉起 watcher，否则子进程立刻失败且污染状态
+  const injectBundle = path.resolve(__dirname, 'inject-bundle.js')
+  if (!fs.existsSync(injectBundle)) {
+    console.warn(
+      pc.yellow(
+        `inject watcher: 缺少 ${injectBundle}，跳过守护进程。请先执行 pnpm build 或 pnpm build:inject`
+      )
+    )
     return
   }
 
@@ -127,6 +131,7 @@ export function ensureInjectWatcher(): void {
           ? { WEBMCP_CDP_PORT: process.env.WEBMCP_CDP_PORT }
           : {}),
       },
+      windowsHide: true,
     })
     child.unref()
     if (typeof logFd === 'number') {

@@ -7,6 +7,7 @@ import http from 'http'
 import { fileURLToPath } from 'url'
 import puppeteer, { Browser, Page } from 'puppeteer-core'
 import { ensureInjectWatcher } from './watcher-process'
+import { readInjectBundleOrThrow } from './inject-bundle-path'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -335,7 +336,6 @@ export async function connectBrowser(): Promise<Browser> {
     try {
       const browser = await connectPuppeteer(existingUrl)
       console.log(pc.green(`connectBrowser: 成功连接 ${existingUrl}`))
-      ensureInjectWatcher()
       return browser
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
@@ -362,7 +362,6 @@ export async function connectBrowser(): Promise<Browser> {
     console.log(pc.yellow(`connectBrowser: 浏览器已启动，正在连接 ${launchedUrl}...`))
     const browser = await connectPuppeteer(launchedUrl)
     console.log(pc.green(`connectBrowser: 成功连接 ${launchedUrl}`))
-    ensureInjectWatcher()
     return browser
   } catch {
     throw new Error(`无法连接到浏览器（${launchedUrl}），请检查 Chrome/Edge 是否已安装。`)
@@ -525,12 +524,13 @@ async function injectWebMCPPolyfillAndTools(page: Page) {
   if (!polyfillReady) {
     console.log(pc.cyan('当前页面尚未注入 WebMCP 环境，正在执行自动注入...'))
 
-    const injectScriptPath = path.resolve(__dirname, 'inject-bundle.js')
-    if (!fs.existsSync(injectScriptPath)) {
-      throw new Error(`Cannot find inject-bundle.js at ${injectScriptPath}. Please ensure you run 'pnpm build:inject' first.`)
+    let scriptContent: string
+    try {
+      scriptContent = readInjectBundleOrThrow()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err)
+      throw new Error(msg)
     }
-
-    const scriptContent = fs.readFileSync(injectScriptPath, 'utf-8')
 
     // 注入 WebMCP polyfill
     try {
@@ -549,24 +549,11 @@ async function injectWebMCPPolyfillAndTools(page: Page) {
     })
   }
 
-  // 同步当前页签的 Chrome target ID，供检视复制引用使用
-  await syncPageTabId(page)
-
   // 无论 polyfill 是否刚注入，都检查域名工具（工具内部有防重复 flag）
   await injectDomainTools(page)
-}
 
-/** 将 Chrome target UUID 写入页面，供 inspect 复制 webmcp-inspect:v1 tab=… */
-async function syncPageTabId(page: Page): Promise<void> {
-  try {
-    const tabId = await getPageTargetId(page)
-    await page.evaluate((id: string) => {
-      ;(window as any).__webmcpcli_tabid = id
-    }, tabId)
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err)
-    console.warn(pc.yellow(`写入 __webmcpcli_tabid 失败: ${msg}`))
-  }
+  // 注入成功后再拉起 watcher，避免 dist clean 窗口期子进程找不到 inject-bundle
+  ensureInjectWatcher()
 }
 
 function getToolsBundleName(hostname: string): string | null {

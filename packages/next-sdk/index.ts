@@ -93,3 +93,20 @@ export type { A11yConfig, ResolvedA11yConfig, A11yRoleRule, A11yMatcher, A11ySta
 export { buildA11yTree } from './page-tools/a11y/build'
 export { searchA11yTree } from './page-tools/a11y/search'
 export type { A11yTreeOptions, A11yTreeResult, SearchA11yTreeOptions, SearchA11yTreeResult, VNode, RefMap } from './page-tools/a11y/types'
+
+// Inspect Assist：点选区域复制 Cursor 元素卡片，辅助定位改样式/逻辑
+export {
+  enableInspectAssist,
+  disableInspectAssist,
+  buildElementMeta,
+  formatElementMetaText,
+  truncateHtml,
+  buildDomPath,
+} from './dom-inspect'
+export type {
+  InspectAssistOptions,
+  InspectAssistHandle,
+  ElementMeta,
+  ElementPosition,
+  ElementAttribute,
+} from './dom-inspect'

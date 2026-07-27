@@ -16,7 +16,7 @@ metadata:
 - 需要与网页交互（点击元素、填写表单、滚动页面）时。
 - 需要读取当前 DOM 结构并识别可交互元素时。
 - 在已注入领域专用工具的页面上操作时（例如 Excalidraw 绘图工具）。
-- 用户消息中粘贴了 `webmcp-inspect:v1 tab=… el=…` 检视引用，需要拉取 Cursor 同款元素元数据以修改源码时。
+- 用户消息中粘贴了 Cursor 同款元素元数据（含 `ELEMENT` / `PATH` / `INNER TEXT`），需要据此修改本地源码时。
 
 ## 安装
 
@@ -152,37 +152,19 @@ webmcp-cli run page-agent-tool '{"action": "executeJavascript", "script": "docum
 webmcp-cli run page-agent-tool '{"action": "browserState"}' -t <targetId>
 ```
 
-### 3.2 `inspect-element`（元素检视引用）
+### 3.2 元素检视（DOM 元数据粘贴）
 
-用户可在 `webmcp-cli` 打开的页面看到常驻 **「WebMCP」** 悬浮按钮（表示页面已受 CLI 控制；可拖动，点 × 可收起为迷你 **W**）。点击浮钮进入检视模式（文案变为 **「检视中」**），再点一次或按 **Esc** 退出检视。`Cmd/Ctrl+Shift+C` 为次要快捷键，与浮钮等效。
+用户可在 `webmcp-cli` 打开的页面看到常驻 **「WebMCP」** 悬浮按钮（可拖动；点 × 收起为迷你入口）。点击浮钮进入检视模式，再点一次或按 **Esc** 退出。
 
-点选元素后会**立即复制**检视引用到剪贴板（选中框标签显示「已复制」，右下角 toast 提示），引用格式：
+点选元素后会**立即把 Cursor 同款元素卡片元数据写入剪贴板**（无需再调任何 WebMCP 工具），分区包括 `ELEMENT` / `PATH` / `ATTRIBUTES` / `COMPUTED STYLES` / `POSITION & SIZE` / `INNER TEXT`。
 
-```text
-webmcp-inspect:v1 tab=<TAB_ID> el=<ELEMENT_ID>
-```
+当用户消息中出现上述内容（可夹杂「背景改成红色」等修改意见）时：
 
-当用户消息中出现上述引用（可夹杂自然语言修改意见，如「背景改成红色」）时：
+1. 直接根据 `PATH` / `ELEMENT` / `INNER TEXT` 定位源码中的对应节点。
+2. 按用户意见修改**本地项目源码**。
+3. **不要**再调用已移除的 `inspect-element`，也不要为此调用 `executeJavascript` 改 live 样式。
 
-1. **优先**用正则解析 `tab=` 与 `el=`（不要用 `page-agent-tool` 的 `#N` index 代替）。
-2. 调用：
-
-```bash
-webmcp-cli run inspect-element '{"elementId":"<ELEMENT_ID>"}' -t <TAB_ID>
-```
-
-3. 工具返回 Cursor 同款文本：
-
-```text
-DOM Path: div#app > ... > div.stat-card.purple
-Position: top=163px, left=606px, width=317px, height=139px
-HTML Element: <div class="stat-card purple">...</div>
-```
-
-4. 根据返回的 DOM Path / HTML Element 理解目标，再按用户意见修改**本地项目源码**。
-5. **不要**为此调用 `executeJavascript` 去改 live 样式；本工具只负责返回元数据。
-
-> 若返回「未找到 elementId」，说明页面已刷新或导航，请让用户重新检视并复制。
+> 该能力来自 `@opentiny/next-sdk` 的 `enableInspectAssist()`（Inspect Assist：点选定位区域以改样式/逻辑）；应用开发态也可直接引入使用。
 
 #### 3.1.1 Browser State：页面无障碍树格式说明
 

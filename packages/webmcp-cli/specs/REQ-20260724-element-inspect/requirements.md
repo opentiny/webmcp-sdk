@@ -1,4 +1,6 @@
-# Spec：元素检视（Cursor 式）
+# Spec：元素检视（Cursor 式）（已废弃）
+
+> **已废弃（2026-07-27）**：能力已迁移至 `@opentiny/next-sdk` 的 `enableInspectAssist`（见 `packages/next-sdk/specs/REQ-20260727-dom-inspect/`）。不再使用 `inspect-element` 工具与 `webmcp-inspect:v1` 协议；点选后直接复制 Cursor 元数据。
 
 ## 元信息
 

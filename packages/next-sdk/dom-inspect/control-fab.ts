@@ -1,22 +1,26 @@
-import { INSPECT_UI_ATTR } from './types'
+import { DOM_INSPECT_UI_ATTR } from './types'
 
-export const CONTROL_FAB_ID = 'webmcp-cli-control-fab'
-export const CONTROL_FAB_MINI_ID = 'webmcp-cli-control-fab-mini'
-const FAB_STYLE_ID = 'webmcp-cli-control-fab-style'
+export const CONTROL_FAB_ID = 'opentiny-dom-inspect-fab'
+export const CONTROL_FAB_MINI_ID = 'opentiny-dom-inspect-fab-mini'
+const FAB_STYLE_ID = 'opentiny-dom-inspect-fab-style'
 
-const IDLE_LABEL = 'WebMCP'
+const DEFAULT_BRAND_LABEL = 'Inspect'
 const ACTIVE_LABEL = '检视中'
-const POS_KEY = 'webmcp-cli-fab-pos'
-const CLOSED_KEY = 'webmcp-cli-fab-closed'
+const POS_KEY = 'opentiny-dom-inspect-pos'
+const CLOSED_KEY = 'opentiny-dom-inspect-closed'
 const DRAG_THRESHOLD = 5
 
 type FabPos = { left: number; top: number }
+
+export type ControlFabOptions = {
+  brandLabel?: string
+}
 
 function ensureFabStyles(): void {
   if (document.getElementById(FAB_STYLE_ID)) return
   const style = document.createElement('style')
   style.id = FAB_STYLE_ID
-  style.setAttribute(INSPECT_UI_ATTR, '')
+  style.setAttribute(DOM_INSPECT_UI_ATTR, '')
   style.textContent = `
     #${CONTROL_FAB_ID} {
       position: fixed;
@@ -39,7 +43,7 @@ function ensureFabStyles(): void {
       background: #2563eb;
       box-shadow: 0 8px 24px rgba(37, 99, 235, 0.45);
     }
-    #${CONTROL_FAB_ID} .webmcp-fab-main {
+    #${CONTROL_FAB_ID} .dom-inspect-fab-main {
       display: inline-flex;
       align-items: center;
       gap: 8px;
@@ -51,7 +55,7 @@ function ensureFabStyles(): void {
       cursor: inherit;
       padding: 6px 4px 6px 0;
     }
-    #${CONTROL_FAB_ID} .webmcp-fab-dot {
+    #${CONTROL_FAB_ID} .dom-inspect-fab-dot {
       width: 8px;
       height: 8px;
       border-radius: 50%;
@@ -59,12 +63,12 @@ function ensureFabStyles(): void {
       box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.25);
       flex-shrink: 0;
     }
-    #${CONTROL_FAB_ID}[data-inspecting="true"] .webmcp-fab-dot {
+    #${CONTROL_FAB_ID}[data-inspecting="true"] .dom-inspect-fab-dot {
       background: #fff;
       box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.28);
-      animation: webmcp-fab-pulse 1.2s ease-in-out infinite;
+      animation: opentiny-dom-inspect-fab-pulse 1.2s ease-in-out infinite;
     }
-    #${CONTROL_FAB_ID} .webmcp-fab-close {
+    #${CONTROL_FAB_ID} .dom-inspect-fab-close {
       width: 24px;
       height: 24px;
       margin-right: 2px;
@@ -78,7 +82,7 @@ function ensureFabStyles(): void {
       align-items: center;
       justify-content: center;
     }
-    #${CONTROL_FAB_ID} .webmcp-fab-close:hover {
+    #${CONTROL_FAB_ID} .dom-inspect-fab-close:hover {
       background: rgba(255, 255, 255, 0.14);
       color: #fff;
     }
@@ -100,7 +104,7 @@ function ensureFabStyles(): void {
     #${CONTROL_FAB_MINI_ID}[data-inspecting="true"] {
       background: #2563eb;
     }
-    @keyframes webmcp-fab-pulse {
+    @keyframes opentiny-dom-inspect-fab-pulse {
       0%, 100% { opacity: 1; }
       50% { opacity: 0.55; }
     }
@@ -162,7 +166,7 @@ function clampPos(left: number, top: number, width: number, height: number): Fab
 }
 
 /**
- * 可拖动、可关闭的控制浮钮：标识受控 + 切换检视。
+ * 可拖动、可关闭的控制浮钮：切换检视。
  * 关闭后留下迷你入口，可一键恢复。
  *
  * 点击与拖动统一走 pointerdown/move/up，避免 setPointerCapture / preventDefault 吞掉 click。
@@ -172,6 +176,13 @@ export class ControlFab {
   private mini: HTMLButtonElement | null = null
   private onToggle: (() => void) | null = null
   private inspecting = false
+  private brandLabel = DEFAULT_BRAND_LABEL
+
+  setOptions(options: ControlFabOptions = {}): void {
+    if (options.brandLabel !== undefined) {
+      this.brandLabel = options.brandLabel || DEFAULT_BRAND_LABEL
+    }
+  }
 
   mount(onToggle: () => void): void {
     this.onToggle = onToggle
@@ -183,26 +194,33 @@ export class ControlFab {
     this.showFab()
   }
 
+  unmount(): void {
+    this.hideFab()
+    this.hideMini()
+    this.onToggle = null
+    document.getElementById(FAB_STYLE_ID)?.remove()
+  }
+
   /** 同步检视态视觉 */
   sync(inspecting: boolean): void {
     this.inspecting = inspecting
     if (this.root) {
       this.root.dataset.inspecting = inspecting ? 'true' : 'false'
-      const label = this.root.querySelector('.webmcp-fab-label')
-      if (label) label.textContent = inspecting ? ACTIVE_LABEL : IDLE_LABEL
-      const main = this.root.querySelector('.webmcp-fab-main') as HTMLButtonElement | null
+      const label = this.root.querySelector('.dom-inspect-fab-label')
+      if (label) label.textContent = inspecting ? ACTIVE_LABEL : this.brandLabel
+      const main = this.root.querySelector('.dom-inspect-fab-main') as HTMLButtonElement | null
       if (main) {
         main.setAttribute('aria-pressed', inspecting ? 'true' : 'false')
         main.title = inspecting
           ? '检视中 · 点击退出（Esc 亦可）· 可拖动'
-          : 'WebMCP CLI 已注入 · 点击切换元素检视 · 可拖动'
+          : `${this.brandLabel} · 点击切换元素检视 · 可拖动`
       }
     }
     if (this.mini) {
       this.mini.dataset.inspecting = inspecting ? 'true' : 'false'
       this.mini.title = inspecting
-        ? '检视中 · 点击展开 WebMCP 浮钮'
-        : 'WebMCP CLI 已注入 · 点击展开浮钮'
+        ? '检视中 · 点击展开浮钮'
+        : `${this.brandLabel} · 点击展开浮钮`
     }
   }
 
@@ -223,6 +241,10 @@ export class ControlFab {
     }
   }
 
+  private idleInitial(): string {
+    return this.brandLabel.slice(0, 1).toUpperCase() || 'I'
+  }
+
   private showFab(): void {
     this.hideMini()
     writeClosed(false)
@@ -233,18 +255,18 @@ export class ControlFab {
     }
     const root = document.createElement('div')
     root.id = CONTROL_FAB_ID
-    root.setAttribute(INSPECT_UI_ATTR, '')
+    root.setAttribute(DOM_INSPECT_UI_ATTR, '')
     root.setAttribute('role', 'group')
     root.innerHTML = `
-      <button type="button" class="webmcp-fab-main" aria-pressed="false">
-        <span class="webmcp-fab-dot" aria-hidden="true"></span>
-        <span class="webmcp-fab-label">${IDLE_LABEL}</span>
+      <button type="button" class="dom-inspect-fab-main" aria-pressed="false">
+        <span class="dom-inspect-fab-dot" aria-hidden="true"></span>
+        <span class="dom-inspect-fab-label">${this.brandLabel}</span>
       </button>
-      <button type="button" class="webmcp-fab-close" aria-label="关闭浮钮" title="关闭">×</button>
+      <button type="button" class="dom-inspect-fab-close" aria-label="关闭浮钮" title="关闭">×</button>
     `
     this.bindPointer(root, {
       onActivate: (target) => {
-        if (target instanceof Element && target.closest('.webmcp-fab-close')) {
+        if (target instanceof Element && target.closest('.dom-inspect-fab-close')) {
           this.close()
           return
         }
@@ -270,9 +292,9 @@ export class ControlFab {
     const mini = document.createElement('button')
     mini.id = CONTROL_FAB_MINI_ID
     mini.type = 'button'
-    mini.setAttribute(INSPECT_UI_ATTR, '')
-    mini.textContent = 'W'
-    mini.title = 'WebMCP CLI 已注入 · 点击展开浮钮'
+    mini.setAttribute(DOM_INSPECT_UI_ATTR, '')
+    mini.textContent = this.idleInitial()
+    mini.title = `${this.brandLabel} · 点击展开浮钮`
     this.bindPointer(mini, {
       onActivate: () => {
         this.showFab()

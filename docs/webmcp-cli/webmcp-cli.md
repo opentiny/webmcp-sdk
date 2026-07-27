@@ -198,16 +198,17 @@ webmcp-cli run page-agent-tool '{"action": "click", "index": 18}'
 | **Esc** | 仅退出检视，浮钮仍保留 |
 | **Cmd/Ctrl+Shift+C** | 次要快捷键，与浮钮等效 |
 | Hover | 蓝色边框 + 标签（如 `div`） |
-| Click | 选中并**立即复制**引用；标签显示「已复制」，右下角 toast 提示 |
-| 剪贴板内容 | `webmcp-inspect:v1 tab=<TAB_ID> el=<ELEMENT_ID>` |
+| Click | 选中并**立即复制** Cursor 元数据；标签显示「已复制」，toast 提示 |
+| 剪贴板内容 | Cursor 元素卡片：`ELEMENT` / `PATH` / `ATTRIBUTES` / `COMPUTED STYLES` / `POSITION & SIZE` / `INNER TEXT` |
 
-将引用粘贴到外部 AI 对话框并附上修改意见后，AI 应调用：
+将上述内容粘贴到外部 AI 对话框并附上修改意见后，AI 应直接据此改**本地源码**（无需再调 `inspect-element`；该工具已移除）。
 
-```bash
-webmcp-cli run inspect-element '{"elementId":"webmcp-el-1"}' -t <TAB_ID>
+开发态也可在业务代码中直接使用：
+
+```ts
+import { enableInspectAssist } from '@opentiny/next-sdk'
+enableInspectAssist() // 或 enableInspectAssist({ brandLabel: 'WebMCP' })
 ```
-
-返回 Cursor 同款元数据（`DOM Path` / `Position` / `HTML Element`），供 AI 修改**源码**（不会改页面 live 样式）。
 
 ### 页面结构格式
 

@@ -1,22 +1,13 @@
-import fs from 'fs'
-import path from 'path'
-import { fileURLToPath } from 'url'
 import type { Browser, Page, Target } from 'puppeteer-core'
 import pc from 'picocolors'
 import { connectBrowser, injectIntoPage } from '../browser'
 import { clearWatcherPid, writeWatcherPid } from '../watcher-process'
-
-const __filename = fileURLToPath(import.meta.url)
-const __dirname = path.dirname(__filename)
+import { readInjectBundleOrThrow } from '../inject-bundle-path'
 
 const preparedPages = new WeakSet<Page>()
 
 function getInjectScript(): string {
-  const injectScriptPath = path.resolve(__dirname, 'inject-bundle.js')
-  if (!fs.existsSync(injectScriptPath)) {
-    throw new Error(`Cannot find inject-bundle.js at ${injectScriptPath}`)
-  }
-  return fs.readFileSync(injectScriptPath, 'utf-8')
+  return readInjectBundleOrThrow()
 }
 
 function sleep(ms: number): Promise<void> {

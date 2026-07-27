@@ -1,19 +1,22 @@
-import { formatInspectRef } from './clipboard-ref'
-import { registerElement } from './registry'
-import { INSPECT_UI_ATTR } from './types'
+import { buildElementMeta, formatElementMetaText } from './metadata'
+import { DOM_INSPECT_UI_ATTR, type ElementMeta } from './types'
 
-const BOX_ID = 'webmcp-inspect-box'
-const LABEL_ID = 'webmcp-inspect-label'
-const TOAST_ID = 'webmcp-inspect-toast'
-const STYLE_ID = 'webmcp-inspect-style'
+const BOX_ID = 'opentiny-dom-inspect-box'
+const LABEL_ID = 'opentiny-dom-inspect-label'
+const TOAST_ID = 'opentiny-dom-inspect-toast'
+const STYLE_ID = 'opentiny-dom-inspect-style'
 
 const ACCENT = '#3b82f6'
+
+export type OverlayCopyOptions = {
+  onCopied?: (text: string, meta: ElementMeta) => void
+}
 
 function ensureStyles(): void {
   if (document.getElementById(STYLE_ID)) return
   const style = document.createElement('style')
   style.id = STYLE_ID
-  style.setAttribute(INSPECT_UI_ATTR, '')
+  style.setAttribute(DOM_INSPECT_UI_ATTR, '')
   style.textContent = `
     #${BOX_ID} {
       position: fixed;
@@ -52,7 +55,7 @@ function ensureStyles(): void {
 }
 
 function markUi(el: HTMLElement): void {
-  el.setAttribute(INSPECT_UI_ATTR, '')
+  el.setAttribute(DOM_INSPECT_UI_ATTR, '')
 }
 
 export class InspectOverlay {
@@ -63,6 +66,11 @@ export class InspectOverlay {
   private labelResetTimer: ReturnType<typeof setTimeout> | null = null
   private selected: Element | null = null
   private hoverTarget: Element | null = null
+  private copyOptions: OverlayCopyOptions = {}
+
+  setCopyOptions(options: OverlayCopyOptions): void {
+    this.copyOptions = options
+  }
 
   mount(): void {
     ensureStyles()
@@ -98,7 +106,7 @@ export class InspectOverlay {
 
   isUiTarget(target: EventTarget | null): boolean {
     if (!(target instanceof Element)) return false
-    return !!target.closest(`[${INSPECT_UI_ATTR}]`)
+    return !!target.closest(`[${DOM_INSPECT_UI_ATTR}]`)
   }
 
   highlight(el: Element | null, selected: boolean): void {
@@ -120,7 +128,6 @@ export class InspectOverlay {
     })
 
     const tag = el.tagName.toLowerCase()
-    // 选中复制成功后的标签由 copyElement 短暂改写；hover 预览仍显示 tag
     if (!selected || this.label.dataset.copied !== '1') {
       this.label.textContent = tag
     }
@@ -145,24 +152,17 @@ export class InspectOverlay {
     this.hoverTarget = null
   }
 
-  /** 选中元素后立即复制检视引用，并在标签/浮层提示成功 */
+  /** 选中元素后复制 Cursor 格式元信息 */
   async copyElement(el: Element): Promise<void> {
     this.selected = el
     this.highlight(el, true)
-    const elementId = registerElement(el)
-    const tabId =
-      (typeof window !== 'undefined' &&
-        (window as Window & { __webmcpcli_tabid?: string }).__webmcpcli_tabid) ||
-      ''
-    if (!tabId) {
-      this.showToast('缺少 tabId，请通过 webmcp-cli 打开页面后重试')
-      return
-    }
-    const text = formatInspectRef(tabId, elementId)
+    const meta = buildElementMeta(el)
+    const text = formatElementMetaText(meta)
     const ok = await this.writeClipboard(text)
     if (ok) {
       this.flashCopiedLabel(el)
-      this.showToast('已复制元素引用')
+      this.showToast('已复制元素信息')
+      this.copyOptions.onCopied?.(text, meta)
     } else {
       this.showToast('复制失败')
     }
