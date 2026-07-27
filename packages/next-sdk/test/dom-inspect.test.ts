@@ -3,12 +3,13 @@
  *
  * DOM 检视纯逻辑与 FAB 挂载单测
  */
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   CONTROL_FAB_ID,
   CONTROL_FAB_MINI_ID,
   ControlFab,
   HTML_ELEMENT_MAX_CHARS,
+  InspectOverlay,
   buildDomPath,
   buildElementMeta,
   disableInspectAssist,
@@ -24,7 +25,7 @@ afterEach(() => {
   document.getElementById(CONTROL_FAB_ID)?.remove()
   document.getElementById(CONTROL_FAB_MINI_ID)?.remove()
   document.getElementById('opentiny-dom-inspect-fab-style')?.remove()
-  document.body.innerHTML = ''
+  if (document.body) document.body.innerHTML = ''
 })
 
 describe('dom-inspect truncateHtml', () => {
@@ -423,6 +424,57 @@ describe('dom-inspect enableInspectAssist FAB', () => {
       else delete (HTMLElement.prototype as { offsetWidth?: number }).offsetWidth
       if (descH) Object.defineProperty(HTMLElement.prototype, 'offsetHeight', descH)
       else delete (HTMLElement.prototype as { offsetHeight?: number }).offsetHeight
+    }
+  })
+})
+
+describe('dom-inspect clipboard fallback', () => {
+  it('复现：clipboard API 失败且 document.body 缺失时 fallback 抛错导致复制失败 —— 前置 writeText reject、body=null；步骤 copyElement；期望仍可复制且挂到 documentElement', async () => {
+    const el = document.createElement('div')
+    el.textContent = 'hi'
+    document.documentElement.appendChild(el)
+
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: {
+        writeText: async () => {
+          throw new Error('denied')
+        },
+      },
+    })
+
+    const exec = vi.fn(() => true)
+    const prevExec = document.execCommand
+    document.execCommand = exec as typeof document.execCommand
+
+    const realBody = document.body
+    Object.defineProperty(document, 'body', {
+      configurable: true,
+      get: () => null,
+    })
+
+    let copied = ''
+    const overlay = new InspectOverlay()
+    overlay.setCopyOptions({
+      onCopied: (text) => {
+        copied = text
+      },
+    })
+
+    try {
+      await overlay.copyElement(el)
+      expect(copied).toContain('ELEMENT')
+      expect(exec).toHaveBeenCalledWith('copy')
+      expect(document.documentElement.querySelector('textarea')).toBeNull()
+    } finally {
+      Object.defineProperty(document, 'body', {
+        configurable: true,
+        writable: true,
+        value: realBody,
+      })
+      document.execCommand = prevExec as typeof document.execCommand
+      el.remove()
+      overlay.unmount()
     }
   })
 })

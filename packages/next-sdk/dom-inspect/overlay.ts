@@ -195,7 +195,10 @@ export class InspectOverlay {
         ta.value = text
         ta.style.position = 'fixed'
         ta.style.left = '-9999px'
-        document.body.appendChild(ta)
+        // body 可能尚未就绪（极早脚本 / 非 HTML 文档）；退到 documentElement
+        const host = document.body ?? document.documentElement
+        if (!host) return false
+        host.appendChild(ta)
         ta.select()
         const ok = document.execCommand('copy')
         ta.remove()

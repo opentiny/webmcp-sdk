@@ -20,6 +20,7 @@ export {
   escapeIdent,
 } from './metadata'
 export { CONTROL_FAB_ID, CONTROL_FAB_MINI_ID, ControlFab } from './control-fab'
+export { InspectOverlay } from './overlay'
 export { DOM_INSPECT_UI_ATTR, HTML_ELEMENT_MAX_CHARS, COMPUTED_STYLE_KEYS } from './types'
 
 let singleton: InspectModeController | null = null

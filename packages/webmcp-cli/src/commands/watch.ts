@@ -7,6 +7,7 @@ import {
   writeWatcherPid,
 } from '../watcher-process'
 import { readInjectBundleOrThrow } from '../inject-bundle-path'
+import { ensureWatcherPageListeners } from '../watcher-page-listeners'
 
 const preparedPages = new WeakSet<Page>()
 
@@ -46,8 +47,12 @@ async function preparePage(page: Page, script: string): Promise<void> {
   if (!shouldPrepareWatcherUrl(url)) return
 
   try {
-    if (!preparedPages.has(page)) {
-      preparedPages.add(page)
+    const firstPrep = !preparedPages.has(page)
+    if (firstPrep) {
+      // 先占位并挂监听，再 await evaluateOnNewDocument（避免并发双挂）
+      ensureWatcherPageListeners(page, () => {
+        void safeInject(page)
+      }, preparedPages)
       try {
         await page.evaluateOnNewDocument(script)
       } catch (err: unknown) {
@@ -55,16 +60,6 @@ async function preparePage(page: Page, script: string): Promise<void> {
         const msg = err instanceof Error ? err.message : String(err)
         console.warn(pc.yellow(`watcher: evaluateOnNewDocument 失败 (${url}): ${msg}`))
       }
-      page.on('framenavigated', (frame) => {
-        if (frame !== page.mainFrame()) return
-        void safeInject(page)
-      })
-      page.on('domcontentloaded', () => {
-        void safeInject(page)
-      })
-      page.on('load', () => {
-        void safeInject(page)
-      })
     }
     await safeInject(page)
   } catch (err: unknown) {
