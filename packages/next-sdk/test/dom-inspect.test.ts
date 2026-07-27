@@ -204,6 +204,36 @@ describe('dom-inspect enableInspectAssist FAB', () => {
     expect(fab!.textContent).toContain('OpenTiny')
   })
 
+  it('复现：二次 enable showFab:false 后快捷键仍可切换检视 —— 前置含 FAB 并 enter；步骤再 enable({showFab:false}) 后派发 Cmd/Ctrl+Shift+C；期望已退出且快捷键无效', () => {
+    ControlFab.resetSessionStateForTests()
+    const handle = enableInspectAssist()
+    handle.enter()
+    expect(handle.isActive()).toBe(true)
+
+    enableInspectAssist({ showFab: false })
+    expect(document.getElementById(CONTROL_FAB_ID)).toBeNull()
+    expect(handle.isActive()).toBe(false)
+
+    const isMac =
+      /Mac|iPhone|iPad|iPod/i.test(navigator.platform || '') ||
+      /Mac OS/i.test(navigator.userAgent || '')
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'c',
+        metaKey: isMac,
+        ctrlKey: !isMac,
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      })
+    )
+    expect(handle.isActive()).toBe(false)
+
+    // 程序化 enter 仍可用（仅隐藏 FAB / 快捷键，不拆除能力）
+    handle.enter()
+    expect(handle.isActive()).toBe(true)
+  })
+
   it('disableInspectAssist 拆除 FAB', () => {
     ControlFab.resetSessionStateForTests()
     enableInspectAssist()

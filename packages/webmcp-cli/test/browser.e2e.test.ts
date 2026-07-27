@@ -133,7 +133,7 @@ describe('webmcp-cli browser e2e', () => {
     try {
       const pidFile = path.join(workspace, '.inject-watcher.pid')
       if (existsSync(pidFile)) {
-      const pid = Number.parseInt(readFileSync(pidFile, 'utf-8'), 10)
+        const pid = Number.parseInt(readFileSync(pidFile, 'utf-8'), 10)
         if (Number.isFinite(pid) && pid > 0) {
           try {
             process.kill(pid, 'SIGTERM')

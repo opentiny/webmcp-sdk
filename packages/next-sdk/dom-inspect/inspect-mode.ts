@@ -43,6 +43,7 @@ export class InspectModeController {
   private boundAuxClick = (e: MouseEvent) => this.onClick(e)
   private installed = false
   private destroyed = false
+  private hotkeysBound = false
   private options = resolveOptions()
   /** pointerdown 起点，用于区分点击与轻微抖动 */
   private pressX = 0
@@ -59,8 +60,11 @@ export class InspectModeController {
       if (this.options.showFab) {
         this.fab.mount(() => this.toggle())
         this.fab.sync(this.active)
+        this.bindHotkeys()
       } else {
         this.fab.unmount()
+        this.unbindHotkeys()
+        this.exit()
       }
       return
     }
@@ -69,8 +73,20 @@ export class InspectModeController {
     if (this.options.showFab) {
       this.fab.mount(() => this.toggle())
       this.fab.sync(this.active)
+      this.bindHotkeys()
     }
+  }
+
+  private bindHotkeys(): void {
+    if (this.hotkeysBound) return
     window.addEventListener('keydown', this.boundKeyDown, true)
+    this.hotkeysBound = true
+  }
+
+  private unbindHotkeys(): void {
+    if (!this.hotkeysBound) return
+    window.removeEventListener('keydown', this.boundKeyDown, true)
+    this.hotkeysBound = false
   }
 
   /** 拆除浮钮、快捷键与检视态；之后本实例方法均为安全空操作 */
@@ -79,7 +95,7 @@ export class InspectModeController {
     this.exit()
     if (this.installed) {
       this.installed = false
-      window.removeEventListener('keydown', this.boundKeyDown, true)
+      this.unbindHotkeys()
       this.fab.unmount()
     }
     this.destroyed = true
