@@ -180,17 +180,13 @@ export function buildElementMeta(el: Element): ElementMeta {
 }
 
 function formatNameValueBlock(entries: Array<[string, string]>): string[] {
-  const lines: string[] = []
-  for (const [name, value] of entries) {
-    lines.push(`${name}:`)
-    lines.push(value)
-  }
-  return lines
+  return entries.map(([name, value]) => `${name}: ${value}`)
 }
 
 /**
- * Cursor 元素卡片纯文本：
- * ELEMENT / PATH / ATTRIBUTES / COMPUTED STYLES / POSITION & SIZE / INNER TEXT
+ * 粘贴到外部 AI 对话框的元素卡片纯文本：
+ * 摘要 + ELEMENT / PATH / ATTRIBUTES / COMPUTED STYLES / POSITION & SIZE / INNER TEXT
+ * + 【】修改意见引导；键值对同一行以减少换行。
  */
 export function formatElementMetaText(meta: ElementMeta): string {
   const { position: p } = meta
@@ -206,6 +202,8 @@ export function formatElementMetaText(meta: ElementMeta): string {
   ])
 
   return [
+    `当前选中的元素是：${meta.element}`,
+    '',
     'ELEMENT',
     meta.element,
     'PATH',
@@ -218,5 +216,7 @@ export function formatElementMetaText(meta: ElementMeta): string {
     ...posLines,
     'INNER TEXT',
     meta.innerText,
+    '',
+    '可将修改意见填写到【】中：【】',
   ].join('\n')
 }

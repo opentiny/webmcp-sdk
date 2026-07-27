@@ -198,10 +198,10 @@ webmcp-cli run page-agent-tool '{"action": "click", "index": 18}'
 | **Esc** | 仅退出检视，浮钮仍保留 |
 | **Cmd/Ctrl+Shift+C** | 次要快捷键，与浮钮等效 |
 | Hover | 蓝色边框 + 标签（如 `div`） |
-| Click | 选中并**立即复制** Cursor 元数据；标签显示「已复制」，toast 提示 |
-| 剪贴板内容 | Cursor 元素卡片：`ELEMENT` / `PATH` / `ATTRIBUTES` / `COMPUTED STYLES` / `POSITION & SIZE` / `INNER TEXT` |
+| Click | 选中并**立即复制**元素元数据；标签显示「已复制」，toast 提示 |
+| 剪贴板内容 | 摘要「当前选中的元素是：…」+ `ELEMENT` / `PATH` / `ATTRIBUTES` / `COMPUTED STYLES` / `POSITION & SIZE` / `INNER TEXT`（键值同行）+「可将修改意见填写到【】中：【】」 |
 
-将上述内容粘贴到外部 AI 对话框并附上修改意见后，AI 应直接据此改**本地源码**（无需再调 `inspect-element`；该工具已移除）。
+将上述内容粘贴到外部 AI 对话框；可在末尾【】内填写修改意见（也可在对话中另行说明）。AI 应直接据此改**本地源码**（无需再调 `inspect-element`；该工具已移除）。
 
 开发态也可在业务代码中直接使用：
 

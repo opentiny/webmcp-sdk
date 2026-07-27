@@ -57,25 +57,32 @@ export interface InspectAssistHandle {
 }
 ```
 
-剪贴板文本分区（对齐 Cursor 元素卡片）：
+剪贴板文本面向粘贴到外部 AI 对话框（在 Cursor 分区基础上压缩换行并加摘要）：
 
 ```text
+当前选中的元素是：<div class="guide-box">
+
 ELEMENT
-<div class="tr-prompt medium prompt-item">
+<div class="guide-box">
 PATH
-div#app > … > div.tr-prompt medium prompt-item[3]
+div#app > … > div.guide-box
 ATTRIBUTES
-class:
-tr-prompt medium prompt-item
+class: guide-box
 COMPUTED STYLES
-color:
-…
+color: rgb(…)
 POSITION & SIZE
-top:
-…
+top: 403px
+left: 466.5px
+width: 1152px
+height: 251.4219px
 INNER TEXT
 …
+
+可将修改意见填写到【】中：【】
 ```
+
+- `ATTRIBUTES` / `COMPUTED STYLES` / `POSITION & SIZE`：键值同一行（`name: value`）
+- 首行摘要用 `ELEMENT` 开标签；末行引导用户在【】内写修改意见
 
 ## 依赖变更
 

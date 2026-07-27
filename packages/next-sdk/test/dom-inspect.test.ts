@@ -64,7 +64,7 @@ describe('dom-inspect Cursor 元素卡片格式', () => {
     }
   })
 
-  it('复现：剪贴板应对齐 Cursor ELEMENT/PATH/ATTRIBUTES/… 分区 —— 前置同 class 列表项；步骤 buildElementMeta+format；期望含分区标题、开标签、兄弟 [n]、INNER TEXT', () => {
+  it('复现：剪贴板键值分行过多不便粘贴 AI —— 前置同 class 列表项；步骤 buildElementMeta+format；期望摘要行、键值同行、【】修改意见引导', () => {
     document.body.innerHTML = `
       <div id="app">
         <div class="app-container">
@@ -100,18 +100,22 @@ describe('dom-inspect Cursor 元素卡片格式', () => {
     expect(meta.attributes.some((a) => a.name === 'class')).toBe(true)
     expect(meta.innerText).toContain('库存与销售')
 
-    expect(text.startsWith('ELEMENT\n')).toBe(true)
-    expect(text).toContain('ELEMENT\n<div class="tr-prompt medium prompt-item">')
+    expect(text.startsWith('当前选中的元素是：<div class="tr-prompt medium prompt-item">')).toBe(
+      true
+    )
+    expect(text).toContain('\nELEMENT\n<div class="tr-prompt medium prompt-item">')
     expect(text).toContain('\nPATH\n')
     expect(text).toContain('div.tr-prompt medium prompt-item[3]')
     expect(text).toContain('\nATTRIBUTES\n')
-    expect(text).toContain('class:\ntr-prompt medium prompt-item')
+    expect(text).toContain('class: tr-prompt medium prompt-item')
+    expect(text).not.toContain('class:\ntr-prompt')
     expect(text).toContain('\nCOMPUTED STYLES\n')
-    expect(text).toContain('color:')
+    expect(text).toMatch(/^color: /m)
     expect(text).toContain('\nPOSITION & SIZE\n')
-    expect(text).toContain('top:')
+    expect(text).toMatch(/^top: /m)
     expect(text).toContain('\nINNER TEXT\n')
     expect(text).toContain('库存与销售')
+    expect(text.trimEnd().endsWith('可将修改意见填写到【】中：【】')).toBe(true)
     expect(text).not.toContain('DOM Path:')
     expect(text).not.toContain('HTML Element:')
   })

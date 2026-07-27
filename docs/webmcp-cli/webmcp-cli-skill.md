@@ -30,7 +30,7 @@
 
 用户跟 AI 说"帮我搜一下 OpenTiny"，AI 读完说明书后知道要执行 `webmcp-cli tabs open "https://baidu.com"` 打开百度，然后用 `webmcp-cli run page-agent-tool` 在搜索框里输入文字、点搜索按钮。
 
-若用户在页面中通过 **WebMCP** 浮钮进入检视、点选元素后，剪贴板会直接得到 Cursor 元素卡片元数据（`ELEMENT` / `PATH` / `ATTRIBUTES` / …）；粘贴到对话并附修改意见时，AI 应据此改本地源码（不必再调工具）。
+若用户在页面中通过 **WebMCP** 浮钮进入检视、点选元素后，剪贴板会得到带摘要的元素卡片（`当前选中的元素是：…` + `ELEMENT` / `PATH` / …，末尾【】可填修改意见）；粘贴到对话后，AI 应据此改本地源码（不必再调工具）。
 
 **AI 全程在终端里执行命令来完成操作，无需额外的 API 对接。**
 

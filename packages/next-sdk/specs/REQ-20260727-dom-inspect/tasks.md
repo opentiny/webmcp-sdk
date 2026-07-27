@@ -14,3 +14,5 @@
 
 - [x] Task 5: webmcp-cli 改为 `enableInspectAssist({ brandLabel: 'WebMCP' })`，删除本地 element-inspect / inspect-element / 相关 e2e
 - [x] Task 6: 更新 Skill / docs
+- [x] Task 7: 剪贴板改为粘贴友好格式（键值同行、当前选中摘要、【】修改意见引导）
+  - 测试：更新 `formatElementMetaText` 断言
