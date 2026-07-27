@@ -201,7 +201,7 @@ export class ControlFab {
     document.getElementById(FAB_STYLE_ID)?.remove()
   }
 
-  /** 同步检视态视觉 */
+  /** 同步检视态视觉（含 brandLabel / 迷你入口首字母） */
   sync(inspecting: boolean): void {
     this.inspecting = inspecting
     if (this.root) {
@@ -218,6 +218,7 @@ export class ControlFab {
     }
     if (this.mini) {
       this.mini.dataset.inspecting = inspecting ? 'true' : 'false'
+      this.mini.textContent = this.idleInitial()
       this.mini.title = inspecting
         ? '检视中 · 点击展开浮钮'
         : `${this.brandLabel} · 点击展开浮钮`

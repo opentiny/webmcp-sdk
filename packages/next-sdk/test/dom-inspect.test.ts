@@ -6,6 +6,7 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   CONTROL_FAB_ID,
+  CONTROL_FAB_MINI_ID,
   ControlFab,
   HTML_ELEMENT_MAX_CHARS,
   buildDomPath,
@@ -21,7 +22,7 @@ afterEach(() => {
   disableInspectAssist()
   ControlFab.resetSessionStateForTests()
   document.getElementById(CONTROL_FAB_ID)?.remove()
-  document.getElementById('opentiny-dom-inspect-fab-mini')?.remove()
+  document.getElementById(CONTROL_FAB_MINI_ID)?.remove()
   document.getElementById('opentiny-dom-inspect-fab-style')?.remove()
   document.body.innerHTML = ''
 })
@@ -202,6 +203,36 @@ describe('dom-inspect enableInspectAssist FAB', () => {
     enableInspectAssist({ brandLabel: 'OpenTiny' })
     const fab = document.getElementById(CONTROL_FAB_ID)
     expect(fab!.textContent).toContain('OpenTiny')
+  })
+
+  it('复现：已挂载 idle FAB 再次 enable 换 brandLabel 文案不更新 —— 前置 enable({brandLabel:Old})；步骤再 enable({brandLabel:New})；期望浮钮文案为 New', () => {
+    ControlFab.resetSessionStateForTests()
+    enableInspectAssist({ brandLabel: 'Old' })
+    const fab = document.getElementById(CONTROL_FAB_ID)!
+    expect(fab.textContent).toContain('Old')
+
+    enableInspectAssist({ brandLabel: 'New' })
+    const updated = document.getElementById(CONTROL_FAB_ID)!
+    expect(updated.textContent).toContain('New')
+    expect(updated.textContent).not.toContain('Old')
+    expect(updated.querySelector('.dom-inspect-fab-main')?.getAttribute('title')).toContain('New')
+  })
+
+  it('复现：已收起迷你入口再次 enable 换 brandLabel 首字母不更新 —— 前置 enable(Old) 后点 ×；步骤再 enable(New)；期望迷你钮文案为 N', () => {
+    ControlFab.resetSessionStateForTests()
+    enableInspectAssist({ brandLabel: 'Old' })
+    const fab = document.getElementById(CONTROL_FAB_ID)!
+    fab.querySelector('.dom-inspect-fab-close')!.dispatchEvent(
+      new MouseEvent('click', { bubbles: true, cancelable: true })
+    )
+    const mini = document.getElementById(CONTROL_FAB_MINI_ID)!
+    expect(mini).toBeTruthy()
+    expect(mini.textContent).toBe('O')
+
+    enableInspectAssist({ brandLabel: 'New' })
+    const updatedMini = document.getElementById(CONTROL_FAB_MINI_ID)!
+    expect(updatedMini.textContent).toBe('N')
+    expect(updatedMini.title).toContain('New')
   })
 
   it('复现：二次 enable showFab:false 后快捷键仍可切换检视 —— 前置含 FAB 并 enter；步骤再 enable({showFab:false}) 后派发 Cmd/Ctrl+Shift+C；期望已退出且快捷键无效', () => {
