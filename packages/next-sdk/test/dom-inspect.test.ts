@@ -173,4 +173,31 @@ describe('dom-inspect enableInspectAssist FAB', () => {
     disableInspectAssist()
     expect(document.getElementById(CONTROL_FAB_ID)).toBeNull()
   })
+
+  it('复现：旧 handle.disable() 不应拆除后续 enable 的新实例 —— 前置 enable→disable→再 enable；步骤旧 handle.disable；期望新 FAB 仍在且新 handle 可用', () => {
+    ControlFab.resetSessionStateForTests()
+    const oldHandle = enableInspectAssist({ brandLabel: 'Old' })
+    oldHandle.disable()
+    expect(document.getElementById(CONTROL_FAB_ID)).toBeNull()
+
+    const nextHandle = enableInspectAssist({ brandLabel: 'New' })
+    expect(document.getElementById(CONTROL_FAB_ID)).toBeTruthy()
+    expect(document.getElementById(CONTROL_FAB_ID)!.textContent).toContain('New')
+
+    // 旧 handle 再 disable 不得误杀当前 singleton
+    oldHandle.disable()
+    expect(document.getElementById(CONTROL_FAB_ID)).toBeTruthy()
+    expect(nextHandle.isActive()).toBe(false)
+
+    nextHandle.enter()
+    expect(nextHandle.isActive()).toBe(true)
+    // 已销毁 handle 的 enter/isActive 应为安全空操作
+    expect(oldHandle.isActive()).toBe(false)
+    oldHandle.enter()
+    expect(oldHandle.isActive()).toBe(false)
+    expect(nextHandle.isActive()).toBe(true)
+
+    nextHandle.disable()
+    expect(document.getElementById(CONTROL_FAB_ID)).toBeNull()
+  })
 })

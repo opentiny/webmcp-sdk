@@ -31,7 +31,11 @@ function getController(): InspectModeController {
 
 function createHandle(ctrl: InspectModeController): InspectAssistHandle {
   return {
-    disable: () => disableInspectAssist(),
+    /** 仅拆除本 handle 绑定的 controller；若全局 singleton 已换新实例则不动 */
+    disable: () => {
+      ctrl.destroy()
+      if (singleton === ctrl) singleton = null
+    },
     isActive: () => ctrl.isActive(),
     enter: () => ctrl.enter(),
     exit: () => ctrl.exit(),

@@ -89,7 +89,7 @@ export class InspectOverlay {
   }
 
   unmount(): void {
-    this.hideToast()
+    this.hideInspectToast()
     if (this.labelResetTimer) {
       clearTimeout(this.labelResetTimer)
       this.labelResetTimer = null
@@ -161,10 +161,10 @@ export class InspectOverlay {
     const ok = await this.writeClipboard(text)
     if (ok) {
       this.flashCopiedLabel(el)
-      this.showToast('已复制元素信息')
+      this.showInspectToast('已复制元素信息')
       this.copyOptions.onCopied?.(text, meta)
     } else {
-      this.showToast('复制失败')
+      this.showInspectToast('复制失败')
     }
   }
 
@@ -206,7 +206,7 @@ export class InspectOverlay {
     }
   }
 
-  showToast(message: string): void {
+  showInspectToast(message: string): void {
     this.mount()
     if (!this.toastEl) {
       this.toastEl = document.createElement('div')
@@ -217,10 +217,10 @@ export class InspectOverlay {
     this.toastEl.textContent = message
     this.toastEl.style.display = 'block'
     if (this.toastTimer) clearTimeout(this.toastTimer)
-    this.toastTimer = setTimeout(() => this.hideToast(), 1600)
+    this.toastTimer = setTimeout(() => this.hideInspectToast(), 1600)
   }
 
-  private hideToast(): void {
+  private hideInspectToast(): void {
     if (this.toastEl) this.toastEl.style.display = 'none'
     if (this.toastTimer) {
       clearTimeout(this.toastTimer)

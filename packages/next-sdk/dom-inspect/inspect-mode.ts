@@ -42,6 +42,7 @@ export class InspectModeController {
   private boundClick = (e: MouseEvent) => this.onClick(e)
   private boundAuxClick = (e: MouseEvent) => this.onClick(e)
   private installed = false
+  private destroyed = false
   private options = resolveOptions()
   /** pointerdown 起点，用于区分点击与轻微抖动 */
   private pressX = 0
@@ -49,6 +50,7 @@ export class InspectModeController {
 
   /** 安装浮钮 + 快捷键（幂等） */
   install(options?: InspectAssistOptions): void {
+    if (this.destroyed) return
     this.options = resolveOptions(options)
     this.overlay.setCopyOptions({ onCopied: this.options.onCopied })
     this.fab.setOptions({ brandLabel: this.options.brandLabel })
@@ -71,13 +73,16 @@ export class InspectModeController {
     window.addEventListener('keydown', this.boundKeyDown, true)
   }
 
-  /** 拆除浮钮、快捷键与检视态 */
+  /** 拆除浮钮、快捷键与检视态；之后本实例方法均为安全空操作 */
   destroy(): void {
+    if (this.destroyed) return
     this.exit()
-    if (!this.installed) return
-    this.installed = false
-    window.removeEventListener('keydown', this.boundKeyDown, true)
-    this.fab.unmount()
+    if (this.installed) {
+      this.installed = false
+      window.removeEventListener('keydown', this.boundKeyDown, true)
+      this.fab.unmount()
+    }
+    this.destroyed = true
   }
 
   isActive(): boolean {
@@ -89,7 +94,7 @@ export class InspectModeController {
   }
 
   enter(): void {
-    if (this.active) return
+    if (this.destroyed || this.active) return
     this.active = true
     this.prevCursor = document.documentElement.style.cursor
     document.documentElement.style.cursor = 'crosshair'
@@ -118,6 +123,7 @@ export class InspectModeController {
   }
 
   toggle(): void {
+    if (this.destroyed) return
     if (this.active) this.exit()
     else this.enter()
   }
