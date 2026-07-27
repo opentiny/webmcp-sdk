@@ -15,8 +15,7 @@ describe('webmcp-cli build scripts', () => {
     }
     const build = pkg.scripts.build || ''
     // 不得只依赖 tsup onSuccess（失败曾仅 warn，且与后续脚本存在窗口期）
-    expect(build).toMatch(/tsup/)
-    expect(build).toMatch(/&&/)
-    expect(build).toMatch(/build:inject/)
+    // 断言有序串行：tsup 成功后再 build:inject（避免 token 散落在无关命令仍通过）
+    expect(build).toMatch(/tsup\s*&&[\s\S]*build:inject/)
   })
 })
