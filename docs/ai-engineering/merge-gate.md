@@ -12,10 +12,10 @@
 
 1. **类型**：PR 标题 `type(scope): subject` 优先（`fix`→bug，`feat`→feature，…）；标签兜底（`bug` / `enhancement` / `documentation` / `refactoring`，与 `labeler.yaml` 一致）。
 2. **Bug（fix）**：变更中须至少有一个含中文 **`复现：`** 的 `packages/*/test/**/*.{test,spec}.*`。
-3. **Feature（feat）**：变更中须至少有一个完整 `packages/*/specs/REQ-*/`（requirements/design/tasks）。琐碎改动打 label **`skip-spec`**。
+3. **Feature（feat）**：变更中须至少有一个完整 `packages/*/specs/REQ-*/`（requirements/design/tasks），并至少有一个 `packages/*/test/**/*.{test,spec}.*` 测试文件。琐碎改动打 label **`skip-spec`** 仅跳过 Spec 校验。
 4. **豁免**：label **`gate-bypass`** / **`emergency`**（维护者应急）。
 
-同一 PR 可以包含多个 Repro test 或 Spec 候选；只要变更中至少有一个可读取的有效 artifact 即可通过。
+同一 PR 可以包含多个测试或 Spec 候选；各类必需 artifact 只要至少有一个可读取的有效候选即可通过。
 
 本地预检：
 
@@ -27,7 +27,7 @@ node .github/scripts/pr-gate.mjs \
   --labels '[]' \
   --changed-files-file /tmp/changed.txt
 
-# Feature 琐碎豁免示例
+# Feature 琐碎 Spec 豁免示例（changed.txt 中仍须有测试文件）
 PR_LABELS='["skip-spec"]' SKIP_SPEC=true node .github/scripts/pr-gate.mjs \
   --title "feat(docs): typo" \
   --labels '["skip-spec"]' \
@@ -47,8 +47,8 @@ PR_LABELS='["skip-spec"]' SKIP_SPEC=true node .github/scripts/pr-gate.mjs \
 
 ## 豁免
 
-- Label `gate-bypass`：仅维护者应急，跳过 Spec/复现等 artifact 校验；须在 PR 写明原因。  
-- Label `skip-spec`：琐碎 Feature 跳过 Spec。  
+- Label `gate-bypass`：仅维护者应急，跳过 Spec/测试等 artifact 校验；须在 PR 写明原因。
+- Label `skip-spec`：琐碎 Feature 仅跳过 Spec，仍须包含测试文件。
 - 不提供「跳过全部测试」的默认开关。
 
 ## Draft PR

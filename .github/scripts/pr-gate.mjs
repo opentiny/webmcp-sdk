@@ -14,6 +14,7 @@ import path from 'node:path'
 import {
   REPRO_RE,
   collectReproCandidates,
+  collectTestCandidates,
   collectSpecCandidates,
   resolveArtifact,
   readChangedFilesList,
@@ -133,30 +134,40 @@ if (prType === 'bug') {
 
 if (prType === 'feature') {
   if (bypass) {
-    warn('GATE_BYPASS：跳过 Feature Spec artifact 校验')
-  } else if (skipSpec) {
-    warn('skip-spec：跳过 Feature Spec artifact 校验')
+    warn('GATE_BYPASS：跳过 Feature Spec / test artifact 校验')
   } else {
-    const candidates = collectSpecCandidates(changedFiles, { root })
-    const resolved = resolveArtifact({ candidates, kind: 'Spec' })
-    if ('error' in resolved) {
-      fail(resolved.error)
+    if (skipSpec) {
+      warn('skip-spec：跳过 Feature Spec artifact 校验')
     } else {
-      const spec = resolved.value
-      console.log(`::notice::Spec: ${spec}`)
-      const normalized = spec.replace(/^\.\//, '').replace(/\/$/, '')
-      if (normalized.startsWith('docs/') || /\/test\/specs\//.test(normalized)) {
-        fail('Spec 路径不得位于 docs/ 或 test/specs/；须为 packages/<pkg>/specs/REQ-*/')
-      } else if (!/^packages\/[^/]+\/specs\/REQ-[^/]+$/.test(normalized)) {
-        fail(`Spec 路径格式非法：${spec}`)
+      const candidates = collectSpecCandidates(changedFiles, { root })
+      const resolved = resolveArtifact({ candidates, kind: 'Spec' })
+      if ('error' in resolved) {
+        fail(resolved.error)
       } else {
-        const dir = resolveRepoPath(normalized)
-        for (const f of ['requirements.md', 'design.md', 'tasks.md']) {
-          if (!fs.existsSync(path.join(dir, f))) {
-            fail(`Spec 缺少文件：${normalized}/${f}`)
+        const spec = resolved.value
+        console.log(`::notice::Spec: ${spec}`)
+        const normalized = spec.replace(/^\.\//, '').replace(/\/$/, '')
+        if (normalized.startsWith('docs/') || /\/test\/specs\//.test(normalized)) {
+          fail('Spec 路径不得位于 docs/ 或 test/specs/；须为 packages/<pkg>/specs/REQ-*/')
+        } else if (!/^packages\/[^/]+\/specs\/REQ-[^/]+$/.test(normalized)) {
+          fail(`Spec 路径格式非法：${spec}`)
+        } else {
+          const dir = resolveRepoPath(normalized)
+          for (const f of ['requirements.md', 'design.md', 'tasks.md']) {
+            if (!fs.existsSync(path.join(dir, f))) {
+              fail(`Spec 缺少文件：${normalized}/${f}`)
+            }
           }
         }
       }
+    }
+
+    const testCandidates = collectTestCandidates(changedFiles, { root })
+    const resolvedTest = resolveArtifact({ candidates: testCandidates, kind: 'Feature test' })
+    if ('error' in resolvedTest) {
+      fail(resolvedTest.error)
+    } else {
+      console.log(`::notice::Feature test: ${resolvedTest.value}`)
     }
   }
 }
