@@ -79,20 +79,10 @@ describe('pr-gate auto artifact', () => {
     expect(got).toEqual(['packages/next-sdk/specs/REQ-20260724-pr-gate-auto-artifact'])
   })
 
-  it('resolveArtifact：唯一候选通过；多候选/零候选报错（不再依赖 Gate Fields）', () => {
+  it('resolveArtifact：至少一个候选通过，零候选报错（不再依赖 Gate Fields）', () => {
     expect(resolveArtifact({ candidates: ['packages/a/test/x.test.ts'], kind: 'Repro test' })).toEqual({
       value: 'packages/a/test/x.test.ts'
     })
-
-    const multi = resolveArtifact({
-      candidates: ['packages/a/test/x.test.ts', 'packages/b/test/y.test.ts'],
-      kind: 'Repro test'
-    })
-    expect('error' in multi).toBe(true)
-    if ('error' in multi) {
-      expect(multi.error).toContain('多个候选')
-      expect(multi.error).not.toContain('Gate Fields')
-    }
 
     const empty = resolveArtifact({ candidates: [], kind: 'Spec' })
     expect('error' in empty).toBe(true)
@@ -107,5 +97,22 @@ describe('pr-gate auto artifact', () => {
         kind: 'Repro test'
       })
     ).toEqual({ value: 'packages/a/test/x.test.ts', inferred: false })
+  })
+
+  it('复现：Repro test 与 Spec 存在多个有效候选时均通过', () => {
+    expect(resolveArtifact({
+      candidates: ['packages/a/test/x.test.ts', 'packages/b/test/y.test.ts'],
+      kind: 'Repro test'
+    })).toEqual({ value: 'packages/a/test/x.test.ts' })
+
+    expect(
+      resolveArtifact({
+        candidates: [
+          'packages/a/specs/REQ-1-one',
+          'packages/b/specs/REQ-2-two'
+        ],
+        kind: 'Spec'
+      })
+    ).toEqual({ value: 'packages/a/specs/REQ-1-one' })
   })
 })

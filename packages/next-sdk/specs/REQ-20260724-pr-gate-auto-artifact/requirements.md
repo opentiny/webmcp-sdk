@@ -12,9 +12,9 @@ Gate Fields / PR Type 勾选对开发者重复劳动。仓库已有约定式标�
 
 ## 目标用户 / 场景
 
-- 开 `fix(...):` PR：变更含唯一「复现：」测试即可过门禁，无需勾选/填路径
-- 开 `feat(...):` PR：变更含唯一完整 Spec 即可；琐碎用 label `skip-spec`
-- 多候选：失败并列路径，用收敛变更或 `gate-bypass` 处理
+- 开 `fix(...):` PR：变更含至少一个「复现：」测试即可过门禁，无需勾选/填路径
+- 开 `feat(...):` PR：变更含至少一个完整 Spec 即可；琐碎用 label `skip-spec`
+- 多候选：只要候选中存在可读取的有效 artifact 即可通过
 
 ## 范围
 
@@ -33,10 +33,10 @@ Gate Fields / PR Type 勾选对开发者重复劳动。仓库已有约定式标�
 
 ## 用户故事与验收标准
 
-1. `fix:` + 变更唯一含「复现：」测试 → OK，无需 body 勾选
-2. `feat:` + 变更唯一 Spec → OK
+1. `fix:` + 变更至少一个含「复现：」测试 → OK，无需 body 勾选
+2. `feat:` + 变更至少一个完整 Spec → OK
 3. `feat:` + label `skip-spec` → 跳过 Spec 校验
-4. 多候选 → fail 并列出路径（不再要求 Gate Fields 手填）
+4. 多个有效 Repro test 或 Spec 候选 → OK，不要求收敛为一个
 5. 标题无法识别且无唯一标签 → fail，提示改标题或打标签
 6. 无约定式标题且 `bug`+`documentation` 等冲突标签 → fail（任一顺序），不得择一绕过 Repro/Spec
 7. `gate-bypass:pending` 等非精确 label → 不触发豁免

@@ -11,3 +11,5 @@
     - `pnpm -F @opentiny/next-sdk exec vitest run test/page-tools/pr-gate-auto-artifact.test.ts`
     - `pnpm -F @opentiny/next-sdk test`
     - `pnpm -F @opentiny/next-sdk build`
+- [x] Task 6: 放宽 artifact 候选数量限制，Repro test / Spec 至少一个有效候选即通过
+- [x] Task 7: 增加多候选回归测试并同步门禁文档

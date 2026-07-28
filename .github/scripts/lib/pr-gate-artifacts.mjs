@@ -212,21 +212,14 @@ export function collectSpecCandidates(changedFiles, opts) {
  * @returns {{ value: string } | { error: string }}
  */
 export function resolveArtifact({ candidates, kind }) {
-  if (candidates.length === 1) {
+  if (candidates.length > 0) {
     return { value: candidates[0] }
-  }
-  if (candidates.length > 1) {
-    return {
-      error:
-        `${kind}：本 PR 变更中有多个候选，请只保留本次相关的一个，或打 label gate-bypass：\n` +
-        candidates.map((c) => `  - ${c}`).join('\n')
-    }
   }
   return {
     error:
       kind === 'Repro test'
-        ? 'Bug fix（fix:）须在本 PR 变更中包含唯一含中文「复现：」的测试文件：packages/<pkg>/test/**/*.{test,spec}.*'
-        : 'Feature（feat:）须在本 PR 变更中包含唯一完整 Spec 目录：packages/<pkg>/specs/REQ-*/（含 requirements/design/tasks）；琐碎改动可打 label skip-spec'
+        ? 'Bug fix（fix:）须在本 PR 变更中包含至少一个含中文「复现：」的测试文件：packages/<pkg>/test/**/*.{test,spec}.*'
+        : 'Feature（feat:）须在本 PR 变更中包含至少一个完整 Spec 目录：packages/<pkg>/specs/REQ-*/（含 requirements/design/tasks）；琐碎改动可打 label skip-spec'
   }
 }
 

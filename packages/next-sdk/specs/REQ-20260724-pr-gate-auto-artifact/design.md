@@ -2,7 +2,7 @@
 
 ## 方案概述
 
-类型推断：`inferPrType(title, labels)` — 先解析约定式标题的 type，再映射 label（与 `.github/labeler.yaml` 对齐）。Artifact：仅 `collectReproCandidates` / `collectSpecCandidates` + `resolveArtifact`（无手填）。模板只保留行为说明与 breaking change。
+类型推断：`inferPrType(title, labels)` — 先解析约定式标题的 type，再映射 label（与 `.github/labeler.yaml` 对齐）。Artifact：仅 `collectReproCandidates` / `collectSpecCandidates` + `resolveArtifact`（无手填）；候选数至少为一个即通过，多候选不报错。模板只保留行为说明与 breaking change。
 
 ## 类型映射
 
@@ -37,4 +37,4 @@ Labels 由 workflow 以 JSON 数组传入，解析时不按冒号切分。
 
 ## 测试策略
 
-vitest 覆盖 `inferPrType` / `resolveArtifact`；脚本级冒烟用临时 title + changed-files。
+vitest 覆盖 `inferPrType` / `resolveArtifact`，包括 Repro test 与 Spec 多候选通过；脚本级冒烟用临时 title + changed-files。

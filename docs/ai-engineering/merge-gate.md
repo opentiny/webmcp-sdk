@@ -11,11 +11,11 @@
 ### 类型与 artifact（无需 Gate Fields）
 
 1. **类型**：PR 标题 `type(scope): subject` 优先（`fix`→bug，`feat`→feature，…）；标签兜底（`bug` / `enhancement` / `documentation` / `refactoring`，与 `labeler.yaml` 一致）。
-2. **Bug（fix）**：变更中须有且仅有一个含中文 **`复现：`** 的 `packages/*/test/**/*.{test,spec}.*`。
-3. **Feature（feat）**：变更中须有且仅有一个完整 `packages/*/specs/REQ-*/`（requirements/design/tasks）。琐碎改动打 label **`skip-spec`**。
+2. **Bug（fix）**：变更中须至少有一个含中文 **`复现：`** 的 `packages/*/test/**/*.{test,spec}.*`。
+3. **Feature（feat）**：变更中须至少有一个完整 `packages/*/specs/REQ-*/`（requirements/design/tasks）。琐碎改动打 label **`skip-spec`**。
 4. **豁免**：label **`gate-bypass`** / **`emergency`**（维护者应急）。
 
-多候选时门禁失败并列出路径：请收敛到一个 artifact，或打豁免标签。
+同一 PR 可以包含多个 Repro test 或 Spec 候选；只要变更中至少有一个可读取的有效 artifact 即可通过。
 
 本地预检：
 
