@@ -114,7 +114,9 @@ export function setupPageAgentToolEventBridge(
       const targetParent = Array.from(refMap.values()).find((el) => el.contains(target)) as HTMLElement | undefined
 
       if (targetParent) {
-        window.dispatchEvent(new CustomEvent(PAGE_AGENT_USER_DO_ACTION_EVENT, { detail }))
+        window.dispatchEvent(
+          new CustomEvent(PAGE_AGENT_USER_DO_ACTION_EVENT, { detail: { action: 'click', dom: targetParent } })
+        )
       }
     }
   }
