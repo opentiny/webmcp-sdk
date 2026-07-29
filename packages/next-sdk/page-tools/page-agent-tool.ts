@@ -242,7 +242,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
     }
   })
 
-  setupPageAgentToolEventBridge(executePageAgentTool, pageController)
+  setupPageAgentToolEventBridge(executePageAgentTool, pageController, actionContext)
 
   return {
     showMask: () => pageController.showMask(),

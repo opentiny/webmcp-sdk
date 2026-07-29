@@ -61,9 +61,9 @@ const injectStyles = `
 .webmcp-page-agent-wrapper {
 	position: fixed;
 	inset: 0;
-	z-index: 2147483641;
 	/* 确保在所有元素之上，除了 panel */
-	cursor: wait;
+	z-index: 2147483641;
+	/*cursor: wait;*/
 	overflow: hidden;
 
 	display: none;
@@ -143,7 +143,7 @@ export class SimulatorMask extends EventTarget {
       this.wrapper.style.pointerEvents = 'none'
     }
     const disablePassThroughListener = () => {
-      this.wrapper.style.pointerEvents = 'auto'
+      this.wrapper.style.pointerEvents = 'none' // 不接收鼠标事件，允许透传下去给目标元素
     }
 
     window.addEventListener('PageAgent::MovePointerTo', movePointerToListener)
