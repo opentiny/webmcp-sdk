@@ -107,13 +107,13 @@ pnpm dev / pnpm dev:remoter / pnpm dev:wxt / pnpm wiki
 1. 在主责包创建 `packages/<pkg>/specs/REQ-YYYYMMDD-slug/`
 2. 填写 `requirements.md` / `design.md` / `tasks.md`（模板在 `docs/ai-engineering/templates/`）
 3. `tasks.md` 须列出测试任务；实现落在 `test/`
-4. PR 标题使用 `feat(...):`；变更中须包含该 Spec 目录（门禁自动校验）。琐碎豁免可打 label `skip-spec`
+4. PR 标题使用 `feat(...):`；变更中须包含该 Spec 目录和至少一个 `packages/<pkg>/test/**/*.{test,spec}.*` 测试文件（门禁自动校验）。琐碎豁免 label `skip-spec` 仅跳过 Spec，不跳过测试
 
 琐碎改动可豁免 Spec，须在 PR / 对用户回复中说明豁免理由（或打 `skip-spec`）。
 
 ## 合入门禁
 
-PR 须通过 **Merge Ready**（约定式标题定类型 + 变更文件含复现测试/Spec + 测试）。  
+PR 须通过 **Merge Ready**（约定式标题定类型 + Bug 含复现测试 / Feature 含 Spec 与测试）。
 本地：`pnpm pr-gate` 或 `node .github/scripts/pr-gate.mjs --help`。  
 说明：`docs/ai-engineering/merge-gate.md`。
 
@@ -132,4 +132,4 @@ PR 须通过 **Merge Ready**（约定式标题定类型 + 变更文件含复现�
 ## 再次强调（完成定义）
 
 1. **未先分流、未建 Spec 就开始写非琐碎 Feature 代码** → 视为违规，应停下来补 Spec（或取得用户豁免）。
-2. 未附中文复现测试的 Bugfix、未附包内 Spec 的非琐碎 Feature、未过 `Merge Ready` 的 PR，**视为未完成，不得合入**。
+2. 未附中文复现测试的 Bugfix、未同时附包内 Spec 与测试文件的非琐碎 Feature、未过 `Merge Ready` 的 PR，**视为未完成，不得合入**。

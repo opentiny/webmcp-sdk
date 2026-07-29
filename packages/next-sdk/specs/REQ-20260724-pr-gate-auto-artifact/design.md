@@ -2,7 +2,7 @@
 
 ## 方案概述
 
-类型推断：`inferPrType(title, labels)` — 先解析约定式标题的 type，再映射 label（与 `.github/labeler.yaml` 对齐）。Artifact：仅 `collectReproCandidates` / `collectSpecCandidates` + `resolveArtifact`（无手填）。模板只保留行为说明与 breaking change。
+类型推断：`inferPrType(title, labels)` — 先解析约定式标题的 type，再映射 label（与 `.github/labeler.yaml` 对齐）。Artifact：仅从 changed files 收集 Repro test / Feature test / Spec，再由 `resolveArtifact` 校验至少存在一个有效候选，多候选不报错。Feature 同时校验 Spec 与测试文件。
 
 ## 类型映射
 
@@ -25,16 +25,16 @@
 ## 豁免
 
 - `gate-bypass` / `emergency`：跳过 artifact（须与 label **完整精确匹配**；`gate-bypass:pending` 之类不生效）
-- `skip-spec`：仅 Feature 跳过 Spec（同样精确匹配）
+- `skip-spec`：仅 Feature 跳过 Spec（同样精确匹配），不跳过 Feature test
 
 Labels 由 workflow 以 JSON 数组传入，解析时不按冒号切分。
 
 ## 模块影响
 
-- `.github/scripts/lib/pr-gate-artifacts.mjs`：新增 `inferPrType`；`resolveArtifact` 去掉 explicit
+- `.github/scripts/lib/pr-gate-artifacts.mjs`：`collectTestCandidates` 收集变更中的测试文件；`resolveArtifact` 统一校验至少一个候选
 - `.github/scripts/pr-gate.mjs`、`pr-gate.yml`、`PULL_REQUEST_TEMPLATE.md`
 - `docs/ai-engineering/merge-gate.md`、`AGENTS.md`、`CONTRIBUTING.zh-CN.md`
 
 ## 测试策略
 
-vitest 覆盖 `inferPrType` / `resolveArtifact`；脚本级冒烟用临时 title + changed-files。
+vitest 覆盖 `inferPrType` / `resolveArtifact` / `collectTestCandidates`，包括 Feature 同时具备 Spec 与测试、缺测试失败，以及多候选通过；脚本级冒烟用临时 title + changed-files。
