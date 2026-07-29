@@ -6,6 +6,7 @@ import {
   isInjectableUrl,
   isProcessAlive,
   readWatcherPid,
+  shouldHandoffWatcherForForeground,
   shouldPrepareWatcherUrl,
   writeWatcherPid,
 } from '../src/watcher-process'
@@ -34,6 +35,12 @@ describe('watcher-process helpers', () => {
     expect(isProcessAlive(process.pid)).toBe(true)
     expect(isProcessAlive(-1)).toBe(false)
     expect(isProcessAlive(0)).toBe(false)
+  })
+
+  it('复现：Windows watcher 长连接导致第二次 CLI 连接超时 —— 前置 watcher 已连接；步骤前台命令连接；期望先交接 CDP 连接', () => {
+    expect(shouldHandoffWatcherForForeground('win32')).toBe(true)
+    expect(shouldHandoffWatcherForForeground('darwin')).toBe(false)
+    expect(shouldHandoffWatcherForForeground('linux')).toBe(false)
   })
 
   it('复现：clearWatcherPid 仅删除仍指向 expectedPid 的文件 —— 前置写入 pidA；步骤 clearWatcherPid(pidB)；期望文件仍在', () => {

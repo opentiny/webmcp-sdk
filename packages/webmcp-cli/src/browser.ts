@@ -6,7 +6,11 @@ import path from 'path'
 import http from 'http'
 import { fileURLToPath } from 'url'
 import puppeteer, { Browser, Page } from 'puppeteer-core'
-import { ensureInjectWatcher } from './watcher-process'
+import {
+  beginForegroundBrowserConnection,
+  endForegroundBrowserConnection,
+  ensureInjectWatcher,
+} from './watcher-process'
 import { readInjectBundleOrThrow } from './inject-bundle-path'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -317,7 +321,7 @@ async function startBrowserInBackground(): Promise<string> {
   throw new Error(`${browserInfo.name} 启动超时，无法连接到 CDP 端口。`)
 }
 
-export async function connectBrowser(): Promise<Browser> {
+async function connectBrowserInternal(): Promise<Browser> {
   const userDataDir = getWorkspaceDir()
   const cdpPort = getCdpPort()
 
@@ -368,6 +372,17 @@ export async function connectBrowser(): Promise<Browser> {
   }
 }
 
+export async function connectBrowser(): Promise<Browser> {
+  try {
+    await beginForegroundBrowserConnection()
+    const browser = await connectBrowserInternal()
+    browser.once('disconnected', endForegroundBrowserConnection)
+    return browser
+  } catch (error) {
+    endForegroundBrowserConnection()
+    throw error
+  }
+}
 
 /**
  * 通过 CDP 获取页面真实的 Chrome target ID（UUID 格式字符串）

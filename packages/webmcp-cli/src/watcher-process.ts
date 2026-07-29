@@ -8,6 +8,7 @@ import { resolveInjectBundlePath } from './inject-bundle-path'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
+let foregroundBrowserConnectionActive = false
 
 function getWorkspaceDir(): string {
   return process.env.WEBMCP_WORKSPACE || path.join(os.homedir(), '.webmcp_chrome_profile')
@@ -77,13 +78,67 @@ export function clearWatcherPid(expectedPid?: number): void {
 }
 
 /**
- * 幂等拉起后台 inject watcher（已在运行则复用，避免 Windows 上反复杀进程导致 CDP 挂死）。
+ * Windows 的 Chromium/Puppeteer 在多个进程同时持有浏览器级 CDP 连接时，
+ * 后加入的客户端可能卡在初始化阶段。前台 CLI 命令因此需要先接管连接，
+ * 命令断开后再恢复 watcher；macOS/Linux 保持长期并行连接。
+ */
+export function shouldHandoffWatcherForForeground(
+  platform: NodeJS.Platform = process.platform
+): boolean {
+  return platform === 'win32'
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/** Windows 前台命令连接前，让长期占用 CDP 的 watcher 退出。 */
+export async function beginForegroundBrowserConnection(): Promise<void> {
+  if (!shouldHandoffWatcherForForeground()) return
+  if (process.env.WEBMCP_WATCHER_CHILD === '1') return
+
+  foregroundBrowserConnectionActive = true
+  const watcherPid = readWatcherPid()
+  if (!watcherPid || watcherPid === process.pid) return
+  if (!isProcessAlive(watcherPid)) {
+    clearWatcherPid(watcherPid)
+    return
+  }
+
+  try {
+    process.kill(watcherPid, 'SIGTERM')
+  } catch {
+    clearWatcherPid(watcherPid)
+    return
+  }
+
+  // 等待进程退出、CDP socket 释放后再让 Puppeteer 建立前台连接。
+  for (let i = 0; i < 40 && isProcessAlive(watcherPid); i++) {
+    await sleep(50)
+  }
+  if (isProcessAlive(watcherPid)) {
+    throw new Error(`Windows CDP 连接交接失败：inject watcher (pid ${watcherPid}) 未能退出。`)
+  }
+  clearWatcherPid(watcherPid)
+}
+
+/** 前台命令断开 CDP 后恢复 watcher。 */
+export function endForegroundBrowserConnection(): void {
+  if (!foregroundBrowserConnectionActive) return
+  foregroundBrowserConnectionActive = false
+  ensureInjectWatcher()
+}
+
+/**
+ * 幂等拉起后台 inject watcher（已在运行则复用）。
+ * Windows 前台命令通过 begin/endForegroundBrowserConnection 独占并交接 CDP 连接。
  * - WEBMCP_NO_WATCHER=1：禁用
  * - WEBMCP_WATCHER_CHILD=1：当前进程已是 watcher，禁止递归
  */
 export function ensureInjectWatcher(): void {
   if (process.env.WEBMCP_NO_WATCHER === '1') return
   if (process.env.WEBMCP_WATCHER_CHILD === '1') return
+  if (foregroundBrowserConnectionActive) return
 
   const existing = readWatcherPid()
   if (existing && isProcessAlive(existing)) {
