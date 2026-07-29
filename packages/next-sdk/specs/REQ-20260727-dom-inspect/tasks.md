@@ -16,3 +16,7 @@
 - [x] Task 6: 验证 `doc-ai` 生产构建成功，且不会自动启用检视浮钮
 - [x] Task 7: 剪贴板改为粘贴友好格式（键值同行、当前选中摘要、`请输入修改意见：` 引导）
   - 测试：更新 `formatElementMetaText` 断言
+- [x] Task 8: 处理评审反馈
+  - `showFab: false` 时保留快捷键
+  - `truncateHtml` 支持 `maxChars <= 3`
+  - 测试结束后还原视口与 clipboard 全局属性

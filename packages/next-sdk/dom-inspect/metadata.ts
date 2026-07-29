@@ -11,9 +11,12 @@ const SKIP_ATTRS = new Set([DOM_INSPECT_UI_ATTR, 'data-cursor-element-id'])
 
 /** 截断过长文本，中间省略 */
 export function truncateHtml(html: string, maxChars = HTML_ELEMENT_MAX_CHARS): string {
-  if (html.length <= maxChars) return html
-  const head = Math.floor((maxChars - 3) * 0.6)
-  const tail = maxChars - 3 - head
+  if (maxChars === Infinity) return html
+  const limit = Number.isFinite(maxChars) ? Math.max(0, Math.floor(maxChars)) : 0
+  if (html.length <= limit) return html
+  if (limit <= 3) return '.'.repeat(limit)
+  const head = Math.floor((limit - 3) * 0.6)
+  const tail = limit - 3 - head
   return `${html.slice(0, head)}...${html.slice(-tail)}`
 }
 

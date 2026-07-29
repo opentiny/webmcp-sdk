@@ -19,9 +19,25 @@ import {
   truncateHtml,
 } from '../dom-inspect'
 
+const originalInnerWidth = Object.getOwnPropertyDescriptor(window, 'innerWidth')
+const originalInnerHeight = Object.getOwnPropertyDescriptor(window, 'innerHeight')
+const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard')
+
+function restoreOwnProperty(
+  target: object,
+  key: PropertyKey,
+  descriptor: PropertyDescriptor | undefined
+): void {
+  if (descriptor) Object.defineProperty(target, key, descriptor)
+  else Reflect.deleteProperty(target, key)
+}
+
 afterEach(() => {
   disableInspectAssist()
   ControlFab.resetSessionStateForTests()
+  restoreOwnProperty(window, 'innerWidth', originalInnerWidth)
+  restoreOwnProperty(window, 'innerHeight', originalInnerHeight)
+  restoreOwnProperty(navigator, 'clipboard', originalClipboard)
   document.getElementById(CONTROL_FAB_ID)?.remove()
   document.getElementById(CONTROL_FAB_MINI_ID)?.remove()
   document.getElementById('opentiny-dom-inspect-fab-style')?.remove()
@@ -38,6 +54,13 @@ describe('dom-inspect truncateHtml', () => {
     const out = truncateHtml(long)
     expect(out.length).toBeLessThanOrEqual(HTML_ELEMENT_MAX_CHARS)
     expect(out.includes('...')).toBe(true)
+  })
+
+  it('复现：truncateHtml 的 maxChars 小于省略号长度时不得超出上限', () => {
+    expect(truncateHtml('abcdef', 3)).toBe('...')
+    expect(truncateHtml('abcdef', 2)).toBe('..')
+    expect(truncateHtml('abcdef', 1)).toBe('.')
+    expect(truncateHtml('abcdef', 0)).toBe('')
   })
 })
 
@@ -240,7 +263,7 @@ describe('dom-inspect enableInspectAssist FAB', () => {
     expect(updatedMini.title).toContain('New')
   })
 
-  it('复现：二次 enable showFab:false 后快捷键仍可切换检视 —— 前置含 FAB 并 enter；步骤再 enable({showFab:false}) 后派发 Cmd/Ctrl+Shift+C；期望已退出且快捷键无效', () => {
+  it('复现：showFab:false 时快捷键不应失效 —— 前置含 FAB 并 enter；步骤再 enable({showFab:false}) 后派发 Cmd/Ctrl+Shift+C；期望隐藏 FAB、退出后快捷键可重新进入', () => {
     ControlFab.resetSessionStateForTests()
     const handle = enableInspectAssist()
     handle.enter()
@@ -263,10 +286,6 @@ describe('dom-inspect enableInspectAssist FAB', () => {
         cancelable: true,
       })
     )
-    expect(handle.isActive()).toBe(false)
-
-    // 程序化 enter 仍可用（仅隐藏 FAB / 快捷键，不拆除能力）
-    handle.enter()
     expect(handle.isActive()).toBe(true)
   })
 

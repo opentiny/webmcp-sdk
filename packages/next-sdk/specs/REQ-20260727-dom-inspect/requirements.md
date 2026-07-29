@@ -15,7 +15,7 @@
 ### In Scope
 
 - next-sdk 导出 `enableInspectAssist` / `disableInspectAssist` 等 API
-- 浮钮切换检视；点击复制 `DOM Path` / `Position` / `HTML Element`
+- 浮钮或快捷键切换检视；点击复制包含 `ELEMENT` / `PATH` / `ATTRIBUTES` / `COMPUTED STYLES` / `POSITION & SIZE` / `INNER TEXT` 的元素卡片
 - `doc-ai` 在开发态启用 Inspect Assist
 - 测试与文档
 

@@ -60,20 +60,19 @@ export class InspectModeController {
       if (this.options.showFab) {
         this.fab.mount(() => this.toggle())
         this.fab.sync(this.active)
-        this.bindHotkeys()
       } else {
         this.fab.unmount()
-        this.unbindHotkeys()
         this.exit()
       }
+      this.bindHotkeys()
       return
     }
 
     this.installed = true
+    this.bindHotkeys()
     if (this.options.showFab) {
       this.fab.mount(() => this.toggle())
       this.fab.sync(this.active)
-      this.bindHotkeys()
     }
   }
 
