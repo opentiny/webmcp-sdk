@@ -20,8 +20,10 @@
 
 | Spec | 说明 |
 |---|---|
+| [`REQ-20260729-user-do-action`](./REQ-20260729-user-do-action/) | mask 展示期间用户 trusted 点击 → `page-agent-user-do-action` 事件 |
 | [`REQ-20260727-dom-inspect`](./REQ-20260727-dom-inspect/) | Inspect Assist（`enableInspectAssist`）：点选复制 Cursor 元素卡片，辅助改样式/逻辑 |
 | [`REQ-20260724-pr-gate-auto-artifact`](./REQ-20260724-pr-gate-auto-artifact/) | PR Gate：标题定类型 + 变更文件自动校验 Repro/Spec |
+| [`REQ-20260722-mask-handle`](./REQ-20260722-mask-handle/) | `registerPageAgentTool` 返回 `{ showMask, hideMask }` |
 | [`REQ-20260722-console-layout-landmark`](./REQ-20260722-console-layout-landmark/) | `A11yRoleRule.name` + 云控制台 ti-app-layout landmark |
 | [`REQ-20260721-remove-set-navigator`](./REQ-20260721-remove-set-navigator/) | 移除 setNavigator / routeConfig |
 
