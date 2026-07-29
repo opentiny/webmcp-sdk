@@ -3,7 +3,7 @@
  * 依赖：已执行 `pnpm build`；CI 可通过 CHROME_PATH 指定 Chrome。
  */
 import { spawnSync } from 'child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'fs'
+import { existsSync, mkdtempSync, rmSync } from 'fs'
 import http from 'http'
 import os from 'os'
 import path from 'path'
@@ -129,22 +129,6 @@ describe('webmcp-cli browser e2e', () => {
   })
 
   afterAll(async () => {
-    // 结束后台 inject watcher（若已拉起）
-    try {
-      const pidFile = path.join(workspace, '.inject-watcher.pid')
-      if (existsSync(pidFile)) {
-        const pid = Number.parseInt(readFileSync(pidFile, 'utf-8'), 10)
-        if (Number.isFinite(pid) && pid > 0) {
-          try {
-            process.kill(pid, 'SIGTERM')
-          } catch {
-            /* ignore */
-          }
-        }
-      }
-    } catch {
-      /* ignore */
-    }
     const bases = [
       `http://127.0.0.1:${cdpPort}`,
       `http://[::1]:${cdpPort}`,
@@ -218,47 +202,6 @@ describe('webmcp-cli browser e2e', () => {
       expect(fab!.text).toContain('WebMCP')
       expect(fab!.inspecting).toBe('false')
     } finally {
-      browser?.disconnect()
-    }
-  })
-
-  it('复现：手动新开页未跑 run/state 时 FAB 不出现 —— 前置已有 watcher；步骤新开页；期望自动注入浮钮', async () => {
-    expect(openedTabId).toBeTruthy()
-    await new Promise((r) => setTimeout(r, 2000))
-    const bases = [
-      `http://127.0.0.1:${cdpPort}`,
-      `http://[::1]:${cdpPort}`,
-      `http://localhost:${cdpPort}`,
-    ]
-    let browser: Awaited<ReturnType<typeof puppeteer.connect>> | null = null
-    for (const base of bases) {
-      try {
-        browser = await puppeteer.connect({ browserURL: base, defaultViewport: null })
-        break
-      } catch {
-        // try next
-      }
-    }
-    expect(browser).toBeTruthy()
-    let page: Awaited<ReturnType<NonNullable<typeof browser>['newPage']>> | null = null
-    try {
-      page = await browser!.newPage()
-      await new Promise((r) => setTimeout(r, 500))
-      await page.goto('https://example.com/', { waitUntil: 'domcontentloaded' })
-      let found = false
-      for (let i = 0; i < 40; i++) {
-        found = await page.evaluate(() => {
-          return !!(
-            document.getElementById('opentiny-dom-inspect-fab') ||
-            document.getElementById('opentiny-dom-inspect-fab-mini')
-          )
-        })
-        if (found) break
-        await new Promise((r) => setTimeout(r, 250))
-      }
-      expect(found).toBe(true)
-    } finally {
-      await page?.close().catch(() => {})
       browser?.disconnect()
     }
   })

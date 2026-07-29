@@ -6,11 +6,6 @@ import path from 'path'
 import http from 'http'
 import { fileURLToPath } from 'url'
 import puppeteer, { Browser, Page } from 'puppeteer-core'
-import {
-  beginForegroundBrowserConnection,
-  endForegroundBrowserConnection,
-  ensureInjectWatcher,
-} from './watcher-process'
 import { readInjectBundleOrThrow } from './inject-bundle-path'
 
 const __filename = fileURLToPath(import.meta.url)
@@ -321,7 +316,7 @@ async function startBrowserInBackground(): Promise<string> {
   throw new Error(`${browserInfo.name} 启动超时，无法连接到 CDP 端口。`)
 }
 
-async function connectBrowserInternal(): Promise<Browser> {
+export async function connectBrowser(): Promise<Browser> {
   const userDataDir = getWorkspaceDir()
   const cdpPort = getCdpPort()
 
@@ -369,18 +364,6 @@ async function connectBrowserInternal(): Promise<Browser> {
     return browser
   } catch {
     throw new Error(`无法连接到浏览器（${launchedUrl}），请检查 Chrome/Edge 是否已安装。`)
-  }
-}
-
-export async function connectBrowser(): Promise<Browser> {
-  try {
-    await beginForegroundBrowserConnection()
-    const browser = await connectBrowserInternal()
-    browser.once('disconnected', endForegroundBrowserConnection)
-    return browser
-  } catch (error) {
-    endForegroundBrowserConnection()
-    throw error
   }
 }
 
@@ -566,9 +549,6 @@ async function injectWebMCPPolyfillAndTools(page: Page) {
 
   // 无论 polyfill 是否刚注入，都检查域名工具（工具内部有防重复 flag）
   await injectDomainTools(page)
-
-  // 注入成功后再拉起 watcher，避免 dist clean 窗口期子进程找不到 inject-bundle
-  ensureInjectWatcher()
 }
 
 function getToolsBundleName(hostname: string): string | null {

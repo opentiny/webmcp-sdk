@@ -37,7 +37,7 @@ pnpm link --global
 
 ## 命令一览
 
-`webmcp-cli` 只有 5 个命令，很好记：
+`webmcp-cli` 只有 4 个命令，很好记：
 
 | 命令 | 干什么用的 | 例子 |
 | :--- | :--- | :--- |
@@ -49,7 +49,6 @@ pnpm link --global
 | `state -t <tabid>` | 看指定标签页的情况 | `webmcp-cli state -t ABC123` |
 | `run <工具名> '<参数>'` | 让页面执行某个操作 | `webmcp-cli run page-agent-tool '{"action":"click","index":5}'` |
 | `clipboard <内容>` | 把内容复制到剪贴板 | `webmcp-cli clipboard "hello"` |
-| `watch` | 常驻监听页签并自动注入（一般由 CLI 自动拉起） | `webmcp-cli watch` |
 
 **全局参数**：`-w, --workspace <路径>` 指定浏览器用户数据目录（默认 `~/.webmcp_chrome_profile`）。好处是多次打开 Chrome 能共享 Cookie 和登录状态，不用重复登录。
 
@@ -188,7 +187,7 @@ webmcp-cli run page-agent-tool '{"action": "click", "index": 18}'
 
 浮钮支持**拖动**调整位置；点右侧 **×** 可关闭（收成迷你 **W** 入口，再点即可展开）。位置与关闭状态保存在当前页 `sessionStorage`。
 
-> 首次通过任意 `webmcp-cli` 命令连上浏览器后，会自动拉起后台 `watch` 进程：之后在该 Chrome 里**新开页签或导航**也会自动注入，不必再手动执行一次 `state`/`run` 才出现浮钮。可用 `WEBMCP_NO_WATCHER=1` 关闭此行为。**对应浏览器关闭后，watch 会随 CDP 断开自动退出**（并有探活兜底），不会无限空挂。
+> CLI 采用按需注入，不启动常驻 watcher。手动新开页签或导航后，请执行一次 `state`、`run` 或相关 `tabs` 命令，为当前页面注入 WebMCP 环境和检视浮钮。
 
 | 操作 | 说明 |
 | :--- | :--- |

@@ -18,7 +18,6 @@ import {
   tabsBackCommand,
   tabsForwardCommand
 } from './commands/tabs'
-import { watchCommand } from './commands/watch'
 import packageJson from '../package.json'
 
 const program = new Command()
@@ -285,17 +284,6 @@ program
       console.log(JSON.stringify(result, null, 2))
     } catch (error: unknown) {
       handleCommandError(error, 'clipboard', args)
-    }
-  })
-
-program
-  .command('watch')
-  .description('后台监听页签打开/导航并自动注入 WebMCP（通常由 CLI 自动拉起，也可手动运行）')
-  .action(async () => {
-    try {
-      await watchCommand()
-    } catch (error: unknown) {
-      handleCommandError(error, 'watch')
     }
   })
 
