@@ -43,7 +43,7 @@
 1. **先分流再编码**：Bug → 复现测试；非琐碎 Feature → 先建 Spec；琐碎豁免须写明理由。判定清单见 `AGENTS.md`「必须建 Spec」。
 2. **就近**：Spec 在 `packages/<pkg>/specs/`，测试在 `packages/<pkg>/test/`，二者不要混放。
 3. **Bugfix**：PR 标题 `fix:`；变更中须含带「复现：」的测试；`pnpm test` 通过。关联 Issue **可选**（其它途径反馈的 bug 可不填）。
-4. **Feature**：PR 标题 `feat:`；变更中须含完整 Spec 目录（requirements/design/tasks）。琐碎改动打 label `skip-spec`。
+4. **Feature**：PR 标题 `feat:`；变更中须同时含完整 Spec 目录（requirements/design/tasks）和至少一个测试文件。琐碎改动可打 label `skip-spec`，但仍须包含测试。
 5. **Skills**：`pnpm install` 会执行 `skills:sync`；大 Skill 不进 Git。
 6. **合入**：须通过 GitHub Actions **Merge Ready**；维护者需配置 Branch Protection（见 [`docs/ai-engineering/merge-gate.md`](./docs/ai-engineering/merge-gate.md)）。
 

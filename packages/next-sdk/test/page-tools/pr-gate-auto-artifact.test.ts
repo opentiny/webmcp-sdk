@@ -1,8 +1,12 @@
 import { describe, it, expect } from 'vitest'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import {
   collectReproCandidates,
+  collectTestCandidates,
   collectSpecCandidates,
   resolveArtifact,
   resolveArtifactField,
@@ -69,6 +73,17 @@ describe('pr-gate auto artifact', () => {
     expect(got).toEqual(['packages/next-sdk/test/page-tools/pr-gate-repro.fixture.test.ts'])
   })
 
+  it('collectTestCandidates：收录变更中的测试文件，不要求「复现：」关键字', () => {
+    const files = [
+      'packages/next-sdk/test/dom-inspect.test.ts',
+      'packages/next-sdk/dom-inspect/index.ts',
+      'README.md'
+    ]
+    expect(collectTestCandidates(files, { root })).toEqual([
+      'packages/next-sdk/test/dom-inspect.test.ts'
+    ])
+  })
+
   it('collectSpecCandidates：完整 REQ 目录才入选', () => {
     const files = [
       'packages/next-sdk/specs/REQ-20260724-pr-gate-auto-artifact/requirements.md',
@@ -79,20 +94,10 @@ describe('pr-gate auto artifact', () => {
     expect(got).toEqual(['packages/next-sdk/specs/REQ-20260724-pr-gate-auto-artifact'])
   })
 
-  it('resolveArtifact：唯一候选通过；多候选/零候选报错（不再依赖 Gate Fields）', () => {
+  it('resolveArtifact：至少一个候选通过，零候选报错（不再依赖 Gate Fields）', () => {
     expect(resolveArtifact({ candidates: ['packages/a/test/x.test.ts'], kind: 'Repro test' })).toEqual({
       value: 'packages/a/test/x.test.ts'
     })
-
-    const multi = resolveArtifact({
-      candidates: ['packages/a/test/x.test.ts', 'packages/b/test/y.test.ts'],
-      kind: 'Repro test'
-    })
-    expect('error' in multi).toBe(true)
-    if ('error' in multi) {
-      expect(multi.error).toContain('多个候选')
-      expect(multi.error).not.toContain('Gate Fields')
-    }
 
     const empty = resolveArtifact({ candidates: [], kind: 'Spec' })
     expect('error' in empty).toBe(true)
@@ -107,5 +112,62 @@ describe('pr-gate auto artifact', () => {
         kind: 'Repro test'
       })
     ).toEqual({ value: 'packages/a/test/x.test.ts', inferred: false })
+  })
+
+  it('复现：Repro test 与 Spec 存在多个有效候选时均通过', () => {
+    expect(resolveArtifact({
+      candidates: ['packages/a/test/x.test.ts', 'packages/b/test/y.test.ts'],
+      kind: 'Repro test'
+    })).toEqual({ value: 'packages/a/test/x.test.ts' })
+
+    expect(
+      resolveArtifact({
+        candidates: [
+          'packages/a/specs/REQ-1-one',
+          'packages/b/specs/REQ-2-two'
+        ],
+        kind: 'Spec'
+      })
+    ).toEqual({ value: 'packages/a/specs/REQ-1-one' })
+  })
+
+  it('复现：feat 只有完整 Spec、没有变更测试文件时门禁失败', () => {
+    const dir = mkdtempSync(path.join(tmpdir(), 'pr-gate-feature-test-'))
+    const changedFiles = path.join(dir, 'changed.txt')
+    const specFiles = [
+      'packages/next-sdk/specs/REQ-20260724-pr-gate-auto-artifact/requirements.md',
+      'packages/next-sdk/specs/REQ-20260724-pr-gate-auto-artifact/design.md',
+      'packages/next-sdk/specs/REQ-20260724-pr-gate-auto-artifact/tasks.md'
+    ]
+    const testFile = 'packages/next-sdk/test/page-tools/pr-gate-auto-artifact.test.ts'
+    const runGate = (labels = '[]') =>
+      spawnSync(
+        process.execPath,
+        [
+          '.github/scripts/pr-gate.mjs',
+          '--title',
+          'feat(next-sdk): require feature tests',
+          '--labels',
+          labels,
+          '--changed-files-file',
+          changedFiles
+        ],
+        { cwd: root, encoding: 'utf8' }
+      )
+
+    try {
+      writeFileSync(changedFiles, specFiles.join('\n'))
+      const missingTest = runGate()
+      expect(missingTest.status).toBe(1)
+      expect(`${missingTest.stdout}${missingTest.stderr}`).toContain('至少一个测试文件')
+
+      writeFileSync(changedFiles, [...specFiles, testFile].join('\n'))
+      expect(runGate().status).toBe(0)
+
+      writeFileSync(changedFiles, testFile)
+      expect(runGate('["skip-spec"]').status).toBe(0)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
   })
 })

@@ -5,7 +5,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-export const REPRO_RE = /^packages\/[^/]+\/test\/.+\.(test|spec)\.(ts|js|tsx|jsx)$/
+export const TEST_FILE_RE = /^packages\/[^/]+\/test\/.+\.(test|spec)\.(ts|js|tsx|jsx)$/
+export const REPRO_RE = TEST_FILE_RE
 export const SPEC_DIR_RE = /^(packages\/[^/]+\/specs\/REQ-[^/]+)/
 
 /** 约定式标题 type → 门禁 prType */
@@ -179,6 +180,27 @@ export function collectReproCandidates(changedFiles, opts) {
 }
 
 /**
+ * 收集本 PR 变更中仍可读取的测试文件；Feature test 不要求「复现：」关键字。
+ * @param {string[]} changedFiles repo-relative paths
+ * @param {{ root: string, existsSync?: typeof fs.existsSync }} opts
+ * @returns {string[]}
+ */
+export function collectTestCandidates(changedFiles, opts) {
+  const root = opts.root
+  const existsSync = opts.existsSync || fs.existsSync
+  const out = []
+  const seen = new Set()
+
+  for (const raw of changedFiles) {
+    const file = normalizeRepoPath(raw)
+    if (!file || !TEST_FILE_RE.test(file) || seen.has(file)) continue
+    seen.add(file)
+    if (existsSync(path.join(root, file))) out.push(file)
+  }
+  return out
+}
+
+/**
  * @param {string[]} changedFiles
  * @param {{ root: string, existsSync?: typeof fs.existsSync }} opts
  * @returns {string[]} Spec 目录（无尾斜杠）
@@ -208,25 +230,20 @@ export function collectSpecCandidates(changedFiles, opts) {
 }
 
 /**
- * @param {{ candidates: string[], kind: 'Repro test' | 'Spec' }} args
+ * @param {{ candidates: string[], kind: 'Repro test' | 'Feature test' | 'Spec' }} args
  * @returns {{ value: string } | { error: string }}
  */
 export function resolveArtifact({ candidates, kind }) {
-  if (candidates.length === 1) {
+  if (candidates.length > 0) {
     return { value: candidates[0] }
-  }
-  if (candidates.length > 1) {
-    return {
-      error:
-        `${kind}：本 PR 变更中有多个候选，请只保留本次相关的一个，或打 label gate-bypass：\n` +
-        candidates.map((c) => `  - ${c}`).join('\n')
-    }
   }
   return {
     error:
       kind === 'Repro test'
-        ? 'Bug fix（fix:）须在本 PR 变更中包含唯一含中文「复现：」的测试文件：packages/<pkg>/test/**/*.{test,spec}.*'
-        : 'Feature（feat:）须在本 PR 变更中包含唯一完整 Spec 目录：packages/<pkg>/specs/REQ-*/（含 requirements/design/tasks）；琐碎改动可打 label skip-spec'
+        ? 'Bug fix（fix:）须在本 PR 变更中包含至少一个含中文「复现：」的测试文件：packages/<pkg>/test/**/*.{test,spec}.*'
+        : kind === 'Feature test'
+          ? 'Feature（feat:）须在本 PR 变更中包含至少一个测试文件：packages/<pkg>/test/**/*.{test,spec}.*'
+          : 'Feature（feat:）须在本 PR 变更中包含至少一个完整 Spec 目录：packages/<pkg>/specs/REQ-*/（含 requirements/design/tasks）；琐碎改动可打 label skip-spec'
   }
 }
 
