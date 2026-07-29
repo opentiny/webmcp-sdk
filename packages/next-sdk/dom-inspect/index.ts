@@ -1,5 +1,6 @@
 import { InspectModeController } from './inspect-mode'
 import type { InspectAssistHandle, InspectAssistOptions } from './types'
+import { isDomAvailable } from '../utils/env'
 
 export type {
   InspectAssistOptions,
@@ -50,11 +51,22 @@ function createHandle(ctrl: InspectModeController): InspectAssistHandle {
   }
 }
 
+function createNoopHandle(): InspectAssistHandle {
+  return {
+    disable: () => {},
+    isActive: () => false,
+    enter: () => {},
+    exit: () => {},
+    toggle: () => {},
+  }
+}
+
 /**
  * 启用 Inspect Assist：点选页面区域，复制 Cursor 元素卡片元数据，
  * 便于快速定位并修改对应样式 / 逻辑。
  */
 export function enableInspectAssist(options?: InspectAssistOptions): InspectAssistHandle {
+  if (!isDomAvailable()) return createNoopHandle()
   const ctrl = getController()
   ctrl.install(options)
   return createHandle(ctrl)

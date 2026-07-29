@@ -20,3 +20,4 @@
   - `showFab: false` 时保留快捷键
   - `truncateHtml` 支持 `maxChars <= 3`
   - 测试结束后还原视口与 clipboard 全局属性
+- [x] Task 9: 非浏览器环境调用 `enableInspectAssist` 时返回安全的 no-op handle
