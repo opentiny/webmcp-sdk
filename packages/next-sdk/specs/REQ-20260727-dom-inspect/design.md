@@ -4,6 +4,8 @@
 
 将 webmcp-cli `element-inspect` 的 UI/元信息能力剥离协议层，迁入 `@opentiny/next-sdk/dom-inspect`。点击复制走 `formatElementMetaText(buildElementMeta(el))`；用单例 `enableInspectAssist` / `disableInspectAssist` 管理生命周期。
 
+`doc-ai` 在入口中通过 `import.meta.env.DEV` 仅于开发态调用 `enableInspectAssist`，避免生产环境自动出现检视浮钮。
+
 ## 涉及模块 / 文件
 
 - `packages/next-sdk/dom-inspect/types.ts`
@@ -14,6 +16,7 @@
 - `packages/next-sdk/dom-inspect/index.ts`
 - `packages/next-sdk/index.ts`（导出）
 - `packages/next-sdk/test/dom-inspect.test.ts`
+- `packages/doc-ai/src/main.ts`（开发态示例集成）
 
 ## 核心数据结构 / 类型定义
 
