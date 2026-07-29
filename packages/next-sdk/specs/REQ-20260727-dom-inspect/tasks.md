@@ -14,5 +14,5 @@
 
 - [x] Task 5: `doc-ai` 在开发态调用 `enableInspectAssist({ brandLabel: 'Inspect' })`
 - [x] Task 6: 验证 `doc-ai` 生产构建成功，且不会自动启用检视浮钮
-- [x] Task 7: 剪贴板改为粘贴友好格式（键值同行、当前选中摘要、【】修改意见引导）
+- [x] Task 7: 剪贴板改为粘贴友好格式（键值同行、当前选中摘要、`请输入修改意见：` 引导）
   - 测试：更新 `formatElementMetaText` 断言

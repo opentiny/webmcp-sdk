@@ -81,11 +81,11 @@ height: 251.4219px
 INNER TEXT
 …
 
-可将修改意见填写到【】中：【】
+请输入修改意见：
 ```
 
 - `ATTRIBUTES` / `COMPUTED STYLES` / `POSITION & SIZE`：键值同一行（`name: value`）
-- 首行摘要用 `ELEMENT` 开标签；末行引导用户在【】内写修改意见
+- 首行摘要用 `ELEMENT` 开标签；末行使用 `请输入修改意见：` 引导用户补充需求
 
 ## 依赖变更
 

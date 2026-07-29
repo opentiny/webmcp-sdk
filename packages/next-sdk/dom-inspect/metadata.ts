@@ -186,7 +186,7 @@ function formatNameValueBlock(entries: Array<[string, string]>): string[] {
 /**
  * 粘贴到外部 AI 对话框的元素卡片纯文本：
  * 摘要 + ELEMENT / PATH / ATTRIBUTES / COMPUTED STYLES / POSITION & SIZE / INNER TEXT
- * + 【】修改意见引导；键值对同一行以减少换行。
+ * + 修改意见引导；键值对同一行以减少换行。
  */
 export function formatElementMetaText(meta: ElementMeta): string {
   const { position: p } = meta
@@ -217,6 +217,6 @@ export function formatElementMetaText(meta: ElementMeta): string {
     'INNER TEXT',
     meta.innerText,
     '',
-    '可将修改意见填写到【】中：【】',
+    '请输入修改意见：',
   ].join('\n')
 }

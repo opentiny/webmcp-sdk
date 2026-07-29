@@ -64,7 +64,7 @@ describe('dom-inspect Cursor 元素卡片格式', () => {
     }
   })
 
-  it('复现：剪贴板键值分行过多不便粘贴 AI —— 前置同 class 列表项；步骤 buildElementMeta+format；期望摘要行、键值同行、【】修改意见引导', () => {
+  it('复现：剪贴板键值分行过多不便粘贴 AI —— 前置同 class 列表项；步骤 buildElementMeta+format；期望摘要行、键值同行、修改意见引导', () => {
     document.body.innerHTML = `
       <div id="app">
         <div class="app-container">
@@ -115,7 +115,7 @@ describe('dom-inspect Cursor 元素卡片格式', () => {
     expect(text).toMatch(/^top: /m)
     expect(text).toContain('\nINNER TEXT\n')
     expect(text).toContain('库存与销售')
-    expect(text.trimEnd().endsWith('可将修改意见填写到【】中：【】')).toBe(true)
+    expect(text.trimEnd().endsWith('请输入修改意见：')).toBe(true)
     expect(text).not.toContain('DOM Path:')
     expect(text).not.toContain('HTML Element:')
   })
