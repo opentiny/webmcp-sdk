@@ -21,6 +21,13 @@ export type PageAgentToolResultEventDetail = {
   requestId: string
 }
 
+export type PageAgentUserDoActionEventDetail = {
+  /** 当前仅支持 'click'，预留其它用户操作类型 */
+  action: 'click'
+  /** refMap 中命中 ev.target 的根 DOM 元素 */
+  dom: HTMLElement
+}
+
 type ExecutePageAgentTool = (data: PageAgentToolInput) => Promise<unknown>
 
 function isPageAgentToolErrorResult(result: unknown): result is { isError: true; error: string } {
@@ -114,9 +121,11 @@ export function setupPageAgentToolEventBridge(
       const targetParent = Array.from(refMap.values()).find((el) => el.contains(target)) as HTMLElement | undefined
 
       if (targetParent) {
-        window.dispatchEvent(
-          new CustomEvent(PAGE_AGENT_USER_DO_ACTION_EVENT, { detail: { action: 'click', dom: targetParent } })
-        )
+        const detail: PageAgentUserDoActionEventDetail = {
+          action: 'click',
+          dom: targetParent
+        }
+        window.dispatchEvent(new CustomEvent(PAGE_AGENT_USER_DO_ACTION_EVENT, { detail }))
       }
     }
   }
