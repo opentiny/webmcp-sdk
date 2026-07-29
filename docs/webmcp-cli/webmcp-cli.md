@@ -176,39 +176,6 @@ webmcp-cli run page-agent-tool '{"action": "browserState", "responseMode": "full
 webmcp-cli run page-agent-tool '{"action": "click", "index": 18}'
 ```
 
-## 元素检视（Cursor 式）
-
-注入成功后，页面会出现常驻悬浮按钮（默认可在右下角）：
-
-| 状态 | 外观 | 含义 |
-| :--- | :--- | :--- |
-| 受控（默认） | 深色 **WebMCP** + 绿色圆点 | 页面已由 `webmcp-cli` 注入，可正常浏览 |
-| 检视中 | 蓝色 **检视中** + 闪烁圆点 | 已拦截 hover/click，可点选元素 |
-
-浮钮支持**拖动**调整位置；点右侧 **×** 可关闭（收成迷你 **W** 入口，再点即可展开）。位置与关闭状态保存在当前页 `sessionStorage`。
-
-> CLI 采用按需注入，不启动常驻 watcher。手动新开页签或导航后，请执行一次 `state`、`run` 或相关 `tabs` 命令，为当前页面注入 WebMCP 环境和检视浮钮。
-
-| 操作 | 说明 |
-| :--- | :--- |
-| **点击浮钮主体** | 进入或退出检视（主入口） |
-| **拖动浮钮** | 任意放置，避免遮挡内容 |
-| **× 关闭** | 收起为迷你 **W**；点击 **W** 再展开 |
-| **Esc** | 仅退出检视，浮钮仍保留 |
-| **Cmd/Ctrl+Shift+C** | 次要快捷键，与浮钮等效 |
-| Hover | 蓝色边框 + 标签（如 `div`） |
-| Click | 选中并**立即复制**元素元数据；标签显示「已复制」，toast 提示 |
-| 剪贴板内容 | 摘要「当前选中的元素是：…」+ `ELEMENT` / `PATH` / `ATTRIBUTES` / `COMPUTED STYLES` / `POSITION & SIZE` / `INNER TEXT`（键值同行）+「可将修改意见填写到【】中：【】」 |
-
-将上述内容粘贴到外部 AI 对话框；可在末尾【】内填写修改意见（也可在对话中另行说明）。AI 应直接据此改**本地源码**（无需再调 `inspect-element`；该工具已移除）。
-
-开发态也可在业务代码中直接使用：
-
-```ts
-import { enableInspectAssist } from '@opentiny/next-sdk'
-enableInspectAssist() // 或 enableInspectAssist({ brandLabel: 'WebMCP' })
-```
-
 ### 页面结构格式
 
 `browserState` 返回的是一棵"无障碍树"（Accessibility Tree），格式是 YAML，长这样：

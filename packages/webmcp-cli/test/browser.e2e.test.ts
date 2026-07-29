@@ -165,45 +165,7 @@ describe('webmcp-cli browser e2e', () => {
     const tools = Array.isArray(json.webmcpTools) ? json.webmcpTools : []
     const names = tools.map((t) => t.name)
     expect(names).toContain('page-agent-tool')
-    expect(names).not.toContain('inspect-element')
     expect(String(json.url || '')).toContain('example.com')
-  })
-
-  it('复现：注入后页面应出现 WebMCP 控制浮钮 —— 前置 tabs open；步骤读 DOM；期望 FAB 文案含 WebMCP', async () => {
-    expect(openedTabId).toBeTruthy()
-    const bases = [
-      `http://127.0.0.1:${cdpPort}`,
-      `http://[::1]:${cdpPort}`,
-      `http://localhost:${cdpPort}`,
-    ]
-    let browser: Awaited<ReturnType<typeof puppeteer.connect>> | null = null
-    for (const base of bases) {
-      try {
-        browser = await puppeteer.connect({ browserURL: base, defaultViewport: null })
-        break
-      } catch {
-        // try next
-      }
-    }
-    expect(browser).toBeTruthy()
-    try {
-      const pages = await browser!.pages()
-      const page = pages.find((p) => p.url().includes('example.com')) || pages[0]
-      const fab = await page!.evaluate(() => {
-        const el = document.getElementById('opentiny-dom-inspect-fab')
-        return el
-          ? {
-              text: el.textContent || '',
-              inspecting: el.getAttribute('data-inspecting'),
-            }
-          : null
-      })
-      expect(fab).toBeTruthy()
-      expect(fab!.text).toContain('WebMCP')
-      expect(fab!.inspecting).toBe('false')
-    } finally {
-      browser?.disconnect()
-    }
   })
 
   it('run page-agent-tool browserState', () => {

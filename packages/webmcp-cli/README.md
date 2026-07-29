@@ -37,9 +37,8 @@ CI 中浏览器任务使用 [browser-actions/setup-chrome](https://github.com/br
 ## 核心架构特性
 
 - **后台浏览器驻留**：如果当前没有开启带有调试端口 (`9222`) 的 Chrome，CLI 会自动在后台拉起一个基于你本地 Profile 的独立 Chrome 实例。
-- **按需环境注入**：执行 `state`、`run`、`tabs` 等页面命令时，CLI 会向目标页面注入 `webmcp-polyfill` 以及内置的 `page-agent-tool`；命令结束后不会保留 watcher 后台进程。
+- **自动环境注入**：当获取页面状态时，CLI 会自动探测并向页面注入 `webmcp-polyfill` 以及内置的 `page-agent-tool` 工具。
 - **统一工具协议**：采用标准 MCP (Model Context Protocol) 规范。所有的页面操作（点击、输入等）不再是生硬的命令，而是直接调用页面上注册好的 `page-agent-tool`。
-- **元素检视（Inspect Assist）**：注入后常驻可拖动「WebMCP」浮钮；点选即复制 Cursor 元素卡片（`ELEMENT` / `PATH` / `ATTRIBUTES` / …，能力来自 `@opentiny/next-sdk` 的 `enableInspectAssist`）。
 
 ## CLI 命令使用
 

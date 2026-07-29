@@ -3,7 +3,6 @@ import {
   registerPageAgentTool,
   consoleCloudPageAgentToolOptions,
   isConsoleCloudHost,
-  enableInspectAssist,
   type PageAgentToolOptions,
 } from '@opentiny/next-sdk'
 
@@ -31,6 +30,7 @@ function resolvePageAgentToolOptions(): PageAgentToolOptions {
   if (isConsoleCloudHost(location.hostname)) {
     return consoleCloudPageAgentToolOptions
   }
+  // 其它站点保持轻量默认；cf-uba 常见于控制台体系页面，一并暴露无害
   return { a11yConfig: { exposedAttributes: ['cf-uba'] } }
 }
 
@@ -41,8 +41,6 @@ function initWebMcpCliPage(): void {
 
   initializeWebMCPPolyfill()
   registerPageAgentTool(resolvePageAgentToolOptions())
-  // Inspect Assist：点选即复制 Cursor 元素卡片（辅助定位改样式/逻辑）
-  enableInspectAssist({ brandLabel: 'WebMCP' })
 
   window.__webmcpcli_tools = []
 

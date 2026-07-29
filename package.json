@@ -28,7 +28,7 @@
     "pub:next-sdk": "pnpm -F @opentiny/next-sdk publish --no-git-checks",
     "pub:remoter": "pnpm -F @opentiny/next-remoter publish --no-git-checks",
     "dev:webmcp-cli": "pnpm -F @opentiny/webmcp-cli dev",
-    "build:webmcp-cli": "pnpm -F @opentiny/webmcp-cli build",
+    "build:webmcp-cli": "pnpm build && pnpm -F @opentiny/webmcp-cli build",
     "pr-gate": "node ./.github/scripts/pr-gate.mjs"
   },
   "devDependencies": {

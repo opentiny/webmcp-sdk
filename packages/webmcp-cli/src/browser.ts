@@ -1,12 +1,11 @@
-import { spawn } from 'child_process'
+import puppeteer, { Browser, Page } from 'puppeteer-core'
 import pc from 'picocolors'
 import fs from 'fs'
 import os from 'os'
 import path from 'path'
 import http from 'http'
+import { spawn } from 'child_process'
 import { fileURLToPath } from 'url'
-import puppeteer, { Browser, Page } from 'puppeteer-core'
-import { readInjectBundleOrThrow } from './inject-bundle-path'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -367,6 +366,7 @@ export async function connectBrowser(): Promise<Browser> {
   }
 }
 
+
 /**
  * 通过 CDP 获取页面真实的 Chrome target ID（UUID 格式字符串）
  * 供 state.ts 等命令展示 tabs 列表时使用
@@ -522,13 +522,12 @@ async function injectWebMCPPolyfillAndTools(page: Page) {
   if (!polyfillReady) {
     console.log(pc.cyan('当前页面尚未注入 WebMCP 环境，正在执行自动注入...'))
 
-    let scriptContent: string
-    try {
-      scriptContent = readInjectBundleOrThrow()
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : String(err)
-      throw new Error(msg)
+    const injectScriptPath = path.resolve(__dirname, 'inject-bundle.js')
+    if (!fs.existsSync(injectScriptPath)) {
+      throw new Error(`Cannot find inject-bundle.js at ${injectScriptPath}. Please ensure you run 'pnpm build:inject' first.`)
     }
+
+    const scriptContent = fs.readFileSync(injectScriptPath, 'utf-8')
 
     // 注入 WebMCP polyfill
     try {
