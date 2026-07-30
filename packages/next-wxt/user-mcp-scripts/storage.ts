@@ -5,6 +5,7 @@
 import { storage } from '@wxt-dev/storage'
 import { validateMatchPatterns } from './match'
 import { createDefaultScriptMeta } from './template'
+import { parseUserMcpScriptsZip } from './pack'
 import type { UserMcpScript, UserMcpScriptInput, UserMcpScriptsStore } from './types'
 import { USER_MCP_SCRIPTS_KEY } from './types'
 
@@ -157,6 +158,7 @@ export function exportUserMcpScriptsJson(scripts: UserMcpScript[]): string {
 /**
  * 从 JSON 导入（合并到现有 store；同 id 覆盖）。
  * 导入项一律先禁用，需用户审阅后手动启用。
+ * @deprecated 主路径已改为 mcp-servers 目录 zip；保留以兼容旧备份。
  */
 export async function importUserMcpScriptsJson(json: string): Promise<
   | { ok: true; imported: number; skipped: number }
@@ -194,6 +196,52 @@ export async function importUserMcpScriptsJson(json: string): Promise<
         continue
       }
       store[id] = { ...candidate, enabled: false, updatedAt: Date.now() }
+      imported++
+    }
+    await setUserMcpScriptsStore(store)
+    return { ok: true, imported, skipped }
+  })
+}
+
+/**
+ * 从 mcp-servers 风格 zip 导入（合并；同 id 覆盖）。
+ * 导入项一律先禁用。缺 matches 时按目录名生成 `*://<folder>/*`。
+ */
+export async function importUserMcpScriptsZip(
+  data: ArrayBuffer | Blob | Uint8Array
+): Promise<{ ok: true; imported: number; skipped: number } | { ok: false; error: string }> {
+  const parsed = await parseUserMcpScriptsZip(data)
+  if (!parsed.ok) return parsed
+
+  return withStoreLock(async () => {
+    const store = await getUserMcpScriptsStore()
+    let imported = 0
+    let skipped = 0
+    for (const entry of parsed.entries) {
+      const id =
+        (typeof entry.meta.id === 'string' && entry.meta.id) ||
+        `ums_${entry.folder.replace(/[^a-zA-Z0-9._-]/g, '_')}`
+      const matches = entry.meta.matches?.length ? entry.meta.matches : [`*://${entry.folder}/*`]
+      const matchCheck = validateMatchPatterns(matches)
+      if (!matchCheck.ok) {
+        skipped++
+        continue
+      }
+      const name = (entry.meta.name || entry.folder).trim()
+      if (!name || !(entry.source || '').trim()) {
+        skipped++
+        continue
+      }
+      store[id] = {
+        id,
+        name,
+        description: entry.meta.description,
+        matches,
+        enabled: false,
+        replacesBuiltIn: Boolean(entry.meta.replacesBuiltIn),
+        source: entry.source,
+        updatedAt: Date.now()
+      }
       imported++
     }
     await setUserMcpScriptsStore(store)

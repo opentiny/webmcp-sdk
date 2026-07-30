@@ -11,7 +11,10 @@ describe('validateMatchPattern', () => {
     expect(validateMatchPattern('*://example.com/*').ok).toBe(true)
     expect(validateMatchPattern('*://*.example.com/*').ok).toBe(true)
     expect(validateMatchPattern('https://www.baidu.com/*').ok).toBe(true)
-    expect(validateMatchPattern('http://localhost:5173/*').ok).toBe(true)
+  })
+
+  it('拒绝 host 含端口', () => {
+    expect(validateMatchPattern('http://localhost:5173/*').ok).toBe(false)
   })
 
   it('拒绝空或非法模式', () => {

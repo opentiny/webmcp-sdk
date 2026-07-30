@@ -18,11 +18,15 @@
 
 - [x] Task 4: Options `UserMcpScriptsTab`
   - 产物：`entrypoints/options/UserMcpScriptsTab.vue`、改 `Options.vue`
-  - 能力：列表 / 启用 / CRUD / JSON 导入导出 / 保存 reinject
+  - 能力：列表 / 启用 / CRUD / mcp-servers zip 导入导出 / 保存 reinject
 
 - [x] Task 5: 用户文档与验收
   - 产物：更新 `docs/ai-extension/next-wxt.md`
   - 验收命令见下
+
+- [x] Task 6: 导入导出对齐 mcp-servers 目录格式
+  - 产物：`user-mcp-scripts/pack.ts`、storage zip API、Options 改 zip、文档与 Spec
+  - [x] 测试：`packages/next-wxt/test/user-mcp-scripts/pack.test.ts`
 
 ## 依赖顺序
 
@@ -40,4 +44,4 @@ pnpm -F @opentiny/next-wxt test
 2. 打开 example.com，侧栏「浏览器内置工具」出现新工具
 3. 关闭 enabled，刷新页面，工具消失
 4. 对内置站（如 `www.baidu.com`）建脚本并勾选 `replacesBuiltIn`，确认内置 `baidu-search` 不再注入、用户工具存在
-5. JSON 导出再导入，列表一致
+5. zip 导出再导入（或导入内置 mcp-servers 目录打包），列表一致且默认禁用

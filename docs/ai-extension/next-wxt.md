@@ -22,7 +22,7 @@
    - **源码**：纯 JS，在页面 MAIN world 调用 `document.modelContext.registerTool`
    - **启用** / **覆盖内置**（可选）
 3. 保存后，匹配的标签页会自动刷新并注入脚本；工具出现在侧栏「浏览器内置工具」中。
-4. 支持 JSON 导入/导出备份。
+4. 支持 zip 导入/导出备份（解压后即为 `mcp-servers/<host>/{index.ts,meta.ts}`，与源码内置格式一致；兼容旧版 JSON）。
 
 默认模板已包含幂等防护。示例片段：
 

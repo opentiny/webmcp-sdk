@@ -9,6 +9,16 @@ export * from './resolve'
 export * from './template'
 export * from './exec-bridge'
 export {
+  exportUserMcpScriptsZip,
+  parseUserMcpScriptsZip,
+  parseMetaModule,
+  serializeMetaTs,
+  folderNameForScript,
+  hostHintFromMatch,
+  type PackMeta,
+  type PackedScriptEntry
+} from './pack'
+export {
   getUserMcpScriptsStore,
   setUserMcpScriptsStore,
   listUserMcpScripts,
@@ -18,5 +28,6 @@ export {
   createUserMcpScriptFromTemplate,
   exportUserMcpScriptsJson,
   importUserMcpScriptsJson,
+  importUserMcpScriptsZip,
   type UpsertResult
 } from './storage'

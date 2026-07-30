@@ -35,7 +35,7 @@
 ### In Scope
 
 - 独立模块 `user-mcp-scripts/`（types / storage / match / resolve / template）
-- Options Tab：CRUD、启用开关、编辑源码、JSON 导入导出
+- Options Tab：CRUD、启用开关、编辑源码、mcp-servers 目录 zip 导入导出（兼容旧 JSON）
 - background `scripting.executeScript` MAIN world 注入
 - content 薄钩子：请求注入 + 按 resolve 跳过内置
 - 保存后对匹配 tab 重新注入并通知工具列表刷新
@@ -59,8 +59,8 @@
 3. 作为用户，我希望设置 `replacesBuiltIn`，以便覆盖同页内置域名工具。
    - 验收：匹配且 `replacesBuiltIn: true` 时不注入 `mcp-servers/<hostname>/index.js`。
 
-4. 作为用户，我希望导入/导出脚本备份，以便迁移或分享。
-   - 验收：JSON 导出再导入后列表与字段一致。
+4. 作为用户，我希望导入/导出脚本备份，以便迁移或分享，并与源码 `mcp-servers` 目录格式统一。
+   - 验收：导出 zip 解压为 `<folder>/index.ts` + `<folder>/meta.ts`；可导入同结构或内置 mcp-servers 目录 zip；旧版 JSON 仍可导入。
 
 5. 作为开发者，模块边界清晰，不与 skills / 市场 MCP / mcpServer 代理业务耦合。
    - 验收：核心逻辑仅在 `user-mcp-scripts/`；content/background/Options 仅薄适配。

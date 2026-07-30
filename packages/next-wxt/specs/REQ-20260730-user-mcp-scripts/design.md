@@ -51,6 +51,8 @@ export const USER_MCP_SCRIPTS_KEY = 'local:user-mcp-scripts'
 | `shouldSkipBuiltIn(store, url)` | 新增 | 任一匹配脚本 `replacesBuiltIn` 则为 true |
 | `get/set/upsert/removeUserMcpScript*` | 新增 | storage CRUD |
 | `createDefaultScriptTemplate()` | 新增 | 默认 JS 模板 |
+| `exportUserMcpScriptsZip` / `importUserMcpScriptsZip` | 新增 | 与 `mcp-servers/<host>/{index,meta}.ts` 一致的 zip；主导入导出路径 |
+| `export/importUserMcpScriptsJson` | 保留 | 兼容旧备份；UI 主路径改为 zip |
 | content 注入顺序 | 修改 | runtime → 用户脚本 →（可选）内置 → `page-tools-injected` |
 | Options Tab「页面 MCP 脚本」 | 新增 | 在线管理 |
 

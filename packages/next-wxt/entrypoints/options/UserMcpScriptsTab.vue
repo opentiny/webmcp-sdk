@@ -22,7 +22,8 @@ import {
   upsertUserMcpScript,
   removeUserMcpScript,
   setUserMcpScriptEnabled,
-  exportUserMcpScriptsJson,
+  exportUserMcpScriptsZip,
+  importUserMcpScriptsZip,
   importUserMcpScriptsJson,
   validateMatchPatterns,
   createDefaultScriptMeta,
@@ -348,12 +349,11 @@ async function downloadBackup() {
     Message.message({ message: '暂无脚本可导出', status: 'warning' })
     return
   }
-  const json = exportUserMcpScriptsJson(scripts.value)
-  const blob = new Blob([json], { type: 'application/json' })
+  const blob = await exportUserMcpScriptsZip(scripts.value)
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `user-mcp-scripts-${new Date().toISOString().slice(0, 10)}.json`
+  a.download = `mcp-servers-${new Date().toISOString().slice(0, 10)}.zip`
   document.body.appendChild(a)
   a.click()
   a.remove()
@@ -369,13 +369,18 @@ async function handleImportFile(event: Event) {
   const file = input.files?.[0]
   input.value = ''
   if (!file) return
-  if (!file.name.toLowerCase().endsWith('.json')) {
-    Message.message({ message: '请选择 .json 备份文件', status: 'warning' })
-    return
-  }
+  const lower = file.name.toLowerCase()
   try {
-    const text = await file.text()
-    const result = await importUserMcpScriptsJson(text)
+    let result: { ok: true; imported: number; skipped: number } | { ok: false; error: string }
+    if (lower.endsWith('.zip')) {
+      result = await importUserMcpScriptsZip(await file.arrayBuffer())
+    } else if (lower.endsWith('.json')) {
+      // 兼容旧版 JSON 备份
+      result = await importUserMcpScriptsJson(await file.text())
+    } else {
+      Message.message({ message: '请选择 .zip（mcp-servers 目录）备份文件', status: 'warning' })
+      return
+    }
     if (!result.ok) {
       Message.message({ message: result.error, status: 'error' })
       return
@@ -439,7 +444,8 @@ onMounted(loadScripts)
       <div class="page-header-text">
         <p class="page-desc">
           在线编辑页面 WebMCP 脚本：左侧管理列表，右侧编辑源码。用
-          <code>@match</code> 匹配站点并注册 <code>document.modelContext</code> 工具。
+          <code>@match</code> 匹配站点并注册 <code>document.modelContext</code> 工具。导入/导出为
+          <code>mcp-servers</code> 目录结构的 zip（与源码内置格式一致）。
         </p>
       </div>
       <div class="page-header-actions">
@@ -464,7 +470,7 @@ onMounted(loadScripts)
         <input
           ref="importInputRef"
           type="file"
-          accept=".json,application/json"
+          accept=".zip,application/zip,.json,application/json"
           class="hidden-input"
           @change="handleImportFile"
         />
