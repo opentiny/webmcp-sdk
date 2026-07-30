@@ -14,10 +14,14 @@ declare global {
     }
     /**
      * 用户 MCP 脚本执行桥（vendor/user-mcp-exec.js）
-     * 在扩展脚本上下文执行源码，绕过页面 CSP 对 eval 的限制
+     * bind 一次性入口 + exec(code, capability) 闭包令牌校验
      */
+    __NEXT_WXT_BIND_USER_MCP_BRIDGE__?: (
+      token: string
+    ) => { ok: true } | { ok: false; error: string; locked?: boolean }
     __NEXT_WXT_EXEC_USER_MCP_SCRIPT__?: (
-      code: string
+      code: string,
+      capability: string
     ) => { ok: true } | { ok: false; error: string }
   }
 

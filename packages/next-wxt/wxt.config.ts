@@ -42,6 +42,7 @@ export default defineConfig({
     web_accessible_resources: [
       {
         // next-sdk runtime + 显式注册脚本 + 用户 MCP 执行桥（content 经 <script src> 注入 MAIN world）
+        // 顺序由 content.ts 保证：runtime → register-page-agent-tool → user-mcp-exec → background bind/exec
         resources: [
           'vendor/runtime.js',
           'vendor/register-page-agent-tool.js',

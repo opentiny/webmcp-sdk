@@ -24,9 +24,10 @@
   - 产物：更新 `docs/ai-extension/next-wxt.md`
   - 验收命令见下
 
-- [x] Task 6: 导入导出对齐 mcp-servers 目录格式
-  - 产物：`user-mcp-scripts/pack.ts`、storage zip API、Options 改 zip、文档与 Spec
-  - [x] 测试：`packages/next-wxt/test/user-mcp-scripts/pack.test.ts`
+- [x] Task 7: 执行桥改用 capability token（修复可伪造 OWNER）
+  - 产物：`public/vendor/user-mcp-exec.js`、`exec-bridge.ts`、`inject-user-mcp-scripts.ts`、content/wxt 顺序注释
+  - [x] 测试：`csp-bridge-repro.test.ts`（bind→exec、拒绝无 token 伪造桥）
+
 
 ## 依赖顺序
 

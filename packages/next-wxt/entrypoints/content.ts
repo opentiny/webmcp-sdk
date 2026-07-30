@@ -86,6 +86,10 @@ function injectScript(path: string): Promise<void> {
 /**
  * 注入 vendor/runtime.js，再注入 register-page-agent-tool.js 与用户脚本执行桥。
  * 全部走 <script src="chrome-extension://...">，与百度/京东等严格 CSP 页面兼容。
+ *
+ * 硬约束顺序（能力令牌桥）：
+ *   runtime → register-page-agent-tool → user-mcp-exec（仅 bind 入口）
+ *   → background bind(token) → exec(code, token)
  * 注意：勿在 content script 调用 browser.scripting（该 API 仅 background/扩展页可用）。
  */
 let runtimeInjected: Promise<void> | null = null
@@ -94,7 +98,7 @@ async function injectRuntimeAndRegister(): Promise<void> {
     runtimeInjected = (async () => {
       await injectScript('vendor/runtime.js')
       await injectScript('vendor/register-page-agent-tool.js')
-      // 用户 MCP 脚本执行桥：须在 scripting.executeScript 调用前就绪
+      // 须在 background scripting.executeScript(bind/exec) 之前就绪
       await injectScript('vendor/user-mcp-exec.js')
     })()
   }

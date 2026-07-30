@@ -68,5 +68,7 @@
 ## 非功能
 
 - CSP：用户源码必须经 background `scripting.executeScript`（MAIN）注入，不得依赖 blob/`eval` 绕过
+- 能力令牌：`user-mcp-exec.js` 仅装 bind；background 生成 token 闭包校验，禁止依赖可伪造的静态 OWNER 属性
+- 注入顺序：runtime → register-page-agent-tool → user-mcp-exec → bind(token) → exec(code, token)
 - 幂等：默认模板含防重复注册防护
 - 非法 `@match` 保存时校验失败并提示

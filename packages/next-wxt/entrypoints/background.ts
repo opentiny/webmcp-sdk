@@ -3,7 +3,8 @@ import { tabHistory } from './background/tab-history'
 import {
   injectUserMcpScriptsForTab,
   reloadTabsByMatchesSnapshot,
-  reinjectAfterUserMcpScriptsChange
+  reinjectAfterUserMcpScriptsChange,
+  clearUserMcpBridgeToken
 } from './background/inject-user-mcp-scripts'
 
 export default defineBackground(() => {
@@ -19,6 +20,12 @@ export default defineBackground(() => {
         console.warn('【Background】初始化 useWebAgentServer 失败:', error)
       })
   }, 0)
+
+  // 页面导航 / 关闭后丢弃 capability，避免跨文档复用
+  browser.tabs.onRemoved.addListener((tabId) => clearUserMcpBridgeToken(tabId))
+  browser.tabs.onUpdated.addListener((tabId, changeInfo) => {
+    if (changeInfo.status === 'loading') clearUserMcpBridgeToken(tabId)
+  })
 
   // ─────────────────────────────────────────
   // 消息处理（需要返回值的使用原生 onMessage）

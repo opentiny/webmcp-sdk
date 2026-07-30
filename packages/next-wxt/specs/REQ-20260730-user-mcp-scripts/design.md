@@ -81,6 +81,7 @@ sequenceDiagram
 - 重复注入可能导致工具重复注册：模板与注入侧使用幂等标记
 - 宽泛 `@match`（如 `*://*/*`）+ `replacesBuiltIn` 会禁用所有内置域名工具：UI 文案提示风险
 - 不改变内置三站行为（无用户脚本时路径与现网一致）
+- MAIN world 桥：禁止依赖可伪造的静态 OWNER；使用 bind(token) 闭包能力令牌。仍存在「脚本 onload 与 background bind 之间」的极短 TOCTOU 窗口，靠尽快 bind + 一次性删除 bind 入口收敛
 
 ## 备选方案（若有）
 

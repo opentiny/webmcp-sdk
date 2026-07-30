@@ -4,6 +4,8 @@
  *
  * 注意：不可在 executeScript 回调内直接 new Function(源码)——会受页面 CSP 拦截
  * （复现：京东等站只剩 page-agent-tool）。须调用 chrome-extension 桥。
+ *
+ * 能力令牌：先 bind(token) 再 exec(code, token)；token 仅存于 background（及桥闭包）。
  */
 
 import {
@@ -11,8 +13,9 @@ import {
   resolveMatchingScripts,
   shouldSkipBuiltIn,
   matchAny,
+  USER_MCP_BIND_BRIDGE_NAME,
   USER_MCP_EXEC_BRIDGE_NAME,
-  USER_MCP_EXEC_BRIDGE_OWNER,
+  createUserMcpBridgeToken,
   type UserMcpScript,
   type BridgeExecResult
 } from '@/user-mcp-scripts'
@@ -24,23 +27,72 @@ export type InjectUserMcpResult = {
   error?: string
 }
 
+/** tabId → capability token（页面刷新 / tab 关闭后失效） */
+const tabBridgeTokens = new Map<number, string>()
+
+export function clearUserMcpBridgeToken(tabId: number): void {
+  tabBridgeTokens.delete(tabId)
+}
+
 /**
- * 通过扩展脚本桥在 MAIN world 执行用户源码（绕过页面 CSP 对 eval 的限制）
+ * 绑定（或复用）当前 tab 的执行桥 capability
  */
-async function executeUserSourceInMainWorld(tabId: number, source: string): Promise<BridgeExecResult> {
-  const bridgeName = USER_MCP_EXEC_BRIDGE_NAME
-  const ownerKey = USER_MCP_EXEC_BRIDGE_OWNER
+async function ensureBridgeCapability(tabId: number): Promise<
+  | { ok: true; token: string }
+  | { ok: false; error: string }
+> {
+  const cached = tabBridgeTokens.get(tabId)
+  if (cached) return { ok: true, token: cached }
+
+  const token = createUserMcpBridgeToken()
+  const bindName = USER_MCP_BIND_BRIDGE_NAME
   const results = await browser.scripting.executeScript({
     target: { tabId },
     world: 'MAIN',
-    args: [source, bridgeName, ownerKey],
-    func: (code: string, name: string, owner: string) => {
-      const run = (window as any)[name]
-      if (typeof run !== 'function' || run[owner] !== true) {
-        console.warn('[user-mcp-scripts] 执行桥未就绪或非扩展所有:', name)
-        return { ok: false, error: 'bridge missing or hijacked: ' + name }
+    args: [bindName, token],
+    func: (installName: string, capability: string) => {
+      const install = (window as any)[installName]
+      if (typeof install !== 'function') {
+        return { ok: false, error: 'bind entry missing: ' + installName }
       }
-      return run(code)
+      return install(capability)
+    }
+  })
+  const value = results?.[0]?.result as BridgeExecResult | undefined
+  if (!value) return { ok: false, error: 'empty bind result' }
+  if (!value.ok) {
+    if (value.locked) {
+      return {
+        ok: false,
+        error: '执行桥已被锁定且无本地 token（请刷新页面后重试）'
+      }
+    }
+    return { ok: false, error: value.error || 'bind failed' }
+  }
+  tabBridgeTokens.set(tabId, token)
+  return { ok: true, token }
+}
+
+/**
+ * 通过扩展脚本桥在 MAIN world 执行用户源码（绕过页面 CSP 对 eval 的限制）
+ */
+async function executeUserSourceInMainWorld(
+  tabId: number,
+  source: string,
+  token: string
+): Promise<BridgeExecResult> {
+  const bridgeName = USER_MCP_EXEC_BRIDGE_NAME
+  const results = await browser.scripting.executeScript({
+    target: { tabId },
+    world: 'MAIN',
+    args: [source, bridgeName, token],
+    func: (code: string, name: string, capability: string) => {
+      const run = (window as any)[name]
+      if (typeof run !== 'function') {
+        console.warn('[user-mcp-scripts] 执行桥未就绪:', name)
+        return { ok: false, error: 'bridge missing: ' + name }
+      }
+      return run(code, capability)
     }
   })
   const value = results?.[0]?.result as BridgeExecResult | undefined
@@ -59,10 +111,24 @@ export async function injectUserMcpScriptsForTab(
     const store = await getUserMcpScriptsStore()
     const skip = shouldSkipBuiltIn(store, url)
     const scripts = resolveMatchingScripts(store, url)
+    if (!scripts.length) {
+      return { success: true, shouldSkipBuiltIn: skip, injectedCount: 0 }
+    }
+
+    const bound = await ensureBridgeCapability(tabId)
+    if (!bound.ok) {
+      return {
+        success: false,
+        shouldSkipBuiltIn: skip,
+        injectedCount: 0,
+        error: bound.error
+      }
+    }
+
     let injectedCount = 0
     const errors: string[] = []
     for (const script of scripts) {
-      const result = await executeUserSourceInMainWorld(tabId, script.source)
+      const result = await executeUserSourceInMainWorld(tabId, script.source, bound.token)
       if (result.ok) {
         injectedCount++
       } else {
@@ -100,6 +166,7 @@ export async function reloadTabsByMatchesSnapshot(matchesList: string[][]): Prom
     if (!/^https?:/i.test(tab.url)) continue
     if (!matchAny(flatPatterns, tab.url)) continue
     try {
+      clearUserMcpBridgeToken(tab.id)
       await browser.tabs.reload(tab.id)
       count++
     } catch {
