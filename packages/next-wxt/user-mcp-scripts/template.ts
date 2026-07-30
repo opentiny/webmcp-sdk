@@ -45,12 +45,12 @@ export function createDefaultScriptMeta(partial?: {
   source: string
 } {
   const name = partial?.name?.trim() || '我的页面工具'
-  const toolSlug =
-    name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '_')
-      .replace(/^_|_$/g, '')
-      .slice(0, 40) || 'user_mcp_hello'
+  const asciiSlug = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '')
+    .slice(0, 40)
+  const toolSlug = asciiSlug || `user_mcp_${Math.random().toString(36).slice(2, 8)}`
   return {
     name,
     description: partial?.description ?? '在匹配站点注册 WebMCP 工具',

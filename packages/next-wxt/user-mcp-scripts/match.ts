@@ -1,6 +1,6 @@
 /**
- * 油猴风格 @match 解析与匹配（v1）
- * 支持：*://host/path、*://*.host/*、http(s)://*
+ * @match URL 匹配（v1）
+ * 支持：*://host/path、*://*.host/*、http(s)://*（不含端口）
  */
 
 const MATCH_RE =
@@ -14,10 +14,18 @@ export function validateMatchPattern(pattern: string): { ok: true } | { ok: fals
   if (!trimmed) {
     return { ok: false, error: '匹配模式不能为空' }
   }
-  if (!MATCH_RE.test(trimmed)) {
+  const m = trimmed.match(MATCH_RE)
+  if (!m?.groups) {
     return {
       ok: false,
       error: `非法 @match：${trimmed}（示例：*://*.example.com/*）`
+    }
+  }
+  // host 含端口时与 URL.hostname 无法对齐，明确拒绝
+  if (m.groups.host.includes(':')) {
+    return {
+      ok: false,
+      error: `不支持带端口的 @match：${trimmed}（请去掉 :port）`
     }
   }
   return { ok: true }
@@ -37,21 +45,6 @@ export function validateMatchPatterns(
     if (!r.ok) return r
   }
   return { ok: true }
-}
-
-/**
- * 将 @match host 段转为正则（不含 ^$）
- * - `*` → 任意 host
- * - `*.example.com` → 含子域与 apex
- * - 其它 → 精确 host（大小写不敏感）
- */
-function hostToRegexSource(host: string): string {
-  if (host === '*') return '[^/]+'
-  if (host.startsWith('*.')) {
-    const rest = escapeRegex(host.slice(2))
-    return `(?:[^/]+\\.)?${rest}`
-  }
-  return escapeRegex(host)
 }
 
 /**
@@ -75,20 +68,6 @@ function escapeRegex(s: string): string {
 }
 
 /**
- * 将单个 @match 编译为 RegExp（匹配完整 href 的 origin+pathname+search 风格：protocol//host/path）
- * 使用 URL 解析后与 pattern 比较，避免把 hash 算进 path。
- */
-export function matchPatternToRegExp(pattern: string): RegExp | null {
-  const m = pattern.trim().match(MATCH_RE)
-  if (!m?.groups) return null
-  const { scheme, host, path } = m.groups
-  const schemeSrc = scheme === '*' ? 'https?' : escapeRegex(scheme.toLowerCase())
-  const hostSrc = hostToRegexSource(host.toLowerCase())
-  const pathSrc = pathToRegexSource(path)
-  return new RegExp(`^${schemeSrc}:\\/\\/${hostSrc}${pathSrc}$`, 'i')
-}
-
-/**
  * 判断 url 是否命中单个 @match
  */
 export function matchUrl(pattern: string, url: string): boolean {
@@ -102,6 +81,7 @@ export function matchUrl(pattern: string, url: string): boolean {
   const m = pattern.trim().match(MATCH_RE)
   if (!m?.groups) return false
   const { scheme, host, path: pathPat } = m.groups
+  if (host.includes(':')) return false
 
   const urlScheme = parsed.protocol.replace(/:$/, '').toLowerCase()
   if (scheme === '*') {
@@ -121,7 +101,7 @@ export function matchUrl(pattern: string, url: string): boolean {
     return false
   }
 
-  // path 匹配：pathname + search（不含 hash），与油猴常见行为接近
+  // path 匹配：pathname + search（不含 hash）
   const urlPath = `${parsed.pathname}${parsed.search}`
   const pathRe = new RegExp(`^${pathToRegexSource(pathPat)}$`, 'i')
   return pathRe.test(urlPath)

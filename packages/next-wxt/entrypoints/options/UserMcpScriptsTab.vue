@@ -50,6 +50,8 @@ const selectedKey = ref<string | null>(null)
 const isDirty = ref(false)
 const collapseNames = ref<string[]>(['meta'])
 const sourceEditorRef = ref<HTMLTextAreaElement | null>(null)
+/** Esc 后下一击 Tab 允许移出编辑器（无障碍） */
+const tabNavArmed = ref(false)
 
 const editForm = reactive({
   name: '',
@@ -92,20 +94,16 @@ const sourceLineCount = computed(() => {
   return text.length === 0 ? 1 : text.split('\n').length
 })
 
-const lineNumbers = computed(() => {
+const gutterText = computed(() => {
   const n = sourceLineCount.value
-  const lines: number[] = []
-  for (let i = 1; i <= n; i++) lines.push(i)
-  return lines
+  let out = ''
+  for (let i = 1; i <= n; i++) out += `${i}\n`
+  return out
 })
 
-watch(
-  () => ({ ...editForm }),
-  () => {
-    if (isEditing.value) isDirty.value = true
-  },
-  { deep: true }
-)
+watch(editForm, () => {
+  if (isEditing.value) isDirty.value = true
+})
 
 async function loadScripts() {
   loading.value = true
@@ -169,18 +167,19 @@ function focusEditor() {
   })
 }
 
-function openCreate() {
-  trySelect('__new__', () => {
-    selectedKey.value = '__new__'
-    const meta = createDefaultScriptMeta({ name: '我的页面工具', matches: ['*://example.com/*'] })
-    fillFormFromMeta(meta)
-    collapseNames.value = ['meta']
-    nextTick(() => {
-      isDirty.value = false
-      editFormRef.value?.clearValidate?.()
-      focusEditor()
-    })
+function applyNewDraft() {
+  selectedKey.value = '__new__'
+  fillFormFromMeta(createDefaultScriptMeta({ name: '我的页面工具', matches: ['*://example.com/*'] }))
+  collapseNames.value = ['meta']
+  nextTick(() => {
+    isDirty.value = false
+    editFormRef.value?.clearValidate?.()
+    focusEditor()
   })
+}
+
+function openCreate() {
+  trySelect('__new__', applyNewDraft)
 }
 
 function selectScript(id: string) {
@@ -214,7 +213,7 @@ function confirmDiscard() {
   pendingSelectKey.value = null
   isDirty.value = false
   if (key === '__new__') {
-    openCreateForced()
+    applyNewDraft()
   } else if (key === null) {
     selectedKey.value = null
   } else if (key) {
@@ -224,20 +223,10 @@ function confirmDiscard() {
     fillFormFromScript(row)
     nextTick(() => {
       isDirty.value = false
+      editFormRef.value?.clearValidate?.()
       focusEditor()
     })
   }
-}
-
-function openCreateForced() {
-  selectedKey.value = '__new__'
-  const meta = createDefaultScriptMeta({ name: '我的页面工具', matches: ['*://example.com/*'] })
-  fillFormFromMeta(meta)
-  collapseNames.value = ['meta']
-  nextTick(() => {
-    isDirty.value = false
-    focusEditor()
-  })
 }
 
 function closeEditor() {
@@ -281,6 +270,7 @@ async function saveEdit() {
 
   saving.value = true
   try {
+    const previousMatches = selectedScript.value?.matches
     const result = await upsertUserMcpScript({
       id: isNewDraft.value ? undefined : selectedKey.value || undefined,
       name,
@@ -302,7 +292,12 @@ async function saveEdit() {
     nextTick(() => {
       isDirty.value = false
     })
-    await notifyReinject({ scriptId: result.script.id })
+    await notifyReinject({
+      scriptId: result.script.id,
+      matchesSnapshot: previousMatches ? [previousMatches, matches] : [matches]
+    })
+  } catch (e: any) {
+    Message.message({ message: e?.message || '保存失败', status: 'error' })
   } finally {
     saving.value = false
   }
@@ -359,8 +354,10 @@ async function downloadBackup() {
   const a = document.createElement('a')
   a.href = url
   a.download = `user-mcp-scripts-${new Date().toISOString().slice(0, 10)}.json`
+  document.body.appendChild(a)
   a.click()
-  URL.revokeObjectURL(url)
+  a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 0)
 }
 
 function triggerImport() {
@@ -383,7 +380,12 @@ async function handleImportFile(event: Event) {
       Message.message({ message: result.error, status: 'error' })
       return
     }
-    Message.message({ message: `已导入 ${result.imported} 条脚本`, status: 'success' })
+    Message.message({
+      message: `已导入 ${result.imported} 条（默认禁用，请审阅后启用）${
+        result.skipped ? `，跳过 ${result.skipped} 条` : ''
+      }`,
+      status: 'success'
+    })
     await loadScripts()
     await notifyReinject({})
   } catch (e: any) {
@@ -392,12 +394,21 @@ async function handleImportFile(event: Event) {
 }
 
 function onSourceKeydown(e: KeyboardEvent) {
-  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+  if (e.key === 'Escape') {
+    tabNavArmed.value = true
+    return
+  }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
     e.preventDefault()
     void saveEdit()
     return
   }
   if (e.key === 'Tab') {
+    // Esc 后 Tab / 带修饰键的 Tab：允许焦点移出编辑器
+    if (tabNavArmed.value || e.ctrlKey || e.altKey) {
+      tabNavArmed.value = false
+      return
+    }
     e.preventDefault()
     const el = sourceEditorRef.value
     if (!el) return
@@ -408,7 +419,9 @@ function onSourceKeydown(e: KeyboardEvent) {
     nextTick(() => {
       el.selectionStart = el.selectionEnd = start + insert.length
     })
+    return
   }
+  tabNavArmed.value = false
 }
 
 function syncScroll() {
@@ -614,16 +627,15 @@ onMounted(loadScripts)
               <component :is="IconCodeComp" />
               <span>源码 · JavaScript</span>
             </span>
-            <span class="code-header-hint">Tab 缩进 · Ctrl/⌘+S 保存</span>
+            <span class="code-header-hint">Tab 缩进 · Esc 后 Tab 移出 · Ctrl/⌘+S 保存</span>
           </div>
           <div class="code-wrap">
-            <div class="line-gutter" aria-hidden="true">
-              <div v-for="n in lineNumbers" :key="n" class="line-no">{{ n }}</div>
-            </div>
+            <pre class="line-gutter" aria-hidden="true">{{ gutterText }}</pre>
             <textarea
               ref="sourceEditorRef"
               v-model="editForm.source"
               class="source-editor"
+              aria-label="脚本源码（JavaScript）"
               spellcheck="false"
               wrap="off"
               @keydown="onSourceKeydown"
@@ -998,20 +1010,18 @@ onMounted(loadScripts)
   flex-shrink: 0;
   width: 48px;
   overflow: hidden;
+  margin: 0;
   background: #252526;
   color: #858585;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New',
     monospace;
   font-size: 13px;
   line-height: 1.55;
-  padding: 12px 0;
+  padding: 12px 8px 12px 4px;
   text-align: right;
   user-select: none;
-}
-
-.line-no {
-  padding: 0 8px 0 4px;
-  height: calc(13px * 1.55);
+  white-space: pre;
+  box-sizing: border-box;
 }
 
 .source-editor {

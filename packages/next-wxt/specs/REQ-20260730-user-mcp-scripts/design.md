@@ -39,7 +39,7 @@ export const USER_MCP_SCRIPTS_KEY = 'local:user-mcp-scripts'
 
 ## 依赖变更
 
-- `packages/next-wxt` 增加 `vitest` / `jsdom`（devDependencies）与 `test` script
+- `packages/next-wxt` 增加 `vitest`（devDependencies）与 `test` script（`vitest.config.ts` 使用 `environment: 'node'`）
 
 ## API / 行为变更
 

@@ -8,6 +8,18 @@ import { createDefaultScriptMeta } from './template'
 import type { UserMcpScript, UserMcpScriptInput, UserMcpScriptsStore } from './types'
 import { USER_MCP_SCRIPTS_KEY } from './types'
 
+/** 串行化读改写，避免并发丢更新 */
+let storeWriteChain: Promise<unknown> = Promise.resolve()
+
+function withStoreLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = storeWriteChain.then(fn, fn)
+  storeWriteChain = run.then(
+    () => undefined,
+    () => undefined
+  )
+  return run
+}
+
 function newId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID()
@@ -64,41 +76,53 @@ export type UpsertResult =
  * 新建或更新脚本；校验 @match
  */
 export async function upsertUserMcpScript(input: UserMcpScriptInput): Promise<UpsertResult> {
-  const matchCheck = validateMatchPatterns(input.matches || [])
-  if (!matchCheck.ok) return matchCheck
+  return withStoreLock(async () => {
+    const matchCheck = validateMatchPatterns(input.matches || [])
+    if (!matchCheck.ok) return matchCheck
 
-  const name = (input.name || '').trim()
-  if (!name) return { ok: false, error: '名称不能为空' }
-  if (!(input.source || '').trim()) return { ok: false, error: '脚本源码不能为空' }
+    const name = (input.name || '').trim()
+    if (!name) return { ok: false, error: '名称不能为空' }
+    if (!(input.source || '').trim()) return { ok: false, error: '脚本源码不能为空' }
 
-  const store = await getUserMcpScriptsStore()
-  const id = input.id && store[input.id] ? input.id : input.id || newId()
-  const script: UserMcpScript = {
-    id,
-    name,
-    description: input.description?.trim() || undefined,
-    matches: input.matches.map((m) => m.trim()).filter(Boolean),
-    enabled: input.enabled !== false,
-    replacesBuiltIn: Boolean(input.replacesBuiltIn),
-    source: input.source,
-    updatedAt: Date.now()
-  }
-  store[id] = script
-  await setUserMcpScriptsStore(store)
-  return { ok: true, script }
+    const store = await getUserMcpScriptsStore()
+    const id = input.id || newId()
+    const script: UserMcpScript = {
+      id,
+      name,
+      description: input.description?.trim() || undefined,
+      matches: input.matches.map((m) => m.trim()).filter(Boolean),
+      enabled: input.enabled !== false,
+      replacesBuiltIn: Boolean(input.replacesBuiltIn),
+      source: input.source,
+      updatedAt: Date.now()
+    }
+    store[id] = script
+    await setUserMcpScriptsStore(store)
+    return { ok: true, script }
+  })
 }
 
 export async function removeUserMcpScript(id: string): Promise<void> {
-  const store = await getUserMcpScriptsStore()
-  delete store[id]
-  await setUserMcpScriptsStore(store)
+  return withStoreLock(async () => {
+    const store = await getUserMcpScriptsStore()
+    delete store[id]
+    await setUserMcpScriptsStore(store)
+  })
 }
 
+/**
+ * 仅切换启用状态，不更新 updatedAt，避免侧栏排序跳动
+ */
 export async function setUserMcpScriptEnabled(id: string, enabled: boolean): Promise<UpsertResult> {
-  const store = await getUserMcpScriptsStore()
-  const existing = store[id]
-  if (!existing) return { ok: false, error: '脚本不存在' }
-  return upsertUserMcpScript({ ...existing, enabled })
+  return withStoreLock(async () => {
+    const store = await getUserMcpScriptsStore()
+    const existing = store[id]
+    if (!existing) return { ok: false, error: '脚本不存在' }
+    const script = { ...existing, enabled }
+    store[id] = script
+    await setUserMcpScriptsStore(store)
+    return { ok: true, script }
+  })
 }
 
 /**
@@ -131,10 +155,11 @@ export function exportUserMcpScriptsJson(scripts: UserMcpScript[]): string {
 }
 
 /**
- * 从 JSON 导入（合并到现有 store；同 id 覆盖）
+ * 从 JSON 导入（合并到现有 store；同 id 覆盖）。
+ * 导入项一律先禁用，需用户审阅后手动启用。
  */
 export async function importUserMcpScriptsJson(json: string): Promise<
-  | { ok: true; imported: number }
+  | { ok: true; imported: number; skipped: number }
   | { ok: false; error: string }
 > {
   let parsed: unknown
@@ -148,18 +173,30 @@ export async function importUserMcpScriptsJson(json: string): Promise<
     return { ok: false, error: 'JSON 应为脚本数组，或含 scripts 字段的对象' }
   }
 
-  const store = await getUserMcpScriptsStore()
-  let imported = 0
-  for (const item of list) {
-    if (!item || typeof item !== 'object') continue
-    const id = typeof item.id === 'string' && item.id ? item.id : newId()
-    const candidate = normalizeScript({ ...item, id })
-    if (!candidate) continue
-    const matchCheck = validateMatchPatterns(candidate.matches)
-    if (!matchCheck.ok) continue
-    store[id] = { ...candidate, updatedAt: Date.now() }
-    imported++
-  }
-  await setUserMcpScriptsStore(store)
-  return { ok: true, imported }
+  return withStoreLock(async () => {
+    const store = await getUserMcpScriptsStore()
+    let imported = 0
+    let skipped = 0
+    for (const item of list) {
+      if (!item || typeof item !== 'object') {
+        skipped++
+        continue
+      }
+      const id = typeof item.id === 'string' && item.id ? item.id : newId()
+      const candidate = normalizeScript({ ...item, id })
+      if (!candidate) {
+        skipped++
+        continue
+      }
+      const matchCheck = validateMatchPatterns(candidate.matches)
+      if (!matchCheck.ok) {
+        skipped++
+        continue
+      }
+      store[id] = { ...candidate, enabled: false, updatedAt: Date.now() }
+      imported++
+    }
+    await setUserMcpScriptsStore(store)
+    return { ok: true, imported, skipped }
+  })
 }

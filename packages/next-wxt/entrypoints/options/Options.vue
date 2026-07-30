@@ -22,7 +22,11 @@ const isInnerMode = import.meta.env.VITE_MODEL_CONFIG === 'inner'
       <h2>OpenTiny AI Extension 配置</h2>
     </div>
 
-    <TinyTabs v-model="activeTab" class="options-tabs">
+    <TinyTabs
+      v-model="activeTab"
+      class="options-tabs"
+      :class="{ 'tabs-mcp-scripts': activeTab === 'user-mcp-scripts' }"
+    >
       <TinyTabItem name="skills" title="Skills 管理">
         <SkillsTab />
       </TinyTabItem>
@@ -67,8 +71,8 @@ const isInnerMode = import.meta.env.VITE_MODEL_CONFIG === 'inner'
   margin-top: 16px;
 }
 
-/* 页面 MCP 脚本需要更高编辑区，减少底部留白 */
-.options-tabs :deep(.tiny-tabs__content) {
+/* 仅页面 MCP 脚本 Tab 需要更高编辑区 */
+.tabs-mcp-scripts :deep(.tiny-tabs__content) {
   overflow: visible;
 }
 

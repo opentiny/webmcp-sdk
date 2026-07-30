@@ -12,6 +12,7 @@ import {
   shouldSkipBuiltIn,
   matchAny,
   USER_MCP_EXEC_BRIDGE_NAME,
+  USER_MCP_EXEC_BRIDGE_OWNER,
   type UserMcpScript,
   type BridgeExecResult
 } from '@/user-mcp-scripts'
@@ -28,15 +29,16 @@ export type InjectUserMcpResult = {
  */
 async function executeUserSourceInMainWorld(tabId: number, source: string): Promise<BridgeExecResult> {
   const bridgeName = USER_MCP_EXEC_BRIDGE_NAME
+  const ownerKey = USER_MCP_EXEC_BRIDGE_OWNER
   const results = await browser.scripting.executeScript({
     target: { tabId },
     world: 'MAIN',
-    args: [source, bridgeName],
-    func: (code: string, name: string) => {
+    args: [source, bridgeName, ownerKey],
+    func: (code: string, name: string, owner: string) => {
       const run = (window as any)[name]
-      if (typeof run !== 'function') {
-        console.warn('[user-mcp-scripts] 执行桥未就绪:', name)
-        return { ok: false, error: 'bridge missing: ' + name }
+      if (typeof run !== 'function' || run[owner] !== true) {
+        console.warn('[user-mcp-scripts] 执行桥未就绪或非扩展所有:', name)
+        return { ok: false, error: 'bridge missing or hijacked: ' + name }
       }
       return run(code)
     }
