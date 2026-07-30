@@ -14,6 +14,8 @@
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
     "compile": "vue-tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "postinstall": "wxt prepare"
   },
   "dependencies": {
@@ -42,6 +44,7 @@
     "unplugin-vue-components": "catalog:",
     "vite": "7.2.4",
     "vite-svg-loader": "catalog:",
+    "vitest": "^4.1.10",
     "vue-tsc": "catalog:",
     "wxt": "catalog:"
   }

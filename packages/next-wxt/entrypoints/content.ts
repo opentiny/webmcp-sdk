@@ -29,13 +29,16 @@ export default defineContentScript({
     //    页面操作已由 MAIN world 的 registerPageAgentTool（内置 WebMCP）承担
     initContentReadyPing()
 
-    // 4. 注入 vendor/runtime.js + 注册 page-agent-tool；再注入域名专属工具
+    // 4. 注入 vendor/runtime.js + 注册 page-agent-tool
+    //    → 用户 MCP 脚本（background MAIN）→（可选）内置 mcp-servers
     //    全部完成后再发一次 page-tools-injected，避免侧边栏过早同步拿到不完整工具列表
     await injectRuntimeAndRegister()
 
+    const skipBuiltIn = await requestInjectUserMcpScripts(tabId)
+
     const hostname = window.location.hostname
     const meta = getMcpMetaInfo(hostname)
-    if (meta) {
+    if (meta && !skipBuiltIn) {
       await injectMcpServerTools(hostname)
     }
 
@@ -81,8 +84,8 @@ function injectScript(path: string): Promise<void> {
 }
 
 /**
- * 注入 vendor/runtime.js，再注入 register-page-agent-tool.js 完成注册。
- * 二者都走 <script src="chrome-extension://...">，与百度等严格 CSP 页面兼容。
+ * 注入 vendor/runtime.js，再注入 register-page-agent-tool.js 与用户脚本执行桥。
+ * 全部走 <script src="chrome-extension://...">，与百度/京东等严格 CSP 页面兼容。
  * 注意：勿在 content script 调用 browser.scripting（该 API 仅 background/扩展页可用）。
  */
 let runtimeInjected: Promise<void> | null = null
@@ -91,9 +94,36 @@ async function injectRuntimeAndRegister(): Promise<void> {
     runtimeInjected = (async () => {
       await injectScript('vendor/runtime.js')
       await injectScript('vendor/register-page-agent-tool.js')
+      // 用户 MCP 脚本执行桥：须在 scripting.executeScript 调用前就绪
+      await injectScript('vendor/user-mcp-exec.js')
     })()
   }
   await runtimeInjected
+}
+
+/**
+ * 请求 background 注入匹配当前 URL 的用户 MCP 脚本。
+ * 返回是否应跳过内置 mcp-servers（replacesBuiltIn）。
+ * 匹配/存储逻辑在 user-mcp-scripts；content 只做薄钩子。
+ */
+async function requestInjectUserMcpScripts(tabId: number): Promise<boolean> {
+  try {
+    const res = await browser.runtime.sendMessage({
+      type: 'inject-user-mcp-scripts',
+      tabId,
+      url: location.href
+    })
+    if (res?.injectedCount > 0) {
+      console.log(`[next-wxt] 已注入 ${res.injectedCount} 条用户 MCP 脚本`)
+    }
+    if (res?.error) {
+      console.warn('[next-wxt] 用户 MCP 脚本执行异常:', res.error)
+    }
+    return Boolean(res?.shouldSkipBuiltIn)
+  } catch (error) {
+    console.warn('[next-wxt] 请求注入用户 MCP 脚本失败:', error)
+    return false
+  }
 }
 
 /**

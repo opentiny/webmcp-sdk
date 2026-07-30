@@ -1,12 +1,13 @@
 <script setup lang="ts">
 /**
- * Options 配置页：Skills 管理 + Token 生成
+ * Options 配置页：Skills / 页面 MCP 脚本 / Token / 模型配置
  * 使用 TinyVue Tabs 分标签展示，风格与 TinyVue 保持一致
  */
 import { ref } from 'vue'
 import SkillsTab from './SkillsTab.vue'
 import TokenTab from './TokenTab.vue'
 import ModelConfigTab from './ModelConfigTab.vue'
+import UserMcpScriptsTab from './UserMcpScriptsTab.vue'
 
 // 当前激活的标签
 const activeTab = ref('skills')
@@ -24,6 +25,9 @@ const isInnerMode = import.meta.env.VITE_MODEL_CONFIG === 'inner'
     <TinyTabs v-model="activeTab" class="options-tabs">
       <TinyTabItem name="skills" title="Skills 管理">
         <SkillsTab />
+      </TinyTabItem>
+      <TinyTabItem name="user-mcp-scripts" title="页面 MCP 脚本">
+        <UserMcpScriptsTab />
       </TinyTabItem>
       <TinyTabItem v-if="isInnerMode" name="token" title="Token 生成">
         <TokenTab />
@@ -61,6 +65,11 @@ const isInnerMode = import.meta.env.VITE_MODEL_CONFIG === 'inner'
 
 .options-tabs {
   margin-top: 16px;
+}
+
+/* 页面 MCP 脚本需要更高编辑区，减少底部留白 */
+.options-tabs :deep(.tiny-tabs__content) {
+  overflow: visible;
 }
 
 @media (max-width: 768px) {

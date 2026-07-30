@@ -12,6 +12,13 @@ declare global {
       consoleCloudPageAgentToolOptions?: Record<string, any>
       [key: string]: any
     }
+    /**
+     * 用户 MCP 脚本执行桥（vendor/user-mcp-exec.js）
+     * 在扩展脚本上下文执行源码，绕过页面 CSP 对 eval 的限制
+     */
+    __NEXT_WXT_EXEC_USER_MCP_SCRIPT__?: (
+      code: string
+    ) => { ok: true } | { ok: false; error: string }
   }
 
   interface Document {

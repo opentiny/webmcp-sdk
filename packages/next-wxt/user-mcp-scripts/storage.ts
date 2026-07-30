@@ -1,0 +1,165 @@
+/**
+ * 用户 MCP 脚本存储（独立于 skills-overrides）
+ */
+
+import { storage } from '@wxt-dev/storage'
+import { validateMatchPatterns } from './match'
+import { createDefaultScriptMeta } from './template'
+import type { UserMcpScript, UserMcpScriptInput, UserMcpScriptsStore } from './types'
+import { USER_MCP_SCRIPTS_KEY } from './types'
+
+function newId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `ums_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`
+}
+
+function normalizeScript(raw: Partial<UserMcpScript> & { id: string }): UserMcpScript | null {
+  if (!raw.id || typeof raw.name !== 'string' || typeof raw.source !== 'string') return null
+  if (!Array.isArray(raw.matches)) return null
+  return {
+    id: raw.id,
+    name: raw.name,
+    description: typeof raw.description === 'string' ? raw.description : undefined,
+    matches: raw.matches.map(String),
+    enabled: raw.enabled !== false,
+    replacesBuiltIn: Boolean(raw.replacesBuiltIn),
+    source: raw.source,
+    updatedAt: typeof raw.updatedAt === 'number' ? raw.updatedAt : Date.now()
+  }
+}
+
+export async function getUserMcpScriptsStore(): Promise<UserMcpScriptsStore> {
+  try {
+    const data = (await storage.getItem(USER_MCP_SCRIPTS_KEY)) as UserMcpScriptsStore | undefined
+    if (!data || typeof data !== 'object') return {}
+    const out: UserMcpScriptsStore = {}
+    for (const [id, value] of Object.entries(data)) {
+      const normalized = normalizeScript({ ...value, id: value?.id || id })
+      if (normalized) out[normalized.id] = normalized
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+export async function setUserMcpScriptsStore(store: UserMcpScriptsStore): Promise<void> {
+  await storage.setItem(USER_MCP_SCRIPTS_KEY, store)
+}
+
+export async function listUserMcpScripts(): Promise<UserMcpScript[]> {
+  const store = await getUserMcpScriptsStore()
+  return Object.values(store).sort(
+    (a, b) => b.updatedAt - a.updatedAt || a.name.localeCompare(b.name)
+  )
+}
+
+export type UpsertResult =
+  | { ok: true; script: UserMcpScript }
+  | { ok: false; error: string }
+
+/**
+ * 新建或更新脚本；校验 @match
+ */
+export async function upsertUserMcpScript(input: UserMcpScriptInput): Promise<UpsertResult> {
+  const matchCheck = validateMatchPatterns(input.matches || [])
+  if (!matchCheck.ok) return matchCheck
+
+  const name = (input.name || '').trim()
+  if (!name) return { ok: false, error: '名称不能为空' }
+  if (!(input.source || '').trim()) return { ok: false, error: '脚本源码不能为空' }
+
+  const store = await getUserMcpScriptsStore()
+  const id = input.id && store[input.id] ? input.id : input.id || newId()
+  const script: UserMcpScript = {
+    id,
+    name,
+    description: input.description?.trim() || undefined,
+    matches: input.matches.map((m) => m.trim()).filter(Boolean),
+    enabled: input.enabled !== false,
+    replacesBuiltIn: Boolean(input.replacesBuiltIn),
+    source: input.source,
+    updatedAt: Date.now()
+  }
+  store[id] = script
+  await setUserMcpScriptsStore(store)
+  return { ok: true, script }
+}
+
+export async function removeUserMcpScript(id: string): Promise<void> {
+  const store = await getUserMcpScriptsStore()
+  delete store[id]
+  await setUserMcpScriptsStore(store)
+}
+
+export async function setUserMcpScriptEnabled(id: string, enabled: boolean): Promise<UpsertResult> {
+  const store = await getUserMcpScriptsStore()
+  const existing = store[id]
+  if (!existing) return { ok: false, error: '脚本不存在' }
+  return upsertUserMcpScript({ ...existing, enabled })
+}
+
+/**
+ * 用默认模板创建一条脚本
+ */
+export async function createUserMcpScriptFromTemplate(partial?: {
+  name?: string
+  description?: string
+  matches?: string[]
+}): Promise<UpsertResult> {
+  const meta = createDefaultScriptMeta(partial)
+  return upsertUserMcpScript(meta)
+}
+
+/**
+ * 导出为可分享的 JSON 数组（不含内部无关字段）
+ */
+export function exportUserMcpScriptsJson(scripts: UserMcpScript[]): string {
+  const payload = scripts.map((s) => ({
+    id: s.id,
+    name: s.name,
+    description: s.description,
+    matches: s.matches,
+    enabled: s.enabled,
+    replacesBuiltIn: s.replacesBuiltIn,
+    source: s.source,
+    updatedAt: s.updatedAt
+  }))
+  return JSON.stringify(payload, null, 2)
+}
+
+/**
+ * 从 JSON 导入（合并到现有 store；同 id 覆盖）
+ */
+export async function importUserMcpScriptsJson(json: string): Promise<
+  | { ok: true; imported: number }
+  | { ok: false; error: string }
+> {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(json)
+  } catch {
+    return { ok: false, error: 'JSON 解析失败' }
+  }
+  const list = Array.isArray(parsed) ? parsed : (parsed as any)?.scripts
+  if (!Array.isArray(list)) {
+    return { ok: false, error: 'JSON 应为脚本数组，或含 scripts 字段的对象' }
+  }
+
+  const store = await getUserMcpScriptsStore()
+  let imported = 0
+  for (const item of list) {
+    if (!item || typeof item !== 'object') continue
+    const id = typeof item.id === 'string' && item.id ? item.id : newId()
+    const candidate = normalizeScript({ ...item, id })
+    if (!candidate) continue
+    const matchCheck = validateMatchPatterns(candidate.matches)
+    if (!matchCheck.ok) continue
+    store[id] = { ...candidate, updatedAt: Date.now() }
+    imported++
+  }
+  await setUserMcpScriptsStore(store)
+  return { ok: true, imported }
+}
