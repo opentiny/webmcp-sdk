@@ -1,5 +1,11 @@
 import { useWebAgentServer, forceWebAgentReconnect } from './sidepanel/composable/useWebAgentServer'
 import { tabHistory } from './background/tab-history'
+import {
+  injectUserMcpScriptsForTab,
+  reloadTabsByMatchesSnapshot,
+  reinjectAfterUserMcpScriptsChange,
+  clearUserMcpBridgeToken
+} from './background/inject-user-mcp-scripts'
 
 export default defineBackground(() => {
   // ─────────────────────────────────────────
@@ -15,10 +21,16 @@ export default defineBackground(() => {
       })
   }, 0)
 
+  // 页面导航 / 关闭后丢弃 capability，避免跨文档复用
+  browser.tabs.onRemoved.addListener((tabId) => clearUserMcpBridgeToken(tabId))
+  browser.tabs.onUpdated.addListener((tabId, changeInfo) => {
+    if (changeInfo.status === 'loading') clearUserMcpBridgeToken(tabId)
+  })
+
   // ─────────────────────────────────────────
   // 消息处理（需要返回值的使用原生 onMessage）
   // ─────────────────────────────────────────
-  browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  browser.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Web Agent 手动重连
     // 注意：不依赖 initPromise，因为它可能已经 rejected（初始连接失败时），
     // rejected 的 Promise 状态永久不变，会导致重连请求直接走 catch 分支而不实际发起连接。
@@ -40,6 +52,43 @@ export default defineBackground(() => {
           })
         })
         .catch(() => sendResponse({ sessionId: '', status: 'error' }))
+      return true
+    }
+
+    // content：注入匹配的用户 MCP 脚本，并返回是否跳过内置 mcp-servers
+    if (message.type === 'inject-user-mcp-scripts') {
+      const tabId = message.tabId ?? sender.tab?.id
+      const url = message.url || sender.tab?.url
+      if (!tabId || !url) {
+        sendResponse({
+          success: false,
+          shouldSkipBuiltIn: false,
+          injectedCount: 0,
+          error: '缺少 tabId 或 url'
+        })
+        return true
+      }
+      injectUserMcpScriptsForTab(tabId, url)
+        .then((result) => sendResponse(result))
+        .catch((error) =>
+          sendResponse({
+            success: false,
+            shouldSkipBuiltIn: false,
+            injectedCount: 0,
+            error: error?.message || String(error)
+          })
+        )
+      return true
+    }
+
+    // Options：保存/删除后刷新匹配标签页
+    if (message.type === 'reinject-user-mcp-scripts') {
+      const run = message.matchesSnapshot
+        ? reloadTabsByMatchesSnapshot(message.matchesSnapshot)
+        : reinjectAfterUserMcpScriptsChange(message.scriptId)
+      run
+        .then((reloaded) => sendResponse({ success: true, reloaded }))
+        .catch((error) => sendResponse({ success: false, error: error?.message || String(error) }))
       return true
     }
   })
