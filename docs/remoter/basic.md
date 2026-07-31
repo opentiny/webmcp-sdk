@@ -146,6 +146,7 @@ type UnifiedModelConfig = ICustomAgentModelProviderLlmConfig & {
 - `inBrowserExt` 设置组件运行于普通页面还是浏览器扩展，默认值为 `false`
 - `genUiAble` 双向绑定是否启用生成式 UI 渲染，默认值为 `false`。输入框旁的「生成式 UI」开关是否显示由**当前模型配置**决定：仅当配置中同时包含 `baseURL` 和 `genuiUrl` 时才会显示
 - `genUiComponents` 生成式 UI 已内置一批组件；如需支持额外组件，可通过该属性导入，例如：`shallowReactive({ TinyUser, TinyAlert })`
+- `allowSpeech` 启用语言输入模式。
 
 ## 二、事件
 
