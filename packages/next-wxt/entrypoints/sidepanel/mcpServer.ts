@@ -1,5 +1,6 @@
 import { getCurrentTabId } from './utils/utils'
 import { useExtraTools } from './extraTools'
+import { setRecorderWebmcpRefresh, useRecorderWebmcpTools } from './recorderWebmcpTools'
 
 /**
  * 注册侧边栏本地工具及页面代理工具到内置 WebMCP（document.modelContext）。
@@ -53,6 +54,9 @@ export const setupLocalTools = () => {
 
   // 1. 注册插件内置辅助工具
   useExtraTools(nativeCtx)
+
+  // 1b. Recorder WebMCP（扩展侧；按激活页 match 同步）
+  const { syncRecorderToolsForTab } = useRecorderWebmcpTools(nativeCtx)
 
   // 2. 记录已注册的页面代理工具，防止重复注册
   const registeredProxyTools = new Set<string>()
@@ -208,6 +212,7 @@ export const setupLocalTools = () => {
       currentSyncTabId = tabId
 
       await syncPageProxy(tabId)
+      await syncRecorderToolsForTab(tabId)
 
       // 已被更新的刷新请求取代，则不再通知，避免旧结果覆盖新结果
       if (seq !== refreshSeq || currentSyncTabId !== tabId) {
@@ -223,13 +228,18 @@ export const setupLocalTools = () => {
     }
   }
 
+  setRecorderWebmcpRefresh(() => refreshPageTools())
+
   // 初始加载
   refreshPageTools()
 
-  // 监听内容脚本工具注入完成事件
+  // 监听内容脚本工具注入完成事件 / Recorder 工具变更（Options 页发送）
   browser.runtime.onMessage.addListener((message) => {
     if (message.type === 'page-tools-injected') {
       refreshPageTools(message.tabId)
+    }
+    if (message.type === 'recorder-webmcp-updated') {
+      refreshPageTools()
     }
   })
 

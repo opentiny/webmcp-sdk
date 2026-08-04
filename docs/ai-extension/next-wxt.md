@@ -4,14 +4,15 @@
 
 通过原生 `document.modelContext.registerTool` API，开发者可以极低成本地将前端页面的业务能力暴露给 AI 助手，实现"大模型直接操作业务后台"。
 
-有两条互补路径：
+有三条互补路径：
 
 | 路径 | 适用 | 说明 |
 |---|---|---|
-| **页面 MCP 脚本（推荐推广）** | 终端用户 / 快速适配新站 | Options →「页面 MCP 脚本」在线编辑，按 `@match` 匹配站点，保存后即时注入 |
+| **页面 MCP 脚本（推荐推广）** | 终端用户 / 快速适配新站 | Options →「页面 MCP 脚本」在线编辑，按 `@match` 匹配站点，保存后即时注入 MAIN world |
+| **Recorder 自动化** | 录制流程复用 | Options →「Recorder 自动化」；或侧栏粘贴 Chrome Recorder（Puppeteer）脚本，由 `recorder-to-webmcp` Skill 转化。工具挂在**扩展侧栏**，用 `puppeteer-core` 操作当前激活页，**不**进 MAIN world |
 | **源码内置 mcp-servers** | 扩展维护者 / 随包分发 | 在 `packages/next-wxt/mcp-servers/<hostname>/` 编写 TS，构建期打成 IIFE |
 
-二者并行：默认同时生效；用户脚本勾选「覆盖内置」且匹配当前页时，跳过该页内置域名脚本。
+页面脚本与内置 mcp-servers 并行：默认同时生效；用户脚本勾选「覆盖内置」且匹配当前页时，跳过该页内置域名脚本。Recorder 工具按当前激活页 `@match` 单独注册到侧栏。
 
 ## 〇、页面 MCP 脚本（在线编辑）
 
@@ -45,6 +46,15 @@
 ```
 
 实现位于独立模块 `packages/next-wxt/user-mcp-scripts/`，与 Skills、远程 MCP 市场解耦。
+
+## 〇-b、Recorder 自动化（扩展侧）
+
+1. **转化**：在侧栏对话粘贴 Chrome DevTools Recorder 导出的 Puppeteer 脚本，Agent 按 Skill `recorder-to-webmcp` 拆成结构化 `steps`，并把输入类/可变字面量抽成 `inputSchema` 参数，再调用常驻工具 `recorder_webmcp_save` 落盘。
+2. **编辑**：Options → **Recorder 自动化**，可改工具名、`@match`、`inputSchema`、`steps` JSON，以及可选的 `sourceBackup`。
+3. **加载**：仅当**当前激活标签页** URL 命中该工具的 `@match` 时，工具出现在「浏览器内置工具」中（切 tab 会卸载/重挂，与页面工具刷新节奏一致）。
+4. **执行**：侧栏用已有 `puppeteer-core`（`ExtensionTransport`）连接该 tab，以 `Locator.race` 等 API 执行 steps；首次可能需要浏览器调试器授权。
+
+实现位于独立模块 `packages/next-wxt/recorder-webmcp/`，存储 key 与 `user-mcp-scripts` 分离。
 
 ## 一、工作原理（源码内置）
 
