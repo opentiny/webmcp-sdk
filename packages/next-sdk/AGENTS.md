@@ -37,7 +37,7 @@
 | `remoter/` | `createRemoter`、`QrCode` |
 | `skills/index.ts` | **运行时**业务 Skill 工具（给终端用户 Agent），不是编码用 SKILL.md |
 | `skills/page-agent/` | **编码** Agent Skill（本包 page-agent） |
-| `runtime.ts` / `core.ts` / `index.ts` | 入口差异见下 |
+| `runtime.ts` / `core.ts` / `dev.ts` / `index.ts` | 入口差异见下 |
 | `specs/` | Feature Spec 实例 |
 | `test/` | Vitest 可执行测试 |
 
@@ -45,6 +45,7 @@
 
 - `index.ts`：完整导出（含 page-agent、remoter、skills API、polyfill）
 - `core.ts`：无 DOM 精简（Agent / `initializeBuiltinWebMCP` 等）
+- `dev.ts`：本地开发辅助（如 `dom-inspect` / Inspect Assist），路径 `@opentiny/next-sdk/dev`
 - `runtime.ts`：IIFE/CDN，挂 page-agent 相关 API，**不**自动 register
 
 ## Page Agent API（摘要）

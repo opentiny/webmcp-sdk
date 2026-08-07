@@ -37,7 +37,9 @@ export default defineConfig(() => {
       lib: {
         entry: {
           index: 'index.ts',
-          core: 'core.ts'
+          core: 'core.ts',
+          // 本地开发相关能力（如 dom-inspect），勿与主入口混用
+          dev: 'dev.ts'
         },
         name: 'NEXT-SDK',
         formats: ['es'],
