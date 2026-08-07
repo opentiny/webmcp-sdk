@@ -1,6 +1,6 @@
 import { defineConfig, type Plugin } from 'vite'
 import dts from 'vite-plugin-dts'
-import { isLibExternal, isNodeOnlyPackageId } from './build/lib-external'
+import { isLibExternal, isNodeOnlyPackageId } from './script/lib-external'
 
 /**
  * 将误入浏览器图的 Node 内置 / Node-only 包替换为空模块，
