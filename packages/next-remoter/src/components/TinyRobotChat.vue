@@ -74,6 +74,9 @@
                 :multiple="true" @select="onFilesSelected" />
             </div>
           </template>
+          <template #footer-right>
+            <VoiceButton v-if="allowSpeech" />
+          </template>
         </tr-sender>
 
         <!-- 插件面板 -->
@@ -107,7 +110,8 @@ import {
   TrMcpServerPicker,
   TrHistory,
   TrAttachments,
-  TrUploadButton
+  TrUploadButton,
+  VoiceButton
 } from '@opentiny/tiny-robot'
 
 import type { PluginInfo, MarketCategoryOption } from '@opentiny/tiny-robot'
@@ -266,6 +270,11 @@ const props = defineProps({
   pillItems: {
     type: Array,
     default: undefined
+  },
+  /** 支持语音输入功能 */
+  allowSpeech: {
+    type: Boolean,
+    default: false
   }
 })
 
