@@ -1,39 +1,53 @@
-import { defineConfig } from 'vite'
+import { defineConfig, type Plugin } from 'vite'
 import dts from 'vite-plugin-dts'
+import { isLibExternal, isNodeOnlyPackageId } from './build/lib-external'
+
+/**
+ * 将误入浏览器图的 Node 内置 / Node-only 包替换为空模块，
+ * 避免以 external 形式泄漏到宿主（Angular 会报 Can't resolve 'http'）。
+ */
+function stubNodeOnlyForBrowser(): Plugin {
+  const stubPrefix = '\0next-sdk-stub-node:'
+  return {
+    name: 'next-sdk-stub-node-only',
+    enforce: 'pre',
+    resolveId(id) {
+      if (isNodeOnlyPackageId(id)) {
+        return stubPrefix + id
+      }
+      return null
+    },
+    load(id) {
+      if (!id.startsWith(stubPrefix)) return null
+      // 空 ESM，防止宿主再去解析 http/fs/express 等
+      return 'export default {};\n'
+    }
+  }
+}
 
 // https://vitejs.dev/config/
 export default defineConfig(() => {
-  // 需要排除的第三方依赖列表
-  const externalDependencies = [
-    '@modelcontextprotocol/sdk',
-    '@opentiny/next',
-    '@ai-sdk/openai',
-    '@ai-sdk/deepseek',
-    '@ai-sdk/provider',
-    'qrcode',
-    'zod',
-    'ajv',
-    'ai'
-  ]
-
   return {
     plugins: [
-      // 配置 dts 插件生成类型声明文件
+      stubNodeOnlyForBrowser(),
       dts({
-        // 指定 TypeScript 配置文件路径
         tsconfigPath: './tsconfig.json',
         outDir: 'dist',
-        // 包含所有 TypeScript 文件，确保所有被引用的文件都被处理
         include: ['**/*.ts'],
-        exclude: ['node_modules/**', 'dist/**', '**/*.test.ts', '**/*.spec.ts'],
-        // 不合并类型文件，保持文件结构以便相对路径引用正常工作
+        exclude: ['node_modules/**', 'dist/**', 'build/**', '**/*.test.ts', '**/*.spec.ts'],
         rollupTypes: false,
-        // 插入类型入口文件引用
         insertTypesEntry: true
       })
     ],
+    resolve: {
+      // 优先走 browser / export conditions，避免打进 pkce-challenge / @vercel/oidc 的 Node 入口
+      conditions: ['browser', 'import', 'module', 'default'],
+      mainFields: ['browser', 'module', 'jsnext:main', 'jsnext', 'main']
+    },
     build: {
-      emptyOutDir: false,
+      // 清理旧 chunk，避免 Angular 等宿主仍解析到带 ai external 的历史产物
+      emptyOutDir: true,
+      target: 'esnext',
       lib: {
         entry: {
           index: 'index.ts',
@@ -41,22 +55,11 @@ export default defineConfig(() => {
         },
         name: 'NEXT-SDK',
         formats: ['es'],
-        fileName: (format, entryName) => `${entryName}.js`
+        fileName: (_format, entryName) => `${entryName}.js`
       },
       rollupOptions: {
-        // 排除第三方依赖，保留本地文件
-        external: (id) => {
-          // 如果是相对路径导入（本地文件），不排除
-          if (id.startsWith('.') || id.startsWith('/')) {
-            return false
-          }
-          // 排除 node_modules 中的第三方依赖
-          if (id.includes('node_modules')) {
-            return true
-          }
-          // 排除指定的第三方依赖包
-          return externalDependencies.some((dep) => id === dep || id.startsWith(`${dep}/`))
-        }
+        // 白名单 external：ai / @ai-sdk / MCP / @opentiny/next 打进产物
+        external: isLibExternal
       }
     }
   }
