@@ -1,6 +1,6 @@
 {
   "name": "@opentiny/next-sdk",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "type": "module",
   "homepage": "https://docs.opentiny.design/next-sdk/guide/",
   "repository": {
@@ -35,6 +35,10 @@
     "./core": {
       "import": "./core.ts",
       "types": "./core.ts"
+    },
+    "./dev": {
+      "import": "./dev.ts",
+      "types": "./dev.ts"
     }
   },
   "description": "A frontend intelligent application development toolkit designed to simplify WebAgent integration and usage, supporting multiple programming languages and frontend frameworks to help developers rapidly implement intelligent features",
@@ -88,6 +92,10 @@
       "./core": {
         "import": "./dist/core.js",
         "types": "./dist/core.d.ts"
+      },
+      "./dev": {
+        "import": "./dist/dev.js",
+        "types": "./dist/dev.d.ts"
       }
     }
   }

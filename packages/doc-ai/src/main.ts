@@ -2,11 +2,8 @@ import { createApp } from 'vue'
 import router from './router'
 import App from './App.vue'
 import './style.css'
-import {
-  enableInspectAssist,
-  initializeBuiltinWebMCP,
-  registerPageAgentTool,
-} from '@opentiny/next-sdk'
+import { initializeBuiltinWebMCP, registerPageAgentTool } from '@opentiny/next-sdk'
+import { enableInspectAssist } from '@opentiny/next-sdk/dev'
 
 initializeBuiltinWebMCP()
 // 单页应用工具注册一次即可

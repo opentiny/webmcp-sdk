@@ -113,20 +113,3 @@ export type {
   VNode,
   RefMap
 } from './page-tools/a11y/types'
-
-// Inspect Assist：点选区域复制 Cursor 元素卡片，辅助定位改样式/逻辑
-export {
-  enableInspectAssist,
-  disableInspectAssist,
-  buildElementMeta,
-  formatElementMetaText,
-  truncateHtml,
-  buildDomPath,
-} from './dom-inspect'
-export type {
-  InspectAssistOptions,
-  InspectAssistHandle,
-  ElementMeta,
-  ElementPosition,
-  ElementAttribute,
-} from './dom-inspect'
