@@ -167,11 +167,15 @@ INNER TEXT
 
 ## ElementMeta 数据结构
 
-如需在 `onCopied` 回调中处理结构化元信息，可引入 `ElementMeta` 类型：
+如需在 `onCopied` 回调中处理结构化元信息，可从包中引入类型定义：
 
 ```typescript
 import type { ElementMeta, ElementPosition, ElementAttribute } from '@opentiny/next-sdk/dev'
+```
 
+`ElementMeta` 的接口结构如下：
+
+```typescript
 interface ElementMeta {
   /** 元素开标签摘要，如 `<div class="guide-box">` */
   element: string
