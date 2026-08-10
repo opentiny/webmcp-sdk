@@ -1,5 +1,8 @@
 # enableInspectAssist（DOM 元素检视辅助）
 
+> [!NOTE]
+> 自 `@opentiny/next-sdk` **v0.4.6** 版本起提供此功能。
+
 `enableInspectAssist` 是一个**仅供开发调试使用**的浏览器侧辅助工具。启用后，开发者可以在页面上点选任意 DOM 元素，将其结构化元信息（标签摘要、CSS 路径、属性、计算样式、尺寸位置、文本内容）一键复制成 **Cursor/AI 友好的纯文本卡片**，直接粘贴进对话框描述修改需求，无需手动翻 DevTools。
 
 > [!IMPORTANT]
