@@ -31,6 +31,7 @@ export default defineConfig({
           items: [
             { text: '全局 API', link: '/webmcp-sdk/global-tools' },
             { text: 'registerPageAgentTool 函数', link: '/webmcp-sdk/page-agent-tool' },
+            { text: 'enableInspectAssist 函数', link: '/webmcp-sdk/inspect-assist' },
             { text: 'WebMcpServer 类', link: '/webmcp-sdk/webmcp-server' },
             { text: 'WebMcpClient 类', link: '/webmcp-sdk/webmcp-client' },
             { text: 'createRemoter 函数', link: '/webmcp-sdk/create-remoter' }
