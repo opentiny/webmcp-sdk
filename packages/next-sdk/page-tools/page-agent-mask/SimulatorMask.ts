@@ -225,22 +225,35 @@ export class SimulatorMask extends EventTarget {
     this.#cursor.classList.add('clicking')
   }
 
-  show() {
-    if (this.shown || this.#disposed) return
+  show(options?: { showCursor?: boolean }) {
+    if (this.#disposed) return
+
+    // 根据 showCursor 动态控制鼠标图标显隐（默认 true）
+    const showCursor = options?.showCursor ?? true
+    const wasHidden = this.#cursor.style.display === 'none'
+
+    if (showCursor) {
+      this.#cursor.style.display = ''
+      // 遮罩首次开启或 cursor 刚从隐藏切为显示时，重置初始坐标到视口中心
+      if (!this.shown || wasHidden) {
+        this.#currentCursorX = window.innerWidth / 2
+        this.#currentCursorY = window.innerHeight / 2
+        this.#targetCursorX = this.#currentCursorX
+        this.#targetCursorY = this.#currentCursorY
+        this.#cursor.style.left = `${this.#currentCursorX}px`
+        this.#cursor.style.top = `${this.#currentCursorY}px`
+      }
+    } else {
+      this.#cursor.style.display = 'none'
+    }
+
+    if (this.shown) return
 
     this.shown = true
     this.motion?.start()
     this.motion?.fadeIn()
 
     this.wrapper.classList.add('visible')
-
-    // Initialize cursor position
-    this.#currentCursorX = window.innerWidth / 2
-    this.#currentCursorY = window.innerHeight / 2
-    this.#targetCursorX = this.#currentCursorX
-    this.#targetCursorY = this.#currentCursorY
-    this.#cursor.style.left = `${this.#currentCursorX}px`
-    this.#cursor.style.top = `${this.#currentCursorY}px`
   }
 
   hide() {
@@ -251,6 +264,8 @@ export class SimulatorMask extends EventTarget {
     this.motion?.pause()
 
     this.#cursor.classList.remove('clicking')
+    // 恢复 cursor 显示状态，为下次 show 做准备
+    this.#cursor.style.display = ''
 
     setTimeout(() => {
       this.wrapper.classList.remove('visible')

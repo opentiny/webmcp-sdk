@@ -18,13 +18,17 @@ const { handlerMocks } = vi.hoisted(() => {
       handleScroll: vi.fn(async () => marker('scroll')),
       handleExecuteJavascript: vi.fn(async () => marker('executeJavascript')),
       handleSearchTree: vi.fn(async () => marker('searchTree')),
+      handleHover: vi.fn(async () => marker('hover')),
     },
   }
 })
 
+// SimulatorMask.show 改为 vi.fn 以支持断言遮罩模式
+const mockSimulatorMaskShow = vi.fn()
+
 vi.mock('../../page-tools/page-agent-mask/SimulatorMask', () => ({
   SimulatorMask: class SimulatorMask {
-    show() {}
+    show(options?: { showCursor?: boolean }) { mockSimulatorMaskShow(options) }
     hide() {}
     dispose() {}
     borderElement() {}
@@ -65,6 +69,9 @@ vi.mock('../../page-tools/handlers/executeJavascript', () => ({
 vi.mock('../../page-tools/handlers/searchTree', () => ({
   handleSearchTree: handlerMocks.handleSearchTree,
 }))
+vi.mock('../../page-tools/handlers/hover', () => ({
+  handleHover: handlerMocks.handleHover,
+}))
 
 import { registerPageAgentTool } from '../../page-tools/page-agent-tool'
 import type { PageAgentToolInput } from '../../page-tools/schema'
@@ -104,6 +111,7 @@ const ACTIONS = [
   'scroll',
   'executeJavascript',
   'searchTree',
+  'hover',
 ] as const
 
 type ActionName = (typeof ACTIONS)[number]
@@ -116,6 +124,7 @@ const handlerByAction: Record<ActionName, keyof typeof handlerMocks> = {
   scroll: 'handleScroll',
   executeJavascript: 'handleExecuteJavascript',
   searchTree: 'handleSearchTree',
+  hover: 'handleHover',
 }
 
 function resetWindowGlobals() {
@@ -166,6 +175,8 @@ function argsFor(action: ActionName): PageAgentToolInput {
       return { action, script: '1+1', contextLines: 2, maxMatches: 20 }
     case 'searchTree':
       return { action, query: 'button', contextLines: 2, maxMatches: 20 }
+    case 'hover':
+      return { action, index: 0, contextLines: 2, maxMatches: 20 }
   }
 }
 
@@ -184,6 +195,7 @@ describe('page-agent-tool action dispatch（防 switch fall-through）', () => {
     for (const mock of Object.values(handlerMocks)) {
       mock.mockClear()
     }
+    mockSimulatorMaskShow.mockClear()
   })
 
   afterAll(() => {
@@ -204,5 +216,26 @@ describe('page-agent-tool action dispatch（防 switch fall-through）', () => {
         expect(mock, `${key} must not be called for action=${action}`).not.toHaveBeenCalled()
       }
     }
+  })
+
+  describe('遮罩模式：仅呼吸灯 vs 呼吸灯+鼠标图标', () => {
+    const breathingOnlyActions: ActionName[] = ['browserState', 'executeJavascript', 'searchTree', 'scroll']
+    const fullMaskActions: ActionName[] = ['click', 'fill', 'select', 'hover']
+
+    it.each(breathingOnlyActions)(
+      '复现：感知/脚本/滚动类 action=%s 应只展示呼吸灯，不展示鼠标图标（showCursor: false）',
+      async (action) => {
+        await execute(argsFor(action))
+        expect(mockSimulatorMaskShow).toHaveBeenCalledWith({ showCursor: false })
+      }
+    )
+
+    it.each(fullMaskActions)(
+      '复现：精准操作类 action=%s 应同时展示呼吸灯和鼠标图标（showCursor: true）',
+      async (action) => {
+        await execute(argsFor(action))
+        expect(mockSimulatorMaskShow).toHaveBeenCalledWith({ showCursor: true })
+      }
+    )
   })
 })
