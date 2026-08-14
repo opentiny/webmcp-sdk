@@ -250,10 +250,15 @@ export class SimulatorMask extends EventTarget {
     if (this.shown) return
 
     this.shown = true
-    this.motion?.start()
-    this.motion?.fadeIn()
-
     this.wrapper.classList.add('visible')
+    
+    // 强制触发重排，确保 Canvas 容器有尺寸后再启动 WebGL 渲染
+    void this.wrapper.offsetHeight
+
+    requestAnimationFrame(() => {
+      this.motion?.start()
+      this.motion?.fadeIn()
+    })
   }
 
   hide() {
@@ -264,8 +269,8 @@ export class SimulatorMask extends EventTarget {
     this.motion?.pause()
 
     this.#cursor.classList.remove('clicking')
-    // 恢复 cursor 显示状态，为下次 show 做准备
-    this.#cursor.style.display = ''
+    // 隐藏 cursor，避免在 800ms 的呼吸灯 fadeOut 动画期间出现不符合预期的光标
+    this.#cursor.style.display = 'none'
 
     setTimeout(() => {
       this.wrapper.classList.remove('visible')
