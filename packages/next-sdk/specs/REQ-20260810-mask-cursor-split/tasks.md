@@ -16,8 +16,9 @@
     - `browserState`/`searchTree`/`executeJavascript`/`scroll`：`simulatorMask.show({ showCursor: false })`
   - [x] 测试：更新 `packages/next-sdk/test/page-tools/page-agent-tool-dispatch.test.ts`，新增遮罩模式 8 条用例
 
-- [x] Task 3：验收命令通过 — 198 tests passed
-  - 命令：`pnpm -F @opentiny/next-sdk test`
+- [x] Task 3：验收命令通过 — 201 tests passed, build 通关
+  - 命令：`pnpm -F @opentiny/next-sdk test` 
+  - 命令：`pnpm -F @opentiny/next-sdk build`
 
 ## 依赖顺序
 
@@ -27,4 +28,5 @@
 
 ```bash
 pnpm -F @opentiny/next-sdk test
+pnpm -F @opentiny/next-sdk build
 ```

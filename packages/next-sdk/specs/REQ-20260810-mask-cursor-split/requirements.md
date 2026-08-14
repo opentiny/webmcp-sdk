@@ -48,5 +48,6 @@
 ## 完成定义
 
 - [x] `requirements.md` / `design.md` / `tasks.md` 已齐
-- [ ] 对应单元测试已在 `tasks.md` 列出并实现
-- [ ] `pnpm test` 通过
+- [x] 对应单元测试已在 `tasks.md` 列出并实现
+- [x] `pnpm test` (201 tests passed)
+- [x] `pnpm -F @opentiny/next-sdk build` 通过

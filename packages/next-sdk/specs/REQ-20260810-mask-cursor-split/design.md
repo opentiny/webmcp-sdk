@@ -55,25 +55,31 @@ flowchart TD
 
 ```typescript
 show(options?: { showCursor?: boolean }) {
-  if (this.shown || this.#disposed) return
+  if (this.#disposed) return
+
+  const showCursor = options?.showCursor ?? true
+  const wasHidden = this.#cursor.style.display === 'none'
+
+  if (showCursor) {
+    this.#cursor.style.display = ''  // 恢复默认显示
+    // 遮罩首次开启或 cursor 刚从隐藏切为显示时，重置到视口中心
+    if (!this.shown || wasHidden) {
+      this.#currentCursorX = window.innerWidth / 2
+      this.#currentCursorY = window.innerHeight / 2
+      this.#targetCursorX = this.#currentCursorX
+      this.#targetCursorY = this.#currentCursorY
+      this.#cursor.style.left = `${this.#currentCursorX}px`
+      this.#cursor.style.top = `${this.#currentCursorY}px`
+    }
+  } else {
+    this.#cursor.style.display = 'none'
+  }
+
+  if (this.shown) return
   this.shown = true
   this.motion?.start()
   this.motion?.fadeIn()
   this.wrapper.classList.add('visible')
-
-  const showCursor = options?.showCursor ?? true
-  if (showCursor) {
-    this.#cursor.style.display = ''  // 恢复默认显示
-    // 重置到视口中心
-    this.#currentCursorX = window.innerWidth / 2
-    this.#currentCursorY = window.innerHeight / 2
-    this.#targetCursorX = this.#currentCursorX
-    this.#targetCursorY = this.#currentCursorY
-    this.#cursor.style.left = `${this.#currentCursorX}px`
-    this.#cursor.style.top = `${this.#currentCursorY}px`
-  } else {
-    this.#cursor.style.display = 'none'
-  }
 }
 ```
 

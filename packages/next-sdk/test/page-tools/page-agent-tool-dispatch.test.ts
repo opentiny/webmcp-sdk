@@ -11,7 +11,14 @@ const { handlerMocks } = vi.hoisted(() => {
   })
   return {
     handlerMocks: {
-      handleBrowserState: vi.fn(async () => marker('browserState')),
+      handleBrowserState: vi.fn(async (_args, context: any) => {
+        const el = document.createElement('div')
+        el.getBoundingClientRect = () => ({ x: 10, y: 20, width: 100, height: 200, top: 20, left: 10, bottom: 220, right: 110, toJSON: () => {} })
+        const map = new Map()
+        map.set(0, el)
+        context?.setRefMap?.(map)
+        return marker('browserState')
+      }),
       handleClick: vi.fn(async () => marker('click')),
       handleFill: vi.fn(async () => marker('fill')),
       handleSelect: vi.fn(async () => marker('select')),
@@ -23,8 +30,8 @@ const { handlerMocks } = vi.hoisted(() => {
   }
 })
 
-// SimulatorMask.show 改为 vi.fn 以支持断言遮罩模式
 const mockSimulatorMaskShow = vi.fn()
+const mockSimulatorMaskSetCursorPosition = vi.fn()
 
 vi.mock('../../page-tools/page-agent-mask/SimulatorMask', () => ({
   SimulatorMask: class SimulatorMask {
@@ -33,6 +40,7 @@ vi.mock('../../page-tools/page-agent-mask/SimulatorMask', () => ({
     dispose() {}
     borderElement() {}
     removeBorderElement() {}
+    setCursorPosition(x: number, y: number) { mockSimulatorMaskSetCursorPosition(x, y) }
   },
 }))
 
@@ -196,6 +204,7 @@ describe('page-agent-tool action dispatch（防 switch fall-through）', () => {
       mock.mockClear()
     }
     mockSimulatorMaskShow.mockClear()
+    mockSimulatorMaskSetCursorPosition.mockClear()
   })
 
   afterAll(() => {
@@ -237,5 +246,18 @@ describe('page-agent-tool action dispatch（防 switch fall-through）', () => {
         expect(mockSimulatorMaskShow).toHaveBeenCalledWith({ showCursor: true })
       }
     )
+
+    it('复现：hover 操作应在调用 handler 前更新鼠标位置到目标元素中心', async () => {
+      // 1. 先发 browserState 构建 refMap
+      await execute(argsFor('browserState'))
+      
+      // 2. 发送 hover
+      await execute(argsFor('hover'))
+      
+      // getBoundingClientRect = { left: 10, top: 20, width: 100, height: 200 }
+      // center x = 10 + 50 = 60
+      // center y = 20 + 100 = 120
+      expect(mockSimulatorMaskSetCursorPosition).toHaveBeenCalledWith(60, 120)
+    })
   })
 })

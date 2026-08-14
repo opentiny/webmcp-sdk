@@ -197,12 +197,21 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
           ret = await handleSelect(args, actionContext)
           options.removeMaskAfterToolCall && (await pageController.hideMask())
           break
-        case 'hover':
+        case 'hover': {
           simulatorMask.show({ showCursor: true })
           borderTargetElement(args.index)
+          const el = args.index !== undefined ? currentRefMap.get(args.index) : undefined
+          if (el) {
+            const rect = el.getBoundingClientRect()
+            simulatorMask.setCursorPosition(
+              rect.left + rect.width / 2,
+              rect.top + rect.height / 2
+            )
+          }
           ret = await handleHover(args, actionContext)
           options.removeMaskAfterToolCall && (await pageController.hideMask())
           break
+        }
         default:
           ret = { content: [{ type: 'text' as const, text: `未知操作: ${args.action}` }] }
       }
