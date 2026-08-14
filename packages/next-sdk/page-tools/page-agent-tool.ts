@@ -183,7 +183,11 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
           options.removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'executeJavascript':
-          ret = await handleExecuteJavascript(args, actionContext)
+          if (getPageAgentToolConfig().enableExecuteJavascript) {
+            ret = await handleExecuteJavascript(args, actionContext)
+          } else {
+            ret = { content: [{ type: 'text' as const, text: '当前环境禁用 executeJavascript 工具' }] }
+          }
           break
         case 'searchTree':
           ret = await handleSearchTree(args, actionContext)
@@ -228,9 +232,13 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
   } catch {
     // 首次注册或不存在时忽略
   }
+
+  const executeJavascriptPrompt = getPageAgentToolConfig().enableExecuteJavascript
+    ? ''
+    : '\n 当前环境禁用 executeJavascript 工具\n'
   modelContext.registerTool({
     name: 'page-agent-tool',
-    description: pageAgentPrompt,
+    description: pageAgentPrompt + executeJavascriptPrompt,
     // @ts-ignore
     inputSchema: zodToJsonSchema(inputSchema) as any,
     async execute(args: PageAgentToolInput) {

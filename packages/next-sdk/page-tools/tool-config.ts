@@ -14,6 +14,8 @@ export interface PageAgentToolConfig {
   enableHighlight: boolean
   /** 是否在工具调用后移除遮罩， 默认值为 true 移除 */
   removeMaskAfterToolCall?: boolean
+  /** 是否启用执行 JavaScript 工具 */
+  enableExecuteJavascript?: boolean
   /**
    * 统一无障碍配置：按角色（roles）、状态（states：selected/disabled/error/warning 等）自定义规则，
    * 以及白名单/黑名单/自定义暴露属性/弹窗选择器。已与默认配置合并（数组类字段是拼接结果）。
@@ -30,7 +32,8 @@ export interface PageAgentToolConfigPatch {
   enableHighlight?: boolean
   /** 是否在工具调用后移除遮罩， 默认值为 true 移除 */
   removeMaskAfterToolCall?: boolean
-  /** 是否在工具调用后移除遮罩 */
+  /** 是否启用执行 JavaScript 工具 */
+  enableExecuteJavascript?: boolean
   /** 统一无障碍配置，会与当前生效的 a11yConfig 按数组拼接合并 */
   a11yConfig?: A11yConfig
 }
@@ -42,6 +45,7 @@ export type PageAgentToolOptions = PageAgentToolConfigPatch
 export const DEFAULT_PAGE_AGENT_TOOL_CONFIG: PageAgentToolConfig = {
   enableHighlight: false,
   removeMaskAfterToolCall: true,
+  enableExecuteJavascript: true,
   a11yConfig: DEFAULT_A11Y_CONFIG
 }
 
@@ -60,6 +64,7 @@ export function getPageAgentToolConfig(): PageAgentToolConfig {
   return {
     enableHighlight: DEFAULT_PAGE_AGENT_TOOL_CONFIG.enableHighlight,
     removeMaskAfterToolCall: DEFAULT_PAGE_AGENT_TOOL_CONFIG.removeMaskAfterToolCall,
+    enableExecuteJavascript: DEFAULT_PAGE_AGENT_TOOL_CONFIG.enableExecuteJavascript,
     a11yConfig: mergeA11yConfig()
   }
 }
@@ -68,6 +73,7 @@ function resolvePatch(patch: PageAgentToolConfigPatch, base: PageAgentToolConfig
   return {
     enableHighlight: patch.enableHighlight ?? base.enableHighlight,
     removeMaskAfterToolCall: patch.removeMaskAfterToolCall ?? base.removeMaskAfterToolCall,
+    enableExecuteJavascript: patch.enableExecuteJavascript ?? base.enableExecuteJavascript,
     a11yConfig: mergeA11yConfigs(base.a11yConfig, patch.a11yConfig ?? {})
   }
 }
