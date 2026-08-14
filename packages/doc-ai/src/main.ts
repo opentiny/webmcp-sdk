@@ -7,7 +7,7 @@ import { enableInspectAssist } from '@opentiny/next-sdk/dev'
 
 initializeBuiltinWebMCP()
 // 单页应用工具注册一次即可
-registerPageAgentTool({ removeMaskAfterToolCall: false })
+registerPageAgentTool()
 // 开发态启用元素检视，生产环境不自动展示检视浮钮
 if (import.meta.env.DEV) {
   enableInspectAssist({ brandLabel: 'Inspect' })

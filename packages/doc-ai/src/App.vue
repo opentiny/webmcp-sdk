@@ -89,7 +89,6 @@
         :systemPrompt="systemPrompt"
         :promptItems="ecommercePromptItems"
         :pillItems="ecommercePillItems"
-        @chat-stream-finish="handleChatStreamFinish"
       />
     </div>
   </div>
@@ -239,10 +238,6 @@ const mcpServers: Record<string, McpServerConfig> = {
 }
 
 const menuItems = ref<any[]>([])
-
-const handleChatStreamFinish = () => {
-  window.dispatchEvent(new CustomEvent('page-agent-chat-end'))
-}
 
 onMounted(async () => {
   // 本地 MCP Server 启动：失败则直接抛出（核心功能）

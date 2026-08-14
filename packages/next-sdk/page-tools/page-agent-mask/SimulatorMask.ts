@@ -80,6 +80,7 @@ export class SimulatorMask extends EventTarget {
   motion: Motion | null = null
 
   #disposed = false
+  #rafId?: number
 
   #cursor = document.createElement('div')
 
@@ -255,13 +256,19 @@ export class SimulatorMask extends EventTarget {
     // 强制触发重排，确保 Canvas 容器有尺寸后再启动 WebGL 渲染
     void this.wrapper.offsetHeight
 
-    requestAnimationFrame(() => {
+    this.#rafId = requestAnimationFrame(() => {
+      this.#rafId = undefined
+      if (!this.shown || this.#disposed) return
       this.motion?.start()
       this.motion?.fadeIn()
     })
   }
 
   hide() {
+    if (this.#rafId !== undefined) {
+      cancelAnimationFrame(this.#rafId)
+      this.#rafId = undefined
+    }
     if (!this.shown || this.#disposed) return
 
     this.shown = false
@@ -278,6 +285,10 @@ export class SimulatorMask extends EventTarget {
   }
 
   dispose() {
+    if (this.#rafId !== undefined) {
+      cancelAnimationFrame(this.#rafId)
+      this.#rafId = undefined
+    }
     this.#disposed = true
     this.motion?.dispose()
     this.wrapper.remove()
