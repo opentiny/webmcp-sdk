@@ -22,6 +22,7 @@ import { handleScroll } from './handlers/scroll'
 import { handleExecuteJavascript } from './handlers/executeJavascript'
 import { handleSearchTree } from './handlers/searchTree'
 import { handleHover } from './handlers/hover'
+import { handleClipboard } from './handlers/clipboard'
 
 /** registerPageAgentTool 返回的句柄，暴露对内部 PageController mask 显隐的控制 */
 export type PageAgentToolHandle = {
@@ -195,6 +196,9 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
         case 'hover':
           ret = await handleHover(args, actionContext)
           break
+        case 'clipboard':
+          ret = await handleClipboard(args, actionContext)
+          break
         default:
           ret = { content: [{ type: 'text' as const, text: `未知操作: ${args.action}` }] }
       }
@@ -236,6 +240,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
   const executeJavascriptPrompt = getPageAgentToolConfig().enableExecuteJavascript
     ? ''
     : '\n 当前环境禁用 executeJavascript 工具\n'
+
   modelContext.registerTool({
     name: 'page-agent-tool',
     description: pageAgentPrompt + executeJavascriptPrompt,
