@@ -80,6 +80,7 @@ export class SimulatorMask extends EventTarget {
   motion: Motion | null = null
 
   #disposed = false
+  #rafId?: number
 
   #cursor = document.createElement('div')
 
@@ -225,25 +226,49 @@ export class SimulatorMask extends EventTarget {
     this.#cursor.classList.add('clicking')
   }
 
-  show() {
-    if (this.shown || this.#disposed) return
+  show(options?: { showCursor?: boolean }) {
+    if (this.#disposed) return
+
+    // 根据 showCursor 动态控制鼠标图标显隐（默认 true）
+    const showCursor = options?.showCursor ?? true
+    const wasHidden = this.#cursor.style.display === 'none'
+
+    if (showCursor) {
+      this.#cursor.style.display = ''
+      // 遮罩首次开启或 cursor 刚从隐藏切为显示时，重置初始坐标到视口中心
+      if (!this.shown || wasHidden) {
+        this.#currentCursorX = window.innerWidth / 2
+        this.#currentCursorY = window.innerHeight / 2
+        this.#targetCursorX = this.#currentCursorX
+        this.#targetCursorY = this.#currentCursorY
+        this.#cursor.style.left = `${this.#currentCursorX}px`
+        this.#cursor.style.top = `${this.#currentCursorY}px`
+      }
+    } else {
+      this.#cursor.style.display = 'none'
+    }
+
+    if (this.shown) return
 
     this.shown = true
-    this.motion?.start()
-    this.motion?.fadeIn()
-
     this.wrapper.classList.add('visible')
+    
+    // 强制触发重排，确保 Canvas 容器有尺寸后再启动 WebGL 渲染
+    void this.wrapper.offsetHeight
 
-    // Initialize cursor position
-    this.#currentCursorX = window.innerWidth / 2
-    this.#currentCursorY = window.innerHeight / 2
-    this.#targetCursorX = this.#currentCursorX
-    this.#targetCursorY = this.#currentCursorY
-    this.#cursor.style.left = `${this.#currentCursorX}px`
-    this.#cursor.style.top = `${this.#currentCursorY}px`
+    this.#rafId = requestAnimationFrame(() => {
+      this.#rafId = undefined
+      if (!this.shown || this.#disposed) return
+      this.motion?.start()
+      this.motion?.fadeIn()
+    })
   }
 
   hide() {
+    if (this.#rafId !== undefined) {
+      cancelAnimationFrame(this.#rafId)
+      this.#rafId = undefined
+    }
     if (!this.shown || this.#disposed) return
 
     this.shown = false
@@ -251,6 +276,8 @@ export class SimulatorMask extends EventTarget {
     this.motion?.pause()
 
     this.#cursor.classList.remove('clicking')
+    // 隐藏 cursor，避免在 800ms 的呼吸灯 fadeOut 动画期间出现不符合预期的光标
+    this.#cursor.style.display = 'none'
 
     setTimeout(() => {
       this.wrapper.classList.remove('visible')
@@ -258,6 +285,10 @@ export class SimulatorMask extends EventTarget {
   }
 
   dispose() {
+    if (this.#rafId !== undefined) {
+      cancelAnimationFrame(this.#rafId)
+      this.#rafId = undefined
+    }
     this.#disposed = true
     this.motion?.dispose()
     this.wrapper.remove()

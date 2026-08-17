@@ -156,41 +156,62 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
       let ret: { content: Array<{ type: 'text'; text: string }> }
 
       switch (args.action) {
+        // ─── 感知/脚本类：仅呼吸灯，无鼠标图标 ──────────────────────────────
         case 'browserState':
+          simulatorMask.show({ showCursor: false })
           ret = await handleBrowserState(args, actionContext)
-          break
-        case 'click':
-          await pageController.showMask()
-          borderTargetElement(args.index)
-          ret = await handleClick(args, actionContext)
-          options.removeMaskAfterToolCall && (await pageController.hideMask())
-          break
-        case 'fill':
-          await pageController.showMask()
-          borderTargetElement(args.index)
-          ret = await handleFill(args, actionContext)
-          options.removeMaskAfterToolCall && (await pageController.hideMask())
-          break
-        case 'select':
-          await pageController.showMask()
-          borderTargetElement(args.index)
-          ret = await handleSelect(args, actionContext)
-          options.removeMaskAfterToolCall && (await pageController.hideMask())
-          break
-        case 'scroll':
-          await pageController.showMask()
-          ret = await handleScroll(args, actionContext)
-          options.removeMaskAfterToolCall && (await pageController.hideMask())
+          getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'executeJavascript':
+          simulatorMask.show({ showCursor: false })
           ret = await handleExecuteJavascript(args, actionContext)
+          getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'searchTree':
+          simulatorMask.show({ showCursor: false })
           ret = await handleSearchTree(args, actionContext)
+          getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
-        case 'hover':
+        // ─── 滚动类：仅呼吸灯，无静止鼠标图标 ───────────────────────────────
+        case 'scroll':
+          simulatorMask.show({ showCursor: false })
+          ret = await handleScroll(args, actionContext)
+          getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
+          break
+        // ─── 精准操作类：呼吸灯 + 鼠标图标 ─────────────────────────────────
+        case 'click':
+          simulatorMask.show({ showCursor: true })
+          borderTargetElement(args.index)
+          ret = await handleClick(args, actionContext)
+          getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
+          break
+        case 'fill':
+          simulatorMask.show({ showCursor: true })
+          borderTargetElement(args.index)
+          ret = await handleFill(args, actionContext)
+          getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
+          break
+        case 'select':
+          simulatorMask.show({ showCursor: true })
+          borderTargetElement(args.index)
+          ret = await handleSelect(args, actionContext)
+          getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
+          break
+        case 'hover': {
+          simulatorMask.show({ showCursor: true })
+          borderTargetElement(args.index)
+          const el = args.index !== undefined ? currentRefMap.get(args.index) : undefined
+          if (el) {
+            const rect = el.getBoundingClientRect()
+            simulatorMask.setCursorPosition(
+              rect.left + rect.width / 2,
+              rect.top + rect.height / 2
+            )
+          }
           ret = await handleHover(args, actionContext)
+          getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
+        }
         default:
           ret = { content: [{ type: 'text' as const, text: `未知操作: ${args.action}` }] }
       }
@@ -199,14 +220,15 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
       const actionNames = {
         click: '点击',
         fill: '填写',
-        select: '选择'
+        select: '选择',
+        hover: '悬浮'
       } as const
       if (args.action in actionNames) {
         return actionError(
           `${actionNames[args.action as keyof typeof actionNames]}执行异常: ${error instanceof Error ? error.message : String(error)}`
         )
       }
-      options.removeMaskAfterToolCall && (await pageController.hideMask())
+      getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
       throw error
     } finally {
       simulatorMask.removeBorderElement()
