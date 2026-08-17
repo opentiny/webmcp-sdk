@@ -1,6 +1,6 @@
 # registerPageAgentTool
 
-在浏览器环境中注册 `page-agent-tool` 工具。该工具供 AI Agent 自动读取当前页面状态（自动生成 ARIA 无障碍树并支持增量 Diff），以及在页面上执行自动点击、输入填单、下拉选择、滚动和自定义 JS 执行等操作。
+在浏览器环境中注册 `page-agent-tool` 工具。该工具供 AI Agent 自动读取当前页面状态（自动生成 ARIA 无障碍树并支持增量 Diff），以及在页面上执行自动点击、输入填单、下拉选择、滚动、剪切板读写和自定义 JS 执行等操作。
 
 调用此方法会自动触发 `initializeBuiltinWebMCP()`。
 
@@ -14,10 +14,10 @@ export function registerPageAgentTool(options?: PageAgentToolOptions): void
 
 ## PageAgentToolOptions 配置项说明
 
-| 属性名 | 类型 | 默认值 | 说明 |
-| :--- | :--- | :--- | :--- |
-| `enableHighlight` | `boolean` | `false` | 是否在页面中高亮标注可交互的元素。 |
-| `a11yConfig` | `A11yConfig` | - | 统一无障碍配置，见下文「统一无障碍配置 `a11yConfig`」。 |
+| 属性名            | 类型         | 默认值  | 说明                                                    |
+| :---------------- | :----------- | :------ | :------------------------------------------------------ |
+| `enableHighlight` | `boolean`    | `false` | 是否在页面中高亮标注可交互的元素。                      |
+| `a11yConfig`      | `A11yConfig` | -       | 统一无障碍配置，见下文「统一无障碍配置 `a11yConfig`」。 |
 
 `PageAgentToolOptions` 中的所有配置项（含 `enableHighlight` 与 `a11yConfig`）都由同一个 `PageAgentToolConfig` 类型描述，只有唯一一套运行期读写 API：`getPageAgentToolConfig`/`setPageAgentToolConfig`。除了在 `registerPageAgentTool(options)` 时初始化一次，也可以在页面运行期随时读取/修改（例如路由切换后为新页面追加规则、临时关闭高亮）：
 
@@ -31,12 +31,12 @@ setPageAgentToolConfig({ enableHighlight: false })
 
 // a11yConfig 会与当前生效配置按数组拼接合并（不丢已有规则），enableHighlight 则是覆盖式更新，两者互不影响
 setPageAgentToolConfig({
-  a11yConfig: { states: { selected: { selector: '.new-page .btn.is-checked' } } },
+  a11yConfig: { states: { selected: { selector: '.new-page .btn.is-checked' } } }
 })
 
 // 函数式更新：入参为当前生效配置，可用于按条件移除某条旧规则后再合并（不会因再次合并而复活）
 setPageAgentToolConfig((current) => ({
-  a11yConfig: { roles: current.a11yConfig.roles.filter((r) => r.role !== 'tab') },
+  a11yConfig: { roles: current.a11yConfig.roles.filter((r) => r.role !== 'tab') }
 }))
 
 // 完全推倒重来：mode: 'replace' 不与当前配置合并，而是与默认配置重新合并
@@ -45,6 +45,26 @@ setPageAgentToolConfig({ a11yConfig: { roles: [{ role: 'tab', selector: '.v2-tab
 // 随时读取当前最终生效的合并结果，用于调试
 getPageAgentToolConfig() // { enableHighlight: false, a11yConfig: { roles: [...], states: {...}, ... } }
 ```
+
+---
+
+## 支持的操作（action）
+
+`page-agent-tool` 通过 `action` 字段分发到不同 handler。常用动作如下：
+
+| action              | 说明                        | 关键参数                                 |
+| :------------------ | :-------------------------- | :--------------------------------------- |
+| `browserState`      | 获取页面无障碍树（YAML）    | `responseMode`: `full` / `diff` / `both` |
+| `searchTree`        | 按关键词搜索无障碍树        | `query`、`contextLines`、`maxMatches`    |
+| `click`             | 点击元素                    | `index`                                  |
+| `fill`              | 填写输入框                  | `index`、`text`                          |
+| `select`            | 选择下拉选项                | `index`、`text`                          |
+| `scroll`            | 滚动页面或容器              | `down` / `right`、`numPages` / `pixels`  |
+| `hover`             | 悬浮元素（触发 tooltip 等） | `index`                                  |
+| `executeJavascript` | 在页面执行 JS               | `script`                                 |
+| `clipboard`         | 读写系统剪切板              | `text`（见下文）                         |
+
+执行 `click`、`fill`、`select`、`hover` 前通常需先调用 `browserState` 获取最新 ref 索引；`clipboard` 不依赖 `index`，也不展示 SimulatorMask。
 
 ---
 
@@ -108,21 +128,21 @@ import { registerPageAgentTool, defineA11yConfig } from '@opentiny/next-sdk'
 
 const a11yConfig = defineA11yConfig({
   roles: [
-    { role: 'tab', selector: '.my-tabs .tab-item' },      // 自定义 Tab 组件没有 role=tab
+    { role: 'tab', selector: '.my-tabs .tab-item' }, // 自定义 Tab 组件没有 role=tab
     { role: 'tablist', selector: '.my-tabs__nav' },
     // 布局 landmark：补齐角色 + 声明分区名（不改 DOM）
     { role: 'navigation', selector: 'ti-app-layout-left', name: '侧边导航' },
-    { role: 'main', selector: 'ti-app-layout-main', name: '主内容区' },
+    { role: 'main', selector: 'ti-app-layout-main', name: '主内容区' }
   ],
   states: {
     // 按钮组选中态：新旧版本混用了两套 class 命名，selector 传数组，命中任意一个即可，而非 aria-selected
     selected: { selector: ['.btn-group .btn.is-checked', '.btn-group .btn.is-active'] },
     current: { selector: '[data-step-status="current"]' }, // 向导当前步骤：属性选择器
     warning: { selector: '.form-tip--warn' },
-    error: { match: (el) => getComputedStyle(el).color === 'rgb(245, 34, 45)' }, // 通过文字颜色判断报错
+    error: { match: (el) => getComputedStyle(el).color === 'rgb(245, 34, 45)' } // 通过文字颜色判断报错
   },
   whitelist: ['.custom-clickable-card'],
-  blacklist: ['.tracking-pixel'],
+  blacklist: ['.tracking-pixel']
 })
 
 registerPageAgentTool({ a11yConfig })
@@ -142,11 +162,7 @@ registerPageAgentTool({ a11yConfig })
 针对云控制台（Tiny3 + Angular）缺少 role/aria 的常见结构，SDK 导出了可直接使用的预设：
 
 ```typescript
-import {
-  registerPageAgentTool,
-  consoleCloudPageAgentToolOptions,
-  isConsoleCloudHost,
-} from '@opentiny/next-sdk'
+import { registerPageAgentTool, consoleCloudPageAgentToolOptions, isConsoleCloudHost } from '@opentiny/next-sdk'
 
 if (isConsoleCloudHost()) {
   registerPageAgentTool(consoleCloudPageAgentToolOptions)
@@ -190,7 +206,7 @@ import { registerPageAgentTool, setPageAgentToolConfig } from '@opentiny/next-sd
 
 registerPageAgentTool({
   enableHighlight: true,
-  a11yConfig: { exposedAttributes: ['data-v-id'] },
+  a11yConfig: { exposedAttributes: ['data-v-id'] }
 })
 
 // 某些列表在每次渲染后 DOM 结构才能确定，可以在这里用选择器声明式地追加白名单，

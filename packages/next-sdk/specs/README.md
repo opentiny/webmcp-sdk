@@ -20,6 +20,7 @@
 
 | Spec | 说明 |
 |---|---|
+| [`REQ-20260817-clipboard-handler`](./REQ-20260817-clipboard-handler/) | Page Agent `clipboard` action：读写系统剪切板（`text` 有值写、无值读） |
 | [`REQ-20260807-dev-entry`](./REQ-20260807-dev-entry/) | 新增 `dev` 入口：将 `dom-inspect` 等本地开发能力从主入口拆出 |
 | [`REQ-20260729-user-do-action`](./REQ-20260729-user-do-action/) | mask 展示期间用户 trusted 点击 → `page-agent-user-do-action` 事件 |
 | [`REQ-20260727-dom-inspect`](./REQ-20260727-dom-inspect/) | Inspect Assist（`enableInspectAssist`）：点选复制 Cursor 元素卡片，辅助改样式/逻辑 |
