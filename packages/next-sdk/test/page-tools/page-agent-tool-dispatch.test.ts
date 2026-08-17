@@ -11,24 +11,36 @@ const { handlerMocks } = vi.hoisted(() => {
   })
   return {
     handlerMocks: {
-      handleBrowserState: vi.fn(async () => marker('browserState')),
+      handleBrowserState: vi.fn(async (_args, context: any) => {
+        const el = document.createElement('div')
+        el.getBoundingClientRect = () => ({ x: 10, y: 20, width: 100, height: 200, top: 20, left: 10, bottom: 220, right: 110, toJSON: () => {} })
+        const map = new Map()
+        map.set(0, el)
+        context?.setRefMap?.(map)
+        return marker('browserState')
+      }),
       handleClick: vi.fn(async () => marker('click')),
       handleFill: vi.fn(async () => marker('fill')),
       handleSelect: vi.fn(async () => marker('select')),
       handleScroll: vi.fn(async () => marker('scroll')),
       handleExecuteJavascript: vi.fn(async () => marker('executeJavascript')),
       handleSearchTree: vi.fn(async () => marker('searchTree')),
+      handleHover: vi.fn(async () => marker('hover')),
     },
   }
 })
 
+const mockSimulatorMaskShow = vi.fn()
+const mockSimulatorMaskSetCursorPosition = vi.fn()
+
 vi.mock('../../page-tools/page-agent-mask/SimulatorMask', () => ({
   SimulatorMask: class SimulatorMask {
-    show() {}
+    show(options?: { showCursor?: boolean }) { mockSimulatorMaskShow(options) }
     hide() {}
     dispose() {}
     borderElement() {}
     removeBorderElement() {}
+    setCursorPosition(x: number, y: number) { mockSimulatorMaskSetCursorPosition(x, y) }
   },
 }))
 
@@ -64,6 +76,9 @@ vi.mock('../../page-tools/handlers/executeJavascript', () => ({
 }))
 vi.mock('../../page-tools/handlers/searchTree', () => ({
   handleSearchTree: handlerMocks.handleSearchTree,
+}))
+vi.mock('../../page-tools/handlers/hover', () => ({
+  handleHover: handlerMocks.handleHover,
 }))
 
 import { registerPageAgentTool } from '../../page-tools/page-agent-tool'
@@ -104,6 +119,7 @@ const ACTIONS = [
   'scroll',
   'executeJavascript',
   'searchTree',
+  'hover',
 ] as const
 
 type ActionName = (typeof ACTIONS)[number]
@@ -116,6 +132,7 @@ const handlerByAction: Record<ActionName, keyof typeof handlerMocks> = {
   scroll: 'handleScroll',
   executeJavascript: 'handleExecuteJavascript',
   searchTree: 'handleSearchTree',
+  hover: 'handleHover',
 }
 
 function resetWindowGlobals() {
@@ -166,6 +183,8 @@ function argsFor(action: ActionName): PageAgentToolInput {
       return { action, script: '1+1', contextLines: 2, maxMatches: 20 }
     case 'searchTree':
       return { action, query: 'button', contextLines: 2, maxMatches: 20 }
+    case 'hover':
+      return { action, index: 0, contextLines: 2, maxMatches: 20 }
   }
 }
 
@@ -184,6 +203,8 @@ describe('page-agent-tool action dispatch（防 switch fall-through）', () => {
     for (const mock of Object.values(handlerMocks)) {
       mock.mockClear()
     }
+    mockSimulatorMaskShow.mockClear()
+    mockSimulatorMaskSetCursorPosition.mockClear()
   })
 
   afterAll(() => {
@@ -204,5 +225,47 @@ describe('page-agent-tool action dispatch（防 switch fall-through）', () => {
         expect(mock, `${key} must not be called for action=${action}`).not.toHaveBeenCalled()
       }
     }
+  })
+
+  describe('遮罩模式：仅呼吸灯 vs 呼吸灯+鼠标图标', () => {
+    const breathingOnlyActions: ActionName[] = ['browserState', 'executeJavascript', 'searchTree', 'scroll']
+    const fullMaskActions: ActionName[] = ['click', 'fill', 'select', 'hover']
+
+    it.each(breathingOnlyActions)(
+      '复现：感知/脚本/滚动类 action=%s 应只展示呼吸灯，不展示鼠标图标（showCursor: false）',
+      async (action) => {
+        await execute(argsFor(action))
+        expect(mockSimulatorMaskShow).toHaveBeenCalledWith({ showCursor: false })
+      }
+    )
+
+    it.each(fullMaskActions)(
+      '复现：精准操作类 action=%s 应同时展示呼吸灯和鼠标图标（showCursor: true）',
+      async (action) => {
+        await execute(argsFor(action))
+        expect(mockSimulatorMaskShow).toHaveBeenCalledWith({ showCursor: true })
+      }
+    )
+
+    it('复现：hover 操作应在调用 handler 前更新鼠标位置到目标元素中心', async () => {
+      // 1. 先发 browserState 构建 refMap
+      await execute(argsFor('browserState'))
+
+      mockSimulatorMaskSetCursorPosition.mockClear()
+      handlerMocks.handleHover.mockClear()
+
+      // 2. 发送 hover
+      await execute(argsFor('hover'))
+
+      // getBoundingClientRect = { left: 10, top: 20, width: 100, height: 200 }
+      // center x = 10 + 50 = 60
+      // center y = 20 + 100 = 120
+      expect(mockSimulatorMaskSetCursorPosition).toHaveBeenCalledWith(60, 120)
+
+      // 断言调用顺序：setCursorPosition 必须在 handleHover 之前
+      const setCursorOrder = mockSimulatorMaskSetCursorPosition.mock.invocationCallOrder[0]
+      const handleHoverOrder = handlerMocks.handleHover.mock.invocationCallOrder[0]
+      expect(setCursorOrder).toBeLessThan(handleHoverOrder)
+    })
   })
 })
