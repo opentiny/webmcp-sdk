@@ -22,6 +22,7 @@ import { handleScroll } from './handlers/scroll'
 import { handleExecuteJavascript } from './handlers/executeJavascript'
 import { handleSearchTree } from './handlers/searchTree'
 import { handleHover } from './handlers/hover'
+import { handleClipboard } from './handlers/clipboard'
 
 /** registerPageAgentTool 返回的句柄，暴露对内部 PageController mask 显隐的控制 */
 export type PageAgentToolHandle = {
@@ -163,9 +164,13 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
           getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'executeJavascript':
-          simulatorMask.show({ showCursor: false })
-          ret = await handleExecuteJavascript(args, actionContext)
-          getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
+          if (getPageAgentToolConfig().enableExecuteJavascript) {
+            simulatorMask.show({ showCursor: false })
+            ret = await handleExecuteJavascript(args, actionContext)
+            getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
+          } else {
+            ret = { content: [{ type: 'text' as const, text: '当前环境禁用 executeJavascript 工具' }] }
+          }
           break
         case 'searchTree':
           simulatorMask.show({ showCursor: false })
@@ -197,21 +202,20 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
           ret = await handleSelect(args, actionContext)
           getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
-        case 'hover': {
+        case 'hover':
           simulatorMask.show({ showCursor: true })
           borderTargetElement(args.index)
           const el = args.index !== undefined ? currentRefMap.get(args.index) : undefined
           if (el) {
             const rect = el.getBoundingClientRect()
-            simulatorMask.setCursorPosition(
-              rect.left + rect.width / 2,
-              rect.top + rect.height / 2
-            )
+            simulatorMask.setCursorPosition(rect.left + rect.width / 2, rect.top + rect.height / 2)
           }
           ret = await handleHover(args, actionContext)
           getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
-        }
+        case 'clipboard':
+          ret = await handleClipboard(args, actionContext)
+          break
         default:
           ret = { content: [{ type: 'text' as const, text: `未知操作: ${args.action}` }] }
       }
@@ -250,9 +254,14 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
   } catch {
     // 首次注册或不存在时忽略
   }
+
+  const executeJavascriptPrompt = getPageAgentToolConfig().enableExecuteJavascript
+    ? ''
+    : '\n 当前环境已经禁用 executeJavascript 工具，请勿使用它。\n'
+
   modelContext.registerTool({
     name: 'page-agent-tool',
-    description: pageAgentPrompt,
+    description: pageAgentPrompt + executeJavascriptPrompt,
     // @ts-ignore
     inputSchema: zodToJsonSchema(inputSchema) as any,
     async execute(args: PageAgentToolInput) {

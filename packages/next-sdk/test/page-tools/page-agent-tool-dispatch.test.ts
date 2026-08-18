@@ -26,6 +26,7 @@ const { handlerMocks } = vi.hoisted(() => {
       handleExecuteJavascript: vi.fn(async () => marker('executeJavascript')),
       handleSearchTree: vi.fn(async () => marker('searchTree')),
       handleHover: vi.fn(async () => marker('hover')),
+      handleClipboard: vi.fn(async () => marker('clipboard')),
     },
   }
 })
@@ -80,6 +81,9 @@ vi.mock('../../page-tools/handlers/searchTree', () => ({
 vi.mock('../../page-tools/handlers/hover', () => ({
   handleHover: handlerMocks.handleHover,
 }))
+vi.mock('../../page-tools/handlers/clipboard', () => ({
+  handleClipboard: handlerMocks.handleClipboard,
+}))
 
 import { registerPageAgentTool } from '../../page-tools/page-agent-tool'
 import type { PageAgentToolInput } from '../../page-tools/schema'
@@ -120,6 +124,7 @@ const ACTIONS = [
   'executeJavascript',
   'searchTree',
   'hover',
+  'clipboard',
 ] as const
 
 type ActionName = (typeof ACTIONS)[number]
@@ -133,6 +138,7 @@ const handlerByAction: Record<ActionName, keyof typeof handlerMocks> = {
   executeJavascript: 'handleExecuteJavascript',
   searchTree: 'handleSearchTree',
   hover: 'handleHover',
+  clipboard: 'handleClipboard',
 }
 
 function resetWindowGlobals() {
@@ -185,6 +191,8 @@ function argsFor(action: ActionName): PageAgentToolInput {
       return { action, query: 'button', contextLines: 2, maxMatches: 20 }
     case 'hover':
       return { action, index: 0, contextLines: 2, maxMatches: 20 }
+    case 'clipboard':
+      return { action, text: 'hello', contextLines: 2, maxMatches: 20 }
   }
 }
 
@@ -248,7 +256,6 @@ describe('page-agent-tool action dispatch（防 switch fall-through）', () => {
     )
 
     it('复现：hover 操作应在调用 handler 前更新鼠标位置到目标元素中心', async () => {
-      // 1. 先发 browserState 构建 refMap
       await execute(argsFor('browserState'))
 
       mockSimulatorMaskSetCursorPosition.mockClear()
@@ -266,6 +273,11 @@ describe('page-agent-tool action dispatch（防 switch fall-through）', () => {
       const setCursorOrder = mockSimulatorMaskSetCursorPosition.mock.invocationCallOrder[0]
       const handleHoverOrder = handlerMocks.handleHover.mock.invocationCallOrder[0]
       expect(setCursorOrder).toBeLessThan(handleHoverOrder)
+    })
+
+    it('复现：clipboard 操作不展示 SimulatorMask —— 步骤执行 clipboard；期望 show 未被调用', async () => {
+      await execute(argsFor('clipboard'))
+      expect(mockSimulatorMaskShow).not.toHaveBeenCalled()
     })
   })
 })
