@@ -12,7 +12,7 @@ declare global {
      */
     modelContext: {
       registerTool: (tool: WebMcpToolDefinition) => void
-      unregisterTool: (name: string) => void
+
       notifyToolsChanged: () => void
     }
     /**
