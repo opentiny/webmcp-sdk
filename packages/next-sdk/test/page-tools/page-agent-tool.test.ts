@@ -12,12 +12,20 @@ vi.mock('../../page-tools/page-agent-mask/SimulatorMask', () => ({
       maskSpies.hide()
     }
     dispose() {}
+    removeBorderElement() {}
+    borderElement() {}
+    setCursorPosition() {}
   },
 }))
 
 import { registerPageAgentTool } from '../../page-tools/page-agent-tool'
 import { PAGE_AGENT_CHAT_END_EVENT } from '../../page-tools/page-agent-tool-event'
 import { getPageAgentToolConfig, setPageAgentToolConfig } from '../../page-tools/tool-config'
+import { handleClipboard } from '../../page-tools/handlers/clipboard'
+
+vi.mock('../../page-tools/handlers/clipboard', () => ({
+  handleClipboard: vi.fn()
+}))
 
 function resetWindowGlobals() {
   delete window.__webmcpcli_toolConfig
@@ -148,6 +156,27 @@ describe('registerPageAgentTool - mask 显隐句柄', () => {
 })
 
 describe('registerPageAgentTool - 工具注册与注销机制', () => {
+  it('复现：executePageAgentTool 中的异步 rejection 应该被外部 catch 捕获并转换为异常内容', async () => {
+    let execute: any = null
+    const originalRegister = (document as any).modelContext.registerTool
+    ;(document as any).modelContext.registerTool = (tool: any, options: any) => {
+      if (tool.name === 'page-agent-tool') execute = tool.execute
+      originalRegister.call((document as any).modelContext, tool, options)
+    }
+
+    registerPageAgentTool()
+    ;(document as any).modelContext.registerTool = originalRegister
+
+    expect(execute).toBeDefined()
+
+    vi.mocked(handleClipboard).mockRejectedValueOnce(new Error('Mock clipboard rejection'))
+
+    const result = await execute({ action: 'clipboard', text: 'test' } as any)
+    
+    expect(result.content).toBeDefined()
+    expect(result.content[0].type).toBe('text')
+    expect(result.content[0].text).toContain('异常: Error: Mock clipboard rejection')
+  })
   it('重复注册时应调用前一次的 AbortController 取消前一个注册', () => {
     // 第一次注册
     registerPageAgentTool()

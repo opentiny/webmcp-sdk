@@ -30,11 +30,19 @@ export const setupLocalTools = () => {
       _tools: new Map(),
       getTools: async () => Array.from(nativeCtx._tools.values()),
       registerTool: (tool: any, options?: { signal?: AbortSignal }) => {
+        if (options?.signal?.aborted) {
+          return Promise.reject(options.signal.reason)
+        }
+        if (nativeCtx._tools.has(tool.name)) {
+          throw new Error(`Tool ${tool.name} already exists`)
+        }
         nativeCtx._tools.set(tool.name, tool)
         if (options?.signal) {
           options.signal.addEventListener('abort', () => {
-            nativeCtx._tools.delete(tool.name)
-          })
+            if (nativeCtx._tools.get(tool.name) === tool) {
+              nativeCtx._tools.delete(tool.name)
+            }
+          }, { once: true })
         }
       },
 

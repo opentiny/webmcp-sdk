@@ -272,7 +272,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
       inputSchema: zodToJsonSchema(inputSchema) as any,
       async execute(args: PageAgentToolInput) {
         try {
-          return executePageAgentTool(args)
+          return await executePageAgentTool(args)
         } catch (error) {
           return { content: [{ type: 'text' as const, text: `异常: ${String(error)}` }] }
         }
