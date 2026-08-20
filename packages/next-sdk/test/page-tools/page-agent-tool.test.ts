@@ -22,6 +22,10 @@ import { getPageAgentToolConfig, setPageAgentToolConfig } from '../../page-tools
 function resetWindowGlobals() {
   delete window.__webmcpcli_toolConfig
   delete window.__webmcpcli_beforeGetBrowserState
+  if ((window as any).__pageAgentToolAbortController) {
+    ;(window as any).__pageAgentToolAbortController.abort()
+    delete (window as any).__pageAgentToolAbortController
+  }
   // 注意：initializeBuiltinWebMCP() 内部用模块级单例 flag 控制只初始化一次 document.modelContext，
   // 且没有对外暴露重置能力，因此这里不删除 document.modelContext，避免二次调用时因单例 flag
   // 仍为 true 而不会重新创建 modelContext，导致 registerTool 拿到 undefined
@@ -140,5 +144,29 @@ describe('registerPageAgentTool - mask 显隐句柄', () => {
     await vi.waitFor(() => {
       expect(maskSpies.hide).toHaveBeenCalledTimes(1)
     })
+  })
+})
+
+describe('registerPageAgentTool - 工具注册与注销机制', () => {
+  it('重复注册时应调用前一次的 AbortController 取消前一个注册', () => {
+    // 第一次注册
+    registerPageAgentTool()
+    const firstAbortController = (window as any).__pageAgentToolAbortController
+    expect(firstAbortController).toBeDefined()
+    
+    // 监听第一次注册的 abort 信号
+    const abortSpy = vi.fn()
+    firstAbortController.signal.addEventListener('abort', abortSpy)
+
+    // 第二次注册
+    registerPageAgentTool()
+    
+    // 验证前一次的 abort 被触发
+    expect(abortSpy).toHaveBeenCalledTimes(1)
+    
+    // 验证控制器已经被替换为新的
+    const secondAbortController = (window as any).__pageAgentToolAbortController
+    expect(secondAbortController).toBeDefined()
+    expect(secondAbortController).not.toBe(firstAbortController)
   })
 })
