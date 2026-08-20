@@ -177,7 +177,11 @@ describe('registerPageAgentTool - 工具注册与注销机制', () => {
     expect(result.content[0].type).toBe('text')
     expect(result.content[0].text).toContain('异常: Error: Mock clipboard rejection')
   })
-  it('重复注册时应调用前一次的 AbortController 取消前一个注册', () => {
+  it('复现：重复注册时应调用前一次的 AbortController 取消前一个注册', async () => {
+    const originalRegister = (document as any).modelContext.registerTool;
+    const registerSpy = vi.fn(originalRegister.bind((document as any).modelContext));
+    ;(document as any).modelContext.registerTool = registerSpy;
+
     // 第一次注册
     registerPageAgentTool()
     const firstAbortController = (window as any).__pageAgentToolAbortController
@@ -197,5 +201,19 @@ describe('registerPageAgentTool - 工具注册与注销机制', () => {
     const secondAbortController = (window as any).__pageAgentToolAbortController
     expect(secondAbortController).toBeDefined()
     expect(secondAbortController).not.toBe(firstAbortController)
+    
+    // 验证 register API 收到 signal
+    const firstCallOptions = registerSpy.mock.calls[0][1];
+    expect(firstCallOptions?.signal).toBe(firstAbortController.signal);
+    const secondCallOptions = registerSpy.mock.calls[1][1];
+    expect(secondCallOptions?.signal).toBe(secondAbortController.signal);
+    
+    // 验证旧工具已被移除 (如果是通过 abort 移除了)
+    // 可以尝试从 modelContext.getTools() 取当前注册的工具
+    const tools = await (document as any).modelContext.getTools();
+    // 实际上由于 registerTool 是同名的，第二次注册可能覆盖或者由于第一次已经 abort，只剩下一个
+    expect(tools.filter((t: any) => t.name === 'page-agent-tool').length).toBe(1);
+    
+    ;(document as any).modelContext.registerTool = originalRegister;
   })
 })
