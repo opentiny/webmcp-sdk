@@ -29,8 +29,23 @@ export const setupLocalTools = () => {
     nativeCtx = {
       _tools: new Map(),
       getTools: async () => Array.from(nativeCtx._tools.values()),
-      registerTool: (tool: any) => nativeCtx._tools.set(tool.name, tool),
-      unregisterTool: (name: string) => nativeCtx._tools.delete(name),
+      registerTool: (tool: any, options?: { signal?: AbortSignal }) => {
+        if (options?.signal?.aborted) {
+          return Promise.reject(options.signal.reason)
+        }
+        if (nativeCtx._tools.has(tool.name)) {
+          throw new Error(`Tool ${tool.name} already exists`)
+        }
+        nativeCtx._tools.set(tool.name, tool)
+        if (options?.signal) {
+          options.signal.addEventListener('abort', () => {
+            if (nativeCtx._tools.get(tool.name) === tool) {
+              nativeCtx._tools.delete(tool.name)
+            }
+          }, { once: true })
+        }
+      },
+
       executeTool: async (tool: any, argsStr: string) => {
         const args = argsStr ? JSON.parse(argsStr) : {}
         return await tool.execute(args)
@@ -56,16 +71,13 @@ export const setupLocalTools = () => {
 
   // 2. 记录已注册的页面代理工具，防止重复注册
   const registeredProxyTools = new Set<string>()
+  let proxyToolsAbortController: AbortController | null = null
 
   const clearProxyTools = () => {
-    if (registeredProxyTools.size === 0) return
-    registeredProxyTools.forEach((name) => {
-      try {
-        nativeCtx.unregisterTool?.(name)
-      } catch {
-        // ignore
-      }
-    })
+    if (proxyToolsAbortController) {
+      proxyToolsAbortController.abort()
+      proxyToolsAbortController = null
+    }
     registeredProxyTools.clear()
   }
 
@@ -79,7 +91,10 @@ export const setupLocalTools = () => {
       console.log('syncPageProxy: drop stale tabId', tabId)
       return
     }
-    if (tabInfo.url && (tabInfo.url.startsWith('chrome://') || tabInfo.url.startsWith('edge://') || tabInfo.url.startsWith('about:'))) {
+    if (
+      tabInfo.url &&
+      (tabInfo.url.startsWith('chrome://') || tabInfo.url.startsWith('edge://') || tabInfo.url.startsWith('about:'))
+    ) {
       console.log('syncPageProxy: cannot access chrome/edge/about URL')
       clearProxyTools()
       return
@@ -121,7 +136,10 @@ export const setupLocalTools = () => {
         }
       })
       tools = (execRes[0]?.result || []).filter((t: any) => t?.name)
-      console.log('syncPageProxy: got tools', tools.map((t: any) => t.name))
+      console.log(
+        'syncPageProxy: got tools',
+        tools.map((t: any) => t.name)
+      )
     } catch (err) {
       console.warn('syncPageProxy: executeScript failed', err)
     }
@@ -138,63 +156,70 @@ export const setupLocalTools = () => {
       return
     }
 
+    if (!proxyToolsAbortController) {
+      proxyToolsAbortController = new AbortController()
+    }
+
     tools.forEach((tool) => {
       if (registeredProxyTools.has(tool.name)) return
       registeredProxyTools.add(tool.name)
 
-      nativeCtx.registerTool({
-        name: tool.name,
-        title: tool.title,
-        description: tool.description,
-        inputSchema: tool.inputSchema,
-        execute: async (args: unknown) => {
-          const registeredTabId = tabId
-          if (!registeredTabId) {
-            return { content: [{ type: 'text', text: 'Error: No active tab found' }] }
-          }
+      nativeCtx.registerTool(
+        {
+          name: tool.name,
+          title: tool.title,
+          description: tool.description,
+          inputSchema: tool.inputSchema,
+          execute: async (args: unknown) => {
+            const registeredTabId = tabId
+            if (!registeredTabId) {
+              return { content: [{ type: 'text', text: 'Error: No active tab found' }] }
+            }
 
-          let res: { success: boolean; result?: unknown; error?: string } | null = null
-          try {
-            const execRes = await browser.scripting.executeScript({
-              target: { tabId: registeredTabId },
-              world: 'MAIN',
-              func: async (name: string, inputStr: string) => {
-                try {
-                  const ctx = (document as any).modelContext
-                  if (!ctx) throw new Error('WebMCP is not initialized on this page')
-                  const tools = await ctx.getTools()
-                  const toolObj = tools.find((t: any) => t.name === name)
-                  if (!toolObj) throw new Error(`Tool ${name} not found`)
-                  const execRes = await ctx.executeTool(toolObj, inputStr)
-                  return { success: true, result: execRes }
-                } catch (e: any) {
-                  return { success: false, error: e.message }
+            let res: { success: boolean; result?: unknown; error?: string } | null = null
+            try {
+              const execRes = await browser.scripting.executeScript({
+                target: { tabId: registeredTabId },
+                world: 'MAIN',
+                func: async (name: string, inputStr: string) => {
+                  try {
+                    const ctx = (document as any).modelContext
+                    if (!ctx) throw new Error('WebMCP is not initialized on this page')
+                    const tools = await ctx.getTools()
+                    const toolObj = tools.find((t: any) => t.name === name)
+                    if (!toolObj) throw new Error(`Tool ${name} not found`)
+                    const execRes = await ctx.executeTool(toolObj, inputStr)
+                    return { success: true, result: execRes }
+                  } catch (e: any) {
+                    return { success: false, error: e.message }
+                  }
+                },
+                args: [tool.name, JSON.stringify(args)]
+              })
+              res = execRes[0]?.result
+            } catch (err: any) {
+              console.warn('syncPageProxy: tool exec failed', err)
+              res = { success: false, error: err.message }
+            }
+
+            if (!res?.success) {
+              return { content: [{ type: 'text', text: `Error: ${res?.error || 'Unknown error'}` }] }
+            }
+
+            if (res.result?.content) return res.result
+
+            return {
+              content: [
+                {
+                  type: 'text',
+                  text: typeof res.result === 'string' ? res.result : JSON.stringify(res.result)
                 }
-              },
-              args: [tool.name, JSON.stringify(args)]
-            })
-            res = execRes[0]?.result
-          } catch (err: any) {
-            console.warn('syncPageProxy: tool exec failed', err)
-            res = { success: false, error: err.message }
+              ]
+            }
           }
-
-          if (!res?.success) {
-            return { content: [{ type: 'text', text: `Error: ${res?.error || 'Unknown error'}` }] }
-          }
-
-          if (res.result?.content) return res.result
-
-          return {
-            content: [
-              {
-                type: 'text',
-                text: typeof res.result === 'string' ? res.result : JSON.stringify(res.result)
-              }
-            ]
-          }
-        }
-      })
+        },
+        { signal: proxyToolsAbortController?.signal }
+      )
     })
   }
 

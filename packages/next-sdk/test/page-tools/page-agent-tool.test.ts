@@ -12,16 +12,28 @@ vi.mock('../../page-tools/page-agent-mask/SimulatorMask', () => ({
       maskSpies.hide()
     }
     dispose() {}
+    removeBorderElement() {}
+    borderElement() {}
+    setCursorPosition() {}
   },
 }))
 
 import { registerPageAgentTool } from '../../page-tools/page-agent-tool'
 import { PAGE_AGENT_CHAT_END_EVENT } from '../../page-tools/page-agent-tool-event'
 import { getPageAgentToolConfig, setPageAgentToolConfig } from '../../page-tools/tool-config'
+import { handleClipboard } from '../../page-tools/handlers/clipboard'
+
+vi.mock('../../page-tools/handlers/clipboard', () => ({
+  handleClipboard: vi.fn()
+}))
 
 function resetWindowGlobals() {
   delete window.__webmcpcli_toolConfig
   delete window.__webmcpcli_beforeGetBrowserState
+  if ((window as any).__pageAgentToolAbortController) {
+    ;(window as any).__pageAgentToolAbortController.abort()
+    delete (window as any).__pageAgentToolAbortController
+  }
   // 注意：initializeBuiltinWebMCP() 内部用模块级单例 flag 控制只初始化一次 document.modelContext，
   // 且没有对外暴露重置能力，因此这里不删除 document.modelContext，避免二次调用时因单例 flag
   // 仍为 true 而不会重新创建 modelContext，导致 registerTool 拿到 undefined
@@ -140,5 +152,68 @@ describe('registerPageAgentTool - mask 显隐句柄', () => {
     await vi.waitFor(() => {
       expect(maskSpies.hide).toHaveBeenCalledTimes(1)
     })
+  })
+})
+
+describe('registerPageAgentTool - 工具注册与注销机制', () => {
+  it('复现：executePageAgentTool 中的异步 rejection 应该被外部 catch 捕获并转换为异常内容', async () => {
+    let execute: any = null
+    const originalRegister = (document as any).modelContext.registerTool
+    ;(document as any).modelContext.registerTool = (tool: any, options: any) => {
+      if (tool.name === 'page-agent-tool') execute = tool.execute
+      originalRegister.call((document as any).modelContext, tool, options)
+    }
+
+    registerPageAgentTool()
+    ;(document as any).modelContext.registerTool = originalRegister
+
+    expect(execute).toBeDefined()
+
+    vi.mocked(handleClipboard).mockRejectedValueOnce(new Error('Mock clipboard rejection'))
+
+    const result = await execute({ action: 'clipboard', text: 'test' } as any)
+    
+    expect(result.content).toBeDefined()
+    expect(result.content[0].type).toBe('text')
+    expect(result.content[0].text).toContain('异常: Error: Mock clipboard rejection')
+  })
+  it('复现：重复注册时应调用前一次的 AbortController 取消前一个注册', async () => {
+    const originalRegister = (document as any).modelContext.registerTool;
+    const registerSpy = vi.fn(originalRegister.bind((document as any).modelContext));
+    ;(document as any).modelContext.registerTool = registerSpy;
+
+    // 第一次注册
+    registerPageAgentTool()
+    const firstAbortController = (window as any).__pageAgentToolAbortController
+    expect(firstAbortController).toBeDefined()
+    
+    // 监听第一次注册的 abort 信号
+    const abortSpy = vi.fn()
+    firstAbortController.signal.addEventListener('abort', abortSpy)
+
+    // 第二次注册
+    registerPageAgentTool()
+    
+    // 验证前一次的 abort 被触发
+    expect(abortSpy).toHaveBeenCalledTimes(1)
+    
+    // 验证控制器已经被替换为新的
+    const secondAbortController = (window as any).__pageAgentToolAbortController
+    expect(secondAbortController).toBeDefined()
+    expect(secondAbortController).not.toBe(firstAbortController)
+    
+    // 验证 register API 收到 signal
+    const firstCallOptions = registerSpy.mock.calls[0][1];
+    expect(firstCallOptions?.signal).toBe(firstAbortController.signal);
+    const secondCallOptions = registerSpy.mock.calls[1][1];
+    expect(secondCallOptions?.signal).toBe(secondAbortController.signal);
+    
+    // 验证旧工具已被移除 (如果是通过 abort 移除了)
+    // 可以尝试从 modelContext.getTools() 取当前注册的工具
+    const tools = await (document as any).modelContext.getTools();
+    // 实际上由于 registerTool 是同名的，第二次注册可能覆盖或者由于第一次已经 abort，只剩下一个
+    expect(tools.filter((t: any) => t.name === 'page-agent-tool').length).toBe(1);
+    
+    ;(document as any).modelContext.registerTool = originalRegister;
   })
 })

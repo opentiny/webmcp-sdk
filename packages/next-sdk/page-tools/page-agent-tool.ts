@@ -250,28 +250,36 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
     }
   }
   try {
-    modelContext.unregisterTool?.('page-agent-tool')
+    if ((window as any).__pageAgentToolAbortController) {
+      ;(window as any).__pageAgentToolAbortController.abort()
+    }
   } catch {
     // 首次注册或不存在时忽略
   }
+
+  const abortController = new AbortController()
+  ;(window as any).__pageAgentToolAbortController = abortController
 
   const executeJavascriptPrompt = getPageAgentToolConfig().enableExecuteJavascript
     ? ''
     : '\n 当前环境已经禁用 executeJavascript 工具，请勿使用它。\n'
 
-  modelContext.registerTool({
-    name: 'page-agent-tool',
-    description: pageAgentPrompt + executeJavascriptPrompt,
-    // @ts-ignore
-    inputSchema: zodToJsonSchema(inputSchema) as any,
-    async execute(args: PageAgentToolInput) {
-      try {
-        return executePageAgentTool(args)
-      } catch (error) {
-        return { content: [{ type: 'text' as const, text: `异常: ${String(error)}` }] }
+  modelContext.registerTool(
+    {
+      name: 'page-agent-tool',
+      description: pageAgentPrompt + executeJavascriptPrompt,
+      // @ts-ignore
+      inputSchema: zodToJsonSchema(inputSchema) as any,
+      async execute(args: PageAgentToolInput) {
+        try {
+          return await executePageAgentTool(args)
+        } catch (error) {
+          return { content: [{ type: 'text' as const, text: `异常: ${String(error)}` }] }
+        }
       }
-    }
-  })
+    },
+    { signal: abortController.signal }
+  )
 
   setupPageAgentToolEventBridge(executePageAgentTool, pageController, actionContext)
 

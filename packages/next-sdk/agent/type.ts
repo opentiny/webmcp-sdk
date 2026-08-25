@@ -11,8 +11,11 @@ export interface BuiltinMcpClient {
   listTools?: () => Promise<any[]>
   getTools?: () => Promise<any[]>
   executeTool: (tool: any, input: string) => Promise<any>
-  registerTool?: (config: { name: string; execute: (input: any) => Promise<any> | any; [key: string]: any }) => void
-  unregisterTool?: (name: string) => void
+  registerTool?: (
+    config: { name: string; execute: (input: any) => Promise<any> | any; [key: string]: any },
+    options?: { signal?: AbortSignal }
+  ) => void
+
 }
 
 type ProviderFactory = 'openai' | 'deepseek' | ((options: any) => ProviderV2)
