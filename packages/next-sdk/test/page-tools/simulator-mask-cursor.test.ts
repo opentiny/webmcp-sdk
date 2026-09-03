@@ -30,7 +30,7 @@ describe('SimulatorMask 鼠标指针显隐与连续切换逻辑', () => {
     expect(cursorEl.style.display).toBe('none')
   })
 
-  it('复现：先执行 browserState(无鼠标) 再执行 click(有鼠标) 时鼠标箭头未出现的 Bug —— 步骤 1. show({ showCursor: false })；步骤 2. 连续 show({ showCursor: true })；期望 #cursor 的 style.display 被恢复为 ""', () => {
+  it('复现：先执行 browserState(无鼠标) 再执行 click(有鼠标) 时鼠标箭头未出现的 Bug —— 步骤 1. show({ showCursor: false })；步骤 2. 连续 show({ showCursor: true })；期望 #cursor 的 style.display 被恢复为 "block"', () => {
     mask = new SimulatorMask()
 
     // 1. 模拟执行 browserState: show({ showCursor: false })
@@ -44,7 +44,7 @@ describe('SimulatorMask 鼠标指针显隐与连续切换逻辑', () => {
     // 2. 遮罩处于 shown=true 状态下，模拟执行 click/fill: show({ showCursor: true })
     mask.show({ showCursor: true })
 
-    // 期望：cursorEl 的 display 应当恢复为空字符串（即显示鼠标）
-    expect(cursorEl.style.display).toBe('')
+    // 期望：cursorEl 的 display 应当恢复为 "block"（即显示鼠标）
+    expect(cursorEl.style.display).toBe('block')
   })
 })
