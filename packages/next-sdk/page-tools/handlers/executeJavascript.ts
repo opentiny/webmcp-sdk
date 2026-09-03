@@ -15,7 +15,6 @@ export async function handleExecuteJavascript(args: any, ctx: ActionContext) {
       // 表达式求值也失败（如含 await/let/const 等语句），保持 undefined
     }
   }
-  await ctx.pageController.hideMask()
   return {
     content: [{ type: 'text' as const, text: `脚本执行结果: ${JSON.stringify(result)}` }]
   }

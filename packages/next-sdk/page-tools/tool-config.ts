@@ -9,6 +9,9 @@
 import type { A11yConfig, ResolvedA11yConfig } from './a11y/config'
 import { DEFAULT_A11Y_CONFIG, mergeA11yConfig, mergeA11yConfigs } from './a11y/config'
 
+/** 鼠标光标展示策略：仅操作类展示（默认） / 遮罩期间始终展示 / 永不展示 */
+export type PageAgentCursorMode = 'actionOnly' | 'always' | 'never'
+
 export interface PageAgentToolConfig {
   /** 是否启用元素高亮 */
   enableHighlight: boolean
@@ -16,6 +19,13 @@ export interface PageAgentToolConfig {
   removeMaskAfterToolCall?: boolean
   /** 是否启用执行 JavaScript 工具 */
   enableExecuteJavascript?: boolean
+  /**
+   * 鼠标光标展示策略。
+   * - `actionOnly`（默认）：仅 click/fill/select/hover 期间展示，步骤结束后收起
+   * - `always`：未传 showCursor 时遮罩可见即展示光标；显式 `{ showCursor: false }` 仍可临时隐藏；操作结束后不自动收起
+   * - `never`：任何路径都不展示光标（含宿主显式 `showCursor: true`）
+   */
+  cursorMode: PageAgentCursorMode
   /**
    * 统一无障碍配置：按角色（roles）、状态（states：selected/disabled/error/warning 等）自定义规则，
    * 以及白名单/黑名单/自定义暴露属性/弹窗选择器。已与默认配置合并（数组类字段是拼接结果）。
@@ -34,6 +44,8 @@ export interface PageAgentToolConfigPatch {
   removeMaskAfterToolCall?: boolean
   /** 是否启用执行 JavaScript 工具 */
   enableExecuteJavascript?: boolean
+  /** 鼠标光标展示策略，见 {@link PageAgentCursorMode} */
+  cursorMode?: PageAgentCursorMode
   /** 统一无障碍配置，会与当前生效的 a11yConfig 按数组拼接合并 */
   a11yConfig?: A11yConfig
 }
@@ -46,6 +58,7 @@ export const DEFAULT_PAGE_AGENT_TOOL_CONFIG: PageAgentToolConfig = {
   enableHighlight: false,
   removeMaskAfterToolCall: true,
   enableExecuteJavascript: true,
+  cursorMode: 'actionOnly',
   a11yConfig: DEFAULT_A11Y_CONFIG
 }
 
@@ -65,6 +78,7 @@ export function getPageAgentToolConfig(): PageAgentToolConfig {
     enableHighlight: DEFAULT_PAGE_AGENT_TOOL_CONFIG.enableHighlight,
     removeMaskAfterToolCall: DEFAULT_PAGE_AGENT_TOOL_CONFIG.removeMaskAfterToolCall,
     enableExecuteJavascript: DEFAULT_PAGE_AGENT_TOOL_CONFIG.enableExecuteJavascript,
+    cursorMode: DEFAULT_PAGE_AGENT_TOOL_CONFIG.cursorMode,
     a11yConfig: mergeA11yConfig()
   }
 }
@@ -74,16 +88,33 @@ function resolvePatch(patch: PageAgentToolConfigPatch, base: PageAgentToolConfig
     enableHighlight: patch.enableHighlight ?? base.enableHighlight,
     removeMaskAfterToolCall: patch.removeMaskAfterToolCall ?? base.removeMaskAfterToolCall,
     enableExecuteJavascript: patch.enableExecuteJavascript ?? base.enableExecuteJavascript,
+    cursorMode: patch.cursorMode ?? base.cursorMode,
     a11yConfig: mergeA11yConfigs(base.a11yConfig, patch.a11yConfig ?? {})
   }
 }
 
 /**
+ * 函数式 patch：标量与 current 合并（未返回的字段保持原值）；
+ * 若返回了 a11yConfig，则与默认无障碍配置合并，避免再与 current 相加让已过滤规则复活。
+ */
+function resolveFunctionPatch(fnPatch: PageAgentToolConfigPatch, current: PageAgentToolConfig): PageAgentToolConfig {
+  return {
+    enableHighlight: fnPatch.enableHighlight ?? current.enableHighlight,
+    removeMaskAfterToolCall: fnPatch.removeMaskAfterToolCall ?? current.removeMaskAfterToolCall,
+    enableExecuteJavascript: fnPatch.enableExecuteJavascript ?? current.enableExecuteJavascript,
+    cursorMode: fnPatch.cursorMode ?? current.cursorMode,
+    a11yConfig:
+      fnPatch.a11yConfig !== undefined
+        ? mergeA11yConfigs(DEFAULT_PAGE_AGENT_TOOL_CONFIG.a11yConfig, fnPatch.a11yConfig)
+        : current.a11yConfig
+  }
+}
+
+/**
  * 更新当前生效配置。
- * - patch 为对象时：enableHighlight 覆盖式更新；a11yConfig 与当前配置按数组拼接合并（不丢已有规则）
- * - patch 为函数时：入参为当前生效配置，返回值直接与默认配置合并（而不是再与 current 相加）。
- *   这样函数体内可以对 current.a11yConfig 做任意过滤/裁剪（如按条件"移除"某条旧规则），
- *   返回值即为最终生效的配置，不会因为再与 current 相加而让被过滤掉的旧规则"复活"
+ * - patch 为对象时：enableHighlight / cursorMode 等标量覆盖式更新；a11yConfig 与当前配置按数组拼接合并（不丢已有规则）
+ * - patch 为函数时：入参为当前生效配置。标量字段与 current 合并（未返回则保持原值，例如只改高亮不会重置 cursorMode）；
+ *   若返回了 a11yConfig，则与默认无障碍配置合并（而不是再与 current 相加），以便过滤后的规则不会复活。
  * - options.mode = 'replace' 时（仅影响对象类型的 patch）：不与"当前生效配置"合并，而是与默认配置重新合并
  * 返回合并后的最新完整配置，并写回运行期存储供 buildBrowserStateResponse/buildA11yTree 等读取。
  */
@@ -96,7 +127,7 @@ export function setPageAgentToolConfig(
 
   const next =
     typeof patch === 'function'
-      ? resolvePatch(patch(current), DEFAULT_PAGE_AGENT_TOOL_CONFIG)
+      ? resolveFunctionPatch(patch(current), current)
       : resolvePatch(patch, mode === 'replace' ? DEFAULT_PAGE_AGENT_TOOL_CONFIG : current)
 
   if (typeof window !== 'undefined') {

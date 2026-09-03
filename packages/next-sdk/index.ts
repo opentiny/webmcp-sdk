@@ -53,7 +53,7 @@ export { initializeBuiltinWebMCP } from './page-tools/initialize-builtin-WebMCP'
 export { waitForRouteTools } from './page-tools/wait-for-route-tools'
 export type { RouteToolsMap, WaitForRouteToolsOptions } from './page-tools/wait-for-route-tools'
 export { registerPageAgentTool } from './page-tools/page-agent-tool'
-export type { PageAgentToolHandle } from './page-tools/page-agent-tool'
+export type { PageAgentToolHandle, ShowMaskOptions } from './page-tools/page-agent-tool'
 export {
   PAGE_AGENT_TOOL_CALL_EVENT,
   PAGE_AGENT_TOOL_RESULT_EVENT,
@@ -74,7 +74,7 @@ export {
   getPageAgentToolConfig,
   setPageAgentToolConfig
 } from './page-tools/tool-config'
-export type { PageAgentToolConfig, PageAgentToolConfigPatch } from './page-tools/tool-config'
+export type { PageAgentToolConfig, PageAgentToolConfigPatch, PageAgentCursorMode } from './page-tools/tool-config'
 
 // 站点预设：云控制台（consoleCloud）等 PageAgentToolOptions，可直接传给 registerPageAgentTool
 export { consoleCloudPageAgentToolOptions, isConsoleCloudHost } from './page-tools/configs/console-cloud'

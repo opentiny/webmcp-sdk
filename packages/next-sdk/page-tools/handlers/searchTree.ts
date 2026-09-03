@@ -15,7 +15,6 @@ export async function handleSearchTree(args: PageAgentToolInput, ctx: ActionCont
   ctx.setRefMap(result.refMap)
   ctx.stateCache.update(window.location.href, result.yaml)
 
-  await ctx.pageController.hideMask()
   // 检测页面弹窗/校验错误，平铺为结构化字段（与 browserState 对齐）
   const dialogs = detectPageDialog()
   const validationErrors = detectValidationErrors()

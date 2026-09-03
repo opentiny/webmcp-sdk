@@ -36,8 +36,12 @@ const mockSimulatorMaskSetCursorPosition = vi.fn()
 
 vi.mock('../../page-tools/page-agent-mask/SimulatorMask', () => ({
   SimulatorMask: class SimulatorMask {
-    show(options?: { showCursor?: boolean }) { mockSimulatorMaskShow(options) }
-    hide() {}
+    shown = false
+    show(options?: { showCursor?: boolean }) {
+      this.shown = true
+      mockSimulatorMaskShow(options)
+    }
+    hide() { this.shown = false }
     dispose() {}
     borderElement() {}
     removeBorderElement() {}
@@ -87,6 +91,7 @@ vi.mock('../../page-tools/handlers/clipboard', () => ({
 
 import { registerPageAgentTool } from '../../page-tools/page-agent-tool'
 import type { PageAgentToolInput } from '../../page-tools/schema'
+import { setPageAgentToolConfig } from '../../page-tools/tool-config'
 
 interface ToolTextContent {
   type: string
@@ -213,6 +218,7 @@ describe('page-agent-tool action dispatch（防 switch fall-through）', () => {
     }
     mockSimulatorMaskShow.mockClear()
     mockSimulatorMaskSetCursorPosition.mockClear()
+    setPageAgentToolConfig({ cursorMode: 'actionOnly' })
   })
 
   afterAll(() => {
@@ -255,6 +261,15 @@ describe('page-agent-tool action dispatch（防 switch fall-through）', () => {
       }
     )
 
+    it.each(fullMaskActions)(
+      '复现：操作类 action=%s 完成后光标仍停留 —— 前置遮罩保持开启；步骤执行操作；期望 finally 再调 show({ showCursor: false })',
+      async (action) => {
+        await execute(argsFor(action))
+        expect(mockSimulatorMaskShow).toHaveBeenLastCalledWith({ showCursor: false })
+        expect(mockSimulatorMaskShow).toHaveBeenCalledWith({ showCursor: true })
+      }
+    )
+
     it('复现：hover 操作应在调用 handler 前更新鼠标位置到目标元素中心', async () => {
       await execute(argsFor('browserState'))
 
@@ -275,9 +290,25 @@ describe('page-agent-tool action dispatch（防 switch fall-through）', () => {
       expect(setCursorOrder).toBeLessThan(handleHoverOrder)
     })
 
-    it('复现：clipboard 操作不展示 SimulatorMask —— 步骤执行 clipboard；期望 show 未被调用', async () => {
+    it('复现：clipboard 操作不展示 SimulatorMask —— 步骤执行 clipboard；期望不会以 showCursor: true 打开光标', async () => {
       await execute(argsFor('clipboard'))
-      expect(mockSimulatorMaskShow).not.toHaveBeenCalled()
+      expect(mockSimulatorMaskShow).not.toHaveBeenCalledWith({ showCursor: true })
+    })
+
+    it('cursorMode=never 时操作类也不展示光标', async () => {
+      setPageAgentToolConfig({ cursorMode: 'never' })
+      await execute(argsFor('click'))
+      expect(mockSimulatorMaskShow).toHaveBeenCalledWith({ showCursor: false })
+      expect(mockSimulatorMaskShow).not.toHaveBeenCalledWith({ showCursor: true })
+      setPageAgentToolConfig({ cursorMode: 'actionOnly' })
+    })
+
+    it('cursorMode=always 时感知类也展示光标，且结束后不收起', async () => {
+      setPageAgentToolConfig({ cursorMode: 'always' })
+      await execute(argsFor('browserState'))
+      expect(mockSimulatorMaskShow).toHaveBeenCalledWith({ showCursor: true })
+      expect(mockSimulatorMaskShow).toHaveBeenLastCalledWith({ showCursor: true })
+      setPageAgentToolConfig({ cursorMode: 'actionOnly' })
     })
   })
 })

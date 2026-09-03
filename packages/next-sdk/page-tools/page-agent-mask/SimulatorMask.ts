@@ -4,6 +4,7 @@ import { isPageDark } from './checkDarkMode'
 
 const injectStyles = `
 .webmcp-page-agent-cursor {
+	display: none;
 	position: absolute;
 	width: var(--cursor-size, 75px);
 	height: var(--cursor-size, 75px);
@@ -179,6 +180,8 @@ export class SimulatorMask extends EventTarget {
     // this.#cursor.appendChild(borderLayer)
 
     this.wrapper.appendChild(this.#cursor)
+    // 接管态默认只出呼吸灯；未显式 showCursor 前不得以 (0,0) 露出光标
+    this.#cursor.style.display = 'none'
   }
 
   #moveCursorToTarget() {
@@ -229,12 +232,12 @@ export class SimulatorMask extends EventTarget {
   show(options?: { showCursor?: boolean }) {
     if (this.#disposed) return
 
-    // 根据 showCursor 动态控制鼠标图标显隐（默认 true）
-    const showCursor = options?.showCursor ?? true
-    const wasHidden = this.#cursor.style.display === 'none'
+    // 根据 showCursor 动态控制鼠标图标显隐（默认 false：遮罩 ≠ 正在鼠标操作）
+    const showCursor = options?.showCursor ?? false
+    const wasHidden = this.#cursor.style.display === 'none' || !this.#cursor.style.display
 
     if (showCursor) {
-      this.#cursor.style.display = ''
+      this.#cursor.style.display = 'block'
       // 遮罩首次开启或 cursor 刚从隐藏切为显示时，重置初始坐标到视口中心
       if (!this.shown || wasHidden) {
         this.#currentCursorX = window.innerWidth / 2

@@ -24,10 +24,26 @@ import { handleSearchTree } from './handlers/searchTree'
 import { handleHover } from './handlers/hover'
 import { handleClipboard } from './handlers/clipboard'
 
-/** registerPageAgentTool 返回的句柄，暴露对内部 PageController mask 显隐的控制 */
+/** 宿主调用 showMask 时可覆盖是否展示 AI 鼠标图标 */
+export type ShowMaskOptions = {
+  showCursor?: boolean
+}
+
+/** registerPageAgentTool 返回的句柄，暴露对内部 SimulatorMask 显隐的控制 */
 export type PageAgentToolHandle = {
-  showMask: () => Promise<void>
+  showMask: (options?: ShowMaskOptions) => Promise<void>
   hideMask: () => Promise<void>
+}
+
+type CursorKind = 'host' | 'pointer' | 'observe'
+
+function resolveShowCursor(kind: CursorKind, explicit?: boolean): boolean {
+  const mode = getPageAgentToolConfig().cursorMode ?? 'actionOnly'
+  // 优先级：never（全局关闭）> 显式 showCursor > always（未传参时默认出光标）> actionOnly 按 kind
+  if (mode === 'never') return false
+  if (explicit !== undefined) return explicit
+  if (mode === 'always') return true
+  return kind === 'pointer'
 }
 
 /** 在浏览器页面中注册 page-agent-tool, 用于页面的内容获取和操作，页面的动效 */
@@ -152,6 +168,29 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
     if (el) simulatorMask.borderElement(el)
   }
 
+  function showMaskFor(kind: CursorKind) {
+    simulatorMask.show({ showCursor: resolveShowCursor(kind) })
+  }
+
+  function hideCursorKeepMask() {
+    const mode = getPageAgentToolConfig().cursorMode ?? 'actionOnly'
+    if (mode === 'always') return
+    if (simulatorMask.shown) {
+      simulatorMask.show({ showCursor: false })
+    }
+  }
+
+  function createHandle(): PageAgentToolHandle {
+    return {
+      showMask: async (options?: ShowMaskOptions) => {
+        simulatorMask.show({ showCursor: resolveShowCursor('host', options?.showCursor) })
+      },
+      hideMask: async () => {
+        simulatorMask.hide()
+      }
+    }
+  }
+
   async function executePageAgentTool(args: PageAgentToolInput) {
     try {
       let ret: { content: Array<{ type: 'text'; text: string }> }
@@ -159,13 +198,13 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
       switch (args.action) {
         // ─── 感知/脚本类：仅呼吸灯，无鼠标图标 ──────────────────────────────
         case 'browserState':
-          simulatorMask.show({ showCursor: false })
+          showMaskFor('observe')
           ret = await handleBrowserState(args, actionContext)
           getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'executeJavascript':
           if (getPageAgentToolConfig().enableExecuteJavascript) {
-            simulatorMask.show({ showCursor: false })
+            showMaskFor('observe')
             ret = await handleExecuteJavascript(args, actionContext)
             getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           } else {
@@ -173,37 +212,37 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
           }
           break
         case 'searchTree':
-          simulatorMask.show({ showCursor: false })
+          showMaskFor('observe')
           ret = await handleSearchTree(args, actionContext)
           getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
         // ─── 滚动类：仅呼吸灯，无静止鼠标图标 ───────────────────────────────
         case 'scroll':
-          simulatorMask.show({ showCursor: false })
+          showMaskFor('observe')
           ret = await handleScroll(args, actionContext)
           getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
         // ─── 精准操作类：呼吸灯 + 鼠标图标 ─────────────────────────────────
         case 'click':
-          simulatorMask.show({ showCursor: true })
+          showMaskFor('pointer')
           borderTargetElement(args.index)
           ret = await handleClick(args, actionContext)
           getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'fill':
-          simulatorMask.show({ showCursor: true })
+          showMaskFor('pointer')
           borderTargetElement(args.index)
           ret = await handleFill(args, actionContext)
           getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'select':
-          simulatorMask.show({ showCursor: true })
+          showMaskFor('pointer')
           borderTargetElement(args.index)
           ret = await handleSelect(args, actionContext)
           getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'hover':
-          simulatorMask.show({ showCursor: true })
+          showMaskFor('pointer')
           borderTargetElement(args.index)
           const el = args.index !== undefined ? currentRefMap.get(args.index) : undefined
           if (el) {
@@ -236,6 +275,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
       throw error
     } finally {
       simulatorMask.removeBorderElement()
+      hideCursorKeepMask()
     }
   }
 
@@ -244,10 +284,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
   const modelContext = (document as any).modelContext
   if (!modelContext) {
     console.warn('[next-sdk] modelContext is not available, skipping page-agent-tool registration.')
-    return {
-      showMask: () => pageController.showMask(),
-      hideMask: () => pageController.hideMask()
-    }
+    return createHandle()
   }
   try {
     if ((window as any).__pageAgentToolAbortController) {
@@ -283,8 +320,5 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
 
   setupPageAgentToolEventBridge(executePageAgentTool, pageController, actionContext)
 
-  return {
-    showMask: () => pageController.showMask(),
-    hideMask: () => pageController.hideMask()
-  }
+  return createHandle()
 }
