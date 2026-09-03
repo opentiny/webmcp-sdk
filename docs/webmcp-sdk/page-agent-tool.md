@@ -75,7 +75,7 @@ getPageAgentToolConfig() // { enableHighlight: false, a11yConfig: { roles: [...]
 `registerPageAgentTool` 返回 `{ showMask, hideMask }`。遮罩（呼吸灯锁屏）与 AI 鼠标光标是两套视觉：
 
 - **接管态**（宿主 `showMask()`、感知/滚动类 action）：默认只出呼吸灯，不出光标。
-- **操作类**（`click` / `fill` / `select` / `hover`）：步骤期间出光标，结束后若遮罩仍开着则自动收起光标。
+- **操作类**（`click` / `fill` / `select` / `hover`）：步骤期间出光标；结束后若遮罩仍开着且 `cursorMode !== 'always'`，则自动收起光标。
 
 ```typescript
 const handle = registerPageAgentTool({ removeMaskAfterToolCall: false })
@@ -94,8 +94,8 @@ await handle.hideMask()
 
 | `cursorMode` | 含义 |
 | --- | --- |
-| `actionOnly`（默认） | 仅操作类步骤展示光标，结束后收起 |
-| `always` | 遮罩可见期间始终展示光标 |
+| `actionOnly`（默认） | 仅操作类步骤展示光标；结束后若遮罩仍开着则收起 |
+| `always` | 未传 `showCursor` 时遮罩可见即展示光标；显式 `{ showCursor: false }` 仍可临时隐藏；操作结束后不自动收起 |
 | `never` | 任何路径都不展示光标（含宿主显式 `showCursor: true`） |
 
 ```typescript

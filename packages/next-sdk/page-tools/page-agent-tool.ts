@@ -39,6 +39,7 @@ type CursorKind = 'host' | 'pointer' | 'observe'
 
 function resolveShowCursor(kind: CursorKind, explicit?: boolean): boolean {
   const mode = getPageAgentToolConfig().cursorMode ?? 'actionOnly'
+  // 优先级：never（全局关闭）> 显式 showCursor > always（未传参时默认出光标）> actionOnly 按 kind
   if (mode === 'never') return false
   if (explicit !== undefined) return explicit
   if (mode === 'always') return true

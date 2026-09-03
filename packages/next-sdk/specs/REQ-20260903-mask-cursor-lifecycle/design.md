@@ -44,11 +44,16 @@ export interface PageAgentToolConfig {
 
 ### `cursorMode` 与显式 `showCursor` 的解析
 
+优先级（高 → 低）：`never`（全局关闭）> 显式 `showCursor` > `always`（未传参时默认出光标）> `actionOnly` 按 action 种类。
+
+因此 `always` 不是绝对锁死：`showMask({ showCursor: false })` 仍可临时隐藏；操作结束的自动收光标仅在 `cursorMode !== 'always'` 时发生。
+
 ```typescript
 type CursorKind = 'host' | 'pointer' | 'observe'
 
 function resolveShowCursor(kind: CursorKind, explicit?: boolean): boolean {
   const mode = getPageAgentToolConfig().cursorMode ?? 'actionOnly'
+  // 优先级：never > 显式 showCursor > always > actionOnly 按 kind
   if (mode === 'never') return false
   if (explicit !== undefined) return explicit
   if (mode === 'always') return true
@@ -60,6 +65,7 @@ function resolveShowCursor(kind: CursorKind, explicit?: boolean): boolean {
 | --- | --- | --- | --- |
 | 宿主 `showMask()` 无参 | 否 | 是 | 否 |
 | 宿主 `showMask({ showCursor: true })` | 是 | 是 | 否（never 优先） |
+| 宿主 `showMask({ showCursor: false })` | 否 | 否（显式优先于 always） | 否 |
 | 操作类 action | 是（结束后收起） | 是（结束后不收） | 否 |
 | 感知/滚动类 Action | 否 | 是 | 否 |
 
@@ -132,6 +138,7 @@ hideMask: async () => {
 
 - **有意不兼容**：无参 `show()` / `showMask()` 不再出光标。这是本需求的修复目标；需要光标的调用方改为显式 `{ showCursor: true }` 或 `cursorMode: 'always'`。
 - `never` 覆盖宿主显式 `showCursor: true`，避免全局关闭被单次调用打破。
+- `always` 不覆盖显式 `showCursor: false`：策略决定默认值，单次调用仍可临时隐藏。
 - 不修改外部 `@page-agent/page-controller` 签名。
 
 ## 备选方案

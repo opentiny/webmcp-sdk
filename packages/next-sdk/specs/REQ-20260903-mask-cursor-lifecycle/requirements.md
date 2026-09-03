@@ -61,11 +61,11 @@
    - 验收：无参 `showMask()` → `simulatorMask.show({ showCursor: false })`（`cursorMode: 'actionOnly'` 默认）。
 2. 作为用户，遮罩刚变为 visible 时，光标节点已是 `display: none`，不会闪在左上角。
    - 验收：`#createCursor()` 后、以及 `show()` 未传 / `showCursor: false` 时，`.webmcp-page-agent-cursor` 的 `style.display === 'none'`。
-3. 作为用户，click/fill/select/hover 执行完毕后，若遮罩仍开着，光标应收起，只留呼吸灯。
+3. 作为用户，click/fill/select/hover 执行完毕后，若遮罩仍开着且 `cursorMode !== 'always'`，光标应收起，只留呼吸灯。
    - 验收：`executePageAgentTool` 的 `finally` 在 `shown === true` 且非 `always` 时再调 `show({ showCursor: false })`。
-4. 作为集成方，我可以设 `cursorMode: 'never'` 让任何路径都不出光标；设 `'always'` 则遮罩期间保持光标。
+4. 作为集成方，我可以设 `cursorMode: 'never'` 让任何路径都不出光标；设 `'always'` 则未传 `showCursor` 时遮罩期间保持光标。
    - 验收：配置读写经 `get/setPageAgentToolConfig`；调度层按策略解析 `showCursor`。
-5. 作为宿主，我仍可显式 `showMask({ showCursor: true })` 强制出光标（`never` 除外，全局关闭优先）。
+5. 作为宿主，我仍可显式 `showMask({ showCursor: true })` 强制出光标（`never` 除外，全局关闭优先）；`always` 下仍可用 `showMask({ showCursor: false })` 临时隐藏。
 
 ## 非功能要求
 

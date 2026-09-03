@@ -163,6 +163,18 @@ describe('registerPageAgentTool - mask 显隐句柄', () => {
     expect(maskSpies.show).toHaveBeenCalledWith({ showCursor: false })
   })
 
+  it('cursorMode=always 时显式 showCursor: false 仍可临时隐藏光标', async () => {
+    const handle = registerPageAgentTool({ cursorMode: 'always' })
+    await handle.showMask({ showCursor: false })
+    expect(maskSpies.show).toHaveBeenCalledWith({ showCursor: false })
+  })
+
+  it('cursorMode=always 时无参 showMask 默认展示光标', async () => {
+    const handle = registerPageAgentTool({ cursorMode: 'always' })
+    await handle.showMask()
+    expect(maskSpies.show).toHaveBeenCalledWith({ showCursor: true })
+  })
+
   it('复现：WXT 聊天结束后呼吸灯与箭头未关闭 —— 前置 registerPageAgentTool 且已 showMask；步骤 dispatch page-agent-chat-end；期望 hideMask 被调用', async () => {
     const handle = registerPageAgentTool()
     await handle.showMask()

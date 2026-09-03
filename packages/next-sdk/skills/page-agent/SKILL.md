@@ -56,7 +56,7 @@ import {
 
 - `registerPageAgentTool(options?)`：注册 `page-agent-tool`，内部调用 `initializeBuiltinWebMCP()`；重复调用为 **replace** 式重新初始化。返回 `{ showMask, hideMask }`。
 - 运行期唯一配置面：`getPageAgentToolConfig` / `setPageAgentToolConfig`（`a11yConfig` 数组合并；`enableHighlight` / `cursorMode` 覆盖；支持 `mode: 'replace'`）。
-- `cursorMode`：`'actionOnly'`（默认，仅操作类出光标） / `'always'` / `'never'`。无参 `showMask()` 默认不出光标；操作类结束后若遮罩仍开着则收光标。
+- `cursorMode`：`'actionOnly'`（默认，仅操作类出光标） / `'always'` / `'never'`。无参 `showMask()` 默认不出光标；操作类结束后若遮罩仍开着且 `cursorMode !== 'always'` 则收光标。`always` 下显式 `{ showCursor: false }` 仍可临时隐藏；`never` 覆盖显式 `showCursor: true`。
 - `whitelist` / `blacklist` 中的选择器字符串在构建无障碍树时 **动态解析**。
 - `A11yRoleRule.name`：可选声明可访问名（不改 DOM），用于 landmark / 布局容器在 YAML 中保留分区名。
 - 站点预设：云控制台用 `consoleCloudPageAgentToolOptions` + `isConsoleCloudHost()`（含 `ti-app-layout-*` landmark）。

@@ -68,6 +68,14 @@ describe('getPageAgentToolConfig / setPageAgentToolConfig', () => {
     expect(getPageAgentToolConfig().cursorMode).toBe('never')
     expect(getPageAgentToolConfig().enableHighlight).toBe(false)
   })
+
+  it('复现：函数式 patch 只改其它字段时 cursorMode 被重置为 actionOnly —— 前置 cursorMode=never；步骤函数式只改 enableHighlight；期望 cursorMode 仍为 never', () => {
+    setPageAgentToolConfig({ cursorMode: 'never', enableHighlight: false })
+    const next = setPageAgentToolConfig((current) => ({ enableHighlight: !current.enableHighlight }))
+    expect(next.enableHighlight).toBe(true)
+    expect(next.cursorMode).toBe('never')
+    expect(getPageAgentToolConfig().cursorMode).toBe('never')
+  })
 })
 
 describe('setPageAgentToolConfig - a11yConfig 子字段', () => {
@@ -106,6 +114,18 @@ describe('setPageAgentToolConfig - a11yConfig 子字段', () => {
     const result = getPageAgentToolConfig().a11yConfig
     expect(result.roles.some((r) => r.role === 'tab')).toBe(false)
     expect(result.roles.some((r) => r.role === 'keep-me')).toBe(true)
+  })
+
+  it('函数式 patch 过滤 a11y 规则时，未返回的 cursorMode 仍保持原值', () => {
+    setPageAgentToolConfig({
+      cursorMode: 'always',
+      a11yConfig: { roles: [{ role: 'tab', selector: '.tab-1' }] }
+    })
+    setPageAgentToolConfig((current) => ({
+      a11yConfig: { roles: current.a11yConfig.roles.filter((r) => r.role !== 'tab') }
+    }))
+    expect(getPageAgentToolConfig().cursorMode).toBe('always')
+    expect(getPageAgentToolConfig().a11yConfig.roles.some((r) => r.role === 'tab')).toBe(false)
   })
 
   it('replace 模式丢弃之前的运行期状态，只与默认值重新合并', () => {
