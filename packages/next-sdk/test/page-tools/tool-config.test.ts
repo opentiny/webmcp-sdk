@@ -57,6 +57,17 @@ describe('getPageAgentToolConfig / setPageAgentToolConfig', () => {
     const next = setPageAgentToolConfig({ enableHighlight: false })
     expect(getPageAgentToolConfig()).toEqual(next)
   })
+
+  it('未初始化时 cursorMode 默认为 actionOnly', () => {
+    expect(getPageAgentToolConfig().cursorMode).toBe('actionOnly')
+    expect(DEFAULT_PAGE_AGENT_TOOL_CONFIG.cursorMode).toBe('actionOnly')
+  })
+
+  it('merge 模式下可覆盖 cursorMode，未传入字段保持原值', () => {
+    setPageAgentToolConfig({ cursorMode: 'never' })
+    expect(getPageAgentToolConfig().cursorMode).toBe('never')
+    expect(getPageAgentToolConfig().enableHighlight).toBe(false)
+  })
 })
 
 describe('setPageAgentToolConfig - a11yConfig 子字段', () => {

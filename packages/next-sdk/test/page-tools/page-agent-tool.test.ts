@@ -5,10 +5,13 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 const maskSpies = vi.hoisted(() => ({ show: vi.fn(), hide: vi.fn() }))
 vi.mock('../../page-tools/page-agent-mask/SimulatorMask', () => ({
   SimulatorMask: class SimulatorMask {
-    show() {
-      maskSpies.show()
+    shown = false
+    show(options?: { showCursor?: boolean }) {
+      this.shown = true
+      maskSpies.show(options)
     }
     hide() {
+      this.shown = false
       maskSpies.hide()
     }
     dispose() {}
@@ -140,6 +143,24 @@ describe('registerPageAgentTool - mask 显隐句柄', () => {
 
     await handle.hideMask()
     expect(maskSpies.hide).toHaveBeenCalledTimes(1)
+  })
+
+  it('复现：准备中就显示鼠标 —— 前置 registerPageAgentTool；步骤 无参 handle.showMask()；期望内部 show({ showCursor: false }) 仅呼吸灯', async () => {
+    const handle = registerPageAgentTool()
+    await handle.showMask()
+    expect(maskSpies.show).toHaveBeenCalledWith({ showCursor: false })
+  })
+
+  it('复现：宿主无法声明只要呼吸灯 —— 步骤 handle.showMask({ showCursor: true })；期望透传到 SimulatorMask.show', async () => {
+    const handle = registerPageAgentTool()
+    await handle.showMask({ showCursor: true })
+    expect(maskSpies.show).toHaveBeenCalledWith({ showCursor: true })
+  })
+
+  it('handle.showMask() 在 cursorMode=never 时忽略显式 showCursor: true', async () => {
+    const handle = registerPageAgentTool({ cursorMode: 'never' })
+    await handle.showMask({ showCursor: true })
+    expect(maskSpies.show).toHaveBeenCalledWith({ showCursor: false })
   })
 
   it('复现：WXT 聊天结束后呼吸灯与箭头未关闭 —— 前置 registerPageAgentTool 且已 showMask；步骤 dispatch page-agent-chat-end；期望 hideMask 被调用', async () => {

@@ -9,6 +9,9 @@
 import type { A11yConfig, ResolvedA11yConfig } from './a11y/config'
 import { DEFAULT_A11Y_CONFIG, mergeA11yConfig, mergeA11yConfigs } from './a11y/config'
 
+/** 鼠标光标展示策略：仅操作类展示（默认） / 遮罩期间始终展示 / 永不展示 */
+export type PageAgentCursorMode = 'actionOnly' | 'always' | 'never'
+
 export interface PageAgentToolConfig {
   /** 是否启用元素高亮 */
   enableHighlight: boolean
@@ -16,6 +19,13 @@ export interface PageAgentToolConfig {
   removeMaskAfterToolCall?: boolean
   /** 是否启用执行 JavaScript 工具 */
   enableExecuteJavascript?: boolean
+  /**
+   * 鼠标光标展示策略。
+   * - `actionOnly`（默认）：仅 click/fill/select/hover 期间展示，步骤结束后收起
+   * - `always`：遮罩可见即展示光标
+   * - `never`：任何路径都不展示光标
+   */
+  cursorMode: PageAgentCursorMode
   /**
    * 统一无障碍配置：按角色（roles）、状态（states：selected/disabled/error/warning 等）自定义规则，
    * 以及白名单/黑名单/自定义暴露属性/弹窗选择器。已与默认配置合并（数组类字段是拼接结果）。
@@ -34,6 +44,8 @@ export interface PageAgentToolConfigPatch {
   removeMaskAfterToolCall?: boolean
   /** 是否启用执行 JavaScript 工具 */
   enableExecuteJavascript?: boolean
+  /** 鼠标光标展示策略，见 {@link PageAgentCursorMode} */
+  cursorMode?: PageAgentCursorMode
   /** 统一无障碍配置，会与当前生效的 a11yConfig 按数组拼接合并 */
   a11yConfig?: A11yConfig
 }
@@ -46,6 +58,7 @@ export const DEFAULT_PAGE_AGENT_TOOL_CONFIG: PageAgentToolConfig = {
   enableHighlight: false,
   removeMaskAfterToolCall: true,
   enableExecuteJavascript: true,
+  cursorMode: 'actionOnly',
   a11yConfig: DEFAULT_A11Y_CONFIG
 }
 
@@ -65,6 +78,7 @@ export function getPageAgentToolConfig(): PageAgentToolConfig {
     enableHighlight: DEFAULT_PAGE_AGENT_TOOL_CONFIG.enableHighlight,
     removeMaskAfterToolCall: DEFAULT_PAGE_AGENT_TOOL_CONFIG.removeMaskAfterToolCall,
     enableExecuteJavascript: DEFAULT_PAGE_AGENT_TOOL_CONFIG.enableExecuteJavascript,
+    cursorMode: DEFAULT_PAGE_AGENT_TOOL_CONFIG.cursorMode,
     a11yConfig: mergeA11yConfig()
   }
 }
@@ -74,6 +88,7 @@ function resolvePatch(patch: PageAgentToolConfigPatch, base: PageAgentToolConfig
     enableHighlight: patch.enableHighlight ?? base.enableHighlight,
     removeMaskAfterToolCall: patch.removeMaskAfterToolCall ?? base.removeMaskAfterToolCall,
     enableExecuteJavascript: patch.enableExecuteJavascript ?? base.enableExecuteJavascript,
+    cursorMode: patch.cursorMode ?? base.cursorMode,
     a11yConfig: mergeA11yConfigs(base.a11yConfig, patch.a11yConfig ?? {})
   }
 }

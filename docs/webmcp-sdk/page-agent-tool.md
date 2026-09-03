@@ -7,17 +7,19 @@
 **类型签名**
 
 ```typescript
-import { PageAgentToolOptions } from '@opentiny/next-sdk'
+import { PageAgentToolOptions, PageAgentToolHandle } from '@opentiny/next-sdk'
 
-export function registerPageAgentTool(options?: PageAgentToolOptions): void
+export function registerPageAgentTool(options?: PageAgentToolOptions): PageAgentToolHandle
 ```
 
 ## PageAgentToolOptions 配置项说明
 
-| 属性名            | 类型         | 默认值  | 说明                                                    |
-| :---------------- | :----------- | :------ | :------------------------------------------------------ |
-| `enableHighlight` | `boolean`    | `false` | 是否在页面中高亮标注可交互的元素。                      |
-| `a11yConfig`      | `A11yConfig` | -       | 统一无障碍配置，见下文「统一无障碍配置 `a11yConfig`」。 |
+| 属性名                   | 类型                                      | 默认值        | 说明                                                                 |
+| :----------------------- | :---------------------------------------- | :------------ | :------------------------------------------------------------------- |
+| `enableHighlight`        | `boolean`                                 | `false`       | 是否在页面中高亮标注可交互的元素。                                   |
+| `removeMaskAfterToolCall`| `boolean`                                 | `true`        | 是否在每次工具调用后移除遮罩。宿主接管 Tab 期间通常设为 `false`。    |
+| `cursorMode`             | `'actionOnly' \| 'always' \| 'never'`     | `'actionOnly'`| 鼠标光标展示策略，见下文「遮罩与光标」。                             |
+| `a11yConfig`             | `A11yConfig`                              | -             | 统一无障碍配置，见下文「统一无障碍配置 `a11yConfig`」。              |
 
 `PageAgentToolOptions` 中的所有配置项（含 `enableHighlight` 与 `a11yConfig`）都由同一个 `PageAgentToolConfig` 类型描述，只有唯一一套运行期读写 API：`getPageAgentToolConfig`/`setPageAgentToolConfig`。除了在 `registerPageAgentTool(options)` 时初始化一次，也可以在页面运行期随时读取/修改（例如路由切换后为新页面追加规则、临时关闭高亮）：
 
@@ -65,6 +67,40 @@ getPageAgentToolConfig() // { enableHighlight: false, a11yConfig: { roles: [...]
 | `clipboard`         | 读写系统剪切板              | `text`（见下文）                         |
 
 执行 `click`、`fill`、`select`、`hover` 前通常需先调用 `browserState` 获取最新 ref 索引；`clipboard` 不依赖 `index`，也不展示 SimulatorMask。
+
+---
+
+## 遮罩与光标
+
+`registerPageAgentTool` 返回 `{ showMask, hideMask }`。遮罩（呼吸灯锁屏）与 AI 鼠标光标是两套视觉：
+
+- **接管态**（宿主 `showMask()`、感知/滚动类 action）：默认只出呼吸灯，不出光标。
+- **操作类**（`click` / `fill` / `select` / `hover`）：步骤期间出光标，结束后若遮罩仍开着则自动收起光标。
+
+```typescript
+const handle = registerPageAgentTool({ removeMaskAfterToolCall: false })
+
+// 初始化 / 思考阶段：仅呼吸灯
+await handle.showMask()
+// 等价于 handle.showMask({ showCursor: false })
+
+// 需要强制出光标时再显式传入
+await handle.showMask({ showCursor: true })
+
+await handle.hideMask()
+```
+
+运行期可用 `cursorMode` 覆盖默认策略：
+
+| `cursorMode` | 含义 |
+| --- | --- |
+| `actionOnly`（默认） | 仅操作类步骤展示光标，结束后收起 |
+| `always` | 遮罩可见期间始终展示光标 |
+| `never` | 任何路径都不展示光标（含宿主显式 `showCursor: true`） |
+
+```typescript
+setPageAgentToolConfig({ cursorMode: 'never' })
+```
 
 ---
 
