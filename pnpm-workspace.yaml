@@ -62,8 +62,8 @@ catalog:
 
   # 第3方ai 相关依赖
   '@page-agent/page-controller': ^1.10.0
-  '@mcp-b/webmcp-polyfill': ^3.0.0
-  '@mcp-b/webmcp-types': ^3.0.0
+  '@mcp-b/webmcp-polyfill': ^5.1.0
+  '@mcp-b/webmcp-types': ^5.1.0
   # 浏览器内 ARIA 树序列化 + Diff
   'dom-accessibility-api': ^0.6.3
   'aria-query': ^5.3.2

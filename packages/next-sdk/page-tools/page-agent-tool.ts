@@ -301,22 +301,27 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
     ? ''
     : '\n 当前环境已经禁用 executeJavascript 工具，请勿使用它。\n'
 
-  modelContext.registerTool(
-    {
-      name: 'page-agent-tool',
-      description: pageAgentPrompt + executeJavascriptPrompt,
-      // @ts-ignore
-      inputSchema: zodToJsonSchema(inputSchema) as any,
-      async execute(args: PageAgentToolInput) {
-        try {
-          return await executePageAgentTool(args)
-        } catch (error) {
-          return { content: [{ type: 'text' as const, text: `异常: ${String(error)}` }] }
+  // 5.x registerTool 返回 Promise；校验失败不能变成未处理 rejection
+  void Promise.resolve(
+    modelContext.registerTool(
+      {
+        name: 'page-agent-tool',
+        description: pageAgentPrompt + executeJavascriptPrompt,
+        // @ts-ignore
+        inputSchema: zodToJsonSchema(inputSchema) as any,
+        async execute(args: PageAgentToolInput) {
+          try {
+            return await executePageAgentTool(args)
+          } catch (error) {
+            return { content: [{ type: 'text' as const, text: `异常: ${String(error)}` }] }
+          }
         }
-      }
-    },
-    { signal: abortController.signal }
-  )
+      },
+      { signal: abortController.signal }
+    )
+  ).catch((err: unknown) => {
+    console.warn('[next-sdk] page-agent-tool 注册失败:', err)
+  })
 
   setupPageAgentToolEventBridge(executePageAgentTool, pageController, actionContext)
 
