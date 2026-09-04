@@ -8,12 +8,27 @@
 
 ## initializeBuiltinWebMCP()
 
-在浏览器环境中初始化内置的 WebMCP 运行环境。该函数会自动注入 `modelContext` Polyfill，并设置页面与宿主环境（如浏览器插件或父页面）的桥接通信通道。
+在浏览器环境中初始化内置的 WebMCP 运行环境。该函数会注入 `document.modelContext` 的 JS Polyfill。
+
+Chromium Origin Trial 阶段的原生 `modelContext.getTools()` / `registerTool()` 可能通过 Mojo IPC 触发渲染进程崩溃（`RESULT_CODE_KILLED_BAD_MESSAGE`）。上游 `@mcp-b/webmcp-polyfill`（本仓库当前 5.1.0）见 native 即跳过且不再提供 `forceOverride`。5.x 把 getter 装在 `Document.prototype`，SDK **默认 `forcePolyfill: true`**：先影子化 `document` / `navigator` 上的非 polyfill 实现，初始化后再把 JS polyfill 挂到 document 实例，避免走到会崩溃的原生 `getTools()`。仅在确认原生 WebMCP 可用时传入 `{ forcePolyfill: false }`。
+
+请在页面入口尽早调用（`registerPageAgentTool()` 内部会调用本函数）。不要在初始化前把 `document.modelContext` 存进闭包，否则可能仍持有 native 引用。
+
+`@mcp-b/webmcp-polyfill@5.1.0` 的 `document.modelContext.registerTool()` 返回 Promise。工具会在 Promise resolve 前写入 registry，但重复名、非法描述、已 abort 的 `signal` 会 reject；同步 `try/catch` 接不住。SDK 的 `registerPageAgentTool()` 已 `.catch`。业务自行注册时请 `await` 或 `.catch`：
+
+```typescript
+void document.modelContext.registerTool(tool, { signal }).catch((err) => {
+  console.warn('registerTool failed', err)
+})
+```
 
 **类型签名**
 
 ```typescript
-export function initializeBuiltinWebMCP(): void
+export function initializeBuiltinWebMCP(options?: {
+  /** @default true */
+  forcePolyfill?: boolean
+}): void
 ```
 
 **代码示例**
@@ -21,8 +36,11 @@ export function initializeBuiltinWebMCP(): void
 ```typescript
 import { initializeBuiltinWebMCP } from '@opentiny/next-sdk'
 
-// 在页面入口处调用，用于初始化浏览器环境的 modelContext 桥接
+// 默认强制 JS polyfill，避免实验性原生 API 杀进程
 initializeBuiltinWebMCP()
+
+// 确认原生实现可用后再关闭强制覆盖
+// initializeBuiltinWebMCP({ forcePolyfill: false })
 ```
 
 ---

@@ -62,10 +62,10 @@ WebMCP 是 Model Context Protocol 在浏览器端的扩展。它定义了网页�
 
 由于原生 API 仍处于实验阶段，**OpenTiny NEXT-SDKs 提供了一套强大的 Polyfill**。通过调用 `initializeBuiltinWebMCP()`，SDK 会：
 
-1.  **注入 `document.modelContext`**：提供符合标准规范的工具注册接口（同时也为向后兼容挂载了 `document.modelContext` 别名）。
+1.  **注入 `document.modelContext`**：提供符合标准规范的工具注册接口。当前默认 **强制使用 JS Polyfill**（`forcePolyfill: true`），覆盖可能在 `getTools()` 时崩溃的 Chromium 实验性原生实现；确认原生可用后可传 `{ forcePolyfill: false }`。
 2.  **自动化路由与桥接**：自动处理不同页面路径、iframe 之间的消息同步与工具调用导航。
 
-这意味着你今天编写的标准 WebMCP 代码，在未来浏览器原生支持时将自动平滑切换到原生引擎。
+页面入口应尽早调用本函数（或 `registerPageAgentTool()`），再注册工具或把 `document.modelContext` 交给 Agent。
 
 ### 📡 跨页面与远程操控
 

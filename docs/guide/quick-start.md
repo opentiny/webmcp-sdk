@@ -33,7 +33,7 @@ npm i @opentiny/next-sdk
 
 ### 安装 WebMCP Polyfill
 
-在 Web 应用的主入口调用 `initializeBuiltinWebMCP`，这会为不支持 WebMCP 的浏览器注入 `document.modelContext` 实现。
+在 Web 应用的主入口调用 `initializeBuiltinWebMCP`，这会注入 `document.modelContext` 的 JS Polyfill。当前 Chrome Origin Trial 原生实现可能在 `getTools()` 时崩溃，因此 **默认强制 polyfill**（`forcePolyfill: true`）。请在任何 `getTools` / `registerTool` 之前调用。
 
 > **提示：** 本文档的代码示例均以 **Vue** 技术栈为例。如果你使用的是 Angular 或 React 等其他前端框架，核心逻辑是完全相同的，只需参考对应框架的最佳实践，在应用全局入口和组件生命周期中执行相应的代码即可。
 

@@ -1,4 +1,3 @@
-import { initializeWebMCPPolyfill } from '@mcp-b/webmcp-polyfill'
 import {
   registerPageAgentTool,
   consoleCloudPageAgentToolOptions,
@@ -39,7 +38,7 @@ function initWebMcpCliPage(): void {
     return
   }
 
-  initializeWebMCPPolyfill()
+  // registerPageAgentTool 内部 initializeBuiltinWebMCP() 默认 forcePolyfill，避免直调 polyfill 沿用会崩溃的原生 modelContext
   registerPageAgentTool(resolvePageAgentToolOptions())
 
   window.__webmcpcli_tools = []

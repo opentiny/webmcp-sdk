@@ -20,6 +20,7 @@
 
 | Spec | 说明 |
 |---|---|
+| [`REQ-20260904-force-webmcp-polyfill`](./REQ-20260904-force-webmcp-polyfill/) | 默认强制 JS polyfill，覆盖会崩溃的 Chromium 实验性 `modelContext` |
 | [`REQ-20260903-mask-cursor-lifecycle`](./REQ-20260903-mask-cursor-lifecycle/) | 遮罩接管态默认不出光标；句柄透传 `showCursor`；操作结束收光标；`cursorMode` |
 | [`REQ-20260817-clipboard-handler`](./REQ-20260817-clipboard-handler/) | Page Agent `clipboard` action：读写系统剪切板（`text` 有值写、无值读） |
 | [`REQ-20260807-dev-entry`](./REQ-20260807-dev-entry/) | 新增 `dev` 入口：将 `dom-inspect` 等本地开发能力从主入口拆出 |

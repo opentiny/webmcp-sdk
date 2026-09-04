@@ -34,12 +34,15 @@ function resetWindowGlobals() {
   delete window.__webmcpcli_toolConfig
   delete window.__webmcpcli_beforeGetBrowserState
   if ((window as any).__pageAgentToolAbortController) {
-    ;(window as any).__pageAgentToolAbortController.abort()
+    try {
+      ;(window as any).__pageAgentToolAbortController.abort()
+    } catch {
+      // 5.x registerTool 在 abort 后可能以 AbortError reject，由调用方 catch
+    }
     delete (window as any).__pageAgentToolAbortController
   }
-  // 注意：initializeBuiltinWebMCP() 内部用模块级单例 flag 控制只初始化一次 document.modelContext，
-  // 且没有对外暴露重置能力，因此这里不删除 document.modelContext，避免二次调用时因单例 flag
-  // 仍为 true 而不会重新创建 modelContext，导致 registerTool 拿到 undefined
+  // initializeBuiltinWebMCP 在已有 polyfill 时幂等；其它用例可能已装上 document.modelContext，
+  // 此处不删除，避免误伤并行/先后用例里的 registerTool
 }
 
 beforeEach(() => {
@@ -194,7 +197,7 @@ describe('registerPageAgentTool - 工具注册与注销机制', () => {
     const originalRegister = (document as any).modelContext.registerTool
     ;(document as any).modelContext.registerTool = (tool: any, options: any) => {
       if (tool.name === 'page-agent-tool') execute = tool.execute
-      originalRegister.call((document as any).modelContext, tool, options)
+      return originalRegister.call((document as any).modelContext, tool, options)
     }
 
     registerPageAgentTool()

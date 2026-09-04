@@ -22,7 +22,7 @@
 
 本包面向浏览器 **内置 WebMCP**（`document.modelContext`）。新代码与约束说明请围绕：
 
-- `initializeBuiltinWebMCP()`：注入 polyfill + 桥接
+- `initializeBuiltinWebMCP()`：注入 polyfill + 桥接；默认 `forcePolyfill: true`，覆盖会崩溃的 Chromium 实验性 native
 - `document.modelContext.registerTool` / 业务工具注册
 - `registerPageAgentTool` 及 a11y / 运行期配置 API
 

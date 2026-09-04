@@ -90,6 +90,7 @@ vi.mock('../../page-tools/handlers/clipboard', () => ({
 }))
 
 import { registerPageAgentTool } from '../../page-tools/page-agent-tool'
+import { initializeBuiltinWebMCP } from '../../page-tools/initialize-builtin-WebMCP'
 import type { PageAgentToolInput } from '../../page-tools/schema'
 import { setPageAgentToolConfig } from '../../page-tools/tool-config'
 
@@ -152,6 +153,8 @@ function resetWindowGlobals() {
 }
 
 function captureExecute(): PageAgentExecute {
+  // 5.x polyfill 无 import 副作用，须先初始化才能包一层 registerTool
+  initializeBuiltinWebMCP()
   const mcp = (document as DocumentWithModelContext).modelContext
   if (!mcp?.registerTool) {
     throw new Error('document.modelContext.registerTool unavailable')

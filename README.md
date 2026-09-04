@@ -62,10 +62,10 @@ WebMCP is an extension of the Model Context Protocol specifically for web browse
 
 Since native APIs are still experimental, **OpenTiny NEXT-SDKs provides a powerful Polyfill**. By calling `initializeBuiltinWebMCP()`, the SDK will:
 
-1.  **Injects `document.modelContext`**: Provides a standard-compliant API for tool registration (also aliases `document.modelContext` for backward compatibility).
+1.  **Injects `document.modelContext`**: Provides a standard-compliant API for tool registration. By default it **forces the JS polyfill** (`forcePolyfill: true`) over Chromium's experimental native implementation, which can crash the renderer on `getTools()`. Pass `{ forcePolyfill: false }` only when native WebMCP is confirmed stable.
 2.  **Automated Routing & Bridging**: Automatically handles message synchronization and tool invocation across different page paths and iframes.
 
-This means you can write standard WebMCP code today, and it will automatically switch to the native engine when the browser supports it.
+Call this at the page entry (or via `registerPageAgentTool()`) before registering tools or handing `document.modelContext` to an Agent.
 
 ### 📡 Cross-Page & Remote Control
 
