@@ -688,6 +688,77 @@ describe('buildA11yTree - 通用 cursor:pointer 可点击元素识别', () => {
   })
 })
 
+describe('buildA11yTree - contenteditable 编辑宿主分配 ref', () => {
+  it('复现：div[contenteditable] 在 browserState 中无 ref，fill 无法寻址 —— 前置无 role 的富文本框；步骤 buildA11yTree；期望 textbox + ref + contenteditable token', () => {
+    const root = setupRoot(`<div id="editor" contenteditable="true">正文草稿</div>`)
+    const editor = root.querySelector('#editor') as HTMLElement
+    const { yaml, refMap } = buildA11yTree(root)
+
+    expect(Array.from(refMap.values())).toContain(editor)
+    expect(yaml).toMatch(/textbox #\d+/)
+    expect(yaml).toMatch(/contenteditable/)
+    expect(yaml).toMatch(/value=\\"正文草稿\\"/)
+  })
+
+  it('空编辑宿主仍分配 ref，便于向空白富文本框 fill', () => {
+    const root = setupRoot(`<div id="empty-editor" contenteditable="true"></div>`)
+    const editor = root.querySelector('#empty-editor') as HTMLElement
+    const { yaml, refMap } = buildA11yTree(root)
+
+    expect(Array.from(refMap.values())).toContain(editor)
+    expect(yaml).toMatch(/textbox #\d+/)
+  })
+
+  it('只给编辑宿主分配 ref，继承可编辑的内部 p/span 不各自占 ref', () => {
+    const root = setupRoot(`
+      <div id="host" contenteditable="true">
+        <p id="para">段落</p>
+        <span id="inner">片段</span>
+      </div>
+    `)
+    const host = root.querySelector('#host') as HTMLElement
+    const para = root.querySelector('#para') as HTMLElement
+    const inner = root.querySelector('#inner') as HTMLElement
+    const { refMap } = buildA11yTree(root)
+    const values = Array.from(refMap.values())
+
+    expect(values).toContain(host)
+    expect(values).not.toContain(para)
+    expect(values).not.toContain(inner)
+  })
+
+  it('contenteditable=false 不因可编辑性获得 ref', () => {
+    const root = setupRoot(`<div id="locked" contenteditable="false">只读块</div>`)
+    const locked = root.querySelector('#locked') as HTMLElement
+    const { refMap } = buildA11yTree(root)
+    expect(Array.from(refMap.values())).not.toContain(locked)
+  })
+
+  it('plaintext-only 编辑宿主同样分配 ref', () => {
+    const root = setupRoot(`<div id="plain" contenteditable="plaintext-only">纯文本</div>`)
+    const plain = root.querySelector('#plain') as HTMLElement
+    const { yaml, refMap } = buildA11yTree(root)
+    expect(Array.from(refMap.values())).toContain(plain)
+    expect(yaml).toMatch(/contenteditable=plaintext-only/)
+  })
+
+  it('显式 role 保留，但仍分配 ref 并标记 contenteditable', () => {
+    const root = setupRoot(`<div id="combo" role="combobox" contenteditable="true">可搜</div>`)
+    const combo = root.querySelector('#combo') as HTMLElement
+    const { yaml, refMap } = buildA11yTree(root)
+    expect(Array.from(refMap.values())).toContain(combo)
+    expect(yaml).toMatch(/combobox #\d+/)
+    expect(yaml).toMatch(/contenteditable/)
+  })
+
+  it('aria-disabled 的编辑宿主不分配 ref', () => {
+    const root = setupRoot(`<div id="off" contenteditable="true" aria-disabled="true">禁用编辑</div>`)
+    const off = root.querySelector('#off') as HTMLElement
+    const { refMap } = buildA11yTree(root)
+    expect(Array.from(refMap.values())).not.toContain(off)
+  })
+})
+
 /** 统计某 accessible name 是否在多行 YAML 中重复出现（父子同名的典型信号） */
 function yamlHasDuplicateAccessibleName(lines: string[], name: string): boolean {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')

@@ -16,7 +16,7 @@ description: >-
 - 无障碍树构建、剪枝、Static-Lift、序列化语义
 - 需要更新 `docs/webmcp-sdk/page-agent-tool.md` 的行为说明
 
-近期示例：[`specs/REQ-20260722-console-layout-landmark/`](../../specs/REQ-20260722-console-layout-landmark/)、[`specs/REQ-20260817-clipboard-handler/`](../../specs/REQ-20260817-clipboard-handler/)、[`specs/REQ-20260903-mask-cursor-lifecycle/`](../../specs/REQ-20260903-mask-cursor-lifecycle/)。
+近期示例：[`specs/REQ-20260904-contenteditable-a11y-ref/`](../../specs/REQ-20260904-contenteditable-a11y-ref/)、[`specs/REQ-20260903-mask-cursor-lifecycle/`](../../specs/REQ-20260903-mask-cursor-lifecycle/)、[`specs/REQ-20260817-clipboard-handler/`](../../specs/REQ-20260817-clipboard-handler/)。
 
 拿不准是否琐碎 → **先问用户**，不要默认开写。
 
@@ -61,6 +61,7 @@ import {
 - `A11yRoleRule.name`：可选声明可访问名（不改 DOM），用于 landmark / 布局容器在 YAML 中保留分区名。
 - 站点预设：云控制台用 `consoleCloudPageAgentToolOptions` + `isConsoleCloudHost()`（含 `ti-app-layout-*` landmark）。
 - **`clipboard` action**：`text` 有值写剪切板、无值读剪切板；不依赖 `index`、不展示 mask；handler 见 `page-tools/handlers/clipboard.ts`。
+- **contenteditable**：`browserState` 将自身声明 `contenteditable` 的编辑宿主标为 `textbox`（显式 role 优先）、分配 ref、输出 `[contenteditable]` token；`fill` 用该 ref 填写。继承可编辑的子孙不单独占 ref。见 [`REQ-20260904-contenteditable-a11y-ref`](../../specs/REQ-20260904-contenteditable-a11y-ref/)。
 
 ## 测试落点
 

@@ -289,6 +289,22 @@ export function defineA11yConfig(config: A11yConfig): A11yConfig {
 
 // ─── 角色 / 状态解析 ─────────────────────────────────────────────────────
 
+/**
+ * 判断元素是否为编辑宿主（自身声明 contenteditable，而非从祖先继承）。
+ * HTML-AAM：无显式 role 时隐式角色为 textbox。
+ * `contenteditable="false"` / `inherit` 不算。
+ */
+export function isEditingHost(el: Element): boolean {
+  if (!(el instanceof HTMLElement)) return false
+  const ce = el.contentEditable
+  if (ce === 'true' || ce === 'plaintext-only') return true
+  // jsdom 等环境对 IDL contentEditable 实现可能不完整，回退读属性
+  const raw = el.getAttribute('contenteditable')
+  if (raw === null) return false
+  const v = raw.trim().toLowerCase()
+  return v === '' || v === 'true' || v === 'plaintext-only'
+}
+
 /** 命中的声明式 role 规则（未命中配置规则时返回 null，再走显式 role / 标签隐式映射） */
 function findMatchedRoleRule(el: Element, resolved: ResolvedA11yConfig): A11yRoleRule | null {
   const explicit = el.getAttribute('role')
@@ -316,6 +332,8 @@ function computeRole(
     const inputType = (el as HTMLInputElement).type?.toLowerCase() ?? 'text'
     return INPUT_TYPE_ROLE[inputType] ?? 'textbox'
   }
+  // HTML-AAM：编辑宿主隐式 textbox（显式 role / roles 规则 / input[type] 优先）
+  if (isEditingHost(el)) return 'textbox'
   return TAG_ROLE_MAP[tag] ?? 'generic'
 }
 
@@ -445,6 +463,14 @@ function computeStates(el: Element, resolved: ResolvedA11yConfig): string[] {
     if (val !== undefined && val !== '') {
       tokens.push(`value="${val}"`)
     }
+  }
+  // 编辑宿主：标记可填，并用可见文本作为 value（供 fill 后 Diff）
+  if (isEditingHost(el)) {
+    const ce = (el as HTMLElement).contentEditable
+    const rawCe = (el.getAttribute('contenteditable') ?? '').trim().toLowerCase()
+    tokens.push(ce === 'plaintext-only' || rawCe === 'plaintext-only' ? 'contenteditable=plaintext-only' : 'contenteditable')
+    const text = ((el as HTMLElement).innerText || el.textContent || '').replace(/\s+/g, ' ').trim()
+    if (text) tokens.push(`value="${text}"`)
   }
   const valuenow = aria('aria-valuenow')
   if (valuenow) tokens.push(`valuenow="${valuenow}"`)

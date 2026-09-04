@@ -20,6 +20,7 @@
 
 | Spec | 说明 |
 |---|---|
+| [`REQ-20260904-contenteditable-a11y-ref`](./REQ-20260904-contenteditable-a11y-ref/) | `browserState` 将 contenteditable 编辑宿主标为可填：textbox + ref + token |
 | [`REQ-20260903-mask-cursor-lifecycle`](./REQ-20260903-mask-cursor-lifecycle/) | 遮罩接管态默认不出光标；句柄透传 `showCursor`；操作结束收光标；`cursorMode` |
 | [`REQ-20260817-clipboard-handler`](./REQ-20260817-clipboard-handler/) | Page Agent `clipboard` action：读写系统剪切板（`text` 有值写、无值读） |
 | [`REQ-20260807-dev-entry`](./REQ-20260807-dev-entry/) | 新增 `dev` 入口：将 `dom-inspect` 等本地开发能力从主入口拆出 |

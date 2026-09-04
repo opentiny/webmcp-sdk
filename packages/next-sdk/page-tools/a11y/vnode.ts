@@ -8,7 +8,7 @@ import { computeAccessibleName } from 'dom-accessibility-api'
 import { isTabbable } from 'tabbable'
 import type { VNode, RefMap, A11yTreeShapeOptions } from './types'
 import type { ResolvedA11yConfig } from './config'
-import { resolveA11yInfo } from './config'
+import { isEditingHost, resolveA11yInfo } from './config'
 import {
   isHidden,
   isNonContentElement,
@@ -102,7 +102,7 @@ export function buildVNode(
     const isDropdown = tag === 'select' || role === 'combobox' || role === 'listbox'
     if (!isDropdown) {
       const isInteractiveTag = ['button', 'a', 'input', 'textarea', 'li', 'label'].includes(tag)
-      if (isTrulyInteractive || isWhitelisted || isVisuallyClickable || hasClickableCursor || isInteractiveTag || role === 'listitem' || role === 'option' || role === 'button') {
+      if (isTrulyInteractive || isWhitelisted || isVisuallyClickable || hasClickableCursor || isInteractiveTag || isEditingHost(el) || role === 'listitem' || role === 'option' || role === 'button') {
         name = collectDescendantText(el, config)
       }
     }
@@ -189,7 +189,9 @@ export function buildVNode(
     // 虽是真正的可点击边界，仍会因 generic+空名被漏判。
     (!isDisabled && hasClickableCursor) ||
     // 有 tooltip 的元素分配 ref，使 AI 能 hover 触发动态 tip
-    hasTooltip
+    hasTooltip ||
+    // 编辑宿主可 fill，即使显式 role 不是 textbox（如 combobox）也要暴露 ref
+    (!isDisabled && isEditingHost(el))
 
   let ref: number | undefined
   if (interactive) {

@@ -59,7 +59,7 @@ getPageAgentToolConfig() // { enableHighlight: false, a11yConfig: { roles: [...]
 | `browserState`      | 获取页面无障碍树（YAML）    | `responseMode`: `full` / `diff` / `both` |
 | `searchTree`        | 按关键词搜索无障碍树        | `query`、`contextLines`、`maxMatches`    |
 | `click`             | 点击元素                    | `index`                                  |
-| `fill`              | 填写输入框                  | `index`、`text`                          |
+| `fill`              | 填写 input / textarea / contenteditable 编辑宿主 | `index`、`text`                          |
 | `select`            | 选择下拉选项                | `index`、`text`                          |
 | `scroll`            | 滚动页面或容器              | `down` / `right`、`numPages` / `pixels`  |
 | `hover`             | 悬浮元素（触发 tooltip 等） | `index`                                  |
@@ -67,6 +67,8 @@ getPageAgentToolConfig() // { enableHighlight: false, a11yConfig: { roles: [...]
 | `clipboard`         | 读写系统剪切板              | `text`（见下文）                         |
 
 执行 `click`、`fill`、`select`、`hover` 前通常需先调用 `browserState` 获取最新 ref 索引；`clipboard` 不依赖 `index`，也不展示 SimulatorMask。
+
+`browserState` 产出的无障碍树会把**编辑宿主**（元素自身声明 `contenteditable="true"` / `""` / `"plaintext-only"`，不含仅从祖先继承的子孙）识别为可填写控件：隐式角色 `textbox`（显式 `role` 与 `a11yConfig.roles` 优先），分配 `#N` ref，并带 `[contenteditable]` token（`plaintext-only` 时为 `[contenteditable=plaintext-only]`）。有可见文本时还会输出 `value="…"`，便于 `fill` 前后做 Diff。`contenteditable="false"` 与 `aria-disabled` 的编辑区不分配 ref。`fill` 使用该 `#N` 即可写入富文本框，无需再为每个站点单独配 whitelist。
 
 ---
 

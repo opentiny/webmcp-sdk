@@ -15,7 +15,7 @@ export const inputSchema = z.object({
     .describe(`执行的动作名称, 每一次执行 'click', 'fill', 'select', 'hover'动作之前，**必须**要先调用 'browserState' 去获取页面的最新状态。 
       browserState: '查询整个页面的浏览器状态;返回页面的标题、URL、YAML格式的语义化页面树',
       click: '根据元素索引点击;',
-      fill: '根据元素索引填写文本;'; 
+      fill: '根据元素索引填写文本（目标为 input、textarea 或 contenteditable 编辑宿主，索引来自 browserState YAML 中的 #N）;'; 
       select: '根据元素索引选择下拉框选项;'; 
       scroll: '滚动页面的动作，可以指定水平滚动还是上下滚动; 不带元素索引时：滚动整个文档。带元素索引时：滚动该索引处的容器（或其最近的可滚动祖先元素）'
       executeJavascript: '执行javascript代码'

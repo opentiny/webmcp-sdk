@@ -6,7 +6,7 @@
  */
 
 import { isTabbable } from 'tabbable'
-import { resolveA11yRole, type ResolvedA11yConfig } from './config'
+import { isEditingHost, resolveA11yRole, type ResolvedA11yConfig } from './config'
 import { deepQuerySelectorAll } from '../utils/dom'
 
 /**
@@ -195,7 +195,7 @@ export function collectDescendantText(el: Element, config?: ResolvedA11yConfig):
         const isOwnPointer = hasOwnPointerCursor(element)
         const isMeaningfullyInteractive = isTrulyInteractive && !(role === 'generic' && !isOwnPointer)
 
-        if (isMeaningfullyInteractive || isInteractiveTag || isInteractiveRole) {
+        if (isMeaningfullyInteractive || isInteractiveTag || isInteractiveRole || isEditingHost(element)) {
           return
         }
       }
