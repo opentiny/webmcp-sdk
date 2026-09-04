@@ -58,25 +58,6 @@ describe('initializeBuiltinWebMCP forcePolyfill', () => {
     expect(native.getTools).not.toHaveBeenCalled()
   })
 
-  it('复现：只摘掉 document.modelContext 时 polyfill 会把 navigator 上的 native 接回 document —— 前置仅 navigator 有伪 native；步骤初始化；期望 document 上是 polyfill 而非该 native', () => {
-    try {
-      delete (document as Document & ModelContextHost).modelContext
-    } catch {
-      /* ignore */
-    }
-    const native = installFakeNative(navigator, 'navigator')
-
-    initializeBuiltinWebMCP()
-
-    const docCtx = (document as Document & ModelContextHost).modelContext as Record<string, unknown>
-    const navCtx = (navigator as Navigator & ModelContextHost).modelContext as Record<string, unknown>
-    expect(docCtx).toBeTruthy()
-    expect(docCtx[POLYFILL_MARKER]).toBe(true)
-    expect(docCtx).not.toBe(native)
-    expect(navCtx).not.toBe(native)
-    expect(native.getTools).not.toHaveBeenCalled()
-  })
-
   it('复现：需要验证原生 API 时关闭强制 polyfill —— 前置 document 上伪 native；步骤 initializeBuiltinWebMCP({ forcePolyfill: false })；期望保留该 native', () => {
     const native = installFakeNative(document, 'opt-out')
 

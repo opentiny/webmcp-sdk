@@ -11,7 +11,6 @@
   - 产物：`packages/next-sdk/test/page-tools/initialize-builtin-WebMCP.test.ts`
   - 场景（须含中文 **`复现：`**）：
     - document 上伪 native → 默认初始化后为 polyfill，且未调用原生 `getTools`
-    - 仅 navigator 上伪 native → 初始化后 document 不是该 native 对象
     - `{ forcePolyfill: false }` 保留伪 native
     - 已是 polyfill 时再次初始化仍保留 marker
 - [x] Task 4: 用户文档 / Skill / Spec 索引

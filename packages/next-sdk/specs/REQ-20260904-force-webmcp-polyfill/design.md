@@ -6,9 +6,9 @@
 
 因此 `initializeBuiltinWebMCP` 在 `forcePolyfill !== false` 时：
 
-1. 影子化 `document` / `navigator` 上非 polyfill 的 `modelContext`（否则 polyfill 会把 navigator 上的 native 接回 document）。
-2. 调用 `initializeWebMCPPolyfill()`。
-3. 若 `document.modelContext` 仍不是 polyfill，则把 `navigator.modelContext` 上的 polyfill **挂到 document 实例**（盖住原型上的 native getter）。
+1. 影子化 `document.modelContext` 上非 polyfill 的实现。
+2. 调用 `initializeWebMCPPolyfill()`，并拦截 polyfill 写入内部 WeakMap 时以 `document` 为 key 的 JS context。
+3. 若 `document.modelContext` 仍不是 polyfill，则把捕获到的 JS 实例挂到 document 上（盖住原型上的 native getter）。
 
 5.1.0 ESM **无 import 副作用**。`registerTool` 返回 Promise：工具仍在首个 `await` 前写入 registry，但重复名、非法描述、已 abort 的 `signal` 会 **reject**。同步 `try/catch` 接不住该失败。本 PR 范围内 `registerPageAgentTool` 已对返回值 `.catch`；业务侧应 `await` 或 `.catch`，不要把 Promise 丢掉。
 
@@ -38,11 +38,11 @@ const POLYFILL_MARKER = '__isWebMCPPolyfill'
 
 判定 polyfill：`Boolean(ctx && ctx[POLYFILL_MARKER])`。
 
-影子化后若 `document.modelContext` 仍非 polyfill，则：
+影子化后若 `document.modelContext` 仍非 polyfill，则把初始化时从 WeakMap 捕获的 JS context 挂到 document 实例：
 
 ```typescript
 Object.defineProperty(document, 'modelContext', {
-  value: navigator.modelContext, // 已确认带 __isWebMCPPolyfill
+  value: captured, // 已确认带 __isWebMCPPolyfill
   configurable: true,
   writable: true,
   enumerable: true
@@ -67,12 +67,12 @@ Object.defineProperty(document, 'modelContext', {
 ```mermaid
 flowchart TD
   A[initializeBuiltinWebMCP] --> B{forcePolyfill !== false?}
-  B -->|是| C[document/navigator 非 polyfill 则影子化为 undefined]
+  B -->|是| C[document 非 polyfill 则影子化为 undefined]
   B -->|否| D[保留现有 context]
   C --> E[initializeWebMCPPolyfill]
   D --> E
   E --> F{document 已是 polyfill?}
-  F -->|否且 navigator 是| G[实例挂上 navigator 的 polyfill]
+  F -->|否且已捕获 JS context| G[实例挂上该 polyfill]
   F -->|是| H[结束]
   G --> I{document 仍非 polyfill?}
   I -->|是| J[console.warn]
