@@ -10,7 +10,7 @@
 
 在浏览器环境中初始化内置的 WebMCP 运行环境。该函数会注入 `document.modelContext` 的 JS Polyfill。
 
-Chromium Origin Trial 阶段的原生 `modelContext.getTools()` / `registerTool()` 可能通过 Mojo IPC 触发渲染进程崩溃（`RESULT_CODE_KILLED_BAD_MESSAGE`）。上游 `@mcp-b/webmcp-polyfill`（本仓库当前 5.1.0）见 native 即跳过且不再提供 `forceOverride`。5.x 把 getter 装在 `Document.prototype`，SDK **默认 `forcePolyfill: true`**：先影子化 `document.modelContext` 上的非 polyfill 实现，初始化后再把 JS polyfill 挂到 document 实例，避免走到会崩溃的原生 `getTools()`。仅在确认原生 WebMCP 可用时传入 `{ forcePolyfill: false }`。
+Chromium Origin Trial 阶段的原生 `modelContext.getTools()` / `registerTool()` 可能通过 Mojo IPC 触发渲染进程崩溃（`RESULT_CODE_KILLED_BAD_MESSAGE`）。上游 `@mcp-b/webmcp-polyfill`（本仓库当前 5.1.0）见 native 即跳过且不再提供 `forceOverride`。5.x 把 getter 装在 `Document.prototype`，SDK **默认 `forcePolyfill: true`**：先摘掉 `document`（含可配置原型）上的非 polyfill 实现，再安装 JS polyfill，避免走到会崩溃的原生 `getTools()`。仅在确认原生 WebMCP 可用时传入 `{ forcePolyfill: false }`。
 
 请在页面入口尽早调用（`registerPageAgentTool()` 内部会调用本函数）。不要在初始化前把 `document.modelContext` 存进闭包，否则可能仍持有 native 引用。
 

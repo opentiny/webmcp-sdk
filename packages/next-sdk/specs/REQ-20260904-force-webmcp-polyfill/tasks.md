@@ -16,8 +16,8 @@
 - [x] Task 4: 用户文档 / Skill / Spec 索引
   - 产物：`docs/webmcp-sdk/global-tools.md`、`docs/guide/quick-start.md`（一句说明）、`packages/next-sdk/skills/page-agent/SKILL.md`、`packages/next-sdk/specs/README.md`
 - [x] Task 5: 升级 `@mcp-b/webmcp-polyfill` / `@mcp-b/webmcp-types` 到 5.1.0，并适配原型 getter
-  - 产物：`pnpm-workspace.yaml`、`initialize-builtin-WebMCP.ts`（init 后实例领养）、测试补原型 native 场景
-  - [ ] 测试：`packages/next-sdk/test/page-tools/initialize-builtin-WebMCP.test.ts`
+  - 产物：`pnpm-workspace.yaml`、`initialize-builtin-WebMCP.ts`（删除可配置原型 native）、测试补原型 native 场景
+  - [x] 测试：`packages/next-sdk/test/page-tools/initialize-builtin-WebMCP.test.ts`
 
 ## 依赖顺序
 

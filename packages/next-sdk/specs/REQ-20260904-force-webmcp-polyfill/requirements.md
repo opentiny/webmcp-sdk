@@ -8,11 +8,11 @@
 
 ## 背景
 
-最新 Chromium（Origin Trial，约 149–156）在 `Document` 上提供了原生 `modelContext`（C++ / Mojo）。`@mcp-b/webmcp-polyfill`（仓库当前 3.0.0，上游最新 5.1.0）**故意不覆盖已存在的 native**：`initializeWebMCPPolyfill()` 见 native 即 no-op，且 `forceOverride` 已从上游删除。
+最新 Chromium（Origin Trial，约 149–156）在 `Document` 上提供了原生 `modelContext`（C++ / Mojo）。`@mcp-b/webmcp-polyfill@5.1.0` **故意不覆盖已存在的 native**：`initializeWebMCPPolyfill()` 见 native 即 no-op，且 `forceOverride` 已从上游删除。
 
 一旦页面走到原生 `getTools()` / `registerTool()`，渲染进程可能被 `bad_message::ReceivedBadMessage` 强杀（`RESULT_CODE_KILLED_BAD_MESSAGE`）。next-sdk 的 remoter builtin 路径、`getBuiltinMcpTools`、`waitForRouteTools`、page-agent 注册都会调用这些方法，表现为「页面一开就崩溃」。
 
-因此 SDK 必须在调用 polyfill **之前**自行摘掉 `document` 上的 native，并暴露 `forcePolyfill` 供确认原生可用后关闭。
+因此 SDK 必须在调用 polyfill **之前**自行摘掉 `document` / `Document.prototype` 上的 native，并暴露 `forcePolyfill` 供确认原生可用后关闭。
 
 ## 领域术语表
 
@@ -29,8 +29,8 @@
 ## 参考资料 / 上下文
 
 - `packages/next-sdk/page-tools/initialize-builtin-WebMCP.ts`
-- `node_modules/@mcp-b/webmcp-polyfill`：native 存在则 skip。SDK 只处理 `document.modelContext`（影子化 + 把 WeakMap 中的 JS context 挂回实例）
-- `packages/webmcp-cli/src/inject/page-init.ts`：当前直调 `initializeWebMCPPolyfill()`，会绕过 SDK 防护
+- `node_modules/@mcp-b/webmcp-polyfill`：native 存在则 skip。SDK 只处理 `document.modelContext`（可配置原型属性删除 + 实例影子化）
+- `packages/webmcp-cli/src/inject/page-init.ts`：走 `registerPageAgentTool`，不再直调 polyfill
 - [Kiwop：Chrome 150/151 WebMCP 崩溃](https://www.kiwop.com/en/blog/webmcp-chrome-150-crash-google-remote-experiment)
 - 上游 `@mcp-b/webmcp-polyfill@5.1.0` 仍无 force override，且改为装在 `Document.prototype`；SDK 必须在初始化后把 polyfill 实例挂回 `document`（见 design）
 
@@ -39,7 +39,7 @@
 ### In Scope
 
 - `initializeBuiltinWebMCP(options?)` 增加 `forcePolyfill?: boolean`，**默认 `true`**。
-- 默认路径：若当前 `document.modelContext` 不是 polyfill，则影子化后再调用 `initializeWebMCPPolyfill()`。
+- 默认路径：摘掉 `document` / 可配置 `Document.prototype` 上的 native，再调用 `initializeWebMCPPolyfill()`。
 - `registerPageAgentTool()` 继续无参调用初始化，自动享受默认强制 polyfill。
 - `webmcp-cli` 页面注入改为走 `initializeBuiltinWebMCP` / `registerPageAgentTool`，不再直调 polyfill。
 - 用户文档与类型导出。

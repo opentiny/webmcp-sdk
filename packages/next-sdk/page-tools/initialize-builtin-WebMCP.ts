@@ -12,7 +12,8 @@ interface InitializeBuiltinWebMCPOptions {
    *
    * `@mcp-b/webmcp-polyfill` 见 native 即 no-op，且已删除 `forceOverride`。
    * 5.x 把 getter 装在 `Document.prototype`：若原型已有 native，polyfill 不会替换它。
-   * SDK 会先影子化 native，再在 document 实例上挂上 JS polyfill。仅在确认原生实现可用时设为 `false`。
+   * SDK 会先摘掉 document（含可配置原型）上的 native，再安装 JS polyfill。
+   * 仅在确认原生实现可用时设为 `false`。
    *
    * @default true
    */
@@ -30,6 +31,15 @@ function isWebMCPPolyfill(value: unknown): boolean {
 function readModelContext(target: ModelContextHost): unknown {
   try {
     return target.modelContext
+  } catch {
+    return undefined
+  }
+}
+
+function readDescriptorValue(desc: PropertyDescriptor, receiver: object): unknown {
+  try {
+    if (typeof desc.get === 'function') return desc.get.call(receiver)
+    return desc.value
   } catch {
     return undefined
   }
@@ -58,57 +68,52 @@ function defineModelContext(target: object, value: unknown): boolean {
   }
 }
 
-/** 将 document 上的 native modelContext 影子化为 undefined，促使 polyfill 安装 */
+/**
+ * 摘掉 document 上的 native：可配置的原型属性直接删除，让 5.x 自己安装 getter；
+ * 实例上的 native 影子化为 undefined，避免 `if (doc.modelContext) return` 提前退出。
+ */
 function neutralizeNativeDocumentModelContext(): void {
   const doc = typeof document !== 'undefined' ? (document as Document & ModelContextHost) : null
   if (!doc) return
+  if (isWebMCPPolyfill(readModelContext(doc))) return
+
+  const protoDesc = Object.getOwnPropertyDescriptor(Document.prototype, 'modelContext')
+  if (protoDesc?.configurable) {
+    const protoValue = readDescriptorValue(protoDesc, doc)
+    if (protoValue && !isWebMCPPolyfill(protoValue)) {
+      Reflect.deleteProperty(Document.prototype, 'modelContext')
+    }
+  }
+
   const current = readModelContext(doc)
-  if (!current || isWebMCPPolyfill(current)) return
-  defineModelContext(doc, undefined)
+  if (current && !isWebMCPPolyfill(current)) {
+    defineModelContext(doc, undefined)
+  }
 }
 
 /**
- * 5.x 在 Document.prototype 已有 native getter 时只把 JS context 写入内部 WeakMap，
- * 页面读到的仍是 native / undefined。拦截这次写入，把同一实例挂到 document 上。
+ * 初始化后若实例上的 undefined 影子挡住了 polyfill 刚装上的原型 getter，则删掉影子。
+ * 若原型 native 不可配置、删不掉，则继续影子化，避免走到 native getTools。
  */
-function initializePolyfillAndCaptureDocumentContext(): unknown {
-  const doc = typeof document !== 'undefined' ? document : null
-  let captured: unknown
-  const originalSet = WeakMap.prototype.set
-  let patched = false
-  try {
-    WeakMap.prototype.set = function (this: WeakMap<object, unknown>, key: object, value: unknown) {
-      if (doc && key === doc && isWebMCPPolyfill(value)) {
-        captured = value
-      }
-      return originalSet.call(this, key, value)
-    }
-    patched = true
-  } catch {
-    /* WeakMap.prototype 不可写时直接初始化 */
-  }
-
-  try {
-    initializeWebMCPPolyfill()
-  } finally {
-    if (patched) {
-      try {
-        WeakMap.prototype.set = originalSet
-      } catch {
-        /* ignore */
-      }
-    }
-  }
-
-  return captured
-}
-
-function adoptPolyfillOntoDocument(captured: unknown): void {
+function revealPolyfillOnDocument(): void {
   const doc = typeof document !== 'undefined' ? (document as Document & ModelContextHost) : null
   if (!doc) return
   if (isWebMCPPolyfill(readModelContext(doc))) return
-  if (!isWebMCPPolyfill(captured)) return
-  defineModelContext(doc, captured)
+
+  if (Object.prototype.hasOwnProperty.call(doc, 'modelContext')) {
+    try {
+      delete doc.modelContext
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (isWebMCPPolyfill(readModelContext(doc))) return
+
+  const current = readModelContext(doc)
+  if (current && !isWebMCPPolyfill(current)) {
+    defineModelContext(doc, undefined)
+  }
 }
 
 export const initializeBuiltinWebMCP = (options?: InitializeBuiltinWebMCPOptions) => {
@@ -123,8 +128,8 @@ export const initializeBuiltinWebMCP = (options?: InitializeBuiltinWebMCPOptions
     }
 
     neutralizeNativeDocumentModelContext()
-    const captured = initializePolyfillAndCaptureDocumentContext()
-    adoptPolyfillOntoDocument(captured)
+    initializeWebMCPPolyfill()
+    revealPolyfillOnDocument()
 
     const ctx = readModelContext(document as Document & ModelContextHost)
     if (!isWebMCPPolyfill(ctx)) {
