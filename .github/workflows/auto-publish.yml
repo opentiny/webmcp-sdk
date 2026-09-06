@@ -1,79 +1,114 @@
-# 工作流名称
 name: Auto Publish
-# 运行时显示的名称
 run-name: Auto Publish
 
-# 触发条件配置
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      package:
+        description: '选择需要发布的包'
+        required: true
+        type: choice
+        options:
+          - next-sdk
+          - next-remoter
+          - webmcp-cli
+      tag:
+        description: '选择 npm dist-tag'
+        required: true
+        default: 'alpha'
+        type: choice
+        options:
+          - alpha
+          - beta
+          - rc
+          - latest
 
-# 定义工作流中的作业
+permissions:
+  contents: write
+  id-token: write
+
 jobs:
   build:
-    # 指定运行环境为最新版本的ubuntu
     runs-on: ubuntu-latest
     steps:
-      # 步骤1: 检出代码
       - name: CheckOut Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           ref: ${{ github.ref_name }}
 
-      # 步骤2: 设置pnpm包管理器
       - name: Setup pnpm
-        uses: pnpm/action-setup@v4
+        uses: pnpm/action-setup@v5
 
-      # 步骤3: 设置Node.js环境
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: 20 # 使用Node.js 20版本
-          registry-url: 'https://registry.npmjs.org' # 设置npm registry地址
+          node-version: 24
+          package-manager-cache: false
+          registry-url: 'https://registry.npmjs.org'
 
-      # 步骤4: 获取pnpm缓存目录路径
       - name: Get pnpm store directory
         id: pnpm-cache
-        run: |
-          echo "pnpm_cache_dir=$(pnpm store path)" >> $GITHUB_OUTPUT
+        run: echo "pnpm_cache_dir=$(pnpm store path)" >> "$GITHUB_OUTPUT"
 
-      # 步骤5: 配置pnpm缓存
-      - uses: actions/cache@v3
-        name: Setup pnpm cache
+      - name: Setup pnpm cache
+        uses: actions/cache@v5
         with:
           path: ${{ steps.pnpm-cache.outputs.pnpm_cache_dir }}
-          # 使用操作系统类型和pnpm-lock.yaml的哈希值作为缓存键
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/package.json', 'pnpm-workspace.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      # 步骤6: 安装项目依赖
       - name: Install dependencies
-        run: pnpm i --no-frozen-lockfile
+        run: pnpm install --no-frozen-lockfile
 
-      # 步骤7: 构建组件
-      - name: Run Build NextSDK
+      - name: Build NextSDK
+        if: ${{ github.event_name == 'push' || inputs.package == 'next-sdk' }}
         run: pnpm build
 
-      - name: Run Build Remoter
+      - name: Build Remoter
+        if: ${{ github.event_name == 'push' || inputs.package == 'next-remoter' }}
         run: pnpm build:remoter
 
-      # 步骤8: 发布组件到NPM
-      - name: Publish NextSDK
-        run: pnpm -F @opentiny/next-sdk publish --no-git-checks
-        env:
-          # 使用NPM令牌进行身份验证
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_OPENTINY_NEXTSDK_TOKEN }}
+      - name: Build WebMCP CLI
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.package == 'webmcp-cli' }}
+        run: pnpm build:webmcp-cli
 
-      - name: Publish Remoter
-        run: pnpm -F @opentiny/next-remoter publish --no-git-checks
-        env:
-          # 使用NPM令牌进行身份验证
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_OPENTINY_NEXTSDK_TOKEN }}
+      # pnpm pack rewrites workspace: dependencies; npm publish performs the OIDC exchange.
+      - name: Publish NextSDK from tag
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          tarball="$(pnpm --dir packages/next-sdk pack --pack-destination "$RUNNER_TEMP" --json | jq -r '.filename')"
+          npm publish "$tarball"
 
-      # 步骤9: 发布组件到GitHub Release
+      - name: Publish Remoter from tag
+        if: ${{ github.event_name == 'push' }}
+        run: |
+          tarball="$(pnpm --dir packages/next-remoter pack --pack-destination "$RUNNER_TEMP" --json | jq -r '.filename')"
+          npm publish "$tarball"
+
+      - name: Publish NextSDK manually
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.package == 'next-sdk' }}
+        run: |
+          tarball="$(pnpm --dir packages/next-sdk pack --pack-destination "$RUNNER_TEMP" --json | jq -r '.filename')"
+          npm publish "$tarball" --tag "${{ inputs.tag }}"
+
+      - name: Publish Remoter manually
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.package == 'next-remoter' }}
+        run: |
+          tarball="$(pnpm --dir packages/next-remoter pack --pack-destination "$RUNNER_TEMP" --json | jq -r '.filename')"
+          npm publish "$tarball" --tag "${{ inputs.tag }}"
+
+      - name: Publish WebMCP CLI manually
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.package == 'webmcp-cli' }}
+        run: |
+          tarball="$(pnpm --dir packages/webmcp-cli pack --pack-destination "$RUNNER_TEMP" --json | jq -r '.filename')"
+          npm publish "$tarball" --tag "${{ inputs.tag }}"
+
       - name: Release
+        if: ${{ github.event_name == 'push' }}
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
