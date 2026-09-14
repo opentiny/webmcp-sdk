@@ -1,8 +1,8 @@
-import { PluginInfo } from '@opentiny/tiny-robot'
+import type { RemoterPluginInfo } from '../types/type'
 
 const mcpHost = 'https://agent.opentiny.design'
 
-export const DEFAULT_SERVERS: PluginInfo[] = [
+export const DEFAULT_SERVERS: RemoterPluginInfo[] = [
   {
     id: '12306-mcp',
     name: '12306服务器',

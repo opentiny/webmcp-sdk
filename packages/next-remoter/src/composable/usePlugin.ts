@@ -219,7 +219,7 @@ export function usePlugin(
           description =
             description ||
             url.searchParams.get('sessionId') ||
-            ('sessionId' in mcpServer ? mcpServer.sessionId : '') ||
+            ('sessionId' in mcpServer ? String((mcpServer as any).sessionId) : '') ||
             ''
         } catch (e) {
           console.error('[usePlugin] Failed to parse MCP server URL:', mcpServer.url, e)

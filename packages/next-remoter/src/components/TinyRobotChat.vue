@@ -1,125 +1,141 @@
 <template>
-  <tr-container v-model:show="show" v-model:fullscreen="fullscreen" :style="{
-    position: layoutMode,
-    width: layoutMode !== 'fixed' ? 'unset' : undefined,
-    height: layoutMode !== 'fixed' ? '100%' : undefined
-  }">
-    <template #title>
-      <h3 class="tr-container__title">{{ title }}</h3>
-    </template>
-    <template #operations>
-      <slot name="operations">
-        <tr-icon-button :icon="IconNewSession" size="28" svgSize="20" @click="handleCreateConversation()" />
-        <tr-icon-button :icon="IconHistory" size="28" svgSize="20" @click="showHistory = !showHistory" />
-        <QrCodeScan @scanSuccess="handleScanSuccess" />
-
-        <!-- 历史会话抽屉 -->
-        <Transition name="drawer-slide" appear>
-          <div v-if="showHistory" class="drawer-overlay" @click="showHistory = false">
-            <div class="drawer-container" @click.stop style="--tr-history-item-selected-bg: #ebeeff">
-              <h4>历史会话</h4>
-              <TrHistory class="tr-history-demo" :selected="conversationState.currentId"
-                :data="conversationState.conversations" :showRenameControls="true" @close="showHistory = false"
-                @item-click="handleHistorySelect" @item-title-change="handleHistoryUpdateTitle"
-                @item-action="handleHistoryDelete"></TrHistory>
-            </div>
+  <div
+    v-show="show"
+    class="next-remoter-container"
+    :class="{
+      'is-fullscreen': fullscreen,
+      [`layout-${layoutMode}`]: true
+    }"
+  >
+    <!-- 直接基于 TrChat 组件组装，作为聊天主容器 -->
+    <TrChat
+      ref="chatSuiteRef"
+      :runtime="chatRuntime"
+      :ui="chatUI"
+      :title="title"
+      class="next-remoter-chat"
+    >
+      <!-- 顶部操作栏定制：注入左侧会话切换、标题、右上角扫码、全屏与关闭按钮 -->
+      <template #layout-header="{ title: headerTitle, toggleLeftAside, createConversation }">
+        <div class="next-remoter-header">
+          <div class="header-left">
+            <button
+              type="button"
+              class="header-btn"
+              @click="toggleLeftAside"
+              title="历史会话"
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/>
+              </svg>
+            </button>
+            <button
+              type="button"
+              class="header-btn"
+              @click="createConversation()"
+              title="新建会话"
+            >
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
+                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+              </svg>
+            </button>
+            <h3 class="header-title">{{ headerTitle || title }}</h3>
           </div>
-        </Transition>
-      </slot>
-    </template>
-    <tr-bubble-provider :content-renderers="contentRenderer">
-      <slot name="welcome" v-if="messages.length === 0">
-        <div style="flex: 1">
-          <tr-welcome :title="lang[locale].title" :description="lang[locale].description" :icon="welcomeIcon">
-          </tr-welcome>
-          <tr-prompts :items="promptItems" :wrap="true" class="tiny-prompts" item-class="prompt-item"></tr-prompts>
+          <div class="header-right">
+            <slot name="operations">
+              <QrCodeScan @scanSuccess="handleScanSuccess" />
+            </slot>
+            <!-- 全屏切换按钮 -->
+            <button
+              type="button"
+              class="header-btn"
+              @click="fullscreen = !fullscreen"
+              :title="fullscreen ? '还原' : '全屏'"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path v-if="fullscreen" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-14v3h3v2h-5V5h2z"/>
+                <path v-else d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
+              </svg>
+            </button>
+            <!-- 关闭按钮 -->
+            <button
+              type="button"
+              class="header-btn header-btn-close"
+              @click="show = false"
+              title="关闭"
+            >
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+              </svg>
+            </button>
+          </div>
         </div>
-      </slot>
-      <tr-bubble-list v-else style="flex: 1" :items="messages" :roles="roles" auto-scroll
-        :loading="messageState.status === STATUS.PROCESSING" loading-role="assistant">
-      </tr-bubble-list>
-    </tr-bubble-provider>
+      </template>
 
-    <template #footer>
-      <div class="chat-input">
+      <!-- 欢迎区域插槽透传 -->
+      <template #welcome-footer v-if="$slots.welcome && messages.length === 0">
+        <slot name="welcome" />
+      </template>
+
+      <!-- 输入框前置区域：包含附件卡片与快捷操作胶囊 -->
+      <template #composer-before>
+        <div v-if="attachments.length > 0" class="attachments-container">
+          <TrAttachments v-model:items="attachments" />
+        </div>
         <slot name="suggestions">
-          <div class="chat-input-pills">
-            <tr-dropdown-menu v-for="pill in pillItems" :key="pill.id" :items="pill.menus"
-              @item-click="handlePillItemClick" trigger="click">
+          <div v-if="pillItems && pillItems.length > 0" class="chat-input-pills">
+            <tr-dropdown-menu
+              v-for="pill in pillItems"
+              :key="pill.id"
+              :items="pill.menus"
+              @item-click="handlePillItemClick"
+              trigger="click"
+            >
               <template #trigger>
                 <TrSuggestionPillButton>{{ pill.text }}</TrSuggestionPillButton>
               </template>
             </tr-dropdown-menu>
           </div>
         </slot>
-        <tr-sender ref="senderRef" mode="multiple" v-model="inputMessage" :placeholder="senderPlaceholder"
-          :clearable="!!inputMessage" :loading="senderLoading" :showWordLimit="true" :maxLength="20000"
-          @submit="handleSendMessageCustom" @cancel="abortRequest">
-          <template #header v-if="attachments.length > 0">
-            <div class="attachments-container">
-              <TrAttachments v-model:items="attachments" />
-            </div>
-          </template>
-          <template #footer>
-            <div class="action-buttons">
-              <!-- 插件开关 Plugin toggle button -->
-              <PluginToggleButton :installed-plugins="installedPlugins" @click="pluginVisible = !pluginVisible" />
-              <!-- 模型切换组件 Model switch component, 是否显示依赖于 props.llmConfigs, 所以无需 hasXXx 属性 -->
-              <ModelSwitch v-if="llmConfigsRef && llmConfigsRef.length > 0" :model-configs="llmConfigsRef"
-                v-model:selected-model-id="selectedModelId" />
-              <!-- 生成式UI开关：仅当当前模型配置同时包含 genuiUrl 和 baseURL 时显示 -->
-              <GenUISwitch v-if="showGenUISwitch" v-model:genui-enabled="genUiAble" />
-              <!-- 文件上传按钮 File upload button (v0.4.x 新API)， hasMultimodalSupport 值依赖于用户选中模型，而非简单的props 传入。-->
-              <TrUploadButton v-if="hasMultimodalSupport" accept="image/*,application/pdf,.doc,.docx,.txt"
-                :multiple="true" @select="onFilesSelected" />
-            </div>
-          </template>
-          <template #footer-right>
-            <VoiceButton v-if="allowSpeech" />
-          </template>
-        </tr-sender>
+      </template>
 
-        <!-- 插件面板 -->
-        <TrMcpServerPicker v-model:visible="pluginVisible" :popup-config="{ type: 'drawer' }"
-          :show-custom-add-button="true" marketTabTitle="MCP市场" installedTabTitle="已添加MCP服务" title="扩展"
-          :installedPlugins="installedPlugins" :marketPlugins="marketPlugins"
-          :market-category-options="marketCategoryOptions" :installed-search-fn="searchPlugin"
-          :market-search-fn="searchPlugin" @plugin-toggle="togglePlugin" @plugin-add="addPluginFromMarket"
-          @plugin-delete="deletePlugin" @tool-toggle="toggleTool" @plugin-create="handleCustomAdd">
-          <template #header-actions>
-            <slot name="header-actions" />
-          </template>
-        </TrMcpServerPicker>
-      </div>
-    </template>
-  </tr-container>
+      <!-- 输入框底部扩展按钮：模型与 WebMCP 由 TrChat 内置接管，仅保留 GenUI 开关与文件上传 -->
+      <template #sender-footer>
+        <div class="action-buttons">
+          <!-- 生成式UI开关：仅当当前模型配置同时包含 genuiUrl 和 baseURL 时显示 -->
+          <GenUISwitch v-if="showGenUISwitch" v-model:genui-enabled="genUiAble" />
+          <!-- 文件上传按钮 File upload button -->
+          <TrUploadButton
+            v-if="hasMultimodalSupport"
+            accept="image/*,application/pdf,.doc,.docx,.txt"
+            :multiple="true"
+            @select="onFilesSelected"
+          />
+        </div>
+      </template>
+
+      <!-- 输入框右下角：语音按钮 -->
+      <template #sender-footer-right>
+        <VoiceButton v-if="allowSpeech" />
+      </template>
+    </TrChat>
+  </div>
 </template>
 
 <script setup lang="ts">
 import {
-  TrBubbleList,
-  TrContainer,
   TrSender,
-  TrWelcome,
-  TrBubbleProvider,
-  TrPrompts,
   TrDropdownMenu,
   TrSuggestionPillButton,
-  TrIconButton,
-  BubbleMarkdownContentRenderer,
-  TrMcpServerPicker,
-  TrHistory,
   TrAttachments,
   TrUploadButton,
   VoiceButton
 } from '@opentiny/tiny-robot'
 
-import type { PluginInfo, MarketCategoryOption } from '@opentiny/tiny-robot'
-
+import { TrChat, type ChatUIOptions } from '@opentiny/tiny-robot-chat'
+import type { PluginInfo } from '@opentiny/tiny-robot'
 import { GenuiRenderer } from '@opentiny/genui-sdk-vue'
-import { GeneratingStatus, STATUS } from '@opentiny/tiny-robot-kit'
-import { IconNewSession, IconHistory } from '@opentiny/tiny-robot-svgs'
-import { useTinyRobotChat } from '../composable/useTinyRobotChat'
+import { useTinyRobotChat, type UIMessage } from '../composable/useTinyRobotChat'
 import { useCustomMcpServer } from '../composable/useCustomMcpServer'
 import { usePlugin } from '../composable/usePlugin'
 import { useRouteBasedTools } from '../composable/useRouteBasedTools'
@@ -128,20 +144,19 @@ import { useMessageRoles } from '../composable/useMessageRoles'
 import { useConversationHistory } from '../composable/useConversationHistory'
 import { usePluginSession } from '../composable/usePluginSession'
 import { useMultimodalWithModel } from '../multimodal'
-import { toRef, computed, ref, onMounted, h, watch, type Ref, type ComponentInstance, VNode } from 'vue'
+import { toRef, computed, ref, onMounted, h, watch, defineComponent, type Ref, type ComponentInstance, type VNode } from 'vue'
 import QrCodeScan from './QrCodeScan.vue'
-import ModelSwitch from './ModelSwitch.vue'
-import PluginToggleButton from './PluginToggleButton.vue'
 import GenUISwitch from './GenUISwitch.vue'
 import BubbleImageRenderer from './BubbleImageRenderer.vue'
 import { defaultPluginSrc } from './default-plugin-svg'
-import { getLang, mapMake } from './lang'
+import { getLang } from './lang'
 import { handleError } from './error-handle'
-import { ICustomAgentModelProviderLlmConfig } from '../types/type'
+import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
 import type { MenuItemConfig } from '@opentiny/next-sdk'
 import useModel from '../composable/useModel'
 import type { UnifiedModelConfig } from '../types/model-config'
 import type { McpServerConfig } from '@opentiny/next-sdk'
+import { GeneratingStatus } from '../const'
 
 import { IconUser } from '@opentiny/tiny-robot-svgs'
 import IconAssistant from '../../public/svgs/logo-next-no-bg-right.svg'
@@ -170,8 +185,6 @@ const props = defineProps({
   qrCodeUrl: {
     type: String
   },
-
-
   /** 系统提示词 */
   systemPrompt: {
     type: String,
@@ -187,12 +200,11 @@ const props = defineProps({
     type: String,
     default: 'zh-CN'
   },
-
   /** 悬浮AI图标的地址 */
   AILogoUrl: {
     type: String
   },
-  /** 角色user,assistant的头像配置, 值为 VNode, 比如： h(IconUser, { style: { fontSize: '32px' } }) */
+  /** 角色user,assistant的头像配置 */
   roleAvatar: {
     type: Object as () => { user: VNode; assistant: VNode },
     default: () => {
@@ -202,10 +214,7 @@ const props = defineProps({
       }
     }
   },
-  /** 展示模式： 'remoter' | 'chat-dialog'
-   * 遥控器模式： 自动在右下角显示一个AI图标，点击展开多个菜单项。
-   * 对话框模式： 直接显示一个对话框界面
-   *  */
+  /** 展示模式： 'remoter' | 'chat-dialog' */
   mode: {
     type: String,
     default: 'remoter'
@@ -223,36 +232,32 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
-  /** 生成式UI 需要引入的组件。生成式UI内置了一批组件，如果需要引入新组件，需要通过这里导入。
-   * 参考示例： shallowReactive({TinyUser, TinyAlert }) */
+  /** 生成式UI 需要引入的组件 */
   genUiComponents: {
     type: Object,
     default: () => ({})
   },
-  /** 自定义 MCP 市场服务列表一般是后台的mcp工具常驻存在 */
+  /** 自定义 MCP 市场服务列表 */
   customMarketMcpServers: {
     type: Array as () => PluginInfo[],
     default: () => []
   },
-  /** MCP 服务器配置：业界格式 { "服务器名称": McpServerConfig }，name 即对象的 key */
+  /** MCP 服务器配置：业界格式 { "服务器名称": McpServerConfig } */
   mcpServers: {
     type: Object as () => Record<string, McpServerConfig>,
     default: undefined
   },
-  /** LLM 配置数组，每一项基于 llmConfig 格式，额外包含 id、label、icon、isDefault、useReActMode 字段 */
+  /** LLM 配置数组 */
   llmConfigs: {
     type: Array as () => UnifiedModelConfig[],
     default: undefined
   },
-  /**
-   * 用户层传入的 skill .md 模块（Record<path, content>，如 Vite import.meta.glob 得到的结果），
-   * 由 remoter 调用 next-sdk 的 skill 能力处理：生成 systemPrompt 技能说明、内置 get_skill_content 工具，大模型可自动识别并加载技能
-   */
+  /** 用户层传入的 skill .md 模块 */
   skills: {
     type: Object as () => Record<string, string | (() => Promise<string>)>,
     default: undefined
   },
-  /** 布局模式：支持所有 CSS position 属性值 'static' | 'relative' | 'absolute' | 'fixed' | 'sticky' */
+  /** 布局模式 */
   layoutMode: {
     type: String as () => 'static' | 'relative' | 'absolute' | 'fixed' | 'sticky',
     default: 'fixed'
@@ -261,12 +266,12 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
-  /** 自定义欢迎区建议卡片（与 tr-prompts 的 items 格式一致）。不传则使用内置默认文案 */
+  /** 自定义欢迎区建议卡片 */
   promptItems: {
     type: Array,
     default: undefined
   },
-  /** 自定义输入框上方快捷操作按钮（与 pill 下拉菜单格式一致）。不传则使用内置默认文案 */
+  /** 自定义输入框上方快捷操作按钮 */
   pillItems: {
     type: Array,
     default: undefined
@@ -280,11 +285,6 @@ const props = defineProps({
 
 // 定义事件
 const emit = defineEmits<{
-  /** 在 AI 消息渲染之前触发，用户此时可以修改消息内容
-   *  uiContent包含当前流返回的消息类型：markdown, reasoning,tool,或其它自定义的消息。
-   *
-   * @param currMessage - 当前消息对象，包含 role , content, uiContent 字段。
-   */
   (e: 'before-ai-render', currMessage: { role: string; content: string; uiContent: any[] }): void
   (e: 'chat-stream-finish'): void
 }>()
@@ -300,12 +300,11 @@ const enabledTools = defineModel('enabledTools', {
   required: false
 })
 
-// 获取当前选中的模型配置（如果传入了 llmConfigs，则使用传入的配置）
+// 获取当前选中的模型配置
 const llmConfigsRef = props.llmConfigs ? (toRef(props, 'llmConfigs') as Ref<UnifiedModelConfig[]>) : undefined
-
 const { selectedModel } = useModel(llmConfigsRef, selectedModelId)
 
-// 是否显示生成式 UI 开关：仅当当前模型配置中同时包含 genuiUrl 和 baseURL 时显示（不再依赖 inBrowserExt）
+// 是否显示生成式 UI 开关
 const showGenUISwitch = computed(() => {
   const config = llmConfigsRef?.value?.length
     ? selectedModel.value
@@ -314,7 +313,7 @@ const showGenUISwitch = computed(() => {
   return !!(config.baseURL && config.genuiUrl)
 })
 
-// 初始化多模态功能（统一入口）
+// 初始化多模态功能
 const {
   hasMultimodalSupport,
   attachments,
@@ -327,10 +326,11 @@ const {
   selectedModelId
 })
 
-// ===== 1. 使用 useTinyRobotChat composable（核心聊天逻辑）=====
+// ===== 1. 使用 useTinyRobotChat composable =====
 const {
   agent,
   customAgentProvider,
+  chatRuntime,
   conversationState,
   messages,
   messageState,
@@ -338,10 +338,9 @@ const {
   abortRequest,
   senderRef,
   sendMessage,
-  handleSendMessage: handleSendMessageBase, // 重命名为 Base，稍后包装
+  handleSendMessage: handleSendMessageBase,
   addMessage,
   send,
-  // 基础会话方法（供其他 composable 使用）
   createConversation,
   switchConversation,
   deleteConversation,
@@ -349,8 +348,13 @@ const {
 } = useTinyRobotChat({
   systemPrompt: props.systemPrompt || '',
   llmConfig: props.llmConfig,
-  emit: emit as (e: string, ...args: any[]) => void
+  emit: emit as (e: string, ...args: any[]) => void,
+  modelOptions: {
+    llmConfigs: llmConfigsRef,
+    selectedModelId
+  }
 })
+
 watch(
   () => props.systemPrompt,
   (prompt) => {
@@ -361,20 +365,19 @@ watch(
 customAgentProvider.isGenuiEnabled = genUiAble
 customAgentProvider.debugStream = props.debugStream
 
-// ===== 2. 使用 useSkillWithTools composable（仅 skills + next-sdk，无 @ 提及）=====
-const skillsRef = toRef(props, 'skills')
+// ===== 2. 使用 useSkillWithTools composable (WebSkills 支持) =====
+const skillsRef = toRef(props, 'skills') as Ref<Record<string, string> | undefined>
 const { processSkillMentions } = useSkillWithTools({
   skillsRef,
   customAgentProvider
 })
 
-// ===== 3. 组合聊天逻辑和 skills 逻辑：创建包装的 handleSendMessage 函数 =====
+// ===== 3. 组合聊天逻辑和 skills 逻辑 =====
 const handleSendMessage = async (inputValue: string, attachmentsContent?: any[]): Promise<boolean> => {
-  // 将 processSkillMentions 作为 skillProcessor 传递给基础的 handleSendMessage
   return handleSendMessageBase(inputValue, attachmentsContent, processSkillMentions)
 }
 
-// ===== 4. 使用 useMessageRoles composable（消息气泡 UI 配置）=====
+// ===== 4. 消息角色与头像配置 =====
 const { welcomeIcon, roles } = useMessageRoles({
   props,
   messages,
@@ -383,19 +386,18 @@ const { welcomeIcon, roles } = useMessageRoles({
   handleSendMessage
 })
 
-// ===== 5. 使用 useConversationHistory composable（会话历史管理）=====
-const { showHistory, handleCreateConversation, handleHistorySelect, handleHistoryUpdateTitle, handleHistoryDelete } =
-  useConversationHistory({
-    createConversation,
-    switchConversation,
-    deleteConversation,
-    getCurrentConversation,
-    abortRequest,
-    conversationState,
-    customAgentProvider
-  })
+// ===== 5. 会话历史管理 =====
+const { handleCreateConversation } = useConversationHistory({
+  createConversation,
+  switchConversation,
+  deleteConversation,
+  getCurrentConversation,
+  abortRequest,
+  conversationState,
+  customAgentProvider
+})
 
-// 统一的 LLM 配置更新函数（合并模型切换和生成式UI状态变化的逻辑）
+// 统一的 LLM 配置更新函数
 const updateLLMConfigFromModel = () => {
   if (selectedModel.value) {
     const model = selectedModel.value
@@ -407,9 +409,7 @@ const updateLLMConfigFromModel = () => {
       providerType: model.providerType,
       useReActMode: model.useReActMode,
       llm: model.llm,
-      // 传递 providerOptions，确保 model-config 中的自定义请求体（如 user/userId）能生效
       providerOptions: model.providerOptions,
-      // 传递 headers，确保 model-config 中的自定义请求 Header 能生效
       headers: model.headers
     })
   } else {
@@ -417,18 +417,13 @@ const updateLLMConfigFromModel = () => {
   }
 }
 
-// 监听模型切换和生成式UI状态变化，统一更新 LLM 配置
 if (props.llmConfigs) {
-  // 监听模型切换
   watch(selectedModel, updateLLMConfigFromModel, { immediate: true })
 }
-
-// 监听生成式 UI 开关变化并同步到 LLM 配置（updateLLMConfigFromModel 内部会判断 selectedModel，无选中模型时不会执行）
 watch(genUiAble, updateLLMConfigFromModel, { immediate: true })
 
-// 自定义消息渲染器 ---- 默认支持markdown 和 生成式UI（生成式UI有很多流处理，不容易解耦出来，所以统一处理）
-const contentRenderer = {
-  markdown: new BubbleMarkdownContentRenderer({ mdConfig: { html: true } }),
+// 自定义消息渲染器 (支持 markdown、生成式UI与图片)
+const contentRenderer: Record<string, any> = {
   'schema-card': (schemaCardProps: any) =>
     h(GenuiRenderer, {
       ...schemaCardProps,
@@ -450,7 +445,6 @@ const contentRenderer = {
       customComponents: props.genUiComponents,
       requiredCompleteFieldSelectors: ['[componentName=TinyUser] > props > modelValue']
     }),
-  // 图片渲染器：使用独立的 BubbleImageRenderer 组件
   image: BubbleImageRenderer
 }
 
@@ -458,24 +452,63 @@ function registerContentRenderer(key: string, renderer: (content: any) => VNode)
   contentRenderer[key] = renderer
 }
 
-// 使用插件管理 composable（统一管理插件的增删改查）
+// ===== 6. 使用 usePlugin composable (WebMCP 工具管理) =====
 const {
   installedPlugins,
   marketPlugins,
-  pluginVisible,
   loadMcpServerToPlugin,
-  togglePlugin,
   toggleTool,
   deletePlugin,
   addPluginCore,
   addPluginFromMarket,
-  addPluginFromScan, // 从扫码添加插件（统一接口）
-  handleClientDisconnected, // 处理客户端断开连接
-  searchPlugin,
+  addPluginFromScan,
+  handleClientDisconnected,
   syncInstalledPluginTools
 } = usePlugin(agent, enabledTools, defaultPluginSrc)
 
-// ===== 页面工具目录变化监听（用于同步刷新 remoter 工具面板）=====
+// 将 WebMCP 运行时动态赋给 chatRuntime.composer
+const mcpRuntime = computed(() => ({
+  servers: computed(() =>
+    installedPlugins.value.map((p) => ({
+      id: p.name,
+      name: p.name,
+      description: p.description,
+      installed: true,
+      enabled: p.enabled ?? true
+    }))
+  ),
+  tools: computed(() => {
+    const result: Record<string, any[]> = {}
+    for (const p of installedPlugins.value) {
+      result[p.name] = (p.tools || []).map((t) => ({
+        id: t.name,
+        name: t.name,
+        description: t.description,
+        enabled: enabledTools?.value ? (enabledTools.value[t.name] ?? (t.enabled ?? true)) : (t.enabled ?? true)
+      }))
+    }
+    return result
+  }),
+  addServer: async () => {},
+  removeServer: async () => {},
+  setServerEnabled: async (id: string, enabled: boolean) => {
+    const p = installedPlugins.value.find((item) => item.name === id)
+    if (p) p.enabled = enabled
+  },
+  setToolEnabled: async (serverId: string, toolId: string, enabled: boolean) => {
+    if (enabledTools?.value) {
+      enabledTools.value[toolId] = enabled
+    }
+    const plugin = installedPlugins.value.find((item) => item.name === serverId)
+    if (plugin) {
+      toggleTool(plugin, toolId, enabled)
+    }
+  }
+}))
+
+;(chatRuntime.value.composer as any).mcp = mcpRuntime.value
+
+// 页面工具目录变化监听（WebMCP 路由联动刷新）
 useRouteBasedTools({
   onToolCatalogChanged: async () => {
     await agent.refreshTools()
@@ -486,22 +519,12 @@ useRouteBasedTools({
 // 初始化市场插件数据
 marketPlugins.value = [...props.customMarketMcpServers]
 
-// 市场分类选项
-const marketCategoryOptions = ref<MarketCategoryOption[]>([
-  { value: '', label: '全部分类' },
-  { value: 'productivity', label: '生产力工具' },
-  { value: 'communication', label: '沟通协作' },
-  { value: 'development', label: '开发工具' },
-  { value: 'ai', label: 'AI 助手' }
-])
-
 const langResult = getLang(props)
-// 优先使用父组件传入的电商/业务定制文案，未传则使用内置默认
-const pillItems = computed(() => props.pillItems ?? langResult.pillItems)
-const promptItems = computed(() => props.promptItems ?? langResult.promptItems)
+const pillItems = computed<any[]>(() => (props.pillItems as any[]) ?? (langResult.pillItems as any[]))
+const promptItems = computed<any[]>(() => (props.promptItems as any[]) ?? (langResult.promptItems as any[]))
 const lang = langResult.lang
 
-// ===== 6. 使用 usePluginSession composable（sessionId 相关逻辑）=====
+// ===== 7. 扫码与遥控会话管理 =====
 const {
   handleScanSuccess,
   handleSessionIdInput,
@@ -520,63 +543,127 @@ const {
 })
 
 const handleSendMessageCustom = async (inputValue: string) => {
-  // 尝试处理识别码输入（如 /abc123）
   const isSessionIdInput = await handleSessionIdInput(inputMessage.value)
-
-  // 如果是识别码，已经处理完毕，直接返回
   if (isSessionIdInput) {
     return
   }
 
-  // 不是识别码，按正常消息处理
-  // 检查是否可以发送附件
   if (!checkCanSendAttachments()) {
     return
   }
 
-  // 处理附件
   const multimodalContent = await processAttachments()
 
-  // 发送消息
   try {
     await handleSendMessage(inputValue, multimodalContent)
-    // 发送成功后清理附件
     cleanupAttachments()
   } catch (error) {
     console.error('发送消息失败:', error)
-    // 发送失败，保留附件，让用户可以重试
   }
 }
 
-// 自动计算的变量
+// 绑定完整的发送消息逻辑（含识别码与附件多模态）
+chatRuntime.value.actions.send = async (payload: { text: string }) => {
+  await handleSendMessageCustom(payload.text)
+  return true
+}
+
+// 占位符与加载状态
 const senderPlaceholder = computed(() =>
   GeneratingStatus.includes(messageState.status) ? lang[props.locale].thinking : lang[props.locale].placeholder
 )
 
-const senderLoading = computed(() => GeneratingStatus.includes(messageState.status))
-
-const handlePillItemClick = (item: ReturnType<typeof mapMake>) => {
+const handlePillItemClick = (item: any) => {
   inputMessage.value = item.inputMessage
 }
 
-// 初始化 sessionId 相关逻辑（遥控器模式、扫码添加等）
+const GenuiContentRenderer = defineComponent({
+  props: {
+    message: { type: Object as () => any, required: true },
+    contentIndex: { type: Number, default: 0 }
+  },
+  setup(compProps) {
+    return () => {
+      const content = compProps.message?.content
+      return h(GenuiRenderer as any, {
+        content,
+        generating: GeneratingStatus.includes(messageState.status),
+        customComponents: props.genUiComponents,
+        customActions: {
+          continueChat: {
+            execute: (params: any, context: any) => {
+              const humanFriendlyMessage = typeof params === 'string' ? params : params.message
+              const llmFriendlyMessage = `${humanFriendlyMessage},相关参数为：${JSON.stringify(context?.state || {})}`
+              addMessage({
+                role: 'user',
+                content: llmFriendlyMessage,
+                uiContent: [{ type: 'markdown', content: humanFriendlyMessage }]
+              })
+              send()
+            }
+          }
+        }
+      })
+    }
+  }
+})
+
+// 组装 TrChat 的 UI 配置
+const chatUI = computed<ChatUIOptions>(() => ({
+  brand: {
+    name: props.title,
+    logo: props.AILogoUrl
+  },
+  welcome: {
+    title: lang[props.locale]?.title,
+    description: lang[props.locale]?.description,
+    icon: welcomeIcon
+  },
+  prompts: {
+    items: promptItems.value
+  },
+  bubble: {
+    autoScroll: true,
+    bubbleList: {
+      roles: roles as any,
+      roleConfigs: {
+        system: { hidden: true }
+      }
+    },
+    bubbleProvider: {
+      contentRendererMatches: [
+        {
+          find: (_msg: any, content: any) => content?.type === 'schema-card',
+          renderer: GenuiContentRenderer as any
+        },
+        {
+          find: (_msg: any, content: any) => content?.type === 'image',
+          renderer: BubbleImageRenderer as any
+        }
+      ]
+    }
+  },
+  sender: {
+    maxLength: 20000,
+    placeholder: senderPlaceholder.value
+  }
+}))
+
+const chatSuiteRef = ref<ComponentInstance<typeof TrChat>>()
+
+// 初始化 sessionId 相关逻辑
 initializePluginSession()
 
 onMounted(async () => {
-  // 初始化会话（每次刷新都是新会话）
   setTimeout(() => {
     handleCreateConversation()
   }, 100)
 
-  // 统一报错
   agent.onError = (msg: string) => {
     msg && showToast(handleError(msg))
   }
 
-  // 自动连接已标记为 'added' 的自定义市场 MCP 服务器
   const preInstalledPlugins = marketPlugins.value.filter((plugin) => plugin.addState === 'added' && plugin.enabled)
-
-  // 批量添加预安装的插件
   for (const plugin of preInstalledPlugins) {
     await addPluginFromMarket(plugin)
   }
@@ -588,8 +675,8 @@ onMounted(async () => {
   }
 })
 
-// 使用自定义 MCP 服务器添加 composable
-const { handleCustomAdd } = useCustomMcpServer(agent, installedPlugins, defaultPluginSrc)
+// 自定义 MCP 服务器添加
+useCustomMcpServer(agent, installedPlugins, defaultPluginSrc)
 
 // 定义插槽
 defineSlots<{
@@ -599,44 +686,25 @@ defineSlots<{
   'header-actions'(): any
 }>()
 
-// 定义输出：  暴露一些重要方法，方便用户写插槽时，可以使用。
+// 定义输出：暴露全部 17 个方法和属性，确保向后兼容
 defineExpose({
-  /** 大模型代理 */
   agent,
-  /** 欢迎图标 */
   welcomeIcon,
-  /** 对话消息 */
-  messages,
-  /** 对话消息状态 */
-  messageState,
-  /** 对话卡片的角色配置 */
+  messages: messages as Ref<UIMessage[]>,
+  messageState: messageState as unknown as any,
   roles,
-  /** 输入框的文本 */
   inputMessage,
-  /** 输入框组件的实例 */
   senderRef: senderRef as Ref<ComponentInstance<typeof TrSender>>,
-  /** 取消发送 */
+  chatSuiteRef: chatSuiteRef as Ref<any>,
   abortRequest,
-  /** 发送消息 */
   sendMessage,
-  /** 向插件市场添加一个server */
   loadMcpServerToPlugin,
-  /** 处理客户端断开连接 */
   handleClientDisconnected,
-  /** 添加消息 */
   addMessage,
-  /** 已安装的插件 */
   installedPlugins,
-  /** 添加插件核心方法 */
   addPluginCore,
-  /** 删除插件核心方法 */
   deletePlugin,
-  /** 注册内容渲染器 */
   registerContentRenderer,
-  /**
-   * 刷新已安装插件的工具列表（从 agent.mcpTools 同步到 UI）
-   * 适用于 builtin client 工具变化后的快速刷新，避免 remove + reload 导致的 UI 闪烁
-   */
   async refreshPluginTools() {
     await agent.refreshTools()
     syncInstalledPluginTools()
@@ -645,214 +713,142 @@ defineExpose({
 </script>
 
 <style scoped lang="less">
-/** 避免输入框没有外边距 */
-.chat-input {
-  margin-top: 8px;
-  padding: 10px 15px;
-  position: relative;
+.next-remoter-container {
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  overflow: hidden;
+  box-sizing: border-box;
+  z-index: var(--tr-z-index-dialog, 1000);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &.layout-fixed {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 440px;
+    height: 680px;
+    max-height: calc(100vh - 48px);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  }
+
+  &.layout-relative {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+
+  &.layout-absolute {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+  }
+
+  &.layout-static {
+    position: static;
+    width: 100%;
+    height: 100%;
+  }
+
+  &.is-fullscreen {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+    z-index: var(--tr-z-index-dialog, 1000) !important;
+  }
 }
 
-/* 附件容器样式 */
+.next-remoter-chat {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  width: 100%;
+
+  :deep(.tr-chat-ui) {
+    height: 100%;
+    min-height: 0;
+  }
+}
+
+.next-remoter-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  height: 48px;
+  padding: 0 16px;
+  border-bottom: 1px solid #f0f0f0;
+  background: #ffffff;
+  box-sizing: border-box;
+
+  .header-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .header-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #191919;
+      margin: 0;
+    }
+  }
+
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .header-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    color: #595959;
+    transition: all 0.2s;
+
+    &:hover {
+      background: #f5f5f5;
+      color: #1476ff;
+    }
+
+    &.header-btn-close:hover {
+      background: #fee2e2;
+      color: #ef4444;
+    }
+  }
+}
+
 .attachments-container {
   padding: 8px 0;
   margin-bottom: 8px;
 }
 
-.tr-container {
-  container-type: inline-size;
-
-  :deep(.tr-welcome__title-wrapper) {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    .tr-welcome__title {
-      font-size: 24px;
-      font-weight: 600;
-    }
-  }
-
-  :deep(.tr-container__header) {
-    padding: 16px 32px !important;
-  }
-}
-
-.tiny-prompts {
-  padding: 16px 24px;
-
-  :deep(.prompt-item) {
-    width: 100%;
-    box-sizing: border-box;
-
-    @container (width >=64rem) {
-      width: calc(50% - 8px);
-    }
-
-    .tr-prompt__content-label {
-      font-size: 14px;
-      line-height: 24px;
-    }
-  }
-}
-
 .chat-input-pills {
   margin-bottom: 8px;
   display: flex;
-  gap: 16px;
-}
-
-:deep(.tr-welcome__icon) {
-  width: 48px;
-  height: 48px;
+  gap: 12px;
+  flex-wrap: wrap;
 }
 
 .action-buttons {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.sender-left-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 28px;
-  padding: 0 6px;
-  border-radius: 6px;
-  cursor: pointer;
-
-  & svg {
-    font-size: 20px;
-  }
-
-  &:hover {
-    background-color: #f5f5f5;
-
-    svg {
-      color: #1476ff;
-    }
-  }
-}
-
-:deep(.tr-icon-button) {
-  display: flex;
-  align-items: center;
-}
-
-:deep(.tr-bubble__content-items) {
-  p {
-    word-break: break-all;
-  }
-}
-
-@media (max-width: 600px) {
-  :deep(.mcp-server-picker.popup-type-drawer) {
-    width: 100% !important;
-  }
-
-  /* 移动端抽屉样式优化 */
-  .drawer-container {
-    width: 85%;
-    max-width: none;
-  }
-}
-
-/* 抽屉动画样式 */
-.drawer-overlay {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: var(--tr-z-index-popover);
-  background-color: rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(2px);
-}
-
-.drawer-container {
-  display: flex;
-  flex-direction: column;
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 76%;
-  max-width: 400px;
-  background: white;
-  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.1);
-  transform: translateX(0);
-
-  padding: 0 24px 24px 24px;
-}
-
-/* 抽屉滑入滑出动画 */
-.drawer-slide-enter-active,
-.drawer-slide-leave-active {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.drawer-slide-enter-active .drawer-container,
-.drawer-slide-leave-active .drawer-container {
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.drawer-slide-enter-from {
-  opacity: 0;
-}
-
-.drawer-slide-enter-from .drawer-container {
-  transform: translateX(-100%);
-}
-
-.drawer-slide-leave-to {
-  opacity: 0;
-}
-
-.drawer-slide-leave-to .drawer-container {
-  transform: translateX(-100%);
-}
-
-.tr-history-demo {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-}
-
-/* 助手消息操作按钮样式 */
-:deep(.tr-bubble__content-wrapper) {
-  p {
-    margin: 0;
-    line-height: 1.5;
-  }
-
-  /* 所有助手消息的按钮组基础样式 */
-  .assistant-actions {
-    transition:
-      opacity 0.2s ease,
-      visibility 0.2s ease;
-  }
-
-  /* 最新助手消息的按钮组常驻显示 */
-  .assistant-actions.latest-assistant {
-    opacity: 1;
-    visibility: visible;
-  }
-
-  /* 历史助手消息的按钮组默认隐藏，悬浮时显示 */
-  .assistant-actions.historical-assistant {
-    opacity: 0;
-    visibility: hidden;
-  }
-
-  /* 悬浮时显示历史助手消息的按钮组 */
-  &:hover .assistant-actions.historical-assistant {
-    opacity: 1;
-    visibility: visible;
-  }
-
-  /* 确保按钮组在状态切换时不会影响布局 */
-  .assistant-actions {
-    min-height: 32px;
-  }
 }
 </style>

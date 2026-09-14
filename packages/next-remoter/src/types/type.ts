@@ -26,4 +26,9 @@ export type ICustomAgentModelProviderLlmConfig = IAgentModelProviderLlmConfig & 
   headers?: Record<string, string>
 }
 
-export type ICustomMarketMcpServers = PluginInfo[]
+export type RemoterPluginInfo = PluginInfo & {
+  url?: string
+  type?: string
+}
+
+export type ICustomMarketMcpServers = (PluginInfo | RemoterPluginInfo)[]

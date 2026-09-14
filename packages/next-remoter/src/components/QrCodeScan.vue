@@ -18,7 +18,7 @@
 ​
 <script setup lang="ts">
 import { reactive, onUnmounted, ref } from 'vue'
-import { Html5Qrcode, Html5QrcodeScanType } from 'html5-qrcode'
+import { Html5Qrcode } from 'html5-qrcode'
 import { IconScan } from '@opentiny/vue-icon'
 import { TrIconButton } from '@opentiny/tiny-robot'
 
@@ -51,12 +51,11 @@ const start = () => {
       {
         fps: 30, // 提高帧率到30fps，提升扫描速度
         aspectRatio: 1.0, // 设置宽高比
-        supportedScanTypes: [Html5QrcodeScanType.SCAN_TYPE_CAMERA], // 只使用摄像头扫描
         showTorchButtonIfSupported: true, // 支持手电筒功能
         showZoomSliderIfSupported: true, // 支持缩放功能
         defaultZoomValueIfSupported: 2, // 默认缩放值
         useBarCodeDetectorIfSupported: true // 使用更快的条码检测器
-      },
+      } as any,
       (decodedText) => {
         try {
           const url = new URL(decodedText)
@@ -70,7 +69,8 @@ const start = () => {
           showToast('无效的二维码')
         }
         stop()
-      }
+      },
+      () => {}
     )
     .catch((err) => {
       console.log(err)

@@ -1,10 +1,17 @@
 import { computed, h, ref, Ref, VNode } from 'vue'
 import { IconButton } from '@opentiny/tiny-robot'
 import { IconCopy, IconRefresh } from '@opentiny/tiny-robot-svgs'
-import { GeneratingStatus } from '@opentiny/tiny-robot-kit'
+import { GeneratingStatus } from '../const'
 import TinyTooltip from '@opentiny/vue-tooltip'
 import tokenUsageVue from '../components/TokenUsage.vue'
 import logo from '../../public/svgs/logo-next-no-bg-right.svg'
+
+function findLastIndex<T>(arr: T[], predicate: (val: T, idx: number) => boolean): number {
+  for (let i = arr.length - 1; i >= 0; i--) {
+    if (predicate(arr[i], i)) return i
+  }
+  return -1
+}
 
 /**
  * 消息角色 UI 配置 Composable
@@ -31,7 +38,7 @@ export function useMessageRoles(options: {
 
   // 获取最新助手消息的索引，用于判断按钮显示状态
   const latestAssistantMessageIndex = computed(() => {
-    return messages.value.findLastIndex((message) => message.role === 'assistant')
+    return findLastIndex(messages.value, (message: any) => message.role === 'assistant')
   })
 
   // ===== 工具函数 =====
@@ -79,7 +86,7 @@ export function useMessageRoles(options: {
    */
   const regenerateMessage = async (index: number) => {
     // 向上找最后一次 user 消息
-    const lastUserIndex = messages.value.findLastIndex((m, idx) => m.role === 'user' && idx <= index)
+    const lastUserIndex = findLastIndex(messages.value, (m: any, idx: number) => m.role === 'user' && idx <= index)
 
     // 添加守卫：如果没找到用户消息，则不执行重新生成操作
     if (lastUserIndex === -1) {

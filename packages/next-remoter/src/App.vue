@@ -18,7 +18,7 @@
     >
       <template #welcome v-if="welcomeTitle">
         <div style="flex: 1">
-          <tr-welcome :title="welcomeTitle" :description="welcomeDesc" :icon="robotRef?.welcomeIcon"> </tr-welcome>
+          <tr-welcome :title="welcomeTitle" :description="welcomeDesc || ''" :icon="robotRef?.welcomeIcon"> </tr-welcome>
           <tr-prompts :items="promptItems" :wrap="true" class="tiny-prompts" item-class="prompt-item"></tr-prompts>
         </div>
       </template>
@@ -73,8 +73,8 @@ const agentRoot = query.get('agentRoot') || 'https://agent.opentiny.design/api/v
 const title = query.get('title') || 'OpenTiny NEXT'
 
 // 5、  定制接收 prompts, suggestion的参数
-const welcomeTitle = query.get('welcome-title')
-const welcomeDesc = query.get('welcome-desc')
+const welcomeTitle = query.get('welcome-title') || undefined
+const welcomeDesc = query.get('welcome-desc') || undefined
 const systemPrompt = query.get('system-prompt') || (props.support === 'office' ? OFFICE_PROMPT : SHOP_PROMPT)
 
 const promts = query.getAll('promt') || [] // promt=你好&promt=世界

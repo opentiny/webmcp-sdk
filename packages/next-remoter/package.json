@@ -56,7 +56,8 @@
     "build:runtime": "vite build --config vite.runtime.config.ts",
     "build:site": "vite build --config vite.remoter.config.ts",
     "build:visualizer": "vite build --config vite.remoter.config.ts --mode visualizer",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "catalog:",
@@ -64,6 +65,7 @@
     "@opentiny/genui-sdk-vue": "catalog:",
     "@opentiny/next-sdk": "workspace:*",
     "@opentiny/tiny-robot": "catalog:",
+    "@opentiny/tiny-robot-chat": "catalog:",
     "@opentiny/tiny-robot-kit": "catalog:",
     "@opentiny/tiny-robot-svgs": "catalog:",
     "@opentiny/vue": "catalog:",
@@ -93,6 +95,7 @@
     "vite-plugin-dts": "catalog:",
     "vite": "catalog:",
     "vite-svg-loader": "catalog:",
+    "vitest": "^4.1.10",
     "vue-tsc": "catalog:"
   }
 }

@@ -419,7 +419,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
           activeTools
         }
       },
-      onStepFinish: (result) => {
+      onStepFinish: (result: any) => {
         // 如果当前是查询skill-content,则追加到临时提示词，并清除消息中的关于tool调用的记录栈。
         if (result.finishReason === 'tool-calls' && result.content.length > 0) {
           const lastMsg = result.content[result.content.length - 1]
@@ -432,7 +432,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       onFinish: async () => {
         await this.agent.closeAll()
         this.promptManager.setTemp('') // 清除临时skillPrompt的提示词
-        this.emit?.('chat-stream-finish')
+        this.emit?.('chat-stream-finish', undefined as any)
       }
     }
 
@@ -479,7 +479,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       streamContent,
       (value) => {
         if (!value) {
-          handler.onData(defaultMessage)
+          handler.onData(defaultMessage as any)
         } else {
           let contents = value.steps.map((step) => step.contents).flat()
           const uiContent = contents.map((content) => {
@@ -508,7 +508,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
               type: 'markdown',
               content: `**错误**：${value.error.responseBody || value.error.message || '未知错误'}`
             }
-            uiContent.push(errorMsg)
+            uiContent.push(errorMsg as any)
           }
 
           // 有确定消息时，才返回onData， 避免白块的出现和loading太快，看不到
@@ -517,7 +517,7 @@ export class CustomAgentModelProvider extends BaseModelProvider {
               ...defaultMessage,
               uiContent: uiContent.flat(),
               usage: value.totalUsage || null
-            })
+            } as any)
           }
         }
       },
