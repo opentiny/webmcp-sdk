@@ -17,6 +17,5 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     TinyRobotChat: typeof import('./src/components/TinyRobotChat.vue')['default']
     TokenUsage: typeof import('./src/components/TokenUsage.vue')['default']
-    VanIcon: typeof import('vant/es')['Icon']
   }
 }

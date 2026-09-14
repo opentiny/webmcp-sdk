@@ -1,4 +1,4 @@
-import { onMounted, onUnmounted, ref, reactive, computed, getCurrentInstance } from 'vue'
+import { onMounted, onUnmounted, ref, reactive, computed, getCurrentInstance, type Ref } from 'vue'
 import { CustomAgentModelProvider } from './CustomAgentModelProvider'
 import { TrSender } from '@opentiny/tiny-robot'
 import type { ICustomAgentModelProviderLlmConfig } from '../types/type'
@@ -13,8 +13,7 @@ import type {
 } from '@opentiny/tiny-robot-chat'
 import type { PluginInfo } from '@opentiny/tiny-robot'
 import type { UnifiedModelConfig } from '../types/model-config'
-import type { Ref } from 'vue'
-import { STATUS } from '../const'
+import { STATUS, GeneratingStatus } from '../const'
 
 interface useTinyRobotOption {
   systemPrompt: string
@@ -42,6 +41,12 @@ type MessageContent = string | Array<{ type: 'text'; text: string } | { type: 'i
 export interface UIMessage {
   role: 'user' | 'assistant'
   content: MessageContent
+  reasoning_content?: string
+  tool_calls?: any[]
+  state?: {
+    open?: boolean
+    thinking?: boolean
+  }
   uiContent?: Array<{ type: 'text'; text?: string; content?: string } | { type: 'image'; url?: string; content?: string } | any>
 }
 
@@ -177,30 +182,85 @@ export const useTinyRobotChat = ({
 
     messageState.status = STATUS.PROCESSING
 
-    const assistantMsg = reactive<UIMessage>({
+    const assistantMsg = reactive<UIMessage & { id: string }>({
+      id: generateId(),
       role: 'assistant',
       content: '',
       uiContent: []
     })
-    messages.value.push(assistantMsg)
+    messages.value.push(assistantMsg as any)
 
     try {
       await customAgentProvider.chatStream(
         {
-          messages: messages.value as any
+          messages: messages.value.filter((m: any) => m !== assistantMsg) as any
         },
         {
           onData: (data: any) => {
             emit('before-ai-render', data)
-            if (data.content !== undefined) {
-              assistantMsg.content = data.content
-            }
             if (data.uiContent !== undefined) {
               assistantMsg.uiContent = data.uiContent
+
+              const uiItems = Array.isArray(data.uiContent) ? data.uiContent : [data.uiContent]
+              const textParts: string[] = []
+              const cardParts: any[] = []
+              const reasoningParts: string[] = []
+
+              for (const item of uiItems) {
+                if (!item) continue
+                if (item.type === 'markdown' || item.type === 'text') {
+                  const text = item.content ?? item.text ?? ''
+                  if (text) textParts.push(text)
+                } else if (item.type === 'schema-card' || item.type === 'genui') {
+                  cardParts.push(item)
+                } else if (item.type === 'collapsible-text' || item.type === 'reasoning') {
+                  if (item.content) {
+                    reasoningParts.push(item.content)
+                  }
+                } else if (item.type === 'tool') {
+                  // 工具调用不作为手写文本硬编码拼入正文，避免污染和割裂 Markdown 回复排版
+                  // 保持正文输出流畅自然、纯净连贯
+                } else if (typeof item === 'string') {
+                  textParts.push(item)
+                } else {
+                  cardParts.push(item)
+                }
+              }
+
+              if (reasoningParts.length > 0) {
+                // 清理首尾空白和多余换行，确保思维链第一行文字与时间线圆点平齐对齐，排版整洁
+                const combinedReasoning = reasoningParts
+                  .map((p) => (typeof p === 'string' ? p.trim() : ''))
+                  .filter(Boolean)
+                  .join('\n\n')
+                  .trim()
+                if (combinedReasoning) {
+                  assistantMsg.reasoning_content = combinedReasoning
+                  assistantMsg.state = {
+                    open: true,
+                    thinking: GeneratingStatus.includes(messageState.status)
+                  }
+                }
+              }
+
+              const fullText = textParts.join('')
+              if (cardParts.length > 0) {
+                assistantMsg.content = [
+                  ...(fullText ? [{ type: 'text', text: fullText }] : []),
+                  ...cardParts
+                ]
+              } else {
+                assistantMsg.content = fullText
+              }
+            } else if (data.content !== undefined) {
+              assistantMsg.content = data.content
             }
           },
           onDone: () => {
             messageState.status = STATUS.IDLE
+            if (assistantMsg.state) {
+              assistantMsg.state.thinking = false
+            }
             syncCurrentConversationMessages()
           },
           onError: (err: any) => {
@@ -262,16 +322,18 @@ export const useTinyRobotChat = ({
         }
       }
 
-      const message: UIMessage = {
+      const message: UIMessage & { id: string } = {
+        id: generateId(),
         role: 'user',
         content: messageContent,
         uiContent
       }
-      messages.value.push(message)
+      messages.value.push(message as any)
       inputMessage.value = ''
       await send()
     } else {
-      const message: UIMessage = {
+      const message: UIMessage & { id: string } = {
+        id: generateId(),
         role: 'user',
         content: inputMessage.value,
         uiContent: [
@@ -281,7 +343,7 @@ export const useTinyRobotChat = ({
           }
         ]
       }
-      messages.value.push(message)
+      messages.value.push(message as any)
       inputMessage.value = ''
       await send()
     }

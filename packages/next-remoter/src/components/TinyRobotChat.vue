@@ -10,67 +10,13 @@
     <!-- 直接基于 TrChat 组件组装，作为聊天主容器 -->
     <TrChat
       ref="chatSuiteRef"
+      v-model:input-value="inputMessage"
       :runtime="chatRuntime"
       :ui="chatUI"
       :title="title"
       class="next-remoter-chat"
+      @prompt-click="handlePromptClick"
     >
-      <!-- 顶部操作栏定制：注入左侧会话切换、标题、右上角扫码、全屏与关闭按钮 -->
-      <template #layout-header="{ title: headerTitle, toggleLeftAside, createConversation }">
-        <div class="next-remoter-header">
-          <div class="header-left">
-            <button
-              type="button"
-              class="header-btn"
-              @click="toggleLeftAside"
-              title="历史会话"
-            >
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                <path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42A8.954 8.954 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/>
-              </svg>
-            </button>
-            <button
-              type="button"
-              class="header-btn"
-              @click="createConversation()"
-              title="新建会话"
-            >
-              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor">
-                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
-              </svg>
-            </button>
-            <h3 class="header-title">{{ headerTitle || title }}</h3>
-          </div>
-          <div class="header-right">
-            <slot name="operations">
-              <QrCodeScan @scanSuccess="handleScanSuccess" />
-            </slot>
-            <!-- 全屏切换按钮 -->
-            <button
-              type="button"
-              class="header-btn"
-              @click="fullscreen = !fullscreen"
-              :title="fullscreen ? '还原' : '全屏'"
-            >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                <path v-if="fullscreen" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-14v3h3v2h-5V5h2z"/>
-                <path v-else d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/>
-              </svg>
-            </button>
-            <!-- 关闭按钮 -->
-            <button
-              type="button"
-              class="header-btn header-btn-close"
-              @click="show = false"
-              title="关闭"
-            >
-              <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-              </svg>
-            </button>
-          </div>
-        </div>
-      </template>
 
       <!-- 欢迎区域插槽透传 -->
       <template #welcome-footer v-if="$slots.welcome && messages.length === 0">
@@ -114,9 +60,9 @@
         </div>
       </template>
 
-      <!-- 输入框右下角：语音按钮 -->
-      <template #sender-footer-right>
-        <VoiceButton v-if="allowSpeech" />
+      <!-- 输入框右下角：语音按钮（仅开启语音时提供，避免覆盖原生发送按钮） -->
+      <template #sender-footer-right v-if="allowSpeech">
+        <VoiceButton />
       </template>
     </TrChat>
   </div>
@@ -145,7 +91,6 @@ import { useConversationHistory } from '../composable/useConversationHistory'
 import { usePluginSession } from '../composable/usePluginSession'
 import { useMultimodalWithModel } from '../multimodal'
 import { toRef, computed, ref, onMounted, h, watch, defineComponent, type Ref, type ComponentInstance, type VNode } from 'vue'
-import QrCodeScan from './QrCodeScan.vue'
 import GenUISwitch from './GenUISwitch.vue'
 import BubbleImageRenderer from './BubbleImageRenderer.vue'
 import { defaultPluginSrc } from './default-plugin-svg'
@@ -526,7 +471,6 @@ const lang = langResult.lang
 
 // ===== 7. 扫码与遥控会话管理 =====
 const {
-  handleScanSuccess,
   handleSessionIdInput,
   initialize: initializePluginSession
 } = usePluginSession({
@@ -573,6 +517,13 @@ const senderPlaceholder = computed(() =>
   GeneratingStatus.includes(messageState.status) ? lang[props.locale].thinking : lang[props.locale].placeholder
 )
 
+const handlePromptClick = (payload: any) => {
+  const text = payload?.prompt?.label || payload?.prompt?.text || payload?.text || payload?.label || ''
+  if (text) {
+    handleSendMessageCustom(text)
+  }
+}
+
 const handlePillItemClick = (item: any) => {
   inputMessage.value = item.inputMessage
 }
@@ -610,6 +561,13 @@ const GenuiContentRenderer = defineComponent({
 
 // 组装 TrChat 的 UI 配置
 const chatUI = computed<ChatUIOptions>(() => ({
+  layout: {
+    contentMaxWidth: '100%',
+    leftAside: {
+      mode: 'drawer',
+      defaultOpen: false
+    }
+  },
   brand: {
     name: props.title,
     logo: props.AILogoUrl
@@ -620,13 +578,21 @@ const chatUI = computed<ChatUIOptions>(() => ({
     icon: welcomeIcon
   },
   prompts: {
-    items: promptItems.value
+    items: promptItems.value,
+    wrap: true
   },
   bubble: {
     autoScroll: true,
     bubbleList: {
-      roles: roles as any,
       roleConfigs: {
+        user: {
+          placement: 'end',
+          avatar: roles.user?.avatar
+        },
+        assistant: {
+          placement: 'start',
+          avatar: roles.assistant?.avatar
+        },
         system: { hidden: true }
       }
     },
@@ -772,66 +738,6 @@ defineExpose({
   min-height: 0;
   height: 100%;
   width: 100%;
-
-  :deep(.tr-chat-ui) {
-    height: 100%;
-    min-height: 0;
-  }
-}
-
-.next-remoter-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  width: 100%;
-  height: 48px;
-  padding: 0 16px;
-  border-bottom: 1px solid #f0f0f0;
-  background: #ffffff;
-  box-sizing: border-box;
-
-  .header-left {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-
-    .header-title {
-      font-size: 16px;
-      font-weight: 600;
-      color: #191919;
-      margin: 0;
-    }
-  }
-
-  .header-right {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-
-  .header-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 6px;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    color: #595959;
-    transition: all 0.2s;
-
-    &:hover {
-      background: #f5f5f5;
-      color: #1476ff;
-    }
-
-    &.header-btn-close:hover {
-      background: #fee2e2;
-      color: #ef4444;
-    }
-  }
 }
 
 .attachments-container {

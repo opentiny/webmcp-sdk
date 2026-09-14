@@ -379,9 +379,13 @@ export class CustomAgentModelProvider extends BaseModelProvider {
   }
 
   async chatStream(request: ChatCompletionRequest, handler: StreamHandler): Promise<void> {
-    // 读取用户最新的请求
-    let lastUserMsg = request.messages[request.messages.length - 1]
-    if (!lastUserMsg) return
+    // 读取用户最新的请求：从后往前找最后一个 role === 'user' 的消息，避免获取到刚加入的空 assistant 消息
+    const userMessages = request.messages.filter((m: any) => m.role === 'user')
+    const lastUserMsg = userMessages[userMessages.length - 1]
+    if (!lastUserMsg) {
+      console.warn('[CustomAgentModelProvider] 未在 request.messages 中找到用户消息')
+      return
+    }
 
     const chatStreamOptions: any = {
       model: this.llmConfig.model,
@@ -443,7 +447,6 @@ export class CustomAgentModelProvider extends BaseModelProvider {
     }
 
     // 清理消息：只保留 AI SDK 需要的字段（role 和 content）
-    // 这样可以确保即使 responseMessages 中包含额外字段（如 uiContent），也不会传递给 AI SDK
     const cleanMessages = (messages: any[]) => {
       return messages.map((msg) => ({
         role: msg.role,
@@ -451,8 +454,19 @@ export class CustomAgentModelProvider extends BaseModelProvider {
       }))
     }
 
-    // 始终使用 messages 参数，确保包含所有历史消息上下文
-    const allMessages = [...cleanMessages(this.agent.responseMessages), userMessage]
+    // 优先从 request.messages 提取历史上下文，否则降级使用 responseMessages
+    const lastUserIdx = request.messages.lastIndexOf(lastUserMsg)
+    const historyFromRequest = request.messages
+      .slice(0, lastUserIdx)
+      .filter((msg: any) => msg.role !== 'system' && msg.content)
+      .map((msg: any) => ({
+        role: msg.role,
+        content: msg.content
+      }))
+
+    const allMessages = historyFromRequest.length > 0
+      ? [...historyFromRequest, userMessage]
+      : [...cleanMessages(this.agent.responseMessages), userMessage]
     chatStreamOptions.messages = allMessages
 
     const result = await this.agent.chatStream(chatStreamOptions)
