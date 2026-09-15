@@ -270,4 +270,50 @@ describe('initializeBuiltinWebMCP forcePolyfill', () => {
       }
     }
   })
+
+  it('复现：Chromium 原生存在原型 native 时初始化不得误触 navigator.modelContext 废弃警告 —— 前置 Document.prototype.modelContext 为原生 native；步骤 initializeBuiltinWebMCP；期望顺利覆盖且不向控制台打印 navigator.modelContext 废弃警告', async () => {
+    const native = {
+      getTools: vi.fn(),
+      registerTool: vi.fn(),
+      executeTool: vi.fn()
+    }
+    const previousDoc = Object.getOwnPropertyDescriptor(Document.prototype, 'modelContext')
+    const previousNav = Object.getOwnPropertyDescriptor(navigator, 'modelContext')
+
+    Object.defineProperty(Document.prototype, 'modelContext', {
+      configurable: true,
+      enumerable: true,
+      get() {
+        return native
+      }
+    })
+
+    const warnSpy = vi.spyOn(console, 'warn')
+
+    try {
+      initializeBuiltinWebMCP()
+
+      const ctx = (document as Document & ModelContextHost).modelContext as Record<string, unknown>
+      expect(ctx).toBeTruthy()
+      expect(ctx[POLYFILL_MARKER]).toBe(true)
+
+      const deprecationWarnCalls = warnSpy.mock.calls.filter((args) =>
+        typeof args[0] === 'string' && args[0].includes('[WebMCPPolyfill] navigator.modelContext is deprecated')
+      )
+      expect(deprecationWarnCalls).toHaveLength(0)
+    } finally {
+      warnSpy.mockRestore()
+      try {
+        if (previousNav) Object.defineProperty(navigator, 'modelContext', previousNav)
+        else delete (navigator as Navigator & ModelContextHost).modelContext
+      } catch {
+        /* ignore */
+      }
+      if (previousDoc) {
+        Object.defineProperty(Document.prototype, 'modelContext', previousDoc)
+      } else {
+        Reflect.deleteProperty(Document.prototype, 'modelContext')
+      }
+    }
+  })
 })

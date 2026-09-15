@@ -107,8 +107,21 @@ function neutralizeNativeDocumentModelContext(): void {
 function neutralizeNativeNavigatorModelContext(): void {
   const nav = typeof navigator !== 'undefined' ? (navigator as Navigator & ModelContextHost) : null
   if (!nav) return
+  const desc = Object.getOwnPropertyDescriptor(nav, 'modelContext')
+  if (desc && 'value' in desc && desc.value && !isWebMCPPolyfill(desc.value)) {
+    try {
+      delete (nav as ModelContextHost).modelContext
+    } catch {
+      defineModelContext(nav, undefined)
+    }
+  }
   const proto = typeof Navigator !== 'undefined' ? Navigator.prototype : null
-  neutralizeNativeModelContextHost(nav, proto)
+  if (proto) {
+    const protoDesc = Object.getOwnPropertyDescriptor(proto, 'modelContext')
+    if (protoDesc?.configurable && 'value' in protoDesc && protoDesc.value && !isWebMCPPolyfill(protoDesc.value)) {
+      Reflect.deleteProperty(proto, 'modelContext')
+    }
+  }
 }
 
 /**
