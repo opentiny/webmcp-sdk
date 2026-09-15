@@ -270,4 +270,56 @@ describe('initializeBuiltinWebMCP forcePolyfill', () => {
       }
     }
   })
+
+  it('复现：Chromium 146 原型 native 删不掉时桥接 polyfill 触发 navigator.modelContext 废弃警告 —— 前置 Document.prototype.modelContext 不可删除；步骤 initializeBuiltinWebMCP；期望顺利覆盖且不向控制台打印 navigator.modelContext 废弃警告', async () => {
+    const native = {
+      getTools: vi.fn(),
+      registerTool: vi.fn(),
+      executeTool: vi.fn()
+    }
+    const previousDoc = Object.getOwnPropertyDescriptor(Document.prototype, 'modelContext')
+    const previousNav = Object.getOwnPropertyDescriptor(navigator, 'modelContext')
+
+    Object.defineProperty(Document.prototype, 'modelContext', {
+      configurable: true,
+      enumerable: true,
+      get() {
+        return native
+      }
+    })
+    const origDelete = Reflect.deleteProperty.bind(Reflect)
+    const deleteSpy = vi.spyOn(Reflect, 'deleteProperty').mockImplementation((target, key) => {
+      if (target === Document.prototype && key === 'modelContext') return false
+      return origDelete(target, key)
+    })
+
+    const warnSpy = vi.spyOn(console, 'warn')
+
+    try {
+      initializeBuiltinWebMCP()
+
+      const ctx = (document as Document & ModelContextHost).modelContext as Record<string, unknown>
+      expect(ctx).toBeTruthy()
+      expect(ctx[POLYFILL_MARKER]).toBe(true)
+
+      const deprecationWarnCalls = warnSpy.mock.calls.filter((args) =>
+        typeof args[0] === 'string' && args[0].includes('[WebMCPPolyfill] navigator.modelContext is deprecated')
+      )
+      expect(deprecationWarnCalls).toHaveLength(0)
+    } finally {
+      warnSpy.mockRestore()
+      deleteSpy.mockRestore()
+      try {
+        if (previousNav) Object.defineProperty(navigator, 'modelContext', previousNav)
+        else delete (navigator as Navigator & ModelContextHost).modelContext
+      } catch {
+        /* ignore */
+      }
+      if (previousDoc) {
+        Object.defineProperty(Document.prototype, 'modelContext', previousDoc)
+      } else {
+        origDelete(Document.prototype, 'modelContext')
+      }
+    }
+  })
 })
