@@ -3,6 +3,14 @@
   "version": "0.0.8",
   "type": "module",
   "description": "WebMCP CLI for AI Agents to interact with browser via Puppeteer",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/opentiny/webmcp-sdk.git",
+    "directory": "packages/webmcp-cli"
+  },
+  "bugs": {
+    "url": "https://github.com/opentiny/webmcp-sdk/issues"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
