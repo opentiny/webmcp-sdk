@@ -271,7 +271,7 @@ describe('initializeBuiltinWebMCP forcePolyfill', () => {
     }
   })
 
-  it('复现：Chromium 146 原型 native 删不掉时桥接 polyfill 触发 navigator.modelContext 废弃警告 —— 前置 Document.prototype.modelContext 不可删除；步骤 initializeBuiltinWebMCP；期望顺利覆盖且不向控制台打印 navigator.modelContext 废弃警告', async () => {
+  it('复现：Chromium 原生存在原型 native 时初始化不得误触 navigator.modelContext 废弃警告 —— 前置 Document.prototype.modelContext 为原生 native；步骤 initializeBuiltinWebMCP；期望顺利覆盖且不向控制台打印 navigator.modelContext 废弃警告', async () => {
     const native = {
       getTools: vi.fn(),
       registerTool: vi.fn(),
@@ -286,11 +286,6 @@ describe('initializeBuiltinWebMCP forcePolyfill', () => {
       get() {
         return native
       }
-    })
-    const origDelete = Reflect.deleteProperty.bind(Reflect)
-    const deleteSpy = vi.spyOn(Reflect, 'deleteProperty').mockImplementation((target, key) => {
-      if (target === Document.prototype && key === 'modelContext') return false
-      return origDelete(target, key)
     })
 
     const warnSpy = vi.spyOn(console, 'warn')
@@ -308,7 +303,6 @@ describe('initializeBuiltinWebMCP forcePolyfill', () => {
       expect(deprecationWarnCalls).toHaveLength(0)
     } finally {
       warnSpy.mockRestore()
-      deleteSpy.mockRestore()
       try {
         if (previousNav) Object.defineProperty(navigator, 'modelContext', previousNav)
         else delete (navigator as Navigator & ModelContextHost).modelContext
@@ -318,7 +312,7 @@ describe('initializeBuiltinWebMCP forcePolyfill', () => {
       if (previousDoc) {
         Object.defineProperty(Document.prototype, 'modelContext', previousDoc)
       } else {
-        origDelete(Document.prototype, 'modelContext')
+        Reflect.deleteProperty(Document.prototype, 'modelContext')
       }
     }
   })
