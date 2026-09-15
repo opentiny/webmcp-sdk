@@ -40,6 +40,8 @@
 
 - `initializeBuiltinWebMCP(options?)` 增加 `forcePolyfill?: boolean`，**默认 `true`**。
 - 默认路径：摘掉 `document` / 可配置 `Document.prototype` 上的 native，再调用 `initializeWebMCPPolyfill()`。
+- 清理废弃 getter：调用 polyfill 前通过 `neutralizeDeprecatedNavigatorModelContext()` 摘除 `navigator` 与 `Navigator.prototype` 上的可配置 `modelContext` getter，阻断上游自检自踩触发废弃告警与误退出分支；不可配置或缺失 getter 保持不受影响；若初始化失败，恢复原有描述符。
+- 幂等防护与健壮性：`document.modelContext` 已存在合法 JS polyfill 时直接幂等短路；marker 检查包裹 `try/catch`，避免环境为抛错 Proxy 时崩溃。
 - `registerPageAgentTool()` 继续无参调用初始化，自动享受默认强制 polyfill。
 - `webmcp-cli` 页面注入改为走 `initializeBuiltinWebMCP` / `registerPageAgentTool`，不再直调 polyfill。
 - 用户文档与类型导出。
@@ -57,14 +59,17 @@
    - 验收：document 上预先存在无 `__isWebMCPPolyfill` 的伪 native；`initializeBuiltinWebMCP()` 后 context 带 `__isWebMCPPolyfill`，且未调用伪 native 的 `getTools`。
 2. 作为需要验证原生 API 的开发者，我希望能关闭强制 polyfill。
    - 验收：`initializeBuiltinWebMCP({ forcePolyfill: false })` 保留已有非 polyfill context。
-3. 作为 webmcp-cli 注入的页面，我希望与 SDK 同一套防护。
+3. 作为微前端或重复注入场景的开发者，我希望环境存在废弃 getter 时不触发误报且不影响 polyfill 安装。
+   - 验收：`navigator` 或 `Navigator.prototype` 上预置可配置带警告的 `modelContext` getter，初始化时不触发控制台 deprecation warn，且成功挂载 JS polyfill；不可配置属性不被误删；若初始化失败，被删除的原始描述符均完整恢复。
+4. 作为 webmcp-cli 注入的页面，我希望与 SDK 同一套防护。
    - 验收：`page-init.ts` 不再直接 `initializeWebMCPPolyfill()`；`registerPageAgentTool` 内部初始化即可。
 
 ## 非功能要求
 
 - 影子化失败（不可配置属性）时 catch，不抛；若 `forcePolyfill: true` 结束后仍不是 polyfill，则 `console.warn`。
 - 不读取/调用 native `getTools` / `registerTool`（仅读属性并检查 marker）。
-- 幂等：已是 polyfill 时再次调用不得拆掉现有 JS context。
+- 幂等：已是 polyfill 时再次调用不得拆掉现有 JS context，且当宿主属性为抛错 Proxy 时安全返回 false 不崩溃。
+- 描述符恢复：初始化失败时精准回退被摘除的 `navigator` 与 `Navigator.prototype` 属性描述符。
 - jsdom 单测可验证；不在本 Spec 要求实机 Chromium E2E。
 
 ## 完成定义

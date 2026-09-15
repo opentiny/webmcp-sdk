@@ -18,10 +18,17 @@
 - [x] Task 5: 升级 `@mcp-b/webmcp-polyfill` / `@mcp-b/webmcp-types` 到 5.1.0，并适配原型 getter
   - 产物：`pnpm-workspace.yaml`、`initialize-builtin-WebMCP.ts`（删除可配置原型 native）、测试补原型 native 场景
   - [x] 测试：`packages/next-sdk/test/page-tools/initialize-builtin-WebMCP.test.ts`
+- [x] Task 6: 废弃兼容 getter 清理与异常回退
+  - 产物：`packages/next-sdk/page-tools/initialize-builtin-WebMCP.ts`（增加 `neutralizeDeprecatedNavigatorModelContext` 与 `restoreDescriptors`，并在 `try` 块内进行安全幂等检查）
+  - 产物：`packages/next-sdk/test/page-tools/initialize-builtin-WebMCP.test.ts`
+  - 场景（须含中文 **`复现：`**）：
+    - `navigator.modelContext` getter 存在时初始化不触发自身告警且正常挂载 polyfill
+    - 初始化失败时恢复被删除的 navigator 与原型 getter
+    - `document.modelContext` 为抛出异常的 Proxy 时幂等检查不崩溃
 
 ## 依赖顺序
 
-1 →（2、3、4 可并行）→ 5
+1 →（2、3、4 可并行）→ 5 → 6
 
 ## 验收命令
 

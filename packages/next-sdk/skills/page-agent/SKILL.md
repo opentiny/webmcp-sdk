@@ -54,7 +54,7 @@ import {
 } from '@opentiny/next-sdk'
 ```
 
-- `registerPageAgentTool(options?)`：注册 `page-agent-tool`，内部调用 `initializeBuiltinWebMCP()`（默认 `forcePolyfill: true`，覆盖会崩溃的 Chromium 实验性 native）；重复调用为 **replace** 式重新初始化。返回 `{ showMask, hideMask }`。
+- `registerPageAgentTool(options?)`：注册 `page-agent-tool`，内部调用 `initializeBuiltinWebMCP()`（默认 `forcePolyfill: true`，覆盖会崩溃的 Chromium 实验性 native）；重复调用为 **replace** 式重新初始化。返回 `{ showMask, hideMask }`。Chrome 146+ 原生 `registerTool` 在非 origin-keyed 文档上抛 `SecurityError` DOMException；SDK 会中和 `document`/`navigator` native 并把 JS polyfill 挂到 document 实例。polyfill 在 `originAgentCluster === false` 时也会抛空消息 `SecurityError`，仅对 polyfill 实例绕过该检查。
 - 运行期唯一配置面：`getPageAgentToolConfig` / `setPageAgentToolConfig`（`a11yConfig` 数组合并；`enableHighlight` / `cursorMode` 覆盖；支持 `mode: 'replace'`）。
 - `cursorMode`：`'actionOnly'`（默认，仅操作类出光标） / `'always'` / `'never'`。无参 `showMask()` 默认不出光标；操作类结束后若遮罩仍开着且 `cursorMode !== 'always'` 则收光标。`always` 下显式 `{ showCursor: false }` 仍可临时隐藏；`never` 覆盖显式 `showCursor: true`。
 - `whitelist` / `blacklist` 中的选择器字符串在构建无障碍树时 **动态解析**。

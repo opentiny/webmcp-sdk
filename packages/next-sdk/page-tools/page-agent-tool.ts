@@ -1,4 +1,4 @@
-import { initializeBuiltinWebMCP } from './initialize-builtin-WebMCP'
+import { initializeBuiltinWebMCP, isBuiltinWebMCPPolyfill } from './initialize-builtin-WebMCP'
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import pageAgentPrompt from './page-agent-prompt.md?raw'
 import { PageController } from '@page-agent/page-controller'
@@ -286,6 +286,14 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
     console.warn('[next-sdk] modelContext is not available, skipping page-agent-tool registration.')
     return createHandle()
   }
+  // Chrome 146+ 原生 registerTool 在非 origin-keyed 文档上 reject SecurityError DOMException；
+  // 强制 polyfill 后若仍读到 native，禁止调用，避免注册失败或杀渲染进程。
+  if (!isBuiltinWebMCPPolyfill(modelContext)) {
+    console.warn(
+      '[next-sdk] page-agent-tool 跳过原生 modelContext.registerTool（Chrome 146+ 可能抛出 DOMException）'
+    )
+    return createHandle()
+  }
   try {
     if ((window as any).__pageAgentToolAbortController) {
       ;(window as any).__pageAgentToolAbortController.abort()
@@ -320,7 +328,13 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
       { signal: abortController.signal }
     )
   ).catch((err: unknown) => {
-    console.warn('[next-sdk] page-agent-tool 注册失败:', err)
+    const detail =
+      err instanceof DOMException
+        ? `${err.name}${err.message ? `: ${err.message}` : ''} (DOMException)`
+        : err instanceof Error
+          ? `${err.name}: ${err.message}`
+          : String(err)
+    console.warn('[next-sdk] page-agent-tool 注册失败:', detail, err)
   })
 
   setupPageAgentToolEventBridge(executePageAgentTool, pageController, actionContext)

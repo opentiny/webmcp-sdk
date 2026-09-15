@@ -252,4 +252,108 @@ describe('registerPageAgentTool - 工具注册与注销机制', () => {
     
     ;(document as any).modelContext.registerTool = originalRegister;
   })
+
+  it('复现：Windows 加载 page-agent-tool 失败 SecurityError —— 前置 window.originAgentCluster === false；步骤 registerPageAgentTool；期望不 warn 注册失败且 getTools 含 page-agent-tool', async () => {
+    const previous = Object.getOwnPropertyDescriptor(window, 'originAgentCluster')
+    Object.defineProperty(window, 'originAgentCluster', {
+      configurable: true,
+      enumerable: true,
+      get: () => false
+    })
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    try {
+      registerPageAgentTool()
+      await vi.waitFor(async () => {
+        const tools = await (document as any).modelContext.getTools()
+        expect(tools.filter((t: { name: string }) => t.name === 'page-agent-tool').length).toBe(1)
+      })
+      expect(
+        warn.mock.calls.some((call) => String(call[0]).includes('page-agent-tool 注册失败'))
+      ).toBe(false)
+    } finally {
+      warn.mockRestore()
+      try {
+        if (previous) Object.defineProperty(window, 'originAgentCluster', previous)
+        else delete (window as { originAgentCluster?: boolean }).originAgentCluster
+      } catch {
+        /* ignore */
+      }
+    }
+  })
+
+  it('复现：Chrome 146 Windows 最新版注册失败 DOMException —— 前置不可删除的原生 Document.prototype.modelContext、navigator.modelContext 同为 native、originAgentCluster === false；步骤 registerPageAgentTool；期望走 JS polyfill 注册成功且不调用原生 registerTool', async () => {
+    const native = {
+      getTools: vi.fn(async () => []),
+      registerTool: vi.fn(async () => {
+        throw new DOMException('', 'SecurityError')
+      }),
+      executeTool: vi.fn()
+    }
+    const previousDoc = Object.getOwnPropertyDescriptor(Document.prototype, 'modelContext')
+    const previousNav = Object.getOwnPropertyDescriptor(navigator, 'modelContext')
+    const previousOac = Object.getOwnPropertyDescriptor(window, 'originAgentCluster')
+    Object.defineProperty(Document.prototype, 'modelContext', {
+      configurable: true,
+      enumerable: true,
+      get() {
+        return native
+      }
+    })
+    Object.defineProperty(navigator, 'modelContext', {
+      configurable: true,
+      writable: true,
+      enumerable: true,
+      value: native
+    })
+    Object.defineProperty(window, 'originAgentCluster', {
+      configurable: true,
+      enumerable: true,
+      get: () => false
+    })
+    const origDelete = Reflect.deleteProperty.bind(Reflect)
+    const deleteSpy = vi.spyOn(Reflect, 'deleteProperty').mockImplementation((target, key) => {
+      if (target === Document.prototype && key === 'modelContext') return false
+      return origDelete(target, key)
+    })
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+
+    try {
+      try {
+        delete (document as { modelContext?: unknown }).modelContext
+      } catch {
+        /* ignore */
+      }
+
+      registerPageAgentTool()
+      await vi.waitFor(async () => {
+        const tools = await (document as any).modelContext.getTools()
+        expect(tools.filter((t: { name: string }) => t.name === 'page-agent-tool').length).toBe(1)
+      })
+      expect(native.registerTool).not.toHaveBeenCalled()
+      expect(
+        warn.mock.calls.some((call) => String(call[0]).includes('page-agent-tool 注册失败'))
+      ).toBe(false)
+    } finally {
+      warn.mockRestore()
+      deleteSpy.mockRestore()
+      try {
+        if (previousOac) Object.defineProperty(window, 'originAgentCluster', previousOac)
+        else delete (window as { originAgentCluster?: boolean }).originAgentCluster
+      } catch {
+        /* ignore */
+      }
+      try {
+        if (previousNav) Object.defineProperty(navigator, 'modelContext', previousNav)
+        else delete (navigator as { modelContext?: unknown }).modelContext
+      } catch {
+        /* ignore */
+      }
+      if (previousDoc) {
+        Object.defineProperty(Document.prototype, 'modelContext', previousDoc)
+      } else {
+        origDelete(Document.prototype, 'modelContext')
+      }
+    }
+  })
 })

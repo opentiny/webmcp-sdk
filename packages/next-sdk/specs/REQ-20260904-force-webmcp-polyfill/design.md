@@ -3,13 +3,19 @@
 ## 方案概述
 
 `@mcp-b/webmcp-polyfill@5.1.0` 见 native 即 no-op，且已删除 `forceOverride`。与 3.x 不同，5.x 把 getter 装在 **`Document.prototype`**：若原型上已有 native，polyfill **不会替换**该 getter。
+此外，5.x 在探测旧版规范原生实现时，直接属性访问 `nav.modelContext`；若环境中已存在废弃兼容 getter（如微前端、重复注入或多实例），此访问会触发其自带的 deprecation 警告并误判分支提前退出。
 
-因此 `initializeBuiltinWebMCP` 在 `forcePolyfill !== false` 时：
+因此 `initializeBuiltinWebMCP` 的完整执行流程如下：
 
-1. 若 `Document.prototype.modelContext` 可配置且不是 polyfill，则删除该原型属性，让 5.x 自己安装 getter。
-2. 若 `document.modelContext` 仍是 native，则影子化为 `undefined`，避免 polyfill 提前 return。
-3. 调用 `initializeWebMCPPolyfill()`。
-4. 若实例上的 `undefined` 影子挡住了刚装上的原型 getter，则删掉实例属性。原型 native 不可配置时保持影子化并 `console.warn`。
+1. **幂等检查**：在 `try` 块内检查当前 `document.modelContext` 是否已为 JS polyfill，若已就绪直接短路返回；`isWebMCPPolyfill` 内部进行防护，避免宿主属性为抛错 Proxy 时崩溃。
+2. **清理废弃 getter**：调用 `neutralizeDeprecatedNavigatorModelContext()` 遍历 `navigator` 与 `Navigator.prototype`，若存在可配置的 `modelContext` getter 则通过 `Reflect.deleteProperty` 摘除，并记录被删除的原始描述符。若 getter 不可配置或不存在则保持原状不受影响。
+3. **强制 Polyfill 准备**（若 `forcePolyfill !== false`）：
+   - 若 `Document.prototype.modelContext` 可配置且不是 polyfill，则删除该原型属性，让 5.x 自己安装 getter。
+   - 若 `document.modelContext` 仍是 native，则影子化为 `undefined`，避免 polyfill 提前 return。
+   - 若 `navigator` 或其原型仍有 native，做影子化/清理。
+4. 调用 `initializeWebMCPPolyfill()` 安装标准 polyfill（并在末尾由 polyfill 重新建立 `navigator.modelContext` 废弃兼容 alias）。
+5. 若实例上的 `undefined` 影子挡住了刚装上的原型 getter，则挂回或暴露 polyfill。
+6. **失败恢复机制**：若初始化各步骤发生未捕获异常，在 `catch` 块中通过保存的描述符恢复 `navigator` 及原型上的 `modelContext` getter，避免环境处于半损坏状态。
 
 5.1.0 ESM **无 import 副作用**。`registerTool` 返回 Promise：工具仍在首个 `await` 前写入 registry，但重复名、非法描述、已 abort 的 `signal` 会 **reject**。同步 `try/catch` 接不住该失败。本 PR 范围内 `registerPageAgentTool` 已对返回值 `.catch`；业务侧应 `await` 或 `.catch`，不要把 Promise 丢掉。
 
@@ -18,10 +24,10 @@
 | 路径 | 职责 |
 | --- | --- |
 | `pnpm-workspace.yaml` | catalog：`@mcp-b/webmcp-polyfill` / `@mcp-b/webmcp-types` → `^5.1.0` |
-| `packages/next-sdk/page-tools/initialize-builtin-WebMCP.ts` | `forcePolyfill`、摘掉 document native、init |
+| `packages/next-sdk/page-tools/initialize-builtin-WebMCP.ts` | `forcePolyfill`、摘掉 document native、清理 navigator 废弃 getter 与失败回退、init |
 | `packages/next-sdk/index.ts` / `core.ts` | 导出 `initializeBuiltinWebMCP` |
 | `packages/webmcp-cli/src/inject/page-init.ts` | 走 `registerPageAgentTool`，不直调 polyfill |
-| `packages/next-sdk/test/page-tools/initialize-builtin-WebMCP.test.ts` | 行为测试（含原型 getter） |
+| `packages/next-sdk/test/page-tools/initialize-builtin-WebMCP.test.ts` | 行为测试（含原型 getter、废弃 getter 清理与失败回退） |
 | `docs/webmcp-sdk/global-tools.md` | 公开 API 说明 |
 
 `registerPageAgentTool` 已调用 `initializeBuiltinWebMCP()`，无参即默认强制 polyfill。
@@ -35,9 +41,14 @@ export function initializeBuiltinWebMCP(options?: {
 }): void
 
 const POLYFILL_MARKER = '__isWebMCPPolyfill'
+
+interface RestorableDescriptor {
+  target: object
+  descriptor: PropertyDescriptor
+}
 ```
 
-判定 polyfill：`Boolean(ctx && ctx[POLYFILL_MARKER])`。
+判定 polyfill：`Boolean(ctx && typeof ctx === 'object' && POLYFILL_MARKER in ctx && ctx[POLYFILL_MARKER])`（带安全 try/catch）。
 
 原型 native（可配置）用 `Reflect.deleteProperty(Document.prototype, 'modelContext')` 摘掉，不读写 `WeakMap.prototype`。
 
