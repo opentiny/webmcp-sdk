@@ -427,14 +427,36 @@ async function handleWxtMode(args: string[]): Promise<void> {
 
   if (command === 'token') {
     const subArgs = args.slice(1)
-    const { resolveOrCreateAuthToken } = await import('./bridge/bridge-client.js')
-    const action = subArgs[0]
-    if (action === 'set' && subArgs[1]) {
-      resolveOrCreateAuthToken(subArgs[1])
-      console.log('✅ Token 已保存至 ~/.robot-wxt/bridge-token')
-    } else {
-      console.log(resolveOrCreateAuthToken())
+    let wsPort: number | undefined
+    const cleanArgs: string[] = []
+    for (let i = 0; i < subArgs.length; i++) {
+      if ((subArgs[i] === '--ws-port' || subArgs[i] === '--port') && subArgs[i + 1]) {
+        wsPort = parseInt(subArgs[++i], 10) || undefined
+      } else {
+        cleanArgs.push(subArgs[i])
+      }
     }
+
+    const action = cleanArgs[0]
+    let tokenToSet: string | undefined
+    if (action === 'set' && cleanArgs[1]) {
+      tokenToSet = cleanArgs[1].trim()
+    } else if (action && action !== 'get' && !action.startsWith('-')) {
+      tokenToSet = action.trim()
+    }
+
+    const { resolveOrCreateAuthToken } = await import('./bridge/bridge-client.js')
+    if (tokenToSet) {
+      resolveOrCreateAuthToken(tokenToSet)
+      console.log('✅ Token 已成功保存至 ~/.robot-wxt/bridge-token')
+      const { stopBridgeDaemon, ensureBridgeDaemon } = await import('./bridge/daemon.js')
+      await stopBridgeDaemon(wsPort)
+      await ensureBridgeDaemon({ token: tokenToSet, port: wsPort })
+      console.log('💡 后续所有 CLI 命令与 MCP 工具均将自动使用此凭据，无需重复输入。')
+      return
+    }
+
+    console.log(resolveOrCreateAuthToken())
     return
   }
 
