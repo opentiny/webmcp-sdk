@@ -5,14 +5,12 @@
  * 复用现有 browser.ts 的连接逻辑和 commands/ 下的实现。
  */
 
-import type { Browser, Page } from 'puppeteer-core'
+import type { Browser } from 'puppeteer-core'
 import {
   connectBrowser,
   getTargetPage,
   injectIntoPage,
   getPageTargetId,
-  getPageTargets,
-  getTargetIdFromTarget,
   activateTabById,
   setLastActiveTabId
 } from '../browser.js'
@@ -90,28 +88,36 @@ export class CdpBrowserAdapter implements BrowserAdapter {
 
     const argsJson = JSON.stringify(args)
     try {
-      const result = await page.evaluate(async (name, inputString) => {
-        // @ts-expect-error WebMCP APIs are experimental
-        const mcp = document.modelContext || navigator.modelContext
-        if (!mcp || typeof mcp.executeTool !== 'function') {
-          throw new Error('当前页面没有注入 WebMCP 环境 (document.modelContext 未找到)')
-        }
-        const tools = await mcp.getTools()
-        const toolObj = tools.find((t: any) => t.name === name)
-        if (!toolObj) throw new Error(`Tool ${name} not found`)
-        let res = await mcp.executeTool(toolObj, inputString)
-        if (typeof res === 'string') {
-          try { res = JSON.parse(res) } catch { /* 保留原始字符串 */ }
-        }
-        if (res === undefined || res === null) {
-          throw new Error('工具 execute 未返回结果')
-        }
-        if (typeof res === 'object' && (res as { success?: boolean }).success === false) {
-          const failed = res as { error?: string; message?: string }
-          throw new Error(failed.error || failed.message || '工具执行失败')
-        }
-        return res
-      }, toolName, argsJson)
+      const result = await page.evaluate(
+        async (name, inputString) => {
+          // @ts-expect-error WebMCP APIs are experimental
+          const mcp = document.modelContext || navigator.modelContext
+          if (!mcp || typeof mcp.executeTool !== 'function') {
+            throw new Error('当前页面没有注入 WebMCP 环境 (document.modelContext 未找到)')
+          }
+          const tools = await mcp.getTools()
+          const toolObj = tools.find((t: any) => t.name === name)
+          if (!toolObj) throw new Error(`Tool ${name} not found`)
+          let res = await mcp.executeTool(toolObj, inputString)
+          if (typeof res === 'string') {
+            try {
+              res = JSON.parse(res)
+            } catch {
+              /* 保留原始字符串 */
+            }
+          }
+          if (res === undefined || res === null) {
+            throw new Error('工具 execute 未返回结果')
+          }
+          if (typeof res === 'object' && (res as { success?: boolean }).success === false) {
+            const failed = res as { error?: string; message?: string }
+            throw new Error(failed.error || failed.message || '工具执行失败')
+          }
+          return res
+        },
+        toolName,
+        argsJson
+      )
       return result
     } catch (evalError: unknown) {
       const errMsg = evalError instanceof Error ? evalError.message : String(evalError)
@@ -121,7 +127,7 @@ export class CdpBrowserAdapter implements BrowserAdapter {
         (errMsg.includes('Cannot read properties of null') && errMsg.includes('context'))
 
       if (isContextDestroyed) {
-        await new Promise(resolve => setTimeout(resolve, 800))
+        await new Promise((resolve) => setTimeout(resolve, 800))
         const newUrl = page.url()
         if (newUrl && newUrl !== urlBefore) {
           return { success: true, message: `工具 ${toolName} 执行完成，页面已导航至 ${newUrl}`, navigatedTo: newUrl }
