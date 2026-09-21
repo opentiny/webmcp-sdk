@@ -1,7 +1,8 @@
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
+import fs from 'node:fs'
 import { spawn, type ChildProcess } from 'node:child_process'
 import { ExtensionBridgeClient } from '../src/bridge/bridge-client.js'
-import { probeServerReady, isProcessAlive, findPidByPort, stopBridgeDaemon } from '../src/bridge/daemon.js'
+import { probeServerReady, isProcessAlive, findPidByPort, stopBridgeDaemon, getDaemonPidFile } from '../src/bridge/daemon.js'
 
 describe('daemon unit tests', () => {
   let serverClient: ExtensionBridgeClient | null = null
@@ -212,5 +213,51 @@ describe('daemon unit tests', () => {
     expect(isProcessAlive(childProc.pid!)).toBe(true)
 
     childProc.kill('SIGKILL')
+  })
+
+  it('复现：自定义端口的守护进程应写入并读取端口专属 PID 文件，支持隔离验证', async () => {
+    const customPort = 19883
+    const customPidFile = getDaemonPidFile(customPort)
+
+    expect(customPidFile).toContain('daemon-19883.pid')
+    expect(getDaemonPidFile(18999)).toContain('daemon.pid')
+
+    try {
+      // 写入自定义端口测试 PID
+      fs.writeFileSync(customPidFile, '123456789', 'utf8')
+      expect(fs.existsSync(customPidFile)).toBe(true)
+
+      // 仅验证模式下尝试停止不存在的守护进程，由于 123456789 不存活，应安全返回 false
+      const stopped = await stopBridgeDaemon(customPort, { onlyVerified: true })
+      expect(stopped).toBe(false)
+    } finally {
+      if (fs.existsSync(customPidFile)) {
+        fs.unlinkSync(customPidFile)
+      }
+    }
+  })
+
+  it('复现：当未能成功终止进程（killProcessTree 失败）时不得删除 PID 文件', async () => {
+    const customPort = 19884
+    const customPidFile = getDaemonPidFile(customPort)
+
+    // 使用当前进程 PID 模拟存活但无法被终止的受管进程
+    fs.writeFileSync(customPidFile, String(process.pid), 'utf8')
+
+    // mock killProcessTree 模拟终止失败返回 false
+    const daemonModule = await import('../src/bridge/daemon.js')
+    const spy = vi.spyOn(daemonModule, 'killProcessTree').mockResolvedValueOnce(false)
+
+    try {
+      const stopped = await stopBridgeDaemon(customPort)
+      expect(stopped).toBe(false)
+      // 核心断言：由于 kill 失败，PID 文件必须保留，禁止提前 unlink
+      expect(fs.existsSync(customPidFile)).toBe(true)
+    } finally {
+      spy.mockRestore()
+      if (fs.existsSync(customPidFile)) {
+        fs.unlinkSync(customPidFile)
+      }
+    }
   })
 })

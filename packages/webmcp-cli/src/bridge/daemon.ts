@@ -10,7 +10,16 @@ const execAsync = promisify(exec)
 
 const WS_PORT = 18999
 const DAEMON_DIR = path.join(os.homedir(), '.robot-wxt')
-const PID_FILE = path.join(DAEMON_DIR, 'daemon.pid')
+
+/** 获取指定端口对应的守护进程 PID 文件路径（默认 18999 对应 daemon.pid，自定义端口对应 daemon-{port}.pid） */
+export function getDaemonPidFile(port: number = WS_PORT): string {
+  if (port === WS_PORT) {
+    return path.join(DAEMON_DIR, 'daemon.pid')
+  }
+  return path.join(DAEMON_DIR, `daemon-${port}.pid`)
+}
+
+export const PID_FILE = getDaemonPidFile(WS_PORT)
 
 /** 检查指定 PID 的进程是否存活 */
 export function isProcessAlive(pid: number): boolean {
@@ -135,10 +144,11 @@ export async function probeServerReady(
 }
 
 /** 检查受管的后台守护进程是否存活 */
-export function isDaemonProcessAlive(): boolean {
-  if (!fs.existsSync(PID_FILE)) return false
+export function isDaemonProcessAlive(port: number = WS_PORT): boolean {
+  const pidFile = getDaemonPidFile(port)
+  if (!fs.existsSync(pidFile)) return false
   try {
-    const pid = parseInt(fs.readFileSync(PID_FILE, 'utf8').trim(), 10)
+    const pid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10)
     return Boolean(pid && isProcessAlive(pid))
   } catch {
     return false
@@ -255,13 +265,15 @@ export async function runDaemonProcess(args: string[]): Promise<void> {
     }
   })
 
+  const pidFile = getDaemonPidFile(port)
+
   // 成功开始监听端口后再写入 PID 文件，防止端口占用导致留下死 PID 文件
   client.on('listening', () => {
     try {
       if (!fs.existsSync(DAEMON_DIR)) {
         fs.mkdirSync(DAEMON_DIR, { mode: 0o700, recursive: true })
       }
-      fs.writeFileSync(PID_FILE, String(process.pid), { mode: 0o600, encoding: 'utf8' })
+      fs.writeFileSync(pidFile, String(process.pid), { mode: 0o600, encoding: 'utf8' })
     } catch {
       // ignore
     }
@@ -271,10 +283,10 @@ export async function runDaemonProcess(args: string[]): Promise<void> {
 
   const shutdown = () => {
     try {
-      if (fs.existsSync(PID_FILE)) {
-        const recordedPid = fs.readFileSync(PID_FILE, 'utf8').trim()
+      if (fs.existsSync(pidFile)) {
+        const recordedPid = fs.readFileSync(pidFile, 'utf8').trim()
         if (recordedPid === String(process.pid)) {
-          fs.unlinkSync(PID_FILE)
+          fs.unlinkSync(pidFile)
         }
       }
     } catch {
@@ -323,11 +335,12 @@ export async function stopBridgeDaemon(
 ): Promise<boolean> {
   const onlyVerified = options.onlyVerified ?? false
   let killedAny = false
+  const pidFile = getDaemonPidFile(port)
 
   let daemonPid: number | null = null
-  if (port === WS_PORT && fs.existsSync(PID_FILE)) {
+  if (fs.existsSync(pidFile)) {
     try {
-      const pidStr = fs.readFileSync(PID_FILE, 'utf8').trim()
+      const pidStr = fs.readFileSync(pidFile, 'utf8').trim()
       const p = parseInt(pidStr, 10)
       if (p && isProcessAlive(p)) {
         daemonPid = p
@@ -357,27 +370,29 @@ export async function stopBridgeDaemon(
     }
 
     const killed = await killProcessTree(daemonPid)
-    if (killed) killedAny = true
-
-    try {
-      if (fs.existsSync(PID_FILE)) fs.unlinkSync(PID_FILE)
-    } catch {
-      // ignore
+    if (killed) {
+      killedAny = true
+      try {
+        if (fs.existsSync(pidFile)) fs.unlinkSync(pidFile)
+      } catch {
+        // ignore
+      }
     }
   } else {
     // 普通停止模式（如用户显式执行 webmcp-cli stop）：
     if (daemonPid) {
       try {
         const killed = await killProcessTree(daemonPid)
-        if (killed) killedAny = true
+        if (killed) {
+          killedAny = true
+          try {
+            if (fs.existsSync(pidFile)) fs.unlinkSync(pidFile)
+          } catch {
+            // ignore
+          }
+        }
       } catch {
         // ignore
-      } finally {
-        try {
-          if (fs.existsSync(PID_FILE)) fs.unlinkSync(PID_FILE)
-        } catch {
-          // ignore
-        }
       }
     }
 

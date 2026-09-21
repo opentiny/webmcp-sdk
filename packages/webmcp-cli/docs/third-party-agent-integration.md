@@ -84,7 +84,7 @@ flowchart TB
 
 ### 1. Background 原生 WebSocket Client 与保活
 
-- **架构进化**：系统不再依赖过渡性的 Offscreen Document 跳板，由 Background Service Worker 原生运行 [`BackgroundWsBridgeClient`](../../packages/robot-wxt/src/plugins/built-in/ws-bridge/ws-client.ts)。利用 Chrome 116+ 原生特性，活跃的 WebSocket 连接会自动延长 Service Worker 生命周期，配合每 20 秒一次轻量 PING 心跳，彻底突破 MV3 30 秒休眠限制。
+- **架构进化**：系统不再依赖过渡性的 Offscreen Document 跳板，由 Background Service Worker 原生运行 [`BackgroundWsBridgeClient`](../../robot-wxt/src/plugins/built-in/ws-bridge/ws-client.ts)。利用 Chrome 116+ 原生特性，活跃的 WebSocket 连接会自动延长 Service Worker 生命周期，配合每 20 秒一次轻量 PING 心跳，彻底突破 MV3 30 秒休眠限制。
 - **Sidepanel 存活毫秒级感知与未就绪拦截**：
   Sidepanel 挂载时通过 `browser.runtime.connect({ name: 'ws-bridge-sidepanel' })` 建立专有长连接通道。Background 监听 `port.onDisconnect`，在侧边栏关闭/卸载瞬间毫秒级感知，并立即调用 `failPendingSidepanelRequests` 快速失败未决请求，消除 15 秒超时盲区。
 - **可拔插与显式启停保护**：
@@ -307,7 +307,7 @@ sequenceDiagram
 
 本方案已在真实 Chrome 环境与自动化测试中得到全量验证：
 
-1. **双模式自适应切换**：支持默认的 11 工具全控制模式，以及专为减少大模型上下文开销打造的 3 核心工具子 Agent 模式（`--mode agent`）。
+1. **双模式自适应切换**：支持默认的 10 工具全控制模式，以及专为减少大模型上下文开销打造的 2 核心工具子 Agent 模式（`--mode agent`）。
 2. **多实例无缝切换**：在日常 Chrome 与 WXT Dev 浏览器之间点击切换窗口，CLI 请求均 100% 精准路由至当前处于激活状态的浏览器窗口。
 3. **端到端自动化完成**：成功通过标准 MCP Stdio Client 调度子代理自主执行“打开百度填充：我是超人”，端侧自主完成 A11y 树提取、输入框定位、文本填充与结果验证闭环。
 4. **安全与稳定性**：非法 Origin 拦截率 100%；未认证消息丢弃率 100%；Sidepanel 未打开时秒级（0ms）报错返回；全量单元测试（21 项 CLI 测试 + 405 项扩展测试）全部绿灯。
