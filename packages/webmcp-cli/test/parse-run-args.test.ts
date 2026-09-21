@@ -15,7 +15,7 @@ import { expandFileRefs } from '../src/expand-file-refs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const fixturesDir = resolve(__dirname, 'fixtures')
-const articlePath = resolve(fixturesDir, 'article.md')
+const articlePath = resolve(fixturesDir, 'article-parse.md')
 
 beforeAll(() => {
   mkdirSync(fixturesDir, { recursive: true })
@@ -24,7 +24,7 @@ beforeAll(() => {
 
 describe('parse-run-args', () => {
   it('bash brace expansion fragments', () => {
-    const raw = joinShellArgs(['title:"TinyVue Icon图标"', '"content":"@base64file:./test/fixtures/article.md"'])
+    const raw = joinShellArgs(['title:"TinyVue Icon图标"', '"content":"@base64file:./test/fixtures/article-parse.md"'])
     const normalized = normalizeShellDamagedJson(raw)
     const expanded = expandFileRefs(normalized, process.cwd())
     const obj = JSON5.parse(expanded) as { title?: string; content?: string }
@@ -59,7 +59,7 @@ describe('parse-run-args', () => {
   })
 
   it('missing comma between properties', () => {
-    const raw = '{title:"A" "content":"@base64file:./test/fixtures/article.md"}'
+    const raw = '{title:"A" "content":"@base64file:./test/fixtures/article-parse.md"}'
     const fixed = insertMissingCommas(raw)
     expect(fixed).toContain('"A","content"')
   })

@@ -8,6 +8,7 @@ dist
 build
 *.tsbuildinfo
 cache
+packages/webmcp-cli/test/fixtures
 
 # 编辑器
 .vscode/*

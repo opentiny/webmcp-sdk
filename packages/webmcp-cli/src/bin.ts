@@ -20,6 +20,28 @@ import {
 } from './commands/tabs'
 import packageJson from '../package.json'
 
+// ─── WXT 模式预检：在 Commander 解析前提取 --mode 参数 ──────────────────────
+// 支持：--mode wxt / --mode cdp / WEBMCP_MODE=wxt 环境变量
+function extractMode(argv: string[]): { mode: 'cdp' | 'wxt'; filteredArgv: string[] } {
+  let mode: 'cdp' | 'wxt' = (process.env.WEBMCP_MODE === 'wxt') ? 'wxt' : 'cdp'
+  const filteredArgv: string[] = []
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--mode' && argv[i + 1]) {
+      const val = argv[i + 1].toLowerCase()
+      if (val === 'wxt' || val === 'cdp') mode = val
+      i++ // 跳过值
+    } else if (argv[i].startsWith('--mode=')) {
+      const val = argv[i].split('=')[1]?.toLowerCase()
+      if (val === 'wxt' || val === 'cdp') mode = val
+    } else {
+      filteredArgv.push(argv[i])
+    }
+  }
+  return { mode, filteredArgv }
+}
+
+const { mode: CLI_MODE, filteredArgv: FILTERED_ARGV } = extractMode(process.argv)
+
 const program = new Command()
 
 function parseTabId(id?: string): string | undefined {
@@ -203,9 +225,13 @@ function handleCommandError(error: unknown, commandName: string, args?: any): ne
 
 program
   .name('webmcp-cli')
-  .description('WebMCP CLI for interacting with browser via CDP')
+  .description(
+    'WebMCP CLI — 支持两种浏览器连接模式：\n' +
+    '  --mode cdp（默认）: 基于 Puppeteer + CDP 直连浏览器（独立 profile）\n' +
+    '  --mode wxt        : 基于 WebSocket + Chrome 扩展桥接（复用用户数据）'
+  )
   .version(packageJson.version)
-  .option('-w, --workspace <path>', '指定自定义的浏览器工作空间（用户配置目录）路径')
+  .option('-w, --workspace <path>', '指定自定义的浏览器工作空间（用户配置目录）路径，仅 CDP 模式有效')
   .hook('preAction', (thisCommand) => {
     const opts = thisCommand.opts()
     if (opts.workspace) {
@@ -359,4 +385,192 @@ tabs
     }
   })
 
-program.parse(process.argv)
+// CDP 模式：mcp 子命令（以 MCP Server 方式启动，CDP 底层）
+program
+  .command('mcp')
+  .description('以标准 MCP Server 模式启动（stdio 传输，CDP 底层）。\n使用 --mode wxt mcp 切换到 WXT 桥接底层。')
+  .option('--agent', '以子代理模式启动（收敛工具为高层委托接口）')
+  .action(async (opts) => {
+    try {
+      const { startMcpServer } = await import('./mcp/server.js')
+      await startMcpServer({ mode: 'cdp', agentMode: opts.agent ? 'agent' : 'tools' })
+    } catch (error: unknown) {
+      handleCommandError(error, 'mcp', {})
+    }
+  })
+
+// ─── 模式路由 ────────────────────────────────────────────────────────────────
+if (CLI_MODE === 'wxt') {
+  // WXT 模式：路由到独立的 WXT 命令处理器
+  void handleWxtMode(FILTERED_ARGV.slice(2)).catch((error: unknown) => {
+    handleCommandError(error, `wxt:${FILTERED_ARGV[2] ?? 'help'}`, {})
+  })
+} else {
+  // CDP 模式（默认）：走 Commander 原有逻辑，完全向后兼容
+  program.parse(FILTERED_ARGV)
+}
+
+async function handleWxtMode(args: string[]): Promise<void> {
+  const command = args[0]
+
+  // 生命周期命令（无需 adapter）
+  if (command === 'daemon' || command === 'server') {
+    const { runDaemonProcess } = await import('./bridge/daemon.js')
+    await runDaemonProcess(args.slice(1))
+    return
+  }
+
+  if (command === 'stop') {
+    const { stopBridgeDaemon } = await import('./bridge/daemon.js')
+    const stopped = await stopBridgeDaemon()
+    console.log(stopped ? '✅ 已停止后台 WebSocket 桥接服务' : 'ℹ️ 当前没有运行中的后台桥接服务')
+    return
+  }
+
+  if (command === 'token') {
+    const subArgs = args.slice(1)
+    let wsPort: number | undefined
+    const cleanArgs: string[] = []
+    for (let i = 0; i < subArgs.length; i++) {
+      if ((subArgs[i] === '--ws-port' || subArgs[i] === '--port') && subArgs[i + 1]) {
+        wsPort = parseInt(subArgs[++i], 10) || undefined
+      } else {
+        cleanArgs.push(subArgs[i])
+      }
+    }
+
+    const action = cleanArgs[0]
+    let tokenToSet: string | undefined
+    if (action === 'set' && cleanArgs[1]) {
+      tokenToSet = cleanArgs[1].trim()
+    } else if (action && action !== 'get' && !action.startsWith('-')) {
+      tokenToSet = action.trim()
+    }
+
+    const { resolveOrCreateAuthToken } = await import('./bridge/bridge-client.js')
+    if (tokenToSet) {
+      resolveOrCreateAuthToken(tokenToSet)
+      console.log('✅ Token 已成功保存至 ~/.robot-wxt/bridge-token')
+      const { stopBridgeDaemon, ensureBridgeDaemon } = await import('./bridge/daemon.js')
+      await stopBridgeDaemon(wsPort)
+      await ensureBridgeDaemon({ token: tokenToSet, port: wsPort })
+      console.log('💡 后续所有 CLI 命令与 MCP 工具均将自动使用此凭据，无需重复输入。')
+      return
+    }
+
+    console.log(resolveOrCreateAuthToken())
+    return
+  }
+
+  if (command === 'mcp') {
+    // MCP Server 模式（WXT 底层）
+    const { startMcpServer } = await import('./mcp/server.js')
+    const isAgent = args.includes('--agent') || args.includes('--mode=agent')
+    const tokenIdx = args.indexOf('--token')
+    const token = tokenIdx !== -1 ? args[tokenIdx + 1] : undefined
+    const wsPortIdx = args.indexOf('--ws-port')
+    const wsPort = wsPortIdx !== -1 ? parseInt(args[wsPortIdx + 1], 10) || undefined : undefined
+    await startMcpServer({ mode: 'wxt', agentMode: isAgent ? 'agent' : 'tools', token, wsPort })
+    return
+  }
+
+  if (!command || command === '--help' || command === '-h') {
+    printWxtHelp()
+    return
+  }
+
+  // 需要 adapter 的命令：提取 token、ws-port、tab 等公共选项
+  let token: string | undefined
+  let wsPort: number | undefined
+  const commandArgs: string[] = []
+  for (let i = 1; i < args.length; i++) {
+    if (args[i] === '--token' && args[i + 1]) { token = args[++i] }
+    else if (args[i] === '--ws-port' && args[i + 1]) { wsPort = parseInt(args[++i], 10) || undefined }
+    else { commandArgs.push(args[i]) }
+  }
+
+  const { ensureBridgeDaemon } = await import('./bridge/daemon.js')
+  const isJson = commandArgs.includes('--json')
+  await ensureBridgeDaemon({ token, port: wsPort, silent: isJson })
+
+  const { WxtBrowserAdapter } = await import('./adapters/wxt-adapter.js')
+  const adapter = new WxtBrowserAdapter(token, wsPort)
+  await adapter.ensureConnected()
+
+  try {
+    switch (command) {
+      case 'state': {
+        const tabIdx = commandArgs.indexOf('--tab')
+        const tabId = tabIdx !== -1 ? commandArgs[tabIdx + 1] : undefined
+        const result = await adapter.getState(tabId ? parseInt(tabId, 10) : undefined)
+        console.log(JSON.stringify(result, null, 2))
+        break
+      }
+      case 'run': {
+        const toolName = commandArgs.find((a) => !a.startsWith('-'))
+        const argsStr = commandArgs.slice(commandArgs.indexOf(toolName!) + 1).find((a) => !a.startsWith('-'))
+        if (!toolName) { console.error('[错误] 请提供工具名称'); process.exit(1) }
+        const toolArgs = argsStr ? JSON.parse(argsStr) : {}
+        const result = await adapter.callTool(toolName, toolArgs)
+        console.log(JSON.stringify(result, null, 2))
+        break
+      }
+      case 'tabs': {
+        const tabAction = commandArgs[0] as 'open' | 'close' | 'switch' | 'back' | 'forward'
+        const tabArgs = commandArgs.slice(1)
+        const url = tabArgs.find((a) => a.startsWith('http'))
+        const tabIdVal = tabArgs.find((a) => !a.startsWith('-') && !a.startsWith('http'))
+        const result = await adapter.tabs(tabAction, {
+          url,
+          tabId: tabIdVal ? parseInt(tabIdVal, 10) : undefined
+        })
+        console.log(JSON.stringify(result, null, 2))
+        break
+      }
+      case 'agent': {
+        const { handleAgentCommand } = await import('./commands/agent.js')
+        await handleAgentCommand(adapter, commandArgs)
+        break
+      }
+      case 'skills':
+      case 'skill': {
+        const { handleSkillsCommand } = await import('./commands/skills.js')
+        await handleSkillsCommand(adapter, commandArgs)
+        break
+      }
+      default:
+        console.error(`[错误] WXT 模式下未知命令: ${command}`)
+        printWxtHelp()
+        process.exit(1)
+    }
+  } finally {
+    await adapter.dispose()
+  }
+}
+
+function printWxtHelp(): void {
+  console.log(`
+webmcp-cli --mode wxt — WXT 桥接模式（通过 Chrome 扩展连接，复用用户数据）
+
+命令：
+  state                   获取当前活跃 tab 信息与页面工具列表
+  run <tool> [args]       调用页面 WebMCP 工具
+  tabs <action> [...]     管理标签页（open/close/switch/back/forward）
+  agent run "<指令>"      委托 Tiny Robot 子代理自主执行高层任务
+  skills list             列出已注册的 Skills 技能
+  skills get <name>       读取指定技能的详细指令
+  token [get|set <t>]     查看或保存认证 Token
+  stop                    停止后台 WebSocket 桥接服务
+  mcp                     以 MCP Server 模式启动
+
+选项：
+  --token <token>         认证 Token（优先于 ~/.robot-wxt/bridge-token）
+  --ws-port <port>        WS 桥接端口（默认 18999）
+  --json                  输出 JSON 格式
+
+示例：
+  webmcp-cli --mode wxt state
+  webmcp-cli --mode wxt agent run "帮我把商品加入购物车"
+  webmcp-cli --mode wxt mcp --agent
+  `.trim())
+}

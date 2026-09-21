@@ -46,7 +46,10 @@ function findSkillRoot(pkgDir) {
 
 function removeDest(dest) {
   try {
-    fs.lstatSync(dest)
+    fs.unlinkSync(dest)
+    return
+  } catch {}
+  try {
     fs.rmSync(dest, { recursive: true, force: true })
   } catch {
     /* not exists */

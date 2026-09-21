@@ -1,6 +1,6 @@
 {
   "name": "@opentiny/webmcp-cli",
-  "version": "0.0.8",
+  "version": "0.0.9",
   "type": "module",
   "description": "WebMCP CLI for AI Agents to interact with browser via Puppeteer",
   "main": "dist/index.js",
@@ -38,6 +38,7 @@
   },
   "dependencies": {
     "@mcp-b/webmcp-polyfill": "catalog:",
+    "@modelcontextprotocol/sdk": "catalog:",
     "@opentiny/next-sdk": "workspace:^",
     "@page-agent/page-controller": "catalog:",
     "clipboardy": "^5.3.1",
@@ -45,10 +46,13 @@
     "json5": "^2.2.3",
     "marked": "^15.0.7",
     "picocolors": "^1.0.0",
-    "puppeteer-core": "^22.0.0"
+    "puppeteer-core": "^22.0.0",
+    "ws": "^8.18.0",
+    "zod": "^3.23.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "@types/ws": "^8.5.10",
     "esbuild": "^0.25.0",
     "tsup": "^8.0.2",
     "tsx": "^4.0.0",

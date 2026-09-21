@@ -19,6 +19,14 @@
     {
       "name": "next-sdk-page-agent",
       "path": "packages/next-sdk/skills/page-agent"
+    },
+    {
+      "name": "webmcp-cli-cdp",
+      "path": "packages/webmcp-cli-skill/cdp"
+    },
+    {
+      "name": "webmcp-cli-wxt",
+      "path": "packages/webmcp-cli-skill/wxt"
     }
   ]
 }
