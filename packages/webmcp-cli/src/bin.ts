@@ -402,7 +402,9 @@ program
 // ─── 模式路由 ────────────────────────────────────────────────────────────────
 if (CLI_MODE === 'wxt') {
   // WXT 模式：路由到独立的 WXT 命令处理器
-  void handleWxtMode(FILTERED_ARGV.slice(2))
+  void handleWxtMode(FILTERED_ARGV.slice(2)).catch((error: unknown) => {
+    handleCommandError(error, `wxt:${FILTERED_ARGV[2] ?? 'help'}`, {})
+  })
 } else {
   // CDP 模式（默认）：走 Commander 原有逻辑，完全向后兼容
   program.parse(FILTERED_ARGV)

@@ -206,9 +206,6 @@ webmcp-cli run create_article '{"title": "技术文章", "content": "@base64file
 ## 启动为标准 MCP 服务
 
 ```bash
-# 启动 MCP Server（stdio 传输）
+# 启动 MCP Server（stdio 传输，暴露原子工具）
 webmcp-cli mcp
-
-# 启动 MCP Server（子代理委托模式）
-webmcp-cli mcp --agent
 ```

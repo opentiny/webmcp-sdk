@@ -6,7 +6,7 @@
  *   webmcp-cli --mode wxt skills get <skillName>
  */
 
-import type { WxtBrowserAdapter } from '../../adapters/wxt-adapter.js'
+import type { WxtBrowserAdapter } from '../adapters/wxt-adapter.js'
 
 export async function handleSkillsCommand(adapter: WxtBrowserAdapter, args: string[]): Promise<void> {
   const subCommand = args[0]

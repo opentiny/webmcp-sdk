@@ -72,8 +72,8 @@ webmcp-cli --mode wxt stop
 # 委托扩展内的 Tiny Robot 自主执行
 webmcp-cli --mode wxt agent run "帮我把购物车中的第一个商品结算"
 
-# 实时流式输出子代理思考与执行过程
-webmcp-cli --mode wxt agent run --stream "搜索最新的 TinyVue 实战教程"
+# 限制最大步数自主执行
+webmcp-cli --mode wxt agent run --max-steps 10 "搜索最新的 TinyVue 实战教程"
 
 # 针对指定页签执行
 webmcp-cli --mode wxt agent run --tab 1024 "审批当前页面的加班申请，意见填同意"
@@ -183,6 +183,6 @@ webmcp-cli --mode wxt skills get price-protection
 # 细粒度操作工具暴露
 webmcp-cli --mode wxt mcp
 
-# 高层子代理委托工具暴露（仅暴露 browser_agent_run 工具，将任务托付给扩展）
+# 高层子代理委托模式（暴露 browser_state 与 browser_sub_agent_run 工具，将任务托付给扩展自主规划执行）
 webmcp-cli --mode wxt mcp --agent
 ```

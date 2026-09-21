@@ -183,4 +183,34 @@ describe('daemon unit tests', () => {
       }
     }
   })
+
+  it('复现：在 onlyVerified 模式下，对于无法确认归属的非守护进程不得误杀且返回 false', async () => {
+    const testPort = 19882
+    childProc = spawn(
+      process.execPath,
+      [
+        '-e',
+        `import('node:http').then(({ createServer }) => {
+          const s = createServer((req, res) => res.end('ok'))
+          s.listen(${testPort}, '127.0.0.1', () => {
+            setInterval(() => {}, 1000)
+          })
+        })`
+      ],
+      { stdio: 'ignore' }
+    )
+
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 100))
+      const pid = await findPidByPort(testPort)
+      if (pid) break
+    }
+
+    // 在 onlyVerified: true 模式下，由于不是受管 bridge-daemon 进程，必须拒绝误杀并返回 false
+    const stopped = await stopBridgeDaemon(testPort, { onlyVerified: true })
+    expect(stopped).toBe(false)
+    expect(isProcessAlive(childProc.pid!)).toBe(true)
+
+    childProc.kill('SIGKILL')
+  })
 })

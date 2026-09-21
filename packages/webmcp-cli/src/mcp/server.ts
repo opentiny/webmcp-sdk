@@ -17,6 +17,7 @@ import { McpServer, ResourceTemplate } from '@modelcontextprotocol/sdk/server/mc
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import type { CdpBrowserAdapter } from '../adapters/cdp-adapter.js'
 import type { WxtBrowserAdapter } from '../adapters/wxt-adapter.js'
+import packageJson from '../../package.json'
 import {
   BrowserStateInput,
   BrowserToolCallInput,
@@ -30,7 +31,7 @@ import {
 } from './tools.js'
 
 const SERVER_NAME = 'webmcp-cli'
-const SERVER_VERSION = '0.0.9'
+const SERVER_VERSION = packageJson.version || '0.0.9'
 
 export type McpMode = 'cdp' | 'wxt'
 export type McpAgentMode = 'tools' | 'agent'
@@ -54,6 +55,9 @@ export async function startMcpServer(options: McpServerOptions = {}): Promise<vo
   const server = new McpServer({ name: SERVER_NAME, version: SERVER_VERSION })
 
   if (mode === 'cdp') {
+    if (isAgentMode) {
+      throw new Error('--agent 子代理委托模式仅在 WXT 模式可用，请使用: webmcp-cli --mode wxt mcp --agent')
+    }
     await startCdpMcpServer(server, isAgentMode)
   } else {
     await startWxtMcpServer(server, isAgentMode, options)

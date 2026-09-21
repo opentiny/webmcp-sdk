@@ -163,15 +163,15 @@ export async function ensureBridgeDaemon(
   if (probe.running && !probe.authed) {
     if (!options.silent) {
       console.log(
-        `\x1b[33m[webmcp-cli]\x1b[0m 🔄 检测到后台桥接服务 Token 不匹配，正在自动停止旧服务并重启以应用新 Token...`
+        `\x1b[33m[webmcp-cli]\x1b[0m 🔄 检测到后台桥接服务 Token 不匹配，正在验证旧守护进程归属并尝试自动重启...`
       )
     }
-    const stopped = await stopBridgeDaemon(port)
+    const stopped = await stopBridgeDaemon(port, { onlyVerified: true })
     if (!stopped) {
       const killTip = getKillPortHint(port)
       throw new Error(
-        `本地 127.0.0.1:${port} 正在运行旧的桥接服务，但认证未通过（${probe.error || 'Token 不匹配'}）。\n` +
-          `自动停止旧服务失败，请手动终止占用该端口的进程（可执行: ${killTip}）。`
+        `本地 127.0.0.1:${port} 正在运行服务，但认证未通过（${probe.error || 'Token 不匹配'}）。\n` +
+          `未能确认该进程归属于受管的桥接守护进程，为安全起见已阻止自动强杀。请检查端口 ${port} 是否被其他应用占用，或手动终止（可执行: ${killTip}）。`
       )
     }
     await new Promise((r) => setTimeout(r, 400))
@@ -292,42 +292,105 @@ export async function runDaemonProcess(args: string[]): Promise<void> {
   setInterval(() => {}, 60_000)
 }
 
+/** 校验指定 PID 是否为合法的 WebMCP 桥接守护进程 */
+export async function isBridgeDaemonProcess(pid: number): Promise<boolean> {
+  if (!pid || pid <= 0 || !isProcessAlive(pid)) return false
+  try {
+    let cmd = ''
+    if (process.platform === 'win32') {
+      const { stdout } = await execAsync(
+        `powershell -NoProfile -Command "(Get-CimInstance Win32_Process -Filter \\"ProcessId = ${pid}\\").CommandLine"`
+      )
+      cmd = stdout.trim()
+    } else {
+      const { stdout } = await execAsync(`ps -p ${pid} -o command=`)
+      cmd = stdout.trim()
+    }
+    if (!cmd) return false
+    return (
+      (cmd.includes('webmcp-cli') || cmd.includes('bin.js') || cmd.includes('daemon.js')) &&
+      cmd.includes('daemon')
+    )
+  } catch {
+    return false
+  }
+}
+
 /** 停止后台运行的桥接服务 */
-export async function stopBridgeDaemon(port: number = WS_PORT): Promise<boolean> {
+export async function stopBridgeDaemon(
+  port: number = WS_PORT,
+  options: { onlyVerified?: boolean } = {}
+): Promise<boolean> {
+  const onlyVerified = options.onlyVerified ?? false
   let killedAny = false
 
-  // 1. 若停止的是默认守护进程端口且记录了 PID，先尝试根据 PID 关闭进程树
+  let daemonPid: number | null = null
   if (port === WS_PORT && fs.existsSync(PID_FILE)) {
     try {
       const pidStr = fs.readFileSync(PID_FILE, 'utf8').trim()
-      const pid = parseInt(pidStr, 10)
-      if (pid && isProcessAlive(pid)) {
-        const killed = await killProcessTree(pid)
-        if (killed) killedAny = true
+      const p = parseInt(pidStr, 10)
+      if (p && isProcessAlive(p)) {
+        daemonPid = p
       }
     } catch {
       // ignore
-    } finally {
+    }
+  }
+
+  // 1. 若仅允许终止已验证的守护进程（如自动拉起守护进程时的清理）：
+  if (onlyVerified) {
+    if (!daemonPid) {
+      // 未记录 PID 或记录的进程已不存活，无法确认归属，禁止强杀
+      return false
+    }
+
+    const isVerified = await isBridgeDaemonProcess(daemonPid)
+    if (!isVerified) {
+      // PID 进程未通过桥接守护进程身份校验，禁止强杀
+      return false
+    }
+
+    const portPid = await findPidByPort(port, process.pid)
+    if (portPid && portPid !== daemonPid) {
+      // 端口上的进程与受管守护进程 PID 不一致，说明被外部进程占用，禁止强杀
+      return false
+    }
+
+    const killed = await killProcessTree(daemonPid)
+    if (killed) killedAny = true
+
+    try {
+      if (fs.existsSync(PID_FILE)) fs.unlinkSync(PID_FILE)
+    } catch {
+      // ignore
+    }
+  } else {
+    // 普通停止模式（如用户显式执行 webmcp-cli stop）：
+    if (daemonPid) {
       try {
-        if (fs.existsSync(PID_FILE)) {
-          fs.unlinkSync(PID_FILE)
-        }
+        const killed = await killProcessTree(daemonPid)
+        if (killed) killedAny = true
       } catch {
         // ignore
+      } finally {
+        try {
+          if (fs.existsSync(PID_FILE)) fs.unlinkSync(PID_FILE)
+        } catch {
+          // ignore
+        }
+      }
+    }
+
+    const portPid = await findPidByPort(port, process.pid)
+    if (portPid) {
+      const killedByPort = await killProcessOnPort(port)
+      if (killedByPort) {
+        killedAny = true
       }
     }
   }
 
-  // 2. 检查端口是否有进程占用（包括旧常驻服务或僵死服务），按端口强杀释放
-  const portPid = await findPidByPort(port, process.pid)
-  if (portPid) {
-    const killedByPort = await killProcessOnPort(port)
-    if (killedByPort) {
-      killedAny = true
-    }
-  }
-
-  // 3. 循环确认端口是否已被释放（最多等待 2 秒）
+  // 循环确认端口是否已被释放（最多等待 2 秒）
   let portReleased = false
   for (let i = 0; i < 10; i++) {
     const remainingPid = await findPidByPort(port, process.pid)
@@ -338,7 +401,6 @@ export async function stopBridgeDaemon(port: number = WS_PORT): Promise<boolean>
     await new Promise((r) => setTimeout(r, 200))
   }
 
-  // 若端口未能成功释放，说明终止失败
   if (!portReleased) {
     return false
   }

@@ -6,7 +6,7 @@
  *   webmcp-cli --mode wxt agent run "搜索并收藏前3篇文章" --max-steps 10
  */
 
-import type { WxtBrowserAdapter } from '../../adapters/wxt-adapter.js'
+import type { WxtBrowserAdapter } from '../adapters/wxt-adapter.js'
 
 export async function handleAgentCommand(adapter: WxtBrowserAdapter, args: string[]): Promise<void> {
   const subCommand = args[0]

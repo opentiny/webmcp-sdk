@@ -65,12 +65,21 @@ function pickDirectoryMac(title: string, defaultPath?: string): Promise<string |
   })
 }
 
+/**
+ * 转义 PowerShell 双引号字符串中的特殊字符：
+ * PowerShell 双引号字符串使用反引号转义特殊字符（` -> ``, " -> `", $ -> `$）
+ */
+export function escapePowerShellString(str: string): string {
+  return str.replace(/`/g, '``').replace(/"/g, '`"').replace(/\$/g, '`$')
+}
+
 function pickDirectoryWindows(title: string, defaultPath?: string): Promise<string | null> {
   // 使用 IFileOpenDialog COM 接口（Windows Vista+ 原生文件夹选择器）。
   // 不能用 FolderBrowserDialog：Node.js 以 CREATE_NO_WINDOW 启动子进程时，
   // WinForms ShowDialog() 拿不到桌面上下文，对话框永久阻塞直到超时。
   // IFileOpenDialog 通过 Shell COM 调用，父窗口传 IntPtr.Zero 即可正常弹出。
-  const safeTitle = title.replace(/"/g, '\\"')
+  const safeTitle = escapePowerShellString(title)
+  const safeDefaultPath = escapePowerShellString(defaultPath ?? '')
 
   // 用内联 C# 通过 COM interop 调用 IFileOpenDialog，避免 WinForms 消息循环依赖
   const psScript = `
@@ -153,7 +162,7 @@ public static class FolderPicker {
 }
 '@
 Add-Type -TypeDefinition $code
-$result = [FolderPicker]::Pick("${safeTitle}", "${(defaultPath ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"')}")
+$result = [FolderPicker]::Pick("${safeTitle}", "${safeDefaultPath}")
 if ($result) { Write-Output $result }
 `
 
