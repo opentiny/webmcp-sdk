@@ -172,24 +172,6 @@ webmcp-cli --mode wxt skills list
 webmcp-cli --mode wxt skills get price-protection
 ```
 
----
-
-## 领域专用工具（`domains/`）
-
-在用户真实已登录的各大平台中，可以直接调用内置的领域工具：
-
-| 目标域名 | 注册工具 | 业务指引文档 |
-|---|---|---|
-| `juejin.cn` | `create_article`, `publish_current_draft` | [domains/publish-article-in-juejin.md](domains/publish-article-in-juejin.md) |
-| `editor.csdn.net` | `create_article`, `publish_current_draft` | [domains/publish-article-in-csdn.md](domains/publish-article-in-csdn.md) |
-| `my.oschina.net` | `create_article`, `publish_current_draft` | [domains/publish-article-in-oschina.md](domains/publish-article-in-oschina.md) |
-| `segmentfault.com` | `create_article`, `segmentfault_publish_article` | [domains/publish-article-in-segmentfault.md](domains/publish-article-in-segmentfault.md) |
-| `excalidraw.com` | `excalidraw_execute_command` | [domains/excalidraw.md](domains/excalidraw.md) |
-
-**调用示例（复用用户登录态发文）：**
-```bash
-webmcp-cli --mode wxt run create_article '{"title": "从零掌握 WebMCP", "content": "@base64file:./article.md"}'
-```
 
 ---
 
