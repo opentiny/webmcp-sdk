@@ -31,6 +31,57 @@ function shouldLaunchHeadless(): boolean {
   return process.env.WEBMCP_HEADLESS === '1' || process.env.CI === 'true' || process.env.CI === '1'
 }
 
+/** 仅 `WEBMCP_IGNORE_CERTIFICATE_ERRORS=1` 表示关闭受控浏览器的 HTTPS 证书校验。 */
+export function shouldIgnoreCertificateErrors(): boolean {
+  return process.env.WEBMCP_IGNORE_CERTIFICATE_ERRORS === '1'
+}
+
+export interface ChromeLaunchArgsInput {
+  cdpPort: number
+  userDataDir: string
+  headless: boolean
+  /** 缺省时读取 WEBMCP_IGNORE_CERTIFICATE_ERRORS */
+  ignoreCertificateErrors?: boolean
+}
+
+export function buildChromeLaunchArgs(input: ChromeLaunchArgsInput): string[] {
+  const launchArgs = [
+    `--remote-debugging-port=${input.cdpPort}`,
+    `--user-data-dir=${input.userDataDir}`,
+    '--no-first-run',
+    '--no-default-browser-check'
+  ]
+
+  if (input.headless) {
+    launchArgs.push(
+      '--headless=new',
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-gpu',
+      '--disable-dev-shm-usage'
+    )
+  }
+
+  const ignoreCertificateErrors = input.ignoreCertificateErrors ?? shouldIgnoreCertificateErrors()
+  if (ignoreCertificateErrors) {
+    launchArgs.push('--ignore-certificate-errors')
+  }
+
+  return launchArgs
+}
+
+export function buildPuppeteerConnectOptions(browserBaseUrl: string): {
+  browserURL: string
+  defaultViewport: null
+  ignoreHTTPSErrors?: boolean
+} {
+  return {
+    browserURL: browserBaseUrl,
+    defaultViewport: null,
+    ...(shouldIgnoreCertificateErrors() ? { ignoreHTTPSErrors: true as const } : {})
+  }
+}
+
 /**
  * 读取 Chrome 写入 user-data-dir 的 DevToolsActivePort 文件，获取该 profile 实际绑定的 CDP 端口。
  * 当默认 CDP 端口（9222，或 WEBMCP_CDP_PORT）被系统上其他工具占用时，Chrome 会静默切换到一个随机可用端口并记录在此文件中。
@@ -157,7 +208,7 @@ async function findAvailableCdpUrl(addresses: string[], retries = 2): Promise<st
 async function connectPuppeteer(browserBaseUrl: string, attempt = 1, maxAttempts = 3): Promise<Browser> {
   try {
     return await promiseWithTimeout(
-      puppeteer.connect({ browserURL: browserBaseUrl, defaultViewport: null }),
+      puppeteer.connect(buildPuppeteerConnectOptions(browserBaseUrl)),
       10000,
       `puppeteer.connect to ${browserBaseUrl} timed out`
     )
@@ -259,22 +310,11 @@ async function startBrowserInBackground(): Promise<string> {
   // 注：Chrome 136+ 已不再支持 `--remote-debugging-address` 指定绑定地址（安全加固后被忽略），
   // CDP 服务器固定绑定 "localhost" 解析出的回环地址，具体是 IPv4 还是 IPv6 由系统决定，
   // 因此不再传递该参数，探测阶段改为同时尝试 IPv4/IPv6/localhost 三种地址形式。
-  const launchArgs = [
-    `--remote-debugging-port=${cdpPort}`,
-    `--user-data-dir=${userDataDir}`,
-    '--no-first-run',
-    '--no-default-browser-check'
-  ]
-
-  if (shouldLaunchHeadless()) {
-    launchArgs.push(
-      '--headless=new',
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-gpu',
-      '--disable-dev-shm-usage'
-    )
-  }
+  const launchArgs = buildChromeLaunchArgs({
+    cdpPort,
+    userDataDir,
+    headless: shouldLaunchHeadless()
+  })
 
   const child = spawn(
     browserInfo.path,

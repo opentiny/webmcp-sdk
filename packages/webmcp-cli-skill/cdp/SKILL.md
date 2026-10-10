@@ -46,6 +46,12 @@ webmcp-cli tabs forward                        # 当前标签页前进
 webmcp-cli tabs forward <tabid>                # 指定标签页前进
 ```
 
+遇到 `net::ERR_CERT_*`（自签名、过期或主机名不匹配）时，加上全局参数 `--ignore-certificate-errors`，或设置 `WEBMCP_IGNORE_CERTIFICATE_ERRORS=1`。默认仍校验证书。该开关只对 CDP 模式拉起的受控浏览器生效，并保持到该浏览器进程退出。
+
+```bash
+webmcp-cli --ignore-certificate-errors tabs open https://self-signed.example
+```
+
 ### 2. 查询浏览器当前状态 `webmcp-cli state`
 
 返回当前活跃页签的**导航元数据**（URL、标题、所有打开页签、当前已注入的 `webmcpTools` 清单）。

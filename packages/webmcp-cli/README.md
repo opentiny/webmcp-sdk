@@ -44,6 +44,7 @@ CI 中浏览器任务使用 [browser-actions/setup-chrome](https://github.com/br
 
 全局命令为 **`webmcp-cli`**，支持全局参数：
 - `-w, --workspace <path>`: 指定自定义的浏览器工作空间（用户配置目录）路径。如果不传默认使用 `~/.webmcp_chrome_profile`。
+- `--ignore-certificate-errors`: 关闭受控 Chrome 的 HTTPS 证书校验，用于打开自签名、过期或主机名不匹配的站点。也可设置环境变量 `WEBMCP_IGNORE_CERTIFICATE_ERRORS=1`。默认仍校验证书。仅 CDP 模式有效。该设置作用于当前受控浏览器进程，直到进程退出；重启后需要再次传入。打开时会在 stderr 提示「当前受控浏览器已关闭 TLS 证书校验。」
 
 ---
 
