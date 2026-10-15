@@ -103,10 +103,13 @@ export class SimulatorMask extends EventTarget {
     try {
       const motion = new Motion({
         mode: isPageDark() ? 'dark' : 'light',
-        styles: { position: 'absolute', inset: '0' },
-        glowWidth: 80,
-        borderWidth: 8,
-        colors: ['rgb(121, 216, 247)', 'rgb(171, 219, 110)', 'rgb(252, 188, 114)', 'rgb(235, 117, 231)']
+        styles: {
+          position: 'fixed',
+          inset: '0'
+        },
+        colors: ['rgb(65, 205, 252)', 'rgb(137, 237, 24)', 'rgb(254, 76, 70)', 'rgb(240, 36, 233)'],
+        borderWidth: 8, // 边框厚度（默认：8）
+        glowWidth: 60 // 发光效果宽度（默认：200）
       })
       this.motion = motion
       this.wrapper.appendChild(motion.element)
@@ -255,7 +258,7 @@ export class SimulatorMask extends EventTarget {
 
     this.shown = true
     this.wrapper.classList.add('visible')
-    
+
     // 强制触发重排，确保 Canvas 容器有尺寸后再启动 WebGL 渲染
     void this.wrapper.offsetHeight
 
@@ -320,7 +323,7 @@ export class SimulatorMask extends EventTarget {
     el.style.zIndex = '10000'
     el.style.border = `${borderWidth}px solid transparent`
     // 对角渐变：左上 (0,0) → 右下 (1,1)
-    el.style.borderImageSource = 'linear-gradient(to bottom right, #79D8F7, #ABDB6E, #FCBC72, #FA8682, #EB75E7)'
+    el.style.borderImageSource = 'linear-gradient(to bottom right, #79D8F7, #A8DB6E, #FCBC72, #FA8682, #EB75E7)'
     el.style.borderImageSlice = '1'
     el.style.borderImageWidth = `${borderWidth}px`
 
