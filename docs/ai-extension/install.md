@@ -28,10 +28,3 @@
 ![加载已解压的扩展程序](../assets/images/extension/1.png)
 
 ### 步骤四：启动本地ci
-
-## 下一步
-
-- [模型设置](./model-config)：装完插件后第一件事，配置你要用的 AI 模型
-- [WebMCP管理](./webmcp-management)：学习如何把自己网站的功能暴露给 AI
-- [Skill管理](./skills)：学习如何给 AI 补充专业知识
-- [扩展与MCP](./extension-and-mcp)：想深入了解原理时阅读
