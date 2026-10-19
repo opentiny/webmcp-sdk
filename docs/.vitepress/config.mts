@@ -69,7 +69,7 @@ export default defineConfig({
         {
           text: 'TinyRobot AI助手',
           items: [
-            { text: '快速入门', link: '/ai-extension/introduce' },
+            { text: '快速入门', link: '/ai-extension/quick-start' },
             {
               text: '安装指南',
               link: '/ai-extension/install.md'
