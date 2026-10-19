@@ -47,3 +47,4 @@ packages/next-wiki/doc/.vitepress/cache
 .claude
 .cursor
 .agent
+docs/.vitepress/.temp

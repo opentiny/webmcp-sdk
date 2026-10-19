@@ -72,14 +72,14 @@ export default defineConfig({
             { text: '快速入门', link: '/ai-extension/quick-start' },
             {
               text: '安装指南',
-              link: '/ai-extension/install.md'
+              link: '/ai-extension/install'
             },
             {
               text: '使用指南',
               items: [
-                { text: '界面说明', link: '/ai-extension/introduce' },
-                { text: '注册与登录', link: '/ai-extension/introduce' },
-                { text: '扩展与MCP', link: '/ai-extension/introduce' }
+                { text: '界面说明', link: '/ai-extension/usage/ui-overview' },
+                { text: '注册与登录', link: '/ai-extension/usage/register-login' },
+                { text: '扩展与MCP', link: '/ai-extension/usage/extension-and-mcp' }
               ]
             },
             {
@@ -87,22 +87,22 @@ export default defineConfig({
               items: [
                 {
                   text: '功能管理',
-                  link: '/ai-extension/introduce',
+                  link: '/ai-extension/setting/plugin-config',
                   collapsed: true,
                   items: [
-                    { text: '内置功能', link: '/ai-extension/introduce' },
-                    { text: '右键 AI 总结', link: '/ai-extension/introduce' },
-                    { text: 'DOM 元素选取', link: '/ai-extension/introduce' },
-                    { text: '内容助手', link: '/ai-extension/introduce' },
-                    { text: 'CLI WebSocket 桥接', link: '/ai-extension/introduce' },
-                    { text: '导出为 Markdown', link: '/ai-extension/introduce' }
+                    { text: '内置功能', link: '/ai-extension/setting/plugins/feature-built-in' },
+                    { text: '右键 AI 总结', link: '/ai-extension/setting/plugins/feature-ai-summary' },
+                    { text: 'DOM 元素选取', link: '/ai-extension/setting/plugins/feature-dom-inspect' },
+                    { text: '内容助手', link: '/ai-extension/setting/plugins/feature-content-assistant' },
+                    { text: 'CLI WebSocket 桥接', link: '/ai-extension/setting/plugins/feature-cli-bridge' },
+                    { text: '导出为 Markdown', link: '/ai-extension/setting/plugins/feature-export-markdown' }
                   ]
                 },
-                { text: '模型设置', link: '/ai-extension/introduce' },
-                { text: '悬浮球设置', link: '/ai-extension/introduce' },
-                { text: 'Skill管理', link: '/ai-extension/introduce' },
-                { text: 'WebMCP管理', link: '/ai-extension/introduce' },
-                { text: '数据管理', link: '/ai-extension/introduce' }
+                { text: '模型设置', link: '/ai-extension/setting/model-config' },
+                { text: '悬浮球设置', link: '/ai-extension/setting/floating-ui-config' },
+                { text: 'Skill管理', link: '/ai-extension/setting/skills-config' },
+                { text: 'WebMCP管理', link: '/ai-extension/setting/webmcp-config' },
+                { text: '数据管理', link: '/ai-extension/setting/data-config' }
               ]
             }
           ]
