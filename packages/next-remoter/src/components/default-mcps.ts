@@ -2,7 +2,7 @@ import { PluginInfo } from '@opentiny/tiny-robot'
 
 const mcpHost = 'https://agent.opentiny.design'
 
-export const DEFAULT_SERVERS: PluginInfo[] = [
+export const DEFAULT_SERVERS: (PluginInfo & { url?: string; type?: string })[] = [
   {
     id: '12306-mcp',
     name: '12306服务器',

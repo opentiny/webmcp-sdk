@@ -39,7 +39,7 @@ const normalizeMcpConfig = (config: any): McpServerConfig | null => {
     return null
   }
 
-  const { type, url, sessionId, headers } = config
+  const { type, url, sessionId: _sessionId, headers } = config
 
   // streamableHttp 或 sse 类型
   if (type === 'streamableHttp' || type === 'sse') {

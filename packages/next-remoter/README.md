@@ -14,6 +14,14 @@
 - 🎪 **生成式 UI**：支持生成式 UI 渲染（可选）
 - 🌐 **国际化支持**：支持中英文切换
 
+## 🌟 全新架构：全面集成 TinyRobot Chat 套件
+
+在最新版本中，`@opentiny/next-remoter` 实现了深度架构重构，最大限度集成 `@opentiny/tiny-robot-chat` 官方 Chat 套件：
+- **薄适配层设计**：`next-remoter` 彻底退化为桥接适配层（源码从 850+ 行精简至 300 行以内，核心包构建产物仅 40KB），UI 容器、消息气泡、滚动逻辑与布局由套件原生接管。
+- **原生思考过程与工具调用**：无需额外手动渲染，标准 `reasoning_content`（思维链）自动呈现为可折叠面板，`tool_calls` 原生呈现状态卡片。
+- **开箱即用拦截与流式桥接**：内置 `beforeSend` 无缝拦截 `/abc123` 遥控识别码，标准 `AsyncGenerator<ChatCompletion>` 桥接 next-sdk Agent 流式数据。
+- **变更与兼容性**：详细的 API 变动对比与废弃项说明请查阅 [API 变更登记表](specs/REQ-20261019-remoter-chat-suite/design.md)。
+
 ## 📦 安装
 
 ```bash

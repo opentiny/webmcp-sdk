@@ -52,7 +52,7 @@ export async function useBuiltinMcpServer(
 
   const result = await agent.insertMcpServer(serverName, {
     type: 'builtin',
-    client
+    client: client as any
   })
 
   return !!result

@@ -18,7 +18,7 @@
     >
       <template #welcome v-if="welcomeTitle">
         <div style="flex: 1">
-          <tr-welcome :title="welcomeTitle" :description="welcomeDesc" :icon="robotRef?.welcomeIcon"> </tr-welcome>
+          <tr-welcome :title="welcomeTitle" :description="welcomeDesc || ''"> </tr-welcome>
           <tr-prompts :items="promptItems" :wrap="true" class="tiny-prompts" item-class="prompt-item"></tr-prompts>
         </div>
       </template>

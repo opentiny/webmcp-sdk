@@ -10,8 +10,6 @@ declare module 'vue' {
     BubbleImageRenderer: typeof import('./src/components/BubbleImageRenderer.vue')['default']
     Button: typeof import('./src/components/Button.vue')['default']
     GenUISwitch: typeof import('./src/components/GenUISwitch.vue')['default']
-    ModelSwitch: typeof import('./src/components/ModelSwitch.vue')['default']
-    PluginToggleButton: typeof import('./src/components/PluginToggleButton.vue')['default']
     QrCodeScan: typeof import('./src/components/QrCodeScan.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
