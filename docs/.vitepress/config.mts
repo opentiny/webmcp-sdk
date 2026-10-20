@@ -107,7 +107,10 @@ export default defineConfig({
             },
             {
               text: '实践案例',
-              items: [{ text: '发布掘金文章', link: '/ai-extension/examples/juejin' }]
+              items: [
+                { text: '发布掘金文章', link: '/ai-extension/examples/juejin' },
+                { text: '辅助前端开发', link: '/ai-extension/examples/fe-helper' }
+              ]
             }
           ]
         }
