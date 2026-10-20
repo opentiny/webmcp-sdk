@@ -104,6 +104,10 @@ export default defineConfig({
                 { text: 'WebMCP管理', link: '/ai-extension/setting/webmcp-config' },
                 { text: '数据管理', link: '/ai-extension/setting/data-config' }
               ]
+            },
+            {
+              text: '实践案例',
+              items: [{ text: '发布掘金文章', link: '/ai-extension/examples/juejin' }]
             }
           ]
         }
