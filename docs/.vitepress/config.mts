@@ -21,51 +21,51 @@ export default defineConfig({
     },
     sidebar: {
       '/': [
-        // {
-        //   text: '介绍',
-        //   items: [
-        //     { text: '快速开始', link: '/guide/quick-start' },
-        //     { text: 'WebMCP API 文档', link: '/guide/webmcp-article' },
-        //     { text: '适配场景 与 FAQ', link: '/guide/choose-scene' }
-        //   ]
-        // },
-        // {
-        //   text: 'WebMCP-SDKs API',
-        //   items: [
-        //     { text: '全局 API', link: '/webmcp-sdk/global-tools' },
-        //     { text: 'registerPageAgentTool 函数', link: '/webmcp-sdk/page-agent-tool' },
-        //     { text: 'enableInspectAssist 函数', link: '/webmcp-sdk/inspect-assist' },
-        //     { text: 'WebMcpServer 类', link: '/webmcp-sdk/webmcp-server' },
-        //     { text: 'WebMcpClient 类', link: '/webmcp-sdk/webmcp-client' },
-        //     { text: 'createRemoter 函数', link: '/webmcp-sdk/create-remoter' }
-        //   ]
-        // },
-        // {
-        //   text: 'TinyRemoter 组件',
-        //   items: [
-        //     { text: '基本用法', link: '/remoter/basic' },
-        //     { text: '自定义LLM大模型指南', link: '/remoter/custom-llm' },
-        //     { text: '远程遥控模式指南', link: '/remoter/remoter-mode' },
-        //     { text: 'Mcp Server与工具指南', link: '/remoter/mcp-server-tool' },
-        //     { text: 'Skills 技能配置指南', link: '/remoter/skills' }
-        //   ]
-        // },
-        // {
-        //   text: 'WebMCP&WebSkills 最佳实践',
-        //   items: [
-        //     { text: '总览', link: '/best-practice/introduce' },
-        //     { text: 'Vue 工程最佳实践', link: '/best-practice/vue-practice' },
-        //     { text: 'Angular 工程最佳实践', link: '/best-practice/angular-practice' },
-        //     { text: 'React 工程最佳实践', link: '/best-practice/react-practice' }
-        //   ]
-        // },
-        // {
-        //   text: 'WebMCP CLI & Skill',
-        //   items: [
-        //     { text: 'CLI 使用指南', link: '/webmcp-cli/webmcp-cli' },
-        //     { text: 'Skill 使用指南', link: '/webmcp-cli/webmcp-cli-skill' }
-        //   ]
-        // },
+        {
+          text: '介绍',
+          items: [
+            { text: '快速开始', link: '/guide/quick-start' },
+            { text: 'WebMCP API 文档', link: '/guide/webmcp-article' },
+            { text: '适配场景 与 FAQ', link: '/guide/choose-scene' }
+          ]
+        },
+        {
+          text: 'WebMCP-SDKs API',
+          items: [
+            { text: '全局 API', link: '/webmcp-sdk/global-tools' },
+            { text: 'registerPageAgentTool 函数', link: '/webmcp-sdk/page-agent-tool' },
+            { text: 'enableInspectAssist 函数', link: '/webmcp-sdk/inspect-assist' },
+            { text: 'WebMcpServer 类', link: '/webmcp-sdk/webmcp-server' },
+            { text: 'WebMcpClient 类', link: '/webmcp-sdk/webmcp-client' },
+            { text: 'createRemoter 函数', link: '/webmcp-sdk/create-remoter' }
+          ]
+        },
+        {
+          text: 'TinyRemoter 组件',
+          items: [
+            { text: '基本用法', link: '/remoter/basic' },
+            { text: '自定义LLM大模型指南', link: '/remoter/custom-llm' },
+            { text: '远程遥控模式指南', link: '/remoter/remoter-mode' },
+            { text: 'Mcp Server与工具指南', link: '/remoter/mcp-server-tool' },
+            { text: 'Skills 技能配置指南', link: '/remoter/skills' }
+          ]
+        },
+        {
+          text: 'WebMCP&WebSkills 最佳实践',
+          items: [
+            { text: '总览', link: '/best-practice/introduce' },
+            { text: 'Vue 工程最佳实践', link: '/best-practice/vue-practice' },
+            { text: 'Angular 工程最佳实践', link: '/best-practice/angular-practice' },
+            { text: 'React 工程最佳实践', link: '/best-practice/react-practice' }
+          ]
+        },
+        {
+          text: 'WebMCP CLI & Skill',
+          items: [
+            { text: 'CLI 使用指南', link: '/webmcp-cli/webmcp-cli' },
+            { text: 'Skill 使用指南', link: '/webmcp-cli/webmcp-cli-skill' }
+          ]
+        },
         {
           text: 'TinyRobot AI助手',
           items: [
