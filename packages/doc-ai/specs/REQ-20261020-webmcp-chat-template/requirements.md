@@ -33,13 +33,14 @@ doc-ai 示例的开发者：在业务页用 `registerTool` 暴露页面工具后
 - doc-ai 右侧面板改为该模板，移除对 `@opentiny/next-remoter` 的依赖
 - 对话结束时继续派发 `page-agent-chat-end`，以便收起 page-agent 遮罩
 - 界面使用 `TrChat` 原生布局，模板不自定义欢迎卡片、快捷指令、复制或头部插槽
-- 技能走套件 `skillPlugin`（`select_skills`），不在模板里再注册 `get_skill_content`
+- 技能走套件 `skillPlugin`（`select_skills`）。`SKILL.md` 用 kit 的 `loadSkill` 解析，模板不使用 next-sdk 的 `parseSkillFrontMatter` / `get_skill_content`
+- 价保页 `add_price_protection` 去掉 `isSkillRead` 与 `get_skill_content` 门禁。业务规则改由已选中技能的 instructions 约束
 
 ### Out of Scope
 
-- 不修改 `@opentiny/next-sdk` / `@opentiny/next-remoter` 的公开 API
+- 不修改 `@opentiny/next-remoter` 的公开 API。WebMCP 适配器见 `packages/next-sdk/specs/REQ-20261021-webmcp-tool-adapter`
 - 不做扫码、识别码、远程遥控菜单
-- 不改各业务页已注册的工具 schema
+- 除价保创建工具的技能门禁外，不改各业务页已注册的工具 schema
 
 ## 用户故事与验收标准
 

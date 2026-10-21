@@ -7,6 +7,9 @@
   - 测试：doc-ai 无 Vitest。以 `vue-tsc --noEmit` 做类型检查，并在浏览器确认面板渲染
 - [x] Task 2: `App.vue` 改用模板，去掉 Remoter；更新依赖与首页文案
 - [x] Task 3: 去掉自定义插槽，技能改为套件 `skillPlugin`
+- [x] Task 4: 技能解析改用 `loadSkill`，价保创建工具去掉 `get_skill_content` 门禁
+  - 产物：`WebMcpChat.vue`、`views/price-protection/index.vue`
+  - [x] 测试：`packages/doc-ai/test/webmcp-chat-template.test.mjs`
   - 产物：`WebMcpChat.vue`、`App.vue`
   - 测试：浏览器确认原生 `TrChat` 渲染，MCP 列表含页面工具，技能由套件选择
   - 产物：`App.vue`、`main.ts`、`package.json`、`views/home/index.vue`
