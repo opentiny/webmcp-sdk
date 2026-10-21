@@ -91,7 +91,6 @@ export default defineConfig({
                   collapsed: true,
                   items: [
                     { text: '内置功能', link: '/ai-extension/setting/plugins/feature-built-in' },
-                    { text: '右键 AI 总结', link: '/ai-extension/setting/plugins/feature-ai-summary' },
                     { text: 'DOM 元素选取', link: '/ai-extension/setting/plugins/feature-dom-inspect' },
                     { text: '内容助手', link: '/ai-extension/setting/plugins/feature-content-assistant' },
                     { text: 'CLI WebSocket 桥接', link: '/ai-extension/setting/plugins/feature-cli-bridge' },
@@ -102,7 +101,8 @@ export default defineConfig({
                 { text: '悬浮球设置', link: '/ai-extension/setting/floating-ui-config' },
                 { text: 'Skill管理', link: '/ai-extension/setting/skills-config' },
                 { text: 'WebMCP管理', link: '/ai-extension/setting/webmcp-config' },
-                { text: '数据管理', link: '/ai-extension/setting/data-config' }
+                { text: '数据管理', link: '/ai-extension/setting/data-config' },
+                { text: '安全护栏', link: '/ai-extension/setting/guardrails' }
               ]
             },
             {
