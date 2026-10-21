@@ -102,7 +102,7 @@ export default defineConfig({
                 { text: 'Skill管理', link: '/ai-extension/setting/skills-config' },
                 { text: 'WebMCP管理', link: '/ai-extension/setting/webmcp-config' },
                 { text: '数据管理', link: '/ai-extension/setting/data-config' },
-                { text: '安全护栏', link: '/ai-extension/setting/guardrails' }
+                { text: '安全护栏', link: '/ai-extension/setting/guardrails-config' }
               ]
             },
             {
