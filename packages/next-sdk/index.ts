@@ -30,6 +30,26 @@ export { AgentModelProvider } from './agent/AgentModelProvider'
 // 快速 从官方 mcp 或 WebMcpClient 这2种client中， 抽取成 ai-sdk 所需要的 tool的对象
 export { getAISDKTools } from './agent/utils/getAISDKTools'
 
+// document.modelContext → MCP tools/list+call，以及 Chat 套件 mcp 适配器
+export {
+  createWebMcpToolAdapter,
+  normalizeWebMcpInputSchema,
+  readWebMcpToolText
+} from './agent/webmcp-tool-adapter'
+export type {
+  CreateWebMcpToolAdapterOptions,
+  WebMcpChatAdapterBridge,
+  WebMcpChatMcpAdapter,
+  WebMcpChatServerState,
+  WebMcpChatToolDefinition,
+  WebMcpChatToolState,
+  WebMcpListedTool,
+  WebMcpModelContext,
+  WebMcpStateBox,
+  WebMcpToolAdapter,
+  WebMcpToolDescriptor
+} from './agent/webmcp-tool-adapter'
+
 // 方便的二维码类
 export { QrCode, type QrCodeOption } from './remoter/QrCode'
 export type * from './agent/type'

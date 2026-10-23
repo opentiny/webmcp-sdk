@@ -10,8 +10,11 @@
   },
   "dependencies": {
     "@types/markdown-it": "catalog:",
-    "@opentiny/next-remoter": "workspace:*",
     "@opentiny/next-sdk": "workspace:*",
+    "@opentiny/tiny-robot": "1.0.0-rc.2",
+    "@opentiny/tiny-robot-chat": "1.0.0-rc.2",
+    "@opentiny/tiny-robot-kit": "1.0.0-rc.2",
+    "dompurify": "^3.3.1",
     "@opentiny/vue": "catalog:",
     "@opentiny/vue-huicharts": "catalog:",
     "@opentiny/vue-icon": "catalog:",
