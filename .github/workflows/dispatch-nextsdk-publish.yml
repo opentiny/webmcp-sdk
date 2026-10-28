@@ -27,6 +27,9 @@ jobs:
   build:
     # 指定运行环境为最新版本的ubuntu
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     steps:
       # 步骤1: 检出代码
       - name: CheckOut Code
@@ -42,7 +45,7 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 20 # 使用Node.js 20版本
+          node-version: 24 # OIDC 需要 Node >=22.14.0 和 npm >=11.5.1
           registry-url: 'https://registry.npmjs.org' # 设置npm registry地址
 
       # 步骤4: 获取pnpm缓存目录路径
@@ -72,6 +75,3 @@ jobs:
       # 步骤8: 发布组件到NPM
       - name: Publish NextSDK
         run: pnpm -F @opentiny/next-sdk publish --tag ${{ inputs.tag }} --no-git-checks
-        env:
-          # 使用NPM令牌进行身份验证
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_OPENTINY_NEXTSDK_TOKEN }}
