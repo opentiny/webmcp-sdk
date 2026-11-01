@@ -64,10 +64,10 @@ jobs:
 
       # 步骤8: 发布组件到NPM
       - name: Publish NextSDK
-        run: pnpm -F @opentiny/next-sdk publish --no-git-checks
+        run: pnpm -F @opentiny/next-sdk publish --tag alpha --no-git-checks
 
       - name: Publish Remoter
-        run: pnpm -F @opentiny/next-remoter publish --no-git-checks
+        run: pnpm -F @opentiny/next-remoter publish --tag alpha --no-git-checks
 
       # 步骤9: 发布组件到GitHub Release
       - name: Release
@@ -75,5 +75,6 @@ jobs:
         with:
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
+          prerelease: true
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
