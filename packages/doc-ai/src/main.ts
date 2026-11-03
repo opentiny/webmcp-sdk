@@ -2,6 +2,8 @@ import { createApp } from 'vue'
 import router from './router'
 import App from './App.vue'
 import './style.css'
+import '@opentiny/tiny-robot/dist/style.css'
+import '@opentiny/tiny-robot-chat/dist/style.css'
 import { registerPageAgentTool } from '@opentiny/next-sdk'
 import { enableInspectAssist } from '@opentiny/next-sdk/dev'
 

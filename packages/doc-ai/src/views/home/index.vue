@@ -38,7 +38,7 @@
         <p>本项目展示了如何将 <strong>webSkills</strong> 与 <strong>webMCP</strong> 集成到业务系统中：</p>
         <ul>
           <li><strong>左侧系统视图：</strong>标准的Vue + TinyVue业务系统，包含数据列表与操作。</li>
-          <li><strong>右侧 AI 助手：</strong>基于 TinyRobot 开发的终端，内置了电商相关的业务技能 (skills)。</li>
+          <li><strong>右侧 AI 助手：</strong>TinyRobot Chat 套件，对接当前页面注册的 WebMCP 工具。</li>
         </ul>
         <p><strong>💡 试试在右侧对AI说：</strong></p>
         <div class="prompt-chips">

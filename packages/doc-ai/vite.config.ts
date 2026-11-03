@@ -39,6 +39,12 @@ export default defineConfig(() => {
       port: 8089,
       host: true,
       proxy: {
+        // 与 web-agent-copy 的 robot-client 相同：浏览器只打同源，由开发服务器转发大模型接口
+        '/api/v1/llm': {
+          target: 'https://chat.bytedev.site',
+          changeOrigin: true,
+          secure: false
+        },
         '/api': {
           target: 'https://agent.opentiny.design',
           changeOrigin: true
