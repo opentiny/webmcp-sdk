@@ -5,10 +5,11 @@
   "homepage": "https://docs.opentiny.design/next-sdk/guide/",
   "repository": {
     "type": "git",
-    "url": "git@github.com:opentiny/next-sdk.git"
+    "url": "git+https://github.com/opentiny/webmcp-sdk.git",
+    "directory": "packages/next-sdk"
   },
   "bugs": {
-    "url": "https://github.com/opentiny/next-sdk/issues"
+    "url": "https://github.com/opentiny/webmcp-sdk/issues"
   },
   "keywords": [
     "next-sdk",
