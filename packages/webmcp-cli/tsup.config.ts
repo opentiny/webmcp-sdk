@@ -9,6 +9,7 @@ export default defineConfig([
     splitting: false,
     sourcemap: true,
     clean: true,
+    external: ['node-pty'],
   },
   // bin.ts：纯 CLI 入口，不需要类型声明，避免 tsc worker OOM
   {
@@ -18,5 +19,6 @@ export default defineConfig([
     splitting: false,
     sourcemap: true,
     clean: false,
+    external: ['node-pty'],
   },
 ])

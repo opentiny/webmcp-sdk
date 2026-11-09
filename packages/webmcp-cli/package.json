@@ -54,6 +54,7 @@
     "execa": "^9.6.1",
     "json5": "^2.2.3",
     "marked": "^15.0.7",
+    "node-pty": "^1.1.0",
     "picocolors": "^1.0.0",
     "puppeteer-core": "^22.0.0",
     "ws": "^8.18.0",

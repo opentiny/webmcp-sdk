@@ -1,4 +1,8 @@
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
+import { chmodSync, existsSync } from 'node:fs'
+import { createRequire } from 'node:module'
+import path from 'node:path'
+import { constants } from 'node:os'
+import { spawn, type IPty } from 'node-pty'
 import { resolveShell } from './bash-executor.js'
 
 export interface HostPtyExit {
@@ -21,128 +25,57 @@ export interface SpawnHostPtyOptions {
   shell?: string
 }
 
-const PTY_HELPER = `
-import errno, fcntl, json, os, pty, select, signal, struct, sys, termios
+function interactiveArgs(shell: string): string[] {
+  if (process.platform !== 'win32') return ['-i']
+  const base = path.basename(shell).toLowerCase()
+  if (base === 'powershell.exe' || base === 'pwsh.exe') return ['-NoLogo']
+  if (base === 'cmd.exe') return []
+  return ['-i']
+}
 
-shell = os.environ.get("TERMINAL_SHELL") or "/bin/bash"
-rows = int(os.environ.get("TERMINAL_ROWS") or "24")
-cols = int(os.environ.get("TERMINAL_COLS") or "80")
-control_fd = 3
+function ptyEnvironment(): Record<string, string> {
+  const env: Record<string, string> = {}
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== undefined) env[key] = value
+  }
+  env.TERM = 'xterm-256color'
+  return env
+}
 
-def set_winsize(fd, next_rows, next_cols):
-    winsize = struct.pack("HHHH", int(next_rows), int(next_cols), 0, 0)
-    fcntl.ioctl(fd, termios.TIOCSWINSZ, winsize)
+function ensureSpawnHelper(): void {
+  if (process.platform === 'win32') return
+  try {
+    const pkgJson = createRequire(import.meta.url).resolve('node-pty/package.json')
+    const helper = path.join(
+      path.dirname(pkgJson),
+      'prebuilds',
+      `${process.platform}-${process.arch}`,
+      'spawn-helper'
+    )
+    // 发布包里的 spawn-helper 是 0644，posix_spawnp 会直接失败
+    if (existsSync(helper)) chmodSync(helper, 0o755)
+  } catch {
+    // 找不到预编译文件时，交给后面的 spawn 报出启动失败
+  }
+}
 
-pid, master = pty.fork()
-if pid == 0:
-    try:
-        os.close(control_fd)
-    except OSError:
-        pass
-    os.environ["TERM"] = "xterm-256color"
-    try:
-        os.execvp(shell, [shell, "-i"])
-    except OSError:
-        os._exit(127)
-
-def control_loop():
-    try:
-        reader = os.fdopen(control_fd, "r", buffering=1, encoding="utf-8", errors="replace")
-    except OSError:
-        return
-    for line in reader:
-        text = line.strip()
-        if not text:
-            continue
-        try:
-            msg = json.loads(text)
-        except json.JSONDecodeError:
-            continue
-        kind = msg.get("type")
-        if kind == "resize":
-            try:
-                set_winsize(master, msg.get("rows") or rows, msg.get("cols") or cols)
-                os.kill(pid, signal.SIGWINCH)
-            except OSError:
-                pass
-        elif kind == "kill":
-            try:
-                os.kill(pid, signal.SIGHUP)
-            except OSError:
-                pass
-            os._exit(0)
-
-import threading
-threading.Thread(target=control_loop, daemon=True).start()
-
-try:
-    set_winsize(master, rows, cols)
-except OSError:
-    pass
-
-stdin_fd = sys.stdin.fileno()
-stdout_fd = sys.stdout.fileno()
-
-while True:
-    try:
-        readable, _, _ = select.select([master, stdin_fd], [], [])
-    except InterruptedError:
-        continue
-    if master in readable:
-        try:
-            data = os.read(master, 65536)
-        except OSError as err:
-            if err.errno == errno.EIO:
-                break
-            raise
-        if not data:
-            break
-        os.write(stdout_fd, data)
-    if stdin_fd in readable:
-        try:
-            data = os.read(stdin_fd, 65536)
-        except OSError:
-            break
-        if not data:
-            break
-        try:
-            os.write(master, data)
-        except OSError:
-            break
-
-try:
-    _, status = os.waitpid(pid, 0)
-except ChildProcessError:
-    status = 0
-code = os.waitstatus_to_exitcode(status)
-os._exit(0 if code < 0 else code)
-`
+function signalName(code: number | undefined): string | null {
+  if (!code) return null
+  for (const [name, value] of Object.entries(constants.signals)) {
+    if (value === code) return name
+  }
+  return String(code)
+}
 
 export function spawnHostPty(options: SpawnHostPtyOptions): HostPty {
-  if (process.platform === 'win32') {
-    throw new Error('当前平台暂不支持交互式终端')
-  }
-
+  ensureSpawnHelper()
   const shell = options.shell || resolveShell()
-  const child = spawn('python3', ['-u', '-c', PTY_HELPER], {
-    cwd: options.cwd,
-    env: {
-      ...process.env,
-      TERM: 'xterm-256color',
-      TERMINAL_SHELL: shell,
-      TERMINAL_ROWS: String(options.rows),
-      TERMINAL_COLS: String(options.cols)
-    },
-    stdio: ['pipe', 'pipe', 'pipe', 'pipe']
-  }) as ChildProcessWithoutNullStreams
-
   const pending: string[] = []
   let dataCb: ((data: string) => void) | null = null
   let exitCb: ((info: HostPtyExit) => void) | null = null
   let pendingExit: HostPtyExit | null = null
   let settled = false
-  const decoder = new TextDecoder('utf-8', { fatal: false })
-  let stderrText = ''
+  let term: IPty | null = null
 
   const emitData = (data: string) => {
     if (!data) return
@@ -153,52 +86,46 @@ export function spawnHostPty(options: SpawnHostPtyOptions): HostPty {
   const finish = (info: HostPtyExit) => {
     if (settled) return
     settled = true
-    if (stderrText.trim()) emitData(`\r\n${stderrText.trim()}\r\n`)
     if (exitCb) exitCb(info)
     else pendingExit = info
   }
 
-  child.stdout.on('data', (buf: Buffer) => {
-    emitData(decoder.decode(buf, { stream: true }))
-  })
-  child.stderr.on('data', (buf: Buffer) => {
-    stderrText += buf.toString('utf8')
-  })
-  child.on('error', (err) => {
-    emitData(`\r\n[终端启动失败] ${err.message}\r\n`)
+  try {
+    term = spawn(shell, interactiveArgs(shell), {
+      name: 'xterm-256color',
+      cols: options.cols,
+      rows: options.rows,
+      cwd: options.cwd,
+      env: ptyEnvironment()
+    })
+    term.onData((data) => emitData(data))
+    term.onExit((event) => {
+      finish({ exitCode: event.exitCode, signal: signalName(event.signal) })
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    emitData(`\r\n[终端启动失败] ${message}\r\n`)
     finish({ exitCode: null, signal: null })
-  })
-  child.on('exit', (code, signal) => {
-    const rest = decoder.decode()
-    if (rest) emitData(rest)
-    finish({ exitCode: code, signal: signal ?? null })
-  })
-
-  const control = child.stdio[3]
-  const writeControl = (payload: Record<string, unknown>) => {
-    if (!control || !('write' in control)) return
-    try {
-      ;(control as NodeJS.WritableStream).write(`${JSON.stringify(payload)}\n`)
-    } catch {
-      // 控制通道已关闭
-    }
   }
 
   return {
     write(data: string) {
       try {
-        child.stdin.write(data)
+        term?.write(data)
       } catch {
         // 进程已退出
       }
     },
     resize(cols: number, rows: number) {
-      writeControl({ type: 'resize', cols, rows })
+      try {
+        term?.resize(cols, rows)
+      } catch {
+        // 进程已退出
+      }
     },
     kill() {
-      writeControl({ type: 'kill' })
       try {
-        child.kill('SIGTERM')
+        term?.kill()
       } catch {
         // 进程已退出
       }
