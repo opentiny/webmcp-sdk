@@ -385,12 +385,41 @@ describe('ExtensionBridgeClient (WebSocketServer 模式)', () => {
       expect(mockSocket.sentMessages.length).toBeGreaterThan(0)
     })
 
-    const resp = JSON.parse(mockSocket.sentMessages[0])
+    const resp = mockSocket.sentMessages
+      .map((item) => JSON.parse(item))
+      .find((msg) => msg.id === 'ext-req-bash-1' && msg.result)
     expect(resp.jsonrpc).toBe('2.0')
-    expect(resp.id).toBe('ext-req-bash-1')
-    expect(resp.result).toBeDefined()
     expect(resp.result.stdout).toBe('hello from ext')
     expect(resp.result.exitCode).toBe(0)
+  })
+
+  it('system/bash 执行期间把已写出的标准输出通知给扩展', async () => {
+    mockSocket.sentMessages = []
+
+    mockSocket.reply({
+      jsonrpc: '2.0',
+      id: 'ext-req-bash-stream',
+      method: 'system/bash',
+      params: { command: 'echo stream_first; sleep 0.4; echo stream_second' }
+    })
+
+    await vi.waitFor(() => {
+      const messages = mockSocket.sentMessages.map((item) => JSON.parse(item))
+      const hasFirst = messages.some(
+        (msg) => msg.method === 'notification/bash_output' && String(msg.params?.text).includes('stream_first')
+      )
+      const hasResult = messages.some((msg) => msg.id === 'ext-req-bash-stream' && msg.result)
+      expect(hasFirst).toBe(true)
+      expect(hasResult).toBe(false)
+    })
+
+    await vi.waitFor(() => {
+      const done = mockSocket.sentMessages
+        .map((item) => JSON.parse(item))
+        .find((msg) => msg.id === 'ext-req-bash-stream' && msg.result)
+      expect(done?.result.stdout).toContain('stream_second')
+      expect(done?.result.exitCode).toBe(0)
+    })
   })
 
   it('已认证扩展端发送未知 system 方法时，返回不支持的方法错误', async () => {
@@ -473,8 +502,9 @@ describe('ExtensionBridgeClient (WebSocketServer 模式)', () => {
       expect(mockSocket.sentMessages.length).toBeGreaterThan(0)
     })
 
-    const resp = JSON.parse(mockSocket.sentMessages[0])
-    expect(resp.id).toBe('ext-req-conv-bash')
+    const resp = mockSocket.sentMessages
+      .map((item) => JSON.parse(item))
+      .find((msg) => msg.id === 'ext-req-conv-bash' && msg.result)
     expect(resp.result.exitCode).toBe(0)
     expect(resp.result.stdout).toContain('test_conv_sandbox_1')
   })

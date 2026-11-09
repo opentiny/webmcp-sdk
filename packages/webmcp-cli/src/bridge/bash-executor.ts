@@ -1,6 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { spawn } from 'node:child_process'
+import type { Readable } from 'node:stream'
+import { StringDecoder } from 'node:string_decoder'
+import { execa } from 'execa'
 import { resolveWorkspaceDir, BashInvalidParamsError } from './workspace-manager.js'
 
 export { BashInvalidParamsError }
@@ -13,6 +15,15 @@ export interface ExecBashParams {
   timeoutMs?: number
   env?: Record<string, string>
   maxBuffer?: number
+  /** 为 true 且非 Windows 时在伪终端中执行，让检测终端的程序及时写出 */
+  tty?: boolean
+  /** 进程仍在运行时，每收到一段新输出调用一次。text 是这段新文本，不是累计文本 */
+  onOutput?: (chunk: BashOutputChunk) => void
+}
+
+export interface BashOutputChunk {
+  stream: 'stdout' | 'stderr'
+  text: string
 }
 
 export interface ExecBashResult {
@@ -110,29 +121,121 @@ export function resolveShell(forcePlatform?: string): string {
   return fallback
 }
 
-/**
- * 跨平台杀死子进程树，防止 Windows 或 POSIX 下产生孤儿后台进程
- */
-function killProcessTree(child: ReturnType<typeof spawn>): void {
-  if (process.platform === 'win32' && child.pid) {
-    try {
-      spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], {
-        windowsHide: true,
-        stdio: 'ignore'
-      })
-    } catch {
-      child.kill('SIGKILL')
-    }
-  } else {
-    child.kill('SIGTERM')
-    setTimeout(() => {
-      try {
-        child.kill('SIGKILL')
-      } catch {
-        // ignore
-      }
-    }, 2000)
+const FORCE_KILL_AFTER_DELAY_MS = 2000
+
+const TTY_HELPER = `
+import errno, os, sys
+cmd = os.environ.get("BASH_TTY_COMMAND") or ""
+shell = os.environ.get("BASH_TTY_SHELL") or "/bin/bash"
+if not cmd:
+    sys.exit(127)
+import pty
+pid, fd = pty.fork()
+if pid == 0:
+    os.environ.pop("BASH_TTY_COMMAND", None)
+    os.environ.pop("BASH_TTY_SHELL", None)
+    os.environ["TERM"] = "xterm-256color"
+    try:
+        os.execvp(shell, [shell, "-c", cmd])
+    except OSError:
+        os._exit(127)
+while True:
+    try:
+        data = os.read(fd, 65536)
+    except OSError as exc:
+        if exc.errno == errno.EINTR:
+            continue
+        break
+    if not data:
+        break
+    try:
+        os.write(1, data)
+    except OSError:
+        break
+try:
+    _, status = os.waitpid(pid, 0)
+except OSError:
+    sys.exit(1)
+if os.WIFEXITED(status):
+    sys.exit(os.WEXITSTATUS(status))
+if os.WIFSIGNALED(status):
+    sys.exit(128 + os.WTERMSIG(status))
+sys.exit(1)
+`
+
+interface LimitedOutput {
+  chunks: Buffer[]
+  truncated: boolean
+}
+
+interface ExecaRunResult {
+  exitCode?: number | null
+  signal?: NodeJS.Signals | null
+  timedOut?: boolean
+  failed?: boolean
+  isTerminated?: boolean
+  shortMessage?: string
+  message?: string
+  durationMs?: number
+}
+
+function withoutCarriageReturn(buf: Buffer): Buffer {
+  if (!buf.includes(0x0d)) return buf
+  const out = Buffer.allocUnsafe(buf.length)
+  let size = 0
+  for (let index = 0; index < buf.length; index += 1) {
+    const byte = buf[index]
+    if (byte === 0x0d) continue
+    out[size] = byte
+    size += 1
   }
+  return out.subarray(0, size)
+}
+
+function collectLimited(
+  stream: Readable | null | undefined,
+  maxBuffer: number,
+  onText?: (text: string) => void,
+  stripCarriageReturn = false
+): LimitedOutput {
+  const state: LimitedOutput = { chunks: [], truncated: false }
+  if (!stream) return state
+  const decoder = new StringDecoder('utf8')
+  let bytes = 0
+  const emit = (buf: Buffer) => {
+    const text = decoder.write(buf)
+    if (text) onText?.(text)
+  }
+  stream.on('data', (chunk: Buffer | Uint8Array) => {
+    const raw = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+    const buf = stripCarriageReturn ? withoutCarriageReturn(raw) : raw
+    if (buf.length === 0) return
+    if (bytes >= maxBuffer) {
+      state.truncated = true
+      return
+    }
+    const remaining = maxBuffer - bytes
+    if (buf.length <= remaining) {
+      state.chunks.push(buf)
+      bytes += buf.length
+      emit(buf)
+      return
+    }
+    const kept = buf.subarray(0, remaining)
+    state.chunks.push(kept)
+    bytes += remaining
+    state.truncated = true
+    emit(kept)
+  })
+  stream.on('end', () => {
+    const rest = decoder.end()
+    if (rest) onText?.(rest)
+  })
+  return state
+}
+
+function decodeLimited(state: LimitedOutput): string {
+  return Buffer.concat(state.chunks).toString('utf8').trim()
 }
 
 export async function executeBash(params: ExecBashParams): Promise<ExecBashResult> {
@@ -163,80 +266,59 @@ export async function executeBash(params: ExecBashParams): Promise<ExecBashResul
       : DEFAULT_TIMEOUT_MS
   const { env = {}, maxBuffer = DEFAULT_MAX_BUFFER } = params
 
-  const startTime = Date.now()
   const shell = resolveShell()
-
-  return new Promise((resolve, reject) => {
-    const stdoutChunks: Buffer[] = []
-    let stdoutBytes = 0
-    const stderrChunks: Buffer[] = []
-    let stderrBytes = 0
-    let truncated = false
-    let isKilled = false
-
-    const child = spawn(trimmedCommand, {
-      shell,
-      cwd,
-      env: { ...process.env, ...env },
-      windowsHide: true
-    })
-
-    const killTimeoutTimer = setTimeout(() => {
-      isKilled = true
-      killProcessTree(child)
-      reject(new BashTimeoutError(normalizedTimeoutMs))
-    }, normalizedTimeoutMs)
-
-    child.stdout.on('data', (chunk: Buffer) => {
-      if (stdoutBytes < maxBuffer) {
-        const remaining = maxBuffer - stdoutBytes
-        if (chunk.length <= remaining) {
-          stdoutChunks.push(chunk)
-          stdoutBytes += chunk.length
-        } else {
-          stdoutChunks.push(chunk.subarray(0, remaining))
-          stdoutBytes += remaining
-          truncated = true
-        }
-      } else {
-        truncated = true
-      }
-    })
-
-    child.stderr.on('data', (chunk: Buffer) => {
-      if (stderrBytes < maxBuffer) {
-        const remaining = maxBuffer - stderrBytes
-        if (chunk.length <= remaining) {
-          stderrChunks.push(chunk)
-          stderrBytes += chunk.length
-        } else {
-          stderrChunks.push(chunk.subarray(0, remaining))
-          stderrBytes += remaining
-          truncated = true
-        }
-      } else {
-        truncated = true
-      }
-    })
-
-    child.on('error', (err) => {
-      clearTimeout(killTimeoutTimer)
-      reject(err)
-    })
-
-    child.on('close', (exitCode, signal) => {
-      clearTimeout(killTimeoutTimer)
-      if (isKilled) return
-      const stdout = Buffer.concat(stdoutChunks).toString('utf8').trim()
-      const stderr = Buffer.concat(stderrChunks).toString('utf8').trim()
-      resolve({
-        stdout,
-        stderr,
-        exitCode,
-        signal,
-        durationMs: Date.now() - startTime,
-        ...(truncated ? { truncated: true } : {})
+  const useTty = params.tty === true && process.platform !== 'win32'
+  const subprocess = useTty
+    ? execa('python3', ['-u', '-c', TTY_HELPER], {
+        cwd,
+        env: {
+          ...env,
+          BASH_TTY_COMMAND: trimmedCommand,
+          BASH_TTY_SHELL: shell
+        },
+        stdin: 'ignore',
+        buffer: false,
+        encoding: 'buffer',
+        reject: false,
+        timeout: normalizedTimeoutMs,
+        forceKillAfterDelay: FORCE_KILL_AFTER_DELAY_MS,
+        windowsHide: true,
+        stripFinalNewline: false
       })
-    })
-  })
+    : execa(trimmedCommand, {
+        shell,
+        cwd,
+        env,
+        stdin: 'ignore',
+        buffer: false,
+        encoding: 'buffer',
+        reject: false,
+        timeout: normalizedTimeoutMs,
+        forceKillAfterDelay: FORCE_KILL_AFTER_DELAY_MS,
+        windowsHide: true,
+        stripFinalNewline: false
+      })
+  const emit = (stream: BashOutputChunk['stream']) => (text: string) => {
+    params.onOutput?.({ stream, text })
+  }
+  const stdoutState = collectLimited(subprocess.stdout, maxBuffer, emit('stdout'), useTty)
+  const stderrState = collectLimited(subprocess.stderr, maxBuffer, emit('stderr'))
+  const result = (await subprocess) as ExecaRunResult
+
+  if (result.timedOut) {
+    throw new BashTimeoutError(normalizedTimeoutMs)
+  }
+  if (result.failed && result.exitCode == null && result.signal == null && !result.isTerminated) {
+    throw new Error(result.shortMessage || result.message || '命令启动失败')
+  }
+
+  const truncated = stdoutState.truncated || stderrState.truncated
+  return {
+    stdout: decodeLimited(stdoutState),
+    stderr: decodeLimited(stderrState),
+    exitCode: result.exitCode ?? null,
+    signal: result.signal ?? null,
+    durationMs: result.durationMs ?? 0,
+    ...(truncated ? { truncated: true } : {})
+  }
 }

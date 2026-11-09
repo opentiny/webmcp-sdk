@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
@@ -71,6 +71,64 @@ describe('BashExecutor', () => {
     expect(res.truncated).toBe(true)
     const byteLength = Buffer.byteLength(res.stdout, 'utf8')
     expect(byteLength).toBeLessThanOrEqual(12)
+  })
+
+  it('命令结束前应把已经写出的标准输出交给回调，最终结果仍包含这些输出', async () => {
+    const chunks: string[] = []
+    let settled = false
+    const pending = executeBash({
+      command: 'echo stream_first; sleep 0.4; echo stream_second',
+      timeoutMs: 5000,
+      onOutput: (chunk) => {
+        if (chunk.stream === 'stdout') chunks.push(chunk.text)
+      }
+    }).then((res) => {
+      settled = true
+      return res
+    })
+
+    await vi.waitFor(() => {
+      expect(chunks.join('')).toContain('stream_first')
+    })
+    expect(settled).toBe(false)
+
+    const res = await pending
+    expect(res.exitCode).toBe(0)
+    expect(res.stdout).toContain('stream_first')
+    expect(res.stdout).toContain('stream_second')
+  })
+
+  it('伪终端模式下，命令结束前应推送已写出的文本，并保留在最终 stdout', async () => {
+    if (process.platform === 'win32') return
+    const chunks: string[] = []
+    let settled = false
+    const pending = executeBash({
+      command: 'echo tty_first; sleep 0.4; echo tty_second',
+      tty: true,
+      timeoutMs: 5000,
+      onOutput: (chunk) => {
+        if (chunk.stream === 'stdout') chunks.push(chunk.text)
+      }
+    }).then((res) => {
+      settled = true
+      return res
+    })
+
+    await vi.waitFor(() => {
+      expect(chunks.join('')).toContain('tty_first')
+    })
+    expect(settled).toBe(false)
+
+    const res = await pending
+    expect(res.exitCode).toBe(0)
+    expect(res.stdout).toContain('tty_first')
+    expect(res.stdout).toContain('tty_second')
+  })
+
+  it('标准输入关闭时，读取 stdin 的命令应读到 EOF 而不是一直等待', async () => {
+    const res = await executeBash({ command: 'cat', timeoutMs: 1000 })
+    expect(res.exitCode).toBe(0)
+    expect(res.stdout).toBe('')
   })
 
   it('应支持自定义环境变量与工作目录', async () => {

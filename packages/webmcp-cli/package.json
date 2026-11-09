@@ -39,7 +39,7 @@
   "license": "MIT",
   "author": "OpenTiny Team",
   "engines": {
-    "node": ">=16"
+    "node": ">=18.19.0"
   },
   "publishConfig": {
     "access": "public"
@@ -51,6 +51,7 @@
     "@page-agent/page-controller": "catalog:",
     "clipboardy": "^5.3.1",
     "commander": "^11.1.0",
+    "execa": "^9.6.1",
     "json5": "^2.2.3",
     "marked": "^15.0.7",
     "picocolors": "^1.0.0",
