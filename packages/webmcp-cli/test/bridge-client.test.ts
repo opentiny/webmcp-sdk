@@ -26,8 +26,11 @@ class MockSocket extends EventEmitter {
   sentMessages: string[] = []
   closeCode?: number
 
-  send(data: string) {
+  bufferedAmount = 0
+
+  send(data: string, cb?: (err?: Error) => void) {
     this.sentMessages.push(data)
+    cb?.()
   }
 
   close(code?: number) {
@@ -209,6 +212,41 @@ describe('ExtensionBridgeClient (WebSocketServer 模式)', () => {
     expect(mockSocket.closeCode).toBe(4000)
   })
 
+  it('复现：新扩展连接替换旧连接前先销毁终端', () => {
+    const seen: unknown[] = []
+    ;(client as any).terminalSessions = {
+      disposeAll: () => {
+        seen.push((client as any).extensionSocket)
+      }
+    }
+
+    const newSocket = new MockSocket()
+    mockWss.emit('connection', newSocket)
+    answerHandshake(newSocket, client, { instanceId: 'instance-b' })
+
+    expect(seen[0]).toBe(mockSocket)
+    expect((client as any).extensionSocket).toBe(newSocket)
+  })
+
+  it('复现：非法请求 id 不执行命令，且错误响应不回显该 id', async () => {
+    mockSocket.sentMessages = []
+    mockSocket.reply({
+      jsonrpc: '2.0',
+      id: ['nested', ['id']],
+      method: 'system/bash',
+      params: { command: 'echo should_not_run' }
+    })
+
+    await vi.waitFor(() => {
+      expect(mockSocket.sentMessages.length).toBeGreaterThan(0)
+    })
+
+    const resp = JSON.parse(mockSocket.sentMessages[0])
+    expect(resp.id).toBeNull()
+    expect(resp.error.code).toBe(-32602)
+    expect(mockSocket.sentMessages.some((item) => item.includes('should_not_run'))).toBe(false)
+  })
+
   it('扩展连接断开后正确更新 isConnected 状态', async () => {
     expect(client.isConnected).toBe(true)
     mockSocket.close(1000)
@@ -385,12 +423,41 @@ describe('ExtensionBridgeClient (WebSocketServer 模式)', () => {
       expect(mockSocket.sentMessages.length).toBeGreaterThan(0)
     })
 
-    const resp = JSON.parse(mockSocket.sentMessages[0])
+    const resp = mockSocket.sentMessages
+      .map((item) => JSON.parse(item))
+      .find((msg) => msg.id === 'ext-req-bash-1' && msg.result)
     expect(resp.jsonrpc).toBe('2.0')
-    expect(resp.id).toBe('ext-req-bash-1')
-    expect(resp.result).toBeDefined()
     expect(resp.result.stdout).toBe('hello from ext')
     expect(resp.result.exitCode).toBe(0)
+  })
+
+  it('system/bash 执行期间把已写出的标准输出通知给扩展', async () => {
+    mockSocket.sentMessages = []
+
+    mockSocket.reply({
+      jsonrpc: '2.0',
+      id: 'ext-req-bash-stream',
+      method: 'system/bash',
+      params: { command: 'echo stream_first; sleep 0.4; echo stream_second' }
+    })
+
+    await vi.waitFor(() => {
+      const messages = mockSocket.sentMessages.map((item) => JSON.parse(item))
+      const hasFirst = messages.some(
+        (msg) => msg.method === 'notification/bash_output' && String(msg.params?.text).includes('stream_first')
+      )
+      const hasResult = messages.some((msg) => msg.id === 'ext-req-bash-stream' && msg.result)
+      expect(hasFirst).toBe(true)
+      expect(hasResult).toBe(false)
+    })
+
+    await vi.waitFor(() => {
+      const done = mockSocket.sentMessages
+        .map((item) => JSON.parse(item))
+        .find((msg) => msg.id === 'ext-req-bash-stream' && msg.result)
+      expect(done?.result.stdout).toContain('stream_second')
+      expect(done?.result.exitCode).toBe(0)
+    })
   })
 
   it('已认证扩展端发送未知 system 方法时，返回不支持的方法错误', async () => {
@@ -473,8 +540,9 @@ describe('ExtensionBridgeClient (WebSocketServer 模式)', () => {
       expect(mockSocket.sentMessages.length).toBeGreaterThan(0)
     })
 
-    const resp = JSON.parse(mockSocket.sentMessages[0])
-    expect(resp.id).toBe('ext-req-conv-bash')
+    const resp = mockSocket.sentMessages
+      .map((item) => JSON.parse(item))
+      .find((msg) => msg.id === 'ext-req-conv-bash' && msg.result)
     expect(resp.result.exitCode).toBe(0)
     expect(resp.result.stdout).toContain('test_conv_sandbox_1')
   })

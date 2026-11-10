@@ -15,9 +15,18 @@ import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 
-import { DEFAULT_WS_PORT, PROTOCOL_VERSION, WS_CLOSE_CODE, BRIDGE_ERROR_CODE, BRIDGE_METHODS } from './protocol.js'
+import {
+  DEFAULT_WS_PORT,
+  PROTOCOL_VERSION,
+  WS_CLOSE_CODE,
+  BRIDGE_ERROR_CODE,
+  BRIDGE_METHODS,
+  BASH_EVENTS,
+  isTerminalMethod
+} from './protocol.js'
 import { executeBash, BashTimeoutError, BashInvalidParamsError } from './bash-executor.js'
 import { pickDirectory } from './directory-picker.js'
+import { TerminalSessionManager, applyTerminalBackpressure } from './terminal-session.js'
 
 export { PROTOCOL_VERSION, BRIDGE_ERROR_CODE }
 
@@ -25,6 +34,11 @@ const WS_PORT = DEFAULT_WS_PORT
 const REQUEST_TIMEOUT_MS = 30_000
 const HANDSHAKE_TIMEOUT_MS = 5_000
 const WS_OPEN = 1
+
+function isJsonRpcId(id: unknown): id is string | number | null {
+  if (id === null || typeof id === 'string') return true
+  return typeof id === 'number' && Number.isFinite(id)
+}
 
 /** 存储凭据路径（权限设置为 0600，仅当前宿主系统用户有权读取） */
 const TOKEN_FILE_DIR = path.join(os.homedir(), '.robot-wxt')
@@ -158,6 +172,7 @@ export class ExtensionBridgeClient extends EventEmitter {
   private pending = new Map<string, PendingRequest>()
   private socketAuthStates = new Map<WebSocket, SocketAuthState>()
   private destroyed = false
+  private terminalSessions: TerminalSessionManager | null = null
   private idCounter = 0
   private isClientMode = false
   private readonly explicitAuthToken?: string
@@ -521,6 +536,7 @@ export class ExtensionBridgeClient extends EventEmitter {
 
         if (socket === this.extensionSocket) {
           this.extensionSocket = null
+          this.terminalSessions?.disposeAll()
           this.emit('disconnected')
           for (const [reqId, fwdInfo] of this.forwardedRequests.entries()) {
             if (fwdInfo.timer) clearTimeout(fwdInfo.timer)
@@ -573,6 +589,16 @@ export class ExtensionBridgeClient extends EventEmitter {
     }
 
     if (msg.method && msg.id) {
+      if (typeof msg.method === 'string' && isTerminalMethod(msg.method) && socket !== this.extensionSocket) {
+        this.sendJsonRpcResponse(socket, {
+          id: msg.id,
+          error: {
+            code: BRIDGE_ERROR_CODE.METHOD_NOT_FOUND,
+            message: '终端会话仅允许已认证的扩展连接'
+          }
+        })
+        return
+      }
       if (socket === this.extensionSocket) {
         await this.handleExtensionSystemRpc(socket, msg)
         return
@@ -653,6 +679,7 @@ export class ExtensionBridgeClient extends EventEmitter {
 
     if (msg.clientType === 'extension') {
       if (this.extensionSocket && this.extensionSocket !== socket) {
+        this.terminalSessions?.disposeAll()
         try {
           this.extensionSocket.close(WS_CLOSE_CODE.REPLACED, 'Replaced by new connection')
         } catch {}
@@ -758,9 +785,6 @@ export class ExtensionBridgeClient extends EventEmitter {
   private readonly systemRpcHandlers: Record<string, (params: any) => Promise<any>> = Object.assign(
     Object.create(null),
     {
-      [BRIDGE_METHODS.SYSTEM_BASH]: async (params: any) => {
-        return executeBash(params || {})
-      },
       [BRIDGE_METHODS.SYSTEM_PICK_DIRECTORY]: async (params: any) => {
         const selectedPath = await pickDirectory({
           title: (params?.title as string) || undefined,
@@ -771,12 +795,65 @@ export class ExtensionBridgeClient extends EventEmitter {
           selectedPath,
           canceled: selectedPath === null
         }
-      }
+      },
+      [BRIDGE_METHODS.TERMINAL_OPEN]: async (params: any) => this.getTerminalSessions().open(params || {}),
+      [BRIDGE_METHODS.TERMINAL_INPUT]: async (params: any) => this.getTerminalSessions().input(params || {}),
+      [BRIDGE_METHODS.TERMINAL_RESIZE]: async (params: any) => this.getTerminalSessions().resize(params || {}),
+      [BRIDGE_METHODS.TERMINAL_CLOSE]: async (params: any) => this.getTerminalSessions().close(params || {})
     }
   )
 
+  private sendJsonRpcNotification(socket: WebSocket, method: string, params: Record<string, unknown>): void {
+    if (socket.readyState !== WS_OPEN) return
+    let payload: string
+    try {
+      payload = JSON.stringify({ jsonrpc: '2.0', method, params })
+    } catch {
+      return
+    }
+    try {
+      socket.send(payload)
+    } catch {
+      // 连接已关闭
+    }
+  }
+
+  private async executeHostBash(socket: WebSocket, id: unknown, params: any): Promise<void> {
+    try {
+      const requestParams = params && typeof params === 'object' ? params : {}
+      const result = await executeBash({
+        ...requestParams,
+        onOutput: (chunk) => {
+          if (!chunk.text) return
+          this.sendJsonRpcNotification(socket, BASH_EVENTS.OUTPUT, {
+            id,
+            stream: chunk.stream,
+            text: chunk.text
+          })
+        }
+      })
+      this.sendJsonRpcResponse(socket, { id, result })
+    } catch (err: any) {
+      this.sendJsonRpcResponse(socket, { id, error: this.formatSystemRpcError(err) })
+    }
+  }
+
   private async handleExtensionSystemRpc(socket: WebSocket, msg: any): Promise<void> {
     const { id, method, params } = msg
+    if (!isJsonRpcId(id)) {
+      this.sendJsonRpcResponse(socket, {
+        id: null,
+        error: {
+          code: BRIDGE_ERROR_CODE.INVALID_PARAMS,
+          message: '无效的请求 id'
+        }
+      })
+      return
+    }
+    if (method === BRIDGE_METHODS.SYSTEM_BASH) {
+      await this.executeHostBash(socket, id, params)
+      return
+    }
     const handler =
       typeof method === 'string' && Object.prototype.hasOwnProperty.call(this.systemRpcHandlers, method)
         ? this.systemRpcHandlers[method]
@@ -895,9 +972,39 @@ export class ExtensionBridgeClient extends EventEmitter {
     })
   }
 
+  private getTerminalSessions(): TerminalSessionManager {
+    if (!this.terminalSessions) {
+      this.terminalSessions = new TerminalSessionManager({
+        send: (frame) => {
+          const socket = this.extensionSocket
+          if (!socket || socket.readyState !== WS_OPEN) return
+          const sessions = this.terminalSessions
+          if (sessions) applyTerminalBackpressure(socket.bufferedAmount ?? 0, sessions)
+          let payload: string
+          try {
+            payload = JSON.stringify(frame)
+          } catch {
+            return
+          }
+          try {
+            socket.send(payload, () => {
+              if (this.terminalSessions && socket.readyState === WS_OPEN) {
+                applyTerminalBackpressure(socket.bufferedAmount ?? 0, this.terminalSessions)
+              }
+            })
+          } catch {
+            // 连接已关闭
+          }
+        }
+      })
+    }
+    return this.terminalSessions
+  }
+
   /** 销毁服务，断开所有连接 */
   destroy(): void {
     this.destroyed = true
+    this.terminalSessions?.disposeAll()
     this._rejectAllPending('ExtensionBridgeClient 已销毁')
     this.forwardedRequests.clear()
 

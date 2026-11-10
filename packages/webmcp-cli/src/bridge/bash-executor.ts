@@ -1,6 +1,9 @@
+import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
-import { spawn } from 'node:child_process'
+import type { Readable } from 'node:stream'
+import { StringDecoder } from 'node:string_decoder'
+import { execa } from 'execa'
 import { resolveWorkspaceDir, BashInvalidParamsError } from './workspace-manager.js'
 
 export { BashInvalidParamsError }
@@ -13,6 +16,15 @@ export interface ExecBashParams {
   timeoutMs?: number
   env?: Record<string, string>
   maxBuffer?: number
+  /** 为 true 且非 Windows 时在伪终端中执行，让检测终端的程序及时写出 */
+  tty?: boolean
+  /** 进程仍在运行时，每收到一段新输出调用一次。text 是这段新文本，不是累计文本 */
+  onOutput?: (chunk: BashOutputChunk) => void
+}
+
+export interface BashOutputChunk {
+  stream: 'stdout' | 'stderr'
+  text: string
 }
 
 export interface ExecBashResult {
@@ -110,29 +122,218 @@ export function resolveShell(forcePlatform?: string): string {
   return fallback
 }
 
-/**
- * 跨平台杀死子进程树，防止 Windows 或 POSIX 下产生孤儿后台进程
- */
-function killProcessTree(child: ReturnType<typeof spawn>): void {
-  if (process.platform === 'win32' && child.pid) {
-    try {
-      spawn('taskkill', ['/pid', String(child.pid), '/T', '/F'], {
-        windowsHide: true,
-        stdio: 'ignore'
-      })
-    } catch {
-      child.kill('SIGKILL')
-    }
-  } else {
-    child.kill('SIGTERM')
-    setTimeout(() => {
-      try {
-        child.kill('SIGKILL')
-      } catch {
-        // ignore
+const FORCE_KILL_AFTER_DELAY_MS = 2000
+
+const TTY_HELPER = `
+import errno, os, sys
+cmd = os.environ.get("BASH_TTY_COMMAND") or ""
+shell = os.environ.get("BASH_TTY_SHELL") or "/bin/bash"
+if not cmd:
+    sys.exit(127)
+import pty
+pid, fd = pty.fork()
+if pid == 0:
+    os.environ.pop("BASH_TTY_COMMAND", None)
+    os.environ.pop("BASH_TTY_SHELL", None)
+    os.environ["TERM"] = "xterm-256color"
+    try:
+        # stdout/stderr 仍是终端；stdin 换成 /dev/null，读取输入的命令会立刻遇到 EOF
+        null_fd = os.open(os.devnull, os.O_RDONLY)
+        os.dup2(null_fd, 0)
+        os.close(null_fd)
+        os.execvp(shell, [shell, "-c", cmd])
+    except OSError:
+        os._exit(127)
+while True:
+    try:
+        data = os.read(fd, 65536)
+    except OSError as exc:
+        if exc.errno == errno.EINTR:
+            continue
+        break
+    if not data:
+        break
+    try:
+        os.write(1, data)
+    except OSError:
+        break
+try:
+    _, status = os.waitpid(pid, 0)
+except OSError:
+    sys.exit(1)
+if os.WIFEXITED(status):
+    sys.exit(os.WEXITSTATUS(status))
+if os.WIFSIGNALED(status):
+    sys.exit(128 + os.WTERMSIG(status))
+sys.exit(1)
+`
+
+interface LimitedOutput {
+  chunks: Buffer[]
+  truncated: boolean
+}
+
+interface ExecaRunResult {
+  exitCode?: number | null
+  signal?: NodeJS.Signals | null
+  timedOut?: boolean
+  failed?: boolean
+  isTerminated?: boolean
+  shortMessage?: string
+  message?: string
+  durationMs?: number
+}
+
+// CSI、OSC 必须写在单字符转义前面。单字符范围含 `]`，否则 ESC ] 只匹配两个字节，OSC 标题会漏进输出。
+const ANSI_PATTERN =
+  /\u001B(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007]*(?:\u0007|\u001B\\)|[@-Z\\-_])/g
+
+function stripAnsi(text: string): string {
+  return text.replace(ANSI_PATTERN, '')
+}
+
+function createAnsiStripper(): { push(text: string): string; end(): string } {
+  let pending = ''
+
+  const take = (final: boolean): string => {
+    let out = ''
+    let index = 0
+    while (index < pending.length) {
+      if (pending[index] !== '\u001B') {
+        out += pending[index]
+        index += 1
+        continue
       }
-    }, 2000)
+      const rest = pending.slice(index)
+      ANSI_PATTERN.lastIndex = 0
+      const match = ANSI_PATTERN.exec(rest)
+      if (match && match.index === 0) {
+        index += match[0].length
+        continue
+      }
+      if (!final && rest.length < 128 && isOpenAnsi(rest)) {
+        pending = rest
+        return out
+      }
+      out += pending[index]
+      index += 1
+    }
+    pending = ''
+    return out
   }
+
+  return {
+    push(text: string) {
+      pending += text
+      return take(false)
+    },
+    end() {
+      return take(true)
+    }
+  }
+}
+
+function isOpenAnsi(text: string): boolean {
+  if (!text.startsWith('\u001B')) return false
+  if (text.length === 1) return true
+  if (text[1] === '[') {
+    let index = 2
+    while (index < text.length && /[0-?]/.test(text[index])) index += 1
+    while (index < text.length && /[ -/]/.test(text[index])) index += 1
+    return index >= text.length
+  }
+  if (text[1] === ']') return !text.includes('\u0007') && !text.includes('\u001B\\')
+  return false
+}
+
+function withoutCarriageReturn(buf: Buffer): Buffer {
+  if (!buf.includes(0x0d)) return buf
+  const out = Buffer.allocUnsafe(buf.length)
+  let size = 0
+  for (let index = 0; index < buf.length; index += 1) {
+    const byte = buf[index]
+    if (byte === 0x0d) continue
+    out[size] = byte
+    size += 1
+  }
+  return out.subarray(0, size)
+}
+
+function collectLimited(
+  stream: Readable | null | undefined,
+  maxBuffer: number,
+  onText?: (text: string) => void,
+  stripCarriageReturn = false,
+  ansi?: ReturnType<typeof createAnsiStripper>
+): LimitedOutput {
+  const state: LimitedOutput = { chunks: [], truncated: false }
+  if (!stream) return state
+  const decoder = new StringDecoder('utf8')
+  let bytes = 0
+  const emitText = (text: string) => {
+    const cleaned = ansi ? ansi.push(text) : text
+    if (cleaned) onText?.(cleaned)
+  }
+  const emit = (buf: Buffer) => {
+    emitText(decoder.write(buf))
+  }
+  stream.on('data', (chunk: Buffer | Uint8Array) => {
+    const raw = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
+    const buf = stripCarriageReturn ? withoutCarriageReturn(raw) : raw
+    if (buf.length === 0) return
+    emit(buf)
+    if (bytes >= maxBuffer) {
+      state.truncated = true
+      return
+    }
+    const remaining = maxBuffer - bytes
+    if (buf.length <= remaining) {
+      state.chunks.push(buf)
+      bytes += buf.length
+      return
+    }
+    state.chunks.push(buf.subarray(0, remaining))
+    bytes += remaining
+    state.truncated = true
+  })
+  stream.on('end', () => {
+    const rest = ansi ? `${ansi.push(decoder.end())}${ansi.end()}` : decoder.end()
+    if (rest) onText?.(rest)
+  })
+  return state
+}
+
+function decodeLimited(state: LimitedOutput, removeAnsi = false): string {
+  const decoder = new StringDecoder('utf8')
+  const text = decoder.write(Buffer.concat(state.chunks))
+  const flushed = state.truncated ? '' : decoder.end()
+  const decoded = text + flushed
+  return (removeAnsi ? stripAnsi(decoded) : decoded).trim()
+}
+
+function signalProcessTree(pid: number | undefined, signal: NodeJS.Signals): void {
+  if (!pid || pid <= 0) return
+  if (process.platform === 'win32') {
+    try {
+      spawnSync('taskkill', ['/pid', String(pid), '/T', '/F'], { windowsHide: true, timeout: 5000 })
+    } catch {
+      // 进程已退出
+    }
+    return
+  }
+  try {
+    process.kill(-pid, signal)
+  } catch {
+    try {
+      process.kill(pid, signal)
+    } catch {
+      // 进程已退出
+    }
+  }
+}
+
+function ignoreStreamError(stream: Readable | null | undefined): void {
+  stream?.on('error', () => {})
 }
 
 export async function executeBash(params: ExecBashParams): Promise<ExecBashResult> {
@@ -163,80 +364,83 @@ export async function executeBash(params: ExecBashParams): Promise<ExecBashResul
       : DEFAULT_TIMEOUT_MS
   const { env = {}, maxBuffer = DEFAULT_MAX_BUFFER } = params
 
-  const startTime = Date.now()
   const shell = resolveShell()
-
-  return new Promise((resolve, reject) => {
-    const stdoutChunks: Buffer[] = []
-    let stdoutBytes = 0
-    const stderrChunks: Buffer[] = []
-    let stderrBytes = 0
-    let truncated = false
-    let isKilled = false
-
-    const child = spawn(trimmedCommand, {
-      shell,
-      cwd,
-      env: { ...process.env, ...env },
-      windowsHide: true
-    })
-
-    const killTimeoutTimer = setTimeout(() => {
-      isKilled = true
-      killProcessTree(child)
-      reject(new BashTimeoutError(normalizedTimeoutMs))
-    }, normalizedTimeoutMs)
-
-    child.stdout.on('data', (chunk: Buffer) => {
-      if (stdoutBytes < maxBuffer) {
-        const remaining = maxBuffer - stdoutBytes
-        if (chunk.length <= remaining) {
-          stdoutChunks.push(chunk)
-          stdoutBytes += chunk.length
-        } else {
-          stdoutChunks.push(chunk.subarray(0, remaining))
-          stdoutBytes += remaining
-          truncated = true
-        }
-      } else {
-        truncated = true
-      }
-    })
-
-    child.stderr.on('data', (chunk: Buffer) => {
-      if (stderrBytes < maxBuffer) {
-        const remaining = maxBuffer - stderrBytes
-        if (chunk.length <= remaining) {
-          stderrChunks.push(chunk)
-          stderrBytes += chunk.length
-        } else {
-          stderrChunks.push(chunk.subarray(0, remaining))
-          stderrBytes += remaining
-          truncated = true
-        }
-      } else {
-        truncated = true
-      }
-    })
-
-    child.on('error', (err) => {
-      clearTimeout(killTimeoutTimer)
-      reject(err)
-    })
-
-    child.on('close', (exitCode, signal) => {
-      clearTimeout(killTimeoutTimer)
-      if (isKilled) return
-      const stdout = Buffer.concat(stdoutChunks).toString('utf8').trim()
-      const stderr = Buffer.concat(stderrChunks).toString('utf8').trim()
-      resolve({
-        stdout,
-        stderr,
-        exitCode,
-        signal,
-        durationMs: Date.now() - startTime,
-        ...(truncated ? { truncated: true } : {})
+  const useTty = params.tty === true && process.platform !== 'win32'
+  const detached = process.platform !== 'win32'
+  const subprocess = useTty
+    ? execa('python3', ['-u', '-c', TTY_HELPER], {
+        cwd,
+        env: {
+          ...env,
+          PAGER: 'cat',
+          GIT_PAGER: 'cat',
+          BASH_TTY_COMMAND: trimmedCommand,
+          BASH_TTY_SHELL: shell
+        },
+        stdin: 'ignore',
+        buffer: false,
+        encoding: 'buffer',
+        reject: false,
+        windowsHide: true,
+        stripFinalNewline: false,
+        detached
       })
-    })
-  })
+    : execa(trimmedCommand, {
+        shell,
+        cwd,
+        env,
+        stdin: 'ignore',
+        buffer: false,
+        encoding: 'buffer',
+        reject: false,
+        windowsHide: true,
+        stripFinalNewline: false,
+        detached
+      })
+  ignoreStreamError(subprocess.stdout)
+  ignoreStreamError(subprocess.stderr)
+  let timedOut = false
+  let forceTimer: ReturnType<typeof setTimeout> | undefined
+  const timer = setTimeout(() => {
+    timedOut = true
+    signalProcessTree(subprocess.pid, 'SIGTERM')
+    forceTimer = setTimeout(() => {
+      signalProcessTree(subprocess.pid, 'SIGKILL')
+      subprocess.stdout?.destroy()
+      subprocess.stderr?.destroy()
+    }, FORCE_KILL_AFTER_DELAY_MS)
+  }, normalizedTimeoutMs)
+  const emit = (stream: BashOutputChunk['stream']) => (text: string) => {
+    params.onOutput?.({ stream, text })
+  }
+  const ansi = useTty ? createAnsiStripper() : undefined
+  const stdoutState = collectLimited(subprocess.stdout, maxBuffer, emit('stdout'), useTty, ansi)
+  const stderrState = collectLimited(subprocess.stderr, maxBuffer, emit('stderr'))
+  let result: ExecaRunResult
+  try {
+    result = (await subprocess) as ExecaRunResult
+  } catch (err) {
+    if (timedOut) throw new BashTimeoutError(normalizedTimeoutMs)
+    throw err
+  } finally {
+    clearTimeout(timer)
+    if (forceTimer) clearTimeout(forceTimer)
+  }
+
+  if (timedOut) {
+    throw new BashTimeoutError(normalizedTimeoutMs)
+  }
+  if (result.failed && result.exitCode == null && result.signal == null && !result.isTerminated) {
+    throw new Error(result.shortMessage || result.message || '命令启动失败')
+  }
+
+  const truncated = stdoutState.truncated || stderrState.truncated
+  return {
+    stdout: decodeLimited(stdoutState, useTty),
+    stderr: decodeLimited(stderrState),
+    exitCode: result.exitCode ?? null,
+    signal: result.signal ?? null,
+    durationMs: result.durationMs ?? 0,
+    ...(truncated ? { truncated: true } : {})
+  }
 }

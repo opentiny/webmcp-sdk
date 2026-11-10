@@ -17,6 +17,8 @@ npm install -g .
 
 > **注意：** 在本地联调时，建议使用 `npm install -g .`，这会确保在你的 PATH 中生成有效的可执行文件（`webmcp-cli`）。
 
+交互终端依赖可选包 `node-pty`。没有编译工具、预编译包安装失败时，桥接和 `system/bash` 仍可使用，`terminal/open` 会返回加载失败。安装脚本会把 `spawn-helper` 设为可执行；若文件属于其他用户且当前用户无法修改，终端启动失败信息会说明需要重新安装或以安装用户执行 `chmod 755`。
+
 ## 测试
 
 统一使用 [Vitest](https://vitest.dev/)（与 `@opentiny/next-sdk` 一致）：

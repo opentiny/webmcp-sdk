@@ -8,7 +8,7 @@
 export const DEFAULT_WS_PORT = 18999
 
 /** 协议版本号：主版本号（major）不兼容时两端均拒绝握手 */
-export const PROTOCOL_VERSION = '1.1.0'
+export const PROTOCOL_VERSION = '1.2.0'
 
 /** WebSocket 关闭状态码定义（4000~4999 私有保留区间） */
 export const WS_CLOSE_CODE = {
@@ -52,7 +52,31 @@ export const BRIDGE_METHODS = {
   SKILLS_GET: 'skills/get',
   SKILLS_READ_RESOURCE: 'skills/read_resource',
   SYSTEM_BASH: 'system/bash',
-  SYSTEM_PICK_DIRECTORY: 'system/pick_directory'
+  SYSTEM_PICK_DIRECTORY: 'system/pick_directory',
+  TERMINAL_OPEN: 'terminal/open',
+  TERMINAL_INPUT: 'terminal/input',
+  TERMINAL_RESIZE: 'terminal/resize',
+  TERMINAL_CLOSE: 'terminal/close'
 } as const
+
+export const TERMINAL_EVENTS = {
+  OUTPUT: 'notification/terminal_output',
+  EXIT: 'notification/terminal_exit'
+} as const
+
+export const BASH_EVENTS = {
+  OUTPUT: 'notification/bash_output'
+} as const
+
+const TERMINAL_METHOD_SET = new Set<string>([
+  BRIDGE_METHODS.TERMINAL_OPEN,
+  BRIDGE_METHODS.TERMINAL_INPUT,
+  BRIDGE_METHODS.TERMINAL_RESIZE,
+  BRIDGE_METHODS.TERMINAL_CLOSE
+])
+
+export function isTerminalMethod(method: string): boolean {
+  return TERMINAL_METHOD_SET.has(method)
+}
 
 export type BridgeMethod = (typeof BRIDGE_METHODS)[keyof typeof BRIDGE_METHODS]
