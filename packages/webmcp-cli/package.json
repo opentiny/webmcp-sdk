@@ -18,7 +18,8 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "scripts/ensure-pty-helper.mjs"
   ],
   "scripts": {
     "dev": "tsup --watch",
@@ -27,6 +28,7 @@
     "prepublishOnly": "pnpm run build",
     "link:global": "npm install -g .",
     "start": "node dist/bin.js",
+    "postinstall": "node scripts/ensure-pty-helper.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:browser": "vitest run --config vitest.e2e.config.ts"
@@ -54,11 +56,13 @@
     "execa": "^9.6.1",
     "json5": "^2.2.3",
     "marked": "^15.0.7",
-    "node-pty": "^1.1.0",
     "picocolors": "^1.0.0",
     "puppeteer-core": "^22.0.0",
     "ws": "^8.18.0",
     "zod": "^3.23.0"
+  },
+  "optionalDependencies": {
+    "node-pty": "^1.1.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

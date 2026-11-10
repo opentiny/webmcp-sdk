@@ -3,7 +3,11 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { BashInvalidParamsError } from '../src/bridge/workspace-manager.js'
-import { TerminalSessionManager } from '../src/bridge/terminal-session.js'
+import {
+  TerminalSessionManager,
+  applyTerminalBackpressure,
+  TERMINAL_OUTPUT_HIGH_WATER
+} from '../src/bridge/terminal-session.js'
 import type { HostPty, HostPtyExit } from '../src/bridge/pty-backend.js'
 import { TERMINAL_EVENTS } from '../src/bridge/protocol.js'
 
@@ -11,6 +15,7 @@ class FakePty implements HostPty {
   writes: string[] = []
   sizes: Array<[number, number]> = []
   killed = false
+  paused = false
   private dataCb: ((data: string) => void) | null = null
   private exitCb: ((info: HostPtyExit) => void) | null = null
 
@@ -26,6 +31,14 @@ class FakePty implements HostPty {
     if (this.killed) return
     this.killed = true
     this.exitCb?.({ exitCode: 0, signal: null })
+  }
+
+  pause(): void {
+    this.paused = true
+  }
+
+  resume(): void {
+    this.paused = false
   }
 
   onData(cb: (data: string) => void): void {
@@ -120,6 +133,15 @@ describe('TerminalSessionManager', () => {
     expect(created[1].killed).toBe(false)
     expect(manager.close({ sessionId: second.sessionId })).toEqual({ ok: true })
     expect(created[1].killed).toBe(true)
+  })
+
+  it('复现：socket 积压超过上限时暂停读取，降到一半以下后恢复', () => {
+    const { manager, root, created } = createManager()
+    manager.open({ workspacePath: root })
+    applyTerminalBackpressure(TERMINAL_OUTPUT_HIGH_WATER + 1, manager)
+    expect(created[0].paused).toBe(true)
+    applyTerminalBackpressure(TERMINAL_OUTPUT_HIGH_WATER / 2, manager)
+    expect(created[0].paused).toBe(false)
   })
 
   it('超过 32KB 的输出拆成多帧', () => {

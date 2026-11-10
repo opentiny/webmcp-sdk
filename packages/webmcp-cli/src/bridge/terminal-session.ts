@@ -6,6 +6,15 @@ import { TERMINAL_EVENTS } from './protocol.js'
 const OUTPUT_CHUNK = 32 * 1024
 const MAX_INPUT = 64 * 1024
 const DEFAULT_COALESCE_MS = 16
+export const TERMINAL_OUTPUT_HIGH_WATER = 1024 * 1024
+
+export function applyTerminalBackpressure(
+  bufferedAmount: number,
+  flow: { pauseOutput(): void; resumeOutput(): void }
+): void {
+  if (bufferedAmount > TERMINAL_OUTPUT_HIGH_WATER) flow.pauseOutput()
+  else if (bufferedAmount <= TERMINAL_OUTPUT_HIGH_WATER / 2) flow.resumeOutput()
+}
 
 export interface TerminalNotificationFrame {
   jsonrpc: '2.0'
@@ -107,6 +116,22 @@ export class TerminalSessionManager {
 
   disposeAll(): void {
     this.closeActive()
+  }
+
+  pauseOutput(): void {
+    try {
+      this.session?.pty.pause()
+    } catch {
+      // 进程已退出
+    }
+  }
+
+  resumeOutput(): void {
+    try {
+      this.session?.pty.resume()
+    } catch {
+      // 进程已退出
+    }
   }
 
   private requireSession(sessionId?: string): { id: string; pty: HostPty; cwd: string } {

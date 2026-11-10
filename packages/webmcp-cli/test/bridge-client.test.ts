@@ -26,8 +26,11 @@ class MockSocket extends EventEmitter {
   sentMessages: string[] = []
   closeCode?: number
 
-  send(data: string) {
+  bufferedAmount = 0
+
+  send(data: string, cb?: (err?: Error) => void) {
     this.sentMessages.push(data)
+    cb?.()
   }
 
   close(code?: number) {
@@ -207,6 +210,41 @@ describe('ExtensionBridgeClient (WebSocketServer 模式)', () => {
     expect((res as any).activeTabUrl).toBe('https://reconnected.com')
     // 验证旧连接通过非 1000 错误码（4000）被替换，使得旧扩展端能够触发 scheduleReconnect 支持重连
     expect(mockSocket.closeCode).toBe(4000)
+  })
+
+  it('复现：新扩展连接替换旧连接前先销毁终端', () => {
+    const seen: unknown[] = []
+    ;(client as any).terminalSessions = {
+      disposeAll: () => {
+        seen.push((client as any).extensionSocket)
+      }
+    }
+
+    const newSocket = new MockSocket()
+    mockWss.emit('connection', newSocket)
+    answerHandshake(newSocket, client, { instanceId: 'instance-b' })
+
+    expect(seen[0]).toBe(mockSocket)
+    expect((client as any).extensionSocket).toBe(newSocket)
+  })
+
+  it('复现：非法请求 id 不执行命令，且错误响应不回显该 id', async () => {
+    mockSocket.sentMessages = []
+    mockSocket.reply({
+      jsonrpc: '2.0',
+      id: ['nested', ['id']],
+      method: 'system/bash',
+      params: { command: 'echo should_not_run' }
+    })
+
+    await vi.waitFor(() => {
+      expect(mockSocket.sentMessages.length).toBeGreaterThan(0)
+    })
+
+    const resp = JSON.parse(mockSocket.sentMessages[0])
+    expect(resp.id).toBeNull()
+    expect(resp.error.code).toBe(-32602)
+    expect(mockSocket.sentMessages.some((item) => item.includes('should_not_run'))).toBe(false)
   })
 
   it('扩展连接断开后正确更新 isConnected 状态', async () => {

@@ -26,7 +26,7 @@ import {
 } from './protocol.js'
 import { executeBash, BashTimeoutError, BashInvalidParamsError } from './bash-executor.js'
 import { pickDirectory } from './directory-picker.js'
-import { TerminalSessionManager } from './terminal-session.js'
+import { TerminalSessionManager, applyTerminalBackpressure } from './terminal-session.js'
 
 export { PROTOCOL_VERSION, BRIDGE_ERROR_CODE }
 
@@ -34,6 +34,11 @@ const WS_PORT = DEFAULT_WS_PORT
 const REQUEST_TIMEOUT_MS = 30_000
 const HANDSHAKE_TIMEOUT_MS = 5_000
 const WS_OPEN = 1
+
+function isJsonRpcId(id: unknown): id is string | number | null {
+  if (id === null || typeof id === 'string') return true
+  return typeof id === 'number' && Number.isFinite(id)
+}
 
 /** 存储凭据路径（权限设置为 0600，仅当前宿主系统用户有权读取） */
 const TOKEN_FILE_DIR = path.join(os.homedir(), '.robot-wxt')
@@ -674,6 +679,7 @@ export class ExtensionBridgeClient extends EventEmitter {
 
     if (msg.clientType === 'extension') {
       if (this.extensionSocket && this.extensionSocket !== socket) {
+        this.terminalSessions?.disposeAll()
         try {
           this.extensionSocket.close(WS_CLOSE_CODE.REPLACED, 'Replaced by new connection')
         } catch {}
@@ -798,8 +804,17 @@ export class ExtensionBridgeClient extends EventEmitter {
   )
 
   private sendJsonRpcNotification(socket: WebSocket, method: string, params: Record<string, unknown>): void {
-    if (socket.readyState === WS_OPEN) {
-      socket.send(JSON.stringify({ jsonrpc: '2.0', method, params }))
+    if (socket.readyState !== WS_OPEN) return
+    let payload: string
+    try {
+      payload = JSON.stringify({ jsonrpc: '2.0', method, params })
+    } catch {
+      return
+    }
+    try {
+      socket.send(payload)
+    } catch {
+      // 连接已关闭
     }
   }
 
@@ -825,6 +840,16 @@ export class ExtensionBridgeClient extends EventEmitter {
 
   private async handleExtensionSystemRpc(socket: WebSocket, msg: any): Promise<void> {
     const { id, method, params } = msg
+    if (!isJsonRpcId(id)) {
+      this.sendJsonRpcResponse(socket, {
+        id: null,
+        error: {
+          code: BRIDGE_ERROR_CODE.INVALID_PARAMS,
+          message: '无效的请求 id'
+        }
+      })
+      return
+    }
     if (method === BRIDGE_METHODS.SYSTEM_BASH) {
       await this.executeHostBash(socket, id, params)
       return
@@ -952,12 +977,23 @@ export class ExtensionBridgeClient extends EventEmitter {
       this.terminalSessions = new TerminalSessionManager({
         send: (frame) => {
           const socket = this.extensionSocket
-          if (socket && socket.readyState === WS_OPEN) {
-            try {
-              socket.send(JSON.stringify(frame))
-            } catch {
-              // 连接已关闭
-            }
+          if (!socket || socket.readyState !== WS_OPEN) return
+          const sessions = this.terminalSessions
+          if (sessions) applyTerminalBackpressure(socket.bufferedAmount ?? 0, sessions)
+          let payload: string
+          try {
+            payload = JSON.stringify(frame)
+          } catch {
+            return
+          }
+          try {
+            socket.send(payload, () => {
+              if (this.terminalSessions && socket.readyState === WS_OPEN) {
+                applyTerminalBackpressure(socket.bufferedAmount ?? 0, this.terminalSessions)
+              }
+            })
+          } catch {
+            // 连接已关闭
           }
         }
       })
