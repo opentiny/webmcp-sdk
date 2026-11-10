@@ -212,8 +212,11 @@ export function spawnHostPty(options: SpawnHostPtyOptions): HostPty {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     const detail = helperError ? `${helperError} ${message}` : message
-    emitData(`\r\n[终端启动失败] ${detail}\r\n`)
-    finish({ exitCode: null, signal: null })
+    // open() 返回后，JSON-RPC 响应在微任务里发出。失败通知放到下一轮，避免客户端先收到未知 sessionId 的帧。
+    setImmediate(() => {
+      emitData(`\r\n[终端启动失败] ${detail}\r\n`)
+      finish({ exitCode: null, signal: null })
+    })
   }
 
   return {

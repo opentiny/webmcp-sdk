@@ -138,6 +138,21 @@ describe('BashExecutor', () => {
     expect(res.stdout).toContain('cat')
   })
 
+  it('复现：伪终端输出里的 OSC 标题序列应被完整去掉', async () => {
+    if (process.platform === 'win32') return
+    const res = await executeBash({
+      command: "printf '\\033]0;secret-title\\007visible\\n\\033]0;other-title\\033\\\\tail\\n'",
+      tty: true,
+      timeoutMs: 5000
+    })
+    expect(res.exitCode).toBe(0)
+    expect(res.stdout).toContain('visible')
+    expect(res.stdout).toContain('tail')
+    expect(res.stdout).not.toContain('secret-title')
+    expect(res.stdout).not.toContain('other-title')
+    expect(res.stdout).not.toContain('\u001B')
+  })
+
   it('标准输入关闭时，读取 stdin 的命令应读到 EOF 而不是一直等待', async () => {
     const res = await executeBash({ command: 'cat', timeoutMs: 1000 })
     expect(res.exitCode).toBe(0)

@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module'
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
@@ -8,7 +9,7 @@ import {
   applyTerminalBackpressure,
   TERMINAL_OUTPUT_HIGH_WATER
 } from '../src/bridge/terminal-session.js'
-import type { HostPty, HostPtyExit } from '../src/bridge/pty-backend.js'
+import { spawnHostPty, type HostPty, type HostPtyExit } from '../src/bridge/pty-backend.js'
 import { TERMINAL_EVENTS } from '../src/bridge/protocol.js'
 
 class FakePty implements HostPty {
@@ -133,6 +134,35 @@ describe('TerminalSessionManager', () => {
     expect(created[1].killed).toBe(false)
     expect(manager.close({ sessionId: second.sessionId })).toEqual({ ok: true })
     expect(created[1].killed).toBe(true)
+  })
+
+  it('复现：终端启动失败的输出和退出通知应晚于 open 返回', async () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'terminal-fail-'))
+    const frames: Array<{ method: string; params: Record<string, unknown> }> = []
+    const nodePty = createRequire(import.meta.url)('node-pty') as { spawn: (...args: unknown[]) => unknown }
+    const originalSpawn = nodePty.spawn
+    nodePty.spawn = () => {
+      throw new Error('posix_spawnp failed')
+    }
+    try {
+      const manager = new TerminalSessionManager({
+        coalesceMs: 0,
+        send: (frame) => frames.push({ method: frame.method, params: frame.params }),
+        spawnPty: (opts) => spawnHostPty(opts)
+      })
+      const opened = manager.open({ workspacePath: root })
+      expect(frames).toEqual([])
+
+      await new Promise((resolve) => setImmediate(resolve))
+
+      expect(frames.map((frame) => frame.method)).toEqual([TERMINAL_EVENTS.OUTPUT, TERMINAL_EVENTS.EXIT])
+      expect(String(frames[0].params.data)).toContain('终端启动失败')
+      expect(String(frames[0].params.data)).toContain('posix_spawnp failed')
+      expect(frames[0].params.sessionId).toBe(opened.sessionId)
+      expect(frames[1].params).toMatchObject({ sessionId: opened.sessionId, exitCode: null, signal: null })
+    } finally {
+      nodePty.spawn = originalSpawn
+    }
   })
 
   it('复现：socket 积压超过上限时暂停读取，降到一半以下后恢复', () => {

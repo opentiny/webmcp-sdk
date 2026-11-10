@@ -184,8 +184,9 @@ interface ExecaRunResult {
   durationMs?: number
 }
 
+// CSI、OSC 必须写在单字符转义前面。单字符范围含 `]`，否则 ESC ] 只匹配两个字节，OSC 标题会漏进输出。
 const ANSI_PATTERN =
-  /\u001B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\][^\u0007]*(?:\u0007|\u001B\\))/g
+  /\u001B(?:\[[0-?]*[ -/]*[@-~]|\][^\u0007]*(?:\u0007|\u001B\\)|[@-Z\\-_])/g
 
 function stripAnsi(text: string): string {
   return text.replace(ANSI_PATTERN, '')
