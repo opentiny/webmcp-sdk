@@ -125,10 +125,97 @@ describe('BashExecutor', () => {
     expect(res.stdout).toContain('tty_second')
   })
 
+  it('伪终端模式去掉颜色转义，并把分页器固定为 cat', async () => {
+    if (process.platform === 'win32') return
+    const res = await executeBash({
+      command: "printf '\\033[31mred\\033[0m\\n'; printf '%s\\n' \"$GIT_PAGER\"",
+      tty: true,
+      timeoutMs: 5000
+    })
+    expect(res.exitCode).toBe(0)
+    expect(res.stdout).toContain('red')
+    expect(res.stdout).not.toContain('\u001B')
+    expect(res.stdout).toContain('cat')
+  })
+
   it('标准输入关闭时，读取 stdin 的命令应读到 EOF 而不是一直等待', async () => {
     const res = await executeBash({ command: 'cat', timeoutMs: 1000 })
     expect(res.exitCode).toBe(0)
     expect(res.stdout).toBe('')
+  })
+
+  it('复现：伪终端模式下读取 stdin 的命令应读到 EOF 而不是一直等待', async () => {
+    if (process.platform === 'win32') return
+    const started = Date.now()
+    const res = await executeBash({ command: 'cat', tty: true, timeoutMs: 3000 })
+    expect(Date.now() - started).toBeLessThan(2500)
+    expect(res.exitCode).toBe(0)
+  })
+
+  it('复现：超过 maxBuffer 后仍应继续推送后续输出，最终结果保持截断', async () => {
+    const chunks: string[] = []
+    const res = await executeBash({
+      command: 'node -e "process.stdout.write(\'A\'.repeat(80)); process.stdout.write(\'B\'.repeat(80))"',
+      maxBuffer: 40,
+      timeoutMs: 5000,
+      onOutput: (chunk) => {
+        if (chunk.stream === 'stdout') chunks.push(chunk.text)
+      }
+    })
+    expect(res.truncated).toBe(true)
+    expect(Buffer.byteLength(res.stdout, 'utf8')).toBeLessThanOrEqual(40)
+    expect(chunks.join('')).toContain('B')
+    expect(res.stdout.includes('B')).toBe(false)
+  })
+
+  it('复现：截断落在 UTF-8 字符中间时，最终结果不应包含替换字符', async () => {
+    const res = await executeBash({
+      command: 'node -e "process.stdout.write(\'中\')"',
+      maxBuffer: 2,
+      timeoutMs: 5000
+    })
+    expect(res.truncated).toBe(true)
+    expect(res.stdout.includes('\uFFFD')).toBe(false)
+    expect(Buffer.byteLength(res.stdout, 'utf8')).toBeLessThanOrEqual(2)
+  })
+
+  it('复现：超时应结束 shell 派生的后台进程，且不等它们关闭管道', async () => {
+    if (process.platform === 'win32') return
+    const pidFile = path.join(os.tmpdir(), `test-bash-tree-${Date.now()}-${process.pid}.pid`)
+    const started = Date.now()
+    let thrown: unknown
+    let stillAlive = false
+    try {
+      await executeBash({
+        command: `sleep 60 & echo $! > '${pidFile}'; wait`,
+        timeoutMs: 500
+      })
+    } catch (err) {
+      thrown = err
+    } finally {
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      if (fs.existsSync(pidFile)) {
+        const recordedPid = parseInt(fs.readFileSync(pidFile, 'utf8').trim(), 10)
+        stillAlive = Boolean(recordedPid) && isProcessAlive(recordedPid)
+        if (stillAlive) {
+          try {
+            process.kill(-recordedPid, 'SIGKILL')
+          } catch {
+            try {
+              process.kill(recordedPid, 'SIGKILL')
+            } catch {
+              // 已经退出
+            }
+          }
+        }
+      }
+    }
+
+    expect(thrown).toBeInstanceOf(BashTimeoutError)
+    expect(Date.now() - started).toBeLessThan(8000)
+    expect(fs.existsSync(pidFile)).toBe(true)
+    expect(stillAlive).toBe(false)
+    fs.unlinkSync(pidFile)
   })
 
   it('应支持自定义环境变量与工作目录', async () => {

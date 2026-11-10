@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { Readable } from 'node:stream'
@@ -136,6 +137,10 @@ if pid == 0:
     os.environ.pop("BASH_TTY_SHELL", None)
     os.environ["TERM"] = "xterm-256color"
     try:
+        # stdout/stderr 仍是终端；stdin 换成 /dev/null，读取输入的命令会立刻遇到 EOF
+        null_fd = os.open(os.devnull, os.O_RDONLY)
+        os.dup2(null_fd, 0)
+        os.close(null_fd)
         os.execvp(shell, [shell, "-c", cmd])
     except OSError:
         os._exit(127)
@@ -179,6 +184,67 @@ interface ExecaRunResult {
   durationMs?: number
 }
 
+const ANSI_PATTERN =
+  /\u001B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~]|\][^\u0007]*(?:\u0007|\u001B\\))/g
+
+function stripAnsi(text: string): string {
+  return text.replace(ANSI_PATTERN, '')
+}
+
+function createAnsiStripper(): { push(text: string): string; end(): string } {
+  let pending = ''
+
+  const take = (final: boolean): string => {
+    let out = ''
+    let index = 0
+    while (index < pending.length) {
+      if (pending[index] !== '\u001B') {
+        out += pending[index]
+        index += 1
+        continue
+      }
+      const rest = pending.slice(index)
+      ANSI_PATTERN.lastIndex = 0
+      const match = ANSI_PATTERN.exec(rest)
+      if (match && match.index === 0) {
+        index += match[0].length
+        continue
+      }
+      if (!final && rest.length < 128 && isOpenAnsi(rest)) {
+        pending = rest
+        return out
+      }
+      out += pending[index]
+      index += 1
+    }
+    pending = ''
+    return out
+  }
+
+  return {
+    push(text: string) {
+      pending += text
+      return take(false)
+    },
+    end() {
+      return take(true)
+    }
+  }
+}
+
+function isOpenAnsi(text: string): boolean {
+  if (!text.startsWith('\u001B')) return false
+  if (text.length === 1) return true
+  if (text[1] === '[') {
+    let index = 2
+    while (index < text.length && /[0-?]/.test(text[index])) index += 1
+    while (index < text.length && /[ -/]/.test(text[index])) index += 1
+    return index >= text.length
+  }
+  if (text[1] === ']') return !text.includes('\u0007') && !text.includes('\u001B\\')
+  return false
+}
+
 function withoutCarriageReturn(buf: Buffer): Buffer {
   if (!buf.includes(0x0d)) return buf
   const out = Buffer.allocUnsafe(buf.length)
@@ -196,20 +262,25 @@ function collectLimited(
   stream: Readable | null | undefined,
   maxBuffer: number,
   onText?: (text: string) => void,
-  stripCarriageReturn = false
+  stripCarriageReturn = false,
+  ansi?: ReturnType<typeof createAnsiStripper>
 ): LimitedOutput {
   const state: LimitedOutput = { chunks: [], truncated: false }
   if (!stream) return state
   const decoder = new StringDecoder('utf8')
   let bytes = 0
+  const emitText = (text: string) => {
+    const cleaned = ansi ? ansi.push(text) : text
+    if (cleaned) onText?.(cleaned)
+  }
   const emit = (buf: Buffer) => {
-    const text = decoder.write(buf)
-    if (text) onText?.(text)
+    emitText(decoder.write(buf))
   }
   stream.on('data', (chunk: Buffer | Uint8Array) => {
     const raw = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)
     const buf = stripCarriageReturn ? withoutCarriageReturn(raw) : raw
     if (buf.length === 0) return
+    emit(buf)
     if (bytes >= maxBuffer) {
       state.truncated = true
       return
@@ -218,24 +289,50 @@ function collectLimited(
     if (buf.length <= remaining) {
       state.chunks.push(buf)
       bytes += buf.length
-      emit(buf)
       return
     }
-    const kept = buf.subarray(0, remaining)
-    state.chunks.push(kept)
+    state.chunks.push(buf.subarray(0, remaining))
     bytes += remaining
     state.truncated = true
-    emit(kept)
   })
   stream.on('end', () => {
-    const rest = decoder.end()
+    const rest = ansi ? `${ansi.push(decoder.end())}${ansi.end()}` : decoder.end()
     if (rest) onText?.(rest)
   })
   return state
 }
 
-function decodeLimited(state: LimitedOutput): string {
-  return Buffer.concat(state.chunks).toString('utf8').trim()
+function decodeLimited(state: LimitedOutput, removeAnsi = false): string {
+  const decoder = new StringDecoder('utf8')
+  const text = decoder.write(Buffer.concat(state.chunks))
+  const flushed = state.truncated ? '' : decoder.end()
+  const decoded = text + flushed
+  return (removeAnsi ? stripAnsi(decoded) : decoded).trim()
+}
+
+function signalProcessTree(pid: number | undefined, signal: NodeJS.Signals): void {
+  if (!pid || pid <= 0) return
+  if (process.platform === 'win32') {
+    try {
+      spawnSync('taskkill', ['/pid', String(pid), '/T', '/F'], { windowsHide: true, timeout: 5000 })
+    } catch {
+      // 进程已退出
+    }
+    return
+  }
+  try {
+    process.kill(-pid, signal)
+  } catch {
+    try {
+      process.kill(pid, signal)
+    } catch {
+      // 进程已退出
+    }
+  }
+}
+
+function ignoreStreamError(stream: Readable | null | undefined): void {
+  stream?.on('error', () => {})
 }
 
 export async function executeBash(params: ExecBashParams): Promise<ExecBashResult> {
@@ -268,11 +365,14 @@ export async function executeBash(params: ExecBashParams): Promise<ExecBashResul
 
   const shell = resolveShell()
   const useTty = params.tty === true && process.platform !== 'win32'
+  const detached = process.platform !== 'win32'
   const subprocess = useTty
     ? execa('python3', ['-u', '-c', TTY_HELPER], {
         cwd,
         env: {
           ...env,
+          PAGER: 'cat',
+          GIT_PAGER: 'cat',
           BASH_TTY_COMMAND: trimmedCommand,
           BASH_TTY_SHELL: shell
         },
@@ -280,10 +380,9 @@ export async function executeBash(params: ExecBashParams): Promise<ExecBashResul
         buffer: false,
         encoding: 'buffer',
         reject: false,
-        timeout: normalizedTimeoutMs,
-        forceKillAfterDelay: FORCE_KILL_AFTER_DELAY_MS,
         windowsHide: true,
-        stripFinalNewline: false
+        stripFinalNewline: false,
+        detached
       })
     : execa(trimmedCommand, {
         shell,
@@ -293,19 +392,41 @@ export async function executeBash(params: ExecBashParams): Promise<ExecBashResul
         buffer: false,
         encoding: 'buffer',
         reject: false,
-        timeout: normalizedTimeoutMs,
-        forceKillAfterDelay: FORCE_KILL_AFTER_DELAY_MS,
         windowsHide: true,
-        stripFinalNewline: false
+        stripFinalNewline: false,
+        detached
       })
+  ignoreStreamError(subprocess.stdout)
+  ignoreStreamError(subprocess.stderr)
+  let timedOut = false
+  let forceTimer: ReturnType<typeof setTimeout> | undefined
+  const timer = setTimeout(() => {
+    timedOut = true
+    signalProcessTree(subprocess.pid, 'SIGTERM')
+    forceTimer = setTimeout(() => {
+      signalProcessTree(subprocess.pid, 'SIGKILL')
+      subprocess.stdout?.destroy()
+      subprocess.stderr?.destroy()
+    }, FORCE_KILL_AFTER_DELAY_MS)
+  }, normalizedTimeoutMs)
   const emit = (stream: BashOutputChunk['stream']) => (text: string) => {
     params.onOutput?.({ stream, text })
   }
-  const stdoutState = collectLimited(subprocess.stdout, maxBuffer, emit('stdout'), useTty)
+  const ansi = useTty ? createAnsiStripper() : undefined
+  const stdoutState = collectLimited(subprocess.stdout, maxBuffer, emit('stdout'), useTty, ansi)
   const stderrState = collectLimited(subprocess.stderr, maxBuffer, emit('stderr'))
-  const result = (await subprocess) as ExecaRunResult
+  let result: ExecaRunResult
+  try {
+    result = (await subprocess) as ExecaRunResult
+  } catch (err) {
+    if (timedOut) throw new BashTimeoutError(normalizedTimeoutMs)
+    throw err
+  } finally {
+    clearTimeout(timer)
+    if (forceTimer) clearTimeout(forceTimer)
+  }
 
-  if (result.timedOut) {
+  if (timedOut) {
     throw new BashTimeoutError(normalizedTimeoutMs)
   }
   if (result.failed && result.exitCode == null && result.signal == null && !result.isTerminated) {
@@ -314,7 +435,7 @@ export async function executeBash(params: ExecBashParams): Promise<ExecBashResul
 
   const truncated = stdoutState.truncated || stderrState.truncated
   return {
-    stdout: decodeLimited(stdoutState),
+    stdout: decodeLimited(stdoutState, useTty),
     stderr: decodeLimited(stderrState),
     exitCode: result.exitCode ?? null,
     signal: result.signal ?? null,
