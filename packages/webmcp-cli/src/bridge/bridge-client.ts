@@ -18,15 +18,18 @@ import os from 'node:os'
 import {
   DEFAULT_WS_PORT,
   PROTOCOL_VERSION,
+  LEGACY_PROTOCOL_VERSION,
   WS_CLOSE_CODE,
   BRIDGE_ERROR_CODE,
   BRIDGE_METHODS,
   BASH_EVENTS,
-  isTerminalMethod
+  isTerminalMethod,
+  isExtensionUpdateMethod
 } from './protocol.js'
 import { executeBash, BashTimeoutError, BashInvalidParamsError } from './bash-executor.js'
 import { pickDirectory } from './directory-picker.js'
 import { TerminalSessionManager, applyTerminalBackpressure } from './terminal-session.js'
+import { ExtensionUpdateError } from '../extension-update/errors.js'
 
 export { PROTOCOL_VERSION, BRIDGE_ERROR_CODE }
 
@@ -87,11 +90,25 @@ function parseMajorVersion(v: string): number {
   return parseInt(v.split('.')[0] ?? '0', 10)
 }
 
+/** 客户端声明的协议版本是否不低于 1.3.0（使用 1.3 握手规则并开放 extension/*） */
+function usesV13Handshake(v: string): boolean {
+  const [major = 0, minor = 0] = v.split('.').map((part) => parseInt(part, 10) || 0)
+  return major > 1 || (major === 1 && minor >= 3)
+}
+
 /**
  * 派生共享密钥：SHA-256(token + ":" + hmacSalt)
  */
 export function deriveSharedSecret(tokenOrExtensionId: string, hmacSalt: string): Buffer {
   return createHash('sha256').update(`${tokenOrExtensionId}:${hmacSalt}`).digest()
+}
+
+/**
+ * 1.3 握手的密钥：SHA-256(token + ":" + hmacSalt + ":bridge-auth-v1.3")。
+ * 与 1.2 的密钥不同，1.2 客户端对任意 challenge 的签名都不能当作 1.3 签名使用。
+ */
+export function deriveSharedSecretV13(token: string, hmacSalt: string): Buffer {
+  return createHash('sha256').update(`${token}:${hmacSalt}:bridge-auth-v1.3`).digest()
 }
 
 /** 计算 HMAC-SHA256 签名，返回 hex 字符串 */
@@ -154,7 +171,18 @@ interface SocketAuthState {
   challenge: string
   hmacSalt: string
   clientType?: 'extension' | 'cli-client'
+  /** 按 1.3 规则认证时握手 HMAC 覆盖的扩展实例 ID */
+  v13InstanceId?: string
   timer: ReturnType<typeof setTimeout>
+}
+
+/** extension/* 方法的实现；instanceId 取自当前连接的 1.3 握手 */
+export interface ExtensionUpdateHandler {
+  handle(method: string, params: unknown, instanceId: string): Promise<unknown>
+}
+
+export interface ExtensionBridgeClientOptions {
+  extensionUpdates?: ExtensionUpdateHandler
 }
 
 interface ForwardedRequestInfo {
@@ -177,14 +205,17 @@ export class ExtensionBridgeClient extends EventEmitter {
   private isClientMode = false
   private readonly explicitAuthToken?: string
   private authToken: string
+  private extensionUpdates?: ExtensionUpdateHandler
 
   constructor(
     private readonly port: number = WS_PORT,
-    authToken?: string
+    authToken?: string,
+    options: ExtensionBridgeClientOptions = {}
   ) {
     super()
     this.explicitAuthToken = authToken
     this.authToken = authToken ?? resolveOrCreateAuthToken()
+    this.extensionUpdates = options.extensionUpdates
   }
 
   /** 获取当前服务端使用的认证 Token */
@@ -589,6 +620,10 @@ export class ExtensionBridgeClient extends EventEmitter {
     }
 
     if (msg.method && msg.id) {
+      if (isExtensionUpdateMethod(msg.method)) {
+        await this.handleExtensionUpdateRpc(socket, currentAuth, msg)
+        return
+      }
       if (typeof msg.method === 'string' && isTerminalMethod(msg.method) && socket !== this.extensionSocket) {
         this.sendJsonRpcResponse(socket, {
           id: msg.id,
@@ -617,21 +652,26 @@ export class ExtensionBridgeClient extends EventEmitter {
     }
   }
 
-  private verifyHandshakeHmac(currentAuth: SocketAuthState, hmac?: string): boolean {
+  /** v13InstanceId 为字符串时按 1.3 规则验证，否则按 1.2 规则验证 */
+  private verifyHandshakeHmac(currentAuth: SocketAuthState, hmac: string | undefined, v13InstanceId?: string): boolean {
     if (!currentAuth.hmacSalt || !hmac) return false
 
-    const secret = deriveSharedSecret(this.authToken, currentAuth.hmacSalt)
-    const expectedHmac = computeHmac(secret, currentAuth.challenge)
-    if (verifyHmacConstantTime(hmac, expectedHmac)) {
+    const expectedFor = (token: string) =>
+      v13InstanceId === undefined
+        ? computeHmac(deriveSharedSecret(token, currentAuth.hmacSalt), currentAuth.challenge)
+        : computeHmac(
+            deriveSharedSecretV13(token, currentAuth.hmacSalt),
+            `${currentAuth.challenge}:${v13InstanceId}`
+          )
+
+    if (verifyHmacConstantTime(hmac, expectedFor(this.authToken))) {
       return true
     }
 
     if (!this.explicitAuthToken) {
       const diskToken = resolveOrCreateAuthToken()
       if (diskToken && diskToken !== this.authToken) {
-        const diskSecret = deriveSharedSecret(diskToken, currentAuth.hmacSalt)
-        const diskExpectedHmac = computeHmac(diskSecret, currentAuth.challenge)
-        if (verifyHmacConstantTime(hmac, diskExpectedHmac)) {
+        if (verifyHmacConstantTime(hmac, expectedFor(diskToken))) {
           this.authToken = diskToken
           return true
         }
@@ -649,7 +689,7 @@ export class ExtensionBridgeClient extends EventEmitter {
       return
     }
 
-    const clientVersion = typeof msg.protocolVersion === 'string' ? msg.protocolVersion : PROTOCOL_VERSION
+    const clientVersion = typeof msg.protocolVersion === 'string' ? msg.protocolVersion : LEGACY_PROTOCOL_VERSION
     if (parseMajorVersion(clientVersion) !== parseMajorVersion(PROTOCOL_VERSION)) {
       try {
         socket.close(
@@ -660,7 +700,11 @@ export class ExtensionBridgeClient extends EventEmitter {
       return
     }
 
-    const verified = this.verifyHandshakeHmac(currentAuth, msg.hmac)
+    const v13 = usesV13Handshake(clientVersion)
+    const v13InstanceId = v13 ? msg.instanceId : undefined
+    const verified =
+      (!v13 || (typeof v13InstanceId === 'string' && v13InstanceId.length > 0)) &&
+      this.verifyHandshakeHmac(currentAuth, msg.hmac, v13InstanceId)
 
     if (!verified) {
       const tokenFingerprint = this.authToken ? `${this.authToken.slice(0, 6)}...` : 'none'
@@ -676,6 +720,7 @@ export class ExtensionBridgeClient extends EventEmitter {
     clearTimeout(currentAuth.timer)
     currentAuth.authenticated = true
     currentAuth.clientType = msg.clientType
+    currentAuth.v13InstanceId = v13InstanceId
 
     if (msg.clientType === 'extension') {
       if (this.extensionSocket && this.extensionSocket !== socket) {
@@ -761,14 +806,21 @@ export class ExtensionBridgeClient extends EventEmitter {
 
   private sendJsonRpcResponse(
     socket: WebSocket,
-    response: { id: any; result?: any; error?: { code: number; message: string } }
+    response: { id: any; result?: any; error?: { code: number; message: string; data?: unknown } }
   ): void {
     if (socket.readyState === WS_OPEN) {
       socket.send(JSON.stringify({ jsonrpc: '2.0', ...response }))
     }
   }
 
-  private formatSystemRpcError(err: any): { code: number; message: string } {
+  private formatSystemRpcError(err: any): { code: number; message: string; data?: unknown } {
+    if (err instanceof ExtensionUpdateError) {
+      return {
+        code: err.reason === 'invalid_params' ? BRIDGE_ERROR_CODE.INVALID_PARAMS : BRIDGE_ERROR_CODE.EXTENSION_UPDATE_FAILED,
+        message: err.message,
+        data: { reason: err.reason }
+      }
+    }
     if (err instanceof BashInvalidParamsError || err?.code === 'INVALID_PARAMS' || err?.message === '命令不能为空') {
       return { code: BRIDGE_ERROR_CODE.INVALID_PARAMS, message: err?.message || '参数错误' }
     }
@@ -876,6 +928,38 @@ export class ExtensionBridgeClient extends EventEmitter {
     } catch (err: any) {
       this.sendJsonRpcResponse(socket, { id, error: this.formatSystemRpcError(err) })
     }
+  }
+
+  /** extension/* 只交给按 1.3 规则认证、且是当前扩展连接的 socket；其余连接视为方法不存在，也不转发 */
+  private async handleExtensionUpdateRpc(socket: WebSocket, auth: SocketAuthState, msg: any): Promise<void> {
+    const { id, method, params } = msg
+    if (!isJsonRpcId(id)) {
+      this.sendJsonRpcResponse(socket, { id: null, error: { code: BRIDGE_ERROR_CODE.INVALID_PARAMS, message: '无效的请求 id' } })
+      return
+    }
+    const instanceId = auth.v13InstanceId
+    if (socket !== this.extensionSocket || auth.clientType !== 'extension' || !instanceId) {
+      this.sendJsonRpcResponse(socket, {
+        id,
+        error: { code: BRIDGE_ERROR_CODE.METHOD_NOT_FOUND, message: `不支持的方法: ${method}` }
+      })
+      return
+    }
+    try {
+      const handler = await this.getExtensionUpdates()
+      const result = await handler.handle(method, params ?? {}, instanceId)
+      this.sendJsonRpcResponse(socket, { id, result })
+    } catch (err: any) {
+      this.sendJsonRpcResponse(socket, { id, error: this.formatSystemRpcError(err) })
+    }
+  }
+
+  private async getExtensionUpdates(): Promise<ExtensionUpdateHandler> {
+    if (!this.extensionUpdates) {
+      const { ExtensionUpdateService } = await import('../extension-update/service.js')
+      this.extensionUpdates = new ExtensionUpdateService()
+    }
+    return this.extensionUpdates
   }
 
   private handleProgressNotification(msg: any): void {

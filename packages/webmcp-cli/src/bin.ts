@@ -409,6 +409,19 @@ program
     }
   })
 
+// 扩展更新的恢复命令不依赖浏览器，CDP 与 wxt 模式下都可执行
+program
+  .command('extension [action]')
+  .description('扩展更新相关操作：recover 处理被中断的扩展更新')
+  .action(async (action?: string) => {
+    try {
+      const { runExtensionCommand } = await import('./commands/extension.js')
+      process.exitCode = await runExtensionCommand(action ? [action] : [])
+    } catch (error: unknown) {
+      handleCommandError(error, 'extension', { action })
+    }
+  })
+
 // ─── 模式路由 ────────────────────────────────────────────────────────────────
 if (CLI_MODE === 'wxt') {
   // WXT 模式：路由到独立的 WXT 命令处理器
@@ -469,6 +482,12 @@ async function handleWxtMode(args: string[]): Promise<void> {
     }
 
     console.log(resolveOrCreateAuthToken())
+    return
+  }
+
+  if (command === 'extension') {
+    const { runExtensionCommand } = await import('./commands/extension.js')
+    process.exitCode = await runExtensionCommand(args.slice(1))
     return
   }
 
@@ -571,6 +590,7 @@ webmcp-cli --mode wxt — WXT 桥接模式（通过 Chrome 扩展连接，复用
   skills get <name>       读取指定技能的详细指令
   token [get|set <t>]     查看或保存认证 Token
   stop                    停止后台 WebSocket 桥接服务
+  extension recover       处理被中断的扩展更新
   mcp                     以 MCP Server 模式启动
 
 选项：

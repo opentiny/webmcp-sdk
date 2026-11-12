@@ -152,3 +152,15 @@ webmcp-cli tabs open "https://github.com/opentiny/tiny-vue"
 webmcp-cli tabs switch 2EA73ED323E46E5E108D4E46DA4E4AA7
 webmcp-cli tabs back
 ```
+
+---
+
+### 4. `extension recover` 命令
+
+Tiny Robot 扩展以已解压方式安装时，可以经本地桥接（协议 1.3.0 起）请 CLI 下载、校验并替换安装目录。替换只做两次同级改名，进程在中途退出后，用这个命令让安装目录回到一致状态：
+
+```bash
+webmcp-cli extension recover
+```
+
+命令按磁盘上实际存在的目录判断每个中断的更新：恢复到旧版本，或确认新版本已就位并提示在浏览器中重新加载扩展。无法自动判断时列出各目录的状态，退出码为 1。绑定与更新记录保存在 `~/.robot-wxt/`。方法契约与错误码见 [`specs/REQ-20261111-extension-update/design.md`](./specs/REQ-20261111-extension-update/design.md)。

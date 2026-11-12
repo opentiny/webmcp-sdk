@@ -8,7 +8,10 @@
 export const DEFAULT_WS_PORT = 18999
 
 /** 协议版本号：主版本号（major）不兼容时两端均拒绝握手 */
-export const PROTOCOL_VERSION = '1.2.0'
+export const PROTOCOL_VERSION = '1.3.0'
+
+/** 客户端未在 BRIDGE_AUTH 中声明版本时按此版本的规则认证 */
+export const LEGACY_PROTOCOL_VERSION = '1.2.0'
 
 /** WebSocket 关闭状态码定义（4000~4999 私有保留区间） */
 export const WS_CLOSE_CODE = {
@@ -37,7 +40,9 @@ export const BRIDGE_ERROR_CODE = {
   /** 扩展尚未连接至桥接服务 */
   EXTENSION_NOT_CONNECTED: -32051,
   /** 侧边栏尚未就绪或已关闭 */
-  SIDEPANEL_NOT_READY: -32050
+  SIDEPANEL_NOT_READY: -32050,
+  /** extension/* 业务错误，原因见 error.data.reason */
+  EXTENSION_UPDATE_FAILED: -32010
 } as const
 
 export type BridgeErrorCode = (typeof BRIDGE_ERROR_CODE)[keyof typeof BRIDGE_ERROR_CODE]
@@ -56,8 +61,21 @@ export const BRIDGE_METHODS = {
   TERMINAL_OPEN: 'terminal/open',
   TERMINAL_INPUT: 'terminal/input',
   TERMINAL_RESIZE: 'terminal/resize',
-  TERMINAL_CLOSE: 'terminal/close'
+  TERMINAL_CLOSE: 'terminal/close',
+  EXTENSION_BIND: 'extension/bind',
+  EXTENSION_BIND_ACCEPT: 'extension/bind_accept',
+  EXTENSION_BIND_REJECT: 'extension/bind_reject',
+  EXTENSION_PREPARE: 'extension/prepare',
+  EXTENSION_COMMIT: 'extension/commit',
+  EXTENSION_CONFIRM: 'extension/confirm',
+  EXTENSION_ROLLBACK: 'extension/rollback',
+  EXTENSION_TXN_STATUS: 'extension/txn_status'
 } as const
+
+/** extension/* 只对按 1.3 规则认证的扩展连接开放 */
+export function isExtensionUpdateMethod(method: unknown): boolean {
+  return typeof method === 'string' && method.startsWith('extension/')
+}
 
 export const TERMINAL_EVENTS = {
   OUTPUT: 'notification/terminal_output',
