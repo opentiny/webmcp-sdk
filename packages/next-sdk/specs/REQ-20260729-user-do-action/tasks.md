@@ -20,6 +20,10 @@
   - 场景（须含中文 **`复现：`**）：
     - mask 已 show + refMap 命中 → 派发 `page-agent-user-do-action`
     - mask 未 show / 非 trusted / 点击在 refMap 外 → 不派发
+- [x] Task 6: 遮罩初始样式声明点击穿透（验收标准 5）
+  - 产物：`packages/next-sdk/page-tools/page-agent-mask/SimulatorMask.ts` 的 `.webmcp-page-agent-wrapper` 增加 `pointer-events: none`
+  - 测试：`packages/next-sdk/test/page-tools/simulator-mask-pass-through.test.ts`（含 **`复现：`**）
+  - 文档：`docs/webmcp-sdk/page-agent-tool.md`「遮罩与光标」说明遮罩不拦截用户点击
 - [ ] Task 5: 用户文档 / Skill（可选）
   - 产物：`docs/webmcp-sdk/page-agent-tool.md`、`skills/page-agent/SKILL.md` 补充事件说明
 

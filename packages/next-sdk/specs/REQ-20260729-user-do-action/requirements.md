@@ -53,6 +53,9 @@
    - 验收：`isTrusted === false` 的 click 不派发。
 4. 作为维护者，我希望重复 `registerPageAgentTool` 不会叠加多个 click 监听。
    - 验收：再次注册前先执行 cleanup，仅保留一套监听。
+5. 作为终端用户，我希望遮罩从显示起就允许点击穿透，而不是在 Agent 执行过一次 `click` 动作之后才穿透。
+   - 验收：`new SimulatorMask()` 后 `show()`，未派发任何 `PageAgent::EnablePassThrough` / `PageAgent::DisablePassThrough` 时，`wrapper` 的计算样式 `pointer-events` 为 `none`；派发这两个事件之后仍为 `none`。
+   - 背景：穿透原先只在 `DisablePassThrough` 处理函数中设置，遮罩初始样式未声明 `pointer-events`，因此首个 `click` 动作之前用户点击被遮罩拦截，本事件也无法派发；宿主未及时 `hideMask()` 时，页面在此期间无法点击。
 
 ## 非功能要求
 

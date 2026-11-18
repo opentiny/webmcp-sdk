@@ -66,6 +66,8 @@ const injectStyles = `
 	z-index: 2147483641;
 	/*cursor: wait;*/
 	overflow: hidden;
+	/* 用户点击穿透到页面，与 PageAgent::EnablePassThrough / DisablePassThrough 处理后的状态一致 */
+	pointer-events: none;
 
 	display: none;
 }
