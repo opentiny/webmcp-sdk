@@ -44,11 +44,12 @@ declare global {
 
 /**
  * 重复注册时复用页面上已有的遮罩，使先前返回的句柄仍能控制当前显示的遮罩。
- * 遮罩已被 dispose 或其元素已被移出文档时重新创建。
+ * 遮罩已被 dispose 或其元素已被移出文档时，释放旧实例的全局监听与动画循环后重新创建。
  */
 function acquireSimulatorMask(): SimulatorMask {
   const existing = window.__pageAgentSimulatorMask
   if (existing?.wrapper?.isConnected) return existing
+  existing?.dispose()
   const mask = new SimulatorMask()
   window.__pageAgentSimulatorMask = mask
   return mask
@@ -200,12 +201,14 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
   }
 
   function createHandle(): PageAgentToolHandle {
+    // 每次调用时读取当前共用的遮罩：后续注册替换了遮罩时，本句柄仍作用于页面上正在使用的实例
+    const currentMask = () => window.__pageAgentSimulatorMask ?? simulatorMask
     return {
       showMask: async (options?: ShowMaskOptions) => {
-        simulatorMask.show({ showCursor: resolveShowCursor('host', options?.showCursor) })
+        currentMask().show({ showCursor: resolveShowCursor('host', options?.showCursor) })
       },
       hideMask: async () => {
-        simulatorMask.hide()
+        currentMask().hide()
       }
     }
   }

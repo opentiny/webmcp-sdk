@@ -16,7 +16,8 @@ function resetPageAgentGlobals() {
     // registerTool 在 abort 后可能以 AbortError reject，由调用方 catch
   }
   delete (window as any).__pageAgentToolAbortController
-  delete (window as any).__pageAgentSimulatorMask
+  window.__pageAgentSimulatorMask?.dispose()
+  delete window.__pageAgentSimulatorMask
   delete window.__webmcpcli_toolConfig
   document.querySelectorAll('.webmcp-page-agent-wrapper').forEach((el) => el.remove())
 }
@@ -43,6 +44,37 @@ describe('registerPageAgentTool - 重复注册时的遮罩实例', () => {
     vi.advanceTimersByTime(HIDE_FADE_MS)
 
     expect(visibleMasks()).toHaveLength(0)
+  })
+
+  it('复现：一次注册关闭遮罩后 800ms 内另一次注册重新显示，淡出结束时遮罩被隐藏 —— 步骤 注册 A、注册 B，A.showMask()、A.hideMask()，未满 800ms 时 B.showMask()；期望 淡出时长过后遮罩仍可见', async () => {
+    const handleA = registerPageAgentTool({ removeMaskAfterToolCall: false })
+    const handleB = registerPageAgentTool({ removeMaskAfterToolCall: false })
+
+    await handleA.showMask()
+    await handleA.hideMask()
+    vi.advanceTimersByTime(HIDE_FADE_MS / 2)
+    await handleB.showMask()
+    vi.advanceTimersByTime(HIDE_FADE_MS)
+
+    expect(visibleMasks()).toHaveLength(1)
+  })
+
+  it('复现：遮罩元素被移出文档后再次注册，先前句柄关不掉新遮罩 —— 步骤 注册 A，移除遮罩元素，注册 B，B.showMask()，A.hideMask()；期望 页面上没有可见遮罩，旧遮罩实例已释放', async () => {
+    const handleA = registerPageAgentTool({ removeMaskAfterToolCall: false })
+    const detachedMask = window.__pageAgentSimulatorMask!
+    const onDispose = vi.fn()
+    detachedMask.addEventListener('dispose', onDispose)
+    detachedMask.wrapper.remove()
+
+    const handleB = registerPageAgentTool({ removeMaskAfterToolCall: false })
+    await handleB.showMask()
+    expect(visibleMasks()).toHaveLength(1)
+
+    await handleA.hideMask()
+    vi.advanceTimersByTime(HIDE_FADE_MS)
+
+    expect(visibleMasks()).toHaveLength(0)
+    expect(onDispose).toHaveBeenCalledTimes(1)
   })
 
   it('复现：重复调用 registerPageAgentTool 会在页面上留下多个遮罩元素 —— 步骤 连续注册两次；期望 页面上只有一个遮罩 wrapper', () => {

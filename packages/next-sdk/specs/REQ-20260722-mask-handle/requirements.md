@@ -27,4 +27,6 @@
 1. `const h = registerPageAgentTool(); await h.showMask(); await h.hideMask();` 正常工作。
 2. `PageAgentToolHandle` 类型可从 `@opentiny/next-sdk` 导入，`tsc --noEmit` 无报错。
 3. 重复调用 `registerPageAgentTool` 时，页面上只有一个遮罩，任一次调用返回的句柄都能显示和关闭它；页面与宿主各自打包一份 SDK 时同样成立。
+   - 遮罩元素被移出文档后再次注册时，新建遮罩并释放旧实例；先前返回的句柄作用于新遮罩。
+   - 一个句柄 `hideMask()` 后，在 800ms 淡出结束前另一个句柄 `showMask()`，淡出结束后遮罩仍可见。
    - 背景：此前每次调用都新建 `SimulatorMask`，旧实例不会被移除。工具由最后一次注册执行，遮罩显示在最新实例上；先前返回的句柄只能操作自己的实例，`hideMask()` 关不掉正在显示的遮罩。
