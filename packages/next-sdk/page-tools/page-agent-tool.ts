@@ -35,6 +35,26 @@ export type PageAgentToolHandle = {
   hideMask: () => Promise<void>
 }
 
+declare global {
+  interface Window {
+    /** 页面内所有 registerPageAgentTool 调用共用的遮罩实例，页面中存在多份 SDK 副本时同样共用 */
+    __pageAgentSimulatorMask?: SimulatorMask
+  }
+}
+
+/**
+ * 重复注册时复用页面上已有的遮罩，使先前返回的句柄仍能控制当前显示的遮罩。
+ * 遮罩已被 dispose 或其元素已被移出文档时，释放旧实例的全局监听与动画循环后重新创建。
+ */
+function acquireSimulatorMask(): SimulatorMask {
+  const existing = window.__pageAgentSimulatorMask
+  if (existing?.wrapper?.isConnected) return existing
+  existing?.dispose()
+  const mask = new SimulatorMask()
+  window.__pageAgentSimulatorMask = mask
+  return mask
+}
+
 type CursorKind = 'host' | 'pointer' | 'observe'
 
 function resolveShowCursor(kind: CursorKind, explicit?: boolean): boolean {
@@ -59,7 +79,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
 
   // 保留 PageController ，先关闭内置mask, 再手工绑定当前项目的mask类
   const pageController = new PageController({ enableMask: false })
-  const simulatorMask = new SimulatorMask()
+  const simulatorMask = acquireSimulatorMask()
 
   // @ts-ignore — PageController.mask / maskReady 为 private，需替换为项目内 SimulatorMask
   pageController.maskReady = (async () => {
@@ -181,12 +201,14 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
   }
 
   function createHandle(): PageAgentToolHandle {
+    // 每次调用时读取当前共用的遮罩：后续注册替换了遮罩时，本句柄仍作用于页面上正在使用的实例
+    const currentMask = () => window.__pageAgentSimulatorMask ?? simulatorMask
     return {
       showMask: async (options?: ShowMaskOptions) => {
-        simulatorMask.show({ showCursor: resolveShowCursor('host', options?.showCursor) })
+        currentMask().show({ showCursor: resolveShowCursor('host', options?.showCursor) })
       },
       hideMask: async () => {
-        simulatorMask.hide()
+        currentMask().hide()
       }
     }
   }

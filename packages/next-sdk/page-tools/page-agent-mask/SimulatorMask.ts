@@ -82,6 +82,7 @@ export class SimulatorMask extends EventTarget {
 
   #disposed = false
   #rafId?: number
+  #hideTimer?: ReturnType<typeof setTimeout>
 
   #cursor = document.createElement('div')
 
@@ -234,6 +235,8 @@ export class SimulatorMask extends EventTarget {
 
   show(options?: { showCursor?: boolean }) {
     if (this.#disposed) return
+    // 淡出期间重新显示时取消挂起的隐藏，否则定时器会在 shown 为 true 时移除 visible
+    this.#clearHideTimer()
 
     // 根据 showCursor 动态控制鼠标图标显隐（默认 false：遮罩 ≠ 正在鼠标操作）
     const showCursor = options?.showCursor ?? false
@@ -285,9 +288,16 @@ export class SimulatorMask extends EventTarget {
     // 隐藏 cursor，避免在 800ms 的呼吸灯 fadeOut 动画期间出现不符合预期的光标
     this.#cursor.style.display = 'none'
 
-    setTimeout(() => {
+    this.#hideTimer = setTimeout(() => {
+      this.#hideTimer = undefined
       this.wrapper.classList.remove('visible')
     }, 800) // Match the animation duration
+  }
+
+  #clearHideTimer() {
+    if (this.#hideTimer === undefined) return
+    clearTimeout(this.#hideTimer)
+    this.#hideTimer = undefined
   }
 
   dispose() {
@@ -295,6 +305,7 @@ export class SimulatorMask extends EventTarget {
       cancelAnimationFrame(this.#rafId)
       this.#rafId = undefined
     }
+    this.#clearHideTimer()
     this.#disposed = true
     this.motion?.dispose()
     this.wrapper.remove()
