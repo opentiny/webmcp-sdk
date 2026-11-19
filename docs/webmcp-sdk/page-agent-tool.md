@@ -79,7 +79,7 @@ getPageAgentToolConfig() // { enableHighlight: false, a11yConfig: { roles: [...]
 - **接管态**（宿主 `showMask()`、感知/滚动类 action）：默认只出呼吸灯，不出光标。
 - **操作类**（`click` / `fill` / `select` / `hover`）：步骤期间出光标；结束后若遮罩仍开着且 `cursorMode !== 'always'`，则自动收起光标。
 
-遮罩只提供视觉提示，不拦截用户的鼠标操作：遮罩可见期间，用户点击仍落到页面元素上。宿主需要感知用户介入时，监听 `page-agent-user-do-action` 事件。
+遮罩只提供视觉提示，不拦截用户的鼠标操作：遮罩可见期间，用户点击仍落到页面元素上。宿主需要感知用户介入时，监听 `page-agent-user-do-action` 事件；该事件只在遮罩处于显示状态、点击为用户真实操作（`isTrusted`），且点击目标是当前 `refMap` 中的元素或其后代时派发，其余点击照常穿透，但不通知宿主。
 
 ```typescript
 const handle = registerPageAgentTool({ removeMaskAfterToolCall: false })

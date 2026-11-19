@@ -15,11 +15,13 @@ describe('SimulatorMask 用户点击穿透', () => {
     expect(getComputedStyle(mask.wrapper).pointerEvents).toBe('none')
   })
 
-  it('click 动作结束（DisablePassThrough）后，遮罩仍保持点击穿透', () => {
+  it('click 动作执行期间（EnablePassThrough）与结束后（DisablePassThrough），遮罩都保持点击穿透', () => {
     mask = new SimulatorMask()
     mask.show()
 
     window.dispatchEvent(new CustomEvent('PageAgent::EnablePassThrough'))
+    expect(getComputedStyle(mask.wrapper).pointerEvents).toBe('none')
+
     window.dispatchEvent(new CustomEvent('PageAgent::DisablePassThrough'))
 
     expect(getComputedStyle(mask.wrapper).pointerEvents).toBe('none')

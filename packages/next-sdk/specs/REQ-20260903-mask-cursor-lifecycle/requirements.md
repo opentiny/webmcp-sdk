@@ -16,11 +16,11 @@
 3. **操作类 action 的 `finally` 只 `removeBorderElement()`**，不收起光标；宿主保持遮罩期间光标停在上次点击位置。
 4. **缺少运行期策略配置**，扩展宿主无法声明「仅操作时出光标 / 永远不出 / 始终出」。
 
-遮罩（Mask）语义是呼吸灯锁屏防误触；光标（Cursor）语义是操作动效。开启接管态 ≠ 正在鼠标操作。
+遮罩（Mask）语义是呼吸灯视觉提示，不拦截用户点击（见 [`REQ-20260729-user-do-action`](../REQ-20260729-user-do-action/) 验收标准 5）；光标（Cursor）语义是操作动效。开启接管态 ≠ 正在鼠标操作。
 
 ## 领域术语表
 
-- **接管态**：宿主（Sidepanel / 子 Agent）对当前 Tab 调用 `showMask()`，展示呼吸灯并拦截误触。
+- **接管态**：宿主（Sidepanel / 子 Agent）对当前 Tab 调用 `showMask()`，展示呼吸灯；用户点击仍穿透到页面。
 - **操作类 Action**：`click` / `fill` / `select` / `hover`，需要光标移动到目标。
 - **感知/脚本/滚动类 Action**：`browserState` / `searchTree` / `executeJavascript` / `scroll`，只需呼吸灯。
 - **`cursorMode`**：运行期光标策略。`actionOnly`（默认）仅操作类展示；`always` 遮罩可见即展示；`never` 永不展示。
