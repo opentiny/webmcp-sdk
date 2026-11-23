@@ -223,7 +223,9 @@ export const setupLocalTools = () => {
               }
             }
 
-            if (payload?.content) return payload
+            if (payload && typeof payload === 'object' && !Array.isArray(payload) && Array.isArray(payload.content)) {
+              return payload
+            }
 
             return {
               content: [

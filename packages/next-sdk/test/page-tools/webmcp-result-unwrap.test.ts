@@ -98,4 +98,92 @@ describe('WebMCP 工具结果单层解包回归测试', () => {
     expect(parsedOnce).toHaveProperty('content')
     expect(typeof parsedOnce.content).toBe('string')
   })
+
+  it('复现：setupBuiltinProxy 收到含非数组 content 字段的普通业务 JSON 字符串时不误判为 MCP 结果 —— 期望仍按文本块包裹返回', async () => {
+    const plainJson = JSON.stringify({ content: 'article' })
+    const origModelContext = (document as any).modelContext
+    const origGlobalModelContext = (globalThis as any).modelContext
+    const mockCtx = {
+      getTools: vi.fn(async () => [{ name: 'get-article', description: 'get article' }]),
+      executeTool: vi.fn(async () => plainJson)
+    }
+
+    try {
+      Object.defineProperty(document, 'modelContext', {
+        configurable: true,
+        writable: true,
+        value: mockCtx
+      })
+      ;(globalThis as any).modelContext = mockCtx
+
+      const sentMessages: any[] = []
+      const fakeTransport = {
+        start: vi.fn(),
+        close: vi.fn(),
+        send: vi.fn(async (msg: any) => {
+          sentMessages.push(msg)
+        }),
+        onmessage: undefined as any
+      }
+
+      setupBuiltinProxy(fakeTransport as any)
+
+      await fakeTransport.onmessage({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'tools/call',
+        params: {
+          name: 'get-article',
+          arguments: {}
+        }
+      })
+
+      expect(sentMessages).toHaveLength(1)
+      expect(sentMessages[0].result).toEqual({
+        content: [{ type: 'text', text: plainJson }]
+      })
+    } finally {
+      Object.defineProperty(document, 'modelContext', {
+        configurable: true,
+        writable: true,
+        value: origModelContext
+      })
+      ;(globalThis as any).modelContext = origGlobalModelContext
+    }
+  })
+
+  it('复现：getBuiltinMcpTools 收到含 structuredContent 或 isError 等额外字段的结果时不丢弃额外字段 —— 期望原样保留返回', async () => {
+    const withStructured = JSON.stringify({
+      content: [{ type: 'text', text: 'Found one order' }],
+      structuredContent: { orderId: 'A42' }
+    })
+    const withError = JSON.stringify({
+      content: [{ type: 'text', text: 'Operation failed' }],
+      isError: true
+    })
+
+    const mockClient = {
+      listTools: vi.fn(async () => [
+        { name: 'query-order', description: 'query order' },
+        { name: 'fail-tool', description: 'fail tool' }
+      ]),
+      executeTool: vi.fn(async (tool: { name: string }) =>
+        tool.name === 'query-order' ? withStructured : withError
+      )
+    }
+
+    const toolSet = await getBuiltinMcpTools(mockClient)
+
+    const orderOutput = await toolSet['query-order'].execute!({}, {
+      toolCallId: 'tc-2',
+      messages: []
+    } as any)
+    expect(orderOutput).toBe(withStructured)
+
+    const errorOutput = await toolSet['fail-tool'].execute!({}, {
+      toolCallId: 'tc-3',
+      messages: []
+    } as any)
+    expect(errorOutput).toBe(withError)
+  })
 })

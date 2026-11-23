@@ -113,7 +113,12 @@ export const setupBuiltinProxy = (transport: Transport) => {
           if (typeof unwrapped === 'string') {
             try {
               const parsed: unknown = JSON.parse(unwrapped)
-              if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && 'content' in parsed) {
+              if (
+                parsed &&
+                typeof parsed === 'object' &&
+                !Array.isArray(parsed) &&
+                Array.isArray((parsed as { content?: unknown }).content)
+              ) {
                 unwrapped = parsed
               }
             } catch {
@@ -121,8 +126,11 @@ export const setupBuiltinProxy = (transport: Transport) => {
             }
           }
           const finalResult =
-            unwrapped && typeof unwrapped === 'object' && 'content' in unwrapped
-              ? unwrapped
+            unwrapped &&
+            typeof unwrapped === 'object' &&
+            !Array.isArray(unwrapped) &&
+            Array.isArray((unwrapped as { content?: unknown }).content)
+              ? (unwrapped as Record<string, unknown>)
               : { content: [{ type: 'text', text: typeof result === 'string' ? result : JSON.stringify(result) }] }
           await transport.send({ jsonrpc: '2.0', id, result: finalResult })
         } else {

@@ -86,7 +86,8 @@ export const getBuiltinMcpTools = async (client: object | undefined | null): Pro
               parsed &&
               typeof parsed === 'object' &&
               !Array.isArray(parsed) &&
-              Array.isArray((parsed as { content?: unknown }).content)
+              Array.isArray((parsed as { content?: unknown }).content) &&
+              Object.keys(parsed).length === 1
             ) {
               const blocks = (parsed as { content: Array<{ type?: unknown; text?: unknown }> }).content
               if (
