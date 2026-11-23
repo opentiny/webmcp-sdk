@@ -103,6 +103,11 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
   // 当前最新快照中活跃的 ref 索引 → HTMLElement 映射（每次 buildA11yTree 后更新）
   let currentRefMap: RefMap = new Map()
 
+  function endTurn(): void {
+    sessionGeneration++
+    stateCache.invalidate()
+  }
+
   function resetSession(): void {
     sessionGeneration++
     stateCache.reset()
@@ -243,6 +248,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
         buildBrowserStateResponseFor(expectedGeneration, mode),
       staleRefError,
       refreshOnStaleRef: staleRefError,
+      endTurn,
       resetSession,
       errContent,
       actionError: (msg: string) => actionErrorFor(expectedGeneration, msg)
@@ -264,6 +270,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
       staleRefErrorFor(sessionGeneration, actionLabel, index),
     refreshOnStaleRef: (actionLabel: string, index: number) =>
       staleRefErrorFor(sessionGeneration, actionLabel, index),
+    endTurn,
     resetSession,
     errContent,
     actionError: (msg: string) => actionErrorFor(sessionGeneration, msg)

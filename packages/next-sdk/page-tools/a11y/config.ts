@@ -221,11 +221,44 @@ function matchesAnyRule(el: Element, rules?: A11yMatcher | A11yMatcher[]): boole
   return list.some((rule) => matchesRule(el, rule))
 }
 
-/** 仅匹配元素自身（el.matches）：用于 error/warning，避免容器级校验 class 传染给整棵后代子树 */
+/** 仅匹配元素自身（el.matches） */
 function matchesAnySelfRule(el: Element, rules?: A11yMatcher | A11yMatcher[]): boolean {
   if (!rules) return false
   const list = Array.isArray(rules) ? rules : [rules]
   return list.some((rule) => matchesRoleRule(el, rule))
+}
+
+/** 允许通过 closest() 继承容器级 error/warning 状态的表单控件 ARIA 角色 */
+const VALIDATION_FORM_CONTROL_ROLES = new Set([
+  'textbox',
+  'searchbox',
+  'combobox',
+  'listbox',
+  'checkbox',
+  'radio',
+  'switch',
+  'slider',
+  'spinbutton',
+])
+
+function isValidationFormControl(el: Element): boolean {
+  const tag = el.tagName.toLowerCase()
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return true
+  if (isEditingHost(el)) return true
+  const role = el.getAttribute('role')?.trim().toLowerCase()
+  return !!role && VALIDATION_FORM_CONTROL_ROLES.has(role)
+}
+
+/**
+ * 校验错误/警告匹配：
+ * - 元素自身命中（el.matches / match）时始终生效（覆盖报错文案节点与带 class 的控件自身）；
+ * - 仅表单控件允许通过 closest() 继承外层表单项容器（如 Element Plus .el-form-item.is-error、Bootstrap .has-error）的状态，
+ *   避免普通按钮/布局容器被外层大容器传染 [error]。
+ */
+function matchesValidationStateRule(el: Element, rules?: A11yMatcher | A11yMatcher[]): boolean {
+  if (matchesAnySelfRule(el, rules)) return true
+  if (!isValidationFormControl(el)) return false
+  return matchesAnyRule(el, rules)
 }
 
 /** 从状态规则中提取纯 CSS 选择器列表（忽略只有 match 函数、没有 selector 的规则；数组 selector 会被展开），供页面级选择器扫描场景复用 */
@@ -492,10 +525,10 @@ function computeStates(el: Element, resolved: ResolvedA11yConfig): string[] {
   }
 
   // 校验错误/警告状态（ARIA 标准 + 主流 UI 框架，可配置），error 优先于 warning。
-  // 仅匹配元素自身（el.matches），防止表单/卡片容器上的 error/warning class 传染给全部无辜子孙引发 Diff 抖动
-  if (matchesAnySelfRule(el, states.error)) {
+  // 元素自身命中始终生效；仅表单控件允许通过 closest() 继承表单项容器（如 .el-form-item.is-error / .has-error）的校验态
+  if (matchesValidationStateRule(el, states.error)) {
     tokens.push('error')
-  } else if (matchesAnySelfRule(el, states.warning)) {
+  } else if (matchesValidationStateRule(el, states.warning)) {
     tokens.push('warning')
   }
 

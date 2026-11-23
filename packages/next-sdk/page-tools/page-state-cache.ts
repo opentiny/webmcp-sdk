@@ -130,20 +130,22 @@ function findAncestorIndices(lines: string[], targetIdx: number, maxDepth = MAX_
 }
 
 /**
- * 为行数组预计算 trimmed 文本与直接父节点文本，用于精确区分：
+ * 为行数组预计算 trimmed 文本与直接父节点身份 key：
+ * - 若父节点带有稳定 #ref，用 `#ref` 作为父级身份（父节点改名不影响子节点匹配）
  * - 外层包装容器临时插入导致的整棵子树缩进平移（子节点 directParent 未变 → 视为未变化）
  * - 节点真实的父子层级迁移（directParent 变化 → 必须作为差异输出）
  */
 function buildComparableLines(lines: string[]): ComparableLine[] {
-  const stack: Array<{ indent: number; trimmed: string }> = []
+  const stack: Array<{ indent: number; parentKey: string }> = []
   return lines.map((line) => {
     const indent = getIndentWidth(line)
     const trimmed = line.slice(indent)
     while (stack.length > 0 && stack[stack.length - 1].indent >= indent) {
       stack.pop()
     }
-    const directParent = stack.length > 0 ? stack[stack.length - 1].trimmed : ''
-    stack.push({ indent, trimmed })
+    const directParent = stack.length > 0 ? stack[stack.length - 1].parentKey : ''
+    const ref = parseLineRef(line)
+    stack.push({ indent, parentKey: ref !== null ? `#${ref}` : trimmed })
     return { line, trimmed, directParent }
   })
 }
@@ -220,9 +222,34 @@ function computeStructuredYamlDiff(
   let removedLines = 0
 
   for (const hunk of hunks) {
+    // 0. 抵消同 Hunk 内整行完全相同（含缩进与文本）的伪变更行（例如无 #ref 父节点如 `region "购物车 (2)"` -> `region "购物车 (3)"`
+    //    改名带动其下未变更子节点进入同一 Hunk 时，绝不输出相同内容的 `-`/`+` 对，也不计入 added/removed 与熔断比例）
+    const identicalRemovedMap = new Map<string, IndexedLine[]>()
+    for (const rem of hunk.removed) {
+      const list = identicalRemovedMap.get(rem.line)
+      if (list) list.push(rem)
+      else identicalRemovedMap.set(rem.line, [rem])
+    }
+    const cancelledRemovedIndices = new Set<number>()
+    const effectiveAdded: IndexedLine[] = []
+    for (const add of hunk.added) {
+      const matches = identicalRemovedMap.get(add.line)
+      if (matches && matches.length > 0) {
+        const matchedRem = matches.shift()!
+        cancelledRemovedIndices.add(matchedRem.index)
+      } else {
+        effectiveAdded.push(add)
+      }
+    }
+    const effectiveRemoved = hunk.removed.filter((rem) => !cancelledRemovedIndices.has(rem.index))
+
+    if (effectiveRemoved.length === 0 && effectiveAdded.length === 0) {
+      continue
+    }
+
     // 1. 识别同 Hunk 内同 #ref 的原地更新，将 `- 旧行` 与 `+ 新行` 就近配对
     const addedRefCounts = new Map<number, number>()
-    for (const item of hunk.added) {
+    for (const item of effectiveAdded) {
       if (item.ref !== null) {
         addedRefCounts.set(item.ref, (addedRefCounts.get(item.ref) ?? 0) + 1)
       }
@@ -230,12 +257,12 @@ function computeStructuredYamlDiff(
 
     const removedByUniqueRef = new Map<number, IndexedLine>()
     const removedRefCounts = new Map<number, number>()
-    for (const item of hunk.removed) {
+    for (const item of effectiveRemoved) {
       if (item.ref !== null) {
         removedRefCounts.set(item.ref, (removedRefCounts.get(item.ref) ?? 0) + 1)
       }
     }
-    for (const item of hunk.removed) {
+    for (const item of effectiveRemoved) {
       if (
         item.ref !== null &&
         removedRefCounts.get(item.ref) === 1 &&
@@ -245,11 +272,11 @@ function computeStructuredYamlDiff(
       }
     }
 
-    const unpairedRemoved = hunk.removed.filter(
+    const unpairedRemoved = effectiveRemoved.filter(
       (rem) => rem.ref === null || !removedByUniqueRef.has(rem.ref),
     )
-    const hunkRemovedIndices = new Set(hunk.removed.map((r) => r.index))
-    const hunkAddedIndices = new Set(hunk.added.map((a) => a.index))
+    const hunkRemovedIndices = new Set(effectiveRemoved.map((r) => r.index))
+    const hunkAddedIndices = new Set(effectiveAdded.map((a) => a.index))
 
     // 2. 先输出纯删除行及其最小旧父级锚点（解决混合 Hunk 中嵌套删除被顶层新增掩盖旧父级的问题）
     const emittedAncestorTextsInHunk = new Set<string>()
@@ -271,8 +298,8 @@ function computeStructuredYamlDiff(
     }
 
     // 3. 再输出新增/配对修改行的最小新父级锚点（与同 Hunk 已输出的相同父级文本去重）
-    if (hunk.added.length > 0) {
-      const currAncestorIndices = findAncestorIndices(currLines, hunk.added[0].index)
+    if (effectiveAdded.length > 0) {
+      const currAncestorIndices = findAncestorIndices(currLines, effectiveAdded[0].index)
       for (const idx of currAncestorIndices) {
         if (!emittedCurrAncestors.has(idx) && !hunkAddedIndices.has(idx)) {
           emittedCurrAncestors.add(idx)
@@ -284,7 +311,7 @@ function computeStructuredYamlDiff(
       }
 
       // 按新树顺序输出同 #ref 配对变更与纯新增行
-      for (const add of hunk.added) {
+      for (const add of effectiveAdded) {
         const pairedOld = add.ref !== null ? removedByUniqueRef.get(add.ref) : undefined
         emittedCurrAncestors.add(add.index)
         if (pairedOld) {
@@ -300,6 +327,10 @@ function computeStructuredYamlDiff(
         }
       }
     }
+  }
+
+  if (addedLines === 0 && removedLines === 0) {
+    return { diffText: NO_CHANGES_DIFF_TEXT, addedLines: 0, removedLines: 0 }
   }
 
   return {

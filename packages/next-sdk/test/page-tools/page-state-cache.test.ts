@@ -465,4 +465,21 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
     const oldParentLines = r2.diffText.split('\n').filter((l) => l.includes('generic #10 "旧分组名"'))
     expect(oldParentLines).toHaveLength(1)
   })
+
+  it('复现：父节点文本变化（如 region "购物车 (2)" -> "购物车 (3)"）时，下方 20 个未变更子节点不应输出相同内容的 -/+ 对也不应触发熔断', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/cart'
+
+    const children = Array.from({ length: 20 }, (_, i) => `  - button #${i + 1} "商品-${i + 1}"`)
+    const yaml1 = ['```yaml', '- region "购物车 (2)"', ...children, '```'].join('\n')
+    const yaml2 = ['```yaml', '- region "购物车 (3)"', ...children, '```'].join('\n')
+
+    cache.update(url, yaml1)
+    const r2 = cache.update(url, yaml2)
+
+    expect(r2.kind).toBe('diff')
+    expect(r2.addedLines).toBe(1)
+    expect(r2.removedLines).toBe(1)
+    expect(r2.diffText).toBe(['- - region "购物车 (2)"', '+ - region "购物车 (3)"'].join('\n'))
+  })
 })

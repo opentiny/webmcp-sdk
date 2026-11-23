@@ -1,5 +1,20 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
+vi.mock('@page-agent/page-controller', () => ({
+  PageController: class PageController {
+    mask = {
+      borderElement() {},
+      removeBorderElement() {},
+    }
+    maskReady = Promise.resolve()
+    async showMask() {}
+    async hideMask() {}
+  },
+  clickElement: vi.fn(async () => {}),
+  inputTextElement: vi.fn(async () => {}),
+  selectOptionElement: vi.fn(async () => {}),
+}))
+
 vi.mock('../../page-tools/page-agent-mask/SimulatorMask', () => ({
   SimulatorMask: class SimulatorMask {
     shown = false
@@ -231,42 +246,39 @@ describe('page-agent-tool 稳定编号、结构化版本字段、REF_NOT_PRESENT
     expect(r2.content).toContain('#2')
   })
 
-  it('handle.resetSession() 与 PAGE_AGENT_CHAT_END_EVENT 均能重置会话编号与快照版本链', async () => {
+  it('handle.resetSession() 完整归零会话，而 PAGE_AGENT_CHAT_END_EVENT 仅清空 Diff 基线并保持 rev 递增与 #ref 跨轮不复用', async () => {
     document.body.innerHTML = `
-      <button id="first">按钮A</button>
-      <button id="second">按钮B</button>
+      <button id="first">删除订单</button>
+      <button id="second">保存</button>
     `
     const { execute, handle } = captureTool()
 
     await execute({ action: 'browserState' })
-    // 移除 #0 后再新增按钮，使计数器推进到 #2、rev 推进到 2
+    // 派发单轮结束事件后移除 #0 并在顶部插入新按钮
+    window.dispatchEvent(new CustomEvent(PAGE_AGENT_CHAT_END_EVENT))
     document.getElementById('first')!.remove()
-    const extra = document.createElement('button')
-    extra.textContent = '按钮C'
-    document.body.appendChild(extra)
+    const payBtn = document.createElement('button')
+    payBtn.textContent = '确认支付'
+    document.body.insertBefore(payBtn, document.body.firstChild)
 
-    const beforeReset = JSON.parse((await execute({ action: 'browserState' })).content[0].text)
-    expect(beforeReset).toMatchObject({ kind: 'diff', rev: 2, baseRev: 1 })
-    expect(beforeReset.content).toContain('#2')
+    // 下一轮首次 browserState 应返回 full，但 rev 继续递增为 2，且新按钮拿到 #2（绝不复用旧 #0）
+    const afterChatEnd = JSON.parse((await execute({ action: 'browserState' })).content[0].text)
+    expect(afterChatEnd).toMatchObject({ kind: 'full', rev: 2 })
+    expect(afterChatEnd.baseRev).toBeUndefined()
+    expect(afterChatEnd.content).toContain('- button #2 "确认支付"')
+    expect(afterChatEnd.content).toContain('- button #1 [id=\\"second\\"] "保存"')
+    expect(afterChatEnd.content).not.toContain('#0')
 
-    // 1. 显式调用 handle.resetSession()
+    // 显式调用 handle.resetSession()（新建/清空会话）才会完整归零
     handle.resetSession()
-    // 重置后尚未获取新快照时，旧 #1 立即报 REF_NOT_PRESENTED
     const staleAfterReset = await execute({ action: 'hover', index: 1 })
     expect(staleAfterReset.isError).toBe(true)
     expect(staleAfterReset.errorCode).toBe(REF_NOT_PRESENTED_ERROR_CODE)
 
-    // 新一轮首次 browserState 重新从 #0、rev=1、kind='full' 开始
     const afterHandleReset = JSON.parse((await execute({ action: 'browserState' })).content[0].text)
     expect(afterHandleReset).toMatchObject({ kind: 'full', rev: 1 })
-    expect(afterHandleReset.content).toContain('- button #0')
-    expect(afterHandleReset.content).toContain('- button #1 "按钮C"')
-
-    // 2. 派发 PAGE_AGENT_CHAT_END_EVENT 同样自动重置会话
-    window.dispatchEvent(new CustomEvent(PAGE_AGENT_CHAT_END_EVENT))
-    const afterEventReset = JSON.parse((await execute({ action: 'browserState' })).content[0].text)
-    expect(afterEventReset).toMatchObject({ kind: 'full', rev: 1 })
-    expect(afterEventReset.content).toContain('- button #0')
+    expect(afterHandleReset.content).toContain('- button #0 "确认支付"')
+    expect(afterHandleReset.content).toContain('- button #1 [id=\\"second\\"] "保存"')
   })
 
   it('复现：异步操作等待期间触发 resetSession() 时，旧操作续体不得污染新会话的 refAllocator 与 stateCache 基线', async () => {

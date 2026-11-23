@@ -103,6 +103,9 @@ export interface ActionContext {
   staleRefError: (actionLabel: string, index: number) => Promise<PageAgentToolErrorResult>
   /** @deprecated 统一委托给 staleRefError，保留签名兼容旧内部调用 */
   refreshOnStaleRef: (action: string, index: number) => Promise<PageAgentToolErrorResult>
+  /** 单轮对话回复结束：仅清空 Diff 缓存基线（下轮返回 full），保持 rev 递增与 #ref 不跨轮复用 */
+  endTurn: () => void
+  /** 新建/清空整个会话：清空 Diff 缓存、归零 rev 与元素 #ref 映射并移除高亮 */
   resetSession: () => void
   errContent: (msg: string) => Promise<{ content: Array<{ type: 'text'; text: string }> }>
   actionError: (msg: string) => Promise<PageAgentToolErrorResult>

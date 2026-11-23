@@ -344,10 +344,28 @@ describe('resolveA11yStates - 自定义规则', () => {
 
     // 普通按钮与未触碰输入框不应被外层容器传染 error
     expect(resolveA11yStates(form.querySelector('#normal-btn')!, config)).not.toContain('error')
-    expect(resolveA11yStates(form.querySelector('#untouched-input')!, config)).not.toContain('error')
+    // 表单控件在仅挂 .ng-invalid.ng-untouched（无容器 .ti3-error）时不应报 error
+    const untouchedForm = el(`<form class="ng-invalid ng-untouched"><input id="u" class="ng-invalid ng-untouched" /></form>`)
+    expect(resolveA11yStates(untouchedForm.querySelector('#u')!)).not.toContain('error')
     // 真正已触碰且校验失败的原生输入框、以及报错提示元素自身应带 error
     expect(resolveA11yStates(form.querySelector('#touched-input')!, config)).toContain('error')
     expect(resolveA11yStates(form.querySelector('#err-msg')!, config)).toContain('error')
+  })
+
+  it('复现：Element Plus .el-form-item.is-error 容器下的 input 应继承 error，且 .el-form-item__error 自身带 error，无关按钮不被传染', () => {
+    const item = el(`
+      <div class="el-form-item is-error">
+        <label for="n">名称</label>
+        <div class="el-form-item__content">
+          <input id="n" />
+          <button id="help-btn">帮助</button>
+          <div class="el-form-item__error">请输入名称</div>
+        </div>
+      </div>
+    `)
+    expect(resolveA11yStates(item.querySelector('#n')!)).toContain('error')
+    expect(resolveA11yStates(item.querySelector('.el-form-item__error')!)).toContain('error')
+    expect(resolveA11yStates(item.querySelector('#help-btn')!)).not.toContain('error')
   })
 
   it('命中非标准自定义状态名时直接输出同名 token', () => {

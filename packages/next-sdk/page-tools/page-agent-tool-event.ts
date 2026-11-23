@@ -109,9 +109,9 @@ export function setupPageAgentToolEventBridge(
     }
   }
 
-  // 聊天结束事件：重置当前对话轮次的快照缓存与元素 #ref 映射，并移除遮罩
+  // 聊天单轮回复结束事件：仅清空 Diff 基线（下轮返回 full），保持 rev 递增与 #ref 跨轮不复用，并移除遮罩
   const handleChatEnd = async () => {
-    actionContext.resetSession()
+    actionContext.endTurn()
     try {
       await pageController.hideMask()
     } catch (error) {}
