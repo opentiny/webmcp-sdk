@@ -8,6 +8,13 @@ function visibleMasks() {
   return document.querySelectorAll('.webmcp-page-agent-wrapper.visible')
 }
 
+/** SimulatorMask 构造时注入的样式标签 */
+function maskStyles() {
+  return [...document.head.querySelectorAll('style')].filter((el) =>
+    el.textContent?.includes('.webmcp-page-agent-wrapper')
+  )
+}
+
 function resetPageAgentGlobals() {
   window.__nextSdkPageAgentToolEventCleanup?.()
   try {
@@ -75,6 +82,18 @@ describe('registerPageAgentTool - 重复注册时的遮罩实例', () => {
 
     expect(visibleMasks()).toHaveLength(0)
     expect(onDispose).toHaveBeenCalledTimes(1)
+  })
+
+  it('复现：遮罩元素反复被移出文档后再次注册，head 中累积遮罩样式 —— 步骤 注册，移除遮罩元素，再注册，重复两次；期望 遮罩样式数量与首次注册后相同', () => {
+    registerPageAgentTool()
+    const stylesAfterFirst = maskStyles().length
+
+    for (let i = 0; i < 2; i++) {
+      window.__pageAgentSimulatorMask!.wrapper.remove()
+      registerPageAgentTool()
+    }
+
+    expect(maskStyles()).toHaveLength(stylesAfterFirst)
   })
 
   it('复现：重复调用 registerPageAgentTool 会在页面上留下多个遮罩元素 —— 步骤 连续注册两次；期望 页面上只有一个遮罩 wrapper', () => {

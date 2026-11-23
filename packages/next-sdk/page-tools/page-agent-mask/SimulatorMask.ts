@@ -83,6 +83,7 @@ export class SimulatorMask extends EventTarget {
   #disposed = false
   #rafId?: number
   #hideTimer?: ReturnType<typeof setTimeout>
+  #style = document.createElement('style')
 
   #cursor = document.createElement('div')
 
@@ -95,7 +96,8 @@ export class SimulatorMask extends EventTarget {
   constructor() {
     super()
     // 注入样式，防止打包失败
-    document.head.appendChild(document.createElement('style')).textContent = injectStyles
+    this.#style.textContent = injectStyles
+    document.head.appendChild(this.#style)
     this.wrapper.id = 'page-agent-runtime_simulator-mask'
     this.wrapper.className = 'webmcp-page-agent-wrapper'
     this.wrapper.setAttribute('data-browser-use-ignore', 'true')
@@ -309,6 +311,8 @@ export class SimulatorMask extends EventTarget {
     this.#disposed = true
     this.motion?.dispose()
     this.wrapper.remove()
+    // 只移除本实例注入的样式，其他副本创建的遮罩各自持有自己的样式标签
+    this.#style.remove()
     this.dispatchEvent(new Event('dispose'))
   }
   // 根据目标元素大小，在 wrapper 添加绝对定位边框：2px 宽、与目标间距 2px，对角渐变 (0,0 → 1,1)
