@@ -105,6 +105,8 @@ export type {
 // 无障碍树构建与搜索：供高级用户直接生成/搜索自定义根节点下的无障碍树
 export { buildA11yTree } from './page-tools/a11y/build'
 export { searchA11yTree } from './page-tools/a11y/search'
+export { ElementRefAllocator } from './page-tools/a11y/ref-allocator'
+export { REF_NOT_PRESENTED_ERROR_CODE } from './page-tools/context'
 export type {
   A11yTreeOptions,
   A11yTreeResult,
@@ -113,3 +115,10 @@ export type {
   VNode,
   RefMap
 } from './page-tools/a11y/types'
+export type { RefAllocator } from './page-tools/a11y/ref-allocator'
+export type {
+  SnapshotKind,
+  FullSnapshotReason,
+  DiffResult,
+  StateCacheUpdateOptions
+} from './page-tools/page-state-cache'

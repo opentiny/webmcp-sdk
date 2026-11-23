@@ -17,6 +17,7 @@ export type PageAgentToolResultEventDetail = {
     success: boolean
     result?: unknown
     error?: string
+    errorCode?: string
   }
   requestId: string
 }
@@ -30,7 +31,9 @@ export type PageAgentUserDoActionEventDetail = {
 
 type ExecutePageAgentTool = (data: PageAgentToolInput) => Promise<unknown>
 
-function isPageAgentToolErrorResult(result: unknown): result is { isError: true; error: string } {
+function isPageAgentToolErrorResult(
+  result: unknown
+): result is { isError: true; error: string; errorCode?: string } {
   return (
     typeof result === 'object' &&
     result !== null &&
@@ -82,6 +85,7 @@ export function setupPageAgentToolEventBridge(
           data: {
             success: false,
             error: result.error,
+            ...(result.errorCode ? { errorCode: result.errorCode } : {}),
             result
           }
         })
@@ -105,8 +109,9 @@ export function setupPageAgentToolEventBridge(
     }
   }
 
-  // 聊天结束事件，用于在聊天结束时移除遮罩
+  // 聊天结束事件：重置当前对话轮次的快照缓存与元素 #ref 映射，并移除遮罩
   const handleChatEnd = async () => {
+    actionContext.resetSession()
     try {
       await pageController.hideMask()
     } catch (error) {}

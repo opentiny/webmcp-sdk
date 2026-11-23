@@ -7,6 +7,7 @@
 import { computeAccessibleName } from 'dom-accessibility-api'
 import { isTabbable } from 'tabbable'
 import type { VNode, RefMap, A11yTreeShapeOptions } from './types'
+import type { RefAllocator } from './ref-allocator'
 import type { ResolvedA11yConfig } from './config'
 import { isEditingHost, resolveA11yInfo } from './config'
 import {
@@ -43,10 +44,21 @@ const INTERACTIVE_ROLES = new Set([
   'treeitem',
 ])
 
+export type RefSource = RefAllocator | { value: number }
+
+function allocateElementRef(refSource: RefSource, el: Element): number {
+  if ('allocate' in refSource) {
+    return refSource.allocate(el)
+  }
+  const ref = refSource.value
+  refSource.value++
+  return ref
+}
+
 /**
  * 递归将 DOM 元素转换为 VNode 中间表示
  * @param el 当前 DOM 元素
- * @param refCounter 引用计数器（使用对象引用避免全局可变状态）
+ * @param refCounter 引用分配器（支持会话级稳定 RefAllocator 或单次递增对象）
  * @param refMap ref 索引 → 元素映射
  * @param blacklistSet 已解析的黑名单元素集合
  * @param whitelistSet 已解析的白名单元素集合
@@ -55,7 +67,7 @@ const INTERACTIVE_ROLES = new Set([
  */
 export function buildVNode(
   el: Element,
-  refCounter: { value: number },
+  refCounter: RefSource,
   refMap: RefMap,
   blacklistSet: Set<Element>,
   whitelistSet: Set<Element>,
@@ -196,9 +208,8 @@ export function buildVNode(
 
   let ref: number | undefined
   if (interactive) {
-    ref = refCounter.value
+    ref = allocateElementRef(refCounter, el)
     refMap.set(ref, el as HTMLElement)
-    refCounter.value++
     // 可操作元素默认保留 id（无需 exposedAttributes 配置），便于 AI 定位与跨轮次对齐
     // 用 getAttribute 避免 form 等元素上 name="id" 子节点导致的 DOM clobbering
     const idVal = el.getAttribute('id')

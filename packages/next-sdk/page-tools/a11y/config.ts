@@ -221,6 +221,13 @@ function matchesAnyRule(el: Element, rules?: A11yMatcher | A11yMatcher[]): boole
   return list.some((rule) => matchesRule(el, rule))
 }
 
+/** 仅匹配元素自身（el.matches）：用于 error/warning，避免容器级校验 class 传染给整棵后代子树 */
+function matchesAnySelfRule(el: Element, rules?: A11yMatcher | A11yMatcher[]): boolean {
+  if (!rules) return false
+  const list = Array.isArray(rules) ? rules : [rules]
+  return list.some((rule) => matchesRoleRule(el, rule))
+}
+
 /** 从状态规则中提取纯 CSS 选择器列表（忽略只有 match 函数、没有 selector 的规则；数组 selector 会被展开），供页面级选择器扫描场景复用 */
 export function extractSelectors(rules?: A11yMatcher | A11yMatcher[]): string[] {
   if (!rules) return []
@@ -484,10 +491,11 @@ function computeStates(el: Element, resolved: ResolvedA11yConfig): string[] {
     if (target) tokens.push(`target=${target}`)
   }
 
-  // 校验错误/警告状态（ARIA 标准 + 主流 UI 框架，可配置），error 优先于 warning
-  if (has('error')) {
+  // 校验错误/警告状态（ARIA 标准 + 主流 UI 框架，可配置），error 优先于 warning。
+  // 仅匹配元素自身（el.matches），防止表单/卡片容器上的 error/warning class 传染给全部无辜子孙引发 Diff 抖动
+  if (matchesAnySelfRule(el, states.error)) {
     tokens.push('error')
-  } else if (has('warning')) {
+  } else if (matchesAnySelfRule(el, states.warning)) {
     tokens.push('warning')
   }
 

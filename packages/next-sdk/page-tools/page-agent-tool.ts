@@ -2,15 +2,15 @@ import { initializeBuiltinWebMCP, isBuiltinWebMCPPolyfill } from './initialize-b
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import pageAgentPrompt from './page-agent-prompt.md?raw'
 import { PageController } from '@page-agent/page-controller'
-import { buildA11yTree, type RefMap } from './a11y-tree'
-import { PageStateCache } from './page-state-cache'
+import { buildA11yTree, ElementRefAllocator, type RefMap } from './a11y-tree'
+import { PageStateCache, type SnapshotKind } from './page-state-cache'
 import { SimulatorMask } from './page-agent-mask/SimulatorMask'
 import { highlight, unhighlight, globalRemoveListener } from './page-agent-highlight'
 import { setupPageAgentToolEventBridge } from './page-agent-tool-event'
 
 import type { PageAgentToolOptions } from './constants'
 import { inputSchema, type PageAgentToolInput } from './schema'
-import { createActionErrorResult, withStateFields, type ActionContext } from './context'
+import { createActionErrorResult, createStaleRefErrorResult, type ActionContext } from './context'
 import { detectPageDialog, detectValidationErrors, detectVisibleTooltips } from './utils/dom'
 import { getPageAgentToolConfig, setPageAgentToolConfig } from './tool-config'
 
@@ -29,10 +29,12 @@ export type ShowMaskOptions = {
   showCursor?: boolean
 }
 
-/** registerPageAgentTool 返回的句柄，暴露对内部 SimulatorMask 显隐的控制 */
+/** registerPageAgentTool 返回的句柄，暴露对内部 SimulatorMask 显隐与会话状态重置的控制 */
 export type PageAgentToolHandle = {
   showMask: (options?: ShowMaskOptions) => Promise<void>
   hideMask: () => Promise<void>
+  /** 重置当前对话轮次的页面快照缓存、版本号 rev 及 DOM 元素 #ref 绑定映射 */
+  resetSession: () => void
 }
 
 type CursorKind = 'host' | 'pointer' | 'observe'
@@ -67,11 +69,19 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
     pageController.mask = simulatorMask
   })()
 
-  // ─── 状态 Diff 缓存
+  // ─── 会话级状态缓存与稳定元素 #ref 分配器 ────────────────────────────────
   const stateCache = new PageStateCache()
+  const refAllocator = new ElementRefAllocator()
 
-  // 当前 ref 索引 → HTMLElement 映射（每次 buildA11yTree 后更新）
+  // 当前最新快照中活跃的 ref 索引 → HTMLElement 映射（每次 buildA11yTree 后更新）
   let currentRefMap: RefMap = new Map()
+
+  function resetSession(): void {
+    stateCache.reset()
+    refAllocator.reset()
+    currentRefMap = new Map()
+    unhighlight()
+  }
 
   // ─── 辅助：构建错误响应 ───────────────────────────────────────────────────
   async function errContent(msg: string) {
@@ -80,34 +90,33 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
 
   async function actionError(msg: string) {
     const result = await createActionErrorResult(msg, buildBrowserStateResponse)
-    options.removeMaskAfterToolCall && (await pageController.hideMask())
+    getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
     return result
   }
 
-  // AI 使用过期 ref 时，自动重建 A11y 树并返回全量状态，
-  // 避免 AI 额外往返调用 browserState，减少操作轮次
-  async function refreshOnStaleRef(action: string, index: number) {
-    const refreshResult = await buildBrowserStateResponse('full')
-    const warning = `⚠️ ${action}失败: ref 索引 ${index} 已失效（页面可能已刷新），已自动重新加载页面状态，请使用新的 ref 索引重试。`
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: withStateFields(refreshResult.content[0].text, { warning })
-        }
-      ]
-    }
+  async function staleRefError(actionLabel: string, index: number) {
+    const result = createStaleRefErrorResult(
+      actionLabel,
+      index,
+      window.location.href,
+      stateCache.getCurrentRev()
+    )
+    getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
+    return result
   }
 
-  // ─── 核心：构建 browserState 响应（全量 or 增量 Diff）────────────────────
+  // ─── 核心：构建 browserState 响应（全量 or 结构化增量 Diff）───────────────
   async function buildBrowserStateResponse(
     responseMode: 'full' | 'diff' | 'both' = 'diff'
   ): Promise<{ content: Array<{ type: 'text'; text: string }> }> {
     const url = window.location.href
     const title = document.title
 
-    // 生成语义化 ARIA YAML 树 + 刷新 refMap（统一读取运行期生效的配置，支持 setPageAgentToolConfig 动态修改）
-    const { yaml, refMap } = buildA11yTree(document.body, getPageAgentToolConfig().a11yConfig)
+    // 生成语义化 ARIA YAML 树 + 刷新活跃 refMap（传入会话级 refAllocator，使存活元素保持稳定 #ref）
+    const { yaml, refMap } = buildA11yTree(document.body, {
+      ...getPageAgentToolConfig().a11yConfig,
+      refAllocator
+    })
     currentRefMap = refMap
 
     // 高亮交互元素，且增加全局移除高亮的监听（读取运行期生效的配置，支持 setPageAgentToolConfig 动态修改）
@@ -116,8 +125,10 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
       globalRemoveListener()
     }
 
-    // 计算 Diff
-    const diff = stateCache.update(url, yaml)
+    // 计算结构化 Diff（包含过大自动熔断回退整页树与版本号递增）
+    const diff = stateCache.update(url, yaml, {
+      forceFull: responseMode === 'full'
+    })
 
     // 检测页面弹窗/遮罩层（确认框、提示框等），让 AI 优先处理
     const dialogs = detectPageDialog()
@@ -126,20 +137,27 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
     // 检测 hover 后可见的 tooltip / 浮层提示（框架 portal 插入 body 的内容）
     const tooltips = detectVisibleTooltips()
 
-    // 根据 responseMode 组装 content
+    // 根据 responseMode 与熔断结果确定最终 kind 及 content
+    let kind: SnapshotKind = diff.kind
     let displayContent = ''
     if (responseMode === 'full') {
+      kind = 'full'
       displayContent = yaml
     } else if (responseMode === 'diff') {
-      displayContent = diff.isFullRefresh ? yaml : diff.diffText
+      kind = diff.kind
+      displayContent = diff.kind === 'full' ? yaml : diff.diffText
     } else if (responseMode === 'both') {
-      displayContent = `【全量页面树】:\n${yaml}\n\n【增量差异】:\n${diff.isFullRefresh ? '（首次/刷新，无增量差异）' : diff.diffText}`
+      kind = diff.kind
+      displayContent = `【全量页面树】:\n${yaml}\n\n【增量差异】:\n${diff.kind === 'full' ? '（首次/刷新/大幅变化，无增量差异）' : diff.diffText}`
     }
 
-    // 全部字段平铺进 stateObj，直接返回 JSON 便于反序列化（与 webmcp-cli 的 state 提取逻辑对齐）
+    // 全部字段平铺进 stateObj，直接返回 JSON 便于反序列化（与宿主快照折叠层及 webmcp-cli 对齐）
     const stateObj = {
+      kind,
       url,
       title,
+      rev: diff.rev,
+      ...(kind === 'diff' && diff.baseRev !== undefined ? { baseRev: diff.baseRev } : {}),
       content: displayContent,
       ...(dialogs.length > 0 ? { dialogs } : {}),
       ...(validationErrors.length > 0 ? { validationErrors } : {}),
@@ -152,12 +170,15 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
   const actionContext: ActionContext = {
     pageController,
     stateCache,
+    refAllocator,
     getRefMap: () => currentRefMap,
     setRefMap: (map: RefMap) => {
       currentRefMap = map
     },
     buildBrowserStateResponse,
-    refreshOnStaleRef,
+    staleRefError,
+    refreshOnStaleRef: staleRefError,
+    resetSession,
     errContent,
     actionError
   }
@@ -187,7 +208,8 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
       },
       hideMask: async () => {
         simulatorMask.hide()
-      }
+      },
+      resetSession
     }
   }
 

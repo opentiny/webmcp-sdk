@@ -329,6 +329,27 @@ describe('resolveA11yStates - 自定义规则', () => {
     expect(tokens).not.toContain('warning')
   })
 
+  it('复现：Angular 表单大容器挂 .ng-invalid 或 .ti3-error 时不应向内部无辜子孙传染 error token —— 仅已触碰/修改的表单控件或报错元素自身带 error', () => {
+    const form = el(`
+      <form class="ng-invalid ng-untouched ti3-error">
+        <button id="normal-btn">包年/包月</button>
+        <input id="untouched-input" class="ng-invalid ng-untouched" />
+        <input id="touched-input" class="ng-invalid ng-touched" />
+        <span id="err-msg" class="ti3-error">请输入必填项</span>
+      </form>
+    `)
+    const config = defineA11yConfig({
+      states: { error: { selector: '.ti3-error' } },
+    })
+
+    // 普通按钮与未触碰输入框不应被外层容器传染 error
+    expect(resolveA11yStates(form.querySelector('#normal-btn')!, config)).not.toContain('error')
+    expect(resolveA11yStates(form.querySelector('#untouched-input')!, config)).not.toContain('error')
+    // 真正已触碰且校验失败的原生输入框、以及报错提示元素自身应带 error
+    expect(resolveA11yStates(form.querySelector('#touched-input')!, config)).toContain('error')
+    expect(resolveA11yStates(form.querySelector('#err-msg')!, config)).toContain('error')
+  })
+
   it('命中非标准自定义状态名时直接输出同名 token', () => {
     const target = el('<div class="highlight-row"></div>')
     const config = defineA11yConfig({ states: { highlighted: { selector: '.highlight-row' } } })

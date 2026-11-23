@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { buildA11yTree } from '../../../page-tools/a11y/build'
+import { ElementRefAllocator } from '../../../page-tools/a11y/ref-allocator'
 
 function setupRoot(html: string): HTMLElement {
   const root = document.createElement('div')
@@ -765,6 +766,85 @@ describe('buildA11yTree - contenteditable 编辑宿主分配 ref', () => {
     const locked = root.querySelector('#locked-tip') as HTMLElement
     const { refMap } = buildA11yTree(root)
     expect(Array.from(refMap.values())).not.toContain(locked)
+  })
+})
+
+describe('buildA11yTree - ElementRefAllocator 稳定元素编号绑定', () => {
+  it('复现：页面顶部插入新元素后下方所有元素编号全部 +1 —— 传入同一 ElementRefAllocator 时，既有元素 #ref 保持不变，新增元素分配递增新 #ref', () => {
+    const allocator = new ElementRefAllocator()
+    const root = setupRoot(`
+      <button id="btn-0">product-0 包年包月</button>
+      <button id="btn-1">product-1 包年包月</button>
+      <button id="btn-2">product-2 包年包月</button>
+    `)
+
+    const first = buildA11yTree(root, { refAllocator: allocator })
+    expect(first.lines).toEqual([
+      '- button #0 [id=\\"btn-0\\"] "product-0 包年包月"',
+      '- button #1 [id=\\"btn-1\\"] "product-1 包年包月"',
+      '- button #2 [id=\\"btn-2\\"] "product-2 包年包月"',
+    ])
+
+    // 在第一个节点前插入新按钮
+    const prepended = document.createElement('button')
+    prepended.id = 'filter-tag'
+    prepended.textContent = '筛选标签-A'
+    root.insertBefore(prepended, root.firstChild)
+
+    const second = buildA11yTree(root, { refAllocator: allocator })
+    expect(second.lines).toEqual([
+      '- button #3 [id=\\"filter-tag\\"] "筛选标签-A"',
+      '- button #0 [id=\\"btn-0\\"] "product-0 包年包月"',
+      '- button #1 [id=\\"btn-1\\"] "product-1 包年包月"',
+      '- button #2 [id=\\"btn-2\\"] "product-2 包年包月"',
+    ])
+  })
+
+  it('移除元素后旧 #ref 从最新 refMap 中消失，且后续新增元素绝不复用旧编号；reset() 后重新从 #0 开始', () => {
+    const allocator = new ElementRefAllocator()
+    const root = setupRoot(`
+      <button id="a">A</button>
+      <button id="b">B</button>
+    `)
+
+    const r1 = buildA11yTree(root, { refAllocator: allocator })
+    expect(Array.from(r1.refMap.keys())).toEqual([0, 1])
+
+    // 移除 #0 元素，再新增 C
+    root.querySelector('#a')!.remove()
+    const btnC = document.createElement('button')
+    btnC.id = 'c'
+    btnC.textContent = 'C'
+    root.appendChild(btnC)
+
+    const r2 = buildA11yTree(root, { refAllocator: allocator })
+    expect(r2.refMap.has(0)).toBe(false)
+    expect(Array.from(r2.refMap.keys())).toEqual([1, 2])
+
+    // 每轮会话重置后重新从 #0 分配
+    allocator.reset()
+    const r3 = buildA11yTree(root, { refAllocator: allocator })
+    expect(Array.from(r3.refMap.keys())).toEqual([0, 1])
+  })
+
+  it('单子节点折叠合并输出时，未出现在最终 YAML 行中的父级幽灵 #ref 不会残留在 refMap 中', () => {
+    const root = setupRoot(`
+      <div id="outer-card">
+        <div id="inner-action">唯一点击区</div>
+      </div>
+    `)
+    const outer = root.querySelector('#outer-card') as HTMLElement
+    const inner = root.querySelector('#inner-action') as HTMLElement
+    // 借助白名单让父子同时成为候选 ref 节点，触发 serializeVNode 的 singleChild generic 合并分支
+    const { lines, refMap, interactiveCount } = buildA11yTree(root, {
+      whitelist: [outer, inner],
+    })
+
+    expect(lines).toHaveLength(1)
+    expect(interactiveCount).toBe(1)
+    expect(refMap.size).toBe(1)
+    const onlyEmittedRef = Number(/#(\d+)/.exec(lines[0])![1])
+    expect(refMap.has(onlyEmittedRef)).toBe(true)
   })
 })
 

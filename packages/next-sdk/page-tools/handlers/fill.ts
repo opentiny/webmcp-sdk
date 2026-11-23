@@ -1,16 +1,14 @@
 import { inputTextElement } from '@page-agent/page-controller'
 import { dispatchComposedEvents, isInShadowDom, waitForDomSettled } from '../utils/dom'
-import type { ActionContext } from '../context'
+import { resolveActiveRefElement, type ActionContext } from '../context'
 
 export async function handleFill(args: any, ctx: ActionContext) {
   const mode = args.responseMode ?? 'diff'
   if (args.index === undefined || typeof args.text !== 'string')
     return ctx.actionError('填写结果: 缺少元素索引或文本内容')
-  const el = ctx.getRefMap().get(args.index)
+  const el = resolveActiveRefElement(ctx, args.index)
   if (!el) {
-    return ctx.actionError(
-      `填写失败: ref 索引 ${args.index} 已失效（页面可能已刷新），已自动重新加载页面状态，请使用新的 ref 索引重试。`
-    )
+    return ctx.staleRefError('填写', args.index)
   }
 
   let targetEl = el

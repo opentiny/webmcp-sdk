@@ -7,10 +7,14 @@
 import type { A11yTreeOptions, A11yTreeResult, A11yTreeShapeOptions, RefMap } from './types'
 import type { A11yConfig } from './config'
 import { ensureResolvedA11yConfig } from './config'
+import { ElementRefAllocator } from './ref-allocator'
 import { buildVNode, serializeVNode } from './vnode'
 import { getComposedChildren, collectHoverPointerElements } from './utils'
 import { deepQuerySelectorAll } from '../utils/dom'
 import { HIGHLIGHT_CONTAINER_ID } from '../page-agent-highlight'
+
+/** 匹配序列化 YAML 行上的元素操作引用（如 `  - button #12 [selected] "提交"`） */
+const SERIALIZED_LINE_REF_RE = /^\s*-\s+\S+\s+#(\d+)(?:\s|$)/
 
 /** 将 whitelist/blacklist 中的 Element 引用与 CSS 选择器字符串统一解析为元素集合（字符串每次动态解析，适配 SPA 重渲染） */
 function resolveElementList(list: Array<Element | string>, root: Element): Set<Element> {
@@ -33,16 +37,16 @@ function resolveElementList(list: Array<Element | string>, root: Element): Set<E
  * 生成当前页面的语义化 ARIA YAML 树
  *
  * @param root 遍历起点，默认 document.body
- * @param config 统一无障碍配置（角色/状态规则、白/黑名单、自定义属性等）+ 树形状选项（pruneUnnamed/preserveRoles）
+ * @param config 统一无障碍配置（角色/状态规则、白/黑名单、自定义属性等）+ 树形状选项（pruneUnnamed/preserveRoles/refAllocator）
  */
 export function buildA11yTree(root: Element = document.body, config?: A11yConfig & A11yTreeOptions): A11yTreeResult {
-  const { pruneUnnamed = true, preserveRoles = [], ...a11yConfig } = config ?? {}
+  const { pruneUnnamed = true, preserveRoles = [], refAllocator, ...a11yConfig } = config ?? {}
   // 运行期 a11yConfig 通常已是 ResolvedA11yConfig，走快路径避免再次与默认配置拼接
   const resolved = ensureResolvedA11yConfig(a11yConfig)
   const shapeOpts: A11yTreeShapeOptions = { pruneUnnamed, preserveRoles }
 
-  // 使用对象引用避免全局可变状态，消除并发调用隐患
-  const refCounter = { value: 0 }
+  // 支持传入会话级稳定 ElementRefAllocator；未传时使用单次独立分配器保持向后兼容
+  const allocator = refAllocator ?? new ElementRefAllocator()
   const refMap: RefMap = new Map()
   const blacklistSet = resolveElementList(resolved.blacklist, root)
   const whitelistSet = resolveElementList(resolved.whitelist, root)
@@ -57,9 +61,24 @@ export function buildA11yTree(root: Element = document.body, config?: A11yConfig
   const hoverPointerSet = collectHoverPointerElements(root)
 
   for (const child of getComposedChildren(root)) {
-    const vnode = buildVNode(child, refCounter, refMap, blacklistSet, whitelistSet, resolved, hoverPointerSet)
+    const vnode = buildVNode(child, allocator, refMap, blacklistSet, whitelistSet, resolved, hoverPointerSet)
     if (vnode) {
       lines.push(...serializeVNode(vnode, 0, shapeOpts))
+    }
+  }
+
+  // 仅保留最终序列化进 YAML 行的活跃 #ref，剔除因单子节点折叠而未输出的父节点幽灵 #ref，
+  // 保证 refMap 与最新快照可见 #ref 集合严格一致
+  const emittedRefs = new Set<number>()
+  for (const line of lines) {
+    const match = SERIALIZED_LINE_REF_RE.exec(line)
+    if (match) {
+      emittedRefs.add(Number(match[1]))
+    }
+  }
+  for (const key of Array.from(refMap.keys())) {
+    if (!emittedRefs.has(key)) {
+      refMap.delete(key)
     }
   }
 

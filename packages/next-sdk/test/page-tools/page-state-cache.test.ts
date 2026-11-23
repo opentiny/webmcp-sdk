@@ -1,0 +1,348 @@
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { buildA11yTree } from '../../page-tools/a11y/build'
+import { ElementRefAllocator } from '../../page-tools/a11y/ref-allocator'
+import { NO_CHANGES_DIFF_TEXT, PageStateCache } from '../../page-tools/page-state-cache'
+
+describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保护', () => {
+  beforeEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  afterEach(() => {
+    document.body.innerHTML = ''
+  })
+
+  it('复现：页面上方插入一个元素导致 400 行全部进入删除与新增使 diff 膨胀至整页 2.1 倍 —— 稳定编号重构后仅输出实际变更行', () => {
+    const allocator = new ElementRefAllocator()
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/products'
+
+    const container = document.createElement('div')
+    for (let i = 0; i <= 400; i++) {
+      const btn = document.createElement('button')
+      btn.textContent = `product-${i} 包年包月`
+      container.appendChild(btn)
+    }
+    document.body.appendChild(container)
+
+    // 1. 首次快照：返回 full, rev = 1
+    const tree1 = buildA11yTree(container, { refAllocator: allocator })
+    const res1 = cache.update(url, tree1.yaml)
+    expect(res1.kind).toBe('full')
+    expect(res1.rev).toBe(1)
+    expect(res1.baseRev).toBeUndefined()
+
+    // 2. 在首个节点前插入筛选按钮，并将 #10 改为「按需计费」
+    const filterBtn = document.createElement('button')
+    filterBtn.textContent = '筛选标签-A'
+    container.insertBefore(filterBtn, container.firstChild)
+    const btn10 = allocator // 确认原 #10 对应 DOM 按钮（当前位于 children[11]）
+    void btn10
+    ;(container.children[11] as HTMLButtonElement).textContent = 'product-10 按需计费'
+
+    const tree2 = buildA11yTree(container, { refAllocator: allocator })
+    const res2 = cache.update(url, tree2.yaml)
+
+    expect(res2.kind).toBe('diff')
+    expect(res2.rev).toBe(2)
+    expect(res2.baseRev).toBe(1)
+    expect(res2.addedLines).toBe(2)
+    expect(res2.removedLines).toBe(1)
+    expect(res2.diffText).toBe(
+      [
+        '+ - button #401 "筛选标签-A"',
+        '- - button #10 "product-10 包年包月"',
+        '+ - button #10 "product-10 按需计费"',
+      ].join('\n'),
+    )
+    // diff 字符数远小于整页树（< 2%），彻底消除 2.1x 体积倒挂
+    expect(res2.diffText.length).toBeLessThan(tree2.yaml.length * 0.05)
+  })
+
+  it('同一变更 Hunk 内多个元素同时更新时，按相同 #ref 将 `- 旧行` 与 `+ 新行` 就近成对输出', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/form'
+
+    const yaml1 = [
+      '```yaml',
+      '- heading "实例配置"',
+      '- generic #9 "限时优惠提示"',
+      '- checkbox #10 "自动续费"',
+      '- checkbox #11 "开通监控"',
+      '- checkbox #12 "安全加固"',
+      '- button #13 "立即购买"',
+      '- link #14 "计费说明"',
+      '- link #15 "服务协议"',
+      '- link #16 "退订规则"',
+      '- link #17 "常见问题"',
+      '```',
+    ].join('\n')
+
+    const yaml2 = [
+      '```yaml',
+      '- heading "实例配置"',
+      '- checkbox #10 [checked] "自动续费"',
+      '- checkbox #11 [checked] "开通监控"',
+      '- checkbox #12 [checked] "安全加固"',
+      '- button #18 "领取代金券"',
+      '- button #13 "立即购买"',
+      '- link #14 "计费说明"',
+      '- link #15 "服务协议"',
+      '- link #16 "退订规则"',
+      '- link #17 "常见问题"',
+      '```',
+    ].join('\n')
+
+    cache.update(url, yaml1)
+    const diff = cache.update(url, yaml2)
+
+    expect(diff.kind).toBe('diff')
+    expect(diff.diffText).toBe(
+      [
+        '- - generic #9 "限时优惠提示"',
+        '- - checkbox #10 "自动续费"',
+        '+ - checkbox #10 [checked] "自动续费"',
+        '- - checkbox #11 "开通监控"',
+        '+ - checkbox #11 [checked] "开通监控"',
+        '- - checkbox #12 "安全加固"',
+        '+ - checkbox #12 [checked] "安全加固"',
+        '+ - button #18 "领取代金券"',
+      ].join('\n'),
+    )
+  })
+
+  it('深层嵌套节点变更时自动补充最小父级缩进锚点，且同一父级下多处变更不重复输出祖先上下文', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/ecs'
+
+    const yaml1 = [
+      '```yaml',
+      '- navigation "侧边导航"',
+      '  - link #0 "总览"',
+      '  - link #1 "安全组"',
+      '  - link #2 "弹性公网 IP"',
+      '  - link #3 "云硬盘"',
+      '- main "主内容区"',
+      '  - region "规格选择"',
+      '    - button #4 "2核4G"',
+      '    - button #5 "4核8G"',
+      '    - button #6 "8核16G"',
+      '    - button #7 "16核32G"',
+      '```',
+    ].join('\n')
+
+    const yaml2 = [
+      '```yaml',
+      '- navigation "侧边导航"',
+      '  - link #0 "总览"',
+      '  - link #1 "安全组"',
+      '  - link #2 "弹性公网 IP"',
+      '  - link #3 "云硬盘"',
+      '- main "主内容区"',
+      '  - region "规格选择"',
+      '    - button #4 [selected] "2核4G"',
+      '    - button #5 "4核8G"',
+      '    - button #6 "8核16G"',
+      '    - button #7 [disabled] "16核32G"',
+      '```',
+    ].join('\n')
+
+    cache.update(url, yaml1)
+    const diff = cache.update(url, yaml2)
+
+    expect(diff.kind).toBe('diff')
+    expect(diff.diffText).toBe(
+      [
+        '  - main "主内容区"',
+        '    - region "规格选择"',
+        '-     - button #4 "2核4G"',
+        '+     - button #4 [selected] "2核4G"',
+        '-     - button #7 "16核32G"',
+        '+     - button #7 [disabled] "16核32G"',
+      ].join('\n'),
+    )
+  })
+
+  it('当变化行数超过一半时，自动熔断回退整页树（kind = full, fullReason = diff_too_large）', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/dashboard'
+
+    const yaml1 = [
+      '```yaml',
+      '- button #0 "Tab A - 项 1"',
+      '- button #1 "Tab A - 项 2"',
+      '- button #2 "Tab A - 项 3"',
+      '- button #3 "Tab A - 项 4"',
+      '```',
+    ].join('\n')
+
+    // 4 行中有 3 行（75% > 50%）发生变化
+    const yaml2 = [
+      '```yaml',
+      '- button #0 "Tab A - 项 1"',
+      '- button #10 "Tab B - 新项 2"',
+      '- button #11 "Tab B - 新项 3"',
+      '- button #12 "Tab B - 新项 4"',
+      '```',
+    ].join('\n')
+
+    const r1 = cache.update(url, yaml1)
+    expect(r1).toMatchObject({ kind: 'full', rev: 1, fullReason: 'initial' })
+
+    const r2 = cache.update(url, yaml2)
+    expect(r2.kind).toBe('full')
+    expect(r2.isFullRefresh).toBe(true)
+    expect(r2.fullReason).toBe('diff_too_large')
+    expect(r2.rev).toBe(2)
+    expect(r2.baseRev).toBeUndefined()
+  })
+
+  it('当变更行数未超半数但 diff 文本字符长度 >= 整页 YAML 长度（体积倒挂）时，同样触发熔断回退整页树', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/compact'
+
+    // 4 行中删除了 2 行超长旧描述，新增 1 行短文本：max(1,2)/4 = 0.5 未超行数比，但旧行过长使 diff 字符体积超整页 80%
+    const longDesc = '这是一段非常长的历史告警详情描述文案'.repeat(8)
+    const yaml1 = [
+      '```yaml',
+      '- button #0 "保留项A"',
+      '- button #1 "保留项B"',
+      `- generic "${longDesc}-1"`,
+      `- generic "${longDesc}-2"`,
+      '```',
+    ].join('\n')
+
+    const yaml2 = [
+      '```yaml',
+      '- button #0 "保留项A"',
+      '- button #1 "保留项B"',
+      '- generic "已清空"',
+      '```',
+    ].join('\n')
+
+    cache.update(url, yaml1)
+    const r2 = cache.update(url, yaml2)
+    expect(r2.kind).toBe('full')
+    expect(r2.fullReason).toBe('diff_too_large')
+  })
+
+  it('页面无变化时返回 kind = diff 与明确注释占位，URL 变化、forceFull 与 reset() 均正确维护 rev 链', () => {
+    const cache = new PageStateCache()
+    const yaml = '```yaml\n- button #0 "提交"\n- button #1 "取消"\n- button #2 "帮助"\n```'
+
+    const r1 = cache.update('https://example.com/a', yaml)
+    expect(r1).toMatchObject({ kind: 'full', rev: 1, fullReason: 'initial' })
+
+    const r2 = cache.update('https://example.com/a', yaml)
+    expect(r2).toMatchObject({
+      kind: 'diff',
+      rev: 2,
+      baseRev: 1,
+      addedLines: 0,
+      removedLines: 0,
+      diffText: NO_CHANGES_DIFF_TEXT,
+    })
+
+    // 宿主折叠历史 diff 链后显式传 forceFull: true
+    const r3 = cache.update('https://example.com/a', yaml, { forceFull: true })
+    expect(r3).toMatchObject({ kind: 'full', rev: 3, fullReason: 'forced' })
+    expect(r3.baseRev).toBeUndefined()
+
+    // URL 变化触发全量刷新
+    const r4 = cache.update('https://example.com/b', yaml)
+    expect(r4).toMatchObject({ kind: 'full', rev: 4, fullReason: 'url_changed' })
+
+    // 会话重置后 rev 重新从 1 起步
+    cache.reset()
+    expect(cache.getCurrentRev()).toBe(0)
+    const r5 = cache.update('https://example.com/b', yaml)
+    expect(r5).toMatchObject({ kind: 'full', rev: 1, fullReason: 'initial' })
+  })
+
+  it('复现：紧邻 Hunk 中刚作为 + 行输出的父节点不应再次被重复打印为祖先上下文锚点', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/images'
+
+    const yaml1 = [
+      '```yaml',
+      '- main "主内容区"',
+      '  - generic "公共镜像"',
+      '    - generic #1 "Huawei Cloud EulerOS"',
+      '    - generic #2 "CentOS"',
+      '    - generic #3 "Ubuntu"',
+      '    - generic #4 "Debian"',
+      '    - generic #5 "openEuler"',
+      '    - generic #6 "AlmaLinux"',
+      '    - generic #7',
+      '      - region "SUSE"',
+      '        - region #8 "收费"',
+      '```',
+    ].join('\n')
+
+    const yaml2 = [
+      '```yaml',
+      '- main "主内容区"',
+      '  - generic "公共镜像"',
+      '    - generic #1 "Huawei Cloud EulerOS"',
+      '    - generic #2 "CentOS"',
+      '    - generic #3 "Ubuntu"',
+      '    - generic #4 "Debian"',
+      '    - generic #5 "openEuler"',
+      '    - generic #6 "AlmaLinux"',
+      '    - generic #9',
+      '      - region "SUSE"',
+      '        - region #10 "收费"',
+      '```',
+    ].join('\n')
+
+    cache.update(url, yaml1)
+    const r2 = cache.update(url, yaml2)
+
+    expect(r2.kind).toBe('diff')
+    // #9 已作为 `+ ` 行输出，后续 #10 变更时不得再把 `#9` 作为 `  ` 祖先上下文重复打印一遍
+    const lines = r2.diffText.split('\n')
+    expect(lines.filter((l) => l.includes('generic #9'))).toHaveLength(1)
+  })
+
+  it('复现：外层容器因临时出现「计算中...」停止穿透导致下方子树整体缩进 +2 空格 —— 忽略纯缩进平移，仅输出新增外层容器行', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.huaweicloud.com/ecm/#/ecs/create/simple'
+
+    const bodyLines = Array.from({ length: 30 }, (_, i) => `      - button #${i} "规格选项-${i}"`)
+    const yaml1 = [
+      '```yaml',
+      '- main "主内容区"',
+      '  - region "页面内容"',
+      '    - region "页面正文"',
+      ...bodyLines,
+      '```',
+    ].join('\n')
+
+    // 外层多了一层 generic "计算中..."，下方 32 行内容一字未变，仅整体多缩进 2 空格
+    const shiftedLines = [
+      '    - region "页面内容"',
+      '      - region "页面正文"',
+      ...bodyLines.map((l) => `  ${l}`),
+    ]
+    const yaml2 = [
+      '```yaml',
+      '- main "主内容区"',
+      '  - generic "计算中... 立即购买"',
+      ...shiftedLines,
+      '```',
+    ].join('\n')
+
+    cache.update(url, yaml1)
+    const r2 = cache.update(url, yaml2)
+
+    expect(r2.kind).toBe('diff')
+    expect(r2.addedLines).toBe(1)
+    expect(r2.removedLines).toBe(0)
+    expect(r2.diffText).toBe(
+      [
+        '  - main "主内容区"',
+        '+   - generic "计算中... 立即购买"',
+      ].join('\n'),
+    )
+  })
+})

@@ -11,7 +11,11 @@ export const DEFAULT_ERROR_SELECTORS = [
   '.el-form-item__error',
   '.ant-form-item-explain-error',
   '.is-invalid', '.invalid-feedback',
-  '.ng-invalid',
+  // Angular Reactive Forms 会在 <form>/FormGroup 等巨型容器与未触碰字段上挂 .ng-invalid，
+  // 仅匹配已触碰/已修改的原生表单控件，避免整张表单 100+ 子孙被误标为 [error] 与引发无效 Diff 抖动
+  'input.ng-invalid.ng-touched', 'input.ng-invalid.ng-dirty',
+  'textarea.ng-invalid.ng-touched', 'textarea.ng-invalid.ng-dirty',
+  'select.ng-invalid.ng-touched', 'select.ng-invalid.ng-dirty',
   '.error-msg', '.error-message', '.error-text',
   '.field-error', '.form-error',
   '.is-error', '.has-error',

@@ -16,7 +16,7 @@ description: >-
 - 无障碍树构建、剪枝、Static-Lift、序列化语义
 - 需要更新 `docs/webmcp-sdk/page-agent-tool.md` 的行为说明
 
-近期示例：[`specs/REQ-20260904-contenteditable-a11y-ref/`](../../specs/REQ-20260904-contenteditable-a11y-ref/)、[`specs/REQ-20260903-mask-cursor-lifecycle/`](../../specs/REQ-20260903-mask-cursor-lifecycle/)、[`specs/REQ-20260817-clipboard-handler/`](../../specs/REQ-20260817-clipboard-handler/)。
+近期示例：[`specs/REQ-20261123-stable-ref-diff/`](../../specs/REQ-20261123-stable-ref-diff/)、[`specs/REQ-20260904-contenteditable-a11y-ref/`](../../specs/REQ-20260904-contenteditable-a11y-ref/)、[`specs/REQ-20260903-mask-cursor-lifecycle/`](../../specs/REQ-20260903-mask-cursor-lifecycle/)。
 
 拿不准是否琐碎 → **先问用户**，不要默认开写。
 
@@ -54,7 +54,8 @@ import {
 } from '@opentiny/next-sdk'
 ```
 
-- `registerPageAgentTool(options?)`：注册 `page-agent-tool`，内部调用 `initializeBuiltinWebMCP()`（默认 `forcePolyfill: true`，覆盖会崩溃的 Chromium 实验性 native）；重复调用为 **replace** 式重新初始化。返回 `{ showMask, hideMask }`。Chrome 146+ 原生 `registerTool` 在非 origin-keyed 文档上抛 `SecurityError` DOMException；SDK 会中和 `document`/`navigator` native 并把 JS polyfill 挂到 document 实例。polyfill 在 `originAgentCluster === false` 时也会抛空消息 `SecurityError`，仅对 polyfill 实例绕过该检查。
+- `registerPageAgentTool(options?)`：注册 `page-agent-tool`，内部调用 `initializeBuiltinWebMCP()`（默认 `forcePolyfill: true`，覆盖会崩溃的 Chromium 实验性 native）；重复调用为 **replace** 式重新初始化。返回 `{ showMask, hideMask, resetSession }`。Chrome 146+ 原生 `registerTool` 在非 origin-keyed 文档上抛 `SecurityError` DOMException；SDK 会中和 `document`/`navigator` native 并把 JS polyfill 挂到 document 实例。polyfill 在 `originAgentCluster === false` 时也会抛空消息 `SecurityError`，仅对 polyfill 实例绕过该检查。
+- **稳定 `#ref` 与结构化 Diff**：会话内通过 `ElementRefAllocator`（`WeakMap<Element, number>` + 单调递增计数器）将 `#N` 绑定到 DOM 元素，不复用旧编号；`PageStateCache` 做同 `#ref` 就近配对、最小父级缩进锚点，并在变化行数 `> 50%` 或 Diff 字符体积 `>= full`（防体积倒挂）时自动熔断回退整页树。状态 JSON 含 `kind: 'full' | 'diff'`、`url`、`rev`（及 `diff` 下的 `baseRev`）。失效 `#ref` 统一返回 `isError: true` + `errorCode: 'REF_NOT_PRESENTED'`（不塞整页树）；`PAGE_AGENT_CHAT_END_EVENT` 或 `handle.resetSession()` 触发每轮重置。见 [`REQ-20261123-stable-ref-diff`](../../specs/REQ-20261123-stable-ref-diff/)。
 - 运行期唯一配置面：`getPageAgentToolConfig` / `setPageAgentToolConfig`（`a11yConfig` 数组合并；`enableHighlight` / `cursorMode` 覆盖；支持 `mode: 'replace'`）。
 - `cursorMode`：`'actionOnly'`（默认，仅操作类出光标） / `'always'` / `'never'`。无参 `showMask()` 默认不出光标；操作类结束后若遮罩仍开着且 `cursorMode !== 'always'` 则收光标。`always` 下显式 `{ showCursor: false }` 仍可临时隐藏；`never` 覆盖显式 `showCursor: true`。
 - `whitelist` / `blacklist` 中的选择器字符串在构建无障碍树时 **动态解析**。
