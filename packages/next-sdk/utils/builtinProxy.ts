@@ -26,6 +26,37 @@ interface JsonRpcMessage {
   }
 }
 
+/** 校验元素是否为合法的 MCP ContentBlock */
+const isMcpContentBlock = (item: unknown): boolean => {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) return false
+  const block = item as Record<string, unknown>
+  switch (block.type) {
+    case 'text':
+      return typeof block.text === 'string'
+    case 'image':
+    case 'audio':
+      return typeof block.data === 'string' && typeof block.mimeType === 'string'
+    case 'resource':
+      return (
+        !!block.resource &&
+        typeof block.resource === 'object' &&
+        !Array.isArray(block.resource) &&
+        typeof (block.resource as Record<string, unknown>).uri === 'string'
+      )
+    case 'resource_link':
+      return typeof block.uri === 'string' && typeof block.name === 'string'
+    default:
+      return false
+  }
+}
+
+/** 校验对象是否为合法的 MCP CallToolResult */
+const isMcpToolResult = (value: unknown): value is Record<string, unknown> => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const content = (value as { content?: unknown }).content
+  return Array.isArray(content) && content.every(isMcpContentBlock)
+}
+
 /**
  * 建立原生的 JSON-RPC 拦截层：
  * 将发向 remote 的 MCP 请求拦截，代理给所在浏览器的 document.modelContext 上执行。
@@ -113,25 +144,16 @@ export const setupBuiltinProxy = (transport: Transport) => {
           if (typeof unwrapped === 'string') {
             try {
               const parsed: unknown = JSON.parse(unwrapped)
-              if (
-                parsed &&
-                typeof parsed === 'object' &&
-                !Array.isArray(parsed) &&
-                Array.isArray((parsed as { content?: unknown }).content)
-              ) {
+              if (isMcpToolResult(parsed)) {
                 unwrapped = parsed
               }
             } catch {
               // 普通纯文本返回，保持原样
             }
           }
-          const finalResult =
-            unwrapped &&
-            typeof unwrapped === 'object' &&
-            !Array.isArray(unwrapped) &&
-            Array.isArray((unwrapped as { content?: unknown }).content)
-              ? (unwrapped as Record<string, unknown>)
-              : { content: [{ type: 'text', text: typeof result === 'string' ? result : JSON.stringify(result) }] }
+          const finalResult = isMcpToolResult(unwrapped)
+            ? unwrapped
+            : { content: [{ type: 'text', text: typeof result === 'string' ? result : JSON.stringify(result) }] }
           await transport.send({ jsonrpc: '2.0', id, result: finalResult })
         } else {
           const error: Error & { code?: number } = new Error('executeTool not implemented in Browser built-in WebMCP')

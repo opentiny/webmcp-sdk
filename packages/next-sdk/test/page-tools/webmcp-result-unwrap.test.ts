@@ -99,13 +99,26 @@ describe('WebMCP 工具结果单层解包回归测试', () => {
     expect(typeof parsedOnce.content).toBe('string')
   })
 
-  it('复现：setupBuiltinProxy 收到含非数组 content 字段的普通业务 JSON 字符串时不误判为 MCP 结果 —— 期望仍按文本块包裹返回', async () => {
+  it('复现：setupBuiltinProxy 收到含非数组或非 MCP block 的 content 字段普通 JSON 字符串时不误判为 MCP 结果 —— 期望仍按文本块包裹返回', async () => {
     const plainJson = JSON.stringify({ content: 'article' })
+    const stringArrayJson = JSON.stringify({ content: ['article'] })
+    const validImageResult = {
+      content: [{ type: 'image', data: 'base64data', mimeType: 'image/png' }],
+      structuredContent: { ok: true }
+    }
     const origModelContext = (document as any).modelContext
     const origGlobalModelContext = (globalThis as any).modelContext
     const mockCtx = {
-      getTools: vi.fn(async () => [{ name: 'get-article', description: 'get article' }]),
-      executeTool: vi.fn(async () => plainJson)
+      getTools: vi.fn(async () => [
+        { name: 'get-article', description: 'get article' },
+        { name: 'get-tags', description: 'get tags' },
+        { name: 'get-image', description: 'get image' }
+      ]),
+      executeTool: vi.fn(async (tool: { name: string }) => {
+        if (tool.name === 'get-article') return plainJson
+        if (tool.name === 'get-tags') return stringArrayJson
+        return JSON.stringify(validImageResult)
+      })
     }
 
     try {
@@ -132,16 +145,29 @@ describe('WebMCP 工具结果单层解包回归测试', () => {
         jsonrpc: '2.0',
         id: 2,
         method: 'tools/call',
-        params: {
-          name: 'get-article',
-          arguments: {}
-        }
+        params: { name: 'get-article', arguments: {} }
+      })
+      await fakeTransport.onmessage({
+        jsonrpc: '2.0',
+        id: 3,
+        method: 'tools/call',
+        params: { name: 'get-tags', arguments: {} }
+      })
+      await fakeTransport.onmessage({
+        jsonrpc: '2.0',
+        id: 4,
+        method: 'tools/call',
+        params: { name: 'get-image', arguments: {} }
       })
 
-      expect(sentMessages).toHaveLength(1)
+      expect(sentMessages).toHaveLength(3)
       expect(sentMessages[0].result).toEqual({
         content: [{ type: 'text', text: plainJson }]
       })
+      expect(sentMessages[1].result).toEqual({
+        content: [{ type: 'text', text: stringArrayJson }]
+      })
+      expect(sentMessages[2].result).toEqual(validImageResult)
     } finally {
       Object.defineProperty(document, 'modelContext', {
         configurable: true,

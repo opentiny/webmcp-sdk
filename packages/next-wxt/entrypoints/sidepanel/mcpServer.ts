@@ -1,6 +1,37 @@
 import { getCurrentTabId } from './utils/utils'
 import { useExtraTools } from './extraTools'
 
+/** 校验元素是否为合法的 MCP ContentBlock */
+const isMcpContentBlock = (item: unknown): boolean => {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) return false
+  const block = item as Record<string, unknown>
+  switch (block.type) {
+    case 'text':
+      return typeof block.text === 'string'
+    case 'image':
+    case 'audio':
+      return typeof block.data === 'string' && typeof block.mimeType === 'string'
+    case 'resource':
+      return (
+        !!block.resource &&
+        typeof block.resource === 'object' &&
+        !Array.isArray(block.resource) &&
+        typeof (block.resource as Record<string, unknown>).uri === 'string'
+      )
+    case 'resource_link':
+      return typeof block.uri === 'string' && typeof block.name === 'string'
+    default:
+      return false
+  }
+}
+
+/** 校验对象是否为合法的 MCP CallToolResult */
+const isMcpToolResult = (value: unknown): value is Record<string, unknown> => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const content = (value as { content?: unknown }).content
+  return Array.isArray(content) && content.every(isMcpContentBlock)
+}
+
 /**
  * 注册侧边栏本地工具及页面代理工具到内置 WebMCP（document.modelContext）。
  * 无需 WebMcpServer 或 Zod 转换，直接使用原生 JSON Schema。
@@ -210,12 +241,12 @@ export const setupLocalTools = () => {
               return { content: [{ type: 'text', text: `Error: ${res?.error || 'Unknown error'}` }] }
             }
 
-            let payload: any = res.result
+            let payload: unknown = res.result
             // WebMCP polyfill (executeTool) 会将返回对象序列化为 JSON 字符串，需先还原避免二次套壳
             if (typeof payload === 'string') {
               try {
-                const parsed = JSON.parse(payload)
-                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Array.isArray(parsed.content)) {
+                const parsed: unknown = JSON.parse(payload)
+                if (isMcpToolResult(parsed)) {
                   payload = parsed
                 }
               } catch {
@@ -223,7 +254,7 @@ export const setupLocalTools = () => {
               }
             }
 
-            if (payload && typeof payload === 'object' && !Array.isArray(payload) && Array.isArray(payload.content)) {
+            if (isMcpToolResult(payload)) {
               return payload
             }
 
