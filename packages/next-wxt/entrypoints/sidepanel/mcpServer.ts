@@ -1,6 +1,35 @@
 import { getCurrentTabId } from './utils/utils'
 import { useExtraTools } from './extraTools'
 
+/** 校验元素是否为合法的 MCP ContentBlock */
+const isMcpContentBlock = (item: unknown): boolean => {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) return false
+  const block = item as Record<string, unknown>
+  switch (block.type) {
+    case 'text':
+      return typeof block.text === 'string'
+    case 'image':
+    case 'audio':
+      return typeof block.data === 'string' && typeof block.mimeType === 'string'
+    case 'resource': {
+      if (!block.resource || typeof block.resource !== 'object' || Array.isArray(block.resource)) return false
+      const res = block.resource as Record<string, unknown>
+      return typeof res.uri === 'string' && (typeof res.text === 'string' || typeof res.blob === 'string')
+    }
+    case 'resource_link':
+      return typeof block.uri === 'string' && typeof block.name === 'string'
+    default:
+      return false
+  }
+}
+
+/** 校验对象是否为合法的 MCP CallToolResult */
+const isMcpToolResult = (value: unknown): value is Record<string, unknown> => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const content = (value as { content?: unknown }).content
+  return Array.isArray(content) && content.every(isMcpContentBlock)
+}
+
 /**
  * 注册侧边栏本地工具及页面代理工具到内置 WebMCP（document.modelContext）。
  * 无需 WebMcpServer 或 Zod 转换，直接使用原生 JSON Schema。
@@ -38,11 +67,15 @@ export const setupLocalTools = () => {
         }
         nativeCtx._tools.set(tool.name, tool)
         if (options?.signal) {
-          options.signal.addEventListener('abort', () => {
-            if (nativeCtx._tools.get(tool.name) === tool) {
-              nativeCtx._tools.delete(tool.name)
-            }
-          }, { once: true })
+          options.signal.addEventListener(
+            'abort',
+            () => {
+              if (nativeCtx._tools.get(tool.name) === tool) {
+                nativeCtx._tools.delete(tool.name)
+              }
+            },
+            { once: true }
+          )
         }
       },
 
@@ -206,7 +239,22 @@ export const setupLocalTools = () => {
               return { content: [{ type: 'text', text: `Error: ${res?.error || 'Unknown error'}` }] }
             }
 
-            if (res.result?.content) return res.result
+            let payload: unknown = res.result
+            // WebMCP polyfill (executeTool) 会将返回对象序列化为 JSON 字符串，需先还原避免二次套壳
+            if (typeof payload === 'string') {
+              try {
+                const parsed: unknown = JSON.parse(payload)
+                if (isMcpToolResult(parsed)) {
+                  payload = parsed
+                }
+              } catch {
+                // 普通纯文本返回，保持原样
+              }
+            }
+
+            if (isMcpToolResult(payload)) {
+              return payload
+            }
 
             return {
               content: [

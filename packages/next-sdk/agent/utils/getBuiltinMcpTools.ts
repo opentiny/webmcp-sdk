@@ -77,7 +77,31 @@ export const getBuiltinMcpTools = async (client: object | undefined | null): Pro
         if (!testing.executeTool) {
           throw new Error(`document.modelContext.executeTool is not available`)
         }
-        return testing.executeTool(descriptor, JSON.stringify(args ?? {}))
+        const raw = await testing.executeTool(descriptor, JSON.stringify(args ?? {}))
+        // WebMCP polyfill 会将 { content: [{ type: 'text', text }] } 序列化为字符串，提取内层单层文本供模型直接消费
+        if (typeof raw === 'string') {
+          try {
+            const parsed: unknown = JSON.parse(raw)
+            if (
+              parsed &&
+              typeof parsed === 'object' &&
+              !Array.isArray(parsed) &&
+              Array.isArray((parsed as { content?: unknown }).content) &&
+              Object.keys(parsed).length === 1
+            ) {
+              const blocks = (parsed as { content: Array<{ type?: unknown; text?: unknown }> }).content
+              if (
+                blocks.length > 0 &&
+                blocks.every((item) => item && item.type === 'text' && typeof item.text === 'string')
+              ) {
+                return blocks.map((item) => item.text as string).join('\n')
+              }
+            }
+          } catch {
+            // 普通字符串直接原样返回
+          }
+        }
+        return raw
       }
     })
   }

@@ -26,6 +26,35 @@ interface JsonRpcMessage {
   }
 }
 
+/** 校验元素是否为合法的 MCP ContentBlock */
+const isMcpContentBlock = (item: unknown): boolean => {
+  if (!item || typeof item !== 'object' || Array.isArray(item)) return false
+  const block = item as Record<string, unknown>
+  switch (block.type) {
+    case 'text':
+      return typeof block.text === 'string'
+    case 'image':
+    case 'audio':
+      return typeof block.data === 'string' && typeof block.mimeType === 'string'
+    case 'resource': {
+      if (!block.resource || typeof block.resource !== 'object' || Array.isArray(block.resource)) return false
+      const res = block.resource as Record<string, unknown>
+      return typeof res.uri === 'string' && (typeof res.text === 'string' || typeof res.blob === 'string')
+    }
+    case 'resource_link':
+      return typeof block.uri === 'string' && typeof block.name === 'string'
+    default:
+      return false
+  }
+}
+
+/** 校验对象是否为合法的 MCP CallToolResult */
+const isMcpToolResult = (value: unknown): value is Record<string, unknown> => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+  const content = (value as { content?: unknown }).content
+  return Array.isArray(content) && content.every(isMcpContentBlock)
+}
+
 /**
  * 建立原生的 JSON-RPC 拦截层：
  * 将发向 remote 的 MCP 请求拦截，代理给所在浏览器的 document.modelContext 上执行。
@@ -33,7 +62,8 @@ interface JsonRpcMessage {
 export const setupBuiltinProxy = (transport: Transport) => {
   const getNativeCtx = (): NativeModelContext | null => {
     let ctx: NativeModelContext | null = null
-    if (typeof document !== 'undefined') ctx = ctx || ((document as unknown as Record<string, unknown>).modelContext as NativeModelContext | null)
+    if (typeof document !== 'undefined')
+      ctx = ctx || ((document as unknown as Record<string, unknown>).modelContext as NativeModelContext | null)
     ctx = ctx || ((globalThis as unknown as Record<string, unknown>).modelContext as NativeModelContext | null)
     return ctx || null
   }
@@ -96,7 +126,9 @@ export const setupBuiltinProxy = (transport: Transport) => {
         const nativeCtx = getNativeCtx()
         if (nativeCtx && nativeCtx.executeTool) {
           if (!message.params || typeof message.params !== 'object' || !message.params.name) {
-            const error: Error & { code?: number } = new Error('Invalid params: "name" is required and params must be an object')
+            const error: Error & { code?: number } = new Error(
+              'Invalid params: "name" is required and params must be an object'
+            )
             error.code = -32602 // Invalid params
             throw error
           }
@@ -105,10 +137,21 @@ export const setupBuiltinProxy = (transport: Transport) => {
           const toolObj = tools.find((t: any) => t.name === name)
           if (!toolObj) throw new Error(`Tool ${name} not found`)
           const result = await nativeCtx.executeTool(toolObj, JSON.stringify(args || {}))
-          const finalResult =
-            result && typeof result === 'object' && 'content' in result
-              ? result
-              : { content: [{ type: 'text', text: typeof result === 'string' ? result : JSON.stringify(result) }] }
+          let unwrapped: unknown = result
+          // WebMCP polyfill (executeTool) 会将工具返回的对象序列化为 JSON 字符串，需先还原避免二次套壳
+          if (typeof unwrapped === 'string') {
+            try {
+              const parsed: unknown = JSON.parse(unwrapped)
+              if (isMcpToolResult(parsed)) {
+                unwrapped = parsed
+              }
+            } catch {
+              // 普通纯文本返回，保持原样
+            }
+          }
+          const finalResult = isMcpToolResult(unwrapped)
+            ? unwrapped
+            : { content: [{ type: 'text', text: typeof result === 'string' ? result : JSON.stringify(result) }] }
           await transport.send({ jsonrpc: '2.0', id, result: finalResult })
         } else {
           const error: Error & { code?: number } = new Error('executeTool not implemented in Browser built-in WebMCP')
