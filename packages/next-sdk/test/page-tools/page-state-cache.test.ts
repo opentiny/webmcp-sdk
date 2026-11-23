@@ -381,6 +381,7 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
     const r2 = cache.update(url, yaml2)
 
     expect(r2.kind).toBe('diff')
+    expect(r2.diffText).toContain('  - region "支付区"')
     expect(r2.diffText).toContain('-     - button #4 "Pay"')
     expect(r2.diffText).toContain('+ - button #4 "Pay"')
   })

@@ -439,6 +439,20 @@ function computeStructuredYamlDiff(
         emittedCurrAncestors.add(add.index)
         if (pairedOld) {
           removedByUniqueRef.delete(add.ref!)
+          // 若同 #ref 配对行发生了跨父级移动，补充尚未输出过的旧父级锚点（同父级则去重）
+          if (prevComparable[pairedOld.index].directParent !== currComparable[add.index].directParent) {
+            const oldParentIndices = findAncestorIndices(prevComparable, pairedOld.index)
+            for (const idx of oldParentIndices) {
+              if (!emittedPrevAncestors.has(idx) && !hunkRemovedIndices.has(idx)) {
+                emittedPrevAncestors.add(idx)
+                const text = prevLines[idx]
+                if (!emittedAncestorTextsInHunk.has(text.trimStart())) {
+                  emittedAncestorTextsInHunk.add(text.trimStart())
+                  outputLines.push(`  ${text}`)
+                }
+              }
+            }
+          }
           emittedPrevAncestors.add(pairedOld.index)
           outputLines.push(`- ${pairedOld.line}`)
           outputLines.push(`+ ${add.line}`)
