@@ -11,13 +11,11 @@ const isMcpContentBlock = (item: unknown): boolean => {
     case 'image':
     case 'audio':
       return typeof block.data === 'string' && typeof block.mimeType === 'string'
-    case 'resource':
-      return (
-        !!block.resource &&
-        typeof block.resource === 'object' &&
-        !Array.isArray(block.resource) &&
-        typeof (block.resource as Record<string, unknown>).uri === 'string'
-      )
+    case 'resource': {
+      if (!block.resource || typeof block.resource !== 'object' || Array.isArray(block.resource)) return false
+      const res = block.resource as Record<string, unknown>
+      return typeof res.uri === 'string' && (typeof res.text === 'string' || typeof res.blob === 'string')
+    }
     case 'resource_link':
       return typeof block.uri === 'string' && typeof block.name === 'string'
     default:

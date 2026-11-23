@@ -193,9 +193,7 @@ describe('WebMCP 工具结果单层解包回归测试', () => {
         { name: 'query-order', description: 'query order' },
         { name: 'fail-tool', description: 'fail tool' }
       ]),
-      executeTool: vi.fn(async (tool: { name: string }) =>
-        tool.name === 'query-order' ? withStructured : withError
-      )
+      executeTool: vi.fn(async (tool: { name: string }) => (tool.name === 'query-order' ? withStructured : withError))
     }
 
     const toolSet = await getBuiltinMcpTools(mockClient)
@@ -211,5 +209,84 @@ describe('WebMCP 工具结果单层解包回归测试', () => {
       messages: []
     } as any)
     expect(errorOutput).toBe(withError)
+  })
+
+  it('复现：setupBuiltinProxy 对缺少 text/blob 的 resource 块不误判为合法 MCP 结果，且保留合法空串 text/blob 资源', async () => {
+    const invalidResourceJson = JSON.stringify({
+      content: [{ type: 'resource', resource: { uri: 'file:///article' } }]
+    })
+    const validTextResource = {
+      content: [{ type: 'resource', resource: { uri: 'file:///empty.txt', text: '' } }]
+    }
+    const validBlobResource = {
+      content: [{ type: 'resource', resource: { uri: 'file:///empty.bin', blob: '' } }]
+    }
+    const origModelContext = (document as any).modelContext
+    const origGlobalModelContext = (globalThis as any).modelContext
+    const mockCtx = {
+      getTools: vi.fn(async () => [
+        { name: 'bad-res', description: 'bad resource' },
+        { name: 'ok-text-res', description: 'ok text resource' },
+        { name: 'ok-blob-res', description: 'ok blob resource' }
+      ]),
+      executeTool: vi.fn(async (tool: { name: string }) => {
+        if (tool.name === 'bad-res') return invalidResourceJson
+        if (tool.name === 'ok-text-res') return JSON.stringify(validTextResource)
+        return JSON.stringify(validBlobResource)
+      })
+    }
+
+    try {
+      Object.defineProperty(document, 'modelContext', {
+        configurable: true,
+        writable: true,
+        value: mockCtx
+      })
+      ;(globalThis as any).modelContext = mockCtx
+
+      const sentMessages: any[] = []
+      const fakeTransport = {
+        start: vi.fn(),
+        close: vi.fn(),
+        send: vi.fn(async (msg: any) => {
+          sentMessages.push(msg)
+        }),
+        onmessage: undefined as any
+      }
+
+      setupBuiltinProxy(fakeTransport as any)
+
+      await fakeTransport.onmessage({
+        jsonrpc: '2.0',
+        id: 10,
+        method: 'tools/call',
+        params: { name: 'bad-res', arguments: {} }
+      })
+      await fakeTransport.onmessage({
+        jsonrpc: '2.0',
+        id: 11,
+        method: 'tools/call',
+        params: { name: 'ok-text-res', arguments: {} }
+      })
+      await fakeTransport.onmessage({
+        jsonrpc: '2.0',
+        id: 12,
+        method: 'tools/call',
+        params: { name: 'ok-blob-res', arguments: {} }
+      })
+
+      expect(sentMessages[0].result).toEqual({
+        content: [{ type: 'text', text: invalidResourceJson }]
+      })
+      expect(sentMessages[1].result).toEqual(validTextResource)
+      expect(sentMessages[2].result).toEqual(validBlobResource)
+    } finally {
+      Object.defineProperty(document, 'modelContext', {
+        configurable: true,
+        writable: true,
+        value: origModelContext
+      })
+      ;(globalThis as any).modelContext = origGlobalModelContext
+    }
   })
 })
