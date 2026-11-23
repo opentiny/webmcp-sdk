@@ -15,7 +15,7 @@
 3. **缺少快照版本协议与上下文锚点**：返回 JSON 缺少 `kind`（`full` | `diff`）、`rev`、`baseRev` 等结构化元数据，宿主无法可靠追踪或整链折叠历史快照；且多元素同时更新时 `-` 与 `+` 块分离、嵌套节点缺少最小父级定位锚点。
 4. **过期编号报错不统一 & 缺少会话级重置**：`hover`、`scroll` 遇到失效 `#ref` 未返回 `isError: true`，其它操作则在报错时强塞整页树；长会话跨多轮对话缺少重置 `#ref` 分配器与 Diff 缓存的机制。
 
-参考 Playwright MCP、Chrome DevTools MCP、Nanobrowser、browser-use 的业界实践，将 `#ref` 绑定到具体 DOM 元素实例，并在 Diff 生成端补齐同 `#ref` 就近配对、最小父级锚点、阈值熔断回退、`kind/rev/baseRev` 版本协议、统一 `REF_NOT_PRESENTED` 报错及每轮对话重置能力。
+参考 Playwright MCP、Chrome DevTools MCP、Nanobrowser、browser-use 的业界实践，将 `#ref` 绑定到具体 DOM 元素实例，并在 Diff 生成端补齐同 `#ref` 就近配对、最小父级锚点、阈值熔断回退、`kind/rev/baseRev` 版本协议、统一 `REF_NOT_PRESENTED` 报错及单轮清空 Diff 基线与会话级重置能力。
 
 ## 领域术语表
 
@@ -40,16 +40,17 @@
 ### In Scope
 
 - 新增 `ElementRefAllocator`（`WeakMap<Element, number>` + 单调递增 `nextRef`），接入会话级 `registerPageAgentTool`（含 `browserState`、各交互动作与 `searchTree`）；无参独立调用 `buildA11yTree` 保持默认从 `0` 编号向后兼容。
-- 保证 `refMap` 仅包含最终序列化到当前快照 YAML `lines` 中的活跃 `#ref`（消除单子合并未输出父 `#ref` 的幽灵条目）。
+- 保证 `refMap` 仅包含最终序列化到当前快照 YAML `lines` 中的活跃 `#ref`（消除单子合并未输出父 `#ref` 的幽灵条目）；同时对 `contenteditable` 编辑宿主跳过单子节点合并，保留其自身的 `textbox` ref。
 - 重构 `PageStateCache`：
-  - 基于稳定 `#ref` 实现变更 Hunk 内同 `#ref` 的 `- / +` 就近成对输出；
-  - 为嵌套层级的变更行自动补充去重后的最小父级缩进上下文锚点（`'  '` 前缀）；
-  - 双重熔断保护：变化行占比 `> 50%` 或 `diffText.length >= yaml.length`（防体积倒挂）时自动回退返回整页树（`kind: 'full'`）；
+  - 基于稳定 `#ref` 实现变更 Hunk 内按文档顺序输出、同 `#ref`（及配对改名父节点）`- / +` 就近成对输出；
+  - 为嵌套层级的每个变更行按需补充去重后的最小父级缩进上下文锚点（`'  '` 前缀）；
+  - 全局变更全集上执行包装层插入/移除抵消（跳过已存在父节点）与改名父节点配对（`#ref` 精确配对或无 `#ref` 名称词干+子节点重合度配对），兼容带子树的子节点并避免跨父移动丢失；
+  - 双重熔断保护 + 首尾剥离与 O(N) 低重合快速预判：变化行占比 `> 50%` 或 `diffText.length >= yaml.length`（防体积倒挂）时自动回退返回整页树（`kind: 'full'`）；
   - 维护单调递增 `rev` 与增量 `baseRev`；`searchTree` 仅刷新 `currentRefMap`，不覆盖 `stateCache` 基线以保持 `rev` 链连续。
 - `browserState` 返回 JSON 新增结构化字段：`kind: 'full' | 'diff'`、`rev: number`（当 `kind === 'diff'` 时含 `baseRev: number`）。
 - 所有依赖 `index` 的动作（`click`、`fill`、`select`、`hover`、`scroll`）在 `index` 不在最新快照 `currentRefMap` 或元素已脱离文档（`!el.isConnected`）时，统一返回 `isError: true` + `errorCode: 'REF_NOT_PRESENTED'` 轻量结构化错误，不自动附带整页树。
-- 单轮结束与会话重置：收到 `PAGE_AGENT_CHAT_END_EVENT` 时仅调用 `endTurn()`（递增代次 + `stateCache.invalidate()`，下轮出 `full` 但 `rev` 持续递增、`#ref` 不跨轮复用）；`PageAgentToolHandle` 新增可选 `resetSession()`（`registerPageAgentTool()` 返回 `RegisteredPageAgentToolHandle` 必带），由宿主在新建或清空会话时显式调用以完整归零；异步操作等待期间遇轮次结束或重置时拦截续体并返回 `SESSION_RESET`。
-- 收敛校验态作用域与锚点去重（实机压测优化）：收敛 `DEFAULT_ERROR_SELECTORS` 中的宽泛 `.ng-invalid` 为已交互原生表单控件；`states.error`/`states.warning` 元素自身命中始终生效，并仅允许表单控件（原生 `input`/`textarea`/`select`、编辑宿主、经 role 解析出的 `textbox`/`combobox` 等）通过 `closest()` 继承容器校验态；`PageStateCache` 对包装层缩进平移、同父槽位 LCS 抵消及祖先锚点去重做严格处理。
+- 单轮结束与会话重置：收到 `PAGE_AGENT_CHAT_END_EVENT` 时仅调用 `endTurn()`（递增代次 + `stateCache.invalidate()`，下轮出 `full` 但 `rev` 持续递增、`#ref` 不跨轮复用）；`PageAgentToolHandle` 新增可选 `resetSession()`（`registerPageAgentTool()` 返回 `RegisteredPageAgentToolHandle` 必带），由宿主在新建或清空会话时显式调用以完整归零并调用 `unhighlight()` 清理残留高亮；异步操作等待期间遇轮次结束或重置时拦截续体并返回 `SESSION_RESET`。
+- 收敛校验态作用域与锚点去重（实机压测优化）：收敛 `DEFAULT_ERROR_SELECTORS` 中的宽泛 `.ng-invalid` 为已交互原生表单控件；`states.error`/`states.warning` 元素自身命中始终生效，并仅允许表单控件（原生 `input`/`textarea`/`select`、编辑宿主、经 role 解析出的 `textbox`/`combobox` 等）通过 `closest()` 继承容器校验态；`PageStateCache` 预计算 `parentIndex` 并在全集维度处理包装层平移与父节点改名抵消。
 - 同步更新 `page-agent-prompt.md`、`docs/webmcp-sdk/page-agent-tool.md` 与 `packages/next-sdk/skills/page-agent/SKILL.md`。
 
 ### Out of Scope

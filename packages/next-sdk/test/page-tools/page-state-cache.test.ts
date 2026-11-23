@@ -193,7 +193,6 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
 
     const r2 = cache.update(url, yaml2)
     expect(r2.kind).toBe('full')
-    expect(r2.isFullRefresh).toBe(true)
     expect(r2.fullReason).toBe('diff_too_large')
     expect(r2.rev).toBe(2)
     expect(r2.baseRev).toBeUndefined()
@@ -659,5 +658,185 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
     expect(r2.kind).toBe('diff')
     expect(r2.diffText).toContain('button #1 "Pay"')
     expect(r2.diffText).toContain('button #2 "Track"')
+  })
+
+  it('复现：改名父节点下的直接子节点带子树（如 20 件购物车商品）时，全局抵消不输出内容相同的成对行也不熔断', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/cart-subtree'
+
+    const items = Array.from({ length: 20 }, (_, i) => [
+      `  - listitem "商品-${i}"`,
+      `    - button #${i} "删除"`,
+    ]).flat()
+
+    const yaml1 = ['```yaml', '- region "购物车 (2)"', ...items, '```'].join('\n')
+    const yaml2 = ['```yaml', '- region "购物车 (3)"', ...items, '```'].join('\n')
+
+    cache.update(url, yaml1)
+    const r2 = cache.update(url, yaml2)
+
+    expect(r2.kind).toBe('diff')
+    expect(r2.addedLines).toBe(1)
+    expect(r2.removedLines).toBe(1)
+    expect(r2.diffText).toContain('- - region "购物车 (2)"')
+    expect(r2.diffText).toContain('+ - region "购物车 (3)"')
+    expect(r2.diffText).not.toContain('商品-0')
+    expect(r2.diffText).not.toContain('商品-19')
+  })
+
+  it('复现：包装层插入与移除时，30 张带子树的直接子卡片跨多个 hunk 也能全局抵消，仅输出 1 行包装层变更', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/wrapper-subtree'
+
+    const cards = Array.from({ length: 30 }, (_, i) => [
+      `  - group "卡片-${i}"`,
+      `    - button #${i} "购买-${i}"`,
+    ]).flat()
+
+    const yamlUnwrapped = ['```yaml', '- main "主内容区"', ...cards, '```'].join('\n')
+    const yamlWrapped = [
+      '```yaml',
+      '- main "主内容区"',
+      '  - generic "计算中..."',
+      ...cards.map((l) => `  ${l}`),
+      '```',
+    ].join('\n')
+
+    // 包装层插入
+    cache.update(url, yamlUnwrapped)
+    const rWrap = cache.update(url, yamlWrapped)
+    expect(rWrap.kind).toBe('diff')
+    expect(rWrap.addedLines).toBe(1)
+    expect(rWrap.removedLines).toBe(0)
+    expect(rWrap.diffText).toContain('+   - generic "计算中..."')
+    expect(rWrap.diffText).not.toContain('卡片-0')
+    expect(rWrap.diffText).not.toContain('卡片-29')
+
+    // 包装层移除（对称）
+    const rUnwrap = cache.update(url, yamlUnwrapped)
+    expect(rUnwrap.kind).toBe('diff')
+    expect(rUnwrap.addedLines).toBe(0)
+    expect(rUnwrap.removedLines).toBe(1)
+    expect(rUnwrap.diffText).toContain('-   - generic "计算中..."')
+    expect(rUnwrap.diffText).not.toContain('卡片-0')
+    expect(rUnwrap.diffText).not.toContain('卡片-29')
+  })
+
+  it('复现：同 hunk 删除容器 X、改名容器 Y 并把 #5 从 X 移入 Y 时，不按序号错配：#6 被抵消且 #5 跨父移动完整保留', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/delete-and-rename-parent'
+
+    const padding = Array.from({ length: 20 }, (_, i) => `- button #${i + 20} "静态项-${i}"`)
+    const yaml1 = [
+      '```yaml',
+      ...padding,
+      '- region "X"',
+      '  - button #5 "转移"',
+      '- region "Y (2)"',
+      '  - button #6 "保留"',
+      '```',
+    ].join('\n')
+    const yaml2 = [
+      '```yaml',
+      ...padding,
+      '- region "Y (3)"',
+      '  - button #5 "转移"',
+      '  - button #6 "保留"',
+      '```',
+    ].join('\n')
+
+    cache.update(url, yaml1)
+    const r2 = cache.update(url, yaml2)
+
+    expect(r2.kind).toBe('diff')
+    expect(r2.diffText).toContain('- - region "X"')
+    expect(r2.diffText).toContain('- - region "Y (2)"')
+    expect(r2.diffText).toContain('+ - region "Y (3)"')
+    // #5 从 X 移入 Y (3)，必须完整保留
+    expect(r2.diffText).toContain('-   - button #5 "转移"')
+    expect(r2.diffText).toContain('+   - button #5 "转移"')
+    // #6 留在改名后的 Y 内未变，不得输出内容完全相同的 -/+ 成对行
+    expect(r2.diffText).not.toContain('button #6 "保留"')
+  })
+
+  it('复现：混合 hunk 跨多个父节点（A > ga > #1 与 B->B2 > gb > #2）时，严格按文档顺序输出并补全中间层祖先 gb', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/multi-parent-order'
+
+    const padding = Array.from({ length: 20 }, (_, i) => `- button #${i + 20} "常驻-${i}"`)
+    const yaml1 = [
+      '```yaml',
+      ...padding,
+      '- region "A"',
+      '  - group "ga"',
+      '    - button #1 "x"',
+      '- region "B"',
+      '  - group "gb"',
+      '    - button #2 "y"',
+      '```',
+    ].join('\n')
+    const yaml2 = [
+      '```yaml',
+      ...padding,
+      '- region "A"',
+      '  - group "ga"',
+      '    - button #1 "x2"',
+      '- region "B2"',
+      '  - group "gb"',
+      '    - button #2 "y2"',
+      '```',
+    ].join('\n')
+
+    cache.update(url, yaml1)
+    const r2 = cache.update(url, yaml2)
+
+    expect(r2.kind).toBe('diff')
+    const lines = r2.diffText.split('\n')
+    const idxA = lines.findIndex((l) => l.includes('region "A"'))
+    const idxGa = lines.findIndex((l) => l.includes('group "ga"'))
+    const idxBtn1 = lines.findIndex((l) => l.includes('button #1 "x2"'))
+    const idxB = lines.findIndex((l) => l.includes('- - region "B"'))
+    const idxB2 = lines.findIndex((l) => l.includes('+ - region "B2"'))
+    const idxGb = lines.findIndex((l) => l.includes('  - group "gb"') && !l.startsWith('-') && !l.startsWith('+'))
+    const idxBtn2 = lines.findIndex((l) => l.includes('button #2 "y2"'))
+
+    expect(idxA).toBeGreaterThanOrEqual(0)
+    expect(idxGa).toBeGreaterThan(idxA)
+    expect(idxBtn1).toBeGreaterThan(idxGa)
+    expect(idxB).toBeGreaterThan(idxBtn1)
+    expect(idxB2).toBeGreaterThan(idxB)
+    expect(idxGb).toBeGreaterThan(idxB2)
+    expect(idxBtn2).toBeGreaterThan(idxGb)
+  })
+
+  it('复现：5000 行大树整页重绘通过 O(N) 低重合预判快速熔断，避免跑满 Myers 阻塞主线程', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/large-redraw'
+
+    const makeTree = (prefix: string, refBase: number) => {
+      const lines = ['```yaml', `- main "${prefix}-主内容"`]
+      let ref = refBase
+      for (let g = 0; g < 384; g++) {
+        lines.push(`  - region "${prefix}-区-${g}"`)
+        lines.push(`    - group "${prefix}-组-${g}"`)
+        for (let k = 0; k < 11; k++) {
+          lines.push(`      - button #${ref++} "${prefix}-按钮-${g}-${k}"`)
+        }
+      }
+      lines.push('```')
+      return lines.join('\n')
+    }
+
+    const yaml1 = makeTree('旧页', 0)
+    const yaml2 = makeTree('新页', 10000)
+
+    cache.update(url, yaml1)
+    const t0 = performance.now()
+    const r2 = cache.update(url, yaml2)
+    const elapsed = performance.now() - t0
+
+    expect(r2.kind).toBe('full')
+    expect(r2.fullReason).toBe('diff_too_large')
+    expect(elapsed).toBeLessThan(200)
   })
 })

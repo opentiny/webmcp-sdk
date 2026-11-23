@@ -20,7 +20,7 @@
 
 | Spec                                                                                | 说明                                                                               |
 | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| [`REQ-20261123-stable-ref-diff`](./REQ-20261123-stable-ref-diff/)                   | 稳定 DOM 元素 `#ref` 绑定、结构化增量 Diff、阈值熔断回退、`rev`/`REF_NOT_PRESENTED` 与每轮重置 |
+| [`REQ-20261123-stable-ref-diff`](./REQ-20261123-stable-ref-diff/)                   | 稳定 DOM 元素 `#ref` 绑定、结构化增量 Diff、阈值熔断回退、`rev`/`REF_NOT_PRESENTED`、单轮清空基线与会话重置 |
 | [`REQ-20260904-contenteditable-a11y-ref`](./REQ-20260904-contenteditable-a11y-ref/) | `browserState` 将 contenteditable 编辑宿主标为可填：textbox + ref + token          |
 | [`REQ-20260904-force-webmcp-polyfill`](./REQ-20260904-force-webmcp-polyfill/)       | 默认强制 JS polyfill，覆盖会崩溃的 Chromium 实验性 `modelContext`                  |
 | [`REQ-20260903-mask-cursor-lifecycle`](./REQ-20260903-mask-cursor-lifecycle/)       | 遮罩接管态默认不出光标；句柄透传 `showCursor`；操作结束收光标；`cursorMode`        |

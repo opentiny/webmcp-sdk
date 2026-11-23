@@ -14,11 +14,11 @@
 | --- | --- |
 | `packages/next-sdk/page-tools/a11y/ref-allocator.ts` | 新增 `ElementRefAllocator` 与 `RefAllocator` 接口 |
 | `packages/next-sdk/page-tools/a11y/types.ts` | `A11yTreeOptions` 增加可选 `refAllocator?: RefAllocator` |
-| `packages/next-sdk/page-tools/a11y/vnode.ts` | `buildVNode` 通过 `RefAllocator` 分配稳定 `#ref`；收集实际输出的 `#ref` |
+| `packages/next-sdk/page-tools/a11y/vnode.ts` | `buildVNode` 通过 `RefAllocator` 分配稳定 `#ref`；编辑宿主（`contenteditable`）跳过单子合并保留自身 `textbox` ref；收集实际输出的 `#ref` |
 | `packages/next-sdk/page-tools/a11y/build.ts` | 支持外部传入 `refAllocator`（默认新建临时实例保持纯函数兼容）；对齐 `refMap` 与输出 `lines` |
-| `packages/next-sdk/page-tools/page-state-cache.ts` | 重构结构化 Diff（同 `#ref` 配对 + 父级锚点 + 阈值熔断回退 + `rev`/`baseRev`） |
-| `packages/next-sdk/page-tools/context.ts` | 定义 `REF_NOT_PRESENTED_ERROR_CODE`、`staleRefError`、`resetSession` 及结构化状态类型 |
-| `packages/next-sdk/page-tools/page-agent-tool.ts` | 串联会话级 `ElementRefAllocator`、`PageStateCache`、`kind/rev/baseRev` 组装与 `resetSession` 句柄 |
+| `packages/next-sdk/page-tools/page-state-cache.ts` | 重构结构化 Diff（首尾剥离与快速熔断 + 全局 Wrapper/改名父节点配对抵消 + 文档序逐行锚点 + `rev`/`baseRev`） |
+| `packages/next-sdk/page-tools/context.ts` | 定义 `REF_NOT_PRESENTED_ERROR_CODE`、`SESSION_RESET_ERROR_CODE`、`PageAgentToolErrorCode`、统一错误构造与结构化状态类型 |
+| `packages/next-sdk/page-tools/page-agent-tool.ts` | 串联会话级 `ElementRefAllocator`、`PageStateCache`、`kind/rev/baseRev` 组装与 `resetSession` 句柄（重置时同步 `unhighlight()`） |
 | `packages/next-sdk/page-tools/page-agent-tool-event.ts` | 接收 `{ getRefMap, endTurn }`；`PAGE_AGENT_CHAT_END_EVENT` 触发 `endTurn()`；透传 `errorCode` |
 | `packages/next-sdk/page-tools/handlers/{click,fill,select,hover,scroll,searchTree}.ts` | 统一校验 `el && el.isConnected` 并走 `staleRefError`；`searchTree` 共用 `refAllocator` 且不污染 Diff 基线 |
 | `packages/next-sdk/page-tools/page-agent-prompt.md` | 更新 `#N` 稳定绑定、过期不复用、`kind/rev/baseRev` 与 Diff 格式说明 |
@@ -32,7 +32,7 @@
 export interface RefAllocator {
   /** 为元素返回稳定编号：已分配则复用，未分配则单调递增分配新编号 */
   allocate(el: Element): number
-  /** 重置映射表与计数器（新一轮对话开始/上一轮对话结束时调用） */
+  /** 重置映射表与计数器（新建或清空会话、宿主调用 resetSession() 时调用） */
   reset(): void
 }
 
@@ -48,10 +48,6 @@ export interface PageSnapshot {
 export interface StateCacheUpdateOptions {
   /** 强制返回全量快照（如显式传入 responseMode: 'full'） */
   forceFull?: boolean
-  /** 最大允许变更行数比例，超过则回退整页，默认 0.5 */
-  maxChangeLineRatio?: number
-  /** 最大允许 diffText / fullYaml 字符长度比，达到或超过则回退整页，默认 1.0 */
-  maxDiffCharRatio?: number
 }
 
 export interface DiffResult {
@@ -61,8 +57,6 @@ export interface DiffResult {
   rev: number
   /** 当 kind === 'diff' 时，指明本 diff 所基于的基准快照版本号 */
   baseRev?: number
-  /** 是否为全量刷新（等价于 kind === 'full'，保留字段兼容内部调用） */
-  isFullRefresh: boolean
   /** 触发全量输出的原因（调试与测试断言用） */
   fullReason?: 'initial' | 'url_changed' | 'forced' | 'diff_too_large'
   /** 上一次快照的 URL */
@@ -78,10 +72,14 @@ export interface DiffResult {
 export const REF_NOT_PRESENTED_ERROR_CODE = 'REF_NOT_PRESENTED' as const
 export const SESSION_RESET_ERROR_CODE = 'SESSION_RESET' as const
 
+export type PageAgentToolErrorCode =
+  | typeof REF_NOT_PRESENTED_ERROR_CODE
+  | typeof SESSION_RESET_ERROR_CODE
+
 export type PageAgentToolErrorResult = PageAgentToolContentResult & {
   isError: true
   error: string
-  errorCode?: string
+  errorCode?: PageAgentToolErrorCode
 }
 
 export type PageAgentToolHandle = {
@@ -98,17 +96,18 @@ export type RegisteredPageAgentToolHandle = PageAgentToolHandle & {
 ## Diff 算法细节
 
 1. **提取内容行与预计算父链**：剥离 `buildA11yTree` 外层 ```` ```yaml ```` 与 ```` ``` ```` 围栏，得到 `prevLines` 与 `currLines`；单次 O(N) 预计算每行的 `trimmed`、`indent`、`parentIndex` 与直接父节点身份 key（带 `#ref` 用 `#N`，否则用 `trimmed`）。
-2. **Myers 语义行对比 + Hunk 聚合**：使用 `diffArrays(prevComparable, currComparable, { comparator: (a, b) => a.trimmed === b.trimmed && a.directParent === b.directParent })`，同时捕获真实父级层级变更与外层间接包装平移，聚合成相邻变更 Hunk。
-3. **包装层识别与同父槽位 LCS 抵消**：
-   - 识别 Hunk 内包装层 `W` 的插入/移除：按原序挂在 `W` 下（或移出回原父层）的未变更直接子节点通过 `trimmed` LCS 跳过，仅输出 `+ W` / `- W`；
-   - 对剩余行按父节点槽位分桶，仅对同一父槽位内整行完全相同的序列求 LCS 并抵消（消除如 `region "购物车 (2)" → "购物车 (3)"` 带来的子行伪变更，同时完整保留同父重排与跨父移动）。
-4. **同 `#ref` 就近配对（Same-Ref Pairing）**：
+2. **首尾公共行剥离与 O(N) 快速熔断**：先剥离首尾 `line` 与 `directParent` 完全相同的公共区间；对大窗口（≥ 200 行）先用 O(N) `trimmed` 多重集交集计算变更下界，若下界已超过 50% 直接跳过 Myers 返回 `diff_too_large`，避免整页重绘阻塞主线程。
+3. **Myers 语义行对比 + 全局变更全集聚合**：在中间区间执行 `diffArrays(prevComparable, currComparable, { comparator: (a, b) => a.trimmed === b.trimmed && a.directParent === b.directParent })`，聚合成变更 Hunk 与全局 `allRemoved` / `allAdded`。
+4. **全局包装层识别与父节点改名配对 LCS 抵消**：
+   - 仅构建一次快照节点身份集合与全局父子索引；
+   - 识别真正新插入/移除的包装行 `W`（跳过对侧快照中原本已存在的父节点），在全局变更全集上对其直接子节点求 `trimmed` LCS 并抵消（兼容带子树的直接子节点被切入多 Hunk 的场景）；
+   - 对改名父节点按缩进由浅入深逐层贪心一对一配对（带 `#ref` 仅允许同 `#ref` 配对；无 `#ref` 要求同 role、同外层父级、名称词干兼容且存在相同直接子节点），在配对父节点下仅对整行完全相同的子节点序列求 LCS 并抵消，避免按序号错配且完整保留同父重排与跨父移动。
+5. **文档序同步配对与逐行最小父级锚点（O(1)）**：
    - 解析行内 `#ref`（兼容多词 ARIA role）：匹配 `/^\s*-\s+[^["]+?\s+#(\d+)(?:\s|$)/`。
-   - 对每个 Hunk 中的有效 `removed` 与 `added` 行：同 `#ref` 原地更新按新树顺序成对输出 `- oldLine` 紧跟 `+ newLine`，纯删除行输出 `- oldLine`，纯新增行输出 `+ newLine`。
-5. **最小父级缩进锚点（O(1)）**：沿预计算的 `parentIndex` 向上跳转最多 2 层获取最近祖先，分别为纯删除行与新增/配对行输出去重后的 `'  '` 上下文行。
+   - Hunk 内以同 `#ref` 唯一配对与已配对改名父节点作为同步锚点，按文档顺序交错输出未配对删除行、新增行与配对行；每行输出前沿预计算的 `parentIndex` 向上跳转最多 2 层补齐去重后的 `'  '` 上下文锚点（跨父移动的配对行分别补齐旧父级与新父级锚点）。
 6. **双重熔断回退整页树**：
    - 若抵消后无任何实质变更，返回 `NO_CHANGES_DIFF_TEXT`（`# (no changes)`）。
-   - 否则计算 `changedRatio = Math.max(addedLines, removedLines) / Math.max(prevLines.length, currLines.length)`；若 `changedRatio > maxChangeLineRatio (0.5)` 或 `diffText.length >= yaml.length * maxDiffCharRatio (1.0)`，判定 `fullReason = 'diff_too_large'`，回退为 `kind: 'full'`（不返回 `baseRev`，外层直接使用完整 `yaml`）。
+   - 否则计算 `changedRatio = Math.max(addedLines, removedLines) / Math.max(prevLines.length, currLines.length)`；若 `changedRatio > 0.5` 或 `diffText.length >= yaml.length`，判定 `fullReason = 'diff_too_large'`，回退为 `kind: 'full'`（不返回 `baseRev`，外层直接使用完整 `yaml`）。
 
 ## 依赖变更
 
@@ -123,7 +122,7 @@ export type RegisteredPageAgentToolHandle = PageAgentToolHandle & {
 | `PageAgentToolHandle.resetSession` / `RegisteredPageAgentToolHandle` | 新增 | `PageAgentToolHandle.resetSession` 保持可选兼容外部 mock；`registerPageAgentTool` 返回 `RegisteredPageAgentToolHandle` 必含 `resetSession()` |
 | `PAGE_AGENT_CHAT_END_EVENT` 监听行为 | 修改 | 除 `hideMask()` 外调用 `endTurn()` 仅清空 Diff 基线（`rev` 持续递增、`#ref` 不跨轮复用） |
 | `BrowserStateSnapshot` / `SnapshotKind` | 新增 | 导出与 `browserState` 返回 JSON 一致的公开类型（含 `kind`、`url`、`title`、`rev`、`baseRev?`、`content` 等） |
-| 失效 `#ref` 与过期续体错误码 | 新增 | 导出 `REF_NOT_PRESENTED_ERROR_CODE` 与 `SESSION_RESET_ERROR_CODE` |
+| 失效 `#ref` 与过期续体错误码 | 新增 | 导出 `REF_NOT_PRESENTED_ERROR_CODE`、`SESSION_RESET_ERROR_CODE` 及联合类型 `PageAgentToolErrorCode` |
 
 ## 数据流 / 时序
 
@@ -148,6 +147,7 @@ flowchart TD
 - **`buildA11yTree` 向后兼容**：未传 `refAllocator` 时每次调用内部新建分配器，保证现有纯函数调用与全部历史单测零破坏。
 - **`searchTree` 与版本链连续性**：`searchTree` 共用 `refAllocator` 并刷新 `currentRefMap`（搜到即可点），但**不**调用 `stateCache.update`，避免在未返回全量/增量快照的情况下推进 `rev` 造成宿主侧 `baseRev` 断链。
 - **`webmcp-cli` 兼容**：`stateObj` 仍保持顶层平铺 JSON 且 `content` 为字符串，`webmcp-cli` 的 `formatLogResult` 原样兼容并能打印新增的 `kind` / `rev` / `baseRev` 元数据。
+- **已知边界（虚拟列表就地复用 DOM）**：`ElementRefAllocator` 按 DOM `Element` 实例锚定编号，可消除节点增删引起的编号漂移及已销毁节点复用；若虚拟滚动/无 `key` 列表就地复用同一个 DOM 节点仅替换文本内容，旧 `#ref` 仍绑定到该 DOM 实例（后续可结合行上下文摘要校验进一步增强）。
 
 ## 备选方案（未采用）
 

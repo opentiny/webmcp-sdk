@@ -128,7 +128,7 @@ setPageAgentToolConfig({ cursorMode: 'never' })
 interface A11yMatcher {
   /** CSS 选择器（优先使用；仅当选择器表达不了时再写 match）。
    *  - roles：用 matches 仅匹配自身（避免角色传染给子孙）
-   *  - states：用 closest 匹配自身或祖先（适合挂在容器上的 error/selected）
+   *  - states：通用状态（如 selected）用 closest 匹配自身或祖先；例外：error / warning 默认用 matches 仅匹配自身，仅表单控件（含经 roles 推断出的 textbox/combobox 等）允许通过 closest 继承外层表单项容器的校验态，避免整树传染
    *  支持标签/属性/id/组合选择器，也支持字符串数组（任意一个命中即可） */
   selector?: string | string[]
   /** 自定义判断函数，优先级高于 selector，用于读取计算样式等选择器表达不了的场景 */

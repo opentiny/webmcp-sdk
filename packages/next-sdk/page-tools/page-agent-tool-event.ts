@@ -1,4 +1,5 @@
 import type { RefMap } from './a11y-tree'
+import type { PageAgentToolErrorCode } from './context'
 import { inputSchema, type PageAgentToolInput, type PageAgentToolRawInput } from './schema'
 import { PageController } from '@page-agent/page-controller'
 
@@ -17,7 +18,7 @@ export type PageAgentToolResultEventDetail = {
     success: boolean
     result?: unknown
     error?: string
-    errorCode?: string
+    errorCode?: PageAgentToolErrorCode
   }
   requestId: string
 }
@@ -33,7 +34,7 @@ type ExecutePageAgentTool = (data: PageAgentToolInput) => Promise<unknown>
 
 function isPageAgentToolErrorResult(
   result: unknown
-): result is { isError: true; error: string; errorCode?: string } {
+): result is { isError: true; error: string; errorCode?: PageAgentToolErrorCode } {
   return (
     typeof result === 'object' &&
     result !== null &&

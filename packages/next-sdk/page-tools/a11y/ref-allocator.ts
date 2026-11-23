@@ -10,7 +10,7 @@
 export interface RefAllocator {
   /** 为目标 DOM 元素获取稳定 #ref：若已分配则复用，否则分配新递增编号 */
   allocate(el: Element): number
-  /** 重置元素映射表与递增计数器（每轮新对话或手动重置时调用） */
+  /** 重置元素映射表与递增计数器（新建或清空会话、宿主调用 resetSession() 时调用） */
   reset(): void
 }
 

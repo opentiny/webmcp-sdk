@@ -111,7 +111,7 @@ export { buildA11yTree } from './page-tools/a11y/build'
 export { searchA11yTree } from './page-tools/a11y/search'
 export { ElementRefAllocator } from './page-tools/a11y/ref-allocator'
 export { REF_NOT_PRESENTED_ERROR_CODE, SESSION_RESET_ERROR_CODE } from './page-tools/context'
-export type { BrowserStateSnapshot } from './page-tools/context'
+export type { BrowserStateSnapshot, PageAgentToolErrorCode } from './page-tools/context'
 export type {
   A11yTreeOptions,
   A11yTreeResult,

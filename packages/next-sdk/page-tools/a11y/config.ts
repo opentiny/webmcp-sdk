@@ -17,7 +17,9 @@ import { TAG_ROLE_MAP, INPUT_TYPE_ROLE, DEFAULT_ERROR_SELECTORS, DEFAULT_WARNING
 export interface A11yMatcher {
   /**
    * 标准 CSS 选择器。优先使用 selector，仅当选择器表达不了时再写 match。
-   * - **states**：用 `closest` 判断自身或祖先是否命中（适合 error/selected 等挂在容器上的状态）
+   * - **states**：通用状态（如 `selected`）用 `closest` 判断自身或祖先是否命中；
+   *   **例外**：`error` / `warning` 默认用 `matches` 仅匹配自身，仅表单控件（含经 `roles` 解析为
+   *   `textbox`/`combobox` 等表单角色的元素）允许通过 `closest` 继承外层表单项容器的校验态，避免整树传染
    * - **roles**：用 `matches` 仅判断自身是否命中（避免角色传染给子孙节点）
    * 支持标签/属性/id/组合选择器，也支持字符串数组（任意一个命中即可）。
    */
@@ -255,26 +257,8 @@ function matchesValidationStateRule(
 ): boolean {
   if (!rules) return false
   const list = Array.isArray(rules) ? rules : [rules]
-  const allowAncestor = isValidationFormControl(el, resolvedRole)
-  for (const rule of list) {
-    if (rule.match) {
-      try {
-        if (rule.match(el)) return true
-      } catch {
-        // 忽略规则异常
-      }
-      continue
-    }
-    const selector = normalizeSelector(rule.selector)
-    if (selector) {
-      try {
-        if (allowAncestor ? !!el.closest(selector) : !!el.matches(selector)) return true
-      } catch {
-        // 忽略非法选择器
-      }
-    }
-  }
-  return false
+  const matcher = isValidationFormControl(el, resolvedRole) ? matchesRule : matchesRoleRule
+  return list.some((rule) => matcher(el, rule))
 }
 
 /** 从状态规则中提取纯 CSS 选择器列表（忽略只有 match 函数、没有 selector 的规则；数组 selector 会被展开），供页面级选择器扫描场景复用 */

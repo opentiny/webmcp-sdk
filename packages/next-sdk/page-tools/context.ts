@@ -1,10 +1,14 @@
 import type { PageController } from '@page-agent/page-controller'
-import type { PageStateCache, SnapshotKind } from './page-state-cache'
+import type { SnapshotKind } from './page-state-cache'
 import type { RefMap, RefAllocator } from './a11y-tree'
 import type { DetectedDialog } from './utils/dom'
 
 export const REF_NOT_PRESENTED_ERROR_CODE = 'REF_NOT_PRESENTED' as const
 export const SESSION_RESET_ERROR_CODE = 'SESSION_RESET' as const
+
+export type PageAgentToolErrorCode =
+  | typeof REF_NOT_PRESENTED_ERROR_CODE
+  | typeof SESSION_RESET_ERROR_CODE
 
 export type PageAgentToolContentResult = {
   content: Array<{ type: 'text'; text: string }>
@@ -13,7 +17,7 @@ export type PageAgentToolContentResult = {
 export type PageAgentToolErrorResult = PageAgentToolContentResult & {
   isError: true
   error: string
-  errorCode?: string
+  errorCode?: PageAgentToolErrorCode
 }
 
 /** browserState / 交互动作返回的状态 JSON 结构（供宿主上下文管理与工具层反序列化使用） */
@@ -51,7 +55,7 @@ export function resolveActiveRefElement(ctx: ActionContext, index: number): HTML
 
 /** 按错误码构建统一的轻量结构化错误响应（不附带整页树） */
 export function createCodedErrorResult(
-  errorCode: string,
+  errorCode: PageAgentToolErrorCode,
   message: string,
   extraPayload: Record<string, unknown> = {}
 ): PageAgentToolErrorResult {
@@ -119,7 +123,6 @@ export async function createActionErrorResult(
 
 export interface ActionContext {
   pageController: PageController
-  stateCache: PageStateCache
   refAllocator: RefAllocator
   getRefMap: () => RefMap
   setRefMap: (map: RefMap) => void
