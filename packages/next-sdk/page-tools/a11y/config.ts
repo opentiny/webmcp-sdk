@@ -221,13 +221,6 @@ function matchesAnyRule(el: Element, rules?: A11yMatcher | A11yMatcher[]): boole
   return list.some((rule) => matchesRule(el, rule))
 }
 
-/** 仅匹配元素自身（el.matches） */
-function matchesAnySelfRule(el: Element, rules?: A11yMatcher | A11yMatcher[]): boolean {
-  if (!rules) return false
-  const list = Array.isArray(rules) ? rules : [rules]
-  return list.some((rule) => matchesRoleRule(el, rule))
-}
-
 /** 允许通过 closest() 继承容器级 error/warning 状态的表单控件 ARIA 角色 */
 const VALIDATION_FORM_CONTROL_ROLES = new Set([
   'textbox',
@@ -241,24 +234,47 @@ const VALIDATION_FORM_CONTROL_ROLES = new Set([
   'spinbutton',
 ])
 
-function isValidationFormControl(el: Element): boolean {
+function isValidationFormControl(el: Element, resolvedRole: string): boolean {
   const tag = el.tagName.toLowerCase()
   if (tag === 'input' || tag === 'textarea' || tag === 'select') return true
   if (isEditingHost(el)) return true
-  const role = el.getAttribute('role')?.trim().toLowerCase()
-  return !!role && VALIDATION_FORM_CONTROL_ROLES.has(role)
+  return VALIDATION_FORM_CONTROL_ROLES.has(resolvedRole.trim().toLowerCase())
 }
 
 /**
- * 校验错误/警告匹配：
- * - 元素自身命中（el.matches / match）时始终生效（覆盖报错文案节点与带 class 的控件自身）；
- * - 仅表单控件允许通过 closest() 继承外层表单项容器（如 Element Plus .el-form-item.is-error、Bootstrap .has-error）的状态，
- *   避免普通按钮/布局容器被外层大容器传染 [error]。
+ * 校验错误/警告匹配（单次遍历，确保 match 回调每条规则仅执行一次）：
+ * - 自定义 match 回调直接调用一次；
+ * - selector 规则：表单控件（含经 roles 规则解析出的 combobox/textbox 等）允许通过 closest() 继承
+ *   外层表单项容器（如 Element Plus .el-form-item.is-error、Bootstrap .has-error）的校验态，
+ *   非表单控件（普通按钮、布局容器等）仅匹配自身 el.matches()，防止整树传染。
  */
-function matchesValidationStateRule(el: Element, rules?: A11yMatcher | A11yMatcher[]): boolean {
-  if (matchesAnySelfRule(el, rules)) return true
-  if (!isValidationFormControl(el)) return false
-  return matchesAnyRule(el, rules)
+function matchesValidationStateRule(
+  el: Element,
+  rules: A11yMatcher | A11yMatcher[] | undefined,
+  resolvedRole: string,
+): boolean {
+  if (!rules) return false
+  const list = Array.isArray(rules) ? rules : [rules]
+  const allowAncestor = isValidationFormControl(el, resolvedRole)
+  for (const rule of list) {
+    if (rule.match) {
+      try {
+        if (rule.match(el)) return true
+      } catch {
+        // 忽略规则异常
+      }
+      continue
+    }
+    const selector = normalizeSelector(rule.selector)
+    if (selector) {
+      try {
+        if (allowAncestor ? !!el.closest(selector) : !!el.matches(selector)) return true
+      } catch {
+        // 忽略非法选择器
+      }
+    }
+  }
+  return false
 }
 
 /** 从状态规则中提取纯 CSS 选择器列表（忽略只有 match 函数、没有 selector 的规则；数组 selector 会被展开），供页面级选择器扫描场景复用 */
@@ -377,7 +393,7 @@ function computeRole(
   return TAG_ROLE_MAP[tag] ?? 'generic'
 }
 
-function computeStates(el: Element, resolved: ResolvedA11yConfig): string[] {
+function computeStates(el: Element, resolved: ResolvedA11yConfig, resolvedRole?: string): string[] {
   const tokens: string[] = []
   const aria = (k: string) => el.getAttribute(k)
   const states = resolved.states
@@ -525,10 +541,11 @@ function computeStates(el: Element, resolved: ResolvedA11yConfig): string[] {
   }
 
   // 校验错误/警告状态（ARIA 标准 + 主流 UI 框架，可配置），error 优先于 warning。
-  // 元素自身命中始终生效；仅表单控件允许通过 closest() 继承表单项容器（如 .el-form-item.is-error / .has-error）的校验态
-  if (matchesValidationStateRule(el, states.error)) {
+  // 元素自身命中始终生效；仅表单控件（含自定义 role 推断出的 combobox/textbox）允许通过 closest() 继承容器校验态
+  const effectiveRole = resolvedRole ?? computeRole(el, resolved)
+  if (matchesValidationStateRule(el, states.error, effectiveRole)) {
     tokens.push('error')
-  } else if (matchesValidationStateRule(el, states.warning)) {
+  } else if (matchesValidationStateRule(el, states.warning, effectiveRole)) {
     tokens.push('warning')
   }
 
@@ -567,9 +584,10 @@ export function resolveA11yInfo(el: Element, config?: A11yConfig | ResolvedA11yC
   const resolved = ensureResolvedA11yConfig(config)
   const matched = findMatchedRoleRule(el, resolved)
   const ruleName = matched?.name?.trim()
+  const role = computeRole(el, resolved, matched)
   return {
-    role: computeRole(el, resolved, matched),
-    tokens: computeStates(el, resolved),
+    role,
+    tokens: computeStates(el, resolved, role),
     ...(ruleName ? { name: ruleName } : {}),
   }
 }

@@ -1,8 +1,10 @@
 import type { PageController } from '@page-agent/page-controller'
-import type { PageStateCache } from './page-state-cache'
+import type { PageStateCache, SnapshotKind } from './page-state-cache'
 import type { RefMap, RefAllocator } from './a11y-tree'
+import type { DetectedDialog } from './utils/dom'
 
 export const REF_NOT_PRESENTED_ERROR_CODE = 'REF_NOT_PRESENTED' as const
+export const SESSION_RESET_ERROR_CODE = 'SESSION_RESET' as const
 
 export type PageAgentToolContentResult = {
   content: Array<{ type: 'text'; text: string }>
@@ -12,6 +14,19 @@ export type PageAgentToolErrorResult = PageAgentToolContentResult & {
   isError: true
   error: string
   errorCode?: string
+}
+
+/** browserState / 交互动作返回的状态 JSON 结构（供宿主上下文管理与工具层反序列化使用） */
+export interface BrowserStateSnapshot {
+  kind: SnapshotKind
+  url: string
+  title: string
+  rev: number
+  baseRev?: number
+  content: string
+  dialogs?: DetectedDialog[]
+  validationErrors?: string[]
+  tooltips?: string[]
 }
 
 /** 将额外字段合并进 browserState JSON，保持整段可反序列化 */
@@ -34,9 +49,30 @@ export function resolveActiveRefElement(ctx: ActionContext, index: number): HTML
   return el
 }
 
-/**
- * 构建统一的过期/不存在 #ref 错误响应（不自动附带整页树，交由调用方按需拉取 full）
- */
+/** 按错误码构建统一的轻量结构化错误响应（不附带整页树） */
+export function createCodedErrorResult(
+  errorCode: string,
+  message: string,
+  extraPayload: Record<string, unknown> = {}
+): PageAgentToolErrorResult {
+  return {
+    isError: true,
+    errorCode,
+    error: message,
+    content: [
+      {
+        type: 'text',
+        text: JSON.stringify({
+          errorCode,
+          error: message,
+          ...extraPayload
+        })
+      }
+    ]
+  }
+}
+
+/** 构建统一的过期/不存在 #ref 错误响应（不自动附带整页树，交由调用方按需拉取 full） */
 export function createStaleRefErrorResult(
   actionLabel: string,
   index: number,
@@ -44,23 +80,13 @@ export function createStaleRefErrorResult(
   rev: number
 ): PageAgentToolErrorResult {
   const message = `${actionLabel}失败 [${REF_NOT_PRESENTED_ERROR_CODE}]: ref 索引 #${index} 不在最新页面快照中（元素可能已移除或尚未获取最新快照），请先调用 browserState 获取最新状态后重试。`
-  return {
-    isError: true,
-    errorCode: REF_NOT_PRESENTED_ERROR_CODE,
-    error: message,
-    content: [
-      {
-        type: 'text',
-        text: JSON.stringify({
-          errorCode: REF_NOT_PRESENTED_ERROR_CODE,
-          error: message,
-          index,
-          url,
-          rev
-        })
-      }
-    ]
-  }
+  return createCodedErrorResult(REF_NOT_PRESENTED_ERROR_CODE, message, { index, url, rev })
+}
+
+/** 构建单轮结束/会话重置拦截过期续体的错误响应 */
+export function createSessionResetErrorResult(url: string): PageAgentToolErrorResult {
+  const message = `当前对话轮次已结束或会话已重置 [${SESSION_RESET_ERROR_CODE}]: 前序未完成操作的状态回写已忽略（若 DOM 操作已触发可能已生效），请重新调用 browserState 获取最新页面状态。`
+  return createCodedErrorResult(SESSION_RESET_ERROR_CODE, message, { url })
 }
 
 export async function createActionErrorResult(
@@ -101,12 +127,6 @@ export interface ActionContext {
     mode?: 'full' | 'diff' | 'both'
   ) => Promise<{ content: Array<{ type: 'text'; text: string }> }>
   staleRefError: (actionLabel: string, index: number) => Promise<PageAgentToolErrorResult>
-  /** @deprecated 统一委托给 staleRefError，保留签名兼容旧内部调用 */
-  refreshOnStaleRef: (action: string, index: number) => Promise<PageAgentToolErrorResult>
-  /** 单轮对话回复结束：仅清空 Diff 缓存基线（下轮返回 full），保持 rev 递增与 #ref 不跨轮复用 */
-  endTurn: () => void
-  /** 新建/清空整个会话：清空 Diff 缓存、归零 rev 与元素 #ref 映射并移除高亮 */
-  resetSession: () => void
   errContent: (msg: string) => Promise<{ content: Array<{ type: 'text'; text: string }> }>
   actionError: (msg: string) => Promise<PageAgentToolErrorResult>
 }

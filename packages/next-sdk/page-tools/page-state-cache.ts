@@ -3,8 +3,10 @@
  *
  * 页面状态结构化增量 Diff 与版本缓存模块：
  * 1. 维护单调递增的快照版本号 rev，增量更新附带基准版本 baseRev；
- * 2. 基于稳定 #ref 实现变更块（Hunk）内同一元素的 `- 旧行 / + 新行` 就近成对输出；
- * 3. 为深层嵌套变更自动补充去重后的最小父级缩进上下文锚点（`  ` 前缀）；
+ * 2. 基于 `trimmed + directParent` 语义对比，配合包装层（Wrapper）识别与同父槽位 LCS 抵消，
+ *    既能消除外层临时包装引起的纯缩进平移与父节点动态计数改名噪声，又能准确捕获跨父移动与同父重排；
+ * 3. 在 Hunk 内对相同 #ref 的旧行与新行就近成对输出（`- 旧行` 紧邻 `+ 新行`），并利用预计算的
+ *    `parentIndex` 以 O(1) 补充去重后的最小父级缩进上下文锚点（`  ` 前缀）；
  * 4. 双重熔断保护：当变化行占比超过 50% 或 diff 文本长度 >= 整页 YAML 长度时，自动回退返回整页树（kind = 'full'）。
  */
 
@@ -62,13 +64,19 @@ const LINE_REF_RE = /^\s*-\s+[^["]+?\s+#(\d+)(?:\s|$)/
 interface ComparableLine {
   line: string
   trimmed: string
-  /** 最近一层严格更小缩进直接父节点的 trimmed 文本（顶层节点为空串） */
+  indent: number
+  /** 直接父节点在行数组中的下标（顶层节点为 -1），供 O(1) 祖先上下文查找 */
+  parentIndex: number
+  /** 最近一层严格更小缩进直接父节点的身份 key（带 #ref 用 `#N`，否则用 trimmed 文本；顶层为空串） */
   directParent: string
+  /** 本行作为父节点时的身份 key */
+  selfKey: string
 }
 
 interface IndexedLine {
   index: number
   line: string
+  trimmed: string
   ref: number | null
 }
 
@@ -107,55 +115,182 @@ export function extractYamlLines(yaml: string): string[] {
 }
 
 /**
- * 从 targetIdx 向上回溯缩进严格更小的父级节点行下标（按外层 -> 内层排序），
- * 最多保留最近的 maxDepth 层父节点作为结构定位锚点。
+ * 沿预计算的 parentIndex 链表向上跳转最多 maxDepth 步（O(1)），返回从外层到内层排序的祖先下标。
  */
-function findAncestorIndices(lines: string[], targetIdx: number, maxDepth = MAX_ANCESTOR_CONTEXT_DEPTH): number[] {
-  if (targetIdx <= 0 || targetIdx >= lines.length) return []
-  let currentIndent = getIndentWidth(lines[targetIdx])
-  if (currentIndent === 0) return []
-
+function findAncestorIndices(
+  comparable: ComparableLine[],
+  targetIdx: number,
+  maxDepth = MAX_ANCESTOR_CONTEXT_DEPTH,
+): number[] {
+  if (targetIdx < 0 || targetIdx >= comparable.length || maxDepth <= 0) return []
   const ancestors: number[] = []
-  for (let i = targetIdx - 1; i >= 0 && currentIndent > 0; i--) {
-    const indent = getIndentWidth(lines[i])
-    if (indent < currentIndent) {
-      ancestors.push(i)
-      currentIndent = indent
-    }
+  let cur = comparable[targetIdx].parentIndex
+  while (cur !== -1 && ancestors.length < maxDepth) {
+    ancestors.push(cur)
+    cur = comparable[cur].parentIndex
   }
   ancestors.reverse()
-  return maxDepth > 0 && ancestors.length > maxDepth
-    ? ancestors.slice(ancestors.length - maxDepth)
-    : ancestors
+  return ancestors
 }
 
 /**
- * 为行数组预计算 trimmed 文本与直接父节点身份 key：
+ * 为行数组单次 O(N) 预计算缩进、parentIndex 与直接父节点身份 key：
  * - 若父节点带有稳定 #ref，用 `#ref` 作为父级身份（父节点改名不影响子节点匹配）
- * - 外层包装容器临时插入导致的整棵子树缩进平移（子节点 directParent 未变 → 视为未变化）
- * - 节点真实的父子层级迁移（directParent 变化 → 必须作为差异输出）
+ * - 记录 parentIndex 供后续 O(1) 祖先上下文查询
  */
 function buildComparableLines(lines: string[]): ComparableLine[] {
-  const stack: Array<{ indent: number; parentKey: string }> = []
-  return lines.map((line) => {
+  const stack: Array<{ index: number; indent: number; selfKey: string }> = []
+  return lines.map((line, index) => {
     const indent = getIndentWidth(line)
     const trimmed = line.slice(indent)
     while (stack.length > 0 && stack[stack.length - 1].indent >= indent) {
       stack.pop()
     }
-    const directParent = stack.length > 0 ? stack[stack.length - 1].parentKey : ''
+    const parent = stack.length > 0 ? stack[stack.length - 1] : null
+    const parentIndex = parent ? parent.index : -1
+    const directParent = parent ? parent.selfKey : ''
     const ref = parseLineRef(line)
-    stack.push({ indent, parentKey: ref !== null ? `#${ref}` : trimmed })
-    return { line, trimmed, directParent }
+    const selfKey = ref !== null ? `#${ref}` : trimmed
+    stack.push({ index, indent, selfKey })
+    return { line, trimmed, indent, parentIndex, directParent, selfKey }
   })
 }
 
 /**
- * 构建结构感知的增量 Diff：
- * - 使用 trimmed + directParent 语义对比：既忽略外层透明包装切换引起的纯缩进平移，又能准确捕获真实父级变更
- * - 将 Myers 行对比聚合成相邻变更 Hunk
- * - 在 Hunk 内对相同 #ref 的旧行与新行就近成对输出（`- 旧行` 紧邻 `+ 新行`）
- * - 为嵌套层级的变更（含混合 Hunk 中的嵌套删除）补充最小父级缩进上下文锚点（`  ` 前缀，跨 Hunk 去重）
+ * 对两个有序序列按 key 求 LCS（利用 diffArrays 的未变更段），将配对成功的元素下标分别写入两个排除集合。
+ */
+function cancelByLcs(
+  remSeq: IndexedLine[],
+  addSeq: IndexedLine[],
+  keyFn: (item: IndexedLine) => string,
+  cancelledRem: Set<number>,
+  cancelledAdd: Set<number>,
+): void {
+  if (remSeq.length === 0 || addSeq.length === 0) return
+  const parts = diffArrays(remSeq.map(keyFn), addSeq.map(keyFn))
+  let rIdx = 0
+  let aIdx = 0
+  for (const part of parts) {
+    if (part.removed) {
+      rIdx += part.value.length
+    } else if (part.added) {
+      aIdx += part.value.length
+    } else {
+      for (let k = 0; k < part.value.length; k++) {
+        cancelledRem.add(remSeq[rIdx++].index)
+        cancelledAdd.add(addSeq[aIdx++].index)
+      }
+    }
+  }
+}
+
+/**
+ * 在单个 Hunk 内执行两类保序、保父级的安全抵消：
+ * 1. 包装层（Wrapper）插入/移除识别：新增包装行 W 下按原序挂接的原直接子节点（或移除 W 后按原序回到上层的子节点）按未变化跳过，只输出 `+ W` / `- W`；
+ * 2. 同父槽位原地改名 LCS 抵消：无 #ref 父节点改名（如 `region "购物车 (2)" -> "购物车 (3)"`）带动其下子节点进入 Hunk 时，
+ *    仅在相同父槽位下对整行文本序列求 LCS 并抵消，绝不抵消跨父移动或同父重排。
+ */
+function cancelUnchangedInHunk(
+  hunk: ChangeHunk,
+  prevComparable: ComparableLine[],
+  currComparable: ComparableLine[],
+): { effectiveRemoved: IndexedLine[]; effectiveAdded: IndexedLine[] } {
+  const cancelledRem = new Set<number>()
+  const cancelledAdd = new Set<number>()
+
+  // 1a. Wrapper 插入识别：hunk.added 中新增行 W（父节点为 P），其直接子节点在 hunk.removed 中原直接挂在 P 下且保持相对顺序
+  for (const w of hunk.added) {
+    if (cancelledAdd.has(w.index)) continue
+    const wComp = currComparable[w.index]
+    const wrappedAdded = hunk.added.filter(
+      (a) => !cancelledAdd.has(a.index) && currComparable[a.index].parentIndex === w.index,
+    )
+    if (wrappedAdded.length === 0) continue
+    const origRemoved = hunk.removed.filter(
+      (r) => !cancelledRem.has(r.index) && prevComparable[r.index].directParent === wComp.directParent,
+    )
+    if (origRemoved.length === 0) continue
+    cancelByLcs(origRemoved, wrappedAdded, (item) => item.trimmed, cancelledRem, cancelledAdd)
+  }
+
+  // 1b. Wrapper 移除识别（对称）：hunk.removed 中删除行 W（父节点为 P），其原直接子节点在 hunk.added 中回到 P 下且保持相对顺序
+  for (const w of hunk.removed) {
+    if (cancelledRem.has(w.index)) continue
+    const wComp = prevComparable[w.index]
+    const wrappedRemoved = hunk.removed.filter(
+      (r) => !cancelledRem.has(r.index) && prevComparable[r.index].parentIndex === w.index,
+    )
+    if (wrappedRemoved.length === 0) continue
+    const restoredAdded = hunk.added.filter(
+      (a) => !cancelledAdd.has(a.index) && currComparable[a.index].directParent === wComp.directParent,
+    )
+    if (restoredAdded.length === 0) continue
+    cancelByLcs(wrappedRemoved, restoredAdded, (item) => item.trimmed, cancelledRem, cancelledAdd)
+  }
+
+  // 2. 同父槽位原地改名 LCS 抵消（防止跨父移动和同父重排被误抵消）
+  const remAfterWrap = hunk.removed.filter((r) => !cancelledRem.has(r.index))
+  const addAfterWrap = hunk.added.filter((a) => !cancelledAdd.has(a.index))
+
+  const remParentSlotByIdx = new Map<number, string>()
+  const remIndentOrder = new Map<number, number>()
+  for (const r of remAfterWrap) {
+    const indent = prevComparable[r.index].indent
+    const order = remIndentOrder.get(indent) ?? 0
+    remIndentOrder.set(indent, order + 1)
+    remParentSlotByIdx.set(r.index, `hunk:${indent}:${order}`)
+  }
+
+  const addParentSlotByIdx = new Map<number, string>()
+  const addIndentOrder = new Map<number, number>()
+  for (const a of addAfterWrap) {
+    const indent = currComparable[a.index].indent
+    const order = addIndentOrder.get(indent) ?? 0
+    addIndentOrder.set(indent, order + 1)
+    addParentSlotByIdx.set(a.index, `hunk:${indent}:${order}`)
+  }
+
+  const getRemSlot = (item: IndexedLine): string => {
+    const comp = prevComparable[item.index]
+    if (comp.parentIndex === -1) return 'root'
+    return remParentSlotByIdx.get(comp.parentIndex) ?? `same:${comp.directParent}`
+  }
+  const getAddSlot = (item: IndexedLine): string => {
+    const comp = currComparable[item.index]
+    if (comp.parentIndex === -1) return 'root'
+    return addParentSlotByIdx.get(comp.parentIndex) ?? `same:${comp.directParent}`
+  }
+
+  const remBySlot = new Map<string, IndexedLine[]>()
+  for (const r of remAfterWrap) {
+    const slot = getRemSlot(r)
+    const list = remBySlot.get(slot)
+    if (list) list.push(r)
+    else remBySlot.set(slot, [r])
+  }
+  const addBySlot = new Map<string, IndexedLine[]>()
+  for (const a of addAfterWrap) {
+    const slot = getAddSlot(a)
+    const list = addBySlot.get(slot)
+    if (list) list.push(a)
+    else addBySlot.set(slot, [a])
+  }
+
+  for (const [slot, rSeq] of remBySlot.entries()) {
+    const aSeq = addBySlot.get(slot)
+    if (!aSeq) continue
+    // 同一父槽位内，仅抵消位于 LCS 中且整行（含缩进与文本）完全相同的行
+    cancelByLcs(rSeq, aSeq, (item) => item.line, cancelledRem, cancelledAdd)
+  }
+
+  return {
+    effectiveRemoved: hunk.removed.filter((r) => !cancelledRem.has(r.index)),
+    effectiveAdded: hunk.added.filter((a) => !cancelledAdd.has(a.index)),
+  }
+}
+
+/**
+ * 构建结构感知的增量 Diff
  */
 function computeStructuredYamlDiff(
   prevLines: string[],
@@ -197,6 +332,7 @@ function computeStructuredYamlDiff(
         activeHunk.removed.push({
           index: prevCursor++,
           line: item.line,
+          trimmed: item.trimmed,
           ref: parseLineRef(item.line),
         })
       }
@@ -205,6 +341,7 @@ function computeStructuredYamlDiff(
         activeHunk.added.push({
           index: currCursor++,
           line: item.line,
+          trimmed: item.trimmed,
           ref: parseLineRef(item.line),
         })
       }
@@ -222,26 +359,12 @@ function computeStructuredYamlDiff(
   let removedLines = 0
 
   for (const hunk of hunks) {
-    // 0. 抵消同 Hunk 内整行完全相同（含缩进与文本）的伪变更行（例如无 #ref 父节点如 `region "购物车 (2)"` -> `region "购物车 (3)"`
-    //    改名带动其下未变更子节点进入同一 Hunk 时，绝不输出相同内容的 `-`/`+` 对，也不计入 added/removed 与熔断比例）
-    const identicalRemovedMap = new Map<string, IndexedLine[]>()
-    for (const rem of hunk.removed) {
-      const list = identicalRemovedMap.get(rem.line)
-      if (list) list.push(rem)
-      else identicalRemovedMap.set(rem.line, [rem])
-    }
-    const cancelledRemovedIndices = new Set<number>()
-    const effectiveAdded: IndexedLine[] = []
-    for (const add of hunk.added) {
-      const matches = identicalRemovedMap.get(add.line)
-      if (matches && matches.length > 0) {
-        const matchedRem = matches.shift()!
-        cancelledRemovedIndices.add(matchedRem.index)
-      } else {
-        effectiveAdded.push(add)
-      }
-    }
-    const effectiveRemoved = hunk.removed.filter((rem) => !cancelledRemovedIndices.has(rem.index))
+    // 0. Wrapper 插入/移除识别 + 同父槽位保序 LCS 抵消
+    const { effectiveRemoved, effectiveAdded } = cancelUnchangedInHunk(
+      hunk,
+      prevComparable,
+      currComparable,
+    )
 
     if (effectiveRemoved.length === 0 && effectiveAdded.length === 0) {
       continue
@@ -278,10 +401,10 @@ function computeStructuredYamlDiff(
     const hunkRemovedIndices = new Set(effectiveRemoved.map((r) => r.index))
     const hunkAddedIndices = new Set(effectiveAdded.map((a) => a.index))
 
-    // 2. 先输出纯删除行及其最小旧父级锚点（解决混合 Hunk 中嵌套删除被顶层新增掩盖旧父级的问题）
+    // 2. 先输出纯删除行及其最小旧父级锚点（O(1) 沿 parentIndex 查找）
     const emittedAncestorTextsInHunk = new Set<string>()
     if (unpairedRemoved.length > 0) {
-      const prevAncestorIndices = findAncestorIndices(prevLines, unpairedRemoved[0].index)
+      const prevAncestorIndices = findAncestorIndices(prevComparable, unpairedRemoved[0].index)
       for (const idx of prevAncestorIndices) {
         if (!emittedPrevAncestors.has(idx) && !hunkRemovedIndices.has(idx)) {
           emittedPrevAncestors.add(idx)
@@ -299,7 +422,7 @@ function computeStructuredYamlDiff(
 
     // 3. 再输出新增/配对修改行的最小新父级锚点（与同 Hunk 已输出的相同父级文本去重）
     if (effectiveAdded.length > 0) {
-      const currAncestorIndices = findAncestorIndices(currLines, effectiveAdded[0].index)
+      const currAncestorIndices = findAncestorIndices(currComparable, effectiveAdded[0].index)
       for (const idx of currAncestorIndices) {
         if (!emittedCurrAncestors.has(idx) && !hunkAddedIndices.has(idx)) {
           emittedCurrAncestors.add(idx)
@@ -347,11 +470,6 @@ export class PageStateCache {
   /** 获取当前已发布的最新快照版本号（初始或 reset 后为 0） */
   getCurrentRev(): number {
     return this.rev
-  }
-
-  /** URL 变化或首次调用时，需要全量输出 */
-  isFullRefresh(currentUrl: string): boolean {
-    return !this.prev || this.prev.url !== currentUrl
   }
 
   /**
@@ -441,7 +559,7 @@ export class PageStateCache {
     this.prev = null
   }
 
-  /** 会话级完全重置：清空快照缓存并将版本号 rev 归零（每轮新对话时调用） */
+  /** 会话级完全重置：清空快照缓存并将版本号 rev 归零（新建/清空会话时调用） */
   reset(): void {
     this.prev = null
     this.rev = 0

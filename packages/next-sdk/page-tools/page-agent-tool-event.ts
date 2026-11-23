@@ -1,4 +1,4 @@
-import { ActionContext } from './context'
+import type { RefMap } from './a11y-tree'
 import { inputSchema, type PageAgentToolInput, type PageAgentToolRawInput } from './schema'
 import { PageController } from '@page-agent/page-controller'
 
@@ -54,10 +54,15 @@ function dispatchPageAgentToolResult(detail: PageAgentToolResultEventDetail) {
   window.dispatchEvent(new CustomEvent(PAGE_AGENT_TOOL_RESULT_EVENT, { detail }))
 }
 
+export interface PageAgentEventBridgeHooks {
+  getRefMap: () => RefMap
+  endTurn: () => void
+}
+
 export function setupPageAgentToolEventBridge(
   executePageAgentTool: ExecutePageAgentTool,
   pageController: PageController,
-  actionContext: ActionContext
+  hooks: PageAgentEventBridgeHooks
 ) {
   window.__nextSdkPageAgentToolEventCleanup?.()
 
@@ -111,7 +116,7 @@ export function setupPageAgentToolEventBridge(
 
   // 聊天单轮回复结束事件：仅清空 Diff 基线（下轮返回 full），保持 rev 递增与 #ref 跨轮不复用，并移除遮罩
   const handleChatEnd = async () => {
-    actionContext.endTurn()
+    hooks.endTurn()
     try {
       await pageController.hideMask()
     } catch (error) {}
@@ -122,7 +127,7 @@ export function setupPageAgentToolEventBridge(
     if (ev.isTrusted && pageController.mask.shown) {
       // 通过ev.target找到 refMap 对应的元素
       const target = ev.target as HTMLElement
-      const refMap = actionContext.getRefMap()
+      const refMap = hooks.getRefMap()
       const targetParent = Array.from(refMap.values()).find((el) => el.contains(target)) as HTMLElement | undefined
 
       if (targetParent) {

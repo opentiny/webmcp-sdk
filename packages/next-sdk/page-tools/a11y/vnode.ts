@@ -44,21 +44,10 @@ const INTERACTIVE_ROLES = new Set([
   'treeitem',
 ])
 
-export type RefSource = RefAllocator | { value: number }
-
-function allocateElementRef(refSource: RefSource, el: Element): number {
-  if ('allocate' in refSource) {
-    return refSource.allocate(el)
-  }
-  const ref = refSource.value
-  refSource.value++
-  return ref
-}
-
 /**
  * 递归将 DOM 元素转换为 VNode 中间表示
  * @param el 当前 DOM 元素
- * @param refCounter 引用分配器（支持会话级稳定 RefAllocator 或单次递增对象）
+ * @param refAllocator 稳定元素 #ref 分配器
  * @param refMap ref 索引 → 元素映射
  * @param blacklistSet 已解析的黑名单元素集合
  * @param whitelistSet 已解析的白名单元素集合
@@ -67,7 +56,7 @@ function allocateElementRef(refSource: RefSource, el: Element): number {
  */
 export function buildVNode(
   el: Element,
-  refCounter: RefSource,
+  refAllocator: RefAllocator,
   refMap: RefMap,
   blacklistSet: Set<Element>,
   whitelistSet: Set<Element>,
@@ -208,7 +197,7 @@ export function buildVNode(
 
   let ref: number | undefined
   if (interactive) {
-    ref = allocateElementRef(refCounter, el)
+    ref = refAllocator.allocate(el)
     refMap.set(ref, el as HTMLElement)
     // 可操作元素默认保留 id（无需 exposedAttributes 配置），便于 AI 定位与跨轮次对齐
     // 用 getAttribute 避免 form 等元素上 name="id" 子节点导致的 DOM clobbering
@@ -223,7 +212,7 @@ export function buildVNode(
   for (const child of getComposedChildren(el)) {
     const childVNode = buildVNode(
       child,
-      refCounter,
+      refAllocator,
       refMap,
       blacklistSet,
       whitelistSet,
@@ -565,8 +554,9 @@ export function serializeVNode(
       .flatMap(c => serializeVNode(c, depth, opts, emittedRefs))
   }
 
-  if (vnode.ref !== undefined) {
+  if (vnode.ref !== undefined && !isEditingHost(vnode.el)) {
     // 子树中唯一一个 ref 节点且是无子 ref 的 generic 时，将其 name 提升到父节点，省略子节点输出。
+    // 注意：编辑宿主（contenteditable）必须保留自身 textbox ref，避免被内部白名单非可编辑子节点替换目标。
     const singleChild = findSingleRefDescendant(vnode)
     if (
       singleChild &&

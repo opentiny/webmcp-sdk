@@ -827,7 +827,7 @@ describe('buildA11yTree - ElementRefAllocator 稳定元素编号绑定', () => {
     expect(Array.from(r3.refMap.keys())).toEqual([0, 1])
   })
 
-  it('单子节点折叠合并输出时，未出现在最终 YAML 行中的父级幽灵 #ref 不会残留在 refMap 中', () => {
+  it('复现：单子节点折叠合并输出时，refMap 应指向子元素 inner 且剔除未输出的父级幽灵 #ref', () => {
     const root = setupRoot(`
       <div id="outer-card">
         <div id="inner-action">唯一点击区</div>
@@ -843,8 +843,28 @@ describe('buildA11yTree - ElementRefAllocator 稳定元素编号绑定', () => {
     expect(lines).toHaveLength(1)
     expect(interactiveCount).toBe(1)
     expect(refMap.size).toBe(1)
-    const onlyEmittedRef = Number(/#(\d+)/.exec(lines[0])![1])
-    expect(refMap.has(onlyEmittedRef)).toBe(true)
+    const refMatch = lines[0].match(/#(\d+)/)
+    expect(refMatch).not.toBeNull()
+    const onlyEmittedRef = Number(refMatch![1])
+    expect(refMap.get(onlyEmittedRef)).toBe(inner)
+    expect(Array.from(refMap.values())).not.toContain(outer)
+  })
+
+  it('复现：contenteditable 编辑宿主包含白名单 contenteditable="false" 子节点时，不得将宿主 textbox ref 替换为不可编辑子节点', () => {
+    const root = setupRoot(`
+      <div id="editor" contenteditable="true">
+        <span id="badge" contenteditable="false">不可编辑徽章</span>
+      </div>
+    `)
+    const editor = root.querySelector('#editor') as HTMLElement
+    const badge = root.querySelector('#badge') as HTMLElement
+    const { lines, refMap } = buildA11yTree(root, { whitelist: [badge] })
+
+    const editorLine = lines.find((l) => l.includes('textbox') && l.includes('contenteditable'))
+    expect(editorLine).toBeDefined()
+    const editorRef = Number(editorLine!.match(/#(\d+)/)![1])
+    expect(refMap.get(editorRef)).toBe(editor)
+    expect(Array.from(refMap.values())).toContain(badge)
   })
 
   it('复现：多词 ARIA role（如 role="button link"）序列化后其 #ref 不应被误从 refMap 删除', () => {

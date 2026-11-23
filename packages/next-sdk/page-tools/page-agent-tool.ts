@@ -10,7 +10,13 @@ import { setupPageAgentToolEventBridge } from './page-agent-tool-event'
 
 import type { PageAgentToolOptions } from './constants'
 import { inputSchema, type PageAgentToolInput } from './schema'
-import { createActionErrorResult, createStaleRefErrorResult, type ActionContext } from './context'
+import {
+  createActionErrorResult,
+  createSessionResetErrorResult,
+  createStaleRefErrorResult,
+  type ActionContext,
+  type BrowserStateSnapshot
+} from './context'
 import { detectPageDialog, detectValidationErrors, detectVisibleTooltips } from './utils/dom'
 import { getPageAgentToolConfig, setPageAgentToolConfig } from './tool-config'
 
@@ -116,25 +122,6 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
     unhighlight()
   }
 
-  function createSessionResetResult() {
-    const message = '会话已重置，前序未完成操作的状态更新已忽略。'
-    return {
-      isError: true as const,
-      errorCode: 'SESSION_RESET' as const,
-      error: message,
-      content: [
-        {
-          type: 'text' as const,
-          text: JSON.stringify({
-            errorCode: 'SESSION_RESET',
-            error: message,
-            url: window.location.href
-          })
-        }
-      ]
-    }
-  }
-
   // ─── 辅助：构建错误响应 ───────────────────────────────────────────────────
   async function errContent(msg: string) {
     return { content: [{ type: 'text' as const, text: msg }] }
@@ -142,7 +129,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
 
   async function actionErrorFor(expectedGeneration: number, msg: string) {
     if (expectedGeneration !== sessionGeneration) {
-      return createSessionResetResult()
+      return createSessionResetErrorResult(window.location.href)
     }
     const result = await createActionErrorResult(msg, (mode) =>
       buildBrowserStateResponseFor(expectedGeneration, mode)
@@ -153,7 +140,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
 
   async function staleRefErrorFor(expectedGeneration: number, actionLabel: string, index: number) {
     if (expectedGeneration !== sessionGeneration) {
-      return createSessionResetResult()
+      return createSessionResetErrorResult(window.location.href)
     }
     const result = createStaleRefErrorResult(
       actionLabel,
@@ -170,9 +157,9 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
     expectedGeneration: number,
     responseMode: 'full' | 'diff' | 'both' = 'diff'
   ): Promise<{ content: Array<{ type: 'text'; text: string }> }> {
-    // 异步操作等待期间若发生了 resetSession()，禁止旧续体向新会话分配 ref 或写入 stateCache 基线
+    // 异步操作等待期间若发生了 endTurn() 或 resetSession()，禁止旧续体向新会话分配 ref 或写入 stateCache 基线
     if (expectedGeneration !== sessionGeneration) {
-      return createSessionResetResult()
+      return createSessionResetErrorResult(window.location.href)
     }
 
     const url = window.location.href
@@ -218,7 +205,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
     }
 
     // 全部字段平铺进 stateObj，直接返回 JSON 便于反序列化（与宿主快照折叠层及 webmcp-cli 对齐）
-    const stateObj = {
+    const stateObj: BrowserStateSnapshot = {
       kind,
       url,
       title,
@@ -233,8 +220,6 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
   }
 
   function createInvocationContext(expectedGeneration: number): ActionContext {
-    const staleRefError = (actionLabel: string, index: number) =>
-      staleRefErrorFor(expectedGeneration, actionLabel, index)
     return {
       pageController,
       stateCache,
@@ -246,34 +231,11 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
       },
       buildBrowserStateResponse: (mode?: 'full' | 'diff' | 'both') =>
         buildBrowserStateResponseFor(expectedGeneration, mode),
-      staleRefError,
-      refreshOnStaleRef: staleRefError,
-      endTurn,
-      resetSession,
+      staleRefError: (actionLabel: string, index: number) =>
+        staleRefErrorFor(expectedGeneration, actionLabel, index),
       errContent,
       actionError: (msg: string) => actionErrorFor(expectedGeneration, msg)
     }
-  }
-
-  // 组装事件桥上下文（用于非单次调用场景如 click 监听与 chat-end 重置）
-  const actionContext: ActionContext = {
-    pageController,
-    stateCache,
-    refAllocator,
-    getRefMap: () => currentRefMap,
-    setRefMap: (map: RefMap) => {
-      currentRefMap = map
-    },
-    buildBrowserStateResponse: (mode?: 'full' | 'diff' | 'both') =>
-      buildBrowserStateResponseFor(sessionGeneration, mode),
-    staleRefError: (actionLabel: string, index: number) =>
-      staleRefErrorFor(sessionGeneration, actionLabel, index),
-    refreshOnStaleRef: (actionLabel: string, index: number) =>
-      staleRefErrorFor(sessionGeneration, actionLabel, index),
-    endTurn,
-    resetSession,
-    errContent,
-    actionError: (msg: string) => actionErrorFor(sessionGeneration, msg)
   }
 
   function borderTargetElement(index: number | undefined) {
@@ -457,7 +419,10 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
     console.warn('[next-sdk] page-agent-tool 注册失败:', detail, err)
   })
 
-  setupPageAgentToolEventBridge(executePageAgentTool, pageController, actionContext)
+  setupPageAgentToolEventBridge(executePageAgentTool, pageController, {
+    getRefMap: () => currentRefMap,
+    endTurn
+  })
 
   return createHandle()
 }

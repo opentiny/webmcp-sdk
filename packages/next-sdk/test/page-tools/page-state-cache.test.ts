@@ -163,26 +163,28 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
     )
   })
 
-  it('当变化行数超过一半时，自动熔断回退整页树（kind = full, fullReason = diff_too_large）', () => {
+  it('当变化行数超过一半时，自动熔断回退整页树（kind = full, fullReason = diff_too_large，且字符长度未超阈值）', () => {
     const cache = new PageStateCache()
     const url = 'https://console.example.com/dashboard'
 
+    // 让未变更行足够长，确保 3 行变更生成的 diff 字符数远低于整页 YAML 长度，严格隔离验证行比例阈值（> 50%）
+    const longUnchanged = `- button #0 "${'稳定长描述文案'.repeat(25)}"`
     const yaml1 = [
       '```yaml',
-      '- button #0 "Tab A - 项 1"',
-      '- button #1 "Tab A - 项 2"',
-      '- button #2 "Tab A - 项 3"',
-      '- button #3 "Tab A - 项 4"',
+      longUnchanged,
+      '- button #1 "A1"',
+      '- button #2 "A2"',
+      '- button #3 "A3"',
       '```',
     ].join('\n')
 
-    // 4 行中有 3 行（75% > 50%）发生变化
+    // 4 行中有 3 行（75% > 50%）发生变化，但 diff 字符数（~110）远小于整页 YAML（~260）
     const yaml2 = [
       '```yaml',
-      '- button #0 "Tab A - 项 1"',
-      '- button #10 "Tab B - 新项 2"',
-      '- button #11 "Tab B - 新项 3"',
-      '- button #12 "Tab B - 新项 4"',
+      longUnchanged,
+      '- button #10 "B1"',
+      '- button #11 "B2"',
+      '- button #12 "B3"',
       '```',
     ].join('\n')
 
@@ -481,5 +483,92 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
     expect(r2.addedLines).toBe(1)
     expect(r2.removedLines).toBe(1)
     expect(r2.diffText).toBe(['- - region "购物车 (2)"', '+ - region "购物车 (3)"'].join('\n'))
+  })
+
+  it('复现：包装容器下直接挂 30 个按钮发生缩进平移时，仅输出新增包装行而不触发熔断', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/direct-wrapper'
+
+    const btns = Array.from({ length: 30 }, (_, i) => `  - button #${i} "规格-${i}"`)
+    const yaml1 = ['```yaml', '- main "主内容区"', ...btns, '```'].join('\n')
+    const yaml2 = [
+      '```yaml',
+      '- main "主内容区"',
+      '  - generic "计算中..."',
+      ...btns.map((l) => `  ${l}`),
+      '```',
+    ].join('\n')
+
+    cache.update(url, yaml1)
+    const r2 = cache.update(url, yaml2)
+
+    expect(r2.kind).toBe('diff')
+    expect(r2.addedLines).toBe(1)
+    expect(r2.removedLines).toBe(0)
+    expect(r2.diffText).toBe(['  - main "主内容区"', '+   - generic "计算中..."'].join('\n'))
+  })
+
+  it('复现：同父节点改名且子节点重排（A,B,C -> C,A,B）时，不得抵消被移动的节点 C', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/reorder'
+
+    const padding = Array.from({ length: 12 }, (_, i) => `- button #${i + 10} "静态项-${i}"`)
+    const yaml1 = [
+      '```yaml',
+      ...padding,
+      '- list "L"',
+      '  - listitem "A"',
+      '  - listitem "B"',
+      '  - listitem "C"',
+      '```',
+    ].join('\n')
+    const yaml2 = [
+      '```yaml',
+      ...padding,
+      '- list "L2"',
+      '  - listitem "C"',
+      '  - listitem "A"',
+      '  - listitem "B"',
+      '```',
+    ].join('\n')
+
+    cache.update(url, yaml1)
+    const r2 = cache.update(url, yaml2)
+
+    expect(r2.kind).toBe('diff')
+    expect(r2.diffText).toContain('-   - listitem "C"')
+    expect(r2.diffText).toContain('+   - listitem "C"')
+  })
+
+  it('复现：两个父容器同时改名且内部按钮跨父交换（Billing/Shipping）时，不得误抵消跨父移动的按钮', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/cross-parent-swap'
+
+    const padding = Array.from({ length: 16 }, (_, i) => `- button #${i + 10} "常驻项-${i}"`)
+    const yaml1 = [
+      '```yaml',
+      ...padding,
+      '- region "Billing"',
+      '  - button #1 "Pay"',
+      '- region "Shipping"',
+      '  - button #2 "Track"',
+      '```',
+    ].join('\n')
+    const yaml2 = [
+      '```yaml',
+      ...padding,
+      '- region "Billing (1)"',
+      '  - button #2 "Track"',
+      '- region "Shipping (1)"',
+      '  - button #1 "Pay"',
+      '```',
+    ].join('\n')
+
+    cache.update(url, yaml1)
+    const r2 = cache.update(url, yaml2)
+
+    expect(r2.kind).toBe('diff')
+    expect(r2.diffText).toContain('button #1 "Pay"')
+    expect(r2.diffText).toContain('button #2 "Track"')
   })
 })

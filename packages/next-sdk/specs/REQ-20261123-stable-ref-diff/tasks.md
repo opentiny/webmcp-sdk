@@ -19,9 +19,9 @@
 - [x] Task 4: 更新内置 Prompt、编码 Skill、Spec 索引与用户文档
   - 输入（依赖）：Task 1–3
   - 产物（输出）：`packages/next-sdk/page-tools/page-agent-prompt.md`、`docs/webmcp-sdk/page-agent-tool.md`、`packages/next-sdk/skills/page-agent/SKILL.md`、`packages/next-sdk/specs/README.md`
-- [x] Task 5: 收敛 `states.error`/`warning` 作用域与 Diff 祖先锚点去重（实机压测二次优化）
+- [x] Task 5: 收敛 `states.error`/`warning` 作用域与 Diff 算法健壮性优化
   - 输入（依赖）：`packages/next-sdk/page-tools/a11y/{constants,config}.ts`、`packages/next-sdk/page-tools/page-state-cache.ts`
-  - 产物（输出）：收敛 `DEFAULT_ERROR_SELECTORS` 中 `.ng-invalid` 与 `states.error`/`warning` 仅自身匹配；`PageStateCache` 对已输出 `+`/`-` 行记录锚点去重
+  - 产物（输出）：收敛 `DEFAULT_ERROR_SELECTORS` 中 `.ng-invalid`；`states.error`/`warning` 保持自身命中并允许表单控件（含自定义 role 表单控件）通过 `closest()` 继承容器校验态；`PageStateCache` 预计算 `parentIndex`、识别包装层缩进平移并按同父槽位 LCS 抵消
   - [x] 测试：`packages/next-sdk/test/page-tools/a11y/config.test.ts`、`packages/next-sdk/test/page-tools/page-state-cache.test.ts`
 
 ## 依赖顺序

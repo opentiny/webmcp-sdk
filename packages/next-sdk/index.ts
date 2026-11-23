@@ -110,7 +110,8 @@ export type {
 export { buildA11yTree } from './page-tools/a11y/build'
 export { searchA11yTree } from './page-tools/a11y/search'
 export { ElementRefAllocator } from './page-tools/a11y/ref-allocator'
-export { REF_NOT_PRESENTED_ERROR_CODE } from './page-tools/context'
+export { REF_NOT_PRESENTED_ERROR_CODE, SESSION_RESET_ERROR_CODE } from './page-tools/context'
+export type { BrowserStateSnapshot } from './page-tools/context'
 export type {
   A11yTreeOptions,
   A11yTreeResult,
@@ -120,9 +121,4 @@ export type {
   RefMap
 } from './page-tools/a11y/types'
 export type { RefAllocator } from './page-tools/a11y/ref-allocator'
-export type {
-  SnapshotKind,
-  FullSnapshotReason,
-  DiffResult,
-  StateCacheUpdateOptions
-} from './page-tools/page-state-cache'
+export type { SnapshotKind } from './page-tools/page-state-cache'
