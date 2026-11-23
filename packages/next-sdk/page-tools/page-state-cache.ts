@@ -56,8 +56,15 @@ const DEFAULT_MAX_DIFF_CHAR_RATIO = 1.0
 const MAX_ANCESTOR_CONTEXT_DEPTH = 2
 export const NO_CHANGES_DIFF_TEXT = '# (no changes)'
 
-/** 提取序列化 YAML 行中的稳定元素 #ref（如 `  - button #10 "提交"` -> 10） */
-const LINE_REF_RE = /^\s*-\s+\S+\s+#(\d+)(?:\s|$)/
+/** 提取序列化 YAML 行中的稳定元素 #ref（兼容单 token 及空格分隔的多 token ARIA role，如 `button link #10` -> 10） */
+const LINE_REF_RE = /^\s*-\s+[^["]+?\s+#(\d+)(?:\s|$)/
+
+interface ComparableLine {
+  line: string
+  trimmed: string
+  /** 最近一层严格更小缩进直接父节点的 trimmed 文本（顶层节点为空串） */
+  directParent: string
+}
 
 interface IndexedLine {
   index: number
@@ -123,10 +130,30 @@ function findAncestorIndices(lines: string[], targetIdx: number, maxDepth = MAX_
 }
 
 /**
+ * 为行数组预计算 trimmed 文本与直接父节点文本，用于精确区分：
+ * - 外层包装容器临时插入导致的整棵子树缩进平移（子节点 directParent 未变 → 视为未变化）
+ * - 节点真实的父子层级迁移（directParent 变化 → 必须作为差异输出）
+ */
+function buildComparableLines(lines: string[]): ComparableLine[] {
+  const stack: Array<{ indent: number; trimmed: string }> = []
+  return lines.map((line) => {
+    const indent = getIndentWidth(line)
+    const trimmed = line.slice(indent)
+    while (stack.length > 0 && stack[stack.length - 1].indent >= indent) {
+      stack.pop()
+    }
+    const directParent = stack.length > 0 ? stack[stack.length - 1].trimmed : ''
+    stack.push({ indent, trimmed })
+    return { line, trimmed, directParent }
+  })
+}
+
+/**
  * 构建结构感知的增量 Diff：
+ * - 使用 trimmed + directParent 语义对比：既忽略外层透明包装切换引起的纯缩进平移，又能准确捕获真实父级变更
  * - 将 Myers 行对比聚合成相邻变更 Hunk
  * - 在 Hunk 内对相同 #ref 的旧行与新行就近成对输出（`- 旧行` 紧邻 `+ 新行`）
- * - 为嵌套层级的变更补充最小父级缩进上下文锚点（`  ` 前缀，跨 Hunk 去重）
+ * - 为嵌套层级的变更（含混合 Hunk 中的嵌套删除）补充最小父级缩进上下文锚点（`  ` 前缀，跨 Hunk 去重）
  */
 function computeStructuredYamlDiff(
   prevLines: string[],
@@ -139,10 +166,11 @@ function computeStructuredYamlDiff(
     return { diffText: NO_CHANGES_DIFF_TEXT, addedLines: 0, removedLines: 0 }
   }
 
-  // 使用忽略行首缩进的语义节点对比：当外层包装容器因临时文案（如 "计算中..."）停止透明穿透
-  // 导致整棵子树整体平移 2 格缩进时，不把下方数百行未变更节点误判为删除+新增
-  const parts = diffArrays(prevLines, currLines, {
-    comparator: (left, right) => left.trimStart() === right.trimStart(),
+  const prevComparable = buildComparableLines(prevLines)
+  const currComparable = buildComparableLines(currLines)
+  const parts = diffArrays(prevComparable, currComparable, {
+    comparator: (left, right) =>
+      left.trimmed === right.trimmed && left.directParent === right.directParent,
   })
   const hunks: ChangeHunk[] = []
   let prevCursor = 0
@@ -163,22 +191,26 @@ function computeStructuredYamlDiff(
     }
 
     if (part.removed) {
-      for (const line of part.value) {
+      for (const item of part.value) {
         activeHunk.removed.push({
           index: prevCursor++,
-          line,
-          ref: parseLineRef(line),
+          line: item.line,
+          ref: parseLineRef(item.line),
         })
       }
     } else if (part.added) {
-      for (const line of part.value) {
+      for (const item of part.value) {
         activeHunk.added.push({
           index: currCursor++,
-          line,
-          ref: parseLineRef(line),
+          line: item.line,
+          ref: parseLineRef(item.line),
         })
       }
     }
+  }
+
+  if (hunks.length === 0) {
+    return { diffText: NO_CHANGES_DIFF_TEXT, addedLines: 0, removedLines: 0 }
   }
 
   const outputLines: string[] = []
@@ -188,26 +220,7 @@ function computeStructuredYamlDiff(
   let removedLines = 0
 
   for (const hunk of hunks) {
-    // 1. 输出最小父级缩进上下文锚点（优先基于新树位置，纯删除块基于旧树位置）
-    if (hunk.added.length > 0) {
-      const ancestorIndices = findAncestorIndices(currLines, hunk.added[0].index)
-      for (const idx of ancestorIndices) {
-        if (!emittedCurrAncestors.has(idx)) {
-          emittedCurrAncestors.add(idx)
-          outputLines.push(`  ${currLines[idx]}`)
-        }
-      }
-    } else if (hunk.removed.length > 0) {
-      const ancestorIndices = findAncestorIndices(prevLines, hunk.removed[0].index)
-      for (const idx of ancestorIndices) {
-        if (!emittedPrevAncestors.has(idx)) {
-          emittedPrevAncestors.add(idx)
-          outputLines.push(`  ${prevLines[idx]}`)
-        }
-      }
-    }
-
-    // 2. 识别同 Hunk 内同 #ref 的原地更新，将 `- 旧行` 与 `+ 新行` 就近配对
+    // 1. 识别同 Hunk 内同 #ref 的原地更新，将 `- 旧行` 与 `+ 新行` 就近配对
     const addedRefCounts = new Map<number, number>()
     for (const item of hunk.added) {
       if (item.ref !== null) {
@@ -232,29 +245,59 @@ function computeStructuredYamlDiff(
       }
     }
 
-    // 先输出纯删除行（未与新行配对的旧行）
-    for (const rem of hunk.removed) {
-      if (rem.ref !== null && removedByUniqueRef.has(rem.ref)) {
-        continue
+    const unpairedRemoved = hunk.removed.filter(
+      (rem) => rem.ref === null || !removedByUniqueRef.has(rem.ref),
+    )
+    const hunkRemovedIndices = new Set(hunk.removed.map((r) => r.index))
+    const hunkAddedIndices = new Set(hunk.added.map((a) => a.index))
+
+    // 2. 先输出纯删除行及其最小旧父级锚点（解决混合 Hunk 中嵌套删除被顶层新增掩盖旧父级的问题）
+    const emittedAncestorTextsInHunk = new Set<string>()
+    if (unpairedRemoved.length > 0) {
+      const prevAncestorIndices = findAncestorIndices(prevLines, unpairedRemoved[0].index)
+      for (const idx of prevAncestorIndices) {
+        if (!emittedPrevAncestors.has(idx) && !hunkRemovedIndices.has(idx)) {
+          emittedPrevAncestors.add(idx)
+          const text = prevLines[idx]
+          emittedAncestorTextsInHunk.add(text.trimStart())
+          outputLines.push(`  ${text}`)
+        }
       }
-      emittedPrevAncestors.add(rem.index)
-      outputLines.push(`- ${rem.line}`)
-      removedLines++
+      for (const rem of unpairedRemoved) {
+        emittedPrevAncestors.add(rem.index)
+        outputLines.push(`- ${rem.line}`)
+        removedLines++
+      }
     }
 
-    // 再按新树顺序输出同 #ref 配对变更与纯新增行
-    for (const add of hunk.added) {
-      const pairedOld = add.ref !== null ? removedByUniqueRef.get(add.ref) : undefined
-      emittedCurrAncestors.add(add.index)
-      if (pairedOld) {
-        removedByUniqueRef.delete(add.ref!)
-        outputLines.push(`- ${pairedOld.line}`)
-        outputLines.push(`+ ${add.line}`)
-        removedLines++
-        addedLines++
-      } else {
-        outputLines.push(`+ ${add.line}`)
-        addedLines++
+    // 3. 再输出新增/配对修改行的最小新父级锚点（与同 Hunk 已输出的相同父级文本去重）
+    if (hunk.added.length > 0) {
+      const currAncestorIndices = findAncestorIndices(currLines, hunk.added[0].index)
+      for (const idx of currAncestorIndices) {
+        if (!emittedCurrAncestors.has(idx) && !hunkAddedIndices.has(idx)) {
+          emittedCurrAncestors.add(idx)
+          const text = currLines[idx]
+          if (!emittedAncestorTextsInHunk.has(text.trimStart())) {
+            outputLines.push(`  ${text}`)
+          }
+        }
+      }
+
+      // 按新树顺序输出同 #ref 配对变更与纯新增行
+      for (const add of hunk.added) {
+        const pairedOld = add.ref !== null ? removedByUniqueRef.get(add.ref) : undefined
+        emittedCurrAncestors.add(add.index)
+        if (pairedOld) {
+          removedByUniqueRef.delete(add.ref!)
+          emittedPrevAncestors.add(pairedOld.index)
+          outputLines.push(`- ${pairedOld.line}`)
+          outputLines.push(`+ ${add.line}`)
+          removedLines++
+          addedLines++
+        } else {
+          outputLines.push(`+ ${add.line}`)
+          addedLines++
+        }
       }
     }
   }

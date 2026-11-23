@@ -16,7 +16,11 @@ vi.mock('../../page-tools/page-agent-mask/SimulatorMask', () => ({
   },
 }))
 
-import { registerPageAgentTool, type PageAgentToolHandle } from '../../page-tools/page-agent-tool'
+import {
+  registerPageAgentTool,
+  type PageAgentToolHandle,
+  type RegisteredPageAgentToolHandle,
+} from '../../page-tools/page-agent-tool'
 import { initializeBuiltinWebMCP } from '../../page-tools/initialize-builtin-WebMCP'
 import {
   PAGE_AGENT_CHAT_END_EVENT,
@@ -36,7 +40,7 @@ type ToolExecResult = {
 
 function captureTool(): {
   execute: (args: Partial<PageAgentToolInput> & { action: PageAgentToolInput['action'] }) => Promise<ToolExecResult>
-  handle: PageAgentToolHandle
+  handle: RegisteredPageAgentToolHandle
 } {
   initializeBuiltinWebMCP()
   const mcp = (document as any).modelContext
@@ -50,7 +54,7 @@ function captureTool(): {
     return originalRegister(tool, options)
   }
 
-  let handle: PageAgentToolHandle
+  let handle: RegisteredPageAgentToolHandle
   try {
     handle = registerPageAgentTool()
   } finally {
@@ -263,5 +267,35 @@ describe('page-agent-tool 稳定编号、结构化版本字段、REF_NOT_PRESENT
     const afterEventReset = JSON.parse((await execute({ action: 'browserState' })).content[0].text)
     expect(afterEventReset).toMatchObject({ kind: 'full', rev: 1 })
     expect(afterEventReset.content).toContain('- button #0')
+  })
+
+  it('复现：异步操作等待期间触发 resetSession() 时，旧操作续体不得污染新会话的 refAllocator 与 stateCache 基线', async () => {
+    document.body.innerHTML = `
+      <button id="btn-a">按钮A</button>
+      <button id="btn-b">按钮B</button>
+    `
+    // 保持 PageAgentToolHandle 向后兼容（仅实现 showMask / hideMask 也可满足类型）
+    const legacyHandleShape: PageAgentToolHandle = {
+      showMask: async () => {},
+      hideMask: async () => {},
+    }
+    expect(legacyHandleShape.resetSession).toBeUndefined()
+
+    const { execute, handle } = captureTool()
+    await execute({ action: 'browserState' })
+
+    // 发起 hover（内部等待 waitForDomSettled），在等待期间立刻重置会话
+    const pendingHover = execute({ action: 'hover', index: 0 })
+    handle.resetSession()
+
+    const staleContinuationResult = await pendingHover
+    expect(staleContinuationResult.isError).toBe(true)
+    expect(staleContinuationResult.errorCode).toBe('SESSION_RESET')
+
+    // 新会话首次 browserState 必须仍是 kind='full', rev=1 且从 #0 重新编号
+    const freshState = JSON.parse((await execute({ action: 'browserState' })).content[0].text)
+    expect(freshState).toMatchObject({ kind: 'full', rev: 1 })
+    expect(freshState.baseRev).toBeUndefined()
+    expect(freshState.content).toContain('- button #0')
   })
 })

@@ -846,6 +846,15 @@ describe('buildA11yTree - ElementRefAllocator 稳定元素编号绑定', () => {
     const onlyEmittedRef = Number(/#(\d+)/.exec(lines[0])![1])
     expect(refMap.has(onlyEmittedRef)).toBe(true)
   })
+
+  it('复现：多词 ARIA role（如 role="button link"）序列化后其 #ref 不应被误从 refMap 删除', () => {
+    const root = setupRoot(`<button id="multi-role" role="button link">Save</button>`)
+    const btn = root.querySelector('#multi-role') as HTMLElement
+    const { lines, refMap } = buildA11yTree(root)
+
+    expect(lines[0]).toContain('- button link #0')
+    expect(refMap.get(0)).toBe(btn)
+  })
 })
 
 /** 统计某 accessible name 是否在多行 YAML 中重复出现（父子同名的典型信号） */

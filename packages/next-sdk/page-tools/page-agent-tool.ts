@@ -34,6 +34,11 @@ export type PageAgentToolHandle = {
   showMask: (options?: ShowMaskOptions) => Promise<void>
   hideMask: () => Promise<void>
   /** 重置当前对话轮次的页面快照缓存、版本号 rev 及 DOM 元素 #ref 绑定映射 */
+  resetSession?: () => void
+}
+
+/** registerPageAgentTool 实际返回句柄（始终提供 resetSession） */
+export type RegisteredPageAgentToolHandle = PageAgentToolHandle & {
   resetSession: () => void
 }
 
@@ -49,7 +54,7 @@ function resolveShowCursor(kind: CursorKind, explicit?: boolean): boolean {
 }
 
 /** 在浏览器页面中注册 page-agent-tool, 用于页面的内容获取和操作，页面的动效 */
-export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageAgentToolHandle {
+export function registerPageAgentTool(options: PageAgentToolOptions = {}): RegisteredPageAgentToolHandle {
   initializeBuiltinWebMCP()
 
   // 完整工具配置（顶层选项 enableHighlight + 统一无障碍配置 a11yConfig）：与默认配置合并后
@@ -72,15 +77,37 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
   // ─── 会话级状态缓存与稳定元素 #ref 分配器 ────────────────────────────────
   const stateCache = new PageStateCache()
   const refAllocator = new ElementRefAllocator()
+  // 会话代次：每次 resetSession() 递增，用于拦截重置前已发起的异步动作续体污染新会话状态
+  let sessionGeneration = 0
 
   // 当前最新快照中活跃的 ref 索引 → HTMLElement 映射（每次 buildA11yTree 后更新）
   let currentRefMap: RefMap = new Map()
 
   function resetSession(): void {
+    sessionGeneration++
     stateCache.reset()
     refAllocator.reset()
     currentRefMap = new Map()
     unhighlight()
+  }
+
+  function createSessionResetResult() {
+    const message = '会话已重置，前序未完成操作的状态更新已忽略。'
+    return {
+      isError: true as const,
+      errorCode: 'SESSION_RESET' as const,
+      error: message,
+      content: [
+        {
+          type: 'text' as const,
+          text: JSON.stringify({
+            errorCode: 'SESSION_RESET',
+            error: message,
+            url: window.location.href
+          })
+        }
+      ]
+    }
   }
 
   // ─── 辅助：构建错误响应 ───────────────────────────────────────────────────
@@ -88,13 +115,21 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
     return { content: [{ type: 'text' as const, text: msg }] }
   }
 
-  async function actionError(msg: string) {
-    const result = await createActionErrorResult(msg, buildBrowserStateResponse)
+  async function actionErrorFor(expectedGeneration: number, msg: string) {
+    if (expectedGeneration !== sessionGeneration) {
+      return createSessionResetResult()
+    }
+    const result = await createActionErrorResult(msg, (mode) =>
+      buildBrowserStateResponseFor(expectedGeneration, mode)
+    )
     getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
     return result
   }
 
-  async function staleRefError(actionLabel: string, index: number) {
+  async function staleRefErrorFor(expectedGeneration: number, actionLabel: string, index: number) {
+    if (expectedGeneration !== sessionGeneration) {
+      return createSessionResetResult()
+    }
     const result = createStaleRefErrorResult(
       actionLabel,
       index,
@@ -106,9 +141,15 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
   }
 
   // ─── 核心：构建 browserState 响应（全量 or 结构化增量 Diff）───────────────
-  async function buildBrowserStateResponse(
+  async function buildBrowserStateResponseFor(
+    expectedGeneration: number,
     responseMode: 'full' | 'diff' | 'both' = 'diff'
   ): Promise<{ content: Array<{ type: 'text'; text: string }> }> {
+    // 异步操作等待期间若发生了 resetSession()，禁止旧续体向新会话分配 ref 或写入 stateCache 基线
+    if (expectedGeneration !== sessionGeneration) {
+      return createSessionResetResult()
+    }
+
     const url = window.location.href
     const title = document.title
 
@@ -166,7 +207,29 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
     return { content: [{ type: 'text', text: JSON.stringify(stateObj) }] }
   }
 
-  // 组装上下文传递给 handlers
+  function createInvocationContext(expectedGeneration: number): ActionContext {
+    const staleRefError = (actionLabel: string, index: number) =>
+      staleRefErrorFor(expectedGeneration, actionLabel, index)
+    return {
+      pageController,
+      stateCache,
+      refAllocator,
+      getRefMap: () => (expectedGeneration === sessionGeneration ? currentRefMap : new Map()),
+      setRefMap: (map: RefMap) => {
+        if (expectedGeneration !== sessionGeneration) return
+        currentRefMap = map
+      },
+      buildBrowserStateResponse: (mode?: 'full' | 'diff' | 'both') =>
+        buildBrowserStateResponseFor(expectedGeneration, mode),
+      staleRefError,
+      refreshOnStaleRef: staleRefError,
+      resetSession,
+      errContent,
+      actionError: (msg: string) => actionErrorFor(expectedGeneration, msg)
+    }
+  }
+
+  // 组装事件桥上下文（用于非单次调用场景如 click 监听与 chat-end 重置）
   const actionContext: ActionContext = {
     pageController,
     stateCache,
@@ -175,12 +238,15 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
     setRefMap: (map: RefMap) => {
       currentRefMap = map
     },
-    buildBrowserStateResponse,
-    staleRefError,
-    refreshOnStaleRef: staleRefError,
+    buildBrowserStateResponse: (mode?: 'full' | 'diff' | 'both') =>
+      buildBrowserStateResponseFor(sessionGeneration, mode),
+    staleRefError: (actionLabel: string, index: number) =>
+      staleRefErrorFor(sessionGeneration, actionLabel, index),
+    refreshOnStaleRef: (actionLabel: string, index: number) =>
+      staleRefErrorFor(sessionGeneration, actionLabel, index),
     resetSession,
     errContent,
-    actionError
+    actionError: (msg: string) => actionErrorFor(sessionGeneration, msg)
   }
 
   function borderTargetElement(index: number | undefined) {
@@ -201,7 +267,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
     }
   }
 
-  function createHandle(): PageAgentToolHandle {
+  function createHandle(): RegisteredPageAgentToolHandle {
     return {
       showMask: async (options?: ShowMaskOptions) => {
         simulatorMask.show({ showCursor: resolveShowCursor('host', options?.showCursor) })
@@ -214,6 +280,8 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
   }
 
   async function executePageAgentTool(args: PageAgentToolInput) {
+    const invocationGeneration = sessionGeneration
+    const ctx = createInvocationContext(invocationGeneration)
     try {
       let ret: { content: Array<{ type: 'text'; text: string }> }
 
@@ -221,13 +289,13 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
         // ─── 感知/脚本类：仅呼吸灯，无鼠标图标 ──────────────────────────────
         case 'browserState':
           showMaskFor('observe')
-          ret = await handleBrowserState(args, actionContext)
+          ret = await handleBrowserState(args, ctx)
           getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'executeJavascript':
           if (getPageAgentToolConfig().enableExecuteJavascript) {
             showMaskFor('observe')
-            ret = await handleExecuteJavascript(args, actionContext)
+            ret = await handleExecuteJavascript(args, ctx)
             getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           } else {
             ret = { content: [{ type: 'text' as const, text: '当前环境禁用 executeJavascript 工具' }] }
@@ -235,32 +303,32 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
           break
         case 'searchTree':
           showMaskFor('observe')
-          ret = await handleSearchTree(args, actionContext)
+          ret = await handleSearchTree(args, ctx)
           getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
         // ─── 滚动类：仅呼吸灯，无静止鼠标图标 ───────────────────────────────
         case 'scroll':
           showMaskFor('observe')
-          ret = await handleScroll(args, actionContext)
+          ret = await handleScroll(args, ctx)
           getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
         // ─── 精准操作类：呼吸灯 + 鼠标图标 ─────────────────────────────────
         case 'click':
           showMaskFor('pointer')
           borderTargetElement(args.index)
-          ret = await handleClick(args, actionContext)
+          ret = await handleClick(args, ctx)
           getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'fill':
           showMaskFor('pointer')
           borderTargetElement(args.index)
-          ret = await handleFill(args, actionContext)
+          ret = await handleFill(args, ctx)
           getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'select':
           showMaskFor('pointer')
           borderTargetElement(args.index)
-          ret = await handleSelect(args, actionContext)
+          ret = await handleSelect(args, ctx)
           getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'hover':
@@ -271,11 +339,11 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
             const rect = el.getBoundingClientRect()
             simulatorMask.setCursorPosition(rect.left + rect.width / 2, rect.top + rect.height / 2)
           }
-          ret = await handleHover(args, actionContext)
+          ret = await handleHover(args, ctx)
           getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'clipboard':
-          ret = await handleClipboard(args, actionContext)
+          ret = await handleClipboard(args, ctx)
           break
         default:
           ret = { content: [{ type: 'text' as const, text: `未知操作: ${args.action}` }] }
@@ -289,7 +357,8 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
         hover: '悬浮'
       } as const
       if (args.action in actionNames) {
-        return actionError(
+        return actionErrorFor(
+          invocationGeneration,
           `${actionNames[args.action as keyof typeof actionNames]}执行异常: ${error instanceof Error ? error.message : String(error)}`
         )
       }

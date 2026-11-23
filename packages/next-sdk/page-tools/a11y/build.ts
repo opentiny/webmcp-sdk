@@ -13,9 +13,6 @@ import { getComposedChildren, collectHoverPointerElements } from './utils'
 import { deepQuerySelectorAll } from '../utils/dom'
 import { HIGHLIGHT_CONTAINER_ID } from '../page-agent-highlight'
 
-/** 匹配序列化 YAML 行上的元素操作引用（如 `  - button #12 [selected] "提交"`） */
-const SERIALIZED_LINE_REF_RE = /^\s*-\s+\S+\s+#(\d+)(?:\s|$)/
-
 /** 将 whitelist/blacklist 中的 Element 引用与 CSS 选择器字符串统一解析为元素集合（字符串每次动态解析，适配 SPA 重渲染） */
 function resolveElementList(list: Array<Element | string>, root: Element): Set<Element> {
   const set = new Set<Element>()
@@ -60,22 +57,16 @@ export function buildA11yTree(root: Element = document.body, config?: A11yConfig
   // 这类元素静止态 getComputedStyle 读到 auto，需靠样式表兜底才能识别为可点击。
   const hoverPointerSet = collectHoverPointerElements(root)
 
+  const emittedRefs = new Set<number>()
   for (const child of getComposedChildren(root)) {
     const vnode = buildVNode(child, allocator, refMap, blacklistSet, whitelistSet, resolved, hoverPointerSet)
     if (vnode) {
-      lines.push(...serializeVNode(vnode, 0, shapeOpts))
+      lines.push(...serializeVNode(vnode, 0, shapeOpts, emittedRefs))
     }
   }
 
-  // 仅保留最终序列化进 YAML 行的活跃 #ref，剔除因单子节点折叠而未输出的父节点幽灵 #ref，
-  // 保证 refMap 与最新快照可见 #ref 集合严格一致
-  const emittedRefs = new Set<number>()
-  for (const line of lines) {
-    const match = SERIALIZED_LINE_REF_RE.exec(line)
-    if (match) {
-      emittedRefs.add(Number(match[1]))
-    }
-  }
+  // 仅保留序列化期间实际输出到 YAML 的活跃 #ref（支持多词 ARIA role 如 `button link`，
+  // 同时剔除因单子节点折叠而未输出的父节点幽灵 #ref，保证 refMap 与快照严格一致）
   for (const key of Array.from(refMap.keys())) {
     if (!emittedRefs.has(key)) {
       refMap.delete(key)

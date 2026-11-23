@@ -336,13 +336,133 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
     const r2 = cache.update(url, yaml2)
 
     expect(r2.kind).toBe('diff')
-    expect(r2.addedLines).toBe(1)
-    expect(r2.removedLines).toBe(0)
-    expect(r2.diffText).toBe(
-      [
-        '  - main "主内容区"',
-        '+   - generic "计算中... 立即购买"',
-      ].join('\n'),
-    )
+    // 下方 31 行未变更按钮（directParent 未变）全部跳过，仅输出新增外层包装行与直接挂载其下的首层容器
+    expect(r2.diffText).toContain('+   - generic "计算中... 立即购买"')
+    expect(r2.diffText).not.toContain('规格选项-0')
+    expect(r2.diffText).not.toContain('规格选项-29')
+  })
+
+  it('复现：节点文案不变但真实父级层级变更（从容器内提升至顶层）时必须输出差异而非被忽略', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/nesting'
+
+    const yaml1 = [
+      '```yaml',
+      '- main "主内容区"',
+      '  - button #0 "项0"',
+      '  - button #1 "项1"',
+      '  - button #2 "项2"',
+      '  - button #3 "项3"',
+      '  - region "支付区"',
+      '    - button #4 "Pay"',
+      '  - button #5 "项5"',
+      '  - button #6 "项6"',
+      '```',
+    ].join('\n')
+
+    // #4 保持相对位置与文本不变，但从 region "支付区" 提升到顶层
+    const yaml2 = [
+      '```yaml',
+      '- main "主内容区"',
+      '  - button #0 "项0"',
+      '  - button #1 "项1"',
+      '  - button #2 "项2"',
+      '  - button #3 "项3"',
+      '  - region "支付区"',
+      '- button #4 "Pay"',
+      '  - button #5 "项5"',
+      '  - button #6 "项6"',
+      '```',
+    ].join('\n')
+
+    cache.update(url, yaml1)
+    const r2 = cache.update(url, yaml2)
+
+    expect(r2.kind).toBe('diff')
+    expect(r2.diffText).toContain('-     - button #4 "Pay"')
+    expect(r2.diffText).toContain('+ - button #4 "Pay"')
+  })
+
+  it('复现：混合 Hunk 中嵌套删除行被顶层新增行替换时，仍保留旧父级祖先锚点', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/billing'
+
+    const yaml1 = [
+      '```yaml',
+      '- main "主内容区"',
+      '  - button #0 "概览"',
+      '  - button #1 "订单"',
+      '  - button #2 "发票"',
+      '  - button #3 "预算"',
+      '  - region "Billing"',
+      '    - generic "Unavailable"',
+      '  - button #4 "帮助"',
+      '  - button #5 "工单"',
+      '```',
+    ].join('\n')
+
+    // Billing 下的 Unavailable 被替换为顶层 Summary 标题（同一混合 Hunk）
+    const yaml2 = [
+      '```yaml',
+      '- main "主内容区"',
+      '  - button #0 "概览"',
+      '  - button #1 "订单"',
+      '  - button #2 "发票"',
+      '  - button #3 "预算"',
+      '  - region "Billing"',
+      '- heading "Summary"',
+      '  - button #4 "帮助"',
+      '  - button #5 "工单"',
+      '```',
+    ].join('\n')
+
+    cache.update(url, yaml1)
+    const r2 = cache.update(url, yaml2)
+
+    expect(r2.kind).toBe('diff')
+    expect(r2.diffText).toContain('  - region "Billing"')
+    expect(r2.diffText).toContain('-     - generic "Unavailable"')
+    expect(r2.diffText).toContain('+ - heading "Summary"')
+  })
+
+  it('复现：父节点先经同 #ref 配对更新、后续 Hunk 又纯删除其子节点时，不应重复输出旧父节点祖先锚点', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/parent-dedup'
+
+    const yaml1 = [
+      '```yaml',
+      '- main "主内容区"',
+      '  - button #1 "项1"',
+      '  - button #2 "项2"',
+      '  - button #3 "项3"',
+      '  - button #4 "项4"',
+      '  - generic #10 "旧分组名"',
+      '    - button #11 "保留子项"',
+      '    - button #12 "待删除子项"',
+      '  - button #5 "项5"',
+      '  - button #6 "项6"',
+      '```',
+    ].join('\n')
+
+    const yaml2 = [
+      '```yaml',
+      '- main "主内容区"',
+      '  - button #1 "项1"',
+      '  - button #2 "项2"',
+      '  - button #3 "项3"',
+      '  - button #4 "项4"',
+      '  - generic #10 "新分组名"',
+      '    - button #11 "保留子项"',
+      '  - button #5 "项5"',
+      '  - button #6 "项6"',
+      '```',
+    ].join('\n')
+
+    cache.update(url, yaml1)
+    const r2 = cache.update(url, yaml2)
+
+    expect(r2.kind).toBe('diff')
+    const oldParentLines = r2.diffText.split('\n').filter((l) => l.includes('generic #10 "旧分组名"'))
+    expect(oldParentLines).toHaveLength(1)
   })
 })

@@ -480,6 +480,7 @@ export function serializeVNode(
   vnode: VNode,
   depth: number,
   opts: A11yTreeShapeOptions,
+  emittedRefs?: Set<number>,
 ): string[] {
   const hasInteractive = hasInteractiveDescendant(vnode)
   const forceKeepStructure =
@@ -500,21 +501,23 @@ export function serializeVNode(
     if (shouldPassThrough(vnode, opts)) {
       return vnode.children
         .filter(c => hasValue(c))
-        .flatMap(c => serializeVNode(c, depth, opts))
+        .flatMap(c => serializeVNode(c, depth, opts, emittedRefs))
     }
     let displayName = vnode.name.trim()
     if (!displayName && vnode.children.length > 0) {
       displayName = collectVisiblePlainText(vnode.el)
     }
     if (isNoiseAccessibleName(displayName)) displayName = ''
+    if (vnode.ref !== undefined) emittedRefs?.add(vnode.ref)
     return [`${indent}- ${vnode.role}${refStr}${tokenStr}${formatNameAttr(displayName)}`]
   }
 
   // preserveRoles / 声明名 landmark 且无交互：保留结构，父级只用声明名，子节点照常输出
   if (!hasInteractive && forceKeepStructure) {
     const outputName = resolveDeclaredName(vnode)
+    if (vnode.ref !== undefined) emittedRefs?.add(vnode.ref)
     const line = `${indent}- ${vnode.role}${refStr}${tokenStr}${formatNameAttr(outputName)}`
-    const childLines = vnode.children.flatMap(c => serializeVNode(c, depth + 1, opts))
+    const childLines = vnode.children.flatMap(c => serializeVNode(c, depth + 1, opts, emittedRefs))
     return [line, ...childLines]
   }
 
@@ -559,7 +562,7 @@ export function serializeVNode(
   if (!willEmitParent) {
     return vnode.children
       .filter(c => hasValue(c))
-      .flatMap(c => serializeVNode(c, depth, opts))
+      .flatMap(c => serializeVNode(c, depth, opts, emittedRefs))
   }
 
   if (vnode.ref !== undefined) {
@@ -573,6 +576,8 @@ export function serializeVNode(
     ) {
       const mergedName = outputName.trim() || singleChild.name.trim()
       // 合并输出时使用子节点 ref，避免 refMap 中的 #N 在 YAML 里丢失
+      const mergedRef = singleChild.ref !== undefined ? singleChild.ref : vnode.ref
+      if (mergedRef !== undefined) emittedRefs?.add(mergedRef)
       const mergedRefStr =
         singleChild.ref !== undefined ? ` #${singleChild.ref}` : refStr
       return [`${indent}- ${vnode.role}${mergedRefStr}${tokenStr}${formatNameAttr(mergedName)}`]
@@ -585,7 +590,8 @@ export function serializeVNode(
     return !canOmitStaticChild(c, outputName, parentUsesOwnDeclaredName)
   })
 
+  if (vnode.ref !== undefined) emittedRefs?.add(vnode.ref)
   const line = `${indent}- ${vnode.role}${refStr}${tokenStr}${formatNameAttr(outputName)}`
-  const childLines = childrenToEmit.flatMap(c => serializeVNode(c, depth + 1, opts))
+  const childLines = childrenToEmit.flatMap(c => serializeVNode(c, depth + 1, opts, emittedRefs))
   return [line, ...childLines]
 }

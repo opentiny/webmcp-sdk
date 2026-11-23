@@ -53,7 +53,11 @@ export { initializeBuiltinWebMCP } from './page-tools/initialize-builtin-WebMCP'
 export { waitForRouteTools } from './page-tools/wait-for-route-tools'
 export type { RouteToolsMap, WaitForRouteToolsOptions } from './page-tools/wait-for-route-tools'
 export { registerPageAgentTool } from './page-tools/page-agent-tool'
-export type { PageAgentToolHandle, ShowMaskOptions } from './page-tools/page-agent-tool'
+export type {
+  PageAgentToolHandle,
+  RegisteredPageAgentToolHandle,
+  ShowMaskOptions
+} from './page-tools/page-agent-tool'
 export {
   PAGE_AGENT_TOOL_CALL_EVENT,
   PAGE_AGENT_TOOL_RESULT_EVENT,
