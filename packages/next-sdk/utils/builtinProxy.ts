@@ -33,7 +33,8 @@ interface JsonRpcMessage {
 export const setupBuiltinProxy = (transport: Transport) => {
   const getNativeCtx = (): NativeModelContext | null => {
     let ctx: NativeModelContext | null = null
-    if (typeof document !== 'undefined') ctx = ctx || ((document as unknown as Record<string, unknown>).modelContext as NativeModelContext | null)
+    if (typeof document !== 'undefined')
+      ctx = ctx || ((document as unknown as Record<string, unknown>).modelContext as NativeModelContext | null)
     ctx = ctx || ((globalThis as unknown as Record<string, unknown>).modelContext as NativeModelContext | null)
     return ctx || null
   }
@@ -96,7 +97,9 @@ export const setupBuiltinProxy = (transport: Transport) => {
         const nativeCtx = getNativeCtx()
         if (nativeCtx && nativeCtx.executeTool) {
           if (!message.params || typeof message.params !== 'object' || !message.params.name) {
-            const error: Error & { code?: number } = new Error('Invalid params: "name" is required and params must be an object')
+            const error: Error & { code?: number } = new Error(
+              'Invalid params: "name" is required and params must be an object'
+            )
             error.code = -32602 // Invalid params
             throw error
           }
@@ -105,9 +108,21 @@ export const setupBuiltinProxy = (transport: Transport) => {
           const toolObj = tools.find((t: any) => t.name === name)
           if (!toolObj) throw new Error(`Tool ${name} not found`)
           const result = await nativeCtx.executeTool(toolObj, JSON.stringify(args || {}))
+          let unwrapped: unknown = result
+          // WebMCP polyfill (executeTool) 会将工具返回的对象序列化为 JSON 字符串，需先还原避免二次套壳
+          if (typeof unwrapped === 'string') {
+            try {
+              const parsed: unknown = JSON.parse(unwrapped)
+              if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && 'content' in parsed) {
+                unwrapped = parsed
+              }
+            } catch {
+              // 普通纯文本返回，保持原样
+            }
+          }
           const finalResult =
-            result && typeof result === 'object' && 'content' in result
-              ? result
+            unwrapped && typeof unwrapped === 'object' && 'content' in unwrapped
+              ? unwrapped
               : { content: [{ type: 'text', text: typeof result === 'string' ? result : JSON.stringify(result) }] }
           await transport.send({ jsonrpc: '2.0', id, result: finalResult })
         } else {

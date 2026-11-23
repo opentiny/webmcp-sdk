@@ -38,11 +38,15 @@ export const setupLocalTools = () => {
         }
         nativeCtx._tools.set(tool.name, tool)
         if (options?.signal) {
-          options.signal.addEventListener('abort', () => {
-            if (nativeCtx._tools.get(tool.name) === tool) {
-              nativeCtx._tools.delete(tool.name)
-            }
-          }, { once: true })
+          options.signal.addEventListener(
+            'abort',
+            () => {
+              if (nativeCtx._tools.get(tool.name) === tool) {
+                nativeCtx._tools.delete(tool.name)
+              }
+            },
+            { once: true }
+          )
         }
       },
 
@@ -206,7 +210,20 @@ export const setupLocalTools = () => {
               return { content: [{ type: 'text', text: `Error: ${res?.error || 'Unknown error'}` }] }
             }
 
-            if (res.result?.content) return res.result
+            let payload: any = res.result
+            // WebMCP polyfill (executeTool) 会将返回对象序列化为 JSON 字符串，需先还原避免二次套壳
+            if (typeof payload === 'string') {
+              try {
+                const parsed = JSON.parse(payload)
+                if (parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Array.isArray(parsed.content)) {
+                  payload = parsed
+                }
+              } catch {
+                // 普通纯文本返回，保持原样
+              }
+            }
+
+            if (payload?.content) return payload
 
             return {
               content: [
