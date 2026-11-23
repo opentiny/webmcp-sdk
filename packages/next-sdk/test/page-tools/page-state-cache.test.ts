@@ -572,4 +572,92 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
     expect(r2.diffText).toContain('button #1 "Pay"')
     expect(r2.diffText).toContain('button #2 "Track"')
   })
+
+  it('复现：已有带 #ref 父节点改名并将外部兄弟节点移入其下时，不得误判为新插入 Wrapper 而吞掉移动', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/existing-parent-wrap-in'
+
+    const padding = Array.from({ length: 16 }, (_, i) => `- button #${i + 30} "常驻项-${i}"`)
+    const yaml1 = [
+      '```yaml',
+      ...padding,
+      '- region #10 "Billing"',
+      '- button #1 "Pay"',
+      '```',
+    ].join('\n')
+    const yaml2 = [
+      '```yaml',
+      ...padding,
+      '- region #10 "Billing (Updated)"',
+      '  - button #1 "Pay"',
+      '```',
+    ].join('\n')
+
+    cache.update(url, yaml1)
+    const r2 = cache.update(url, yaml2)
+
+    expect(r2.kind).toBe('diff')
+    expect(r2.diffText).toContain('- - button #1 "Pay"')
+    expect(r2.diffText).toContain('+   - button #1 "Pay"')
+  })
+
+  it('复现：已有带 #ref 父节点改名并将内部子节点移出至同级时，不得误判为移除 Wrapper 而吞掉移动', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/existing-parent-unwrap-out'
+
+    const padding = Array.from({ length: 16 }, (_, i) => `- button #${i + 30} "常驻项-${i}"`)
+    const yaml1 = [
+      '```yaml',
+      ...padding,
+      '- region #10 "Billing"',
+      '  - button #1 "Pay"',
+      '```',
+    ].join('\n')
+    const yaml2 = [
+      '```yaml',
+      ...padding,
+      '- region #10 "Billing (Updated)"',
+      '- button #1 "Pay"',
+      '```',
+    ].join('\n')
+
+    cache.update(url, yaml1)
+    const r2 = cache.update(url, yaml2)
+
+    expect(r2.kind).toBe('diff')
+    expect(r2.diffText).toContain('-   - button #1 "Pay"')
+    expect(r2.diffText).toContain('+ - button #1 "Pay"')
+  })
+
+  it('复现：两个带 #ref 父容器互换位置且子节点跨父移动进入相同槽位时，不得误抵消跨父移动', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/referenced-parent-swap'
+
+    const padding = Array.from({ length: 16 }, (_, i) => `- button #${i + 30} "常驻项-${i}"`)
+    const yaml1 = [
+      '```yaml',
+      ...padding,
+      '- region #10 "Billing"',
+      '  - button #1 "Pay"',
+      '- region #20 "Shipping"',
+      '  - button #2 "Track"',
+      '```',
+    ].join('\n')
+    const yaml2 = [
+      '```yaml',
+      ...padding,
+      '- region #20 "Shipping"',
+      '  - button #1 "Pay"',
+      '- region #10 "Billing"',
+      '  - button #2 "Track"',
+      '```',
+    ].join('\n')
+
+    cache.update(url, yaml1)
+    const r2 = cache.update(url, yaml2)
+
+    expect(r2.kind).toBe('diff')
+    expect(r2.diffText).toContain('button #1 "Pay"')
+    expect(r2.diffText).toContain('button #2 "Track"')
+  })
 })

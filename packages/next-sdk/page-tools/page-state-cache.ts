@@ -198,10 +198,27 @@ function cancelUnchangedInHunk(
   const cancelledRem = new Set<number>()
   const cancelledAdd = new Set<number>()
 
-  // 1a. Wrapper 插入识别：hunk.added 中新增行 W（父节点为 P），其直接子节点在 hunk.removed 中原直接挂在 P 下且保持相对顺序
+  const prevRefKeys = new Set<string>()
+  const prevUnrefKeys = new Set<string>()
+  for (const comp of prevComparable) {
+    if (comp.selfKey.startsWith('#')) prevRefKeys.add(comp.selfKey)
+    else prevUnrefKeys.add(`${comp.directParent}\0${comp.selfKey}`)
+  }
+  const currRefKeys = new Set<string>()
+  const currUnrefKeys = new Set<string>()
+  for (const comp of currComparable) {
+    if (comp.selfKey.startsWith('#')) currRefKeys.add(comp.selfKey)
+    else currUnrefKeys.add(`${comp.directParent}\0${comp.selfKey}`)
+  }
+
+  // 1a. Wrapper 插入识别：hunk.added 中真正新插入的包装行 W（父节点为 P，且 W 本身未在旧快照中存在），其直接子节点在 hunk.removed 中原直接挂在 P 下且保持相对顺序
   for (const w of hunk.added) {
     if (cancelledAdd.has(w.index)) continue
     const wComp = currComparable[w.index]
+    const existedInPrev = wComp.selfKey.startsWith('#')
+      ? prevRefKeys.has(wComp.selfKey)
+      : prevUnrefKeys.has(`${wComp.directParent}\0${wComp.selfKey}`)
+    if (existedInPrev) continue
     const wrappedAdded = hunk.added.filter(
       (a) => !cancelledAdd.has(a.index) && currComparable[a.index].parentIndex === w.index,
     )
@@ -213,10 +230,14 @@ function cancelUnchangedInHunk(
     cancelByLcs(origRemoved, wrappedAdded, (item) => item.trimmed, cancelledRem, cancelledAdd)
   }
 
-  // 1b. Wrapper 移除识别（对称）：hunk.removed 中删除行 W（父节点为 P），其原直接子节点在 hunk.added 中回到 P 下且保持相对顺序
+  // 1b. Wrapper 移除识别（对称）：hunk.removed 中真正被移除的包装行 W（父节点为 P，且 W 本身未在新快照中存在），其原直接子节点在 hunk.added 中回到 P 下且保持相对顺序
   for (const w of hunk.removed) {
     if (cancelledRem.has(w.index)) continue
     const wComp = prevComparable[w.index]
+    const existsInCurr = wComp.selfKey.startsWith('#')
+      ? currRefKeys.has(wComp.selfKey)
+      : currUnrefKeys.has(`${wComp.directParent}\0${wComp.selfKey}`)
+    if (existsInCurr) continue
     const wrappedRemoved = hunk.removed.filter(
       (r) => !cancelledRem.has(r.index) && prevComparable[r.index].parentIndex === w.index,
     )
@@ -253,12 +274,15 @@ function cancelUnchangedInHunk(
   const getRemSlot = (item: IndexedLine): string => {
     const comp = prevComparable[item.index]
     if (comp.parentIndex === -1) return 'root'
-    return remParentSlotByIdx.get(comp.parentIndex) ?? `same:${comp.directParent}`
+    const base = remParentSlotByIdx.get(comp.parentIndex) ?? `same:${comp.directParent}`
+    // 带 #ref 的父节点身份已知，必须纳入槽位键，避免不同 #ref 父节点互换位置时误抵消跨父移动的子节点
+    return comp.directParent.startsWith('#') ? `${base}|${comp.directParent}` : base
   }
   const getAddSlot = (item: IndexedLine): string => {
     const comp = currComparable[item.index]
     if (comp.parentIndex === -1) return 'root'
-    return addParentSlotByIdx.get(comp.parentIndex) ?? `same:${comp.directParent}`
+    const base = addParentSlotByIdx.get(comp.parentIndex) ?? `same:${comp.directParent}`
+    return comp.directParent.startsWith('#') ? `${base}|${comp.directParent}` : base
   }
 
   const remBySlot = new Map<string, IndexedLine[]>()
