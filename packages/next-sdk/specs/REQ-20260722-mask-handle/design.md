@@ -16,7 +16,18 @@
 | `registerPageAgentTool()` 返回值 | 新增     | 由 `void` 改为 `PageAgentToolHandle`，向后兼容 |
 | `PageAgentToolHandle` 类型       | 新增     | 从包入口导出                     |
 
+## 遮罩实例复用（验收标准 3）
+
+`registerPageAgentTool` 通过 `acquireSimulatorMask()` 获取遮罩：`window.__pageAgentSimulatorMask` 存在且其 `wrapper` 仍在文档中时直接复用，否则对旧实例调用 `dispose()`（移除其 `window` 监听与注入的样式，并停止动画循环），再新建并写回。句柄方法在每次调用时读取 `window.__pageAgentSimulatorMask`，因此遮罩被替换后，先前句柄仍作用于当前实例。`SimulatorMask` 记录 `hide()` 的淡出定时器，`show()` 与 `dispose()` 会取消它，避免共用遮罩在淡出期间被重新显示后又被定时器隐藏。
+
+实例挂在 `window` 而不是模块作用域，是为了让页面中多份 SDK 副本（页面自身打包一份、宿主再注入一份）共用同一个遮罩。
+
 ## 风险与兼容
 
 - 仅新增返回值与类型导出，现有调用方均丢弃返回值，无破坏性变更。
 - 句柄方法不读取 `removeMaskAfterToolCall`，公开 API 为显式控制。
+- 遮罩复用后，先前句柄的 `showMask()` / `hideMask()` 作用于当前遮罩，而不是已失去工具的旧实例；这是本次修复的目标行为。
+- 被后续注册取代、仍在执行的工具调用，结束时会做收尾（移除目标边框、收起光标、`removeMaskAfterToolCall` 关闭遮罩）。收尾作用于该调用注册时取得的遮罩实例：
+  - 后续注册复用了仍在文档中的遮罩时，收尾作用于共用遮罩。这里不判断调用归属：这些收尾只会隐藏视觉元素，不会让遮罩保持显示。
+  - 遮罩元素被移出文档、后续注册新建了遮罩时，收尾只作用于已释放的旧实例，不影响新遮罩；只有返回的句柄方法会读取当前实例。
+- 跨副本复用依赖 `SimulatorMask` 的公开方法保持兼容；不写入该全局的旧版本副本仍会各自新建遮罩，行为与修复前一致。
