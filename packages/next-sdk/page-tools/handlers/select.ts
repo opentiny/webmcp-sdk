@@ -1,15 +1,14 @@
 import { selectOptionElement } from '@page-agent/page-controller'
 import { dispatchComposedEvents, isInShadowDom, waitForDomSettled } from '../utils/dom'
-import { resolveActiveRefElement, type ActionContext } from '../context'
+import type { ActionContext } from '../context'
 
 export async function handleSelect(args: any, ctx: ActionContext) {
   const mode = args.responseMode ?? 'diff'
   if (args.index === undefined || typeof args.text !== 'string')
     return ctx.actionError('选择结果: 缺少元素索引或文本内容')
-  const el = resolveActiveRefElement(ctx, args.index) as HTMLSelectElement | HTMLElement | null
-  if (!el) {
-    return ctx.staleRefError('选择', args.index)
-  }
+  const resolved = await ctx.resolveRefOrError('select', args.index)
+  if (!resolved.ok) return resolved.error
+  const el = resolved.el as HTMLSelectElement | HTMLElement
   // 若 ref 指向 shadow host，解析其内部真正的 <select>（与 fill 一致）
   let targetSelect: HTMLSelectElement | null = null
   if (el instanceof HTMLSelectElement) {

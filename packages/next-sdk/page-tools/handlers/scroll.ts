@@ -1,5 +1,5 @@
 import { getScrollInfo, waitForScrollEnd } from '../utils/scroll'
-import { resolveActiveRefElement, withStateFields, type ActionContext } from '../context'
+import { withStateFields, type ActionContext } from '../context'
 
 export async function handleScroll(args: any, ctx: ActionContext) {
   const mode = args.responseMode ?? 'diff'
@@ -8,9 +8,9 @@ export async function handleScroll(args: any, ctx: ActionContext) {
   // 确定滚动目标（有 index 时滚动该元素容器，否则滚动整个文档）
   let scrollTarget: Element | Window = window
   if (args.index !== undefined) {
-    const el = resolveActiveRefElement(ctx, args.index)
-    if (!el) return ctx.staleRefError('滚动', args.index)
-    scrollTarget = el
+    const resolved = await ctx.resolveRefOrError('scroll', args.index)
+    if (!resolved.ok) return resolved.error
+    scrollTarget = resolved.el
   }
 
   // 滚动前快照

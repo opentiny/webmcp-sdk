@@ -1,11 +1,12 @@
 import { waitForDomSettled } from '../utils/dom'
-import { resolveActiveRefElement, type ActionContext } from '../context'
+import type { ActionContext } from '../context'
 import type { PageAgentToolInput } from '../schema'
 
 export async function handleHover(args: PageAgentToolInput, ctx: ActionContext) {
   if (args.index === undefined) return ctx.errContent('悬浮结果: 缺少元素索引')
-  const el = resolveActiveRefElement(ctx, args.index)
-  if (!el) return ctx.staleRefError('悬浮', args.index)
+  const resolved = await ctx.resolveRefOrError('hover', args.index)
+  if (!resolved.ok) return resolved.error
+  const el = resolved.el
 
   // 若 ref 指向 shadow host，解析其内部真正的可交互元素
   let targetEl = el as HTMLElement

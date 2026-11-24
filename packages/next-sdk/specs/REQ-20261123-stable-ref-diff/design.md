@@ -16,7 +16,8 @@
 | `packages/next-sdk/page-tools/a11y/types.ts` | `A11yTreeOptions` 增加可选 `refAllocator?: RefAllocator` |
 | `packages/next-sdk/page-tools/a11y/vnode.ts` | `buildVNode` 通过 `RefAllocator` 分配稳定 `#ref`；编辑宿主（`contenteditable`）跳过单子合并保留自身 `textbox` ref；收集实际输出的 `#ref` |
 | `packages/next-sdk/page-tools/a11y/build.ts` | 支持外部传入 `refAllocator`（默认新建临时实例保持纯函数兼容）；对齐 `refMap` 与输出 `lines` |
-| `packages/next-sdk/page-tools/page-state-cache.ts` | 重构结构化 Diff（首尾剥离与快速熔断 + 全局 Wrapper/改名父节点配对抵消 + 文档序逐行锚点 + `rev`/`baseRev`） |
+| `packages/next-sdk/page-tools/structured-yaml-diff.ts` | 纯函数结构化 YAML Diff 算法（首尾剥离与快速熔断 + Myers 整型键对比 + 全局 Wrapper/改名父节点配对抵消 + 文档序逐行锚点） |
+| `packages/next-sdk/page-tools/page-state-cache.ts` | 页面状态版本缓存与三项熔断协议封装（维护 `rev`/`baseRev`、`fullReason` 及判别联合 `DiffResult`） |
 | `packages/next-sdk/page-tools/context.ts` | 定义 `REF_NOT_PRESENTED_ERROR_CODE`、`SESSION_RESET_ERROR_CODE`、`PageAgentToolErrorCode`、统一错误构造与结构化状态类型 |
 | `packages/next-sdk/page-tools/page-agent-tool.ts` | 串联会话级 `ElementRefAllocator`、`PageStateCache`、`kind/rev/baseRev` 组装与 `resetSession` 句柄（重置时同步 `unhighlight()`） |
 | `packages/next-sdk/page-tools/page-agent-tool-event.ts` | 接收 `{ getRefMap, endTurn }`；`PAGE_AGENT_CHAT_END_EVENT` 触发 `endTurn()`；透传 `errorCode` |

@@ -14,9 +14,11 @@ import {
   createActionErrorResult,
   createSessionResetErrorResult,
   createStaleRefErrorResult,
+  REF_ACTION_LABELS,
   type ActionContext,
   type BrowserStateResponseMode,
-  type BrowserStateSnapshot
+  type BrowserStateSnapshot,
+  type RefActionName
 } from './context'
 import { detectPageDialog, detectValidationErrors, detectVisibleTooltips } from './utils/dom'
 import { getPageAgentToolConfig, setPageAgentToolConfig } from './tool-config'
@@ -241,8 +243,16 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
       },
       buildBrowserStateResponse: (mode?: BrowserStateResponseMode) =>
         buildBrowserStateResponseFor(expectedGeneration, mode),
-      staleRefError: (actionLabel: string, index: number) =>
-        staleRefErrorFor(expectedGeneration, actionLabel, index),
+      resolveRefOrError: async (action: RefActionName, index: number) => {
+        const el = isStaleGeneration(expectedGeneration) ? undefined : currentRefMap.get(index)
+        if (el && el.isConnected) {
+          return { ok: true, el }
+        }
+        return {
+          ok: false,
+          error: await staleRefErrorFor(expectedGeneration, REF_ACTION_LABELS[action], index)
+        }
+      },
       errContent,
       actionError: (msg: string) => actionErrorFor(expectedGeneration, msg)
     }
@@ -351,16 +361,15 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
       }
       return ret
     } catch (error) {
-      const actionNames = {
-        click: '点击',
-        fill: '填写',
-        select: '选择',
-        hover: '悬浮'
-      } as const
-      if (args.action in actionNames) {
+      if (
+        args.action === 'click' ||
+        args.action === 'fill' ||
+        args.action === 'select' ||
+        args.action === 'hover'
+      ) {
         return actionErrorFor(
           invocationGeneration,
-          `${actionNames[args.action as keyof typeof actionNames]}执行异常: ${error instanceof Error ? error.message : String(error)}`
+          `${REF_ACTION_LABELS[args.action]}执行异常: ${error instanceof Error ? error.message : String(error)}`
         )
       }
       getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())

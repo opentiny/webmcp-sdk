@@ -12,6 +12,21 @@ export type PageAgentToolErrorCode =
 
 export type BrowserStateResponseMode = 'full' | 'diff' | 'both'
 
+/** 依赖 #ref 索引的交互动作中文名称映射（统一供失效编号报错与异常兜底复用） */
+export const REF_ACTION_LABELS = {
+  click: '点击',
+  fill: '填写',
+  select: '选择',
+  hover: '悬浮',
+  scroll: '滚动'
+} as const
+
+export type RefActionName = keyof typeof REF_ACTION_LABELS
+
+export type ResolvedRefElement =
+  | { ok: true; el: HTMLElement }
+  | { ok: false; error: PageAgentToolErrorResult }
+
 export type PageAgentToolContentResult = {
   content: Array<{ type: 'text'; text: string }>
 }
@@ -43,16 +58,6 @@ export function withStateFields(stateText: string, extra: Record<string, unknown
   } catch {
     return JSON.stringify({ ...extra, raw: stateText })
   }
-}
-
-/**
- * 解析最新页面快照中的活跃目标元素：
- * 编号必须出现在最新快照 refMap 中，且元素仍挂载在文档内（isConnected），否则视为失效编号。
- */
-export function resolveActiveRefElement(ctx: ActionContext, index: number): HTMLElement | null {
-  const el = ctx.getRefMap().get(index)
-  if (!el || !el.isConnected) return null
-  return el
 }
 
 /** 按错误码构建统一的轻量结构化错误响应（不附带整页树） */
@@ -131,7 +136,8 @@ export interface ActionContext {
   buildBrowserStateResponse: (
     mode?: BrowserStateResponseMode
   ) => Promise<{ content: Array<{ type: 'text'; text: string }> }>
-  staleRefError: (actionLabel: string, index: number) => Promise<PageAgentToolErrorResult>
+  /** 解析活跃目标元素，若编号不在最新快照或元素已脱离文档则统一返回 REF_NOT_PRESENTED 错误 */
+  resolveRefOrError: (action: RefActionName, index: number) => Promise<ResolvedRefElement>
   errContent: (msg: string) => Promise<{ content: Array<{ type: 'text'; text: string }> }>
   actionError: (msg: string) => Promise<PageAgentToolErrorResult>
 }

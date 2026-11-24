@@ -1,14 +1,13 @@
 import { clickElement } from '@page-agent/page-controller'
 import { waitForDomSettled } from '../utils/dom'
-import { resolveActiveRefElement, type ActionContext } from '../context'
+import type { ActionContext } from '../context'
 
 export async function handleClick(args: any, ctx: ActionContext) {
   const mode = args.responseMode ?? 'diff'
   if (args.index === undefined) return ctx.actionError('点击结果: 缺少元素索引')
-  const el = resolveActiveRefElement(ctx, args.index)
-  if (!el) {
-    return ctx.staleRefError('点击', args.index)
-  }
+  const resolved = await ctx.resolveRefOrError('click', args.index)
+  if (!resolved.ok) return resolved.error
+  const el = resolved.el
 
   // 若 ref 指向 shadow host，解析其内部真正的可点击元素
   let targetEl = el as HTMLElement

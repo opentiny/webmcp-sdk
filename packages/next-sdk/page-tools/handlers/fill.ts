@@ -1,15 +1,14 @@
 import { inputTextElement } from '@page-agent/page-controller'
 import { dispatchComposedEvents, isInShadowDom, waitForDomSettled } from '../utils/dom'
-import { resolveActiveRefElement, type ActionContext } from '../context'
+import type { ActionContext } from '../context'
 
 export async function handleFill(args: any, ctx: ActionContext) {
   const mode = args.responseMode ?? 'diff'
   if (args.index === undefined || typeof args.text !== 'string')
     return ctx.actionError('填写结果: 缺少元素索引或文本内容')
-  const el = resolveActiveRefElement(ctx, args.index)
-  if (!el) {
-    return ctx.staleRefError('填写', args.index)
-  }
+  const resolved = await ctx.resolveRefOrError('fill', args.index)
+  if (!resolved.ok) return resolved.error
+  const el = resolved.el
 
   let targetEl = el
   if (!(targetEl instanceof HTMLInputElement) && !(targetEl instanceof HTMLTextAreaElement)) {

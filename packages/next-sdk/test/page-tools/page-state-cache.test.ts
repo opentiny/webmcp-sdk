@@ -12,7 +12,7 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
     document.body.innerHTML = ''
   })
 
-  it('复现：页面上方插入一个元素导致 400 行全部进入删除与新增使 diff 膨胀至整页 2.1 倍 —— 稳定编号重构后仅输出实际变更行', () => {
+  it('复现：页面上方插入一个元素导致 401 行全部进入删除与新增使 diff 膨胀至整页 2.1 倍 —— 稳定编号重构后仅输出实际变更行', () => {
     const allocator = new ElementRefAllocator()
     const cache = new PageStateCache()
     const url = 'https://console.example.com/products'
