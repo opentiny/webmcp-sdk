@@ -69,7 +69,7 @@ const MAX_ANCESTOR_CONTEXT_DEPTH = 2
 const FAST_ABORT_MIN_WINDOW_LINES = 200
 /** Myers diffArrays 编辑距离硬上限区间，避免大列表倒序/全量改名阻塞主线程 */
 const MIN_MYERS_EDIT_LENGTH = 250
-const MAX_MYERS_EDIT_LENGTH = 1200
+const MAX_MYERS_EDIT_LENGTH = 800
 export const NO_CHANGES_DIFF_TEXT = '# (no changes)'
 
 /** 提取序列化 YAML 行中的稳定元素 #ref（兼容单 token 及空格分隔的多 token ARIA role，如 `button link #10` -> 10） */
@@ -797,17 +797,29 @@ function computeStructuredYamlDiff(prevLines: string[], currLines: string[]): St
     return { diffText: '', addedLines: 0, removedLines: 0, abortedTooLarge: true }
   }
 
-  // 3. 带确定性编辑距离上限的 Myers 对比：防止大列表倒序/全量改名阻塞主线程
+  // 3. 带确定性编辑距离上限的 Myers 对比：将 (directParent, trimmed) 映射为整型 ID，
+  //    消除百万次 JS comparator 回调与字符串重复比对，防止大列表倒序/全量改名阻塞主线程
   const maxEditLength = Math.max(MIN_MYERS_EDIT_LENGTH, Math.min(totalLines, MAX_MYERS_EDIT_LENGTH))
-  const parts = diffArrays(
-    prevComparable.slice(prefixLen, prevEnd),
-    currComparable.slice(prefixLen, currEnd),
-    {
-      comparator: (left, right) =>
-        left.trimmed === right.trimmed && left.directParent === right.directParent,
-      maxEditLength,
-    },
-  )
+  const keyToId = new Map<string, number>()
+  let nextKeyId = 0
+  const internKey = (comp: ComparableLine): number => {
+    const key = `${comp.directParent}\0${comp.trimmed}`
+    let id = keyToId.get(key)
+    if (id === undefined) {
+      id = nextKeyId++
+      keyToId.set(key, id)
+    }
+    return id
+  }
+  const prevIds = new Array<number>(prevEnd - prefixLen)
+  for (let i = prefixLen; i < prevEnd; i++) {
+    prevIds[i - prefixLen] = internKey(prevComparable[i])
+  }
+  const currIds = new Array<number>(currEnd - prefixLen)
+  for (let i = prefixLen; i < currEnd; i++) {
+    currIds[i - prefixLen] = internKey(currComparable[i])
+  }
+  const parts = diffArrays(prevIds, currIds, { maxEditLength })
   if (!parts) {
     return { diffText: '', addedLines: 0, removedLines: 0, abortedTooLarge: true }
   }
@@ -833,9 +845,10 @@ function computeStructuredYamlDiff(prevLines: string[], currLines: string[]): St
   let activeHunk: ChangeHunk | null = null
 
   for (const part of parts) {
+    const count = part.value.length
     if (!part.added && !part.removed) {
       activeHunk = null
-      for (let k = 0; k < part.value.length; k++) {
+      for (let k = 0; k < count; k++) {
         prevToCurrUnchanged.set(prevCursor, currCursor)
         currToPrevUnchanged.set(currCursor, prevCursor)
         prevCursor++
@@ -850,9 +863,11 @@ function computeStructuredYamlDiff(prevLines: string[], currLines: string[]): St
     }
 
     if (part.removed) {
-      for (const item of part.value) {
+      for (let k = 0; k < count; k++) {
+        const idx = prevCursor++
+        const item = prevComparable[idx]
         const entry: IndexedLine = {
-          index: prevCursor++,
+          index: idx,
           line: item.line,
           trimmed: item.trimmed,
           ref: item.ref,
@@ -861,9 +876,11 @@ function computeStructuredYamlDiff(prevLines: string[], currLines: string[]): St
         allRemoved.push(entry)
       }
     } else if (part.added) {
-      for (const item of part.value) {
+      for (let k = 0; k < count; k++) {
+        const idx = currCursor++
+        const item = currComparable[idx]
         const entry: IndexedLine = {
-          index: currCursor++,
+          index: idx,
           line: item.line,
           trimmed: item.trimmed,
           ref: item.ref,

@@ -104,7 +104,7 @@ export type RegisteredPageAgentToolHandle = PageAgentToolHandle & {
 
 1. **提取内容行与预计算父链**：剥离 `buildA11yTree` 外层 ```` ```yaml ```` 与 ```` ``` ```` 围栏，得到 `prevLines` 与 `currLines`；单次 O(N) 预计算每行的 `trimmed`、`indent`、`parentIndex`、`ref`、`identityKey`（带 `#ref` 用 `#N`，否则用 `trimmed`）与直接父节点 `directParent`。
 2. **首尾公共行剥离与 O(N) 快速熔断**：先剥离首尾 `line` 与 `directParent` 完全相同的公共区间；当两侧中间区间行数之和 `>= 200` 时，先用 O(N) `trimmed` 多重集交集计算变更下界，若下界已超过 50% 直接跳过 Myers 返回 `diff_too_large`，避免整页重绘阻塞主线程。
-3. **Myers 语义行对比 + 全局变更全集聚合**：在中间区间执行 `diffArrays(prevComparable, currComparable, { comparator: (a, b) => a.trimmed === b.trimmed && a.directParent === b.directParent, maxEditLength })`（`maxEditLength = Math.max(250, Math.min(totalLines, 1200))`，超限时直接返回 `undefined` 触发 `diff_too_large` 回退整页树），聚合成变更 Hunk、未变更行精确索引映射与全局 `allRemoved` / `allAdded`。
+3. **Myers 语义行对比 + 全局变更全集聚合**：将中间区间的 `(directParent, trimmed)` 映射为整型 ID 后执行 `diffArrays(prevIds, currIds, { maxEditLength })`（`maxEditLength = Math.max(250, Math.min(totalLines, 800))`，超限时直接返回 `undefined` 触发 `diff_too_large` 回退整页树），聚合成变更 Hunk、未变更行精确索引映射与全局 `allRemoved` / `allAdded`。
 4. **全局包装层识别与父节点改名配对 LCS 抵消**：
    - 仅构建一次全局父子索引与带 `#ref` 节点集合；
    - **包装层抵消**：识别无 `#ref` 或对侧不存在的包装行 `W`，校验 `W` 的外层父节点精确映射到对侧同一父节点下标，并利用同父级左右最近未变更兄弟的映射区间 `(otherLowerBound, otherUpperBound)` 过滤对侧候选子节点（既支持同父级原本已有同级同名节点时仍准确抵消新包装层，又防止同名卡片跨父或跨位置移入新分组被误抵消），随后在过滤后的候选集上对其直接子节点求 `trimmed` LCS 并抵消；
