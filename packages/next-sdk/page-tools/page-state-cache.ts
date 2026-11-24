@@ -30,43 +30,40 @@ export interface PageSnapshot {
 export interface StateCacheUpdateOptions {
   /** 强制作为全量快照输出（如调用方显式指定 responseMode: 'full'） */
   forceFull?: boolean
+  /** 调用方已拆好的纯内容行数组（如 buildA11yTree 返回的 lines），传入时跳过剥离围栏与重复拆行 */
+  lines?: string[]
 }
 
-export interface FullDiffResult {
-  kind: 'full'
+interface DiffResultBase {
   /** 当前快照版本号（从 1 单调递增，reset 后归 0） */
   rev: number
-  /** 触发全量输出的原因 */
-  fullReason: FullSnapshotReason
   /** 上一次缓存的 URL */
   prevUrl: string
   /** 新增行数（`+ ` 行计数） */
   addedLines: number
   /** 删除行数（`- ` 行计数） */
   removedLines: number
+}
+
+export interface FullDiffResult extends DiffResultBase {
+  kind: 'full'
+  /** 触发全量输出的原因 */
+  fullReason: FullSnapshotReason
   /** 全量输出时恒为空串 */
   diffText: ''
 }
 
-export interface IncrementalDiffResult {
+export interface IncrementalDiffResult extends DiffResultBase {
   kind: 'diff'
-  /** 当前快照版本号（从 1 单调递增，reset 后归 0） */
-  rev: number
   /** 本次增量 diff 所基于的上一版快照 rev */
   baseRev: number
-  /** 上一次缓存的 URL */
-  prevUrl: string
-  /** 新增行数（`+ ` 行计数） */
-  addedLines: number
-  /** 删除行数（`- ` 行计数） */
-  removedLines: number
   /** 结构化 +/- 差异文本（无变化时为 `# (no changes)`） */
   diffText: string
 }
 
 export type DiffResult = FullDiffResult | IncrementalDiffResult
 
-/** 三项熔断保护策略常量（集中定义于此，避免 diff 模块与缓存层分头维护） */
+/** 三项熔断保护策略常量（唯一真源，透传给 structured-yaml-diff.ts） */
 const MAX_CHANGE_LINE_RATIO = 0.5
 const MAX_DIFF_CHAR_RATIO = 1.0
 const FAST_ABORT_MIN_WINDOW_LINES = 200
@@ -110,15 +107,15 @@ export class PageStateCache {
   /**
    * 更新缓存并返回结构化快照/Diff 结果
    * @param url 当前页面 URL
-   * @param yaml 当前 YAML 树文本
-   * @param options 可选强制全量配置
+   * @param yaml 当前 YAML 树文本（用于体积倒挂判定，未提供 options.lines 时也用于拆行）
+   * @param options 可选强制全量与预拆分行数组配置
    */
   update(url: string, yaml: string, options: StateCacheUpdateOptions = {}): DiffResult {
-    const { forceFull = false } = options
+    const { forceFull = false, lines } = options
 
     const prevSnapshot = this.prev
     const prevUrl = prevSnapshot?.url ?? ''
-    const currLines = extractYamlLines(yaml)
+    const currLines = lines ?? extractYamlLines(yaml)
     const nextRev = ++this.rev
 
     let fullReason: FullSnapshotReason | undefined

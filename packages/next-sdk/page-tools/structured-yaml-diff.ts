@@ -2,14 +2,14 @@
  * structured-yaml-diff.ts
  *
  * 无障碍 YAML 树的结构感知增量 Diff 纯函数模块：
- * 1. 首尾公共行剥离 + O(N) 低重合快速预判 + Myers 整型键对比与编辑距离上限保护（阈值由 PageStateCache 注入）；
- * 2. 在全局变更全集上执行：
- *    - 包装层（Wrapper）插入/移除抵消：依赖 Myers 公共段建立的新旧精确父节点映射与相邻兄弟窗口，
- *      跳过对侧已有容器（含拆包上移容器与原位改名容器），绝不吞掉跨父/跨位置移动；
+ * 1. 首尾公共行剥离 + O(N) 低重合快速预判 + Myers 整型键对比与编辑距离上限保护（阈值由 PageStateCache 集中注入）；
+ * 2. 在全局变更全集上执行 `cancelWrapperAndRenamedParentShifts`：
+ *    - 无 #ref 包装层（Wrapper）插入/移除抵消：依赖 Myers 公共段建立的新旧精确父节点映射与相邻兄弟窗口，
+ *      跳过窗口内对侧已有容器（含拆包上移容器与原位改名容器）及带 #ref 交互容器，绝不吞掉跨父/跨位置移动；
  *    - 父节点改名配对（倒排索引 O(M) 候选生成 + 共享子节点与名称兼容排序）+ 整行 LCS 抵消，
  *      兼容行内文案拼装、含转义引号名称、多 token 与无名称 token 更新；
- * 3. 按文档顺序交错输出未配对删除行（位于新增行之前）、新增行与同步配对项，并沿预计算 `parentIndex`
- *    以 O(1) 为每行按需补全去重后的最小父级缩进锚点（跨父移动时强制分别补齐旧父级与新父级锚点）。
+ * 3. 维护单调缩进上下文栈 `activeStack` 按文档顺序输出：同父同缩进修改紧邻成对输出，跨父移动与缩进平移按各自
+ *    父级文档位置自然输出，自动去重且外层祖先变化时联动补齐内层祖先，绝不把已删除/旧名称父节点当上下文输出。
  */
 
 import { diffArrays } from 'diff'
@@ -30,15 +30,16 @@ const LINE_REF_RE = /^\s*-\s+[^["]+?\s+#(\d+)(?:\s|$)/
 const UNREF_ROLE_AND_NAME_RE =
   /^-\s+([^\s["]+)(?:\s+\[(?:[^\]"\\]|\\.|"(?:[^"\\]|\\.)*")*\])*(?:\s+"((?:[^"\\]|\\.)*)")?$/
 
+/** 熔断策略配置（所有阈值均由调用方 PageStateCache 集中定义并必填传入） */
 export interface StructuredDiffOptions {
-  /** 变更行数占比熔断阈值（默认 0.5） */
-  maxChangeLineRatio?: number
-  /** 触发 O(N) 低重合快速预判的最小两侧中间变更区间行数之和（默认 200） */
-  fastAbortMinWindowLines?: number
-  /** Myers 编辑距离上限下界（默认 250） */
-  minMyersEditLength?: number
-  /** Myers 编辑距离上限上界（默认 800） */
-  maxMyersEditLength?: number
+  /** 变更行数占比熔断阈值 */
+  maxChangeLineRatio: number
+  /** 触发 O(N) 低重合快速预判的最小两侧中间变更区间行数之和 */
+  fastAbortMinWindowLines: number
+  /** Myers 编辑距离上限下界 */
+  minMyersEditLength: number
+  /** Myers 编辑距离上限上界 */
+  maxMyersEditLength: number
 }
 
 interface ComparableLine {
@@ -79,17 +80,14 @@ interface OtherSideContext {
   comparable: ComparableLine[]
   byParentIdx: Map<number, IndexedLine[]>
   allChildrenByParent: Map<number, number[]>
-  changedTrimmedSet: Set<string>
-  refKeys: Set<number>
+  /** 对侧变更行按 trimmed 分桶后的下标列表，用于限定在兄弟窗口内检查已有容器 */
+  changedIndicesByTrimmed: Map<string, number[]>
   cancelled: Set<number>
 }
 
-interface AncestorRenderSide {
-  comparable: ComparableLine[]
-  lines: string[]
-  /** 记录本侧所有已输出行的下标（含祖先锚点行与变更行自身），用于常规去重 */
-  emittedIndices: Set<number>
-  ownChangeIndices: Set<number>
+interface ContextEntry {
+  indent: number
+  line: string
 }
 
 export interface StructuredDiffOutput {
@@ -97,6 +95,14 @@ export interface StructuredDiffOutput {
   addedLines: number
   removedLines: number
   abortedTooLarge?: boolean
+}
+
+function createNoChangesOutput(): StructuredDiffOutput {
+  return { diffText: NO_CHANGES_DIFF_TEXT, addedLines: 0, removedLines: 0 }
+}
+
+function createAbortedTooLargeOutput(): StructuredDiffOutput {
+  return { diffText: '', addedLines: 0, removedLines: 0, abortedTooLarge: true }
 }
 
 function parseLineRef(line: string): number | null {
@@ -166,14 +172,6 @@ function buildComparableLines(lines: string[]): ComparableLine[] {
   })
 }
 
-function buildRefKeySet(comparable: ComparableLine[]): Set<number> {
-  const refKeys = new Set<number>()
-  for (const comp of comparable) {
-    if (comp.ref !== null) refKeys.add(comp.ref)
-  }
-  return refKeys
-}
-
 function buildTreeChildrenIndex(comparable: ComparableLine[]): {
   childrenByParent: Map<number, number[]>
   siblingPos: Map<number, number>
@@ -191,6 +189,19 @@ function buildTreeChildrenIndex(comparable: ComparableLine[]): {
     list.push(i)
   }
   return { childrenByParent, siblingPos }
+}
+
+function buildChangedIndicesByTrimmed(items: IndexedLine[]): Map<string, number[]> {
+  const map = new Map<string, number[]>()
+  for (const item of items) {
+    let list = map.get(item.trimmed)
+    if (!list) {
+      list = []
+      map.set(item.trimmed, list)
+    }
+    list.push(item.index)
+  }
+  return map
 }
 
 function groupByKey<K>(items: IndexedLine[], keyFn: (item: IndexedLine) => K): Map<K, IndexedLine[]> {
@@ -313,23 +324,20 @@ function cancelByLcs(
 }
 
 /**
- * 单方向包装层（Wrapper）插入/移除抵消（参数化复用，两侧仅传上下文对象）：
- * 1. 带 #ref 的节点若在对侧快照中原本已存在则跳过（避免把已有父节点改名并移入/移出子节点误判为包装层）；
- * 2. 无 #ref 的候选 W 若对侧变更集中已存在相同 trimmed 文本（如移除外层包装后上移的已有容器），跳过；
- * 3. 利用 Myers 公共段建立的精确父节点映射（unchangedToOther），校验包装层父节点与旧直接子节点的父节点为同一节点（杜绝同名卡片跨父误抵消）；
- * 4. 利用包装层在同父级下左右最近未变更兄弟的映射边界，仅允许抵消落在该连续兄弟窗口内的对侧子节点（杜绝跨位置移动误抵消）；
- * 5. 若窗口内存在与 W 同 role、未进入 W 直接子节点且本身为容器或具名节点的无 #ref 变更节点（如原位改名为不相似名称的容器），跳过并交由改名配对处理。
+ * 单方向无交互包装层（Wrapper）插入/移除抵消（参数化复用，两侧仅传上下文对象）：
+ * 1. 带 #ref 的交互容器不作为纯包装层折叠（与 prompt「无交互容器」说明严格一致）；
+ * 2. 利用 Myers 公共段建立的精确父节点映射（unchangedToOther），校验包装层父节点与旧直接子节点的父节点为同一节点；
+ * 3. 利用包装层在同父级下左右最近未变更兄弟的映射边界 `(otherLowerBound, otherUpperBound)` 限定候选窗口：
+ *    - 若窗口内对侧变更行中已存在与 W 相同 trimmed 的节点（拆外层包装上移的已有容器），跳过（不误伤别处同名加载提示消失）；
+ *    - 仅抵消落在该连续兄弟窗口内的对侧子节点（杜绝跨位置移动误抵消）；
+ * 4. 若窗口内存在与 W 同 role、未进入 W 直接子节点且本身有子节点或具名的无 #ref 变更节点（原位改名容器），跳过并交由改名配对处理。
  */
 function cancelWrappedNodes(wrapper: WrapperSideContext, other: OtherSideContext): void {
   for (const w of wrapper.candidates) {
     if (wrapper.cancelled.has(w.index)) continue
     const wComp = wrapper.comparable[w.index]
-    if (wComp.ref !== null) {
-      if (other.refKeys.has(wComp.ref)) continue
-    } else if (other.changedTrimmedSet.has(wComp.trimmed)) {
-      // 对侧变更集中已有相同 trimmed 的节点（例如拆外层包装后上移的已有容器），并非新包装层
-      continue
-    }
+    // 仅对无 #ref 的无交互包装容器执行包装层折叠
+    if (wComp.ref !== null) continue
 
     // 精确映射包装层的父节点到对侧快照中的同一父节点下标
     const expectedOtherParentIdx =
@@ -363,6 +371,26 @@ function cancelWrappedNodes(wrapper: WrapperSideContext, other: OtherSideContext
       }
     }
 
+    // 将兄弟窗口收紧到 expectedOtherParentIdx 的子树范围 [parentIdx, subtreeEnd)，
+    // 确保其他分支（例如前面或后面的侧栏区域）的同名节点绝不会落入本父节点窗口内
+    if (expectedOtherParentIdx !== -1) {
+      otherLowerBound = Math.max(otherLowerBound, expectedOtherParentIdx)
+      const parentIndent = other.comparable[expectedOtherParentIdx].indent
+      for (let j = expectedOtherParentIdx + 1; j < other.comparable.length; j++) {
+        if (other.comparable[j].indent <= parentIndent) {
+          otherUpperBound = Math.min(otherUpperBound, j)
+          break
+        }
+      }
+    }
+
+    // 仅当对侧相同 trimmed 的变更节点位于本窗口内时（如拆外层包装后上移的已有容器）才跳过，
+    // 避免页面其他区域的同名节点（如侧栏加载提示消失）误阻断本区域的真包装层抵消
+    const sameTrimmedIndices = other.changedIndicesByTrimmed.get(wComp.trimmed)
+    if (sameTrimmedIndices?.some((idx) => idx > otherLowerBound && idx < otherUpperBound)) {
+      continue
+    }
+
     const otherChildren = (other.byParentIdx.get(expectedOtherParentIdx) ?? []).filter(
       (item) =>
         !other.cancelled.has(item.index) &&
@@ -373,22 +401,20 @@ function cancelWrappedNodes(wrapper: WrapperSideContext, other: OtherSideContext
 
     // 防止窗口内已有无 #ref 容器原位改名（即使名称不相似，如 "待处理" → "已完成"）同时移入/移出相邻节点时被误判为新包装层；
     // 通过排除已在 wrappedChildren 中出现的 trimmed，避免误伤「generic 包装层包住同 role 的 generic 子节点」场景
-    if (wComp.ref === null) {
-      const wMeta = parseUnrefRoleAndName(wComp.trimmed)
-      if (wMeta) {
-        const wrappedChildTrimmed = new Set(wrappedChildren.map((c) => c.trimmed))
-        const hasSameRoleContainerCounterpart = otherChildren.some((item) => {
-          const oComp = other.comparable[item.index]
-          if (oComp.ref !== null || wrappedChildTrimmed.has(oComp.trimmed)) return false
-          const oMeta = parseUnrefRoleAndName(oComp.trimmed)
-          if (!oMeta || oMeta.role !== wMeta.role) return false
-          return (
-            other.allChildrenByParent.has(item.index) ||
-            (wMeta.name !== '' && oMeta.name !== '')
-          )
-        })
-        if (hasSameRoleContainerCounterpart) continue
-      }
+    const wMeta = parseUnrefRoleAndName(wComp.trimmed)
+    if (wMeta) {
+      const wrappedChildTrimmed = new Set(wrappedChildren.map((c) => c.trimmed))
+      const hasSameRoleContainerCounterpart = otherChildren.some((item) => {
+        const oComp = other.comparable[item.index]
+        if (oComp.ref !== null || wrappedChildTrimmed.has(oComp.trimmed)) return false
+        const oMeta = parseUnrefRoleAndName(oComp.trimmed)
+        if (!oMeta || oMeta.role !== wMeta.role) return false
+        return (
+          other.allChildrenByParent.has(item.index) ||
+          (wMeta.name !== '' && oMeta.name !== '')
+        )
+      })
+      if (hasSameRoleContainerCounterpart) continue
     }
 
     cancelByLcs(
@@ -402,14 +428,11 @@ function cancelWrappedNodes(wrapper: WrapperSideContext, other: OtherSideContext
 }
 
 /**
- * 在所有 Hunk 的变更全集上执行两类保序、保父级的安全抵消：
- * 1. 全局包装层（Wrapper）插入/移除识别（精确父节点映射 + 相邻兄弟窗口 + 已有/改名容器守卫）；
- * 2. 全局父节点改名配对（按直接子节点整行建倒排索引，O(M) 生成共享子节点候选）+ 整行 LCS 抵消：
- *    - 带 #ref 父节点仅允许与同一 #ref 且外层父级兼容的节点配对；
- *    - 无 #ref 父节点要求同 role、同外层父级且共享整行相同直接子节点（兼容行内文案拼装如 `订单-3 运行中 → 订单-3 已停止` 及无名称 token 更新如 `- row → - row [selected]`），
- *      当双方有非空且不兼容名称时，若任一方存在同层名称更匹配的真身则拒绝错配，否则仅允许同相对原位改名。
+ * 在所有 Hunk 的变更全集上执行两类保序、保父级的结构平移抵消：
+ * 1. 全局无交互包装层（Wrapper）插入/移除抵消（精确父节点映射 + 相邻兄弟窗口 + 窗口内已有/改名容器守卫）；
+ * 2. 全局父节点改名配对（按直接子节点整行建倒排索引，O(M) 生成共享子节点候选）+ 整行 LCS 抵消。
  */
-function cancelUnchangedGlobally(
+function cancelWrapperAndRenamedParentShifts(
   allRemoved: IndexedLine[],
   allAdded: IndexedLine[],
   prevComparable: ComparableLine[],
@@ -419,21 +442,20 @@ function cancelUnchangedGlobally(
 ): {
   cancelledRem: Set<number>
   cancelledAdd: Set<number>
+  pairedPrevToCurr: Map<number, number>
   pairedRenamedParentByCurrIdx: Map<number, number>
 } {
   const cancelledRem = new Set<number>()
   const cancelledAdd = new Set<number>()
 
-  const prevRefKeys = buildRefKeySet(prevComparable)
-  const currRefKeys = buildRefKeySet(currComparable)
   const prevTreeIdx = buildTreeChildrenIndex(prevComparable)
   const currTreeIdx = buildTreeChildrenIndex(currComparable)
   const removedByParentIdx = groupByKey(allRemoved, (r) => prevComparable[r.index].parentIndex)
   const addedByParentIdx = groupByKey(allAdded, (a) => currComparable[a.index].parentIndex)
-  const removedTrimmedSet = new Set(allRemoved.map((r) => r.trimmed))
-  const addedTrimmedSet = new Set(allAdded.map((a) => a.trimmed))
+  const removedIndicesByTrimmed = buildChangedIndicesByTrimmed(allRemoved)
+  const addedIndicesByTrimmed = buildChangedIndicesByTrimmed(allAdded)
 
-  // 1a. Wrapper 插入识别（curr 侧新增包装行 W）
+  // 1a. Wrapper 插入识别（curr 侧新增无交互包装行 W）
   cancelWrappedNodes(
     {
       candidates: allAdded,
@@ -448,13 +470,12 @@ function cancelUnchangedGlobally(
       comparable: prevComparable,
       byParentIdx: removedByParentIdx,
       allChildrenByParent: prevTreeIdx.childrenByParent,
-      changedTrimmedSet: removedTrimmedSet,
-      refKeys: prevRefKeys,
+      changedIndicesByTrimmed: removedIndicesByTrimmed,
       cancelled: cancelledRem,
     },
   )
 
-  // 1b. Wrapper 移除识别（prev 侧删除包装行 W）
+  // 1b. Wrapper 移除识别（prev 侧删除无交互包装行 W）
   cancelWrappedNodes(
     {
       candidates: allRemoved,
@@ -469,8 +490,7 @@ function cancelUnchangedGlobally(
       comparable: currComparable,
       byParentIdx: addedByParentIdx,
       allChildrenByParent: currTreeIdx.childrenByParent,
-      changedTrimmedSet: addedTrimmedSet,
-      refKeys: currRefKeys,
+      changedIndicesByTrimmed: addedIndicesByTrimmed,
       cancelled: cancelledAdd,
     },
   )
@@ -548,7 +568,6 @@ function cancelUnchangedGlobally(
       )
       if (rChildren.length === 0) continue
 
-      // 统计本 rParent 中各子行出现次数，再查倒排表累计与各 addParent 的多重集交集大小
       const rLineCounts = new Map<string, number>()
       for (const child of rChildren) {
         rLineCounts.set(child.line, (rLineCounts.get(child.line) ?? 0) + 1)
@@ -571,7 +590,6 @@ function cancelUnchangedGlobally(
 
         let nameScore = 0
         if (rComp.ref !== null || aComp.ref !== null) {
-          // 带 #ref 的父节点仅允许与同一 #ref 配对
           if (rComp.ref !== aComp.ref) continue
           nameScore = REF_EXACT_PAIR_SCORE
         } else {
@@ -580,8 +598,6 @@ function cancelUnchangedGlobally(
           if (!rMeta || !aMeta || rMeta.role !== aMeta.role) continue
 
           nameScore = scoreUnrefNameSimilarity(rMeta.name, aMeta.name)
-          // 双方均有非空名称且名称完全不相关时（如 Billing vs Shipping(1)、X vs Y(3)）：
-          // 若任一方在同外层父级下存在同词干的真身，则禁止跨容器错配；否则仅允许同相对原位改名
           if (rMeta.name && aMeta.name && nameScore === 0) {
             const rStem = normalizeNameStem(rMeta.name)
             const aStem = normalizeNameStem(aMeta.name)
@@ -606,7 +622,6 @@ function cancelUnchangedGlobally(
       }
     }
 
-    // 排序：共享子节点数优先，其次名称兼容分，最后行号距离
     candidates.sort(
       (a, b) =>
         b.sharedChildren - a.sharedChildren ||
@@ -633,43 +648,24 @@ function cancelUnchangedGlobally(
     }
   }
 
-  return { cancelledRem, cancelledAdd, pairedRenamedParentByCurrIdx }
+  return { cancelledRem, cancelledAdd, pairedPrevToCurr, pairedRenamedParentByCurrIdx }
 }
 
 /**
- * 统一的祖先锚点输出 helper：按 O(1) parentIndex 向上追溯最多 MAX_ANCESTOR_CONTEXT_DEPTH 层并自动去重。
- * 当 `forceDirectParent === true`（跨父移动场景）时，即使直接父节点本身是本 hunk 变更行或先前已输出，
- * 也会在目标行前补出其当前锚点（避免紧跟在另一侧父级上下文下方导致移动去向不可读）。
+ * 构建当前树中唯一出现的 `#ref -> 行下标` 索引，供旧侧祖先映射至当前侧最新行文本使用。
  */
-function emitAncestorsFor(
-  targetIdx: number,
-  side: AncestorRenderSide,
-  emittedTextsInHunk: Set<string>,
-  outputLines: string[],
-  forceDirectParent = false,
-): void {
-  const ancestorIndices = findAncestorIndices(side.comparable, targetIdx)
-  const directParentIdx = side.comparable[targetIdx]?.parentIndex ?? -1
-
-  for (const idx of ancestorIndices) {
-    const text = side.lines[idx]
-    const anchorLine = `  ${text}`
-    if (forceDirectParent && idx === directParentIdx) {
-      side.emittedIndices.add(idx)
-      emittedTextsInHunk.add(text.trimStart())
-      if (outputLines[outputLines.length - 1] !== anchorLine) {
-        outputLines.push(anchorLine)
-      }
-      continue
-    }
-    if (side.emittedIndices.has(idx) || side.ownChangeIndices.has(idx)) continue
-    side.emittedIndices.add(idx)
-    const key = text.trimStart()
-    if (!emittedTextsInHunk.has(key)) {
-      emittedTextsInHunk.add(key)
-      outputLines.push(anchorLine)
-    }
+function buildUniqueRefIndex(comparable: ComparableLine[]): Map<number, number> {
+  const counts = new Map<number, number>()
+  const indexByRef = new Map<number, number>()
+  for (let i = 0; i < comparable.length; i++) {
+    const ref = comparable[i].ref
+    if (ref === null) continue
+    const next = (counts.get(ref) ?? 0) + 1
+    counts.set(ref, next)
+    if (next === 1) indexByRef.set(ref, i)
+    else indexByRef.delete(ref)
   }
+  return indexByRef
 }
 
 /**
@@ -715,20 +711,20 @@ function isGuaranteedTooLargeByMultiset(
 export function computeStructuredYamlDiff(
   prevLines: string[],
   currLines: string[],
-  options: StructuredDiffOptions = {},
+  options: StructuredDiffOptions,
 ): StructuredDiffOutput {
   const {
-    maxChangeLineRatio = 0.5,
-    fastAbortMinWindowLines = 200,
-    minMyersEditLength = 250,
-    maxMyersEditLength = 800,
+    maxChangeLineRatio,
+    fastAbortMinWindowLines,
+    minMyersEditLength,
+    maxMyersEditLength,
   } = options
 
   if (
     prevLines.length === currLines.length &&
     prevLines.every((line, idx) => line === currLines[idx])
   ) {
-    return { diffText: NO_CHANGES_DIFF_TEXT, addedLines: 0, removedLines: 0 }
+    return createNoChangesOutput()
   }
 
   const prevComparable = buildComparableLines(prevLines)
@@ -758,7 +754,7 @@ export function computeStructuredYamlDiff(
   }
 
   if (prefixLen === prevEnd && prefixLen === currEnd) {
-    return { diffText: NO_CHANGES_DIFF_TEXT, addedLines: 0, removedLines: 0 }
+    return createNoChangesOutput()
   }
 
   // 2. 大窗口低重合快速熔断：整页重绘在进入 Myers 前即可 O(N) 返回
@@ -775,7 +771,7 @@ export function computeStructuredYamlDiff(
       maxChangeLineRatio,
     )
   ) {
-    return { diffText: '', addedLines: 0, removedLines: 0, abortedTooLarge: true }
+    return createAbortedTooLargeOutput()
   }
 
   // 3. 带确定性编辑距离上限的 Myers 对比：将 (directParent, trimmed) 映射为整型 ID，
@@ -802,7 +798,7 @@ export function computeStructuredYamlDiff(
   }
   const parts = diffArrays(prevIds, currIds, { maxEditLength })
   if (!parts) {
-    return { diffText: '', addedLines: 0, removedLines: 0, abortedTooLarge: true }
+    return createAbortedTooLargeOutput()
   }
 
   // 建立新旧树未变更行的一一对应映射（前缀 + Myers 公共段 + 后缀），供全局包装层与父节点配对精确定位
@@ -873,31 +869,145 @@ export function computeStructuredYamlDiff(
   }
 
   if (hunks.length === 0) {
-    return { diffText: NO_CHANGES_DIFF_TEXT, addedLines: 0, removedLines: 0 }
+    return createNoChangesOutput()
   }
 
-  // 4. 全局变更全集上统一执行 Wrapper 识别与父节点改名配对 LCS 抵消
-  const { cancelledRem, cancelledAdd, pairedRenamedParentByCurrIdx } = cancelUnchangedGlobally(
-    allRemoved,
-    allAdded,
-    prevComparable,
-    currComparable,
-    prevToCurrUnchanged,
-    currToPrevUnchanged,
+  // 4. 全局变更全集上统一执行无交互包装层抵消与父节点改名配对 LCS 抵消
+  const { cancelledRem, cancelledAdd, pairedPrevToCurr, pairedRenamedParentByCurrIdx } =
+    cancelWrapperAndRenamedParentShifts(
+      allRemoved,
+      allAdded,
+      prevComparable,
+      currComparable,
+      prevToCurrUnchanged,
+      currToPrevUnchanged,
+    )
+
+  const currUniqueRefIdx = buildUniqueRefIndex(currComparable)
+  const effectiveRemovedAll = new Set<number>(
+    allRemoved.filter((r) => !cancelledRem.has(r.index)).map((r) => r.index),
   )
 
   const outputLines: string[] = []
-  const emittedCurrIndices = new Set<number>()
-  const emittedPrevIndices = new Set<number>()
+  /** 单调缩进上下文栈：精确追踪输出流当前呈现给读者的祖先链，根治去重错级与重复锚点 */
+  const activeStack: ContextEntry[] = []
   let addedLines = 0
   let removedLines = 0
+
+  const pushContext = (indent: number, line: string) => {
+    while (activeStack.length > 0 && activeStack[activeStack.length - 1].indent >= indent) {
+      activeStack.pop()
+    }
+    activeStack.push({ indent, line })
+  }
+
+  /**
+   * 为旧侧（prev）祖先下标解析其应展示的上下文条目：
+   * - 未变祖先：直接使用原行
+   * - 已改名祖先（配对改名或同 #ref 唯一存在且同缩进）：使用当前侧最新行，绝不以旧名称作为上下文行输出
+   * - 已彻底删除祖先：标记 deleted = true（若正好在 activeStack 中则自然命中，绝不以 `  ` 前缀重新输出）
+   */
+  const resolvePrevAncestorEntry = (
+    prevAncIdx: number,
+  ): { indent: number; line: string; deleted: boolean } => {
+    const prevComp = prevComparable[prevAncIdx]
+    if (prevToCurrUnchanged.has(prevAncIdx)) {
+      return { indent: prevComp.indent, line: prevComp.line, deleted: false }
+    }
+    const mappedCurrIdx =
+      pairedPrevToCurr.get(prevAncIdx) ??
+      (prevComp.ref !== null ? currUniqueRefIdx.get(prevComp.ref) : undefined)
+    if (mappedCurrIdx !== undefined && currComparable[mappedCurrIdx].indent === prevComp.indent) {
+      const currComp = currComparable[mappedCurrIdx]
+      return { indent: currComp.indent, line: currComp.line, deleted: false }
+    }
+    const deleted = effectiveRemovedAll.has(prevAncIdx)
+    return { indent: prevComp.indent, line: prevComp.line, deleted }
+  }
+
+  /**
+   * 按 activeStack 前缀对齐算法补齐目标行的祖先锚点：
+   * - 比较 activeStack 中缩进严格小于 targetIndent 的已有祖先链；
+   * - 从第一个与期望祖先链分叉的层级 k 开始，依次输出 [k .. last] 全部祖先（杜绝外层重出而内层跳过）。
+   */
+  const ensureAncestors = (targetIdx: number, side: 'prev' | 'curr'): void => {
+    const comparable = side === 'prev' ? prevComparable : currComparable
+    const targetIndent = comparable[targetIdx].indent
+    const ancestorIndices = findAncestorIndices(comparable, targetIdx)
+    if (ancestorIndices.length === 0) return
+
+    const desired = ancestorIndices.map((idx) =>
+      side === 'prev'
+        ? resolvePrevAncestorEntry(idx)
+        : { indent: currComparable[idx].indent, line: currComparable[idx].line, deleted: false },
+    )
+
+    // 取当前 activeStack 中所有缩进严格小于目标行的条目作为现行上下文链
+    const currentChain = activeStack.filter((entry) => entry.indent < targetIndent)
+
+    // 计算 desired 中从头开始在 currentChain 尾部对齐的最大连续匹配前缀长度
+    let matchedPrefix = 0
+    if (currentChain.length >= desired.length) {
+      const offset = currentChain.length - desired.length
+      let allMatch = true
+      for (let k = 0; k < desired.length; k++) {
+        const cur = currentChain[offset + k]
+        if (cur.indent !== desired[k].indent || cur.line !== desired[k].line) {
+          allMatch = false
+          break
+        }
+      }
+      if (allMatch) return
+    }
+
+    // 逐层向下定位第一个需要输出的祖先层级 k：
+    // 若外层 desired[0..k-1] 已在 currentChain 中按顺序精确就位且其间无其它同级打断，则跳过；
+    // 一旦某层不匹配，该层及其后续所有内层祖先一并输出
+    let chainPos = 0
+    for (let k = 0; k < desired.length; k++) {
+      let foundAt = -1
+      for (let j = chainPos; j < currentChain.length; j++) {
+        if (currentChain[j].indent === desired[k].indent && currentChain[j].line === desired[k].line) {
+          foundAt = j
+          break
+        }
+      }
+      if (foundAt !== -1) {
+        matchedPrefix = k + 1
+        chainPos = foundAt + 1
+      } else {
+        break
+      }
+    }
+
+    // 若匹配前缀之后 currentChain 还挂着不同内层祖先，而 desired 只有 1 层外层已命中，
+    // 例如 currentChain = [main, region]，目标行直接在 main 下（indent 2）：
+    // main 已是外层，目标行缩进 2 会弹出 region，若此时直接紧跟在 region 下的子行后，
+    // 需重出 main 锚点明确告诉读者上下文已切回 main（避免挂在 region 下面）
+    if (matchedPrefix === desired.length) {
+      const lastDesired = desired[desired.length - 1]
+      const tailOfChain = currentChain[currentChain.length - 1]
+      if (tailOfChain && (tailOfChain.indent !== lastDesired.indent || tailOfChain.line !== lastDesired.line)) {
+        matchedPrefix = desired.length - 1
+      }
+    }
+
+    for (let k = matchedPrefix; k < desired.length; k++) {
+      const anc = desired[k]
+      if (anc.deleted) continue
+      outputLines.push(`  ${anc.line}`)
+      pushContext(anc.indent, anc.line)
+    }
+  }
 
   for (const hunk of hunks) {
     const effectiveRemoved = hunk.removed.filter((r) => !cancelledRem.has(r.index))
     const effectiveAdded = hunk.added.filter((a) => !cancelledAdd.has(a.index))
     if (effectiveRemoved.length === 0 && effectiveAdded.length === 0) continue
 
-    // 5. 识别同 Hunk 内的同步配对项：同 #ref 唯一配对 或 已配对的改名父节点
+    // 5. 识别同 Hunk 内的「同父同步配对项」：
+    //    - 仅当同 #ref 唯一配对且 directParent 相同（或已配对改名父节点）时就近成对输出 `- / +`；
+    //    - 跨父移动不强行绑定，让 `-` 留在旧父级原位置、`+` 留在新父级新位置自然输出，彻底消除重复与错位锚点
     const addedRefCounts = new Map<number, number>()
     for (const item of effectiveAdded) {
       if (item.ref !== null) addedRefCounts.set(item.ref, (addedRefCounts.get(item.ref) ?? 0) + 1)
@@ -926,7 +1036,11 @@ export function computeStructuredYamlDiff(
     for (const add of effectiveAdded) {
       if (add.ref !== null) {
         const oldByRef = removedByUniqueRef.get(add.ref)
-        if (oldByRef && !pairedRemIndices.has(oldByRef.index)) {
+        if (
+          oldByRef &&
+          !pairedRemIndices.has(oldByRef.index) &&
+          prevComparable[oldByRef.index].directParent === currComparable[add.index].directParent
+        ) {
           pairedOldByAddIdx.set(add.index, oldByRef)
           pairedRemIndices.add(oldByRef.index)
           continue
@@ -951,42 +1065,29 @@ export function computeStructuredYamlDiff(
       nextSyncRemLimit[i] = nextLimit
     }
 
-    const prevSide: AncestorRenderSide = {
-      comparable: prevComparable,
-      lines: prevLines,
-      emittedIndices: emittedPrevIndices,
-      ownChangeIndices: new Set(effectiveRemoved.map((r) => r.index)),
-    }
-    const currSide: AncestorRenderSide = {
-      comparable: currComparable,
-      lines: currLines,
-      emittedIndices: emittedCurrIndices,
-      ownChangeIndices: new Set(effectiveAdded.map((a) => a.index)),
-    }
-    const emittedTextsInHunk = new Set<string>()
     const emittedRemovedInHunk = new Set<number>()
 
     const appendRemovedLine = (rem: IndexedLine) => {
       emittedRemovedInHunk.add(rem.index)
-      emittedPrevIndices.add(rem.index)
       outputLines.push(`- ${rem.line}`)
+      pushContext(prevComparable[rem.index].indent, rem.line)
       removedLines++
     }
 
     const appendAddedLine = (add: IndexedLine) => {
-      emittedCurrIndices.add(add.index)
       outputLines.push(`+ ${add.line}`)
+      pushContext(currComparable[add.index].indent, add.line)
       addedLines++
     }
 
-    const emitSingleRemoved = (rem: IndexedLine, forceDirectParent = false) => {
+    const emitSingleRemoved = (rem: IndexedLine) => {
       if (emittedRemovedInHunk.has(rem.index)) return
-      emitAncestorsFor(rem.index, prevSide, emittedTextsInHunk, outputLines, forceDirectParent)
+      ensureAncestors(rem.index, 'prev')
       appendRemovedLine(rem)
     }
 
-    const emitSingleAdded = (add: IndexedLine, forceDirectParent = false) => {
-      emitAncestorsFor(add.index, currSide, emittedTextsInHunk, outputLines, forceDirectParent)
+    const emitSingleAdded = (add: IndexedLine) => {
+      ensureAncestors(add.index, 'curr')
       appendAddedLine(add)
     }
 
@@ -1000,8 +1101,7 @@ export function computeStructuredYamlDiff(
       }
     }
 
-    // 6. 按文档顺序交错输出：同区间内未配对删除行先于新增行；
-    //    跨父移动强制分别补齐旧父级与新父级锚点，同父改写复用统一登记 helper
+    // 6. 按文档顺序输出：同区间内未配对删除行（含跨父移出）先于新增行（含跨父移入）
     for (let i = 0; i < effectiveAdded.length; i++) {
       const add = effectiveAdded[i]
       const pairedOld = pairedOldByAddIdx.get(add.index)
@@ -1013,20 +1113,17 @@ export function computeStructuredYamlDiff(
 
       flushUnpairedRemovedBefore(pairedOld.index)
 
-      const sameParent =
-        prevComparable[pairedOld.index].directParent === currComparable[add.index].directParent
-      if (sameParent && pairedOld.line === add.line) {
+      if (pairedOld.line === add.line) {
         emittedRemovedInHunk.add(pairedOld.index)
-        emittedPrevIndices.add(pairedOld.index)
-        emittedCurrIndices.add(add.index)
         continue
       }
 
-      if (!sameParent) {
-        emitSingleRemoved(pairedOld, true)
-        emitSingleAdded(add, true)
+      // 同父改写但缩进变化（如外层插入/移除包装层同时修改节点状态）：分别按各自缩进补齐祖先，避免错级
+      if (prevComparable[pairedOld.index].indent !== currComparable[add.index].indent) {
+        emitSingleRemoved(pairedOld)
+        emitSingleAdded(add)
       } else {
-        emitAncestorsFor(add.index, currSide, emittedTextsInHunk, outputLines)
+        ensureAncestors(add.index, 'curr')
         appendRemovedLine(pairedOld)
         appendAddedLine(add)
       }
@@ -1036,7 +1133,7 @@ export function computeStructuredYamlDiff(
   }
 
   if (addedLines === 0 && removedLines === 0) {
-    return { diffText: NO_CHANGES_DIFF_TEXT, addedLines: 0, removedLines: 0 }
+    return createNoChangesOutput()
   }
 
   return {

@@ -126,137 +126,127 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
     currentRefMap = new Map()
     unhighlight()
   }
-  window.__pageAgentResetSession = resetSession
-
-  // ─── 辅助：会话代次守卫与错误响应 ────────────────────────────────────────
-  function isStaleGeneration(expectedGeneration: number): boolean {
-    return expectedGeneration !== sessionGeneration
-  }
-
-  async function withGenerationGuard<T>(
-    expectedGeneration: number,
-    run: () => T | Promise<T>,
-  ): Promise<T | ReturnType<typeof createSessionResetErrorResult>> {
-    if (isStaleGeneration(expectedGeneration)) {
-      return createSessionResetErrorResult(window.location.href)
-    }
-    return run()
-  }
 
   async function errContent(msg: string) {
     return { content: [{ type: 'text' as const, text: msg }] }
   }
 
-  async function guardedErrorFor<T>(
-    expectedGeneration: number,
-    buildError: () => T | Promise<T>,
-  ): Promise<T | ReturnType<typeof createSessionResetErrorResult>> {
-    return withGenerationGuard(expectedGeneration, async () => {
-      const result = await buildError()
-      getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
-      return result
-    })
-  }
-
-  async function actionErrorFor(expectedGeneration: number, msg: string) {
-    return guardedErrorFor(expectedGeneration, () =>
-      createActionErrorResult(msg, (mode) => buildBrowserStateResponseFor(expectedGeneration, mode))
-    )
-  }
-
-  async function staleRefErrorFor(expectedGeneration: number, actionLabel: string, index: number) {
-    return guardedErrorFor(expectedGeneration, () =>
-      createStaleRefErrorResult(actionLabel, index, window.location.href, stateCache.getCurrentRev())
-    )
-  }
-
-  // ─── 核心：构建 browserState 响应（全量 or 结构化增量 Diff）───────────────
-  async function buildBrowserStateResponseFor(
-    expectedGeneration: number,
-    responseMode: BrowserStateResponseMode = 'diff'
-  ): Promise<{ content: Array<{ type: 'text'; text: string }> }> {
-    // 异步操作等待期间若发生了 endTurn() 或 resetSession()，禁止旧续体向新会话分配 ref 或写入 stateCache 基线
-    return withGenerationGuard(expectedGeneration, async () => {
-      const url = window.location.href
-      const title = document.title
-
-      // 生成语义化 ARIA YAML 树 + 刷新活跃 refMap（传入会话级 refAllocator，使存活元素保持稳定 #ref）
-      const { yaml, refMap } = buildA11yTree(document.body, {
-        ...getPageAgentToolConfig().a11yConfig,
-        refAllocator
-      })
-      currentRefMap = refMap
-
-      // 高亮交互元素，且增加全局移除高亮的监听（读取运行期生效的配置，支持 setPageAgentToolConfig 动态修改）
-      if (getPageAgentToolConfig().enableHighlight) {
-        highlight(refMap)
-        globalRemoveListener()
-      }
-
-      // 计算结构化 Diff（包含过大自动熔断回退整页树与版本号递增）
-      const diff = stateCache.update(url, yaml, {
-        forceFull: responseMode === 'full'
-      })
-
-      // 检测页面弹窗/遮罩层（确认框、提示框等），让 AI 优先处理
-      const dialogs = detectPageDialog()
-      // 检测表单校验错误，提醒 AI 优先修复
-      const validationErrors = detectValidationErrors()
-      // 检测 hover 后可见的 tooltip / 浮层提示（框架 portal 插入 body 的内容）
-      const tooltips = detectVisibleTooltips()
-
-      // 根据 responseMode 与熔断结果确定最终 kind 及 content
-      let kind: SnapshotKind = diff.kind
-      let displayContent = ''
-      if (responseMode === 'full') {
-        kind = 'full'
-        displayContent = yaml
-      } else if (responseMode === 'diff') {
-        kind = diff.kind
-        displayContent = diff.kind === 'full' ? yaml : diff.diffText
-      } else if (responseMode === 'both') {
-        kind = diff.kind
-        displayContent = `【全量页面树】:\n${yaml}\n\n【增量差异】:\n${diff.kind === 'full' ? '（首次/刷新/大幅变化，无增量差异）' : diff.diffText}`
-      }
-
-      // 全部字段平铺进 stateObj，直接返回 JSON 便于反序列化（与宿主快照折叠层及 webmcp-cli 对齐）
-      const stateObj: BrowserStateSnapshot = {
-        kind,
-        url,
-        title,
-        rev: diff.rev,
-        ...(diff.kind === 'diff' && kind === 'diff' ? { baseRev: diff.baseRev } : {}),
-        content: displayContent,
-        ...(dialogs.length > 0 ? { dialogs } : {}),
-        ...(validationErrors.length > 0 ? { validationErrors } : {}),
-        ...(tooltips.length > 0 ? { tooltips } : {})
-      }
-      return { content: [{ type: 'text', text: JSON.stringify(stateObj) }] }
-    })
-  }
-
+  /**
+   * 为单次工具调用构建带会话代次守卫的执行上下文：
+   * 在此捕获一次 expectedGeneration，避免在多个内部辅助函数间逐层透传代次参数。
+   */
   function createInvocationContext(expectedGeneration: number): ActionContext {
+    const isStale = () => expectedGeneration !== sessionGeneration
+
+    const withGenerationGuard = async <T,>(
+      run: () => T | Promise<T>,
+    ): Promise<T | ReturnType<typeof createSessionResetErrorResult>> => {
+      if (isStale()) {
+        return createSessionResetErrorResult(window.location.href)
+      }
+      return run()
+    }
+
+    const guardedError = async <T,>(
+      buildError: () => T | Promise<T>,
+    ): Promise<T | ReturnType<typeof createSessionResetErrorResult>> =>
+      withGenerationGuard(async () => {
+        const result = await buildError()
+        getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
+        return result
+      })
+
+    const buildBrowserStateResponse = async (
+      responseMode: BrowserStateResponseMode = 'diff',
+    ): Promise<{ content: Array<{ type: 'text'; text: string }> }> =>
+      // 异步操作等待期间若发生了 endTurn() 或 resetSession()，禁止旧续体向新会话分配 ref 或写入 stateCache 基线
+      withGenerationGuard(async () => {
+        const url = window.location.href
+        const title = document.title
+
+        // 生成语义化 ARIA YAML 树 + 刷新活跃 refMap（传入会话级 refAllocator，使存活元素保持稳定 #ref）
+        const { yaml, lines, refMap } = buildA11yTree(document.body, {
+          ...getPageAgentToolConfig().a11yConfig,
+          refAllocator
+        })
+        currentRefMap = refMap
+
+        // 高亮交互元素，且增加全局移除高亮的监听（读取运行期生效的配置，支持 setPageAgentToolConfig 动态修改）
+        if (getPageAgentToolConfig().enableHighlight) {
+          highlight(refMap)
+          globalRemoveListener()
+        }
+
+        // 直接传入预拆分的 lines，避免重复剥离围栏与按行拆分
+        const diff = stateCache.update(url, yaml, {
+          forceFull: responseMode === 'full',
+          lines
+        })
+
+        // 检测页面弹窗/遮罩层（确认框、提示框等），让 AI 优先处理
+        const dialogs = detectPageDialog()
+        // 检测表单校验错误，提醒 AI 优先修复
+        const validationErrors = detectValidationErrors()
+        // 检测 hover 后可见的 tooltip / 浮层提示（框架 portal 插入 body 的内容）
+        const tooltips = detectVisibleTooltips()
+
+        // 根据 responseMode 与熔断结果确定最终 kind 及 content
+        let kind: SnapshotKind = diff.kind
+        let displayContent = ''
+        if (responseMode === 'full') {
+          kind = 'full'
+          displayContent = yaml
+        } else if (responseMode === 'diff') {
+          kind = diff.kind
+          displayContent = diff.kind === 'full' ? yaml : diff.diffText
+        } else if (responseMode === 'both') {
+          kind = diff.kind
+          displayContent = `【全量页面树】:\n${yaml}\n\n【增量差异】:\n${diff.kind === 'full' ? '（首次/刷新/大幅变化，无增量差异）' : diff.diffText}`
+        }
+
+        // 全部字段平铺进 stateObj，直接返回 JSON 便于反序列化（与宿主快照折叠层及 webmcp-cli 对齐）
+        const stateObj: BrowserStateSnapshot = {
+          kind,
+          url,
+          title,
+          rev: diff.rev,
+          ...(diff.kind === 'diff' && kind === 'diff' ? { baseRev: diff.baseRev } : {}),
+          content: displayContent,
+          ...(dialogs.length > 0 ? { dialogs } : {}),
+          ...(validationErrors.length > 0 ? { validationErrors } : {}),
+          ...(tooltips.length > 0 ? { tooltips } : {})
+        }
+        return { content: [{ type: 'text', text: JSON.stringify(stateObj) }] }
+      })
+
+    const actionError = (msg: string) =>
+      guardedError(() => createActionErrorResult(msg, buildBrowserStateResponse))
+
+    const staleRefError = (actionLabel: string, index: number) =>
+      guardedError(() =>
+        createStaleRefErrorResult(actionLabel, index, window.location.href, stateCache.getCurrentRev())
+      )
+
     return {
       pageController,
       refAllocator,
       setRefMap: (map: RefMap) => {
-        if (isStaleGeneration(expectedGeneration)) return
+        if (isStale()) return
         currentRefMap = map
       },
-      buildBrowserStateResponse: (mode?: BrowserStateResponseMode) =>
-        buildBrowserStateResponseFor(expectedGeneration, mode),
+      buildBrowserStateResponse,
       resolveRefOrError: async (action: RefActionName, index: number) => {
-        const el = isStaleGeneration(expectedGeneration) ? undefined : currentRefMap.get(index)
+        const el = isStale() ? undefined : currentRefMap.get(index)
         if (el && el.isConnected) {
           return { ok: true, el }
         }
         return {
           ok: false,
-          error: await staleRefErrorFor(expectedGeneration, REF_ACTION_LABELS[action], index)
+          error: await staleRefError(REF_ACTION_LABELS[action], index)
         }
       },
       errContent,
-      actionError: (msg: string) => actionErrorFor(expectedGeneration, msg)
+      actionError
     }
   }
 
@@ -374,8 +364,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
         args.action === 'select' ||
         args.action === 'hover'
       ) {
-        return actionErrorFor(
-          invocationGeneration,
+        return ctx.actionError(
           `${REF_ACTION_LABELS[args.action]}执行异常: ${error instanceof Error ? error.message : String(error)}`
         )
       }
@@ -412,6 +401,8 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
 
   const abortController = new AbortController()
   ;(window as any).__pageAgentToolAbortController = abortController
+  // 注销旧实例后才更新全局 resetSession 指针，避免提前返回（如跳过原生 modelContext）覆盖仍在运行的旧实例
+  window.__pageAgentResetSession = resetSession
 
   const executeJavascriptPrompt = getPageAgentToolConfig().enableExecuteJavascript
     ? ''

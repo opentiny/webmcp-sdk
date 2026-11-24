@@ -5,8 +5,8 @@
 围绕「DOM 元素身份锚定」与「生成端保护性结构化 Diff」重构 `page-agent-tool` 的状态感知链路：
 
 1. **元素身份层（`a11y/`）**：引入基于 `WeakMap<Element, number>` + 单调自增计数器的 `ElementRefAllocator`，替代每次重建归零的局部计数器；并在序列化后过滤 `refMap` 使其与 YAML 实际输出的 `#N` 集合严格一致。
-2. **增量对比与版本层（`page-state-cache.ts`）**：维护会话级 `rev` 版本号；利用稳定 `#ref` 对 Myers 行级差异块执行同 `#ref` 就近配对，补充最小父级缩进锚点；当变更行数占比 `> 50%` 或 Diff 文本长度 `>= 整页 YAML 长度` 时自动熔断回退整页树（`kind: 'full'`）。
-3. **协议与生命周期层（`page-agent-tool.ts` / `context.ts` / `handlers/`）**：在状态 JSON 中输出 `kind`、`url`、`rev`、`baseRev`（公开类型 `BrowserStateSnapshot`）；统一各交互 handler 的失效引用错误为 `isError: true` + `errorCode: 'REF_NOT_PRESENTED'`；引入 `sessionGeneration` 守卫（`endTurn()` 与 `resetSession()` 均递增代次，令进行中的异步操作过期续体返回 `SESSION_RESET_ERROR_CODE`）；`PAGE_AGENT_CHAT_END_EVENT` 调用 `endTurn()` 清空 Diff 基线并拦截旧续体，`RegisteredPageAgentToolHandle.resetSession()` 用于新建/清空会话时完整归零。
+2. **增量对比与版本层（`structured-yaml-diff.ts` / `page-state-cache.ts`）**：`structured-yaml-diff.ts` 实现基于稳定 `#ref` 的结构感知增量 Diff（同父同 `#ref` 就近配对、无交互包装层与改名父节点全局抵消、单调缩进上下文栈 `activeStack` 最小父级锚点）；`page-state-cache.ts` 维护会话级 `rev`/`baseRev` 版本号，并集中配置与执行三项熔断回退（前置大窗口 O(N) 低重合预判 / Myers `maxEditLength` 超限、变更行数占比 `> 50%`、Diff 文本长度 `>= 整页 YAML 长度`），命中任一项时自动回退整页树（`kind: 'full'`）。
+3. **协议与生命周期层（`page-agent-tool.ts` / `context.ts` / `handlers/`）**：在状态 JSON 中输出 `kind`、`url`、`rev`、`baseRev`（公开类型 `BrowserStateSnapshot`）；统一各交互 handler 的失效引用错误为 `isError: true` + `errorCode: 'REF_NOT_PRESENTED'`；引入 `sessionGeneration` 守卫（`endTurn()` 与 `resetSession()` 均递增代次，令进行中的异步操作过期续体返回 `SESSION_RESET_ERROR_CODE`）；`PAGE_AGENT_CHAT_END_EVENT` 调用 `endTurn()` 清空 Diff 基线并拦截旧续体，`RegisteredPageAgentToolHandle.resetSession()` 用于新建/清空会话时完整归零，并通过 `window.__pageAgentResetSession` 委托给当前生效注册实例（与遮罩一致，在 `abort()` 注销旧实例后更新指针）。
 
 ## 涉及模块 / 文件
 
@@ -107,13 +107,14 @@ export type RegisteredPageAgentToolHandle = PageAgentToolHandle & {
 2. **首尾公共行剥离与 O(N) 快速熔断**：先剥离首尾 `line` 与 `directParent` 完全相同的公共区间；当两侧中间区间行数之和 `>= 200` 时，先用 O(N) `trimmed` 多重集交集计算变更下界，若下界已超过 50% 直接跳过 Myers 返回 `diff_too_large`，避免整页重绘阻塞主线程。
 3. **Myers 语义行对比 + 全局变更全集聚合**：将中间区间的 `(directParent, trimmed)` 映射为整型 ID 后执行 `diffArrays(prevIds, currIds, { maxEditLength })`（熔断参数由 `PageStateCache` 集中配置并注入，`maxEditLength = Math.max(250, Math.min(totalLines, 800))`，超限时直接返回 `undefined` 触发 `diff_too_large` 回退整页树），聚合成变更 Hunk、未变更行精确索引映射与全局 `allRemoved` / `allAdded`。
    - **已知边界**：由于 Myers 比较键含 `directParent`，无 `#ref` 容器改名或外加包装层时其每个直接子节点在抵消前计 2 次编辑；当该容器的直接子节点数超过约 `maxEditLength / 2`（800 行以上页面约 400 个直接子节点）时，会提前触发 `maxEditLength` 熔断回退整页树以保障主线程响应速度。
-4. **全局包装层识别与父节点改名配对 LCS 抵消**：
-   - 仅构建一次全局父子索引与带 `#ref` 节点集合；
-   - **包装层抵消**：识别候选包装行 `W` 时先排除已有容器（带 `#ref` 且对侧已存在；无 `#ref` 且对侧变更集存在相同 `trimmed` 如拆包上移的已有容器），校验 `W` 的外层父节点精确映射到对侧同一父节点下标，并利用同父级左右最近未变更兄弟的映射区间 `(otherLowerBound, otherUpperBound)` 过滤对侧候选子节点；对无 `#ref` 的 `W`，若窗口内存在未进入 `W` 子节点且本身有子节点或具名的同 `role` 对侧节点（如原位改名容器）则跳过并交由改名配对处理；通过全部守卫后在过滤后的候选集上对其直接子节点求 `trimmed` LCS 并抵消；
+4. **全局包装层识别与父节点改名配对 LCS 抵消（`cancelWrapperAndRenamedParentShifts`）**：
+   - 仅构建一次全局父子索引；
+   - **无交互包装层抵消**：仅对无 `#ref` 候选包装行 `W` 生效（带 `#ref` 的交互容器不作为纯包装层折叠）；校验 `W` 的外层父节点精确映射到对侧同一父节点下标，并利用同父级左右最近未变更兄弟的映射区间 `(otherLowerBound, otherUpperBound)` 过滤对侧候选：① 若窗口内对侧变更行存在相同 `trimmed`（拆包上移的已有容器）则跳过（不误伤别处同名节点消失）；② 若窗口内存在未进入 `W` 子节点且本身有子节点或具名的同 `role` 对侧节点（如原位改名容器）则跳过并交由改名配对处理；通过全部守卫后在过滤后的候选集上对其直接子节点求 `trimmed` LCS 并抵消；
    - **父节点改名配对**：按缩进由浅入深逐层贪心一对一配对，借助直接子节点整行倒排索引避免 $O(P^2)$ 扫描。带 `#ref` 父节点与无 `#ref` 父节点均要求外层父级兼容且存在共享直接子节点；带 `#ref` 仅允许同 `#ref` 配对（分值 3）；无 `#ref` 要求同 role（正则支持转义引号与多 token）并支持词干/首词匹配（分值 0..2，含行内拼装名称与无名称改 token 容器），当双方名称均非空且名称分为 0 时，若任一方在同一外层父级下存在同词干节点则拒绝配对，否则要求两者在本层候选中的相对位置相同。候选按共享直接子节点数、名称相似度分、行号距离降序优选，在配对父节点下仅对整行完全相同的子节点序列求 LCS 并抵消，避免按序号错配且完整保留同父重排与跨父移动。
-5. **文档序同步配对与逐行最小父级锚点（O(1)）**：
+5. **文档序输出与单调缩进上下文栈（`activeStack`）锚点**：
    - 复用预计算的 `ComparableLine.ref`（兼容多词 ARIA role：`/^\s*-\s+[^["]+?\s+#(\d+)(?:\s|$)/`）。
-   - Hunk 内以同 `#ref` 唯一配对与已配对改名父节点作为同步锚点，按文档顺序输出且保证同区间及无配对点 hunk 中未配对删除行（`-`）排在新增行（`+`）之前；每行输出前沿预计算的 `parentIndex` 向上跳转最多 2 层补齐去重后的 `'  '` 上下文锚点（跨父移动的配对行强制分别补齐旧父级与新父级直接锚点，即使新/旧父节点本身在本 hunk 同步改名）。
+   - 仅同父同 `#ref` 唯一配对与已配对改名父节点作为同步配对锚点就近成对输出 `- / +`（若同父改写伴随外层包装导致的缩进变化，则按各自缩进分开补齐祖先）；跨父移动不强行绑定，让 `-` 留在旧父级文档位置、`+` 留在新父级文档位置自然输出。
+   - 维护全局单调缩进栈 `activeStack` 记录当前已呈现给读者的祖先链：补齐某行祖先时对比 `activeStack` 中严格更小缩进的前缀，从第一个分叉层起联动补齐至直接父级（外层重出绝不跳过内层）；旧侧祖先若已改名则映射为当前侧新行，若已删除则绝不以 `  ` 上下文前缀输出。
 6. **三项熔断保护回退整页树**：
    - 若抵消后无任何实质变更，返回 `NO_CHANGES_DIFF_TEXT`（`# (no changes)`）。
    - 结合前述三项熔断条件：① 前置大窗口 O(N) 低重合预判或 Myers `maxEditLength` 超限；② `changedRatio = Math.max(addedLines, removedLines) / Math.max(prevLines.length, currLines.length) > 0.5`；③ `diffText.length >= yaml.length`（防体积倒挂）——命中任一项即判定 `fullReason = 'diff_too_large'`，回退为 `kind: 'full'`（不返回 `baseRev`，外层直接使用完整 `yaml`）。
