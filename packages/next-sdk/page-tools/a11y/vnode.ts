@@ -475,9 +475,15 @@ export function serializeVNode(
   const forceKeepStructure =
     opts.preserveRoles.includes(vnode.role) || isStructuralNamedNode(vnode)
   const indent = '  '.repeat(depth)
-  const refStr = vnode.ref !== undefined ? ` #${vnode.ref}` : ''
   const safeTokens = vnode.tokens.map(t => t.replace(/[\r\n]+/g, ' ').replace(/"/g, '\\"'))
   const tokenStr = safeTokens.length > 0 ? ` [${safeTokens.join(' ')}]` : ''
+
+  /** 统一格式化节点 #ref 并在实际输出该行时登记到 emittedRefs，避免各分支手工登记遗漏 */
+  const formatEmittedRef = (ref?: number): string => {
+    if (ref === undefined) return ''
+    emittedRefs?.add(ref)
+    return ` #${ref}`
+  }
 
   // 空 landmark 壳：仅有声明名、无交互、无有价值子节点、无直接文本 → 整段省略
   // （如空的 ti-app-layout-main-header / 折叠右栏）。有直接文本的 landmark 必须保留。
@@ -497,15 +503,13 @@ export function serializeVNode(
       displayName = collectVisiblePlainText(vnode.el)
     }
     if (isNoiseAccessibleName(displayName)) displayName = ''
-    if (vnode.ref !== undefined) emittedRefs?.add(vnode.ref)
-    return [`${indent}- ${vnode.role}${refStr}${tokenStr}${formatNameAttr(displayName)}`]
+    return [`${indent}- ${vnode.role}${formatEmittedRef(vnode.ref)}${tokenStr}${formatNameAttr(displayName)}`]
   }
 
   // preserveRoles / 声明名 landmark 且无交互：保留结构，父级只用声明名，子节点照常输出
   if (!hasInteractive && forceKeepStructure) {
     const outputName = resolveDeclaredName(vnode)
-    if (vnode.ref !== undefined) emittedRefs?.add(vnode.ref)
-    const line = `${indent}- ${vnode.role}${refStr}${tokenStr}${formatNameAttr(outputName)}`
+    const line = `${indent}- ${vnode.role}${formatEmittedRef(vnode.ref)}${tokenStr}${formatNameAttr(outputName)}`
     const childLines = vnode.children.flatMap(c => serializeVNode(c, depth + 1, opts, emittedRefs))
     return [line, ...childLines]
   }
@@ -567,10 +571,7 @@ export function serializeVNode(
       const mergedName = outputName.trim() || singleChild.name.trim()
       // 合并输出时使用子节点 ref，避免 refMap 中的 #N 在 YAML 里丢失
       const mergedRef = singleChild.ref !== undefined ? singleChild.ref : vnode.ref
-      if (mergedRef !== undefined) emittedRefs?.add(mergedRef)
-      const mergedRefStr =
-        singleChild.ref !== undefined ? ` #${singleChild.ref}` : refStr
-      return [`${indent}- ${vnode.role}${mergedRefStr}${tokenStr}${formatNameAttr(mergedName)}`]
+      return [`${indent}- ${vnode.role}${formatEmittedRef(mergedRef)}${tokenStr}${formatNameAttr(mergedName)}`]
     }
   }
 
@@ -580,8 +581,7 @@ export function serializeVNode(
     return !canOmitStaticChild(c, outputName, parentUsesOwnDeclaredName)
   })
 
-  if (vnode.ref !== undefined) emittedRefs?.add(vnode.ref)
-  const line = `${indent}- ${vnode.role}${refStr}${tokenStr}${formatNameAttr(outputName)}`
+  const line = `${indent}- ${vnode.role}${formatEmittedRef(vnode.ref)}${tokenStr}${formatNameAttr(outputName)}`
   const childLines = childrenToEmit.flatMap(c => serializeVNode(c, depth + 1, opts, emittedRefs))
   return [line, ...childLines]
 }

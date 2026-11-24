@@ -821,7 +821,7 @@ describe('buildA11yTree - ElementRefAllocator 稳定元素编号绑定', () => {
     expect(r2.refMap.has(0)).toBe(false)
     expect(Array.from(r2.refMap.keys())).toEqual([1, 2])
 
-    // 每轮会话重置后重新从 #0 分配
+    // 会话重置后重新从 #0 分配
     allocator.reset()
     const r3 = buildA11yTree(root, { refAllocator: allocator })
     expect(Array.from(r3.refMap.keys())).toEqual([0, 1])

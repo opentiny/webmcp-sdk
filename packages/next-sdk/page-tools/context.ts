@@ -10,6 +10,8 @@ export type PageAgentToolErrorCode =
   | typeof REF_NOT_PRESENTED_ERROR_CODE
   | typeof SESSION_RESET_ERROR_CODE
 
+export type BrowserStateResponseMode = 'full' | 'diff' | 'both'
+
 export type PageAgentToolContentResult = {
   content: Array<{ type: 'text'; text: string }>
 }
@@ -127,7 +129,7 @@ export interface ActionContext {
   getRefMap: () => RefMap
   setRefMap: (map: RefMap) => void
   buildBrowserStateResponse: (
-    mode?: 'full' | 'diff' | 'both'
+    mode?: BrowserStateResponseMode
   ) => Promise<{ content: Array<{ type: 'text'; text: string }> }>
   staleRefError: (actionLabel: string, index: number) => Promise<PageAgentToolErrorResult>
   errContent: (msg: string) => Promise<{ content: Array<{ type: 'text'; text: string }> }>

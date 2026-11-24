@@ -92,7 +92,7 @@ function captureTool(): {
   }
 }
 
-describe('page-agent-tool 稳定编号、结构化版本字段、REF_NOT_PRESENTED 与每轮重置集成测试', () => {
+describe('page-agent-tool 稳定编号、结构化版本字段、REF_NOT_PRESENTED 与单轮结束/会话重置集成测试', () => {
   beforeEach(() => {
     document.body.innerHTML = ''
     delete window.__webmcpcli_toolConfig
@@ -309,5 +309,32 @@ describe('page-agent-tool 稳定编号、结构化版本字段、REF_NOT_PRESENT
     expect(freshState).toMatchObject({ kind: 'full', rev: 1 })
     expect(freshState.baseRev).toBeUndefined()
     expect(freshState.content).toContain('- button #0')
+  })
+
+  it('复现：异步操作等待期间派发 PAGE_AGENT_CHAT_END_EVENT 时，旧续体返回 SESSION_RESET 且下轮首次 browserState 为 full、rev 递增、#ref 不变', async () => {
+    document.body.innerHTML = `
+      <button id="btn-a">按钮A</button>
+      <button id="btn-b">按钮B</button>
+    `
+    const { execute } = captureTool()
+    const s1 = JSON.parse((await execute({ action: 'browserState' })).content[0].text)
+    expect(s1).toMatchObject({ kind: 'full', rev: 1 })
+    expect(s1.content).toContain('- button #0')
+    expect(s1.content).toContain('- button #1')
+
+    // 发起 hover（内部等待 waitForDomSettled），不等其返回即派发单轮结束事件
+    const pendingHover = execute({ action: 'hover', index: 0 })
+    window.dispatchEvent(new CustomEvent(PAGE_AGENT_CHAT_END_EVENT))
+
+    const staleContinuationResult = await pendingHover
+    expect(staleContinuationResult.isError).toBe(true)
+    expect(staleContinuationResult.errorCode).toBe('SESSION_RESET')
+
+    // 下一轮首次 browserState 返回 full，rev 继续递增为 2，且既有 #ref 保持不变
+    const s2 = JSON.parse((await execute({ action: 'browserState' })).content[0].text)
+    expect(s2).toMatchObject({ kind: 'full', rev: 2 })
+    expect(s2.baseRev).toBeUndefined()
+    expect(s2.content).toContain('- button #0')
+    expect(s2.content).toContain('- button #1')
   })
 })

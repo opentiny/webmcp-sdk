@@ -15,6 +15,7 @@ import {
   createSessionResetErrorResult,
   createStaleRefErrorResult,
   type ActionContext,
+  type BrowserStateResponseMode,
   type BrowserStateSnapshot
 } from './context'
 import { detectPageDialog, detectValidationErrors, detectVisibleTooltips } from './utils/dom'
@@ -103,7 +104,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
   // ─── 会话级状态缓存与稳定元素 #ref 分配器 ────────────────────────────────
   const stateCache = new PageStateCache()
   const refAllocator = new ElementRefAllocator()
-  // 会话代次：每次 resetSession() 递增，用于拦截重置前已发起的异步动作续体污染新会话状态
+  // 会话代次：每次 endTurn() 或 resetSession() 递增，用于拦截前序已发起的异步动作续体污染后续状态
   let sessionGeneration = 0
 
   // 当前最新快照中活跃的 ref 索引 → HTMLElement 映射（每次 buildA11yTree 后更新）
@@ -141,33 +142,33 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
     return { content: [{ type: 'text' as const, text: msg }] }
   }
 
-  async function actionErrorFor(expectedGeneration: number, msg: string) {
+  async function guardedErrorFor<T>(
+    expectedGeneration: number,
+    buildError: () => T | Promise<T>,
+  ): Promise<T | ReturnType<typeof createSessionResetErrorResult>> {
     return withGenerationGuard(expectedGeneration, async () => {
-      const result = await createActionErrorResult(msg, (mode) =>
-        buildBrowserStateResponseFor(expectedGeneration, mode)
-      )
+      const result = await buildError()
       getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
       return result
     })
   }
 
+  async function actionErrorFor(expectedGeneration: number, msg: string) {
+    return guardedErrorFor(expectedGeneration, () =>
+      createActionErrorResult(msg, (mode) => buildBrowserStateResponseFor(expectedGeneration, mode))
+    )
+  }
+
   async function staleRefErrorFor(expectedGeneration: number, actionLabel: string, index: number) {
-    return withGenerationGuard(expectedGeneration, async () => {
-      const result = createStaleRefErrorResult(
-        actionLabel,
-        index,
-        window.location.href,
-        stateCache.getCurrentRev()
-      )
-      getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
-      return result
-    })
+    return guardedErrorFor(expectedGeneration, () =>
+      createStaleRefErrorResult(actionLabel, index, window.location.href, stateCache.getCurrentRev())
+    )
   }
 
   // ─── 核心：构建 browserState 响应（全量 or 结构化增量 Diff）───────────────
   async function buildBrowserStateResponseFor(
     expectedGeneration: number,
-    responseMode: 'full' | 'diff' | 'both' = 'diff'
+    responseMode: BrowserStateResponseMode = 'diff'
   ): Promise<{ content: Array<{ type: 'text'; text: string }> }> {
     // 异步操作等待期间若发生了 endTurn() 或 resetSession()，禁止旧续体向新会话分配 ref 或写入 stateCache 基线
     return withGenerationGuard(expectedGeneration, async () => {
@@ -219,7 +220,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
         url,
         title,
         rev: diff.rev,
-        ...(kind === 'diff' && diff.baseRev !== undefined ? { baseRev: diff.baseRev } : {}),
+        ...(diff.kind === 'diff' && kind === 'diff' ? { baseRev: diff.baseRev } : {}),
         content: displayContent,
         ...(dialogs.length > 0 ? { dialogs } : {}),
         ...(validationErrors.length > 0 ? { validationErrors } : {}),
@@ -238,7 +239,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
         if (isStaleGeneration(expectedGeneration)) return
         currentRefMap = map
       },
-      buildBrowserStateResponse: (mode?: 'full' | 'diff' | 'both') =>
+      buildBrowserStateResponse: (mode?: BrowserStateResponseMode) =>
         buildBrowserStateResponseFor(expectedGeneration, mode),
       staleRefError: (actionLabel: string, index: number) =>
         staleRefErrorFor(expectedGeneration, actionLabel, index),

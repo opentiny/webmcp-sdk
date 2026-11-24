@@ -74,7 +74,7 @@ getPageAgentToolConfig() // { enableHighlight: false, a11yConfig: { roles: [...]
 
 `page-agent-tool` 将 `#N` 引用编号稳定绑定到具体 DOM 元素实例（`ElementRefAllocator`）：
 
-- **编号稳定不漂移**：同一轮会话中，存活 DOM 元素的 `#N` 恒定不变；在页面顶部插入新元素只会分配新的递增编号，不会导致下方元素的 `#N` 连锁偏移；已移除元素的旧编号作废且不复用。
+- **编号稳定不漂移**：同一会话中（宿主调用 `resetSession()` 之前），存活 DOM 元素的 `#N` 恒定不变；在页面顶部插入新元素只会分配新的递增编号，不会导致下方元素的 `#N` 连锁偏移；已移除元素的旧编号作废且不复用。
 - **结构化增量 Diff 与阈值熔断**：变更块内同一 `#N` 的修改按 `- 旧行` / `+ 新行` 成对紧邻输出，嵌套变更自动补充最小父级缩进锚点；当变更行数超过整页一半（`> 50%`）或 Diff 字符体积达到/超过整页树（`>= 100%`，防体积倒挂）时，自动熔断回退返回完整无障碍树。
 - **结构化快照元数据**：状态 JSON 包含 `kind`（`'full' | 'diff'`）、`url`、`title`、`rev`（单调递增版本号），且 `kind === 'diff'` 时附带 `baseRev` 标明基准版本，便于上层宿主整链保留或整链折叠历史快照。
 - **过期编号与过期续体报错（`REF_NOT_PRESENTED` / `SESSION_RESET`）**：`click`、`fill`、`select`、`hover`、`scroll(带 index)` 收到不在最新页面快照中（或已脱离 DOM）的编号时，统一返回 `isError: true` 与 `errorCode: 'REF_NOT_PRESENTED'` 轻量错误（不塞整页树）；若异步操作等待期间触发了单轮结束或会话重置，旧续体返回 `errorCode: 'SESSION_RESET'` 并不再污染新状态（DOM 操作若已触发可能已生效，需重新调用 `browserState`）。

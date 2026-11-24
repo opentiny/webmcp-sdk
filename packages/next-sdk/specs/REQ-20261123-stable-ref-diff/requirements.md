@@ -21,7 +21,7 @@
 
 - **稳定元素编号（Stable Element Ref）**：通过 `WeakMap<Element, number>` 与单调递增计数器将 `#N` 绑定到 DOM `Element` 实例。元素存活期间 `#N` 恒定不变；元素移除后旧 `#N` 作废且不复用。
 - **快照版本号（`rev` / `baseRev`）**：每次产出浏览器状态快照自增的整数版本 `rev`（从 `1` 开始）；当返回增量 `diff` 时附带 `baseRev` 标明所基于的上一版快照 `rev`。
-- **Diff 熔断回退（Fallback to Full）**：当变更行数超过整页行数一半，或增量 Diff 文本体积接近/超过整页 YAML 时，自动放弃增量补丁，直接返回整页树并将 `kind` 标记为 `'full'`。
+- **Diff 熔断回退（Fallback to Full）**：当变更行数超过整页行数一半，或增量 Diff 文本体积达到或超过（`>=`）整页 YAML 时，自动放弃增量补丁，直接返回整页树并将 `kind` 标记为 `'full'`。
 
 ## 目标用户 / 场景
 
@@ -44,8 +44,8 @@
 - 重构 `PageStateCache`：
   - 基于稳定 `#ref` 实现变更 Hunk 内按文档顺序输出、同 `#ref`（及配对改名父节点）`- / +` 就近成对输出；
   - 为嵌套层级的每个变更行按需补充去重后的最小父级缩进上下文锚点（`'  '` 前缀）；
-  - 全局变更全集上执行包装层插入/移除抵消（跳过已存在父节点）与改名父节点配对（`#ref` 精确配对或无 `#ref` 名称词干+子节点重合度配对），兼容带子树的子节点并避免跨父移动丢失；
-  - 双重熔断保护 + 首尾剥离与 O(N) 低重合快速预判：变化行占比 `> 50%` 或 `diffText.length >= yaml.length`（防体积倒挂）时自动回退返回整页树（`kind: 'full'`）；
+  - 全局变更全集上执行包装层插入/移除抵消（校验外层父节点精确映射与相邻未变更兄弟位置窗口，兼容同级同名节点并防止跨父/跨位置移动丢失）与改名父节点配对（`#ref` 精确配对或无 `#ref` 名称/词干/首词+子节点重合度倒排索引配对），兼容带子树的子节点；
+  - 三项熔断保护（首尾剥离 + 大窗口 O(N) 低重合快速预判 / Myers `maxEditLength` 上限、变化行占比 `> 50%`、diff 字符体积 `>= 整页 YAML`）时自动回退返回整页树（`kind: 'full'`）；
   - 维护单调递增 `rev` 与增量 `baseRev`；`searchTree` 仅刷新 `currentRefMap`，不覆盖 `stateCache` 基线以保持 `rev` 链连续。
 - `browserState` 返回 JSON 新增结构化字段：`kind: 'full' | 'diff'`、`rev: number`（当 `kind === 'diff'` 时含 `baseRev: number`）。
 - 所有依赖 `index` 的动作（`click`、`fill`、`select`、`hover`、`scroll`）在 `index` 不在最新快照 `currentRefMap` 或元素已脱离文档（`!el.isConnected`）时，统一返回 `isError: true` + `errorCode: 'REF_NOT_PRESENTED'` 轻量结构化错误，不自动附带整页树。

@@ -839,4 +839,402 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
     expect(r2.fullReason).toBe('diff_too_large')
     expect(elapsed).toBeLessThan(200)
   })
+
+  it('复现：无 #ref 父节点行内拼装名称变化（如 listitem "订单-3 运行中" → "订单-3 已停止"）与无名称容器加 token 时，正确配对抵消相同子节点且 - 排在 + 之前', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/inline-lifted-parent-rename'
+
+    const baseRows = Array.from({ length: 12 }, (_, i) => [
+      `  - listitem "订单-${i} 运行中"`,
+      `    - button #${i * 2} "详情"`,
+      `    - button #${i * 2 + 1} "停止"`,
+    ]).flat()
+
+    const yaml1 = [
+      '```yaml',
+      '- list "订单列表"',
+      ...baseRows,
+      '  - row',
+      '    - button #90 "操作A"',
+      '    - button #91 "操作B"',
+      '```',
+    ].join('\n')
+
+    const updatedRows = baseRows.map((line) =>
+      line === '  - listitem "订单-3 运行中"' ? '  - listitem "订单-3 已停止"' : line,
+    )
+    const yaml2 = [
+      '```yaml',
+      '- list "订单列表"',
+      ...updatedRows,
+      '  - row [selected]',
+      '    - button #90 "操作A"',
+      '    - button #91 "操作B"',
+      '```',
+    ].join('\n')
+
+    cache.update(url, yaml1)
+    const r2 = cache.update(url, yaml2)
+
+    expect(r2.kind).toBe('diff')
+    expect(r2.addedLines).toBe(2)
+    expect(r2.removedLines).toBe(2)
+    expect(r2.diffText).toContain('-   - listitem "订单-3 运行中"')
+    expect(r2.diffText).toContain('+   - listitem "订单-3 已停止"')
+    expect(r2.diffText).toContain('-   - row')
+    expect(r2.diffText).toContain('+   - row [selected]')
+    // 相同子节点全部被抵消
+    expect(r2.diffText).not.toContain('button #6')
+    expect(r2.diffText).not.toContain('button #7')
+    expect(r2.diffText).not.toContain('button #90')
+    expect(r2.diffText).not.toContain('button #91')
+  })
+
+  it('复现：无配对点的纯删除+新增 hunk 中，删除行（-）始终排在新增行（+）之前', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/unpaired-order'
+
+    const padding = Array.from({ length: 10 }, (_, i) => `- button #${i + 10} "常驻-${i}"`)
+    const yaml1 = ['```yaml', '- button #1 "旧动作"', ...padding, '```'].join('\n')
+    const yaml2 = ['```yaml', '- button #2 "新动作"', ...padding, '```'].join('\n')
+
+    cache.update(url, yaml1)
+    const r2 = cache.update(url, yaml2)
+
+    expect(r2.kind).toBe('diff')
+    const lines = r2.diffText.split('\n')
+    const remIdx = lines.findIndex((l) => l.startsWith('- ') && l.includes('#1'))
+    const addIdx = lines.findIndex((l) => l.startsWith('+ ') && l.includes('#2'))
+    expect(remIdx).toBeGreaterThanOrEqual(0)
+    expect(addIdx).toBeGreaterThan(remIdx)
+  })
+
+  it('复现：包装层抵消场景 A —— 两张同名 group "规格" 卡片，第 1 张 #30 移入第 2 张新出现的 group "已选" 时必须输出跨父移动', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/wrapper-same-name-cards'
+
+    const padding = Array.from({ length: 16 }, (_, i) => `  - button #${i + 100} "填充-${i}"`)
+    const yaml1 = [
+      '```yaml',
+      '- main "配置页"',
+      ...padding,
+      '  - group "规格"',
+      '    - button #30 "2核4G"',
+      '    - button #31 "4核8G"',
+      '  - group "规格"',
+      '    - button #40 "8核16G"',
+      '```',
+    ].join('\n')
+
+    const yaml2 = [
+      '```yaml',
+      '- main "配置页"',
+      ...padding,
+      '  - group "规格"',
+      '    - button #31 "4核8G"',
+      '  - group "规格"',
+      '    - group "已选"',
+      '      - button #30 "2核4G"',
+      '    - button #40 "8核16G"',
+      '```',
+    ].join('\n')
+
+    cache.update(url, yaml1)
+    const r2 = cache.update(url, yaml2)
+
+    expect(r2.kind).toBe('diff')
+    expect(r2.diffText).toContain('-     - button #30 "2核4G"')
+    expect(r2.diffText).toContain('+       - button #30 "2核4G"')
+  })
+
+  it('复现：包装层抵消场景 B —— 同父级顶层第 1 项 #30 跨位置移入尾部新出现的 group "更多" 时必须输出移动', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/wrapper-cross-position'
+
+    const padding = Array.from({ length: 16 }, (_, i) => `  - button #${i + 100} "顶部填充-${i}"`)
+    const yaml1 = [
+      '```yaml',
+      '- main "表格区"',
+      ...padding,
+      '  - button #30 "行0"',
+      '  - button #31 "行1"',
+      '  - button #32 "行2"',
+      '  - button #33 "行3"',
+      '```',
+    ].join('\n')
+
+    const yaml2 = [
+      '```yaml',
+      '- main "表格区"',
+      ...padding,
+      '  - button #31 "行1"',
+      '  - button #32 "行2"',
+      '  - button #33 "行3"',
+      '  - group "更多"',
+      '    - button #30 "行0"',
+      '```',
+    ].join('\n')
+
+    cache.update(url, yaml1)
+    const r2 = cache.update(url, yaml2)
+
+    expect(r2.kind).toBe('diff')
+    expect(r2.diffText).toContain('-   - button #30 "行0"')
+    expect(r2.diffText).toContain('+     - button #30 "行0"')
+  })
+
+  it('复现：同父级原本已有同级同名 generic "计算中..." 时，新插入同名包装层包住 30 张卡片仍可精确抵消', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/wrapper-existing-sibling-same-name'
+
+    const cards = Array.from({ length: 30 }, (_, i) => [
+      `  - group "卡片-${i}"`,
+      `    - button #${i} "购买-${i}"`,
+    ]).flat()
+
+    const yaml1 = [
+      '```yaml',
+      '- main "主内容区"',
+      '  - generic "计算中..."',
+      ...cards,
+      '```',
+    ].join('\n')
+    const yaml2 = [
+      '```yaml',
+      '- main "主内容区"',
+      '  - generic "计算中..."',
+      '  - generic "计算中..."',
+      ...cards.map((l) => `  ${l}`),
+      '```',
+    ].join('\n')
+
+    cache.update(url, yaml1)
+    const r2 = cache.update(url, yaml2)
+
+    expect(r2.kind).toBe('diff')
+    expect(r2.addedLines).toBe(1)
+    expect(r2.removedLines).toBe(0)
+    expect(r2.diffText).toContain('+   - generic "计算中..."')
+    expect(r2.diffText).not.toContain('卡片-0')
+    expect(r2.diffText).not.toContain('卡片-29')
+  })
+
+  it('复现：大树最坏场景（5000 行列表倒序与 5000 行全行改名）通过 maxEditLength 与倒排索引在 150ms 内快速回退', () => {
+    const url = 'https://console.example.com/large-worst-case'
+
+    // 场景 1：5000 行列表整体倒序
+    const makeReversedList = (reverse: boolean) => {
+      const items = Array.from({ length: 1666 }, (_, idx) => {
+        const i = reverse ? 1665 - idx : idx
+        return [
+          `  - listitem "订单-${i}"`,
+          `    - text "金额 ¥${i}"`,
+          `    - button #${i} "查看"`,
+        ]
+      }).flat()
+      return ['```yaml', '- list "订单"', ...items, '```'].join('\n')
+    }
+    const cache1 = new PageStateCache()
+    cache1.update(url, makeReversedList(false))
+    const t0 = performance.now()
+    const rRev = cache1.update(url, makeReversedList(true))
+    const elapsedRev = performance.now() - t0
+    expect(rRev.kind).toBe('full')
+    expect(rRev.fullReason).toBe('diff_too_large')
+    expect(elapsedRev).toBeLessThan(150)
+
+    // 场景 2：5000 行所有父行改名（CPU 百分比全量刷新）
+    const makeCpuTable = (cpuBase: number) => {
+      const rows = Array.from({ length: 1250 }, (_, i) => [
+        `  - row "实例-${i} (CPU ${cpuBase + (i % 10)}%)"`,
+        `    - cell "华北-北京四"`,
+        `    - cell "运行中"`,
+        `    - button #${i} "重启"`,
+      ]).flat()
+      return ['```yaml', '- table "实例列表"', ...rows, '```'].join('\n')
+    }
+    const cache2 = new PageStateCache()
+    cache2.update(url, makeCpuTable(10))
+    const t1 = performance.now()
+    const rCpu = cache2.update(url, makeCpuTable(50))
+    const elapsedCpu = performance.now() - t1
+    expect(rCpu.kind).toBe('full')
+    expect(rCpu.fullReason).toBe('diff_too_large')
+    expect(elapsedCpu).toBeLessThan(150)
+  })
+
+  it('不变式校验：确定性伪随机树变更序列中，kind=diff 绝不丢失任何真实增删、文案修改、跨父移动或同父重排', () => {
+    // 确定性 LCG 伪随机数生成器
+    let seed = 20261124
+    const nextRand = () => {
+      seed = (seed * 1664525 + 1013904223) >>> 0
+      return seed / 0x100000000
+    }
+    const pickInt = (max: number) => Math.floor(nextRand() * max)
+
+    interface BtnNode {
+      ref: number
+      label: string
+      selected: boolean
+    }
+    interface GroupNode {
+      id: number
+      title: string
+      wrapped: boolean
+      items: BtnNode[]
+    }
+
+    let nextRef = 0
+    const makeInitialGroups = (): GroupNode[] =>
+      Array.from({ length: 6 }, (_, g) => ({
+        id: g,
+        title: `分组-${g} (4)`,
+        wrapped: false,
+        items: Array.from({ length: 4 }, (_, k) => ({
+          ref: nextRef++,
+          label: `按钮-${g}-${k}`,
+          selected: false,
+        })),
+      }))
+
+    const serializeGroups = (groups: GroupNode[]): string => {
+      const lines = ['```yaml', '- main "根容器"']
+      for (const g of groups) {
+        lines.push(`  - region "${g.title}"`)
+        if (g.wrapped) {
+          lines.push(`    - generic "加载层"`)
+        }
+        const pad = g.wrapped ? '      ' : '    '
+        for (const item of g.items) {
+          const token = item.selected ? ' [selected]' : ''
+          lines.push(`${pad}- button #${item.ref}${token} "${item.label}"`)
+        }
+      }
+      lines.push('```')
+      return lines.join('\n')
+    }
+
+    const indexState = (groups: GroupNode[]) => {
+      const byRef = new Map<number, { groupId: number; pos: number; sig: string }>()
+      for (const g of groups) {
+        g.items.forEach((item, pos) => {
+          byRef.set(item.ref, {
+            groupId: g.id,
+            pos,
+            sig: `${item.selected ? '[selected] ' : ''}${item.label}`,
+          })
+        })
+      }
+      return byRef
+    }
+
+    const extractDiffRefs = (diffText: string) => {
+      const removed = new Set<number>()
+      const added = new Set<number>()
+      for (const line of diffText.split('\n')) {
+        const m = line.match(/^([+-])\s+-\s+button\s+#(\d+)/)
+        if (!m) continue
+        if (m[1] === '-') removed.add(Number(m[2]))
+        else added.add(Number(m[2]))
+      }
+      return { removed, added }
+    }
+
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/invariant-fuzz'
+    const groups = makeInitialGroups()
+    cache.update(url, serializeGroups(groups))
+
+    let diffCount = 0
+    for (let step = 0; step < 60; step++) {
+      const prevIdx = indexState(groups)
+
+      // 每步执行 1~3 次混合操作（控制总变更量确保大部分步命中 kind='diff'）
+      const ops = 1 + pickInt(3)
+      for (let op = 0; op < ops; op++) {
+        const action = pickInt(6)
+        const g = groups[pickInt(groups.length)]
+        if (action === 0) {
+          // 新增按钮
+          const pos = pickInt(g.items.length + 1)
+          g.items.splice(pos, 0, {
+            ref: nextRef++,
+            label: `新增-${step}-${op}`,
+            selected: false,
+          })
+        } else if (action === 1 && g.items.length > 1) {
+          // 删除按钮
+          g.items.splice(pickInt(g.items.length), 1)
+        } else if (action === 2 && g.items.length > 0) {
+          // 切换按钮状态或文案
+          const item = g.items[pickInt(g.items.length)]
+          if (pickInt(2) === 0) item.selected = !item.selected
+          else item.label = `更新-${step}-${item.ref}`
+        } else if (action === 3) {
+          // 父容器改名或切换包装层
+          if (pickInt(2) === 0) g.title = `分组-${g.id} (${g.items.length + step})`
+          else g.wrapped = !g.wrapped
+        } else if (action === 4 && g.items.length > 0) {
+          // 跨父移动
+          const target = groups[(g.id + 1 + pickInt(groups.length - 1)) % groups.length]
+          const [moved] = g.items.splice(pickInt(g.items.length), 1)
+          target.items.splice(pickInt(target.items.length + 1), 0, moved)
+        } else if (action === 5 && g.items.length >= 2) {
+          // 同父重排（交换两个按钮位置）
+          const a = pickInt(g.items.length)
+          const b = (a + 1 + pickInt(g.items.length - 1)) % g.items.length
+          const tmp = g.items[a]
+          g.items[a] = g.items[b]
+          g.items[b] = tmp
+        }
+      }
+
+      const currIdx = indexState(groups)
+      const res = cache.update(url, serializeGroups(groups))
+      if (res.kind !== 'diff') continue
+      diffCount++
+
+      const { removed, added } = extractDiffRefs(res.diffText)
+
+      // 不变式 1：所有已删除的 #ref 必须在 diff 的 '-' 行出现
+      for (const ref of prevIdx.keys()) {
+        if (!currIdx.has(ref)) {
+          expect(removed.has(ref), `step=${step} 缺失已删除 #${ref}`).toBe(true)
+        }
+      }
+      // 不变式 2：所有新增的 #ref 必须在 diff 的 '+' 行出现
+      for (const ref of currIdx.keys()) {
+        if (!prevIdx.has(ref)) {
+          expect(added.has(ref), `step=${step} 缺失新增 #${ref}`).toBe(true)
+        }
+      }
+      // 不变式 3：存活的 #ref 若内容变化或跨父移动，必须同时在 '-' 和 '+' 行出现
+      for (const [ref, before] of prevIdx.entries()) {
+        const after = currIdx.get(ref)
+        if (!after) continue
+        if (before.sig !== after.sig || before.groupId !== after.groupId) {
+          expect(removed.has(ref), `step=${step} 缺失变更/跨父移出 #${ref}`).toBe(true)
+          expect(added.has(ref), `step=${step} 缺失变更/跨父移入 #${ref}`).toBe(true)
+        }
+      }
+      // 不变式 4：同一父分组内未被 diff 输出（即被认为未变或被抵消）的存活按钮，其旧/新相对顺序必须严格单调一致
+      for (const g of groups) {
+        const untouchedPrevPositions: number[] = []
+        for (const item of g.items) {
+          const before = prevIdx.get(item.ref)
+          if (!before || before.groupId !== g.id) continue
+          if (removed.has(item.ref) || added.has(item.ref)) continue
+          untouchedPrevPositions.push(before.pos)
+        }
+        for (let i = 1; i < untouchedPrevPositions.length; i++) {
+          expect(
+            untouchedPrevPositions[i],
+            `step=${step} group=${g.id} 抵消吞掉了同父重排`,
+          ).toBeGreaterThan(untouchedPrevPositions[i - 1])
+        }
+      }
+    }
+
+    expect(diffCount).toBeGreaterThan(30)
+  })
 })
