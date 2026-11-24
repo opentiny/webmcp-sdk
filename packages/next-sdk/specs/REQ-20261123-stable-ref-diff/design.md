@@ -103,16 +103,17 @@ export type RegisteredPageAgentToolHandle = PageAgentToolHandle & {
 
 ## Diff 算法细节
 
-1. **提取内容行与预计算父链**：剥离 `buildA11yTree` 外层 ```` ```yaml ```` 与 ```` ``` ```` 围栏，得到 `prevLines` 与 `currLines`；单次 O(N) 预计算每行的 `trimmed`、`indent`、`parentIndex`、`ref`、`identityKey`（带 `#ref` 用 `#N`，否则用 `trimmed`）与直接父节点 `directParent`。
+1. **提取内容行与预计算父链**：剥离 `buildA11yTree` 外层 ```` ```yaml ```` 与 ```` ``` ```` 围栏，得到 `prevLines` 与 `currLines`；单次 O(N) 预计算每行的 `trimmed`、`indent`、`parentIndex`、`ref` 与直接父节点 `directParent`（带 `#ref` 用 `#N`，否则用父行 `trimmed`）。
 2. **首尾公共行剥离与 O(N) 快速熔断**：先剥离首尾 `line` 与 `directParent` 完全相同的公共区间；当两侧中间区间行数之和 `>= 200` 时，先用 O(N) `trimmed` 多重集交集计算变更下界，若下界已超过 50% 直接跳过 Myers 返回 `diff_too_large`，避免整页重绘阻塞主线程。
-3. **Myers 语义行对比 + 全局变更全集聚合**：将中间区间的 `(directParent, trimmed)` 映射为整型 ID 后执行 `diffArrays(prevIds, currIds, { maxEditLength })`（`maxEditLength = Math.max(250, Math.min(totalLines, 800))`，超限时直接返回 `undefined` 触发 `diff_too_large` 回退整页树），聚合成变更 Hunk、未变更行精确索引映射与全局 `allRemoved` / `allAdded`。
+3. **Myers 语义行对比 + 全局变更全集聚合**：将中间区间的 `(directParent, trimmed)` 映射为整型 ID 后执行 `diffArrays(prevIds, currIds, { maxEditLength })`（熔断参数由 `PageStateCache` 集中配置并注入，`maxEditLength = Math.max(250, Math.min(totalLines, 800))`，超限时直接返回 `undefined` 触发 `diff_too_large` 回退整页树），聚合成变更 Hunk、未变更行精确索引映射与全局 `allRemoved` / `allAdded`。
+   - **已知边界**：由于 Myers 比较键含 `directParent`，无 `#ref` 容器改名或外加包装层时其每个直接子节点在抵消前计 2 次编辑；当该容器的直接子节点数超过约 `maxEditLength / 2`（800 行以上页面约 400 个直接子节点）时，会提前触发 `maxEditLength` 熔断回退整页树以保障主线程响应速度。
 4. **全局包装层识别与父节点改名配对 LCS 抵消**：
    - 仅构建一次全局父子索引与带 `#ref` 节点集合；
-   - **包装层抵消**：识别无 `#ref` 或对侧不存在的包装行 `W`，校验 `W` 的外层父节点精确映射到对侧同一父节点下标，并利用同父级左右最近未变更兄弟的映射区间 `(otherLowerBound, otherUpperBound)` 过滤对侧候选子节点（既支持同父级原本已有同级同名节点时仍准确抵消新包装层，又防止同名卡片跨父或跨位置移入新分组被误抵消），随后在过滤后的候选集上对其直接子节点求 `trimmed` LCS 并抵消；
-   - **父节点改名配对**：按缩进由浅入深逐层贪心一对一配对，借助直接子节点整行倒排索引避免 $O(P^2)$ 扫描。带 `#ref` 父节点与无 `#ref` 父节点均要求外层父级兼容且存在共享直接子节点；带 `#ref` 仅允许同 `#ref` 配对，无 `#ref` 要求同 role 并支持词干/首词匹配（含行内拼装名称与无名称改 token 容器），候选按共享直接子节点数、名称相似度分、行号距离降序优选，在配对父节点下仅对整行完全相同的子节点序列求 LCS 并抵消，避免按序号错配且完整保留同父重排与跨父移动。
+   - **包装层抵消**：识别候选包装行 `W` 时先排除已有容器（带 `#ref` 且对侧已存在；无 `#ref` 且对侧变更集存在相同 `trimmed` 如拆包上移的已有容器），校验 `W` 的外层父节点精确映射到对侧同一父节点下标，并利用同父级左右最近未变更兄弟的映射区间 `(otherLowerBound, otherUpperBound)` 过滤对侧候选子节点；对无 `#ref` 的 `W`，若窗口内存在未进入 `W` 子节点且本身有子节点或具名的同 `role` 对侧节点（如原位改名容器）则跳过并交由改名配对处理；通过全部守卫后在过滤后的候选集上对其直接子节点求 `trimmed` LCS 并抵消；
+   - **父节点改名配对**：按缩进由浅入深逐层贪心一对一配对，借助直接子节点整行倒排索引避免 $O(P^2)$ 扫描。带 `#ref` 父节点与无 `#ref` 父节点均要求外层父级兼容且存在共享直接子节点；带 `#ref` 仅允许同 `#ref` 配对（分值 3）；无 `#ref` 要求同 role（正则支持转义引号与多 token）并支持词干/首词匹配（分值 0..2，含行内拼装名称与无名称改 token 容器），当双方名称均非空且名称分为 0 时，若任一方在同一外层父级下存在同词干节点则拒绝配对，否则要求两者在本层候选中的相对位置相同。候选按共享直接子节点数、名称相似度分、行号距离降序优选，在配对父节点下仅对整行完全相同的子节点序列求 LCS 并抵消，避免按序号错配且完整保留同父重排与跨父移动。
 5. **文档序同步配对与逐行最小父级锚点（O(1)）**：
    - 复用预计算的 `ComparableLine.ref`（兼容多词 ARIA role：`/^\s*-\s+[^["]+?\s+#(\d+)(?:\s|$)/`）。
-   - Hunk 内以同 `#ref` 唯一配对与已配对改名父节点作为同步锚点，按文档顺序输出且保证同区间及无配对点 hunk 中未配对删除行（`-`）排在新增行（`+`）之前；每行输出前沿预计算的 `parentIndex` 向上跳转最多 2 层补齐去重后的 `'  '` 上下文锚点（跨父移动的配对行分别补齐旧父级与新父级锚点）。
+   - Hunk 内以同 `#ref` 唯一配对与已配对改名父节点作为同步锚点，按文档顺序输出且保证同区间及无配对点 hunk 中未配对删除行（`-`）排在新增行（`+`）之前；每行输出前沿预计算的 `parentIndex` 向上跳转最多 2 层补齐去重后的 `'  '` 上下文锚点（跨父移动的配对行强制分别补齐旧父级与新父级直接锚点，即使新/旧父节点本身在本 hunk 同步改名）。
 6. **三项熔断保护回退整页树**：
    - 若抵消后无任何实质变更，返回 `NO_CHANGES_DIFF_TEXT`（`# (no changes)`）。
    - 结合前述三项熔断条件：① 前置大窗口 O(N) 低重合预判或 Myers `maxEditLength` 超限；② `changedRatio = Math.max(addedLines, removedLines) / Math.max(prevLines.length, currLines.length) > 0.5`；③ `diffText.length >= yaml.length`（防体积倒挂）——命中任一项即判定 `fullReason = 'diff_too_large'`，回退为 `kind: 'full'`（不返回 `baseRev`，外层直接使用完整 `yaml`）。

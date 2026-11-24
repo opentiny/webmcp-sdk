@@ -12,7 +12,7 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
     document.body.innerHTML = ''
   })
 
-  it('复现：页面上方插入一个元素导致 401 行全部进入删除与新增使 diff 膨胀至整页 2.1 倍 —— 稳定编号重构后仅输出实际变更行', () => {
+  it('复现：页面上方插入一个元素导致 401 行级联偏移使 diff 膨胀至整页 2.1 倍 —— 稳定编号下仅输出实际变更行', () => {
     const allocator = new ElementRefAllocator()
     const cache = new PageStateCache()
     const url = 'https://console.example.com/products'
@@ -347,13 +347,11 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
     const cache = new PageStateCache()
     const url = 'https://console.example.com/nesting'
 
+    const topPadding = Array.from({ length: 12 }, (_, i) => `  - button #${i + 10} "顶部常驻项-${i}"`)
     const yaml1 = [
       '```yaml',
       '- main "主内容区"',
-      '  - button #0 "项0"',
-      '  - button #1 "项1"',
-      '  - button #2 "项2"',
-      '  - button #3 "项3"',
+      ...topPadding,
       '  - region "支付区"',
       '    - button #4 "Pay"',
       '  - button #5 "项5"',
@@ -365,10 +363,7 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
     const yaml2 = [
       '```yaml',
       '- main "主内容区"',
-      '  - button #0 "项0"',
-      '  - button #1 "项1"',
-      '  - button #2 "项2"',
-      '  - button #3 "项3"',
+      ...topPadding,
       '  - region "支付区"',
       '- button #4 "Pay"',
       '  - button #5 "项5"',
@@ -389,13 +384,11 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
     const cache = new PageStateCache()
     const url = 'https://console.example.com/billing'
 
+    const topPadding = Array.from({ length: 12 }, (_, i) => `  - button #${i + 10} "导航项-${i}"`)
     const yaml1 = [
       '```yaml',
       '- main "主内容区"',
-      '  - button #0 "概览"',
-      '  - button #1 "订单"',
-      '  - button #2 "发票"',
-      '  - button #3 "预算"',
+      ...topPadding,
       '  - region "Billing"',
       '    - generic "Unavailable"',
       '  - button #4 "帮助"',
@@ -407,10 +400,7 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
     const yaml2 = [
       '```yaml',
       '- main "主内容区"',
-      '  - button #0 "概览"',
-      '  - button #1 "订单"',
-      '  - button #2 "发票"',
-      '  - button #3 "预算"',
+      ...topPadding,
       '  - region "Billing"',
       '- heading "Summary"',
       '  - button #4 "帮助"',
@@ -1063,7 +1053,205 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
     expect(elapsedCpu).toBeLessThan(400)
   })
 
-  it('不变式校验：确定性伪随机树变更序列中，kind=diff 绝不丢失任何真实增删、文案修改、跨父移动或同父重排', () => {
+  it('复现：已有的无 #ref 容器改不相似名或拆外层包装上移并同时移入/移出按钮时，不得被当成新包装层吞掉移动', () => {
+    const url = 'https://console.example.com/existing-unref-container-move'
+    const padding = Array.from({ length: 20 }, (_, i) => `  - button #${i + 50} "常驻-${i}"`)
+
+    // 场景 1：容器改不相似名（"待处理" → "已完成"），同时相邻按钮 #2 移入
+    const c1 = new PageStateCache()
+    c1.update(
+      url,
+      [
+        '```yaml',
+        '- main "看板"',
+        ...padding,
+        '  - group "待处理"',
+        '    - button #1 "任务1"',
+        '  - button #2 "任务2"',
+        '```',
+      ].join('\n'),
+    )
+    const r1 = c1.update(
+      url,
+      [
+        '```yaml',
+        '- main "看板"',
+        ...padding,
+        '  - group "已完成"',
+        '    - button #1 "任务1"',
+        '    - button #2 "任务2"',
+        '```',
+      ].join('\n'),
+    )
+    expect(r1.kind).toBe('diff')
+    expect(r1.diffText).toContain('-   - button #2 "任务2"')
+    expect(r1.diffText).toContain('+     - button #2 "任务2"')
+    expect(r1.diffText).not.toContain('button #1 "任务1"')
+
+    // 场景 2：移除外层包装 "加载层"，同时按钮 #1 移入被释放上移的已有容器 "卡片"
+    const c2 = new PageStateCache()
+    c2.update(
+      url,
+      [
+        '```yaml',
+        '- main "看板"',
+        ...padding,
+        '  - button #1 "任务1"',
+        '  - generic "加载层"',
+        '    - group "卡片"',
+        '      - button #2 "任务2"',
+        '```',
+      ].join('\n'),
+    )
+    const r2 = c2.update(
+      url,
+      [
+        '```yaml',
+        '- main "看板"',
+        ...padding,
+        '  - group "卡片"',
+        '    - button #1 "任务1"',
+        '    - button #2 "任务2"',
+        '```',
+      ].join('\n'),
+    )
+    expect(r2.kind).toBe('diff')
+    expect(r2.diffText).toContain('-   - generic "加载层"')
+    expect(r2.diffText).toContain('-   - button #1 "任务1"')
+    expect(r2.diffText).toContain('+     - button #1 "任务1"')
+
+    // 场景 3（镜像）：容器改不相似名（"已完成" → "待处理"），同时按钮 #2 从容器移出到 main
+    const c3 = new PageStateCache()
+    c3.update(
+      url,
+      [
+        '```yaml',
+        '- main "看板"',
+        ...padding,
+        '  - group "已完成"',
+        '    - button #1 "任务1"',
+        '    - button #2 "任务2"',
+        '```',
+      ].join('\n'),
+    )
+    const r3 = c3.update(
+      url,
+      [
+        '```yaml',
+        '- main "看板"',
+        ...padding,
+        '  - group "待处理"',
+        '    - button #1 "任务1"',
+        '  - button #2 "任务2"',
+        '```',
+      ].join('\n'),
+    )
+    expect(r3.kind).toBe('diff')
+    expect(r3.diffText).toContain('-     - button #2 "任务2"')
+    expect(r3.diffText).toContain('+   - button #2 "任务2"')
+    expect(r3.diffText).not.toContain('button #1 "任务1"')
+  })
+
+  it('复现：元素移入同时改名的父节点（如 listbox #20 "已选 (1)" → "(2)"）时，跨父移动的 + 行前必须补齐新父节点锚点', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/move-into-renamed-parent'
+    const padding = Array.from({ length: 20 }, (_, i) => `- button #${i + 50} "常驻-${i}"`)
+
+    const yaml1 = [
+      '```yaml',
+      ...padding,
+      '- group "待选"',
+      '  - button #5 "苹果"',
+      '- listbox #20 "已选 (1)"',
+      '  - button #6 "香蕉"',
+      '```',
+    ].join('\n')
+    const yaml2 = [
+      '```yaml',
+      ...padding,
+      '- group "待选"',
+      '- listbox #20 "已选 (2)"',
+      '  - button #5 "苹果"',
+      '  - button #6 "香蕉"',
+      '```',
+    ].join('\n')
+
+    cache.update(url, yaml1)
+    const r2 = cache.update(url, yaml2)
+
+    expect(r2.kind).toBe('diff')
+    const lines = r2.diffText.split('\n')
+    const remIdx = lines.findIndex((l) => l === '-   - button #5 "苹果"')
+    const addIdx = lines.findIndex((l) => l === '+   - button #5 "苹果"')
+    expect(remIdx).toBeGreaterThanOrEqual(0)
+    expect(addIdx).toBeGreaterThan(remIdx)
+    // - #5 前应为旧父级锚点 group "待选"，+ #5 紧邻前应为新父级锚点 listbox #20 "已选 (2)"
+    expect(lines[remIdx - 1]).toBe('  - group "待选"')
+    expect(lines[addIdx - 1]).toBe('  - listbox #20 "已选 (2)"')
+  })
+
+  it('复现：名称含转义引号或带含 ] token 的无 #ref 容器改名时，仍能正确配对并抵消未变化子节点', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/escaped-quote-rename'
+    const padding = Array.from({ length: 20 }, (_, i) => `- button #${i + 50} "常驻-${i}"`)
+
+    const yaml1 = [
+      '```yaml',
+      ...padding,
+      '- row [selected] [tooltip="a]b"] "订单 \\"A\\" (2)"',
+      '  - button #1 "详情"',
+      '  - button #2 "删除"',
+      '  - generic "备注信息"',
+      '```',
+    ].join('\n')
+    const yaml2 = [
+      '```yaml',
+      ...padding,
+      '- row [selected] [tooltip="a]b"] "订单 \\"A\\" (3)"',
+      '  - button #1 "详情"',
+      '  - button #2 "删除"',
+      '  - generic "备注信息"',
+      '```',
+    ].join('\n')
+
+    cache.update(url, yaml1)
+    const r2 = cache.update(url, yaml2)
+
+    expect(r2.kind).toBe('diff')
+    expect(r2.addedLines).toBe(1)
+    expect(r2.removedLines).toBe(1)
+    expect(r2.diffText).toContain('- - row [selected] [tooltip="a]b"] "订单 \\"A\\" (2)"')
+    expect(r2.diffText).toContain('+ - row [selected] [tooltip="a]b"] "订单 \\"A\\" (3)"')
+    expect(r2.diffText).not.toContain('button #1')
+    expect(r2.diffText).not.toContain('备注信息')
+  })
+
+  it('边界固定：无 #ref 列表直接子节点数超过 maxEditLength/2（约 400）时改名回退整页树，200 个子节点正常输出增量 diff', () => {
+    const url = 'https://console.example.com/max-edit-length-boundary'
+    const makePage = (childCount: number, listTitle: string, extraChild = false) => {
+      const padding = Array.from({ length: 550 }, (_, i) => `- button #${i + 1000} "顶部-${i}"`)
+      const children = Array.from({ length: childCount }, (_, i) => `  - button #${i} "项-${i}"`)
+      if (extraChild) children.push(`  - button #${childCount} "新增项"`)
+      return ['```yaml', ...padding, `- list "${listTitle}"`, ...children, '```'].join('\n')
+    }
+
+    // 450 个直接子节点：抵消前 Myers 编辑数 = 900+ > MAX_MYERS_EDIT_LENGTH(800)，快速熔断回退整页树
+    const cLarge = new PageStateCache()
+    cLarge.update(url, makePage(450, '订单 (450)', false))
+    const rLarge = cLarge.update(url, makePage(450, '订单 (451)', true))
+    expect(rLarge.kind).toBe('full')
+    expect(rLarge.fullReason).toBe('diff_too_large')
+
+    // 200 个直接子节点：抵消前 Myers 编辑数 ~403 <= 800，抵消后精确输出 3 行 diff
+    const cMedium = new PageStateCache()
+    cMedium.update(url, makePage(200, '订单 (200)', false))
+    const rMedium = cMedium.update(url, makePage(200, '订单 (201)', true))
+    expect(rMedium.kind).toBe('diff')
+    expect(rMedium.addedLines).toBe(2)
+    expect(rMedium.removedLines).toBe(1)
+  })
+
+  it('不变式校验：确定性伪随机树变更序列（含不相似改名、外层拆包与同步移入/移出）中，kind=diff 绝不丢失真实变更或移动', () => {
     // 确定性 LCG 伪随机数生成器
     let seed = 20261124
     const nextRand = () => {
@@ -1071,6 +1259,8 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
       return seed / 0x100000000
     }
     const pickInt = (max: number) => Math.floor(nextRand() * max)
+
+    const unrelatedNames = ['待处理', '已完成', '审批中', '归档区', '高优任务', '回收站']
 
     interface BtnNode {
       ref: number
@@ -1080,46 +1270,69 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
     interface GroupNode {
       id: number
       title: string
-      wrapped: boolean
+      outerWrapped: boolean
+      innerWrapped: boolean
       items: BtnNode[]
     }
 
     let nextRef = 0
-    const makeInitialGroups = (): GroupNode[] =>
-      Array.from({ length: 6 }, (_, g) => ({
+    const makeInitialState = (): { topItems: BtnNode[]; groups: GroupNode[] } => ({
+      topItems: Array.from({ length: 4 }, (_, k) => ({
+        ref: nextRef++,
+        label: `顶层按钮-${k}`,
+        selected: false,
+      })),
+      groups: Array.from({ length: 6 }, (_, g) => ({
         id: g,
         title: `分组-${g} (4)`,
-        wrapped: false,
+        outerWrapped: false,
+        innerWrapped: false,
         items: Array.from({ length: 4 }, (_, k) => ({
           ref: nextRef++,
           label: `按钮-${g}-${k}`,
           selected: false,
         })),
-      }))
+      })),
+    })
 
-    const serializeGroups = (groups: GroupNode[]): string => {
+    const serializeState = (state: { topItems: BtnNode[]; groups: GroupNode[] }): string => {
       const lines = ['```yaml', '- main "根容器"']
-      for (const g of groups) {
-        lines.push(`  - region "${g.title}"`)
-        if (g.wrapped) {
-          lines.push(`    - generic "加载层"`)
+      for (const item of state.topItems) {
+        const token = item.selected ? ' [selected]' : ''
+        lines.push(`  - button #${item.ref}${token} "${item.label}"`)
+      }
+      for (const g of state.groups) {
+        if (g.outerWrapped) {
+          lines.push(`  - generic "外层加载层-${g.id}"`)
         }
-        const pad = g.wrapped ? '      ' : '    '
+        const gPad = g.outerWrapped ? '    ' : '  '
+        lines.push(`${gPad}- region "${g.title}"`)
+        if (g.innerWrapped) {
+          lines.push(`${gPad}  - generic "内层加载层"`)
+        }
+        const itemPad = g.innerWrapped ? `${gPad}    ` : `${gPad}  `
         for (const item of g.items) {
           const token = item.selected ? ' [selected]' : ''
-          lines.push(`${pad}- button #${item.ref}${token} "${item.label}"`)
+          lines.push(`${itemPad}- button #${item.ref}${token} "${item.label}"`)
         }
       }
       lines.push('```')
       return lines.join('\n')
     }
 
-    const indexState = (groups: GroupNode[]) => {
-      const byRef = new Map<number, { groupId: number; pos: number; sig: string }>()
-      for (const g of groups) {
+    const indexState = (state: { topItems: BtnNode[]; groups: GroupNode[] }) => {
+      const byRef = new Map<number, { parentId: number; pos: number; sig: string }>()
+      state.topItems.forEach((item, pos) => {
+        byRef.set(item.ref, {
+          parentId: -1,
+          pos,
+          sig: `${item.selected ? '[selected] ' : ''}${item.label}`,
+        })
+      })
+      for (const g of state.groups) {
         g.items.forEach((item, pos) => {
           byRef.set(item.ref, {
-            groupId: g.id,
+            parentId: g.id,
             pos,
             sig: `${item.selected ? '[selected] ' : ''}${item.label}`,
           })
@@ -1142,18 +1355,18 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
 
     const cache = new PageStateCache()
     const url = 'https://console.example.com/invariant-fuzz'
-    const groups = makeInitialGroups()
-    cache.update(url, serializeGroups(groups))
+    const state = makeInitialState()
+    cache.update(url, serializeState(state))
 
     let diffCount = 0
-    for (let step = 0; step < 60; step++) {
-      const prevIdx = indexState(groups)
+    for (let step = 0; step < 100; step++) {
+      const prevIdx = indexState(state)
 
-      // 每步执行 1~3 次混合操作（控制总变更量确保大部分步命中 kind='diff'）
+      // 每步执行 1~3 次混合操作（含不相似改名、外层拆包与同步移入/移出）
       const ops = 1 + pickInt(3)
       for (let op = 0; op < ops; op++) {
-        const action = pickInt(6)
-        const g = groups[pickInt(groups.length)]
+        const action = pickInt(9)
+        const g = state.groups[pickInt(state.groups.length)]
         if (action === 0) {
           // 新增按钮
           const pos = pickInt(g.items.length + 1)
@@ -1171,26 +1384,52 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
           if (pickInt(2) === 0) item.selected = !item.selected
           else item.label = `更新-${step}-${item.ref}`
         } else if (action === 3) {
-          // 父容器改名或切换包装层
+          // 相似改名或内层包装切换
           if (pickInt(2) === 0) g.title = `分组-${g.id} (${g.items.length + step})`
-          else g.wrapped = !g.wrapped
+          else g.innerWrapped = !g.innerWrapped
         } else if (action === 4 && g.items.length > 0) {
-          // 跨父移动
-          const target = groups[(g.id + 1 + pickInt(groups.length - 1)) % groups.length]
+          // 分组间跨父移动
+          const target = state.groups[(g.id + 1 + pickInt(state.groups.length - 1)) % state.groups.length]
           const [moved] = g.items.splice(pickInt(g.items.length), 1)
           target.items.splice(pickInt(target.items.length + 1), 0, moved)
         } else if (action === 5 && g.items.length >= 2) {
-          // 同父重排（交换两个按钮位置）
+          // 同父重排
           const a = pickInt(g.items.length)
           const b = (a + 1 + pickInt(g.items.length - 1)) % g.items.length
           const tmp = g.items[a]
           g.items[a] = g.items[b]
           g.items[b] = tmp
+        } else if (action === 6) {
+          // 无 #ref 容器改名为完全不相关名称，并在同一步把顶层按钮移入或把内部按钮移出
+          g.title = `${unrelatedNames[pickInt(unrelatedNames.length)]}-${step}`
+          if (pickInt(2) === 0 && state.topItems.length > 0) {
+            const [moved] = state.topItems.splice(pickInt(state.topItems.length), 1)
+            g.items.splice(pickInt(g.items.length + 1), 0, moved)
+          } else if (g.items.length > 1) {
+            const [moved] = g.items.splice(pickInt(g.items.length), 1)
+            state.topItems.splice(pickInt(state.topItems.length + 1), 0, moved)
+          }
+        } else if (action === 7) {
+          // 外层包装加入/移除（拆包后 region 上移一层），并同步移入/移出按钮
+          g.outerWrapped = !g.outerWrapped
+          if (!g.outerWrapped && state.topItems.length > 0) {
+            const [moved] = state.topItems.splice(pickInt(state.topItems.length), 1)
+            g.items.splice(pickInt(g.items.length + 1), 0, moved)
+          }
+        } else if (action === 8) {
+          // 顶层与分组之间双向移动
+          if (state.topItems.length > 0 && pickInt(2) === 0) {
+            const [moved] = state.topItems.splice(pickInt(state.topItems.length), 1)
+            g.items.splice(pickInt(g.items.length + 1), 0, moved)
+          } else if (g.items.length > 1) {
+            const [moved] = g.items.splice(pickInt(g.items.length), 1)
+            state.topItems.splice(pickInt(state.topItems.length + 1), 0, moved)
+          }
         }
       }
 
-      const currIdx = indexState(groups)
-      const res = cache.update(url, serializeGroups(groups))
+      const currIdx = indexState(state)
+      const res = cache.update(url, serializeState(state))
       if (res.kind !== 'diff') continue
       diffCount++
 
@@ -1212,29 +1451,33 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
       for (const [ref, before] of prevIdx.entries()) {
         const after = currIdx.get(ref)
         if (!after) continue
-        if (before.sig !== after.sig || before.groupId !== after.groupId) {
+        if (before.sig !== after.sig || before.parentId !== after.parentId) {
           expect(removed.has(ref), `step=${step} 缺失变更/跨父移出 #${ref}`).toBe(true)
           expect(added.has(ref), `step=${step} 缺失变更/跨父移入 #${ref}`).toBe(true)
         }
       }
-      // 不变式 4：同一父分组内未被 diff 输出（即被认为未变或被抵消）的存活按钮，其旧/新相对顺序必须严格单调一致
-      for (const g of groups) {
+      // 不变式 4：同一父级（含顶层与各分组）内未被 diff 输出的存活按钮，旧/新相对顺序必须严格单调一致
+      const checkParentOrder = (parentId: number, items: BtnNode[]) => {
         const untouchedPrevPositions: number[] = []
-        for (const item of g.items) {
+        for (const item of items) {
           const before = prevIdx.get(item.ref)
-          if (!before || before.groupId !== g.id) continue
+          if (!before || before.parentId !== parentId) continue
           if (removed.has(item.ref) || added.has(item.ref)) continue
           untouchedPrevPositions.push(before.pos)
         }
         for (let i = 1; i < untouchedPrevPositions.length; i++) {
           expect(
             untouchedPrevPositions[i],
-            `step=${step} group=${g.id} 抵消吞掉了同父重排`,
+            `step=${step} parentId=${parentId} 抵消吞掉了同父重排`,
           ).toBeGreaterThan(untouchedPrevPositions[i - 1])
         }
       }
+      checkParentOrder(-1, state.topItems)
+      for (const g of state.groups) {
+        checkParentOrder(g.id, g.items)
+      }
     }
 
-    expect(diffCount).toBeGreaterThan(30)
+    expect(diffCount).toBeGreaterThan(50)
   })
 })

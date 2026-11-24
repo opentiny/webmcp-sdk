@@ -8,9 +8,9 @@
   - 输入（依赖）：`packages/next-sdk/page-tools/a11y/{types,vnode,build,search}.ts`
   - 产物（输出）：新增 `packages/next-sdk/page-tools/a11y/ref-allocator.ts`，更新 `types.ts`、`vnode.ts`、`build.ts`、`a11y-tree.ts`、`index.ts`
   - [x] 测试：`packages/next-sdk/test/page-tools/a11y/build.test.ts`（验证顶部插入元素不改变后续元素 `#ref`、移除元素不复用旧 `#ref`、`reset()` 归零、未传分配器保持兼容、单子合并无幽灵 `#ref`）
-- [x] Task 2: 重构 `PageStateCache`（同 `#ref` 就近配对、最小父级缩进锚点、双重熔断回退与 `rev`/`baseRev`）
+- [x] Task 2: 重构 `PageStateCache` 与 `structured-yaml-diff.ts`（同 `#ref` 就近配对、最小父级缩进锚点、三项熔断回退与 `rev`/`baseRev`）
   - 输入（依赖）：Task 1、`packages/next-sdk/page-tools/page-state-cache.ts`
-  - 产物（输出）：更新 `packages/next-sdk/page-tools/page-state-cache.ts`
+  - 产物（输出）：新增 `packages/next-sdk/page-tools/structured-yaml-diff.ts`，更新 `packages/next-sdk/page-tools/page-state-cache.ts`
   - [x] 测试：`packages/next-sdk/test/page-tools/page-state-cache.test.ts`（含「复现：页面首个节点前插入新节点导致全表 diff 膨胀」场景、同 `#ref` 配对、父级上下文锚点、超过 50% 行或体积比熔断回退 `kind: 'full'`、`rev`/`baseRev` 连续性与重置）
 - [x] Task 3: 接入结构化协议字段、统一 `REF_NOT_PRESENTED` 报错与单轮清空基线/会话级重置
   - 输入（依赖）：Task 1、Task 2、`packages/next-sdk/page-tools/{context,page-agent-tool,page-agent-tool-event}.ts`、`handlers/*.ts`

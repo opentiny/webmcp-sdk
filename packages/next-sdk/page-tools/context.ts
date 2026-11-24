@@ -131,7 +131,6 @@ export async function createActionErrorResult(
 export interface ActionContext {
   pageController: PageController
   refAllocator: RefAllocator
-  getRefMap: () => RefMap
   setRefMap: (map: RefMap) => void
   buildBrowserStateResponse: (
     mode?: BrowserStateResponseMode

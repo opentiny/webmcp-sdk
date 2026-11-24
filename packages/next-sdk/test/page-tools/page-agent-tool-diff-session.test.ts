@@ -337,4 +337,22 @@ describe('page-agent-tool 稳定编号、结构化版本字段、REF_NOT_PRESENT
     expect(s2.content).toContain('- button #0')
     expect(s2.content).toContain('- button #1')
   })
+
+  it('复现：重复调用 registerPageAgentTool 后，旧句柄调用 resetSession() 仍作用于当前生效实例', async () => {
+    document.body.innerHTML = `<button id="only-btn">操作</button>`
+    const t1 = captureTool()
+    const t2 = captureTool()
+
+    const s1 = JSON.parse((await t2.execute({ action: 'browserState' })).content[0].text)
+    expect(s1).toMatchObject({ kind: 'full', rev: 1 })
+    const s2 = JSON.parse((await t2.execute({ action: 'browserState' })).content[0].text)
+    expect(s2).toMatchObject({ kind: 'diff', rev: 2, baseRev: 1 })
+
+    // 通过旧句柄重置会话，当前生效实例 t2 应完整归零
+    t1.handle.resetSession()
+
+    const s3 = JSON.parse((await t2.execute({ action: 'browserState' })).content[0].text)
+    expect(s3).toMatchObject({ kind: 'full', rev: 1 })
+    expect(s3.baseRev).toBeUndefined()
+  })
 })

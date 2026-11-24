@@ -3,19 +3,19 @@
  *
  * 页面状态版本缓存与熔断协议模块：
  * 1. 维护单调递增的快照版本号 rev，增量更新附带基准版本 baseRev；
- * 2. 委托 `structured-yaml-diff.ts` 计算结构感知增量 Diff；
- * 3. 执行三项熔断保护（前置快速预判/超限、变化行占比 > 50%、diff 字符体积 >= 整页 YAML），
+ * 2. 集中定义全部熔断策略参数并透传给 `structured-yaml-diff.ts` 计算结构感知增量 Diff；
+ * 3. 执行三项熔断保护（前置大窗口 O(N) 低重合预判 / Myers 编辑距离上限、变化行占比 > 50%、diff 字符体积 >= 整页 YAML），
  *    命中任一项时统一回退整页树（kind = 'full', fullReason = 'diff_too_large'）。
  */
 
 import {
   computeStructuredYamlDiff,
   extractYamlLines,
-  MAX_CHANGE_LINE_RATIO,
   NO_CHANGES_DIFF_TEXT,
+  type StructuredDiffOptions,
 } from './structured-yaml-diff'
 
-export { extractYamlLines, NO_CHANGES_DIFF_TEXT }
+export { NO_CHANGES_DIFF_TEXT }
 
 export type SnapshotKind = 'full' | 'diff'
 
@@ -66,7 +66,19 @@ export interface IncrementalDiffResult {
 
 export type DiffResult = FullDiffResult | IncrementalDiffResult
 
+/** 三项熔断保护策略常量（集中定义于此，避免 diff 模块与缓存层分头维护） */
+const MAX_CHANGE_LINE_RATIO = 0.5
 const MAX_DIFF_CHAR_RATIO = 1.0
+const FAST_ABORT_MIN_WINDOW_LINES = 200
+const MIN_MYERS_EDIT_LENGTH = 250
+const MAX_MYERS_EDIT_LENGTH = 800
+
+const DIFF_CIRCUIT_BREAKER_OPTIONS: StructuredDiffOptions = {
+  maxChangeLineRatio: MAX_CHANGE_LINE_RATIO,
+  fastAbortMinWindowLines: FAST_ABORT_MIN_WINDOW_LINES,
+  minMyersEditLength: MIN_MYERS_EDIT_LENGTH,
+  maxMyersEditLength: MAX_MYERS_EDIT_LENGTH,
+}
 
 export class PageStateCache {
   private prev: PageSnapshot | null = null
@@ -126,6 +138,7 @@ export class PageStateCache {
     const { diffText, addedLines, removedLines, abortedTooLarge } = computeStructuredYamlDiff(
       prevSnapshot.lines,
       currLines,
+      DIFF_CIRCUIT_BREAKER_OPTIONS,
     )
 
     // 三项熔断保护：前置快速预判/超限、变化行超过半数、diff 文本体积达到/超过整页树，任一命中均回退整页树

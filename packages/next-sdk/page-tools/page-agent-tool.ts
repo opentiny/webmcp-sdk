@@ -55,6 +55,8 @@ declare global {
   interface Window {
     /** 页面内所有 registerPageAgentTool 调用共用的遮罩实例，页面中存在多份 SDK 副本时同样共用 */
     __pageAgentSimulatorMask?: SimulatorMask
+    /** 当前生效注册实例的会话重置函数，使重复注册后旧句柄调用 resetSession() 仍作用于最新实例 */
+    __pageAgentResetSession?: () => void
   }
 }
 
@@ -124,6 +126,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
     currentRefMap = new Map()
     unhighlight()
   }
+  window.__pageAgentResetSession = resetSession
 
   // ─── 辅助：会话代次守卫与错误响应 ────────────────────────────────────────
   function isStaleGeneration(expectedGeneration: number): boolean {
@@ -236,7 +239,6 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
     return {
       pageController,
       refAllocator,
-      getRefMap: () => (isStaleGeneration(expectedGeneration) ? new Map() : currentRefMap),
       setRefMap: (map: RefMap) => {
         if (isStaleGeneration(expectedGeneration)) return
         currentRefMap = map
@@ -286,7 +288,10 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
       hideMask: async () => {
         currentMask().hide()
       },
-      resetSession
+      resetSession: () => {
+        // 与遮罩保持一致：重复注册后旧句柄同样委托给当前生效实例的 resetSession
+        ;(window.__pageAgentResetSession ?? resetSession)()
+      }
     }
   }
 
@@ -361,6 +366,8 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
       }
       return ret
     } catch (error) {
+      // 仅对指针/输入类 DOM 交互异常包装为带最新整页状态的错误返回；
+      // scroll（可在无 index 时滚动窗口）与只读/脚本类动作保持原样抛错以兼容既有调用约定
       if (
         args.action === 'click' ||
         args.action === 'fill' ||
