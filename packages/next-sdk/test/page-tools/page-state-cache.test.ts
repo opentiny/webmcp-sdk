@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { buildA11yTree } from '../../page-tools/a11y/build'
 import { ElementRefAllocator } from '../../page-tools/a11y/ref-allocator'
 import { NO_CHANGES_DIFF_TEXT, PageStateCache } from '../../page-tools/page-state-cache'
+import { DiffContextTracker } from '../../page-tools/structured-yaml-diff'
 
 describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保护', () => {
   beforeEach(() => {
@@ -1479,6 +1480,167 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
     expect(r2.diffText).toContain('- - dialog #30 "确认"')
     expect(r2.diffText).toContain('-   - button #5 "确定"')
     expect(r2.diffText).toContain('+ - button #5 "确定"')
+  })
+
+  it('复现：DiffContextTracker 按节点身份下标与 fromRemoved 标记匹配，同名无 #ref 容器间移动与已删除同名父节点绝不混淆', () => {
+    const url = 'https://console.example.com/context-identity-matching'
+    const padding = Array.from({ length: 20 }, (_, i) => `  - link #${i + 200} "导航-${i}"`)
+
+    // 场景 (a)：两个完全同名的无 #ref list 之间移动 #1，必须补出第二个 list 锚点而非紧邻输出相同 - / +
+    const c1 = new PageStateCache()
+    c1.update(
+      url,
+      [
+        '```yaml',
+        '- main "根"',
+        ...padding,
+        '  - list',
+        '    - button #1 "x"',
+        '    - button #2 "y"',
+        '  - list',
+        '    - button #3 "z"',
+        '```',
+      ].join('\n'),
+    )
+    const r1 = c1.update(
+      url,
+      [
+        '```yaml',
+        '- main "根"',
+        ...padding,
+        '  - list',
+        '    - button #2 "y"',
+        '  - list',
+        '    - button #3 "z"',
+        '    - button #1 "x"',
+        '```',
+      ].join('\n'),
+    )
+    expect(r1.kind).toBe('diff')
+    const r1Lines = r1.diffText.split('\n')
+    const r1Rem1 = r1Lines.indexOf('-     - button #1 "x"')
+    const r1Add1 = r1Lines.indexOf('+     - button #1 "x"')
+    expect(r1Rem1).toBeGreaterThan(0)
+    expect(r1Add1).toBeGreaterThan(r1Rem1 + 1)
+    expect(r1Lines[r1Add1 - 1]).toBe('    - list')
+
+    // 场景 (b)：删除同名 list 后在另一个 list 中新增 listitem "c"，+ c 前必须补出 `  - list` 锚点而非挂在 `- - list` 下
+    const topBtns = Array.from({ length: 20 }, (_, i) => `- button #${i + 50} "常驻-${i}"`)
+    const c2 = new PageStateCache()
+    c2.update(
+      url,
+      [
+        '```yaml',
+        ...topBtns,
+        '- list',
+        '  - listitem "a"',
+        '- list',
+        '  - listitem "b"',
+        '```',
+      ].join('\n'),
+    )
+    const r2 = c2.update(
+      url,
+      [
+        '```yaml',
+        ...topBtns,
+        '- list',
+        '  - listitem "b"',
+        '  - listitem "c"',
+        '```',
+      ].join('\n'),
+    )
+    expect(r2.kind).toBe('diff')
+    const r2Lines = r2.diffText.split('\n')
+    const addCIdx = r2Lines.indexOf('+   - listitem "c"')
+    expect(addCIdx).toBeGreaterThan(0)
+    expect(r2Lines[addCIdx - 1]).toBe('  - list')
+  })
+
+  it('复现：外层插入或移除包装层同时修改 8 个子节点时，同旧父/同新父合批输出 O(1) 锚点且不重复打印新增包装行上下文', () => {
+    const url = 'https://console.example.com/indent-shift-batch-ancestors'
+    const padding = Array.from({ length: 20 }, (_, i) => `  - link #${i + 200} "导航-${i}"`)
+    const changedBtns = (pressed: boolean) =>
+      Array.from(
+        { length: 8 },
+        (_, i) => `    - button #${i + 1}${pressed ? ' [pressed]' : ''} "项${i}"`,
+      )
+    const stableBtns = Array.from({ length: 8 }, (_, i) => `    - button #${i + 50} "不变${i}"`)
+
+    const yamlUnwrapped = [
+      '```yaml',
+      '- main "根"',
+      ...padding,
+      '  - group "卡片"',
+      ...changedBtns(false),
+      ...stableBtns,
+      '```',
+    ].join('\n')
+    const yamlWrapped = [
+      '```yaml',
+      '- main "根"',
+      ...padding,
+      '  - generic "计算中..."',
+      '    - group "卡片"',
+      ...changedBtns(true).map((l) => `  ${l}`),
+      ...stableBtns.map((l) => `  ${l}`),
+      '```',
+    ].join('\n')
+
+    // 1. 外层插入包装层 + 8 个按钮同时变为 [pressed]：合批输出、不触发体积熔断、不把新增包装行作为上下文行重复打印
+    const cWrap = new PageStateCache()
+    cWrap.update(url, yamlUnwrapped)
+    const rWrap = cWrap.update(url, yamlWrapped)
+    expect(rWrap.kind).toBe('diff')
+    expect(rWrap.diffText).toContain('+   - generic "计算中..."')
+    expect(rWrap.diffText).not.toContain('    - generic "计算中..."')
+    const wrapLines = rWrap.diffText.split('\n')
+    expect(wrapLines.filter((l) => l === '    - group "卡片"')).toHaveLength(1)
+    expect(wrapLines.filter((l) => l === '      - group "卡片"')).toHaveLength(1)
+
+    // 2. 外层移除包装层 + 8 个按钮同时取消 [pressed]（对称场景）：同样 O(1) 锚点且保持 diff
+    const rUnwrap = cWrap.update(url, yamlUnwrapped)
+    expect(rUnwrap.kind).toBe('diff')
+    const unwrapLines = rUnwrap.diffText.split('\n')
+    expect(unwrapLines.filter((l) => l === '      - group "卡片"')).toHaveLength(1)
+    expect(unwrapLines.filter((l) => l === '    - group "卡片"')).toHaveLength(1)
+  })
+
+  it('单元测试：DiffContextTracker 独立校验节点身份匹配、fromRemoved 隔离与纯新增外层容器跳过', () => {
+    const prevComparable = [
+      { line: '- main "根"', trimmed: '- main "根"', indent: 0, ref: null, parentIndex: -1, directParent: '' },
+      { line: '  - list', trimmed: '- list', indent: 2, ref: null, parentIndex: 0, directParent: '- main "根"' },
+      { line: '    - button #1 "A"', trimmed: '- button #1 "A"', indent: 4, ref: 1, parentIndex: 1, directParent: '- list' },
+    ]
+    const currComparable = [
+      { line: '- main "根"', trimmed: '- main "根"', indent: 0, ref: null, parentIndex: -1, directParent: '' },
+      { line: '  - list', trimmed: '- list', indent: 2, ref: null, parentIndex: 0, directParent: '- main "根"' },
+      { line: '  - list', trimmed: '- list', indent: 2, ref: null, parentIndex: 0, directParent: '- main "根"' },
+      { line: '    - button #1 "A"', trimmed: '- button #1 "A"', indent: 4, ref: 1, parentIndex: 2, directParent: '- list' },
+    ]
+    const tracker = new DiffContextTracker({
+      prevComparable,
+      currComparable,
+      prevToCurrUnchanged: new Map([[0, 0], [1, 1]]),
+      pairedPrevToCurr: new Map(),
+      currUniqueRefIdx: new Map([[1, 3]]),
+      effectiveRemovedAll: new Set([2]),
+    })
+    const out: string[] = []
+    tracker.ensureAncestors(2, 'prev', out)
+    out.push('-     - button #1 "A"')
+    tracker.recordRemoved(2)
+    tracker.ensureAncestors(3, 'curr', out)
+    out.push('+     - button #1 "A"')
+    tracker.recordAdded(3, false)
+
+    expect(out).toEqual([
+      '  - main "根"',
+      '    - list',
+      '-     - button #1 "A"',
+      '    - list',
+      '+     - button #1 "A"',
+    ])
   })
 
   it('复现：名称含转义引号或带含 ] token 的无 #ref 容器改名时，仍能正确配对并抵消未变化子节点', () => {

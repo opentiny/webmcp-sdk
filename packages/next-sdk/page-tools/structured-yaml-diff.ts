@@ -87,7 +87,157 @@ interface OtherSideContext {
 
 interface ContextEntry {
   indent: number
+  /** 规范化节点身份键（curr 树存在对应节点时用 `curr:${currIdx}`，仅旧树存在时用 `prev:${prevIdx}`） */
+  nodeKey: string
+  /** 是否由 `- ` 删除行压栈；删除行仅可匹配旧侧子删除行，不可满足 curr 侧祖先匹配 */
+  fromRemoved: boolean
+}
+
+interface ResolvedAncestorEntry {
+  indent: number
   line: string
+  nodeKey: string
+  /** 是否跳过 `  ` 上下文行输出（如已删除旧父节点或已作为纯新增 `+` 行输出的新包装容器） */
+  skipContext: boolean
+}
+
+export interface DiffContextTrackerInput {
+  prevComparable: ComparableLine[]
+  currComparable: ComparableLine[]
+  prevToCurrUnchanged: Map<number, number>
+  pairedPrevToCurr: Map<number, number>
+  currUniqueRefIdx: Map<number, number>
+  effectiveRemovedAll: Set<number>
+}
+
+/**
+ * 独立可测的单调缩进上下文栈管理器：
+ * - 记录输出流中已呈现给读者的祖先链，按 `(indent, nodeKey)` 节点身份匹配而非文本匹配；
+ * - 区分 `- ` 删除行（`fromRemoved: true`）与当前侧行，避免新行误挂到已删除同名父节点下；
+ * - 补齐锚点时仅输出与当前栈分叉之后的层级；已删除旧父节点与已输出的纯新增包装层不以 `  ` 上下文行重复输出。
+ */
+export class DiffContextTracker {
+  private readonly stack: ContextEntry[] = []
+  private readonly emittedPureAddedCurrIndices = new Set<number>()
+  private readonly input: DiffContextTrackerInput
+
+  constructor(input: DiffContextTrackerInput) {
+    this.input = input
+  }
+
+  private push(indent: number, nodeKey: string, fromRemoved: boolean): void {
+    while (this.stack.length > 0 && this.stack[this.stack.length - 1].indent >= indent) {
+      this.stack.pop()
+    }
+    this.stack.push({ indent, nodeKey, fromRemoved })
+  }
+
+  private resolvePrevNodeKey(prevIdx: number): { nodeKey: string; mappedCurrIdx?: number } {
+    const unchangedCurr = this.input.prevToCurrUnchanged.get(prevIdx)
+    if (unchangedCurr !== undefined) {
+      return { nodeKey: `curr:${unchangedCurr}`, mappedCurrIdx: unchangedCurr }
+    }
+    const prevComp = this.input.prevComparable[prevIdx]
+    const mappedCurrIdx =
+      this.input.pairedPrevToCurr.get(prevIdx) ??
+      (prevComp.ref !== null ? this.input.currUniqueRefIdx.get(prevComp.ref) : undefined)
+    if (mappedCurrIdx !== undefined && this.input.currComparable[mappedCurrIdx].indent === prevComp.indent) {
+      return { nodeKey: `curr:${mappedCurrIdx}`, mappedCurrIdx }
+    }
+    return { nodeKey: `prev:${prevIdx}` }
+  }
+
+  private resolveAncestor(idx: number, side: 'prev' | 'curr', isDirectParent: boolean): ResolvedAncestorEntry {
+    if (side === 'curr') {
+      const comp = this.input.currComparable[idx]
+      // 非直接父节点的纯新增已输出容器（如外层 `+ - generic "计算中..."`）不再以 `  ` 上下文行重复输出
+      const skipContext = !isDirectParent && this.emittedPureAddedCurrIndices.has(idx)
+      return { indent: comp.indent, line: comp.line, nodeKey: `curr:${idx}`, skipContext }
+    }
+    const prevComp = this.input.prevComparable[idx]
+    const { nodeKey, mappedCurrIdx } = this.resolvePrevNodeKey(idx)
+    if (mappedCurrIdx !== undefined) {
+      const currComp = this.input.currComparable[mappedCurrIdx]
+      return { indent: currComp.indent, line: currComp.line, nodeKey, skipContext: false }
+    }
+    const deleted = this.input.effectiveRemovedAll.has(idx)
+    return { indent: prevComp.indent, line: prevComp.line, nodeKey, skipContext: deleted }
+  }
+
+  private matchesEntry(entry: ContextEntry, want: ResolvedAncestorEntry, side: 'prev' | 'curr'): boolean {
+    if (side === 'curr' && entry.fromRemoved) return false
+    return entry.indent === want.indent && entry.nodeKey === want.nodeKey
+  }
+
+  /** 记录输出了一行 `- ` 删除行 */
+  recordRemoved(prevIdx: number): void {
+    const comp = this.input.prevComparable[prevIdx]
+    const { nodeKey } = this.resolvePrevNodeKey(prevIdx)
+    this.push(comp.indent, nodeKey, true)
+  }
+
+  /** 记录输出了一行 `+ ` 新增行；isPureAdd 标记其为无旧侧对应的纯新增行 */
+  recordAdded(currIdx: number, isPureAdd: boolean): void {
+    const comp = this.input.currComparable[currIdx]
+    if (isPureAdd) {
+      this.emittedPureAddedCurrIndices.add(currIdx)
+    }
+    this.push(comp.indent, `curr:${currIdx}`, false)
+  }
+
+  /** 为目标行补齐缺失的祖先锚点行，并写入 outputLines */
+  ensureAncestors(targetIdx: number, side: 'prev' | 'curr', outputLines: string[]): void {
+    const comparable = side === 'prev' ? this.input.prevComparable : this.input.currComparable
+    const targetIndent = comparable[targetIdx].indent
+    const ancestorIndices = findAncestorIndices(comparable, targetIdx)
+    if (ancestorIndices.length === 0) return
+
+    const desired = ancestorIndices.map((idx, pos) =>
+      this.resolveAncestor(idx, side, pos === ancestorIndices.length - 1),
+    )
+
+    const currentChain = this.stack.filter((entry) => entry.indent < targetIndent)
+
+    // 逐层向下定位第一个与 currentChain 分叉的祖先层级，分叉点及之后的内层祖先一并补齐
+    let matchedPrefix = 0
+    let chainPos = 0
+    for (let k = 0; k < desired.length; k++) {
+      let foundAt = -1
+      for (let j = chainPos; j < currentChain.length; j++) {
+        if (this.matchesEntry(currentChain[j], desired[k], side)) {
+          foundAt = j
+          break
+        }
+      }
+      if (foundAt !== -1) {
+        matchedPrefix = k + 1
+        chainPos = foundAt + 1
+      } else {
+        break
+      }
+    }
+
+    // 若 desired 各层均已在 currentChain 中命中，但 currentChain 末尾还挂着更深的内层祖先，
+    // 则回退 1 层重出直接父级锚点，明确上下文已切回该父级
+    if (matchedPrefix === desired.length) {
+      const lastDesired = desired[desired.length - 1]
+      const tailOfChain = currentChain[currentChain.length - 1]
+      if (tailOfChain && !this.matchesEntry(tailOfChain, lastDesired, side)) {
+        matchedPrefix = desired.length - 1
+      }
+    }
+
+    for (let k = matchedPrefix; k < desired.length; k++) {
+      const anc = desired[k]
+      if (!anc.skipContext) {
+        outputLines.push(`  ${anc.line}`)
+      }
+      // 跳过纯新增外层包装行输出时仍恢复其逻辑栈位，避免后续同级兄弟反复分叉重出内层祖先
+      if (!anc.skipContext || side === 'curr') {
+        this.push(anc.indent, anc.nodeKey, false)
+      }
+    }
+  }
 }
 
 export interface StructuredDiffOutput {
@@ -568,6 +718,7 @@ function cancelWrapperAndRenamedParentShifts(
       )
       if (rChildren.length === 0) continue
 
+      // 统计本 rParent 中各子行出现次数，再查倒排表累计与各 addParent 的多重集交集大小
       const rLineCounts = new Map<string, number>()
       for (const child of rChildren) {
         rLineCounts.set(child.line, (rLineCounts.get(child.line) ?? 0) + 1)
@@ -590,6 +741,7 @@ function cancelWrapperAndRenamedParentShifts(
 
         let nameScore = 0
         if (rComp.ref !== null || aComp.ref !== null) {
+          // 带 #ref 的父节点仅允许与同一 #ref 配对
           if (rComp.ref !== aComp.ref) continue
           nameScore = REF_EXACT_PAIR_SCORE
         } else {
@@ -598,6 +750,8 @@ function cancelWrapperAndRenamedParentShifts(
           if (!rMeta || !aMeta || rMeta.role !== aMeta.role) continue
 
           nameScore = scoreUnrefNameSimilarity(rMeta.name, aMeta.name)
+          // 双方均有非空名称且名称完全不相关时（如 Billing vs Shipping(1)、X vs Y(3)）：
+          // 若任一方在同外层父级下存在同词干真身，则拒绝跨容器错配；否则仅允许同相对位置改名
           if (rMeta.name && aMeta.name && nameScore === 0) {
             const rStem = normalizeNameStem(rMeta.name)
             const aStem = normalizeNameStem(aMeta.name)
@@ -622,6 +776,7 @@ function cancelWrapperAndRenamedParentShifts(
       }
     }
 
+    // 排序优先级：共享子节点数优先，其次名称兼容分，最后行号距离
     candidates.sort(
       (a, b) =>
         b.sharedChildren - a.sharedChildren ||
@@ -889,116 +1044,16 @@ export function computeStructuredYamlDiff(
   )
 
   const outputLines: string[] = []
-  /** 单调缩进上下文栈：精确追踪输出流当前呈现给读者的祖先链，根治去重错级与重复锚点 */
-  const activeStack: ContextEntry[] = []
+  const contextTracker = new DiffContextTracker({
+    prevComparable,
+    currComparable,
+    prevToCurrUnchanged,
+    pairedPrevToCurr,
+    currUniqueRefIdx,
+    effectiveRemovedAll,
+  })
   let addedLines = 0
   let removedLines = 0
-
-  const pushContext = (indent: number, line: string) => {
-    while (activeStack.length > 0 && activeStack[activeStack.length - 1].indent >= indent) {
-      activeStack.pop()
-    }
-    activeStack.push({ indent, line })
-  }
-
-  /**
-   * 为旧侧（prev）祖先下标解析其应展示的上下文条目：
-   * - 未变祖先：直接使用原行
-   * - 已改名祖先（配对改名或同 #ref 唯一存在且同缩进）：使用当前侧最新行，绝不以旧名称作为上下文行输出
-   * - 已彻底删除祖先：标记 deleted = true（若正好在 activeStack 中则自然命中，绝不以 `  ` 前缀重新输出）
-   */
-  const resolvePrevAncestorEntry = (
-    prevAncIdx: number,
-  ): { indent: number; line: string; deleted: boolean } => {
-    const prevComp = prevComparable[prevAncIdx]
-    if (prevToCurrUnchanged.has(prevAncIdx)) {
-      return { indent: prevComp.indent, line: prevComp.line, deleted: false }
-    }
-    const mappedCurrIdx =
-      pairedPrevToCurr.get(prevAncIdx) ??
-      (prevComp.ref !== null ? currUniqueRefIdx.get(prevComp.ref) : undefined)
-    if (mappedCurrIdx !== undefined && currComparable[mappedCurrIdx].indent === prevComp.indent) {
-      const currComp = currComparable[mappedCurrIdx]
-      return { indent: currComp.indent, line: currComp.line, deleted: false }
-    }
-    const deleted = effectiveRemovedAll.has(prevAncIdx)
-    return { indent: prevComp.indent, line: prevComp.line, deleted }
-  }
-
-  /**
-   * 按 activeStack 前缀对齐算法补齐目标行的祖先锚点：
-   * - 比较 activeStack 中缩进严格小于 targetIndent 的已有祖先链；
-   * - 从第一个与期望祖先链分叉的层级 k 开始，依次输出 [k .. last] 全部祖先（杜绝外层重出而内层跳过）。
-   */
-  const ensureAncestors = (targetIdx: number, side: 'prev' | 'curr'): void => {
-    const comparable = side === 'prev' ? prevComparable : currComparable
-    const targetIndent = comparable[targetIdx].indent
-    const ancestorIndices = findAncestorIndices(comparable, targetIdx)
-    if (ancestorIndices.length === 0) return
-
-    const desired = ancestorIndices.map((idx) =>
-      side === 'prev'
-        ? resolvePrevAncestorEntry(idx)
-        : { indent: currComparable[idx].indent, line: currComparable[idx].line, deleted: false },
-    )
-
-    // 取当前 activeStack 中所有缩进严格小于目标行的条目作为现行上下文链
-    const currentChain = activeStack.filter((entry) => entry.indent < targetIndent)
-
-    // 计算 desired 中从头开始在 currentChain 尾部对齐的最大连续匹配前缀长度
-    let matchedPrefix = 0
-    if (currentChain.length >= desired.length) {
-      const offset = currentChain.length - desired.length
-      let allMatch = true
-      for (let k = 0; k < desired.length; k++) {
-        const cur = currentChain[offset + k]
-        if (cur.indent !== desired[k].indent || cur.line !== desired[k].line) {
-          allMatch = false
-          break
-        }
-      }
-      if (allMatch) return
-    }
-
-    // 逐层向下定位第一个需要输出的祖先层级 k：
-    // 若外层 desired[0..k-1] 已在 currentChain 中按顺序精确就位且其间无其它同级打断，则跳过；
-    // 一旦某层不匹配，该层及其后续所有内层祖先一并输出
-    let chainPos = 0
-    for (let k = 0; k < desired.length; k++) {
-      let foundAt = -1
-      for (let j = chainPos; j < currentChain.length; j++) {
-        if (currentChain[j].indent === desired[k].indent && currentChain[j].line === desired[k].line) {
-          foundAt = j
-          break
-        }
-      }
-      if (foundAt !== -1) {
-        matchedPrefix = k + 1
-        chainPos = foundAt + 1
-      } else {
-        break
-      }
-    }
-
-    // 若匹配前缀之后 currentChain 还挂着不同内层祖先，而 desired 只有 1 层外层已命中，
-    // 例如 currentChain = [main, region]，目标行直接在 main 下（indent 2）：
-    // main 已是外层，目标行缩进 2 会弹出 region，若此时直接紧跟在 region 下的子行后，
-    // 需重出 main 锚点明确告诉读者上下文已切回 main（避免挂在 region 下面）
-    if (matchedPrefix === desired.length) {
-      const lastDesired = desired[desired.length - 1]
-      const tailOfChain = currentChain[currentChain.length - 1]
-      if (tailOfChain && (tailOfChain.indent !== lastDesired.indent || tailOfChain.line !== lastDesired.line)) {
-        matchedPrefix = desired.length - 1
-      }
-    }
-
-    for (let k = matchedPrefix; k < desired.length; k++) {
-      const anc = desired[k]
-      if (anc.deleted) continue
-      outputLines.push(`  ${anc.line}`)
-      pushContext(anc.indent, anc.line)
-    }
-  }
 
   for (const hunk of hunks) {
     const effectiveRemoved = hunk.removed.filter((r) => !cancelledRem.has(r.index))
@@ -1007,7 +1062,7 @@ export function computeStructuredYamlDiff(
 
     // 5. 识别同 Hunk 内的「同父同步配对项」：
     //    - 仅当同 #ref 唯一配对且 directParent 相同（或已配对改名父节点）时就近成对输出 `- / +`；
-    //    - 跨父移动不强行绑定，让 `-` 留在旧父级原位置、`+` 留在新父级新位置自然输出，彻底消除重复与错位锚点
+    //    - 跨父移动不绑定配对，让 `-` 留在旧父级文档位置、`+` 留在新父级文档位置自然输出
     const addedRefCounts = new Map<number, number>()
     for (const item of effectiveAdded) {
       if (item.ref !== null) addedRefCounts.set(item.ref, (addedRefCounts.get(item.ref) ?? 0) + 1)
@@ -1070,25 +1125,25 @@ export function computeStructuredYamlDiff(
     const appendRemovedLine = (rem: IndexedLine) => {
       emittedRemovedInHunk.add(rem.index)
       outputLines.push(`- ${rem.line}`)
-      pushContext(prevComparable[rem.index].indent, rem.line)
+      contextTracker.recordRemoved(rem.index)
       removedLines++
     }
 
-    const appendAddedLine = (add: IndexedLine) => {
+    const appendAddedLine = (add: IndexedLine, isPureAdd: boolean) => {
       outputLines.push(`+ ${add.line}`)
-      pushContext(currComparable[add.index].indent, add.line)
+      contextTracker.recordAdded(add.index, isPureAdd)
       addedLines++
     }
 
     const emitSingleRemoved = (rem: IndexedLine) => {
       if (emittedRemovedInHunk.has(rem.index)) return
-      ensureAncestors(rem.index, 'prev')
+      contextTracker.ensureAncestors(rem.index, 'prev', outputLines)
       appendRemovedLine(rem)
     }
 
-    const emitSingleAdded = (add: IndexedLine) => {
-      ensureAncestors(add.index, 'curr')
-      appendAddedLine(add)
+    const emitSingleAdded = (add: IndexedLine, isPureAdd: boolean) => {
+      contextTracker.ensureAncestors(add.index, 'curr', outputLines)
+      appendAddedLine(add, isPureAdd)
     }
 
     let rCursor = 0
@@ -1101,13 +1156,24 @@ export function computeStructuredYamlDiff(
       }
     }
 
+    const hasUnpairedRemovedBetween = (startRemIdx: number, endRemIdx: number): boolean => {
+      for (let r = rCursor; r < effectiveRemoved.length; r++) {
+        const rem = effectiveRemoved[r]
+        if (rem.index >= endRemIdx) break
+        if (rem.index > startRemIdx && !pairedRemIndices.has(rem.index)) return true
+      }
+      return false
+    }
+
     // 6. 按文档顺序输出：同区间内未配对删除行（含跨父移出）先于新增行（含跨父移入）
     for (let i = 0; i < effectiveAdded.length; i++) {
       const add = effectiveAdded[i]
       const pairedOld = pairedOldByAddIdx.get(add.index)
       if (!pairedOld) {
         flushUnpairedRemovedBefore(nextSyncRemLimit[i])
-        emitSingleAdded(add)
+        const isPureAdd =
+          add.ref === null || !removedRefCounts.has(add.ref)
+        emitSingleAdded(add, isPureAdd)
         continue
       }
 
@@ -1118,14 +1184,42 @@ export function computeStructuredYamlDiff(
         continue
       }
 
-      // 同父改写但缩进变化（如外层插入/移除包装层同时修改节点状态）：分别按各自缩进补齐祖先，避免错级
+      // 同父改写但缩进变化（如外层插入/移除包装层同时修改多个子节点）：
+      // 将连续同旧父 & 同新父的配对项合批，先统一在旧父级下输出全部 `-` 行，再统一在新父级下输出全部 `+` 行
       if (prevComparable[pairedOld.index].indent !== currComparable[add.index].indent) {
-        emitSingleRemoved(pairedOld)
-        emitSingleAdded(add)
+        const batch: Array<{ rem: IndexedLine; add: IndexedLine }> = [{ rem: pairedOld, add }]
+        const prevParentIdx = prevComparable[pairedOld.index].parentIndex
+        const currParentIdx = currComparable[add.index].parentIndex
+        let lastRemIdx = pairedOld.index
+
+        while (i + 1 < effectiveAdded.length) {
+          const nextAdd = effectiveAdded[i + 1]
+          const nextOld = pairedOldByAddIdx.get(nextAdd.index)
+          if (
+            !nextOld ||
+            nextOld.line === nextAdd.line ||
+            prevComparable[nextOld.index].indent === currComparable[nextAdd.index].indent ||
+            prevComparable[nextOld.index].parentIndex !== prevParentIdx ||
+            currComparable[nextAdd.index].parentIndex !== currParentIdx ||
+            hasUnpairedRemovedBetween(lastRemIdx, nextOld.index)
+          ) {
+            break
+          }
+          batch.push({ rem: nextOld, add: nextAdd })
+          lastRemIdx = nextOld.index
+          i++
+        }
+
+        for (const pair of batch) {
+          emitSingleRemoved(pair.rem)
+        }
+        for (const pair of batch) {
+          emitSingleAdded(pair.add, false)
+        }
       } else {
-        ensureAncestors(add.index, 'curr')
+        contextTracker.ensureAncestors(add.index, 'curr', outputLines)
         appendRemovedLine(pairedOld)
-        appendAddedLine(add)
+        appendAddedLine(add, false)
       }
     }
 
