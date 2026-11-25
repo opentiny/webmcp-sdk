@@ -35,9 +35,17 @@
   - 命令：`pnpm -F @opentiny/next-sdk test`（221 passed）
   - 命令：`pnpm -F @opentiny/next-sdk build`
 
+- [x] Task 6：光标逐帧回调只在遮罩显示期间运行（#576）
+  - 输入：`packages/next-sdk/page-tools/page-agent-mask/SimulatorMask.ts`
+  - 产物：构造时不启动光标插值循环；`show()` 启动、`hide()` / `dispose()` 取消
+  - [x] 测试：`packages/next-sdk/test/page-tools/simulator-mask-frame-loop.test.ts`
+    - 复现：注册后从未显示的遮罩每帧都在调度 `requestAnimationFrame`
+    - 复现：`hide()` 之后光标回调仍逐帧运行
+    - 保留：显示期间光标逐帧移向目标，隐藏后再次显示仍能移动；`dispose()` 后不再调度
+
 ## 依赖顺序
 
-1 → 2 → 3 → 4 → 5
+1 → 2 → 3 → 4 → 5；Task 6 独立
 
 ## 验收命令
 

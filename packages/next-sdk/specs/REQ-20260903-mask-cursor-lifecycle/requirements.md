@@ -4,7 +4,7 @@
 
 - 状态：已交付
 - 主责包：`packages/next-sdk`
-- 关联 Issue：无（用户口头 / 架构评审需求）
+- 关联 Issue：无（用户口头 / 架构评审需求）；光标逐帧回调的运行时机见 #576
 - 前序 Spec：[`REQ-20260810-mask-cursor-split`](../REQ-20260810-mask-cursor-split/)（引入 `showCursor`，但默认值写反）
 
 ## 背景
@@ -47,6 +47,7 @@
 - `PageAgentToolHandle.showMask(options?)` 透传 `{ showCursor?: boolean }`，内部直调 `simulatorMask.show`（不经无参的 `pageController.showMask()`）。
 - 操作类 Action 结束后，若遮罩仍显示且 `cursorMode !== 'always'`，自动 `show({ showCursor: false })`。
 - `PageAgentToolConfig.cursorMode`：`'actionOnly' | 'always' | 'never'`，默认 `'actionOnly'`。
+- 光标插值的逐帧回调只在遮罩显示期间运行（#576）。
 - 对应单元测试与用户文档。
 
 ### Out of Scope
@@ -66,6 +67,8 @@
 4. 作为集成方，我可以设 `cursorMode: 'never'` 让任何路径都不出光标；设 `'always'` 则未传 `showCursor` 时遮罩期间保持光标。
    - 验收：配置读写经 `get/setPageAgentToolConfig`；调度层按策略解析 `showCursor`。
 5. 作为宿主，我仍可显式 `showMask({ showCursor: true })` 强制出光标（`never` 除外，全局关闭优先）；`always` 下仍可用 `showMask({ showCursor: false })` 临时隐藏。
+6. 作为页面的最终用户，注册了 page-agent-tool 但遮罩未显示时，页面不应有逐帧执行的回调。
+   - 验收：构造后未 `show()`、以及 `hide()` / `dispose()` 之后，`SimulatorMask` 不再调度 `requestAnimationFrame`；遮罩显示期间光标仍逐帧移向 `setCursorPosition()` 设置的目标。
 
 ## 非功能要求
 

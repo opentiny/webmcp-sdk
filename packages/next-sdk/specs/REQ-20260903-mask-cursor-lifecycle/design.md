@@ -74,6 +74,7 @@ function resolveShowCursor(kind: CursorKind, explicit?: boolean): boolean {
 | 符号或行为 | 变更类型 | 说明 |
 |---|---|---|
 | `SimulatorMask.show()` | 修改 | 默认 `showCursor`：`true` → `false` |
+| 光标插值逐帧回调 | 修改 | 构造时不启动；`show()` 使遮罩变为显示时启动，`hide()` / `dispose()` 时取消（#576） |
 | `SimulatorMask.#createCursor()` | 修改 | 初始 `style.display = 'none'` |
 | `PageAgentToolHandle.showMask` | 修改 | 可传 `ShowMaskOptions`；直调 `simulatorMask.show` |
 | `executePageAgentTool` `finally` | 修改 | `shown && cursorMode !== 'always'` 时 `show({ showCursor: false })` |
@@ -106,6 +107,7 @@ sequenceDiagram
 - `#createCursor()` 末尾：`this.#cursor.style.display = 'none'`。
 - `show()`：`const showCursor = options?.showCursor ?? false`。
 - `hide()` 保持现有「fadeOut 期间也 `display: none`」，无需改回 `''`。
+- 光标插值 `#moveCursorToTarget()` 用 `#cursorRafId` 记录待执行的帧：`show()` 在 `shown` 由 `false` 变为 `true` 时调用 `#startCursorLoop()`；每帧开头若已 `dispose` 或 `shown === false` 则不再续帧；`hide()` 与 `dispose()` 调用 `#stopCursorLoop()` 取消待执行的帧。隐藏期间调用 `setCursorPosition()` 只更新目标坐标，下次 `show({ showCursor: true })` 从隐藏切到显示时按既有逻辑重置到视口中心。
 
 ### 句柄
 
