@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { buildA11yTree } from '../../page-tools/a11y/build'
 import { ElementRefAllocator } from '../../page-tools/a11y/ref-allocator'
 import { NO_CHANGES_DIFF_TEXT, PageStateCache } from '../../page-tools/page-state-cache'
-import { DiffContextTracker } from '../../page-tools/structured-yaml-diff'
 
 describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保护', () => {
   beforeEach(() => {
@@ -56,7 +55,7 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
         '+ - button #10 "product-10 按需计费"',
       ].join('\n'),
     )
-    // diff 字符数远小于整页树（< 2%），彻底消除 2.1x 体积倒挂
+    // diff 字符数小于整页树的 5%，确保小改动不产生大体积输出
     expect(res2.diffText.length).toBeLessThan(tree2.yaml.length * 0.05)
   })
 
@@ -1606,41 +1605,158 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
     expect(unwrapLines.filter((l) => l === '    - group "卡片"')).toHaveLength(1)
   })
 
-  it('单元测试：DiffContextTracker 独立校验节点身份匹配、fromRemoved 隔离与纯新增外层容器跳过', () => {
-    const prevComparable = [
-      { line: '- main "根"', trimmed: '- main "根"', indent: 0, ref: null, parentIndex: -1, directParent: '' },
-      { line: '  - list', trimmed: '- list', indent: 2, ref: null, parentIndex: 0, directParent: '- main "根"' },
-      { line: '    - button #1 "A"', trimmed: '- button #1 "A"', indent: 4, ref: 1, parentIndex: 1, directParent: '- list' },
+  it('复现：容器跨父移动（group "C" 从 list "A" 移到 list "B"）时，未变化的目标父节点 list "B" 仅作上下文锚点，不输出虚假 +/-', () => {
+    const url = 'https://console.example.com/container-cross-parent-move'
+    const padding = Array.from({ length: 20 }, (_, i) => `  - link #${i + 200} "导航-${i}"`)
+    const groupC = [
+      '    - group "C"',
+      '      - button #10 "c1"',
+      '      - button #11 "c2"',
+      '      - button #12 "c3"',
     ]
-    const currComparable = [
-      { line: '- main "根"', trimmed: '- main "根"', indent: 0, ref: null, parentIndex: -1, directParent: '' },
-      { line: '  - list', trimmed: '- list', indent: 2, ref: null, parentIndex: 0, directParent: '- main "根"' },
-      { line: '  - list', trimmed: '- list', indent: 2, ref: null, parentIndex: 0, directParent: '- main "根"' },
-      { line: '    - button #1 "A"', trimmed: '- button #1 "A"', indent: 4, ref: 1, parentIndex: 2, directParent: '- list' },
-    ]
-    const tracker = new DiffContextTracker({
-      prevComparable,
-      currComparable,
-      prevToCurrUnchanged: new Map([[0, 0], [1, 1]]),
-      pairedPrevToCurr: new Map(),
-      currUniqueRefIdx: new Map([[1, 3]]),
-      effectiveRemovedAll: new Set([2]),
-    })
-    const out: string[] = []
-    tracker.ensureAncestors(2, 'prev', out)
-    out.push('-     - button #1 "A"')
-    tracker.recordRemoved(2)
-    tracker.ensureAncestors(3, 'curr', out)
-    out.push('+     - button #1 "A"')
-    tracker.recordAdded(3, false)
 
-    expect(out).toEqual([
-      '  - main "根"',
-      '    - list',
-      '-     - button #1 "A"',
-      '    - list',
-      '+     - button #1 "A"',
-    ])
+    const yamlBefore = [
+      '```yaml',
+      '- main "根"',
+      ...padding,
+      '  - list "A"',
+      ...groupC,
+      '  - list "B"',
+      '    - button #3 "b1"',
+      '```',
+    ].join('\n')
+
+    // 变体 1：C 移到 list "B" 中 #3 之前
+    const yamlAfterBeforeB1 = [
+      '```yaml',
+      '- main "根"',
+      ...padding,
+      '  - list "A"',
+      '  - list "B"',
+      ...groupC,
+      '    - button #3 "b1"',
+      '```',
+    ].join('\n')
+    const c1 = new PageStateCache()
+    c1.update(url, yamlBefore)
+    const r1 = c1.update(url, yamlAfterBeforeB1)
+    expect(r1.kind).toBe('diff')
+    expect(r1.diffText).not.toContain('+   - list "B"')
+    expect(r1.diffText).not.toContain('-   - list "B"')
+    expect(r1.diffText).toBe(
+      [
+        '  - main "根"',
+        '    - list "A"',
+        '-     - group "C"',
+        '    - list "B"',
+        '+     - group "C"',
+      ].join('\n'),
+    )
+
+    // 变体 2：C 移到 list "B" 中 #3 之后
+    const yamlAfterAfterB1 = [
+      '```yaml',
+      '- main "根"',
+      ...padding,
+      '  - list "A"',
+      '  - list "B"',
+      '    - button #3 "b1"',
+      ...groupC,
+      '```',
+    ].join('\n')
+    const c2 = new PageStateCache()
+    c2.update(url, yamlBefore)
+    const r2 = c2.update(url, yamlAfterAfterB1)
+    expect(r2.kind).toBe('diff')
+    expect(r2.diffText).not.toContain('+   - list "B"')
+    expect(r2.diffText).not.toContain('-   - list "B"')
+    expect(r2.diffText).toBe(
+      [
+        '  - main "根"',
+        '    - list "A"',
+        '-     - group "C"',
+        '    - list "B"',
+        '+     - group "C"',
+      ].join('\n'),
+    )
+
+    // 变体 3：list "B" 原本为空容器，group "C" 从 list "A" 移入 list "B"
+    const yamlEmptyBBefore = [
+      '```yaml',
+      '- main "根"',
+      ...padding,
+      '  - list "A"',
+      ...groupC,
+      '  - list "B"',
+      '```',
+    ].join('\n')
+    const yamlEmptyBAfter = [
+      '```yaml',
+      '- main "根"',
+      ...padding,
+      '  - list "A"',
+      '  - list "B"',
+      ...groupC,
+      '```',
+    ].join('\n')
+    const c3 = new PageStateCache()
+    c3.update(url, yamlEmptyBBefore)
+    const r3 = c3.update(url, yamlEmptyBAfter)
+    expect(r3.kind).toBe('diff')
+    expect(r3.diffText).not.toContain('+   - list "B"')
+    expect(r3.diffText).not.toContain('-   - list "B"')
+    expect(r3.diffText).toBe(
+      [
+        '  - main "根"',
+        '    - list "A"',
+        '-     - group "C"',
+        '    - list "B"',
+        '+     - group "C"',
+      ].join('\n'),
+    )
+  })
+
+  it('复现：无 #ref 父节点改名（list "购物车 (2)" → "(3)"）且多个带 #ref 子节点改文案时，子节点同 #ref 紧邻成对输出', () => {
+    const cache = new PageStateCache()
+    const url = 'https://console.example.com/unref-renamed-parent-paired-children'
+    const padding = Array.from({ length: 20 }, (_, i) => `  - link #${i + 200} "导航-${i}"`)
+
+    const yaml1 = [
+      '```yaml',
+      '- main "根"',
+      ...padding,
+      '  - list "购物车 (2)"',
+      '    - listitem #1 "a"',
+      '    - listitem #2 "b"',
+      '    - listitem #5 "不变"',
+      '```',
+    ].join('\n')
+    const yaml2 = [
+      '```yaml',
+      '- main "根"',
+      ...padding,
+      '  - list "购物车 (3)"',
+      '    - listitem #1 "a2"',
+      '    - listitem #2 "b2"',
+      '    - listitem #5 "不变"',
+      '```',
+    ].join('\n')
+
+    cache.update(url, yaml1)
+    const r2 = cache.update(url, yaml2)
+
+    expect(r2.kind).toBe('diff')
+    expect(r2.diffText).toBe(
+      [
+        '  - main "根"',
+        '-   - list "购物车 (2)"',
+        '+   - list "购物车 (3)"',
+        '-     - listitem #1 "a"',
+        '+     - listitem #1 "a2"',
+        '-     - listitem #2 "b"',
+        '+     - listitem #2 "b2"',
+      ].join('\n'),
+    )
   })
 
   it('复现：名称含转义引号或带含 ] token 的无 #ref 容器改名时，仍能正确配对并抵消未变化子节点', () => {

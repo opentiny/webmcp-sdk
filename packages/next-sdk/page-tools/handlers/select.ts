@@ -1,11 +1,11 @@
 import { selectOptionElement } from '@page-agent/page-controller'
 import { dispatchComposedEvents, isInShadowDom, waitForDomSettled } from '../utils/dom'
-import type { ActionContext } from '../context'
+import { REF_ACTION_LABELS, type ActionContext } from '../context'
 
 export async function handleSelect(args: any, ctx: ActionContext) {
   const mode = args.responseMode ?? 'diff'
   if (args.index === undefined || typeof args.text !== 'string')
-    return ctx.actionError('选择结果: 缺少元素索引或文本内容')
+    return ctx.actionError(`${REF_ACTION_LABELS.select}结果: 缺少元素索引或文本内容`)
   const resolved = await ctx.resolveRefOrError('select', args.index)
   if (!resolved.ok) return resolved.error
   const el = resolved.el as HTMLSelectElement | HTMLElement
@@ -22,7 +22,7 @@ export async function handleSelect(args: any, ctx: ActionContext) {
   }
 
   if (!targetSelect) {
-    return ctx.actionError(`选择结果: 无法选择元素 ${args.index}，未找到对应的 <select> 元素`)
+    return ctx.actionError(`${REF_ACTION_LABELS.select}结果: 无法选择元素 ${args.index}，未找到对应的 <select> 元素`)
   }
 
   await selectOptionElement(targetSelect, args.text)

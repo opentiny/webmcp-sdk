@@ -141,11 +141,10 @@ export class PageStateCache {
     // 三项熔断保护：前置快速预判/超限、变化行超过半数、diff 文本体积达到/超过整页树，任一命中均回退整页树
     const hasChanges = addedLines > 0 || removedLines > 0
     const totalLines = Math.max(prevSnapshot.lines.length, currLines.length)
-    const changedLineRatio = totalLines > 0 ? Math.max(addedLines, removedLines) / totalLines : 0
     const isDiffTooLarge =
       abortedTooLarge ||
       (hasChanges &&
-        (changedLineRatio > MAX_CHANGE_LINE_RATIO ||
+        (Math.max(addedLines, removedLines) / totalLines > MAX_CHANGE_LINE_RATIO ||
           (yaml.length > 0 && diffText.length >= yaml.length * MAX_DIFF_CHAR_RATIO)))
 
     this.prev = { url, lines: currLines, rev: nextRev }

@@ -18,6 +18,7 @@ import {
   type ActionContext,
   type BrowserStateResponseMode,
   type BrowserStateSnapshot,
+  type PageAgentToolErrorResult,
   type RefActionName
 } from './context'
 import { detectPageDialog, detectValidationErrors, detectVisibleTooltips } from './utils/dom'
@@ -140,7 +141,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
 
     const withGenerationGuard = async <T,>(
       run: () => T | Promise<T>,
-    ): Promise<T | ReturnType<typeof createSessionResetErrorResult>> => {
+    ): Promise<T | PageAgentToolErrorResult> => {
       if (isStale()) {
         return createSessionResetErrorResult(window.location.href)
       }
@@ -149,7 +150,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
 
     const guardedError = async <T,>(
       buildError: () => T | Promise<T>,
-    ): Promise<T | ReturnType<typeof createSessionResetErrorResult>> =>
+    ): Promise<T | PageAgentToolErrorResult> =>
       withGenerationGuard(async () => {
         const result = await buildError()
         getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())

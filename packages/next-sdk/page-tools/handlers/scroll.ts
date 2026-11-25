@@ -1,9 +1,10 @@
 import { getScrollInfo, waitForScrollEnd } from '../utils/scroll'
-import { withStateFields, type ActionContext } from '../context'
+import { REF_ACTION_LABELS, withStateFields, type ActionContext } from '../context'
 
 export async function handleScroll(args: any, ctx: ActionContext) {
   const mode = args.responseMode ?? 'diff'
-  if (args.down === undefined && args.right === undefined) return ctx.errContent('滚动结果: 缺少滚动方向参数')
+  if (args.down === undefined && args.right === undefined)
+    return ctx.errContent(`${REF_ACTION_LABELS.scroll}结果: 缺少滚动方向参数`)
 
   // 确定滚动目标（有 index 时滚动该元素容器，否则滚动整个文档）
   let scrollTarget: Element | Window = window

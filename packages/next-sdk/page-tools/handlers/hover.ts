@@ -1,9 +1,9 @@
 import { waitForDomSettled } from '../utils/dom'
-import type { ActionContext } from '../context'
+import { REF_ACTION_LABELS, type ActionContext } from '../context'
 import type { PageAgentToolInput } from '../schema'
 
 export async function handleHover(args: PageAgentToolInput, ctx: ActionContext) {
-  if (args.index === undefined) return ctx.errContent('悬浮结果: 缺少元素索引')
+  if (args.index === undefined) return ctx.errContent(`${REF_ACTION_LABELS.hover}结果: 缺少元素索引`)
   const resolved = await ctx.resolveRefOrError('hover', args.index)
   if (!resolved.ok) return resolved.error
   const el = resolved.el

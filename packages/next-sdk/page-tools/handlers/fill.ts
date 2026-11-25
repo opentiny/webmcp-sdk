@@ -1,11 +1,11 @@
 import { inputTextElement } from '@page-agent/page-controller'
 import { dispatchComposedEvents, isInShadowDom, waitForDomSettled } from '../utils/dom'
-import type { ActionContext } from '../context'
+import { REF_ACTION_LABELS, type ActionContext } from '../context'
 
 export async function handleFill(args: any, ctx: ActionContext) {
   const mode = args.responseMode ?? 'diff'
   if (args.index === undefined || typeof args.text !== 'string')
-    return ctx.actionError('填写结果: 缺少元素索引或文本内容')
+    return ctx.actionError(`${REF_ACTION_LABELS.fill}结果: 缺少元素索引或文本内容`)
   const resolved = await ctx.resolveRefOrError('fill', args.index)
   if (!resolved.ok) return resolved.error
   const el = resolved.el
@@ -48,7 +48,9 @@ export async function handleFill(args: any, ctx: ActionContext) {
       }
     }
     if (!fillSuccess) {
-      return ctx.actionError(`填写结果: 无法填写元素 ${args.index}，元素不是 input、textarea 或 contenteditable`)
+      return ctx.actionError(
+        `${REF_ACTION_LABELS.fill}结果: 无法填写元素 ${args.index}，元素不是 input、textarea 或 contenteditable`
+      )
     }
     // shadow DOM 内元素：inputTextElement 派发的合成事件 composed:false，
     // 补发 composed:true 事件确保事件委托框架（如 React）能收到

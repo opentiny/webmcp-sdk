@@ -1,10 +1,10 @@
 import { clickElement } from '@page-agent/page-controller'
 import { waitForDomSettled } from '../utils/dom'
-import type { ActionContext } from '../context'
+import { REF_ACTION_LABELS, type ActionContext } from '../context'
 
 export async function handleClick(args: any, ctx: ActionContext) {
   const mode = args.responseMode ?? 'diff'
-  if (args.index === undefined) return ctx.actionError('点击结果: 缺少元素索引')
+  if (args.index === undefined) return ctx.actionError(`${REF_ACTION_LABELS.click}结果: 缺少元素索引`)
   const resolved = await ctx.resolveRefOrError('click', args.index)
   if (!resolved.ok) return resolved.error
   const el = resolved.el
