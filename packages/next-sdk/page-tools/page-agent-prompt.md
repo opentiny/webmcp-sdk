@@ -63,7 +63,7 @@
 
 - **`diff`**（默认）：仅返回自上一次状态以来的增量 DOM 差异，极大节省 Token。
 - **`full`**：返回当前视口中完整的语义化 ARIA YAML 树。
-- **`both`**：同时返回全量树和增量差异。
+- **`both`**：同时返回全量树和增量差异（因已包含完整页面树，`kind` 固定为 `'full'` 且不带 `baseRev`）。
 
 执行 `click`、`fill`、`select`、`scroll` 操作后，工具默认自动以 `diff` 模式返回最新页面状态，无需再次手动调用 `browserState`。`hover` 动作返回重建后的页面状态（含 `tooltips` 等结构化字段）。
 

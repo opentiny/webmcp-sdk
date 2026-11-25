@@ -21,7 +21,8 @@
 | `packages/next-sdk/page-tools/context.ts` | 定义 `REF_NOT_PRESENTED_ERROR_CODE`、`SESSION_RESET_ERROR_CODE`、`PageAgentToolErrorCode`、`REF_ACTION_LABELS`、`BrowserStateResponseMode`、`BrowserStateSnapshot`、`ActionContext.resolveRefOrError` 与统一错误构造 |
 | `packages/next-sdk/page-tools/page-agent-tool.ts` | 串联会话级 `ElementRefAllocator`、`PageStateCache`、`kind/rev/baseRev` 组装、`createInvocationContext` 代次守卫与 `resetSession` 句柄（经 `window.__pageAgentResetSession` 委托给当前生效实例，重置时同步 `unhighlight()`） |
 | `packages/next-sdk/page-tools/page-agent-tool-event.ts` | 接收 `{ getRefMap, endTurn }`；`PAGE_AGENT_CHAT_END_EVENT` 触发 `endTurn()`；透传 `errorCode` |
-| `packages/next-sdk/page-tools/handlers/{click,fill,select,hover,scroll,searchTree}.ts` | 统一通过 `ctx.resolveRefOrError` 校验 `el && el.isConnected` 并返回 `REF_NOT_PRESENTED`；`searchTree` 共用 `refAllocator` 且不污染 Diff 基线 |
+| `packages/next-sdk/page-tools/handlers/{click,fill,select,hover,scroll}.ts` | 统一通过 `ctx.resolveRefOrError` 校验 `el && el.isConnected` 并返回 `REF_NOT_PRESENTED` |
+| `packages/next-sdk/page-tools/handlers/searchTree.ts` | 共用 `refAllocator` 刷新 `currentRefMap`，不覆盖 Diff 基线以保持 `rev` 链连续 |
 | `packages/next-sdk/page-tools/page-agent-prompt.md` | 更新 `#N` 稳定绑定、过期不复用、`kind/rev/baseRev` 与 Diff 格式说明 |
 | `packages/next-sdk/index.ts` | 导出 `ElementRefAllocator`、`RefAllocator`、`REF_NOT_PRESENTED_ERROR_CODE`、`SESSION_RESET_ERROR_CODE`、`PageAgentToolErrorCode`、`BrowserStateSnapshot`、`SnapshotKind` |
 | `docs/webmcp-sdk/page-agent-tool.md` / `packages/next-sdk/skills/page-agent/SKILL.md` | 同步用户文档与编码 Skill |
@@ -117,6 +118,7 @@ export type RegisteredPageAgentToolHandle = PageAgentToolHandle & {
    - **按缩进由浅入深的未变化兄弟抵消与父节点改名配对**：
      - 先在同一未变更外层父节点（`prevToCurrUnchanged`）下，按已锚定未变更直接兄弟切分的连续兄弟区间对本层未抵消同行节点做整行 LCS 抵消（`cancelIdenticalSiblingsInLayer`）并登记进 `prevToCurrUnchanged` / `pairedPrevToCurr`，消除容器跨父移动时 Myers 优先匹配移动子树而把未变化目标父节点（及其未变化子节点）拆进两个 Hunk 产生的虚假 `+/-`，同时因区间锚定严格保留同父重排；
      - 再对本层剩余有直接子节点的父节点借助直接子节点整行倒排索引贪心一对一配对（避免 $O(P^2)$ 扫描）。带 `#ref` 父节点与无 `#ref` 父节点均要求外层父级兼容且存在共享直接子节点；带 `#ref` 仅允许同 `#ref` 配对（分值 3）；无 `#ref` 要求同 role（正则支持转义引号与多 token）并支持词干/首词匹配（分值 0..2，含行内拼装名称与无名称改 token 容器），当双方名称均非空且名称分为 0 时，若任一方在同一外层父级下存在同词干节点则拒绝配对，否则要求两者在本层候选中的相对位置相同。候选按共享直接子节点数、名称相似度分、行号距离降序优选；真正改名的配对父节点记入 `pairedRenamedParentByCurrIdx` 供就近成对输出，并在配对父节点下仅对整行完全相同的子节点序列求 LCS 抵消（兼顾同父重排容器自身保留 `- / +` 而内部未变子节点不刷屏）。
+   - **同名无 `#ref` 父节点间跨父移动还原（`restoreSameNamedCrossParentMoves`）**：在上述抵消与父节点映射就位后，扫描 `prevToCurrUnchanged` 检查被同名无 `#ref` 父节点骗过 Myers 比较键 `(directParent, trimmed)` 而误判为未变更的移动根节点（旧父与新父均明确对应两侧存活的不同父节点，天然排除嵌套同名包装层及容器删除引起的前缀歧义）；将其从 `prevToCurrUnchanged` 撤回并按当前文档坐标序拆分为旧父下 `-` 与新父下 `+` 两个独立 Hunk 输出，同时保持其内部未变子节点不重复刷屏。
 5. **文档序输出与单调缩进上下文栈（`DiffContextTracker`）锚点**：
    - 复用预计算的 `ComparableLine.ref`（兼容多词 ARIA role：`/^\s*-\s+[^["]+?\s+#(\d+)(?:\s|$)/`）。
    - 同逻辑父节点（`directParent` 相等或旧/新父节点已在改名配对中配对）下内容/缩进真正变化（`old.line !== add.line`）的同 `#ref` 唯一配对，以及已配对改名父节点本身，作为同步配对锚点就近成对输出 `- / +`（整行相同而留存的同父重排节点不绑定配对，保留在各自文档位置输出）；若同父改写伴随外层包装导致的缩进变化，连续同旧父、同新父的配对项合批并共享一组锚点，先统一在旧父级缩进下输出该批 `-` 行，再统一在新父级缩进下输出该批 `+` 行；跨父移动不绑定配对，让 `-` 留在旧父级文档位置、`+` 留在新父级文档位置自然输出。
@@ -138,7 +140,7 @@ export type RegisteredPageAgentToolHandle = PageAgentToolHandle & {
 | `A11yTreeOptions.refAllocator` | 新增（可选） | 允许外部传入持久化分配器；省略时单次调用仍从 `#0` 开始 |
 | `PageAgentToolHandle.resetSession` / `RegisteredPageAgentToolHandle` | 新增 | `PageAgentToolHandle.resetSession` 保持可选兼容外部 mock；`registerPageAgentTool` 返回 `RegisteredPageAgentToolHandle` 必含 `resetSession()`，并通过 `window.__pageAgentResetSession` 委托给当前生效注册实例 |
 | `PAGE_AGENT_CHAT_END_EVENT` 监听行为 | 修改 | 除 `hideMask()` 外调用 `endTurn()` 递增 `sessionGeneration`（令进行中的异步续体返回 `SESSION_RESET`）并清空 Diff 基线（`rev` 持续递增、`#ref` 不跨轮复用） |
-| `BrowserStateSnapshot` / `SnapshotKind` | 新增 | 导出与 `browserState` 返回 JSON 一致的公开类型（含 `kind`、`url`、`title`、`rev`、`baseRev?`、`content` 等） |
+| `BrowserStateSnapshot` / `SnapshotKind` | 新增 | 导出与 `browserState` 返回 JSON 一致的公开类型（含 `kind`、`url`、`title`、`rev`、`baseRev?`、`content` 等）；`responseMode: 'both'` 因响应体已含完整页面树，固定输出 `kind: 'full'`（不带 `baseRev`） |
 | 失效 `#ref` 与过期续体错误码 | 新增 | 导出 `REF_NOT_PRESENTED_ERROR_CODE`、`SESSION_RESET_ERROR_CODE` 及联合类型 `PageAgentToolErrorCode` |
 | `a11yConfig.states.error` / `states.warning` 匹配范围 | 修改 | 对非表单控件收敛为仅匹配元素自身（`el.matches`），不再通过 `closest()` 继承到子孙节点；仅表单控件允许继承外层容器校验态 |
 
@@ -155,8 +157,8 @@ flowchart TD
   F --> G["buildA11yTree(body, { refAllocator })"]
   G --> H["WeakMap 复用已有 #ref，新元素分配新 #ref"]
   H --> I["PageStateCache.update(url, yaml, { forceFull, lines })"]
-  I --> J{"首次 / URL 变 / forceFull / 低重合或 maxEditLength 超限 / 变更>50% / diff>=full?"}
-  J -->|是| K["kind: 'full', rev: N, content: yaml"]
+  I --> J{"首次 / URL 变 / full 或 both / 低重合或 maxEditLength 超限 / 变更>50% / diff>=full?"}
+  J -->|是| K["kind: 'full', rev: N（无 baseRev；both 含全量树与增量差异）"]
   J -->|否| L["同父同 #ref 配对 + DiffContextTracker 锚点 → kind: 'diff', rev: N, baseRev: N-1, content: diffText"]
 ```
 

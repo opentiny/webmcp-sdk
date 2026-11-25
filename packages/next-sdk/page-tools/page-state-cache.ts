@@ -4,8 +4,8 @@
  * 页面状态版本缓存与熔断协议模块：
  * 1. 维护单调递增的快照版本号 rev，增量更新附带基准版本 baseRev；
  * 2. 集中定义全部熔断策略参数并透传给 `structured-yaml-diff.ts` 计算结构感知增量 Diff；
- * 3. 执行三项熔断保护（前置大窗口 O(N) 低重合预判 / Myers 编辑距离上限、变化行占比 > 50%、diff 字符体积 >= 整页 YAML），
- *    命中任一项时统一回退整页树（kind = 'full', fullReason = 'diff_too_large'）。
+ * 3. 执行三项熔断保护（前置大窗口 O(N) 低重合预判 / Myers 编辑距离上限、变化行占比超过 MAX_CHANGE_LINE_RATIO、
+ *    diff 字符体积达到 MAX_DIFF_CHAR_RATIO），命中任一项时统一回退整页树（kind = 'full', fullReason = 'diff_too_large'）。
  */
 
 import {

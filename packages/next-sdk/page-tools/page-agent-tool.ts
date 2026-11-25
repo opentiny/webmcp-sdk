@@ -14,6 +14,7 @@ import {
   createActionErrorResult,
   createSessionResetErrorResult,
   createStaleRefErrorResult,
+  isPointerInputAction,
   REF_ACTION_LABELS,
   type ActionContext,
   type BrowserStateResponseMode,
@@ -191,17 +192,14 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
         // 检测 hover 后可见的 tooltip / 浮层提示（框架 portal 插入 body 的内容）
         const tooltips = detectVisibleTooltips()
 
-        // 根据 responseMode 与熔断结果确定最终 kind 及 content
-        let kind: SnapshotKind = diff.kind
-        let displayContent = ''
-        if (responseMode === 'full') {
-          kind = 'full'
-          displayContent = yaml
-        } else if (responseMode === 'diff') {
+        // 根据 responseMode 与熔断结果确定最终 kind 及 content：
+        // both 模式因 content 已包含完整页面树，固定返回 kind: 'full'（不带 baseRev），防止宿主按纯 diff 折叠丢弃整页树
+        let kind: SnapshotKind = 'full'
+        let displayContent = yaml
+        if (responseMode === 'diff') {
           kind = diff.kind
           displayContent = diff.kind === 'full' ? yaml : diff.diffText
         } else if (responseMode === 'both') {
-          kind = diff.kind
           displayContent = `【全量页面树】:\n${yaml}\n\n【增量差异】:\n${diff.kind === 'full' ? '（首次/刷新/大幅变化，无增量差异）' : diff.diffText}`
         }
 
@@ -223,9 +221,9 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
     const actionError = (msg: string) =>
       guardedError(() => createActionErrorResult(msg, buildBrowserStateResponse))
 
-    const staleRefError = (actionLabel: string, index: number) =>
+    const staleRefError = (action: RefActionName, index: number) =>
       guardedError(() =>
-        createStaleRefErrorResult(actionLabel, index, window.location.href, stateCache.getCurrentRev())
+        createStaleRefErrorResult(action, index, window.location.href, stateCache.getCurrentRev())
       )
 
     return {
@@ -243,7 +241,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
         }
         return {
           ok: false,
-          error: await staleRefError(REF_ACTION_LABELS[action], index)
+          error: await staleRefError(action, index)
         }
       },
       errContent,
@@ -359,12 +357,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): Regis
     } catch (error) {
       // 仅对指针/输入类 DOM 交互异常包装为带最新整页状态的错误返回；
       // scroll（可在无 index 时滚动窗口）与只读/脚本类动作保持原样抛错以兼容既有调用约定
-      if (
-        args.action === 'click' ||
-        args.action === 'fill' ||
-        args.action === 'select' ||
-        args.action === 'hover'
-      ) {
+      if (isPointerInputAction(args.action)) {
         return ctx.actionError(
           `${REF_ACTION_LABELS[args.action]}执行异常: ${error instanceof Error ? error.message : String(error)}`
         )

@@ -1481,7 +1481,7 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
     expect(r2.diffText).toContain('+ - button #5 "确定"')
   })
 
-  it('复现：DiffContextTracker 按节点身份下标与 fromRemoved 标记匹配，同名无 #ref 容器间移动与已删除同名父节点绝不混淆', () => {
+  it('复现：同名无 #ref 容器间移动与已删除同名父节点按节点身份匹配，祖先锚点绝不混淆', () => {
     const url = 'https://console.example.com/context-identity-matching'
     const padding = Array.from({ length: 20 }, (_, i) => `  - link #${i + 200} "导航-${i}"`)
 
@@ -1712,6 +1712,123 @@ describe('PageStateCache - 稳定编号下的结构化增量 Diff 与熔断保�
         '-     - group "C"',
         '    - list "B"',
         '+     - group "C"',
+      ].join('\n'),
+    )
+  })
+
+  it('复现：带子节点的元素在两个同名无 #ref 父节点之间跨父移动时，必须输出旧父下 - 与新父下 + 而非 # (no changes)', () => {
+    const url = 'https://console.example.com/same-named-unref-parent-subtree-move'
+    const padding = Array.from({ length: 20 }, (_, i) => `  - link #${i + 200} "导航-${i}"`)
+
+    // 变体 1：看板两列均为无名 list，带子节点 button #7 的卡片 listitem #2 从第 1 列拖到第 2 列开头
+    const boardBefore = [
+      '```yaml',
+      '- main "根"',
+      ...padding,
+      '  - list',
+      '    - listitem #1 "a"',
+      '    - listitem #2 "b"',
+      '      - button #7 "删除"',
+      '  - list',
+      '    - listitem #3 "c"',
+      '```',
+    ].join('\n')
+    const boardAfter = [
+      '```yaml',
+      '- main "根"',
+      ...padding,
+      '  - list',
+      '    - listitem #1 "a"',
+      '  - list',
+      '    - listitem #2 "b"',
+      '      - button #7 "删除"',
+      '    - listitem #3 "c"',
+      '```',
+    ].join('\n')
+
+    const c1 = new PageStateCache()
+    c1.update(url, boardBefore)
+    const r1 = c1.update(url, boardAfter)
+    expect(r1.kind).toBe('diff')
+    expect(r1.diffText).not.toBe(NO_CHANGES_DIFF_TEXT)
+    expect(r1.diffText).toBe(
+      [
+        '  - main "根"',
+        '    - list',
+        '-     - listitem #2 "b"',
+        '    - list',
+        '+     - listitem #2 "b"',
+      ].join('\n'),
+    )
+
+    // 变体 2：反向移动（从第 2 列开头拖回第 1 列末尾），新父下 + 排在旧父下 - 之前
+    const r1Back = c1.update(url, boardBefore)
+    expect(r1Back.kind).toBe('diff')
+    expect(r1Back.diffText).not.toBe(NO_CHANGES_DIFF_TEXT)
+    expect(r1Back.diffText).toBe(
+      [
+        '  - main "根"',
+        '    - list',
+        '+     - listitem #2 "b"',
+        '    - list',
+        '-     - listitem #2 "b"',
+      ].join('\n'),
+    )
+
+    // 变体 3：两列均为无名 generic，带子节点的卡片跨列移动同样精准表达移动
+    const genericBefore = boardBefore.replace(/  - list\n/g, '  - generic\n')
+    const genericAfter = boardAfter.replace(/  - list\n/g, '  - generic\n')
+    const c2 = new PageStateCache()
+    c2.update(url, genericBefore)
+    const r2 = c2.update(url, genericAfter)
+    expect(r2.kind).toBe('diff')
+    expect(r2.diffText).toBe(
+      [
+        '  - main "根"',
+        '    - generic',
+        '-     - listitem #2 "b"',
+        '    - generic',
+        '+     - listitem #2 "b"',
+      ].join('\n'),
+    )
+
+    // 变体 4：两个同名无 #ref region "R" 间移动不带 #ref 的 group "G"（含子节点 button #1）
+    const regionBefore = [
+      '```yaml',
+      '- main "根"',
+      ...padding,
+      '  - region "R"',
+      '    - button #9 "a"',
+      '    - group "G"',
+      '      - button #1 "操作"',
+      '  - region "R"',
+      '    - button #10 "c"',
+      '```',
+    ].join('\n')
+    const regionAfter = [
+      '```yaml',
+      '- main "根"',
+      ...padding,
+      '  - region "R"',
+      '    - button #9 "a"',
+      '  - region "R"',
+      '    - group "G"',
+      '      - button #1 "操作"',
+      '    - button #10 "c"',
+      '```',
+    ].join('\n')
+    const c3 = new PageStateCache()
+    c3.update(url, regionBefore)
+    const r3 = c3.update(url, regionAfter)
+    expect(r3.kind).toBe('diff')
+    expect(r3.diffText).not.toBe(NO_CHANGES_DIFF_TEXT)
+    expect(r3.diffText).toBe(
+      [
+        '  - main "根"',
+        '    - region "R"',
+        '-     - group "G"',
+        '    - region "R"',
+        '+     - group "G"',
       ].join('\n'),
     )
   })

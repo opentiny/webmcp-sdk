@@ -45,10 +45,10 @@
 - 拆分结构化 Diff 纯函数模块（`structured-yaml-diff.ts`）与版本缓存协议层（`PageStateCache`）：
   - 基于稳定 `#ref` 实现变更 Hunk 内按文档顺序输出：同父同 `#ref`（及配对改名父节点）`- / +` 就近成对输出，跨父移动在旧父级与新父级各自文档位置输出；
   - 为嵌套层级的每个变更行按需补充去重后的最小父级缩进上下文锚点（`'  '` 前缀）；
-  - 全局变更全集上执行无 `#ref` 无交互包装层插入/移除抵消（校验外层父节点精确映射与收紧到父节点子树内的相邻未变更兄弟位置窗口，跳过窗口内已有/改名容器，兼容同级同名节点并防止跨父/跨位置移动丢失）、同一未变更外层父节点连续兄弟区间内跨 Hunk 未变化同行节点保序抵消（消除跨父移动导致的未变化目标父节点虚假 `+/-`）与改名父节点配对（`#ref` 精确配对或无 `#ref` 名称/词干/首词+子节点重合度倒排索引配对），兼容带子树的子节点；
+  - 全局变更全集上执行无 `#ref` 无交互包装层插入/移除抵消（校验外层父节点精确映射与收紧到父节点子树内的相邻未变更兄弟位置窗口，跳过窗口内已有/改名容器，兼容同级同名节点并防止跨父/跨位置移动丢失）、同一未变更外层父节点连续兄弟区间内跨 Hunk 未变化同行节点保序抵消（消除跨父移动导致的未变化目标父节点虚假 `+/-`）、改名父节点配对（`#ref` 精确配对或无 `#ref` 名称/词干/首词+子节点重合度倒排索引配对）与同名无 `#ref` 父节点间带子树跨父移动还原，兼容带子树的子节点；
   - 三项熔断保护（首尾剥离 + 大窗口 O(N) 低重合快速预判 / Myers `maxEditLength` 上限、变化行占比 `> 50%`、diff 字符体积 `>= 整页 YAML`）时自动回退返回整页树（`kind: 'full'`）；
   - 维护单调递增 `rev` 与增量 `baseRev`；`searchTree` 仅刷新 `currentRefMap`，不覆盖 `stateCache` 基线以保持 `rev` 链连续。
-- `browserState` 返回 JSON 新增结构化字段：`kind: 'full' | 'diff'`、`rev: number`（当 `kind === 'diff'` 时含 `baseRev: number`）。
+- `browserState` 返回 JSON 新增结构化字段：`kind: 'full' | 'diff'`、`rev: number`（当 `kind === 'diff'` 时含 `baseRev: number`）；`responseMode: 'both'` 因 `content` 已包含完整页面树，固定输出 `kind: 'full'`（不带 `baseRev`），避免宿主将其误当作纯增量折叠。
 - 所有依赖 `index` 的动作（`click`、`fill`、`select`、`hover`、`scroll`）在 `index` 不在最新快照 `currentRefMap` 或元素已脱离文档（`!el.isConnected`）时，统一返回 `isError: true` + `errorCode: 'REF_NOT_PRESENTED'` 轻量结构化错误，不自动附带整页树。
 - 单轮结束与会话重置：收到 `PAGE_AGENT_CHAT_END_EVENT` 时仅调用 `endTurn()`（递增代次 + `stateCache.invalidate()`，下轮出 `full` 但 `rev` 持续递增、`#ref` 不跨轮复用）；`PageAgentToolHandle` 新增可选 `resetSession()`（`registerPageAgentTool()` 返回 `RegisteredPageAgentToolHandle` 必带），由宿主在新建或清空会话时显式调用以完整归零并调用 `unhighlight()` 清理残留高亮；异步操作等待期间遇轮次结束或重置时拦截续体并返回 `SESSION_RESET`。
 - 收敛校验态作用域与锚点去重（实机压测优化）：收敛 `DEFAULT_ERROR_SELECTORS` 中的宽泛 `.ng-invalid` 为已交互原生表单控件；`states.error`/`states.warning` 元素自身命中始终生效，并仅允许表单控件（原生 `input`/`textarea`/`select`、编辑宿主、经 role 解析出的 `textbox`/`combobox` 等）通过 `closest()` 继承容器校验态；`structured-yaml-diff.ts` 预计算 `parentIndex` 并在全集维度处理包装层平移与父节点改名抵消。
@@ -66,7 +66,7 @@
 2. 作为 Agent，我希望同一父容器内多个元素同时更新状态或文案时，同父同 `#ref` 的 `-` 与 `+` 成对紧邻，跨父移动在旧父级与新父级各自位置清晰呈现，且嵌套变更带有最小父级缩进锚点，以便准确理解变更位置。
    - 验收：同父多按钮文本同时更新时按 `#N` 成对输出 `- 旧行` / `+ 新行`；跨父移动在旧父级与新父级各自位置输出；容器内深层节点变更时输出去重后的父级上下文行（`'  '` 前缀）。
 3. 作为宿主与 Agent，我希望当页面变化超过一半或 Diff 过大时自动返回整页树，并通过 `kind`、`rev`、`baseRev` 精确识别快照类型与版本链。
-   - 验收：首次获取、URL 变化、`responseMode='full'` 或命中三项熔断回退条件（前置大窗口低重合预判 / Myers `maxEditLength` 超限、变更行数 `> 50%`、Diff 字符体积 `>= full`）时返回 `kind: 'full', rev: N`（无 `baseRev`）；小幅变更返回 `kind: 'diff', rev: N, baseRev: N-1`。
+   - 验收：首次获取、URL 变化、`responseMode='full'` / `'both'` 或命中三项熔断回退条件（前置大窗口低重合预判 / Myers `maxEditLength` 超限、变更行数 `> 50%`、Diff 字符体积 `>= full`）时返回 `kind: 'full', rev: N`（无 `baseRev`）；`responseMode='diff'` 下的小幅变更返回 `kind: 'diff', rev: N, baseRev: N-1`。
 4. 作为 Agent，我希望传入已移除或未出现在最新快照中的 `#ref` 时立即收到 `REF_NOT_PRESENTED` 错误，绝不误操作新元素。
    - 验收：移除元素后旧 `#ref` 不被新元素复用；`click`/`fill`/`select`/`hover`/`scroll(带 index)` 传入旧 `#ref` 均返回 `isError: true` 且 `errorCode === 'REF_NOT_PRESENTED'`，且响应不塞整页树。
 5. 作为宿主集成方，我希望单轮回复结束时下轮返回 `full` 且不复用旧编号，新建/清空会话时能完整归零编号与版本链。

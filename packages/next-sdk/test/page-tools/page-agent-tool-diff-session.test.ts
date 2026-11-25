@@ -355,4 +355,31 @@ describe('page-agent-tool 稳定编号、结构化版本字段、REF_NOT_PRESENT
     expect(s3).toMatchObject({ kind: 'full', rev: 1 })
     expect(s3.baseRev).toBeUndefined()
   })
+
+  it('复现：responseMode="both" 返回内容含全量页面树与增量差异时，kind 固定为 full 且不带 baseRev', async () => {
+    document.body.innerHTML = `
+      <main>
+        <button id="b0">按钮0</button>
+        <button id="b1">按钮1</button>
+        <button id="b2">按钮2</button>
+        <button id="b3">按钮3</button>
+      </main>
+    `
+    const { execute } = captureTool()
+    const s1 = JSON.parse((await execute({ action: 'browserState' })).content[0].text)
+    expect(s1).toMatchObject({ kind: 'full', rev: 1 })
+
+    // 局部修改 1 个按钮文本（diff 命中增量路径），以 responseMode: 'both' 获取
+    document.getElementById('b1')!.textContent = '按钮1-已更新'
+    const s2 = JSON.parse(
+      (await execute({ action: 'browserState', responseMode: 'both' })).content[0].text,
+    )
+    expect(s2.kind).toBe('full')
+    expect(s2.rev).toBe(2)
+    expect(s2.baseRev).toBeUndefined()
+    expect(s2.content).toContain('【全量页面树】:')
+    expect(s2.content).toContain('【增量差异】:')
+    expect(s2.content).toMatch(/-   - button #1 .* "按钮1"/)
+    expect(s2.content).toMatch(/\+   - button #1 .* "按钮1-已更新"/)
+  })
 })

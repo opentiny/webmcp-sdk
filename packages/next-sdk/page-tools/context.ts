@@ -23,6 +23,17 @@ export const REF_ACTION_LABELS = {
 
 export type RefActionName = keyof typeof REF_ACTION_LABELS
 
+/** 指针/输入类 DOM 交互动作集合（执行抛错时附带最新整页状态恢复上下文；由 REF_ACTION_LABELS 派生，排除 scroll） */
+export type PointerInputActionName = Exclude<RefActionName, 'scroll'>
+
+const POINTER_INPUT_ACTIONS = new Set<string>(
+  Object.keys(REF_ACTION_LABELS).filter((k) => k !== 'scroll')
+)
+
+export function isPointerInputAction(action: string): action is PointerInputActionName {
+  return POINTER_INPUT_ACTIONS.has(action)
+}
+
 export type ResolvedRefElement =
   | { ok: true; el: HTMLElement }
   | { ok: false; error: PageAgentToolErrorResult }
@@ -85,11 +96,12 @@ export function createCodedErrorResult(
 
 /** 构建统一的过期/不存在 #ref 错误响应（不自动附带整页树，交由调用方按需拉取 full） */
 export function createStaleRefErrorResult(
-  actionLabel: string,
+  action: RefActionName,
   index: number,
   url: string,
   rev: number
 ): PageAgentToolErrorResult {
+  const actionLabel = REF_ACTION_LABELS[action]
   const message = `${actionLabel}失败 [${REF_NOT_PRESENTED_ERROR_CODE}]: ref 索引 #${index} 不在最新页面快照中（元素可能已移除或尚未获取最新快照），请先调用 browserState 获取最新状态后重试。`
   return createCodedErrorResult(REF_NOT_PRESENTED_ERROR_CODE, message, { index, url, rev })
 }

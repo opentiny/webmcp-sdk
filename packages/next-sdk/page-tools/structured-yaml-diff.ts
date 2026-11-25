@@ -62,6 +62,8 @@ interface IndexedLine {
 }
 
 interface ChangeHunk {
+  /** 该 Hunk 在当前文档坐标轴上的排序锚点，用于在还原同名父节点跨父移动后保持文档序输出 */
+  currOrder: number
   removed: IndexedLine[]
   added: IndexedLine[]
 }
@@ -113,6 +115,22 @@ export interface DiffContextTrackerInput {
 const currNodeKey = (idx: number): string => `curr:${idx}`
 const prevNodeKey = (idx: number): string => `prev:${idx}`
 const outerRoleKey = (parentIndex: number, role: string): string => `${parentIndex}\0${role}`
+const myersLineKey = (directParent: string, trimmed: string): string => `${directParent}\0${trimmed}`
+
+function toIndexedLine(index: number, item: ComparableLine): IndexedLine {
+  return {
+    index,
+    line: item.line,
+    trimmed: item.trimmed,
+    ref: item.ref,
+  }
+}
+
+function incrementMapCount<K>(map: Map<K, number>, key: K, delta = 1): number {
+  const next = (map.get(key) ?? 0) + delta
+  map.set(key, next)
+  return next
+}
 
 function pushMapItem<K, V>(map: Map<K, V[]>, key: K, value: V): V[] {
   let list = map.get(key)
@@ -524,12 +542,7 @@ function cancelIdenticalSiblingsInLayer(
     const prevOuter = prevComparable[r.index].parentIndex
     const currOuter = prevOuter === -1 ? -1 : prevToCurrUnchanged.get(prevOuter)
     if (currOuter === undefined) continue
-    let group = remByCurrOuter.get(currOuter)
-    if (!group) {
-      group = { prevOuter, items: [] }
-      remByCurrOuter.set(currOuter, group)
-    }
-    group.items.push(r)
+    getOrCreateMap(remByCurrOuter, currOuter, () => ({ prevOuter, items: [] })).items.push(r)
   }
 
   const addByCurrOuter = groupByKey(addLayerNodes, (a) => currComparable[a.index].parentIndex)
@@ -598,15 +611,12 @@ function cancelWrappedNodes(wrapper: WrapperSideContext, other: OtherSideContext
       wComp.parentIndex === -1 ? -1 : wrapper.unchangedToOther.get(wComp.parentIndex)
     if (expectedOtherParentIdx === undefined) continue
 
-    const wrappedChildren = (wrapper.byParentIdx.get(w.index) ?? []).filter(
-      (item) => !wrapper.cancelled.has(item.index),
-    )
+    const wrappedChildren = filterUncancelled(wrapper.byParentIdx.get(w.index), wrapper.cancelled)
     if (wrappedChildren.length === 0) continue
 
     // 计算 w 在同父兄弟序列中左右最近未变更兄弟对应的对侧下标窗口 (otherLowerBound, otherUpperBound)
     const siblings = wrapper.allChildrenByParent.get(wComp.parentIndex) ?? []
-    const pos = wrapper.siblingPos.get(w.index)
-    if (pos === undefined) continue
+    const pos = wrapper.siblingPos.get(w.index)!
 
     let otherLowerBound = -1
     for (let i = pos - 1; i >= 0; i--) {
@@ -645,12 +655,10 @@ function cancelWrappedNodes(wrapper: WrapperSideContext, other: OtherSideContext
       continue
     }
 
-    const otherChildren = (other.byParentIdx.get(expectedOtherParentIdx) ?? []).filter(
-      (item) =>
-        !other.cancelled.has(item.index) &&
-        item.index > otherLowerBound &&
-        item.index < otherUpperBound,
-    )
+    const otherChildren = filterUncancelled(
+      other.byParentIdx.get(expectedOtherParentIdx),
+      other.cancelled,
+    ).filter((item) => item.index > otherLowerBound && item.index < otherUpperBound)
     if (otherChildren.length === 0) continue
 
     // 防止窗口内已有无 #ref 容器原位改名（即使名称不相似，如 "待处理" → "已完成"）同时移入/移出相邻节点时被误判为新包装层；
@@ -816,7 +824,7 @@ function cancelWrapperAndRenamedParentShifts(
     for (const p of addParents) {
       for (const child of filterUncancelled(addChildrenByParent.get(p.index), cancelledAdd)) {
         const parentCounts = getOrCreateMap(addParentsByChildLine, child.line, () => new Map())
-        parentCounts.set(p.index, (parentCounts.get(p.index) ?? 0) + 1)
+        incrementMapCount(parentCounts, p.index)
       }
     }
 
@@ -836,17 +844,14 @@ function cancelWrapperAndRenamedParentShifts(
       // 统计本 rParent 中各子行出现次数，再查倒排表累计与各 addParent 的多重集交集大小
       const rLineCounts = new Map<string, number>()
       for (const child of rChildren) {
-        rLineCounts.set(child.line, (rLineCounts.get(child.line) ?? 0) + 1)
+        incrementMapCount(rLineCounts, child.line)
       }
       const sharedByAddParent = new Map<number, number>()
       for (const [line, rCount] of rLineCounts.entries()) {
         const addCounts = addParentsByChildLine.get(line)
         if (!addCounts) continue
         for (const [addIdx, aCount] of addCounts.entries()) {
-          sharedByAddParent.set(
-            addIdx,
-            (sharedByAddParent.get(addIdx) ?? 0) + Math.min(rCount, aCount),
-          )
+          incrementMapCount(sharedByAddParent, addIdx, Math.min(rCount, aCount))
         }
       }
 
@@ -930,12 +935,117 @@ function buildUniqueRefIndex(comparable: ComparableLine[]): Map<number, number> 
   for (let i = 0; i < comparable.length; i++) {
     const ref = comparable[i].ref
     if (ref === null) continue
-    const next = (counts.get(ref) ?? 0) + 1
-    counts.set(ref, next)
+    const next = incrementMapCount(counts, ref)
     if (next === 1) indexByRef.set(ref, i)
     else indexByRef.delete(ref)
   }
   return indexByRef
+}
+
+interface SameNamedMoveRestoreContext {
+  prevComparable: ComparableLine[]
+  currComparable: ComparableLine[]
+  prevToCurrUnchanged: Map<number, number>
+  currToPrevUnchanged: Map<number, number>
+  pairedPrevToCurr: Map<number, number>
+}
+
+/**
+ * 还原被同名无 `#ref` 父节点欺骗 Myers 而误判为未变更的跨父移动根节点：
+ * - 例如两个无名 `list`（或同名 `region "R"`）之间移动带子节点的卡片 `listitem #2` 时，
+ *   Myers 比较键 `(directParent, trimmed)` 在两侧一致而优先匹配移动子树、把第 2 个父节点拆进 Hunk，
+ *   随后 `cancelIdenticalSiblingsInLayer` 正确把第 2 个父节点归位进 `prevToCurrUnchanged`；
+ * - 此时遍历 `prevToCurrUnchanged` 即可检测到该移动根节点的旧父与新父映射到两侧不同的父节点，
+ *   将其从 `prevToCurrUnchanged` 撤回并按当前文档顺序拆成旧父下 `-` 与新父下 `+` 两个独立 Hunk 输出，
+ *   同时保持其内部未变更子节点不刷屏重复输出。
+ */
+function restoreSameNamedCrossParentMoves(
+  hunks: ChangeHunk[],
+  ctx: SameNamedMoveRestoreContext,
+): number[] {
+  const {
+    prevComparable,
+    currComparable,
+    prevToCurrUnchanged,
+    currToPrevUnchanged,
+    pairedPrevToCurr,
+  } = ctx
+
+  const pairedCurrToPrev = new Map<number, number>()
+  for (const [prevIdx, currIdx] of pairedPrevToCurr.entries()) {
+    pairedCurrToPrev.set(currIdx, prevIdx)
+  }
+
+  const restoredMoves: Array<{ prevIdx: number; currIdx: number }> = []
+  for (const [prevIdx, currIdx] of prevToCurrUnchanged.entries()) {
+    const pParent = prevComparable[prevIdx].parentIndex
+    const cParent = currComparable[currIdx].parentIndex
+    if (pParent === -1 && cParent === -1) continue
+
+    const mappedCurrParent =
+      pParent === -1 ? -1 : (prevToCurrUnchanged.get(pParent) ?? pairedPrevToCurr.get(pParent))
+    const mappedPrevParent =
+      cParent === -1 ? -1 : (currToPrevUnchanged.get(cParent) ?? pairedCurrToPrev.get(cParent))
+
+    // 仅当旧父与新父均明确映射到两侧存活的不同父节点时判定为跨父移动根节点：
+    // 既精准覆盖两列/多列同名无 #ref 容器间跨父移动，又天然排除嵌套同名包装层插入及同名容器被删引发的前缀歧义
+    if (
+      mappedCurrParent !== undefined &&
+      mappedPrevParent !== undefined &&
+      mappedCurrParent !== cParent
+    ) {
+      restoredMoves.push({ prevIdx, currIdx })
+    }
+  }
+
+  if (restoredMoves.length === 0) return []
+
+  // 在全部识别完毕后再撤回移动根节点映射，确保其内部未变子节点仍满足 pParent->cParent 一致而不被重复拆分
+  for (const { prevIdx, currIdx } of restoredMoves) {
+    prevToCurrUnchanged.delete(prevIdx)
+    currToPrevUnchanged.delete(currIdx)
+  }
+
+  const resolveRemovedCurrOrder = (prevIdx: number): number => {
+    const pParent = prevComparable[prevIdx].parentIndex
+    const mappedCurrParent =
+      pParent === -1 ? -1 : (prevToCurrUnchanged.get(pParent) ?? pairedPrevToCurr.get(pParent))
+    if (mappedCurrParent !== undefined && mappedCurrParent !== -1) {
+      const parentIndent = currComparable[mappedCurrParent].indent
+      for (let j = prevIdx - 1; j > pParent; j--) {
+        const mapped = prevToCurrUnchanged.get(j)
+        if (mapped !== undefined && mapped > mappedCurrParent) {
+          let ancestor = currComparable[mapped].parentIndex
+          while (ancestor !== -1 && currComparable[ancestor].indent > parentIndent) {
+            ancestor = currComparable[ancestor].parentIndex
+          }
+          if (ancestor === mappedCurrParent) return mapped + 0.5
+        }
+      }
+      return mappedCurrParent + 0.5
+    }
+    for (let j = prevIdx - 1; j >= 0; j--) {
+      const mapped = prevToCurrUnchanged.get(j)
+      if (mapped !== undefined) return mapped + 0.5
+    }
+    return -0.5
+  }
+
+  for (const { prevIdx, currIdx } of restoredMoves) {
+    hunks.push({
+      currOrder: resolveRemovedCurrOrder(prevIdx),
+      removed: [toIndexedLine(prevIdx, prevComparable[prevIdx])],
+      added: [],
+    })
+    hunks.push({
+      currOrder: currIdx,
+      removed: [],
+      added: [toIndexedLine(currIdx, currComparable[currIdx])],
+    })
+  }
+  hunks.sort((a, b) => a.currOrder - b.currOrder)
+
+  return restoredMoves.map((m) => m.prevIdx)
 }
 
 interface DiffWindowRange {
@@ -963,8 +1073,7 @@ function isGuaranteedTooLargeByMultiset(
 
   const counts = new Map<string, number>()
   for (let i = prefixLen; i < prevEnd; i++) {
-    const key = prevComparable[i].trimmed
-    counts.set(key, (counts.get(key) ?? 0) + 1)
+    incrementMapCount(counts, prevComparable[i].trimmed)
   }
   let matched = 0
   for (let i = prefixLen; i < currEnd; i++) {
@@ -1052,7 +1161,7 @@ export function computeStructuredYamlDiff(
   const keyToId = new Map<string, number>()
   let nextKeyId = 0
   const internKey = (comp: ComparableLine): number => {
-    const key = `${comp.directParent}\0${comp.trimmed}`
+    const key = myersLineKey(comp.directParent, comp.trimmed)
     let id = keyToId.get(key)
     if (id === undefined) {
       id = nextKeyId++
@@ -1107,33 +1216,21 @@ export function computeStructuredYamlDiff(
     }
 
     if (!activeHunk) {
-      activeHunk = { removed: [], added: [] }
+      activeHunk = { currOrder: currCursor, removed: [], added: [] }
       hunks.push(activeHunk)
     }
 
     if (part.removed) {
       for (let k = 0; k < count; k++) {
         const idx = prevCursor++
-        const item = prevComparable[idx]
-        const entry: IndexedLine = {
-          index: idx,
-          line: item.line,
-          trimmed: item.trimmed,
-          ref: item.ref,
-        }
+        const entry = toIndexedLine(idx, prevComparable[idx])
         activeHunk.removed.push(entry)
         allRemoved.push(entry)
       }
     } else if (part.added) {
       for (let k = 0; k < count; k++) {
         const idx = currCursor++
-        const item = currComparable[idx]
-        const entry: IndexedLine = {
-          index: idx,
-          line: item.line,
-          trimmed: item.trimmed,
-          ref: item.ref,
-        }
+        const entry = toIndexedLine(idx, currComparable[idx])
         activeHunk.added.push(entry)
         allAdded.push(entry)
       }
@@ -1155,10 +1252,20 @@ export function computeStructuredYamlDiff(
       currToPrevUnchanged,
     )
 
+  // 4.5 还原被同名无 #ref 父节点骗过 Myers 的跨父移动根节点（按当前文档顺序拆为旧父下 `-` 与新父下 `+`）
+  const restoredMovedPrevIndices = restoreSameNamedCrossParentMoves(hunks, {
+    prevComparable,
+    currComparable,
+    prevToCurrUnchanged,
+    currToPrevUnchanged,
+    pairedPrevToCurr,
+  })
+
   const currUniqueRefIdx = buildUniqueRefIndex(currComparable)
-  const effectiveRemovedAll = new Set<number>(
-    allRemoved.filter((r) => !cancelledRem.has(r.index)).map((r) => r.index),
-  )
+  const effectiveRemovedAll = new Set<number>([
+    ...filterUncancelled(allRemoved, cancelledRem).map((r) => r.index),
+    ...restoredMovedPrevIndices,
+  ])
 
   const outputLines: string[] = []
   const contextTracker = new DiffContextTracker({
@@ -1192,14 +1299,14 @@ export function computeStructuredYamlDiff(
     //    - 跨父移动不绑定配对，让 `-` 留在旧父级文档位置、`+` 留在新父级文档位置自然输出
     const addedRefCounts = new Map<number, number>()
     for (const item of effectiveAdded) {
-      if (item.ref !== null) addedRefCounts.set(item.ref, (addedRefCounts.get(item.ref) ?? 0) + 1)
+      if (item.ref !== null) incrementMapCount(addedRefCounts, item.ref)
     }
     const removedRefCounts = new Map<number, number>()
     const removedByIdx = new Map<number, IndexedLine>()
     for (const item of effectiveRemoved) {
       removedByIdx.set(item.index, item)
       if (item.ref !== null) {
-        removedRefCounts.set(item.ref, (removedRefCounts.get(item.ref) ?? 0) + 1)
+        incrementMapCount(removedRefCounts, item.ref)
       }
     }
     const removedByUniqueRef = new Map<number, IndexedLine>()
