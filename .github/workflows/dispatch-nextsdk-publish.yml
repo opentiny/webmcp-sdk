@@ -26,10 +26,6 @@ on:
         type: string
         default: '0.4.11'
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.sha }}
-  cancel-in-progress: true
-
 # 定义工作流中的作业
 jobs:
   resolve:
@@ -58,6 +54,10 @@ jobs:
     name: Build and publish
     needs: resolve
     if: needs.resolve.outputs.publish == 'true'
+    # 只串行发布。留空查询不会进入这个组，因此不会取消正在进行的发布。
+    concurrency:
+      group: ${{ github.workflow }}-publish-${{ github.sha }}
+      cancel-in-progress: true
     # 指定运行环境为最新版本的ubuntu
     runs-on: ubuntu-latest
     permissions:

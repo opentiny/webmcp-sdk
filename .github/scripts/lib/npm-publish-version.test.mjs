@@ -86,6 +86,41 @@ test('发布表单默认回显对应 package.json 的版本号', () => {
   }
 })
 
+test('带构建元数据的版本会被拒绝，普通 alpha 版本仍可发布', () => {
+  const withMetadata = validatePublishRequest({
+    packument,
+    version: '1.1.0-alpha.2+ci.7',
+    tag: 'alpha'
+  })
+  assert.equal(withMetadata.ok, false)
+  assert.match(withMetadata.message, /1\.1\.0-alpha\.2/)
+  assert.doesNotMatch(withMetadata.message, /将发布/)
+
+  const freshMetadata = validatePublishRequest({
+    packument,
+    version: '1.1.0-alpha.9+build.1',
+    tag: 'alpha'
+  })
+  assert.equal(freshMetadata.publish, false)
+
+  const alpha = validatePublishRequest({ packument, version: '1.1.0-alpha.9', tag: 'alpha' })
+  assert.equal(alpha.publish, true)
+})
+
+test('查询不会和发布共用会取消进行中任务的并发组', () => {
+  for (const workflow of [
+    '.github/workflows/dispatch-nextsdk-publish.yml',
+    '.github/workflows/dispatch-webmcp-cli-publish.yml'
+  ]) {
+    const text = fs.readFileSync(path.join(repoRoot, workflow), 'utf8').replace(/\r\n/g, '\n')
+    const beforeJobs = text.split('\njobs:\n')[0]
+    assert.equal(beforeJobs.includes('concurrency:'), false)
+    const build = text.split('\n  build:\n')[1]
+    assert.match(build, /concurrency:\n {6}group: .*-publish-/)
+    assert.match(build, /cancel-in-progress: true/)
+  }
+})
+
 test('非法版本号会带上最近一次发布作为参考', () => {
   const result = validatePublishRequest({ packument, version: 'latest', tag: 'alpha' })
   assert.equal(result.ok, false)

@@ -105,6 +105,17 @@ export function validatePublishRequest({ packument, version, tag }) {
     }
   }
 
+  const buildMetadataAt = requested.indexOf('+')
+  if (buildMetadataAt !== -1) {
+    const publishedAs = requested.slice(0, buildMetadataAt)
+    return {
+      ...base,
+      ok: false,
+      publish: false,
+      message: `version「${requested}」带有构建元数据。npm 发布时会去掉 + 及其后面的内容，实际发布的是 ${publishedAs}。请去掉构建元数据后再运行。`
+    }
+  }
+
   if (packument?.versions && Object.hasOwn(packument.versions, requested)) {
     return {
       ...base,
