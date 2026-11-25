@@ -59,6 +59,50 @@ function referenceText(latestPublished, latestTagVersion, latestTagPublishedAt) 
   return `最近一次发布的版本是 ${latest}；latest 标签是 ${tagged}。`
 }
 
+function comparePrereleaseId(left, right) {
+  const numeric = /^(0|[1-9]\d*)$/
+  const leftNumeric = numeric.test(left)
+  const rightNumeric = numeric.test(right)
+  if (leftNumeric && rightNumeric) {
+    if (left === right) return 0
+    return Number(left) > Number(right) ? 1 : -1
+  }
+  if (leftNumeric) return -1
+  if (rightNumeric) return 1
+  if (left === right) return 0
+  return left > right ? 1 : -1
+}
+
+export function compareSemver(left, right) {
+  const parse = (version) => {
+    const match = SEMVER_RE.exec(version)
+    if (!match) return null
+    return {
+      major: Number(match[1]),
+      minor: Number(match[2]),
+      patch: Number(match[3]),
+      prerelease: match[4] ? match[4].split('.') : []
+    }
+  }
+  const a = parse(left)
+  const b = parse(right)
+  if (!a || !b) return null
+  if (a.major !== b.major) return a.major > b.major ? 1 : -1
+  if (a.minor !== b.minor) return a.minor > b.minor ? 1 : -1
+  if (a.patch !== b.patch) return a.patch > b.patch ? 1 : -1
+  if (a.prerelease.length === 0 && b.prerelease.length === 0) return 0
+  if (a.prerelease.length === 0) return 1
+  if (b.prerelease.length === 0) return -1
+  const length = Math.max(a.prerelease.length, b.prerelease.length)
+  for (let index = 0; index < length; index += 1) {
+    if (index >= a.prerelease.length) return -1
+    if (index >= b.prerelease.length) return 1
+    const compared = comparePrereleaseId(a.prerelease[index], b.prerelease[index])
+    if (compared !== 0) return compared
+  }
+  return 0
+}
+
 function tagError(version, tag) {
   if (!ALLOWED_TAGS.has(tag)) {
     return `tag「${tag || '空'}」不在 alpha、beta、rc、latest 中。`
@@ -128,6 +172,19 @@ export function validatePublishRequest({ packument, version, tag }) {
   const mismatch = tagError(requested, tag)
   if (mismatch) {
     return { ...base, ok: false, publish: false, message: mismatch }
+  }
+
+  const currentTagVersion = packument?.['dist-tags']?.[tag]
+  if (typeof currentTagVersion === 'string' && SEMVER_RE.test(currentTagVersion)) {
+    const compared = compareSemver(requested, currentTagVersion)
+    if (compared !== null && compared <= 0) {
+      return {
+        ...base,
+        ok: false,
+        publish: false,
+        message: `版本 ${requested} 不高于 dist-tag「${tag}」当前的 ${currentTagVersion}。后发布的版本不能把这个标签退回到更旧的版本。请改成更高的版本号。`
+      }
+    }
   }
 
   return {

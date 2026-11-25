@@ -40,7 +40,8 @@ jobs:
       - name: CheckOut Code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref_name }}
+          ref: ${{ github.sha }}
+          persist-credentials: false
 
       - name: Resolve publish version
         id: version
@@ -54,10 +55,11 @@ jobs:
     name: Build and publish
     needs: resolve
     if: needs.resolve.outputs.publish == 'true'
-    # 只串行发布。留空查询不会进入这个组，因此不会取消正在进行的发布。
+    # 同一包的发布按触发顺序排队，不按提交拆开，也不取消另一笔正在进行的发布。
+    # 留空查询不会进入这个组。
     concurrency:
-      group: ${{ github.workflow }}-publish-${{ github.sha }}
-      cancel-in-progress: true
+      group: ${{ github.workflow }}-publish
+      cancel-in-progress: false
     # 指定运行环境为最新版本的ubuntu
     runs-on: ubuntu-latest
     permissions:
@@ -68,7 +70,8 @@ jobs:
       - name: CheckOut Code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref_name }}
+          ref: ${{ github.sha }}
+          persist-credentials: false
 
       # 步骤2: 设置pnpm包管理器
       - name: Setup pnpm
@@ -111,6 +114,14 @@ jobs:
       # 步骤7: 构建组件
       - name: Run Build NextSDK
         run: pnpm build
+
+      # 排到队首后再查一次 dist-tag，避免构建期间标签已经被更新到更新的版本。
+      - name: Confirm dist-tag moves forward
+        env:
+          PACKAGE_NAME: '@opentiny/next-sdk'
+          INPUT_VERSION: ${{ needs.resolve.outputs.version }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: node .github/scripts/resolve-npm-publish-version.mjs
 
       # 步骤8: 发布组件到NPM
       - name: Publish NextSDK

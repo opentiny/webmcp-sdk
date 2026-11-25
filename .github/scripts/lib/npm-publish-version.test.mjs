@@ -3,7 +3,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { pickLatestPublished, validatePublishRequest } from './npm-publish-version.mjs'
+import { compareSemver, pickLatestPublished, validatePublishRequest } from './npm-publish-version.mjs'
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 
@@ -107,7 +107,21 @@ test('带构建元数据的版本会被拒绝，普通 alpha 版本仍可发布'
   assert.equal(alpha.publish, true)
 })
 
-test('查询不会和发布共用会取消进行中任务的并发组', () => {
+test('更旧的版本不能把 dist-tag 退回去', () => {
+  assert.equal(compareSemver('1.1.0-alpha.10', '1.1.0-alpha.9'), 1)
+
+  const older = validatePublishRequest({ packument, version: '1.0.9-alpha.1', tag: 'alpha' })
+  assert.equal(older.ok, false)
+  assert.match(older.message, /1\.1\.0-alpha\.2/)
+
+  const newer = validatePublishRequest({ packument, version: '1.1.0-alpha.10', tag: 'alpha' })
+  assert.equal(newer.publish, true)
+
+  const olderStable = validatePublishRequest({ packument, version: '0.9.0', tag: 'latest' })
+  assert.equal(olderStable.ok, false)
+})
+
+test('发布按包排队，查询和检出都不跟着提交漂移', () => {
   for (const workflow of [
     '.github/workflows/dispatch-nextsdk-publish.yml',
     '.github/workflows/dispatch-webmcp-cli-publish.yml'
@@ -115,9 +129,13 @@ test('查询不会和发布共用会取消进行中任务的并发组', () => {
     const text = fs.readFileSync(path.join(repoRoot, workflow), 'utf8').replace(/\r\n/g, '\n')
     const beforeJobs = text.split('\njobs:\n')[0]
     assert.equal(beforeJobs.includes('concurrency:'), false)
+    assert.equal(text.includes('github.ref_name'), false)
+    assert.equal(text.match(/ref: \$\{\{ github\.sha \}\}/g)?.length, 2)
     const build = text.split('\n  build:\n')[1]
-    assert.match(build, /concurrency:\n {6}group: .*-publish-/)
-    assert.match(build, /cancel-in-progress: true/)
+    const concurrency = build.match(/concurrency:\n {6}group:.*\n {6}cancel-in-progress: .*/)
+    assert.match(concurrency[0], /group: \$\{\{ github\.workflow \}\}-publish\n/)
+    assert.match(concurrency[0], /cancel-in-progress: false/)
+    assert.equal(build.includes('Confirm dist-tag moves forward'), true)
   }
 })
 
