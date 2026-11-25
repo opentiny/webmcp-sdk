@@ -1,6 +1,18 @@
 import assert from 'node:assert/strict'
+import fs from 'node:fs'
+import path from 'node:path'
 import test from 'node:test'
+import { fileURLToPath } from 'node:url'
 import { pickLatestPublished, validatePublishRequest } from './npm-publish-version.mjs'
+
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
+
+function versionInputDefault(workflowRelativePath) {
+  const text = fs.readFileSync(path.join(repoRoot, workflowRelativePath), 'utf8').replace(/\r\n/g, '\n')
+  const block = text.split('\n      version:\n')[1]
+  const match = block?.match(/default: '([^']+)'/)
+  return match?.[1] ?? ''
+}
 
 const packument = {
   'dist-tags': { latest: '1.0.0', alpha: '1.1.0-alpha.2' },
@@ -62,6 +74,16 @@ test('已发布版本、latest 标签和通道不一致时拒绝', () => {
 
   const custom = validatePublishRequest({ packument, version: '1.1.0-next.1', tag: 'alpha' })
   assert.equal(custom.publish, true)
+})
+
+test('发布表单默认回显对应 package.json 的版本号', () => {
+  for (const [workflow, pkg] of [
+    ['.github/workflows/dispatch-nextsdk-publish.yml', 'packages/next-sdk/package.json'],
+    ['.github/workflows/dispatch-webmcp-cli-publish.yml', 'packages/webmcp-cli/package.json']
+  ]) {
+    const version = JSON.parse(fs.readFileSync(path.join(repoRoot, pkg), 'utf8')).version
+    assert.equal(versionInputDefault(workflow), version)
+  }
 })
 
 test('非法版本号会带上最近一次发布作为参考', () => {
