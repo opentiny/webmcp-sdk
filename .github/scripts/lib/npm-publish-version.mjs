@@ -65,7 +65,10 @@ function comparePrereleaseId(left, right) {
   const rightNumeric = numeric.test(right)
   if (leftNumeric && rightNumeric) {
     if (left === right) return 0
-    return Number(left) > Number(right) ? 1 : -1
+    const leftValue = BigInt(left)
+    const rightValue = BigInt(right)
+    if (leftValue === rightValue) return 0
+    return leftValue > rightValue ? 1 : -1
   }
   if (leftNumeric) return -1
   if (rightNumeric) return 1

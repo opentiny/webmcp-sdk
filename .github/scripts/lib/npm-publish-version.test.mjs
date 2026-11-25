@@ -109,6 +109,11 @@ test('带构建元数据的版本会被拒绝，普通 alpha 版本仍可发布'
 
 test('更旧的版本不能把 dist-tag 退回去', () => {
   assert.equal(compareSemver('1.1.0-alpha.10', '1.1.0-alpha.9'), 1)
+  assert.equal(
+    compareSemver('1.1.0-alpha.9007199254740993', '1.1.0-alpha.9007199254740992'),
+    1
+  )
+  assert.equal(compareSemver('1.1.0-1', '1.1.0-alpha'), -1)
 
   const older = validatePublishRequest({ packument, version: '1.0.9-alpha.1', tag: 'alpha' })
   assert.equal(older.ok, false)
@@ -132,9 +137,12 @@ test('发布按包排队，查询和检出都不跟着提交漂移', () => {
     assert.equal(text.includes('github.ref_name'), false)
     assert.equal(text.match(/ref: \$\{\{ github\.sha \}\}/g)?.length, 2)
     const build = text.split('\n  build:\n')[1]
-    const concurrency = build.match(/concurrency:\n {6}group:.*\n {6}cancel-in-progress: .*/)
+    const concurrency = build.match(
+      /concurrency:\n {6}group:.*\n {6}cancel-in-progress: .*\n {6}queue: .*/
+    )
     assert.match(concurrency[0], /group: \$\{\{ github\.workflow \}\}-publish\n/)
     assert.match(concurrency[0], /cancel-in-progress: false/)
+    assert.match(concurrency[0], /queue: max/)
     assert.equal(build.includes('Confirm dist-tag moves forward'), true)
   }
 })

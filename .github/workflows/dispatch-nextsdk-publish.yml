@@ -60,6 +60,7 @@ jobs:
     concurrency:
       group: ${{ github.workflow }}-publish
       cancel-in-progress: false
+      queue: max
     # 指定运行环境为最新版本的ubuntu
     runs-on: ubuntu-latest
     permissions:
