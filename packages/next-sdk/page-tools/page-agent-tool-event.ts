@@ -1,4 +1,5 @@
-import { ActionContext } from './context'
+import type { RefMap } from './a11y-tree'
+import type { PageAgentToolErrorCode, PageAgentToolErrorResult } from './context'
 import { inputSchema, type PageAgentToolInput, type PageAgentToolRawInput } from './schema'
 import { PageController } from '@page-agent/page-controller'
 
@@ -17,6 +18,7 @@ export type PageAgentToolResultEventDetail = {
     success: boolean
     result?: unknown
     error?: string
+    errorCode?: PageAgentToolErrorCode
   }
   requestId: string
 }
@@ -30,7 +32,9 @@ export type PageAgentUserDoActionEventDetail = {
 
 type ExecutePageAgentTool = (data: PageAgentToolInput) => Promise<unknown>
 
-function isPageAgentToolErrorResult(result: unknown): result is { isError: true; error: string } {
+function isPageAgentToolErrorResult(
+  result: unknown
+): result is Pick<PageAgentToolErrorResult, 'isError' | 'error' | 'errorCode'> {
   return (
     typeof result === 'object' &&
     result !== null &&
@@ -51,10 +55,15 @@ function dispatchPageAgentToolResult(detail: PageAgentToolResultEventDetail) {
   window.dispatchEvent(new CustomEvent(PAGE_AGENT_TOOL_RESULT_EVENT, { detail }))
 }
 
+export interface PageAgentEventBridgeHooks {
+  getRefMap: () => RefMap
+  endTurn: () => void
+}
+
 export function setupPageAgentToolEventBridge(
   executePageAgentTool: ExecutePageAgentTool,
   pageController: PageController,
-  actionContext: ActionContext
+  hooks: PageAgentEventBridgeHooks
 ) {
   window.__nextSdkPageAgentToolEventCleanup?.()
 
@@ -82,6 +91,7 @@ export function setupPageAgentToolEventBridge(
           data: {
             success: false,
             error: result.error,
+            ...(result.errorCode ? { errorCode: result.errorCode } : {}),
             result
           }
         })
@@ -105,8 +115,9 @@ export function setupPageAgentToolEventBridge(
     }
   }
 
-  // 聊天结束事件，用于在聊天结束时移除遮罩
+  // 聊天单轮回复结束事件：仅清空 Diff 基线（下轮返回 full），保持 rev 递增与 #ref 跨轮不复用，并移除遮罩
   const handleChatEnd = async () => {
+    hooks.endTurn()
     try {
       await pageController.hideMask()
     } catch (error) {}
@@ -117,7 +128,7 @@ export function setupPageAgentToolEventBridge(
     if (ev.isTrusted && pageController.mask.shown) {
       // 通过ev.target找到 refMap 对应的元素
       const target = ev.target as HTMLElement
-      const refMap = actionContext.getRefMap()
+      const refMap = hooks.getRefMap()
       const targetParent = Array.from(refMap.values()).find((el) => el.contains(target)) as HTMLElement | undefined
 
       if (targetParent) {

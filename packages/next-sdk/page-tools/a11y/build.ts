@@ -7,6 +7,7 @@
 import type { A11yTreeOptions, A11yTreeResult, A11yTreeShapeOptions, RefMap } from './types'
 import type { A11yConfig } from './config'
 import { ensureResolvedA11yConfig } from './config'
+import { ElementRefAllocator } from './ref-allocator'
 import { buildVNode, serializeVNode } from './vnode'
 import { getComposedChildren, collectHoverPointerElements } from './utils'
 import { deepQuerySelectorAll } from '../utils/dom'
@@ -33,16 +34,16 @@ function resolveElementList(list: Array<Element | string>, root: Element): Set<E
  * 生成当前页面的语义化 ARIA YAML 树
  *
  * @param root 遍历起点，默认 document.body
- * @param config 统一无障碍配置（角色/状态规则、白/黑名单、自定义属性等）+ 树形状选项（pruneUnnamed/preserveRoles）
+ * @param config 统一无障碍配置（角色/状态规则、白/黑名单、自定义属性等）+ 树形状选项（pruneUnnamed/preserveRoles/refAllocator）
  */
 export function buildA11yTree(root: Element = document.body, config?: A11yConfig & A11yTreeOptions): A11yTreeResult {
-  const { pruneUnnamed = true, preserveRoles = [], ...a11yConfig } = config ?? {}
+  const { pruneUnnamed = true, preserveRoles = [], refAllocator, ...a11yConfig } = config ?? {}
   // 运行期 a11yConfig 通常已是 ResolvedA11yConfig，走快路径避免再次与默认配置拼接
   const resolved = ensureResolvedA11yConfig(a11yConfig)
   const shapeOpts: A11yTreeShapeOptions = { pruneUnnamed, preserveRoles }
 
-  // 使用对象引用避免全局可变状态，消除并发调用隐患
-  const refCounter = { value: 0 }
+  // 支持传入会话级稳定 ElementRefAllocator；未传时使用单次独立分配器保持向后兼容
+  const allocator = refAllocator ?? new ElementRefAllocator()
   const refMap: RefMap = new Map()
   const blacklistSet = resolveElementList(resolved.blacklist, root)
   const whitelistSet = resolveElementList(resolved.whitelist, root)
@@ -56,10 +57,19 @@ export function buildA11yTree(root: Element = document.body, config?: A11yConfig
   // 这类元素静止态 getComputedStyle 读到 auto，需靠样式表兜底才能识别为可点击。
   const hoverPointerSet = collectHoverPointerElements(root)
 
+  const emittedRefs = new Set<number>()
   for (const child of getComposedChildren(root)) {
-    const vnode = buildVNode(child, refCounter, refMap, blacklistSet, whitelistSet, resolved, hoverPointerSet)
+    const vnode = buildVNode(child, allocator, refMap, blacklistSet, whitelistSet, resolved, hoverPointerSet)
     if (vnode) {
-      lines.push(...serializeVNode(vnode, 0, shapeOpts))
+      lines.push(...serializeVNode(vnode, 0, shapeOpts, emittedRefs))
+    }
+  }
+
+  // 仅保留序列化期间实际输出到 YAML 的活跃 #ref（支持多词 ARIA role 如 `button link`，
+  // 同时剔除因单子节点折叠而未输出的父节点幽灵 #ref，保证 refMap 与快照严格一致）
+  for (const key of Array.from(refMap.keys())) {
+    if (!emittedRefs.has(key)) {
+      refMap.delete(key)
     }
   }
 

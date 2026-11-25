@@ -6,6 +6,7 @@
  */
 
 export * from './a11y/types'
+export * from './a11y/ref-allocator'
 export * from './a11y/constants'
 export * from './a11y/config'
 export * from './a11y/utils'

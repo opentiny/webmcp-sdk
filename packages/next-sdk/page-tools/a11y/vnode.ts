@@ -7,6 +7,7 @@
 import { computeAccessibleName } from 'dom-accessibility-api'
 import { isTabbable } from 'tabbable'
 import type { VNode, RefMap, A11yTreeShapeOptions } from './types'
+import type { RefAllocator } from './ref-allocator'
 import type { ResolvedA11yConfig } from './config'
 import { isEditingHost, resolveA11yInfo } from './config'
 import {
@@ -46,7 +47,7 @@ const INTERACTIVE_ROLES = new Set([
 /**
  * 递归将 DOM 元素转换为 VNode 中间表示
  * @param el 当前 DOM 元素
- * @param refCounter 引用计数器（使用对象引用避免全局可变状态）
+ * @param refAllocator 稳定元素 #ref 分配器
  * @param refMap ref 索引 → 元素映射
  * @param blacklistSet 已解析的黑名单元素集合
  * @param whitelistSet 已解析的白名单元素集合
@@ -55,7 +56,7 @@ const INTERACTIVE_ROLES = new Set([
  */
 export function buildVNode(
   el: Element,
-  refCounter: { value: number },
+  refAllocator: RefAllocator,
   refMap: RefMap,
   blacklistSet: Set<Element>,
   whitelistSet: Set<Element>,
@@ -196,9 +197,8 @@ export function buildVNode(
 
   let ref: number | undefined
   if (interactive) {
-    ref = refCounter.value
+    ref = refAllocator.allocate(el)
     refMap.set(ref, el as HTMLElement)
-    refCounter.value++
     // 可操作元素默认保留 id（无需 exposedAttributes 配置），便于 AI 定位与跨轮次对齐
     // 用 getAttribute 避免 form 等元素上 name="id" 子节点导致的 DOM clobbering
     const idVal = el.getAttribute('id')
@@ -212,7 +212,7 @@ export function buildVNode(
   for (const child of getComposedChildren(el)) {
     const childVNode = buildVNode(
       child,
-      refCounter,
+      refAllocator,
       refMap,
       blacklistSet,
       whitelistSet,
@@ -469,14 +469,21 @@ export function serializeVNode(
   vnode: VNode,
   depth: number,
   opts: A11yTreeShapeOptions,
+  emittedRefs?: Set<number>,
 ): string[] {
   const hasInteractive = hasInteractiveDescendant(vnode)
   const forceKeepStructure =
     opts.preserveRoles.includes(vnode.role) || isStructuralNamedNode(vnode)
   const indent = '  '.repeat(depth)
-  const refStr = vnode.ref !== undefined ? ` #${vnode.ref}` : ''
   const safeTokens = vnode.tokens.map(t => t.replace(/[\r\n]+/g, ' ').replace(/"/g, '\\"'))
   const tokenStr = safeTokens.length > 0 ? ` [${safeTokens.join(' ')}]` : ''
+
+  /** 统一格式化节点 #ref 并在实际输出该行时登记到 emittedRefs，避免各分支手工登记遗漏 */
+  const formatEmittedRef = (ref?: number): string => {
+    if (ref === undefined) return ''
+    emittedRefs?.add(ref)
+    return ` #${ref}`
+  }
 
   // 空 landmark 壳：仅有声明名、无交互、无有价值子节点、无直接文本 → 整段省略
   // （如空的 ti-app-layout-main-header / 折叠右栏）。有直接文本的 landmark 必须保留。
@@ -489,21 +496,21 @@ export function serializeVNode(
     if (shouldPassThrough(vnode, opts)) {
       return vnode.children
         .filter(c => hasValue(c))
-        .flatMap(c => serializeVNode(c, depth, opts))
+        .flatMap(c => serializeVNode(c, depth, opts, emittedRefs))
     }
     let displayName = vnode.name.trim()
     if (!displayName && vnode.children.length > 0) {
       displayName = collectVisiblePlainText(vnode.el)
     }
     if (isNoiseAccessibleName(displayName)) displayName = ''
-    return [`${indent}- ${vnode.role}${refStr}${tokenStr}${formatNameAttr(displayName)}`]
+    return [`${indent}- ${vnode.role}${formatEmittedRef(vnode.ref)}${tokenStr}${formatNameAttr(displayName)}`]
   }
 
   // preserveRoles / 声明名 landmark 且无交互：保留结构，父级只用声明名，子节点照常输出
   if (!hasInteractive && forceKeepStructure) {
     const outputName = resolveDeclaredName(vnode)
-    const line = `${indent}- ${vnode.role}${refStr}${tokenStr}${formatNameAttr(outputName)}`
-    const childLines = vnode.children.flatMap(c => serializeVNode(c, depth + 1, opts))
+    const line = `${indent}- ${vnode.role}${formatEmittedRef(vnode.ref)}${tokenStr}${formatNameAttr(outputName)}`
+    const childLines = vnode.children.flatMap(c => serializeVNode(c, depth + 1, opts, emittedRefs))
     return [line, ...childLines]
   }
 
@@ -548,11 +555,12 @@ export function serializeVNode(
   if (!willEmitParent) {
     return vnode.children
       .filter(c => hasValue(c))
-      .flatMap(c => serializeVNode(c, depth, opts))
+      .flatMap(c => serializeVNode(c, depth, opts, emittedRefs))
   }
 
-  if (vnode.ref !== undefined) {
+  if (vnode.ref !== undefined && !isEditingHost(vnode.el)) {
     // 子树中唯一一个 ref 节点且是无子 ref 的 generic 时，将其 name 提升到父节点，省略子节点输出。
+    // 注意：编辑宿主（contenteditable）必须保留自身 textbox ref，避免被内部白名单非可编辑子节点替换目标。
     const singleChild = findSingleRefDescendant(vnode)
     if (
       singleChild &&
@@ -562,9 +570,8 @@ export function serializeVNode(
     ) {
       const mergedName = outputName.trim() || singleChild.name.trim()
       // 合并输出时使用子节点 ref，避免 refMap 中的 #N 在 YAML 里丢失
-      const mergedRefStr =
-        singleChild.ref !== undefined ? ` #${singleChild.ref}` : refStr
-      return [`${indent}- ${vnode.role}${mergedRefStr}${tokenStr}${formatNameAttr(mergedName)}`]
+      const mergedRef = singleChild.ref !== undefined ? singleChild.ref : vnode.ref
+      return [`${indent}- ${vnode.role}${formatEmittedRef(mergedRef)}${tokenStr}${formatNameAttr(mergedName)}`]
     }
   }
 
@@ -574,7 +581,7 @@ export function serializeVNode(
     return !canOmitStaticChild(c, outputName, parentUsesOwnDeclaredName)
   })
 
-  const line = `${indent}- ${vnode.role}${refStr}${tokenStr}${formatNameAttr(outputName)}`
-  const childLines = childrenToEmit.flatMap(c => serializeVNode(c, depth + 1, opts))
+  const line = `${indent}- ${vnode.role}${formatEmittedRef(vnode.ref)}${tokenStr}${formatNameAttr(outputName)}`
+  const childLines = childrenToEmit.flatMap(c => serializeVNode(c, depth + 1, opts, emittedRefs))
   return [line, ...childLines]
 }

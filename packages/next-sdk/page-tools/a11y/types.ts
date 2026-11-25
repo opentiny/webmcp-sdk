@@ -5,6 +5,7 @@
  */
 
 import type { A11yConfig } from './config'
+import type { RefAllocator } from './ref-allocator'
 
 /** ref 索引 → HTMLElement 映射，供 click/fill/select 操作使用 */
 export type RefMap = Map<number, HTMLElement>
@@ -46,6 +47,12 @@ export interface A11yTreeOptions extends A11yConfig {
    * 例如：['table', 'row'] 用于保留表格结构
    */
   preserveRoles?: string[]
+  /**
+   * 可选的元素 #ref 稳定分配器。
+   * - 传入会话级 ElementRefAllocator 时，同一 DOM 元素跨多次构建保持相同 #ref，且不复用已移除元素的旧编号；
+   * - 未传时默认在本次构建内创建临时分配器（从 #0 递增，保持纯函数兼容）。
+   */
+  refAllocator?: RefAllocator
 }
 
 /** 序列化 YAML 树时实际用到的形状选项（与无障碍语义解析无关，独立于 A11yConfig） */
