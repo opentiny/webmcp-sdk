@@ -27,9 +27,17 @@ export async function handleFill(args: any, ctx: ActionContext) {
   } else {
     // 优先尝试标准方式（支持 contenteditable、普通 input/textarea）
     let fillSuccess = false
+    const isTextField = targetEl instanceof HTMLInputElement || targetEl instanceof HTMLTextAreaElement
     try {
       await inputTextElement(targetEl, args.text)
       fillSuccess = true
+      if (isTextField) {
+        // inputTextElement 对 input/textarea 只派发 input 并保持焦点。Knockout 的 value 绑定、Vue 的 v-model.lazy
+        // 在 change 时才写回模型，失焦校验在 blur 时才执行；按用户输入后离开输入框的顺序补发 change 再失焦。
+        // 该 input 不带 composed，shadow DOM 内先补发 composed 的 input，外层委托监听器才能按 input → change → blur 收到。
+        dispatchComposedEvents(targetEl, ...(isInShadowDom(targetEl) ? ['input'] : []), 'change')
+        targetEl.blur()
+      }
     } catch (fillErr) {
       // inputTextElement 失败时（如 Angular/React 组件包装的密码框），
       // 降级使用原生 input value 描述符触发框架变更检测
@@ -52,9 +60,10 @@ export async function handleFill(args: any, ctx: ActionContext) {
         `${REF_ACTION_LABELS.fill}结果: 无法填写元素 ${args.index}，元素不是 input、textarea 或 contenteditable`
       )
     }
-    // shadow DOM 内元素：inputTextElement 派发的合成事件 composed:false，
-    // 补发 composed:true 事件确保事件委托框架（如 React）能收到
-    if (isInShadowDom(targetEl)) {
+    // shadow DOM 内的 contenteditable：inputTextElement 派发的合成事件 composed:false，
+    // 补发 composed:true 事件确保事件委托框架（如 React）能收到。
+    // input / textarea 在上方两条路径都已按 input → change → blur 派发 composed 事件，不再补发。
+    if (!isTextField && isInShadowDom(targetEl)) {
       dispatchComposedEvents(targetEl, 'input', 'change')
     }
   }
