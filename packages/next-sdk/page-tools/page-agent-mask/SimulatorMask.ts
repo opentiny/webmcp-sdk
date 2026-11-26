@@ -82,6 +82,7 @@ export class SimulatorMask extends EventTarget {
 
   #disposed = false
   #rafId?: number
+  #cursorRafId?: number
   #hideTimer?: ReturnType<typeof setTimeout>
   #style = document.createElement('style')
 
@@ -133,8 +134,6 @@ export class SimulatorMask extends EventTarget {
     // this.show()
 
     document.body.appendChild(this.wrapper)
-
-    this.#moveCursorToTarget()
 
     // global events
     // @note Mask should be isolated from the rest of the code.
@@ -190,8 +189,21 @@ export class SimulatorMask extends EventTarget {
     this.#cursor.style.display = 'none'
   }
 
+  // 光标插值只在遮罩显示期间逐帧运行；页面注册后从不显示遮罩时不占用帧回调
+  #startCursorLoop() {
+    if (this.#cursorRafId !== undefined) return
+    this.#cursorRafId = requestAnimationFrame(() => this.#moveCursorToTarget())
+  }
+
+  #stopCursorLoop() {
+    if (this.#cursorRafId === undefined) return
+    cancelAnimationFrame(this.#cursorRafId)
+    this.#cursorRafId = undefined
+  }
+
   #moveCursorToTarget() {
-    if (this.#disposed) return
+    this.#cursorRafId = undefined
+    if (this.#disposed || !this.shown) return
 
     const newX = this.#currentCursorX + (this.#targetCursorX - this.#currentCursorX) * 0.2
     const newY = this.#currentCursorY + (this.#targetCursorY - this.#currentCursorY) * 0.2
@@ -216,7 +228,7 @@ export class SimulatorMask extends EventTarget {
       this.#cursor.style.top = `${this.#currentCursorY}px`
     }
 
-    requestAnimationFrame(() => this.#moveCursorToTarget())
+    this.#cursorRafId = requestAnimationFrame(() => this.#moveCursorToTarget())
   }
 
   setCursorPosition(x: number, y: number) {
@@ -263,6 +275,7 @@ export class SimulatorMask extends EventTarget {
 
     this.shown = true
     this.wrapper.classList.add('visible')
+    this.#startCursorLoop()
 
     // 强制触发重排，确保 Canvas 容器有尺寸后再启动 WebGL 渲染
     void this.wrapper.offsetHeight
@@ -283,6 +296,7 @@ export class SimulatorMask extends EventTarget {
     if (!this.shown || this.#disposed) return
 
     this.shown = false
+    this.#stopCursorLoop()
     this.motion?.fadeOut()
     this.motion?.pause()
 
@@ -308,6 +322,7 @@ export class SimulatorMask extends EventTarget {
       this.#rafId = undefined
     }
     this.#clearHideTimer()
+    this.#stopCursorLoop()
     this.#disposed = true
     this.motion?.dispose()
     this.wrapper.remove()
