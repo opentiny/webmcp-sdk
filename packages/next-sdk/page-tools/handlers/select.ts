@@ -1,6 +1,6 @@
 import { selectOptionElement } from '@page-agent/page-controller'
 import { dispatchComposedEvents, isInShadowDom } from '../utils/dom'
-import { beginAction } from '../utils/network'
+import { beginAction, withSettleNote } from '../utils/network'
 import { REF_ACTION_LABELS, type ActionContext } from '../context'
 
 export async function handleSelect(args: any, ctx: ActionContext) {
@@ -33,6 +33,6 @@ export async function handleSelect(args: any, ctx: ActionContext) {
     dispatchComposedEvents(targetSelect, 'change')
   }
   // 等待动作期间发起的请求返回、框架异步插入的内容稳定后再采集状态
-  await action.settle()
-  return ctx.buildBrowserStateResponse(mode)
+  const settleNote = await action.settle()
+  return withSettleNote(await ctx.buildBrowserStateResponse(mode), settleNote)
 }

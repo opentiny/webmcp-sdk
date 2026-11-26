@@ -17,20 +17,23 @@
 - `packages/next-sdk/page-tools/utils/dom.ts`：`waitForDomSettled`
 - `packages/next-sdk/page-tools/handlers/{click,fill,select,scroll}.ts`
 - Claude in Chrome 提供 `wait` 动作，由模型决定等待时长
+- Playwright MCP、Stagehand、Nanobrowser 在动作后等待本次动作期间发起的请求，上限分别为 5s、5s、1.5s；Nanobrowser 在动作结果里列出未完成的请求
 
 ## 范围
 
 ### In Scope
 
 - `click`、`fill`、`select`、`scroll` 执行后，等待动作期间页面通过 `fetch` / `XMLHttpRequest` 发起的请求结束，再执行原有的 DOM 稳定等待。
+- `fetch` 计到响应体接收完毕；`content-type` 为 `text/event-stream` 的响应只计到响应头。
 - 动作开始前已在进行的请求不计入。
-- 等待请求的上限 4 秒，超过后不再等待请求，继续执行 DOM 稳定等待。
+- 等待请求的上限 2 秒，超过后不再等待请求，继续执行 DOM 稳定等待。
+- 等待结束时仍有本次动作发起的请求未完成，工具结果增加 `waitResult` 字段：请求数、前 3 个请求的方法、URL 与已耗时；页面有可见的 `[aria-busy="true"]` 或 `[role="progressbar"]` 时一并注明。
 
 ### Out of Scope
 
 - `hover`、`browserState`、`executeJavascript`。
-- WebSocket、SSE、`navigator.sendBeacon`、图片等资源加载，以及由定时器延迟渲染的内容。
-- 新增 `wait` 动作或可配置的等待上限。
+- WebSocket、通过 `EventSource` 建立的 SSE、`navigator.sendBeacon`、图片等资源加载，以及由定时器延迟渲染的内容。
+- 新增 `wait` 动作或可配置的等待上限。超过上限的加载由模型根据 `waitResult` 再取一次状态。
 - 同源 iframe 内页面发起的请求。
 
 ## 用户故事与验收标准
@@ -39,6 +42,12 @@
    - 验收：点击处理函数发起 800ms 后返回的 `fetch`，`handleClick` 返回前 DOM 已渲染结果。
 2. 作为 Agent，我希望页面上的轮询或长连接不让每次动作都等到上限。
    - 验收：动作开始前发起、10 秒后才返回的请求，不让 `handleClick` 的耗时超过 1.5 秒。
+3. 作为 Agent，我希望响应头先到、响应体后到的接口也能等到结果。
+   - 验收：`fetch` 立即返回响应头、响应体 600ms 后到达时，`handleClick` 返回前 DOM 已渲染结果。
+4. 作为 Agent，加载超过上限时，我希望知道还有请求没完成。
+   - 验收：点击发起 5 秒才返回的请求时，`handleClick` 在 3 秒内返回，结果含「仍有 1 个请求未完成」、请求的方法与路径，以及页面上的 `progressbar`。
+5. 作为 Agent，我希望动作建立的 SSE 连接不让动作等到上限。
+   - 验收：点击后通过 `fetch` 建立 `text/event-stream` 连接，`handleClick` 在 1 秒内返回，结果不含未完成请求的说明。
 
 ## 非功能要求
 

@@ -1,5 +1,5 @@
 import { clickElement } from '@page-agent/page-controller'
-import { beginAction } from '../utils/network'
+import { beginAction, withSettleNote } from '../utils/network'
 import { REF_ACTION_LABELS, type ActionContext } from '../context'
 
 export async function handleClick(args: any, ctx: ActionContext) {
@@ -22,7 +22,7 @@ export async function handleClick(args: any, ctx: ActionContext) {
   const action = beginAction()
   await clickElement(targetEl)
   // 等待动作期间发起的请求返回、框架异步插入的内容稳定后再采集状态
-  await action.settle()
+  const settleNote = await action.settle()
   // 操作成功后自动返回 diff/both/full
-  return ctx.buildBrowserStateResponse(mode)
+  return withSettleNote(await ctx.buildBrowserStateResponse(mode), settleNote)
 }

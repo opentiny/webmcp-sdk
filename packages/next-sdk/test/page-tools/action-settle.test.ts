@@ -51,6 +51,66 @@ describe('handleClick - 点击后等待页面请求完成再返回状态', () =>
     expect(snapshots.at(-1)).toContain('查询完成：共 3 条')
   })
 
+  it('复现：接口响应头立即返回、响应体 600ms 后才到；步骤 click；期望返回的页面状态里已有查询结果', async () => {
+    fetchImpl = (() => {
+      const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+          setTimeout(() => {
+            controller.enqueue(new TextEncoder().encode(JSON.stringify({ total: 5 })))
+            controller.close()
+          }, 600)
+        }
+      })
+      return Promise.resolve(new Response(body, { headers: { 'content-type': 'application/json' } }))
+    }) as typeof fetch
+    document.body.innerHTML = '<button>查询</button><p id="out"></p>'
+    const button = document.querySelector('button')!
+    button.addEventListener('click', async () => {
+      document.getElementById('out')!.textContent = '搜索中…'
+      const data = await (await window.fetch('api/search')).json()
+      document.getElementById('out')!.textContent = `查询完成：共 ${data.total} 条`
+    })
+    const snapshots: string[] = []
+
+    await handleClick({ index: 0 }, contextFor(button, snapshots))
+
+    expect(snapshots.at(-1)).toContain('查询完成：共 5 条')
+  })
+
+  it('请求超过等待上限时照常返回，并在结果里列出未完成的请求和页面上的加载指示', async () => {
+    fetchImpl = slowFetch(5_000, {})
+    document.body.innerHTML = '<button>导出</button><div role="progressbar" aria-label="导出进度"></div>'
+    const button = document.querySelector('button')!
+    button.addEventListener('click', () => void window.fetch('/api/export?id=7'))
+    const started = Date.now()
+
+    const res = await handleClick({ index: 0 }, contextFor(button, []))
+
+    expect(Date.now() - started).toBeLessThan(3000)
+    const text = res.content[0].text
+    expect(text).toContain('仍有 1 个请求未完成')
+    expect(text).toContain('GET /api/export?id=7')
+    expect(text).toContain('progressbar')
+  })
+
+  it('动作发起的 SSE 只计到响应头，不拖慢点击返回', async () => {
+    fetchImpl = (() =>
+      Promise.resolve(
+        new Response(new ReadableStream<Uint8Array>({ start() {} }), {
+          headers: { 'content-type': 'text/event-stream' }
+        })
+      )) as typeof fetch
+    document.body.innerHTML = '<button>订阅</button>'
+    const button = document.querySelector('button')!
+    button.addEventListener('click', () => void window.fetch('/api/events'))
+    const started = Date.now()
+
+    const res = await handleClick({ index: 0 }, contextFor(button, []))
+
+    expect(Date.now() - started).toBeLessThan(1000)
+    expect(res.content[0].text).not.toContain('请求未完成')
+  })
+
   it('点击前就在进行的请求（如轮询）不拖慢点击返回', async () => {
     fetchImpl = slowFetch(10_000, {})
     document.body.innerHTML = '<button>展开</button>'
