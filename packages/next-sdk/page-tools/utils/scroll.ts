@@ -56,3 +56,49 @@ export function waitForScrollEnd(target: Window | Element, timeout = 2000): Prom
     el.addEventListener('scrollend', onScrollEnd, { once: true })
   })
 }
+
+function canScroll(el: Element, vertical: boolean): boolean {
+  const view = el.ownerDocument.defaultView ?? window
+  const style = view.getComputedStyle(el)
+  if (!/(auto|scroll|overlay)/.test(vertical ? style.overflowY : style.overflowX)) return false
+  return vertical ? el.scrollHeight > el.clientHeight + 1 : el.scrollWidth > el.clientWidth + 1
+}
+
+/**
+ * 从 el 自身开始向上找能沿指定方向滚动的元素，穿过 shadow root 边界。
+ * 到达 body / html 仍未找到时返回 null，由调用方滚动 window。
+ */
+export function findScrollableAncestor(el: Element | null, vertical: boolean): Element | null {
+  let cur = el
+  while (cur && cur !== cur.ownerDocument.body && cur !== cur.ownerDocument.documentElement) {
+    if (canScroll(cur, vertical)) return cur
+    cur = cur.parentElement ?? ((cur.getRootNode() as ShadowRoot).host ?? null)
+  }
+  return null
+}
+
+/** 用于滚动结果文案：标签名 + id / aria-label，便于模型知道实际滚动的是哪个区域 */
+export function describeScrollContainer(el: Element): string {
+  const label = el.getAttribute('aria-label')
+  return `<${el.tagName.toLowerCase()}${el.id ? `#${el.id}` : ''}>${label ? ` "${label}"` : ''}`
+}
+
+/** 视口内可见面积最大、能沿指定方向滚动的元素；中心点不在任何滚动容器内时的回落 */
+export function findLargestScrollContainer(vertical: boolean): Element | null {
+  let best: Element | null = null
+  let bestArea = 0
+  for (const el of document.body.querySelectorAll('*')) {
+    // 先用布局尺寸粗筛，避免对每个元素取计算样式
+    if (vertical ? el.scrollHeight <= el.clientHeight + 1 : el.scrollWidth <= el.clientWidth + 1) continue
+    if (!canScroll(el, vertical)) continue
+    const r = el.getBoundingClientRect()
+    const w = Math.min(r.right, window.innerWidth) - Math.max(r.left, 0)
+    const h = Math.min(r.bottom, window.innerHeight) - Math.max(r.top, 0)
+    const area = w > 0 && h > 0 ? w * h : 0
+    if (area > bestArea) {
+      best = el
+      bestArea = area
+    }
+  }
+  return best
+}
