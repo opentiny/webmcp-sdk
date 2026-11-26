@@ -65,5 +65,5 @@ function canScroll(el: Element, vertical: boolean): boolean {
 
 ## 备选方案（未采用）
 
-- **在页面内派发合成 `wheel` 事件，由浏览器选择滚动目标**：脚本派发的事件 `isTrusted` 为 `false`，按 UI Events 规范，不受信任的事件除 `click` 外不触发默认动作，`wheel` 不会产生滚动。
+- **在页面内派发合成 `wheel` 事件，由浏览器选择滚动目标**：脚本派发的 `wheel` 与按键事件 `isTrusted` 为 `false`，不会滚动任何容器（在 Chromium 156 上实测：派发到列表行或容器本身，位移都为 0）。Blink 的 `event_dispatcher.cc` 对脚本派发的事件（`click` 除外）跳过默认处理；对应的规范原文见 [UI Events W3C Working Draft 2019-05-30 §3.4 Trusted events](https://www.w3.org/TR/2019/WD-uievents-20190530/#trusted-events)，当前版 UI Events 已删除这一节，`WheelEvent` 改由 Pointer Events Level 4 定义。
 - **通过调试协议发送真实滚轮事件**：浏览器会按光标位置选择容器，但需要挂调试器，`page-tools` 运行在页面内不具备该能力。
