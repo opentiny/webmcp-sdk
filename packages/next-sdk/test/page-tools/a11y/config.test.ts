@@ -329,6 +329,71 @@ describe('resolveA11yStates - 自定义规则', () => {
     expect(tokens).not.toContain('warning')
   })
 
+  it('复现：Angular 表单大容器挂 .ng-invalid 或 .ti3-error 时不应向内部无辜子孙传染 error token —— 仅已触碰/修改的表单控件或报错元素自身带 error', () => {
+    const form = el(`
+      <form class="ng-invalid ng-untouched ti3-error">
+        <button id="normal-btn">包年/包月</button>
+        <input id="untouched-input" class="ng-invalid ng-untouched" />
+        <input id="touched-input" class="ng-invalid ng-touched" />
+        <span id="err-msg" class="ti3-error">请输入必填项</span>
+      </form>
+    `)
+    const config = defineA11yConfig({
+      states: { error: { selector: '.ti3-error' } },
+    })
+
+    // 普通按钮不应被外层容器传染 error；报错提示元素自身应带 error
+    expect(resolveA11yStates(form.querySelector('#normal-btn')!, config)).not.toContain('error')
+    expect(resolveA11yStates(form.querySelector('#err-msg')!, config)).toContain('error')
+
+    // 独立验证默认 Angular 规则（无 .ti3-error 祖先）：未触碰不报 error，已触碰报 error
+    const angularForm = el(`
+      <form class="ng-invalid ng-untouched">
+        <input id="u" class="ng-invalid ng-untouched" />
+        <input id="t" class="ng-invalid ng-touched" />
+      </form>
+    `)
+    expect(resolveA11yStates(angularForm.querySelector('#u')!)).not.toContain('error')
+    expect(resolveA11yStates(angularForm.querySelector('#t')!)).toContain('error')
+  })
+
+  it('复现：Element Plus .el-form-item.is-error 容器下的 input 与自定义 roles combobox 均应继承 error，无关按钮不被传染，且 match 回调仅调用一次', () => {
+    const item = el(`
+      <div class="el-form-item is-error">
+        <label for="n">名称</label>
+        <div class="el-form-item__content">
+          <input id="n" />
+          <div id="custom-combo" class="lookup">请选择</div>
+          <button id="help-btn">帮助</button>
+          <div class="el-form-item__error">请输入名称</div>
+        </div>
+      </div>
+    `)
+    const comboConfig = defineA11yConfig({
+      roles: [{ role: 'combobox', selector: '.lookup' }],
+    })
+    expect(resolveA11yStates(item.querySelector('#n')!)).toContain('error')
+    expect(resolveA11yStates(item.querySelector('#custom-combo')!, comboConfig)).toContain('error')
+    expect(resolveA11yStates(item.querySelector('.el-form-item__error')!)).toContain('error')
+    expect(resolveA11yStates(item.querySelector('#help-btn')!)).not.toContain('error')
+
+    // 校验自定义 error match 回调在返回 false 时仅被调用一次，不重复执行
+    let callCount = 0
+    const onceConfig = defineA11yConfig({
+      states: {
+        error: {
+          match: () => {
+            callCount++
+            return false
+          },
+        },
+      },
+    })
+    const plainInput = el('<input id="plain" />')
+    expect(resolveA11yStates(plainInput, onceConfig)).not.toContain('error')
+    expect(callCount).toBe(1)
+  })
+
   it('命中非标准自定义状态名时直接输出同名 token', () => {
     const target = el('<div class="highlight-row"></div>')
     const config = defineA11yConfig({ states: { highlighted: { selector: '.highlight-row' } } })

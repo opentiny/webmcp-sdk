@@ -2,15 +2,26 @@ import { initializeBuiltinWebMCP, isBuiltinWebMCPPolyfill } from './initialize-b
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import pageAgentPrompt from './page-agent-prompt.md?raw'
 import { PageController } from '@page-agent/page-controller'
-import { buildA11yTree, type RefMap } from './a11y-tree'
-import { PageStateCache } from './page-state-cache'
+import { buildA11yTree, ElementRefAllocator, type RefMap } from './a11y-tree'
+import { PageStateCache, type SnapshotKind } from './page-state-cache'
 import { SimulatorMask } from './page-agent-mask/SimulatorMask'
 import { highlight, unhighlight, globalRemoveListener } from './page-agent-highlight'
 import { setupPageAgentToolEventBridge } from './page-agent-tool-event'
 
 import type { PageAgentToolOptions } from './constants'
 import { inputSchema, type PageAgentToolInput } from './schema'
-import { createActionErrorResult, withStateFields, type ActionContext } from './context'
+import {
+  createActionErrorResult,
+  createSessionResetErrorResult,
+  createStaleRefErrorResult,
+  isPointerInputAction,
+  REF_ACTION_LABELS,
+  type ActionContext,
+  type BrowserStateResponseMode,
+  type BrowserStateSnapshot,
+  type PageAgentToolErrorResult,
+  type RefActionName
+} from './context'
 import { detectPageDialog, detectValidationErrors, detectVisibleTooltips } from './utils/dom'
 import { getPageAgentToolConfig, setPageAgentToolConfig } from './tool-config'
 
@@ -29,16 +40,25 @@ export type ShowMaskOptions = {
   showCursor?: boolean
 }
 
-/** registerPageAgentTool 返回的句柄，暴露对内部 SimulatorMask 显隐的控制 */
+/** registerPageAgentTool 返回的句柄，暴露对内部 SimulatorMask 显隐与会话状态重置的控制 */
 export type PageAgentToolHandle = {
   showMask: (options?: ShowMaskOptions) => Promise<void>
   hideMask: () => Promise<void>
+  /** 新建或清空会话时由宿主调用，重置页面快照缓存、版本号 rev、DOM 元素 #ref 绑定映射并清除高亮 */
+  resetSession?: () => void
+}
+
+/** registerPageAgentTool 实际返回句柄（始终提供 resetSession） */
+export type RegisteredPageAgentToolHandle = PageAgentToolHandle & {
+  resetSession: () => void
 }
 
 declare global {
   interface Window {
     /** 页面内所有 registerPageAgentTool 调用共用的遮罩实例，页面中存在多份 SDK 副本时同样共用 */
     __pageAgentSimulatorMask?: SimulatorMask
+    /** 当前生效注册实例的会话重置函数，使重复注册后旧句柄调用 resetSession() 仍作用于最新实例 */
+    __pageAgentResetSession?: () => void
   }
 }
 
@@ -67,7 +87,7 @@ function resolveShowCursor(kind: CursorKind, explicit?: boolean): boolean {
 }
 
 /** 在浏览器页面中注册 page-agent-tool, 用于页面的内容获取和操作，页面的动效 */
-export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageAgentToolHandle {
+export function registerPageAgentTool(options: PageAgentToolOptions = {}): RegisteredPageAgentToolHandle {
   initializeBuiltinWebMCP()
 
   // 完整工具配置（顶层选项 enableHighlight + 统一无障碍配置 a11yConfig）：与默认配置合并后
@@ -87,99 +107,146 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
     pageController.mask = simulatorMask
   })()
 
-  // ─── 状态 Diff 缓存
+  // ─── 会话级状态缓存与稳定元素 #ref 分配器 ────────────────────────────────
   const stateCache = new PageStateCache()
+  const refAllocator = new ElementRefAllocator()
+  // 会话代次：每次 endTurn() 或 resetSession() 递增，用于拦截前序已发起的异步动作续体污染后续状态
+  let sessionGeneration = 0
 
-  // 当前 ref 索引 → HTMLElement 映射（每次 buildA11yTree 后更新）
+  // 当前最新快照中活跃的 ref 索引 → HTMLElement 映射（每次 buildA11yTree 后更新）
   let currentRefMap: RefMap = new Map()
 
-  // ─── 辅助：构建错误响应 ───────────────────────────────────────────────────
+  function endTurn(): void {
+    sessionGeneration++
+    stateCache.invalidate()
+  }
+
+  function resetSession(): void {
+    sessionGeneration++
+    stateCache.reset()
+    refAllocator.reset()
+    currentRefMap = new Map()
+    unhighlight()
+  }
+
   async function errContent(msg: string) {
     return { content: [{ type: 'text' as const, text: msg }] }
   }
 
-  async function actionError(msg: string) {
-    const result = await createActionErrorResult(msg, buildBrowserStateResponse)
-    options.removeMaskAfterToolCall && (await pageController.hideMask())
-    return result
-  }
+  /**
+   * 为单次工具调用构建带会话代次守卫的执行上下文：
+   * 在此捕获一次 expectedGeneration，避免在多个内部辅助函数间逐层透传代次参数。
+   */
+  function createInvocationContext(expectedGeneration: number): ActionContext {
+    const isStale = () => expectedGeneration !== sessionGeneration
 
-  // AI 使用过期 ref 时，自动重建 A11y 树并返回全量状态，
-  // 避免 AI 额外往返调用 browserState，减少操作轮次
-  async function refreshOnStaleRef(action: string, index: number) {
-    const refreshResult = await buildBrowserStateResponse('full')
-    const warning = `⚠️ ${action}失败: ref 索引 ${index} 已失效（页面可能已刷新），已自动重新加载页面状态，请使用新的 ref 索引重试。`
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: withStateFields(refreshResult.content[0].text, { warning })
+    const withGenerationGuard = async <T,>(
+      run: () => T | Promise<T>,
+    ): Promise<T | PageAgentToolErrorResult> => {
+      if (isStale()) {
+        return createSessionResetErrorResult(window.location.href)
+      }
+      return run()
+    }
+
+    const guardedError = async <T,>(
+      buildError: () => T | Promise<T>,
+    ): Promise<T | PageAgentToolErrorResult> =>
+      withGenerationGuard(async () => {
+        const result = await buildError()
+        getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
+        return result
+      })
+
+    const buildBrowserStateResponse = async (
+      responseMode: BrowserStateResponseMode = 'diff',
+    ): Promise<{ content: Array<{ type: 'text'; text: string }> }> =>
+      // 异步操作等待期间若发生了 endTurn() 或 resetSession()，禁止旧续体向新会话分配 ref 或写入 stateCache 基线
+      withGenerationGuard(async () => {
+        const url = window.location.href
+        const title = document.title
+
+        // 生成语义化 ARIA YAML 树 + 刷新活跃 refMap（传入会话级 refAllocator，使存活元素保持稳定 #ref）
+        const { yaml, lines, refMap } = buildA11yTree(document.body, {
+          ...getPageAgentToolConfig().a11yConfig,
+          refAllocator
+        })
+        currentRefMap = refMap
+
+        // 高亮交互元素，且增加全局移除高亮的监听（读取运行期生效的配置，支持 setPageAgentToolConfig 动态修改）
+        if (getPageAgentToolConfig().enableHighlight) {
+          highlight(refMap)
+          globalRemoveListener()
         }
-      ]
+
+        // 直接传入预拆分的 lines，避免重复剥离围栏与按行拆分
+        const diff = stateCache.update(url, yaml, {
+          forceFull: responseMode === 'full',
+          lines
+        })
+
+        // 检测页面弹窗/遮罩层（确认框、提示框等），让 AI 优先处理
+        const dialogs = detectPageDialog()
+        // 检测表单校验错误，提醒 AI 优先修复
+        const validationErrors = detectValidationErrors()
+        // 检测 hover 后可见的 tooltip / 浮层提示（框架 portal 插入 body 的内容）
+        const tooltips = detectVisibleTooltips()
+
+        // 根据 responseMode 与熔断结果确定最终 kind 及 content：
+        // both 模式因 content 已包含完整页面树，固定返回 kind: 'full'（不带 baseRev），防止宿主按纯 diff 折叠丢弃整页树
+        let kind: SnapshotKind = 'full'
+        let displayContent = yaml
+        if (responseMode === 'diff') {
+          kind = diff.kind
+          displayContent = diff.kind === 'full' ? yaml : diff.diffText
+        } else if (responseMode === 'both') {
+          displayContent = `【全量页面树】:\n${yaml}\n\n【增量差异】:\n${diff.kind === 'full' ? '（首次/刷新/大幅变化，无增量差异）' : diff.diffText}`
+        }
+
+        // 全部字段平铺进 stateObj，直接返回 JSON 便于反序列化（与宿主快照折叠层及 webmcp-cli 对齐）
+        const stateObj: BrowserStateSnapshot = {
+          kind,
+          url,
+          title,
+          rev: diff.rev,
+          ...(diff.kind === 'diff' && kind === 'diff' ? { baseRev: diff.baseRev } : {}),
+          content: displayContent,
+          ...(dialogs.length > 0 ? { dialogs } : {}),
+          ...(validationErrors.length > 0 ? { validationErrors } : {}),
+          ...(tooltips.length > 0 ? { tooltips } : {})
+        }
+        return { content: [{ type: 'text', text: JSON.stringify(stateObj) }] }
+      })
+
+    const actionError = (msg: string) =>
+      guardedError(() => createActionErrorResult(msg, buildBrowserStateResponse))
+
+    const staleRefError = (action: RefActionName, index: number) =>
+      guardedError(() =>
+        createStaleRefErrorResult(action, index, window.location.href, stateCache.getCurrentRev())
+      )
+
+    return {
+      pageController,
+      refAllocator,
+      setRefMap: (map: RefMap) => {
+        if (isStale()) return
+        currentRefMap = map
+      },
+      buildBrowserStateResponse,
+      resolveRefOrError: async (action: RefActionName, index: number) => {
+        const el = isStale() ? undefined : currentRefMap.get(index)
+        if (el && el.isConnected) {
+          return { ok: true, el }
+        }
+        return {
+          ok: false,
+          error: await staleRefError(action, index)
+        }
+      },
+      errContent,
+      actionError
     }
-  }
-
-  // ─── 核心：构建 browserState 响应（全量 or 增量 Diff）────────────────────
-  async function buildBrowserStateResponse(
-    responseMode: 'full' | 'diff' | 'both' = 'diff'
-  ): Promise<{ content: Array<{ type: 'text'; text: string }> }> {
-    const url = window.location.href
-    const title = document.title
-
-    // 生成语义化 ARIA YAML 树 + 刷新 refMap（统一读取运行期生效的配置，支持 setPageAgentToolConfig 动态修改）
-    const { yaml, refMap } = buildA11yTree(document.body, getPageAgentToolConfig().a11yConfig)
-    currentRefMap = refMap
-
-    // 高亮交互元素，且增加全局移除高亮的监听（读取运行期生效的配置，支持 setPageAgentToolConfig 动态修改）
-    if (getPageAgentToolConfig().enableHighlight) {
-      highlight(refMap)
-      globalRemoveListener()
-    }
-
-    // 计算 Diff
-    const diff = stateCache.update(url, yaml)
-
-    // 检测页面弹窗/遮罩层（确认框、提示框等），让 AI 优先处理
-    const dialogs = detectPageDialog()
-    // 检测表单校验错误，提醒 AI 优先修复
-    const validationErrors = detectValidationErrors()
-    // 检测 hover 后可见的 tooltip / 浮层提示（框架 portal 插入 body 的内容）
-    const tooltips = detectVisibleTooltips()
-
-    // 根据 responseMode 组装 content
-    let displayContent = ''
-    if (responseMode === 'full') {
-      displayContent = yaml
-    } else if (responseMode === 'diff') {
-      displayContent = diff.isFullRefresh ? yaml : diff.diffText
-    } else if (responseMode === 'both') {
-      displayContent = `【全量页面树】:\n${yaml}\n\n【增量差异】:\n${diff.isFullRefresh ? '（首次/刷新，无增量差异）' : diff.diffText}`
-    }
-
-    // 全部字段平铺进 stateObj，直接返回 JSON 便于反序列化（与 webmcp-cli 的 state 提取逻辑对齐）
-    const stateObj = {
-      url,
-      title,
-      content: displayContent,
-      ...(dialogs.length > 0 ? { dialogs } : {}),
-      ...(validationErrors.length > 0 ? { validationErrors } : {}),
-      ...(tooltips.length > 0 ? { tooltips } : {})
-    }
-    return { content: [{ type: 'text', text: JSON.stringify(stateObj) }] }
-  }
-
-  // 组装上下文传递给 handlers
-  const actionContext: ActionContext = {
-    pageController,
-    stateCache,
-    getRefMap: () => currentRefMap,
-    setRefMap: (map: RefMap) => {
-      currentRefMap = map
-    },
-    buildBrowserStateResponse,
-    refreshOnStaleRef,
-    errContent,
-    actionError
   }
 
   function borderTargetElement(index: number | undefined) {
@@ -200,7 +267,7 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
     }
   }
 
-  function createHandle(): PageAgentToolHandle {
+  function createHandle(): RegisteredPageAgentToolHandle {
     // 每次调用时读取当前共用的遮罩：后续注册替换了遮罩时，本句柄仍作用于页面上正在使用的实例
     const currentMask = () => window.__pageAgentSimulatorMask ?? simulatorMask
     return {
@@ -209,11 +276,17 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
       },
       hideMask: async () => {
         currentMask().hide()
+      },
+      resetSession: () => {
+        // 与遮罩保持一致：重复注册后旧句柄同样委托给当前生效实例的 resetSession
+        ;(window.__pageAgentResetSession ?? resetSession)()
       }
     }
   }
 
   async function executePageAgentTool(args: PageAgentToolInput) {
+    const invocationGeneration = sessionGeneration
+    const ctx = createInvocationContext(invocationGeneration)
     try {
       let ret: { content: Array<{ type: 'text'; text: string }> }
 
@@ -221,13 +294,13 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
         // ─── 感知/脚本类：仅呼吸灯，无鼠标图标 ──────────────────────────────
         case 'browserState':
           showMaskFor('observe')
-          ret = await handleBrowserState(args, actionContext)
+          ret = await handleBrowserState(args, ctx)
           getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'executeJavascript':
           if (getPageAgentToolConfig().enableExecuteJavascript) {
             showMaskFor('observe')
-            ret = await handleExecuteJavascript(args, actionContext)
+            ret = await handleExecuteJavascript(args, ctx)
             getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           } else {
             ret = { content: [{ type: 'text' as const, text: '当前环境禁用 executeJavascript 工具' }] }
@@ -235,32 +308,32 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
           break
         case 'searchTree':
           showMaskFor('observe')
-          ret = await handleSearchTree(args, actionContext)
+          ret = await handleSearchTree(args, ctx)
           getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
         // ─── 滚动类：仅呼吸灯，无静止鼠标图标 ───────────────────────────────
         case 'scroll':
           showMaskFor('observe')
-          ret = await handleScroll(args, actionContext)
+          ret = await handleScroll(args, ctx)
           getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
         // ─── 精准操作类：呼吸灯 + 鼠标图标 ─────────────────────────────────
         case 'click':
           showMaskFor('pointer')
           borderTargetElement(args.index)
-          ret = await handleClick(args, actionContext)
+          ret = await handleClick(args, ctx)
           getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'fill':
           showMaskFor('pointer')
           borderTargetElement(args.index)
-          ret = await handleFill(args, actionContext)
+          ret = await handleFill(args, ctx)
           getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'select':
           showMaskFor('pointer')
           borderTargetElement(args.index)
-          ret = await handleSelect(args, actionContext)
+          ret = await handleSelect(args, ctx)
           getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'hover':
@@ -271,26 +344,22 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
             const rect = el.getBoundingClientRect()
             simulatorMask.setCursorPosition(rect.left + rect.width / 2, rect.top + rect.height / 2)
           }
-          ret = await handleHover(args, actionContext)
+          ret = await handleHover(args, ctx)
           getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
           break
         case 'clipboard':
-          ret = await handleClipboard(args, actionContext)
+          ret = await handleClipboard(args, ctx)
           break
         default:
           ret = { content: [{ type: 'text' as const, text: `未知操作: ${args.action}` }] }
       }
       return ret
     } catch (error) {
-      const actionNames = {
-        click: '点击',
-        fill: '填写',
-        select: '选择',
-        hover: '悬浮'
-      } as const
-      if (args.action in actionNames) {
-        return actionError(
-          `${actionNames[args.action as keyof typeof actionNames]}执行异常: ${error instanceof Error ? error.message : String(error)}`
+      // 仅对指针/输入类 DOM 交互异常包装为带最新整页状态的错误返回；
+      // scroll（可在无 index 时滚动窗口）与只读/脚本类动作保持原样抛错以兼容既有调用约定
+      if (isPointerInputAction(args.action)) {
+        return ctx.actionError(
+          `${REF_ACTION_LABELS[args.action]}执行异常: ${error instanceof Error ? error.message : String(error)}`
         )
       }
       getPageAgentToolConfig().removeMaskAfterToolCall && (await pageController.hideMask())
@@ -326,6 +395,8 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
 
   const abortController = new AbortController()
   ;(window as any).__pageAgentToolAbortController = abortController
+  // 注销旧实例后才更新全局 resetSession 指针，避免提前返回（如跳过原生 modelContext）覆盖仍在运行的旧实例
+  window.__pageAgentResetSession = resetSession
 
   const executeJavascriptPrompt = getPageAgentToolConfig().enableExecuteJavascript
     ? ''
@@ -359,7 +430,10 @@ export function registerPageAgentTool(options: PageAgentToolOptions = {}): PageA
     console.warn('[next-sdk] page-agent-tool 注册失败:', detail, err)
   })
 
-  setupPageAgentToolEventBridge(executePageAgentTool, pageController, actionContext)
+  setupPageAgentToolEventBridge(executePageAgentTool, pageController, {
+    getRefMap: () => currentRefMap,
+    endTurn
+  })
 
   return createHandle()
 }

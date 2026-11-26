@@ -1,78 +1,177 @@
 /**
  * page-state-cache.ts
  *
- * 页面状态 Diff 缓存模块
- * - 缓存上一次 buildA11yTree 生成的 YAML 文本
- * - 每次操作后计算 diff，只返回 +/- 变化行，大幅节省 Token
+ * 页面状态版本缓存与熔断协议模块：
+ * 1. 维护单调递增的快照版本号 rev，增量更新附带基准版本 baseRev；
+ * 2. 集中定义全部熔断策略参数并透传给 `structured-yaml-diff.ts` 计算结构感知增量 Diff；
+ * 3. 执行三项熔断保护（前置大窗口 O(N) 低重合预判 / Myers 编辑距离上限、变化行占比超过 MAX_CHANGE_LINE_RATIO、
+ *    diff 字符体积达到 MAX_DIFF_CHAR_RATIO），命中任一项时统一回退整页树（kind = 'full', fullReason = 'diff_too_large'）。
  */
 
-import { diffLines } from 'diff'
+import {
+  computeStructuredYamlDiff,
+  extractYamlLines,
+  NO_CHANGES_DIFF_TEXT,
+  type StructuredDiffOptions,
+} from './structured-yaml-diff'
+
+export { NO_CHANGES_DIFF_TEXT }
+
+export type SnapshotKind = 'full' | 'diff'
+
+export type FullSnapshotReason = 'initial' | 'url_changed' | 'forced' | 'diff_too_large'
 
 export interface PageSnapshot {
   url: string
-  yaml: string
+  lines: string[]
+  rev: number
 }
 
-export interface DiffResult {
-  /** 是否为全量刷新（首次加载或 URL 变化） */
-  isFullRefresh: boolean
-  /** 上一次的 URL（用于拼接 URL 变化提示） */
+export interface StateCacheUpdateOptions {
+  /** 强制作为全量快照输出（如调用方显式指定 responseMode: 'full'） */
+  forceFull?: boolean
+  /** 调用方已拆好的纯内容行数组（如 buildA11yTree 返回的 lines），传入时跳过剥离围栏与重复拆行 */
+  lines?: string[]
+}
+
+interface DiffResultBase {
+  /** 当前快照版本号（从 1 单调递增，reset 后归 0） */
+  rev: number
+  /** 上一次缓存的 URL */
   prevUrl: string
-  /** 新增行数 */
+  /** 新增行数（`+ ` 行计数） */
   addedLines: number
-  /** 删除行数 */
+  /** 删除行数（`- ` 行计数） */
   removedLines: number
-  /** 只含 +/- 行的 diff 文本（不含相同行，节省 Token） */
+}
+
+export interface FullDiffResult extends DiffResultBase {
+  kind: 'full'
+  /** 触发全量输出的原因 */
+  fullReason: FullSnapshotReason
+  /** 全量输出时恒为空串 */
+  diffText: ''
+}
+
+export interface IncrementalDiffResult extends DiffResultBase {
+  kind: 'diff'
+  /** 本次增量 diff 所基于的上一版快照 rev */
+  baseRev: number
+  /** 结构化 +/- 差异文本（无变化时为 `# (no changes)`） */
   diffText: string
+}
+
+export type DiffResult = FullDiffResult | IncrementalDiffResult
+
+/** 三项熔断保护策略常量（唯一真源，透传给 structured-yaml-diff.ts） */
+const MAX_CHANGE_LINE_RATIO = 0.5
+const MAX_DIFF_CHAR_RATIO = 1.0
+const FAST_ABORT_MIN_WINDOW_LINES = 200
+const MIN_MYERS_EDIT_LENGTH = 250
+const MAX_MYERS_EDIT_LENGTH = 800
+
+const DIFF_CIRCUIT_BREAKER_OPTIONS: StructuredDiffOptions = {
+  maxChangeLineRatio: MAX_CHANGE_LINE_RATIO,
+  fastAbortMinWindowLines: FAST_ABORT_MIN_WINDOW_LINES,
+  minMyersEditLength: MIN_MYERS_EDIT_LENGTH,
+  maxMyersEditLength: MAX_MYERS_EDIT_LENGTH,
 }
 
 export class PageStateCache {
   private prev: PageSnapshot | null = null
+  private rev = 0
 
-  /** URL 变化或首次调用时，需要全量输出 */
-  isFullRefresh(currentUrl: string): boolean {
-    return !this.prev || this.prev.url !== currentUrl
+  /** 获取当前已发布的最新快照版本号（初始或 reset 后为 0） */
+  getCurrentRev(): number {
+    return this.rev
+  }
+
+  private makeFullResult(
+    rev: number,
+    fullReason: FullSnapshotReason,
+    prevUrl: string,
+    addedLines = 0,
+    removedLines = 0,
+  ): FullDiffResult {
+    return {
+      kind: 'full',
+      rev,
+      fullReason,
+      prevUrl,
+      addedLines,
+      removedLines,
+      diffText: '',
+    }
   }
 
   /**
-   * 更新缓存并返回 diff 结果
+   * 更新缓存并返回结构化快照/Diff 结果
    * @param url 当前页面 URL
-   * @param yaml 当前 YAML 树文本
+   * @param yaml 当前 YAML 树文本（用于体积倒挂判定，未提供 options.lines 时也用于拆行）
+   * @param options 可选强制全量与预拆分行数组配置
    */
-  update(url: string, yaml: string): DiffResult {
-    const isFullRefresh = this.isFullRefresh(url)
-    const prevUrl = this.prev?.url ?? ''
+  update(url: string, yaml: string, options: StateCacheUpdateOptions = {}): DiffResult {
+    const { forceFull = false, lines } = options
 
-    let addedLines = 0
-    let removedLines = 0
-    let diffText = ''
+    const prevSnapshot = this.prev
+    const prevUrl = prevSnapshot?.url ?? ''
+    const currLines = lines ?? extractYamlLines(yaml)
+    const nextRev = ++this.rev
 
-    if (!isFullRefresh && this.prev) {
-      const changes = diffLines(this.prev.yaml, yaml)
-      const buf: string[] = []
-      changes.forEach(part => {
-        // 跳过相同行，只保留变化行，大幅节省传给 AI 的 Token 数量
-        if (!part.added && !part.removed) return
-        const lines = part.value.split('\n').filter(Boolean)
-        if (part.added) {
-          addedLines += lines.length
-          lines.forEach(l => buf.push(`+ ${l}`))
-        } else {
-          removedLines += lines.length
-          lines.forEach(l => buf.push(`- ${l}`))
-        }
-      })
-      diffText = buf.join('\n')
+    let fullReason: FullSnapshotReason | undefined
+    if (!prevSnapshot) {
+      fullReason = 'initial'
+    } else if (prevSnapshot.url !== url) {
+      fullReason = 'url_changed'
+    } else if (forceFull) {
+      fullReason = 'forced'
     }
 
-    // 更新缓存
-    this.prev = { url, yaml }
+    if (fullReason || !prevSnapshot) {
+      this.prev = { url, lines: currLines, rev: nextRev }
+      return this.makeFullResult(nextRev, fullReason ?? 'initial', prevUrl)
+    }
 
-    return { isFullRefresh, prevUrl, addedLines, removedLines, diffText }
+    const { diffText, addedLines, removedLines, abortedTooLarge } = computeStructuredYamlDiff(
+      prevSnapshot.lines,
+      currLines,
+      DIFF_CIRCUIT_BREAKER_OPTIONS,
+    )
+
+    // 三项熔断保护：前置快速预判/超限、变化行超过半数、diff 文本体积达到/超过整页树，任一命中均回退整页树
+    const hasChanges = addedLines > 0 || removedLines > 0
+    const totalLines = Math.max(prevSnapshot.lines.length, currLines.length)
+    const isDiffTooLarge =
+      abortedTooLarge ||
+      (hasChanges &&
+        (Math.max(addedLines, removedLines) / totalLines > MAX_CHANGE_LINE_RATIO ||
+          (yaml.length > 0 && diffText.length >= yaml.length * MAX_DIFF_CHAR_RATIO)))
+
+    this.prev = { url, lines: currLines, rev: nextRev }
+
+    if (isDiffTooLarge) {
+      return this.makeFullResult(nextRev, 'diff_too_large', prevUrl, addedLines, removedLines)
+    }
+
+    return {
+      kind: 'diff',
+      rev: nextRev,
+      baseRev: prevSnapshot.rev,
+      prevUrl,
+      addedLines,
+      removedLines,
+      diffText,
+    }
   }
 
-  /** 强制清空缓存（页面刷新 / 手动重置场景） */
+  /** 清空上一次快照缓存（保留递增版本号，下次输出自动作为新基线 full） */
   invalidate(): void {
     this.prev = null
+  }
+
+  /** 会话级完全重置：清空快照缓存并将版本号 rev 归零（新建/清空会话时调用） */
+  reset(): void {
+    this.prev = null
+    this.rev = 0
   }
 }
