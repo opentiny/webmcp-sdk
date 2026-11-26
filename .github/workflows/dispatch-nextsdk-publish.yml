@@ -1,14 +1,15 @@
 # 工作流名称
 name: Dispatch NextSDK Publish
-# 运行时显示的名称
-run-name: Dispatch NextSDK Publish
+# 运行时显示的名称。留空 version 时只查询，不会发布。
+run-name: >-
+  ${{ inputs.version && format('Publish @opentiny/next-sdk {0} ({1})', inputs.version, inputs.tag) || format('Query latest published @opentiny/next-sdk ({0})', inputs.tag) }}
 
 # 触发条件配置
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: '选择发布版本的tag (alpha/beta/latest)'
+        description: 'npm dist-tag。预发布版本选 alpha/beta/rc，正式版本选 latest'
         required: true
         default: 'alpha'
         type: choice
@@ -17,14 +18,49 @@ on:
           - beta
           - rc
           - latest
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.sha }}
-  cancel-in-progress: true
+      # 表单只能回显 YAML 里的 default，这里与 packages/next-sdk/package.json 的 version 保持一致。
+      # 改成新的 alpha/beta 后再运行；版本号只改本次构建，不提交仓库。清空则只查询 npm 最近一次发布。
+      version:
+        description: '默认回显仓库 package.json 的版本，改成要发布的新 alpha/beta 后再运行。不会提交回仓库。清空则只查询 npm 最近一次发布（按发布时间，不是 latest 标签）。'
+        required: false
+        type: string
+        default: '0.4.11'
 
 # 定义工作流中的作业
 jobs:
+  resolve:
+    name: Resolve latest published version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      publish: ${{ steps.version.outputs.publish }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: CheckOut Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Resolve publish version
+        id: version
+        env:
+          PACKAGE_NAME: '@opentiny/next-sdk'
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: node .github/scripts/resolve-npm-publish-version.mjs
+
   build:
+    name: Build and publish
+    needs: resolve
+    if: needs.resolve.outputs.publish == 'true'
+    # 同一包的发布按触发顺序排队，不按提交拆开，也不取消另一笔正在进行的发布。
+    # 留空查询不会进入这个组。
+    concurrency:
+      group: ${{ github.workflow }}-publish
+      cancel-in-progress: false
+      queue: max
     # 指定运行环境为最新版本的ubuntu
     runs-on: ubuntu-latest
     permissions:
@@ -35,7 +71,8 @@ jobs:
       - name: CheckOut Code
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref_name }}
+          ref: ${{ github.sha }}
+          persist-credentials: false
 
       # 步骤2: 设置pnpm包管理器
       - name: Setup pnpm
@@ -68,10 +105,30 @@ jobs:
       - name: Install dependencies
         run: pnpm i --no-frozen-lockfile
 
+      # 只改本次 runner 上的 package.json，不提交
+      - name: Apply publish version
+        working-directory: packages/next-sdk
+        env:
+          PUBLISH_VERSION: ${{ needs.resolve.outputs.version }}
+        run: npm pkg set "version=${PUBLISH_VERSION}"
+
       # 步骤7: 构建组件
       - name: Run Build NextSDK
         run: pnpm build
 
+      # 排到队首后再查一次 dist-tag，避免构建期间标签已经被更新到更新的版本。
+      - name: Confirm dist-tag moves forward
+        env:
+          PACKAGE_NAME: '@opentiny/next-sdk'
+          INPUT_VERSION: ${{ needs.resolve.outputs.version }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: node .github/scripts/resolve-npm-publish-version.mjs
+
       # 步骤8: 发布组件到NPM
       - name: Publish NextSDK
-        run: pnpm -F @opentiny/next-sdk publish --tag ${{ inputs.tag }} --no-git-checks
+        env:
+          PUBLISH_TAG: ${{ inputs.tag }}
+          PUBLISH_VERSION: ${{ needs.resolve.outputs.version }}
+        run: |
+          node --input-type=module -e "import fs from 'node:fs'; const version = JSON.parse(fs.readFileSync('packages/next-sdk/package.json','utf8')).version; if (version !== process.env.PUBLISH_VERSION) { console.error('version mismatch', version); process.exit(1) } console.log('publishing @opentiny/next-sdk@' + version)"
+          pnpm -F @opentiny/next-sdk publish --tag "$PUBLISH_TAG" --no-git-checks
