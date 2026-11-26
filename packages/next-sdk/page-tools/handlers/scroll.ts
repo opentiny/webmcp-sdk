@@ -1,4 +1,5 @@
 import { getScrollInfo, waitForScrollEnd } from '../utils/scroll'
+import { beginAction } from '../utils/network'
 import { REF_ACTION_LABELS, withStateFields, type ActionContext } from '../context'
 
 export async function handleScroll(args: any, ctx: ActionContext) {
@@ -16,6 +17,7 @@ export async function handleScroll(args: any, ctx: ActionContext) {
 
   // 滚动前快照
   const before = getScrollInfo(scrollTarget)
+  const action = beginAction()
 
   if (args.right !== undefined) {
     const pixels = args.pixels ?? 300
@@ -27,6 +29,8 @@ export async function handleScroll(args: any, ctx: ActionContext) {
 
   // 等待滚动动画完成后再采集状态（scrollend + 超时兜底）
   await waitForScrollEnd(scrollTarget)
+  // 滚动到底部常触发「加载更多」请求，等请求返回、新内容渲染后再采集状态
+  await action.settle()
 
   // 滚动后快照，计算实际位移
   const after = getScrollInfo(scrollTarget)

@@ -68,6 +68,8 @@ getPageAgentToolConfig() // { enableHighlight: false, a11yConfig: { roles: [...]
 
 执行 `click`、`fill`、`select`、`hover` 前通常需先调用 `browserState` 获取最新 ref 索引；`clipboard` 不依赖 `index`，也不展示 SimulatorMask。
 
+`click`、`fill`、`select`、`scroll` 执行后，先等待动作期间页面发起的 `fetch` / `XMLHttpRequest` 完成（最多 4 秒），再等待 DOM 稳定，然后返回页面状态。动作开始前已在进行的请求（轮询、长连接）不计入。为此 `page-agent-tool` 在第一次执行这些动作时包装页面的 `window.fetch` 与 `XMLHttpRequest.prototype.send`，只记录请求的开始与结束，不改变请求本身；页面之后整体替换 `window.fetch` 时，计数不再生效，行为退回为只等待 DOM 稳定。WebSocket、SSE 与定时器延迟渲染的内容不在等待范围内。
+
 `browserState` 产出的无障碍树会把**编辑宿主**（元素自身声明 `contenteditable="true"` / `""` / `"plaintext-only"`，不含仅从祖先继承的子孙）识别为可填写控件：隐式角色 `textbox`（显式 `role` 与 `a11yConfig.roles` 优先），分配 `#N` ref，并带 `[contenteditable]` token（`plaintext-only` 时为 `[contenteditable=plaintext-only]`）。有可见文本时还会输出 `value="…"`，便于 `fill` 前后做 Diff。`contenteditable="false"` 与 `aria-disabled` 的编辑区不分配 ref。`fill` 使用该 `#N` 即可写入富文本框，无需再为每个站点单独配 whitelist。
 
 ### 稳定元素编号、结构化增量 Diff 与会话重置
