@@ -63,6 +63,7 @@ import {
 - 站点预设：云控制台用 `consoleCloudPageAgentToolOptions` + `isConsoleCloudHost()`（含 `ti-app-layout-*` landmark）。
 - **`clipboard` action**：`text` 有值写剪切板、无值读剪切板；不依赖 `index`、不展示 mask；handler 见 `page-tools/handlers/clipboard.ts`。
 - **contenteditable**：`browserState` 将自身声明 `contenteditable` 的编辑宿主标为 `textbox`（显式 role 优先）、分配 ref、输出 `[contenteditable]` token；`fill` 用该 ref 填写。继承可编辑的子孙不单独占 ref。见 [`REQ-20260904-contenteditable-a11y-ref`](../../specs/REQ-20260904-contenteditable-a11y-ref/)。
+- **敏感值脱敏**：密码框与 `autocomplete` 为密码、验证码、银行卡字段的输入框，`value` token 输出 `[已脱敏]`（`a11y/config.ts` 的 `isSensitiveField`）。见 [`REQ-20261126-sensitive-value-redaction`](../../specs/REQ-20261126-sensitive-value-redaction/)。
 
 ## 测试落点
 

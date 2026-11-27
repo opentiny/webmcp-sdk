@@ -329,6 +329,14 @@ export function defineA11yConfig(config: A11yConfig): A11yConfig {
 
 // ─── 角色 / 状态解析 ─────────────────────────────────────────────────────
 
+const SENSITIVE_AUTOCOMPLETE = /\b(current-password|new-password|one-time-code|cc-number|cc-csc|cc-exp(-month|-year)?)\b/
+
+/** 密码框，或 autocomplete 声明为密码、验证码、银行卡字段的输入框 */
+function isSensitiveField(el: Element): boolean {
+  if (el.tagName === 'INPUT' && (el as HTMLInputElement).type === 'password') return true
+  return SENSITIVE_AUTOCOMPLETE.test(el.getAttribute('autocomplete') ?? '')
+}
+
 /**
  * 判断元素是否为编辑宿主（自身声明 contenteditable，而非从祖先继承）。
  * HTML-AAM：无显式 role 时隐式角色为 textbox。
@@ -501,7 +509,8 @@ function computeStates(el: Element, resolved: ResolvedA11yConfig, resolvedRole?:
   if (tag === 'input' || tag === 'textarea' || tag === 'select') {
     const val = (el as HTMLInputElement).value
     if (val !== undefined && val !== '') {
-      tokens.push(`value="${val}"`)
+      // 密码、卡号、验证码等字段的值不发给模型；保留占位，fill 后仍能从 Diff 看到「已填写」
+      tokens.push(isSensitiveField(el) ? 'value="[已脱敏]"' : `value="${val}"`)
     }
   }
   // 编辑宿主：标记可填，并用可见文本作为 value（供 fill 后 Diff）

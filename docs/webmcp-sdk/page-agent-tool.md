@@ -70,6 +70,8 @@ getPageAgentToolConfig() // { enableHighlight: false, a11yConfig: { roles: [...]
 
 `browserState` 产出的无障碍树会把**编辑宿主**（元素自身声明 `contenteditable="true"` / `""` / `"plaintext-only"`，不含仅从祖先继承的子孙）识别为可填写控件：隐式角色 `textbox`（显式 `role` 与 `a11yConfig.roles` 优先），分配 `#N` ref，并带 `[contenteditable]` token（`plaintext-only` 时为 `[contenteditable=plaintext-only]`）。有可见文本时还会输出 `value="…"`，便于 `fill` 前后做 Diff。`contenteditable="false"` 与 `aria-disabled` 的编辑区不分配 ref。`fill` 使用该 `#N` 即可写入富文本框，无需再为每个站点单独配 whitelist。
 
+`input` / `textarea` / `select` 有值时输出 `value="…"`，供 `fill` 前后做 Diff。密码框（`type="password"`）以及 `autocomplete` 为 `current-password`、`new-password`、`one-time-code`、`cc-number`、`cc-csc`、`cc-exp*` 的输入框，有值时输出 `value="[已脱敏]"`，不把原值发给模型。
+
 ### 稳定元素编号、结构化增量 Diff 与会话重置
 
 `page-agent-tool` 将 `#N` 引用编号稳定绑定到具体 DOM 元素实例（`ElementRefAllocator`）：
