@@ -63,6 +63,7 @@ import {
 - 站点预设：云控制台用 `consoleCloudPageAgentToolOptions` + `isConsoleCloudHost()`（含 `ti-app-layout-*` landmark）。
 - **`clipboard` action**：`text` 有值写剪切板、无值读剪切板；不依赖 `index`、不展示 mask；handler 见 `page-tools/handlers/clipboard.ts`。
 - **contenteditable**：`browserState` 将自身声明 `contenteditable` 的编辑宿主标为 `textbox`（显式 role 优先）、分配 ref、输出 `[contenteditable]` token；`fill` 用该 ref 填写。继承可编辑的子孙不单独占 ref。见 [`REQ-20260904-contenteditable-a11y-ref`](../../specs/REQ-20260904-contenteditable-a11y-ref/)。
+- **动作后等待请求**：`click` / `fill` / `select` / `scroll` 用 `utils/network.ts` 的 `beginAction().settle()` 取代 `waitForDomSettled()`：首次动作时包装 `window.fetch` 与 `XMLHttpRequest.prototype.open` / `send` 计数（`fetch` 读完响应副本才算结束，`text/event-stream` 只计到响应头），只等编号不小于动作开始时序号的请求（上限 2s），再等 DOM 稳定；仍有请求未完成时结果带 `waitResult`（`withSettleNote`）。见 [`REQ-20261126-action-request-settle`](../../specs/REQ-20261126-action-request-settle/)。
 
 ## 测试落点
 
