@@ -249,32 +249,18 @@ onMounted(() => {
     {
     name: ADD_PRICE_PROTECTION_TOOL,
     description:
-      '【价保监控工具】帮助电商管理员处理顾客因降价提出的补差价请求（价保申请）。注意：在调用本工具前，你必须先使用 get_skill_content 工具读取相关的技能文档，严禁凭空构造参数或跳过业务规则直接调用。',
+      '【价保监控工具】帮助电商管理员处理顾客因降价提出的补差价请求（价保申请）。业务规则以技能「客户价保单创建及审核」为准：先用 select_skills 选中该技能，再按技能说明调用 navigate_to_page 进入价保监控页，然后传入顾客姓名、订单号、补偿金额和申请事由。',
     inputSchema: {
       type: 'object',
       properties: {
-        isSkillRead: {
-          type: 'boolean',
-          description: '是否已经通过 get_skill_content 读取过技能文档？必须阅读文档后才允许传 true。如果你还没有阅读文档，严禁调用此工具。'
-        },
         customerName: { type: 'string', description: '提出价保申请的顾客姓名' },
         orderId: { type: 'string', description: '需要价保补偿的原订单编号' },
         amount: { type: 'number', description: '申请补偿的差价金额' },
         reason: { type: 'string', description: '顾客申请价保的原因' }
       },
-      required: ['isSkillRead', 'customerName', 'orderId', 'amount', 'reason']
+      required: ['customerName', 'orderId', 'amount', 'reason']
     },
-    execute: async (params: any) => {
-      if (!params.isSkillRead) {
-        return {
-          content: [
-            {
-              type: 'text',
-              text: '错误：在调用此工具前，你必须先使用 get_skill_content 读取相关技能文档。请先阅读技能文档后再重新调用。'
-            }
-          ]
-        }
-      }
+    execute: async (params: { customerName: string; orderId: string; amount: number; reason: string }) => {
       if (!modalRef.value) {
         return { content: [{ type: 'text', text: '错误：价保弹窗未加载，当前页面可能已被销毁。' }] }
       }
