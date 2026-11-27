@@ -64,6 +64,7 @@ import {
 - **`clipboard` action**：`text` 有值写剪切板、无值读剪切板；不依赖 `index`、不展示 mask；handler 见 `page-tools/handlers/clipboard.ts`。
 - **contenteditable**：`browserState` 将自身声明 `contenteditable` 的编辑宿主标为 `textbox`（显式 role 优先）、分配 ref、输出 `[contenteditable]` token；`fill` 用该 ref 填写。继承可编辑的子孙不单独占 ref。见 [`REQ-20260904-contenteditable-a11y-ref`](../../specs/REQ-20260904-contenteditable-a11y-ref/)。
 - **scroll 目标**：带 `index` 时滚动该元素或其最近的可滚动祖先；不带 `index` 且文档不能滚动时，滚动视口中央所在的可滚动容器，再回落到可见面积最大的可滚动容器（`utils/scroll.ts` 的 `findScrollableAncestor` / `findLargestScrollContainer`）。见 [`REQ-20261126-scroll-inner-container`](../../specs/REQ-20261126-scroll-inner-container/)。
+- **scroll 滚轮回落**：文档和容器都不能原生滚动、位移为 0 时，在目标元素上派发合成 `WheelEvent`（`utils/scroll.ts` 的 `dispatchWheel`），以 `preventDefault` 或 DOM 变化判断页面是否响应。见 [`REQ-20261126-scroll-wheel-fallback`](../../specs/REQ-20261126-scroll-wheel-fallback/)。
 
 ## 测试落点
 

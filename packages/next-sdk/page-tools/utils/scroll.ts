@@ -1,3 +1,5 @@
+import { waitForDomSettled } from './dom'
+
 // ─── 辅助：获取滚动目标的当前位置信息（仿 page-agent getPageInfo）────────
 // 同时支持 window（文档滚动）和任意 Element（容器滚动）
 export function getScrollInfo(target: Window | Element = window) {
@@ -64,12 +66,17 @@ function canScroll(el: Element, vertical: boolean): boolean {
   return vertical ? el.scrollHeight > el.clientHeight + 1 : el.scrollWidth > el.clientWidth + 1
 }
 
-// SDK 自己的操作遮罩与高亮层盖在页面最上层，命中测试要跳过它们
+// SDK 自己的操作遮罩与高亮层盖在页面最上层，命中测试和 DOM 变化检测都要跳过它们
 const SDK_OVERLAY_SELECTOR = '#page-agent-runtime_simulator-mask, #webmcpcli-highlight-container'
+
+const inSdkOverlay = (node: Node) => {
+  const el = node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement
+  return !!el?.closest(SDK_OVERLAY_SELECTOR)
+}
 
 /** 坐标处最上层的页面元素，跳过 SDK 遮罩与高亮层 */
 export function pageElementFromPoint(x: number, y: number): Element | null {
-  return document.elementsFromPoint(x, y).find((el) => !el.closest(SDK_OVERLAY_SELECTOR)) ?? null
+  return document.elementsFromPoint(x, y).find((el) => !inSdkOverlay(el)) ?? null
 }
 
 /**
@@ -109,4 +116,41 @@ export function findLargestScrollContainer(vertical: boolean): Element | null {
     }
   }
   return best
+}
+
+/** el 自身或最近的、overflow 为 hidden / clip 的祖先：自绘滚动区常用它裁剪内容，用其可视尺寸换算滚轮距离 */
+export function findClippingAncestor(el: Element | null, vertical: boolean): Element | null {
+  let cur = el
+  while (cur && cur !== cur.ownerDocument.body && cur !== cur.ownerDocument.documentElement) {
+    const style = (cur.ownerDocument.defaultView ?? window).getComputedStyle(cur)
+    if (/(hidden|clip)/.test(vertical ? style.overflowY : style.overflowX)) return cur
+    cur = cur.parentElement ?? ((cur.getRootNode() as ShadowRoot).host ?? null)
+  }
+  return null
+}
+
+/**
+ * 在 target 上派发合成 wheel 事件。合成事件不会触发浏览器的原生滚动，但页面自己监听 wheel 平移内容的区域
+ * （自绘列表、时间线、地图）会响应。事件被 preventDefault 或之后 DOM 有变化即视为页面响应了。
+ */
+export async function dispatchWheel(target: Element, delta: { deltaX?: number; deltaY?: number }): Promise<boolean> {
+  let mutated = false
+  const observer = new MutationObserver((records) => {
+    if (records.some((r) => !inSdkOverlay(r.target))) mutated = true
+  })
+  observer.observe(target.ownerDocument.body, { subtree: true, childList: true, attributes: true, characterData: true })
+  const rect = target.getBoundingClientRect()
+  const event = new WheelEvent('wheel', {
+    ...delta,
+    deltaMode: 0,
+    bubbles: true,
+    cancelable: true,
+    composed: true,
+    clientX: rect.left + rect.width / 2,
+    clientY: rect.top + rect.height / 2
+  })
+  target.dispatchEvent(event)
+  await waitForDomSettled()
+  observer.disconnect()
+  return event.defaultPrevented || mutated
 }

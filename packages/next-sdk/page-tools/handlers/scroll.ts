@@ -1,5 +1,7 @@
 import {
   describeScrollContainer,
+  dispatchWheel,
+  findClippingAncestor,
   findLargestScrollContainer,
   findScrollableAncestor,
   getScrollInfo,
@@ -19,9 +21,11 @@ export async function handleScroll(args: any, ctx: ActionContext) {
   const forward = vertical ? args.down : args.right
   let scrollTarget: Element | Window = window
   let containerNote = ''
+  let indexEl: Element | null = null
   if (args.index !== undefined) {
     const resolved = await ctx.resolveRefOrError('scroll', args.index)
     if (!resolved.ok) return resolved.error
+    indexEl = resolved.el
     scrollTarget = findScrollableAncestor(resolved.el, vertical) ?? window
     if (scrollTarget !== window && scrollTarget !== resolved.el)
       containerNote = `（滚动的是所在容器 ${describeScrollContainer(scrollTarget as Element)}）`
@@ -55,6 +59,24 @@ export async function handleScroll(args: any, ctx: ActionContext) {
 
   // 滚动后快照，计算实际位移
   const after = getScrollInfo(scrollTarget)
+
+  // 文档和容器都不能原生滚动：在目标元素（或视口中央的元素）上派发合成滚轮事件，供自行处理滚轮的区域使用
+  let wheelMsg = ''
+  let wheelNote = ''
+  if (scrollTarget === window && Math.abs(after.scrollY - before.scrollY) < 1 && Math.abs(after.scrollX - before.scrollX) < 1) {
+    const hit = indexEl ?? pageElementFromPoint(window.innerWidth / 2, window.innerHeight / 2)
+    if (hit) {
+      const clip = findClippingAncestor(hit, vertical)
+      const size = clip ? (vertical ? clip.clientHeight : clip.clientWidth) : vertical ? window.innerHeight : window.innerWidth
+      const amount = args.pixels ?? (vertical ? Math.round((args.numPages ?? 1) * size) : 300)
+      const delta = forward ? amount : -amount
+      const responded = await dispatchWheel(hit, vertical ? { deltaY: delta } : { deltaX: delta })
+      const where = describeScrollContainer(clip ?? hit)
+      if (responded)
+        wheelMsg = `✅ 页面和容器都不能原生滚动，已在 ${where} 上派发滚轮事件（${vertical ? 'deltaY' : 'deltaX'}=${delta}），页面内容有变化`
+      else wheelNote = `；在${indexEl ? '该元素' : '视口中央的元素'}上派发滚轮事件后页面也没有变化`
+    }
+  }
   const deltaY = Math.round(after.scrollY - before.scrollY)
   const deltaX = Math.round(after.scrollX - before.scrollX)
   const isHorizontal = args.right !== undefined
@@ -85,7 +107,7 @@ export async function handleScroll(args: any, ctx: ActionContext) {
   const posInfo = args.right !== undefined
     ? `当前水平滚动位置: scrollX=${Math.round(after.scrollX)}px，左侧 ${after.pagesAbove.toFixed(1)} 屏，右侧 ${after.pagesBelow.toFixed(1)} 屏`
     : `当前滚动位置: scrollY=${Math.round(after.scrollY)}px，上方 ${after.pagesAbove.toFixed(1)} 屏，下方 ${after.pagesBelow.toFixed(1)} 屏`
-  const scrollResult = `[滚动结果] ${scrollMsg}\n${posInfo}`
+  const scrollResult = wheelMsg ? `[滚动结果] ${wheelMsg}` : `[滚动结果] ${scrollMsg}${wheelNote}\n${posInfo}`
 
   const stateResult = await ctx.buildBrowserStateResponse(mode)
   stateResult.content[0].text = withStateFields(stateResult.content[0].text, { scrollResult })

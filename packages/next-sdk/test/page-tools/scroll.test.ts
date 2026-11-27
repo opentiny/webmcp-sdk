@@ -125,4 +125,102 @@ describe('handleScroll - 内容在内部滚动容器里', () => {
 
     expect(res.content[0].text).toContain('已到达底部')
   })
+
+})
+
+describe('handleScroll - 自行处理滚轮的区域', () => {
+  it('页面与容器都不能原生滚动时，在视口中央的元素上派发滚轮事件，页面自绘的滚动区随之移动', async () => {
+    const timeline = document.createElement('div')
+    timeline.id = 'timeline'
+    timeline.style.overflowY = 'hidden'
+    Object.defineProperty(timeline, 'clientHeight', { configurable: true, value: 468 })
+    const row = document.createElement('p')
+    row.textContent = '请求 R-0001'
+    timeline.append(row)
+    let offset = 0
+    timeline.addEventListener('wheel', (e) => {
+      e.preventDefault()
+      offset += e.deltaY
+      row.textContent = `请求 R-${String(Math.floor(offset / 36) + 1).padStart(4, '0')}`
+    })
+    document.body.append(timeline)
+    document.elementsFromPoint = () => [row]
+
+    const res = await handleScroll({ down: true }, contextFor([]))
+
+    expect(row.textContent).toBe('请求 R-0014')
+    expect(res.content[0].text).toContain('已在 <div#timeline> 上派发滚轮事件（deltaY=468）')
+  })
+
+  it('派发滚轮事件后页面没有任何变化时如实说明', async () => {
+    const plain = document.createElement('p')
+    document.body.append(plain)
+    document.elementsFromPoint = () => [plain]
+
+    const res = await handleScroll({ down: true }, contextFor([]))
+
+    expect(res.content[0].text).toContain('已到达底部')
+    expect(res.content[0].text).toContain('派发滚轮事件后页面也没有变化')
+  })
+
+  it('视口中央最上层是 SDK 操作遮罩时，滚轮事件派发给遮罩下面的页面元素', async () => {
+    const timeline = document.createElement('div')
+    timeline.id = 'timeline'
+    timeline.style.overflowY = 'hidden'
+    Object.defineProperty(timeline, 'clientHeight', { configurable: true, value: 360 })
+    let moved = 0
+    timeline.addEventListener('wheel', (e) => {
+      e.preventDefault()
+      moved += e.deltaY
+    })
+    const mask = document.createElement('div')
+    mask.id = 'page-agent-runtime_simulator-mask'
+    const cursor = document.createElement('span')
+    mask.append(cursor)
+    // 遮罩自己的光标动画在派发期间也会改动 DOM，不能算作页面响应
+    mask.addEventListener('wheel', () => cursor.setAttribute('data-frame', '1'))
+    document.body.append(timeline, mask)
+    document.elementsFromPoint = () => [cursor, mask, timeline]
+
+    const res = await handleScroll({ down: true }, contextFor([]))
+
+    expect(moved).toBe(360)
+    expect(res.content[0].text).toContain('已在 <div#timeline> 上派发滚轮事件')
+  })
+
+  it('带编号时在该元素上派发滚轮事件，距离按它最近的裁剪祖先换算', async () => {
+    const map = document.createElement('div')
+    map.id = 'map'
+    map.style.overflowY = 'hidden'
+    Object.defineProperty(map, 'clientHeight', { configurable: true, value: 300 })
+    const tile = document.createElement('span')
+    map.append(tile)
+    const deltas: number[] = []
+    map.addEventListener('wheel', (e) => {
+      e.preventDefault()
+      deltas.push(e.deltaY)
+    })
+    document.body.append(map)
+
+    const res = await handleScroll({ index: 0, down: false, numPages: 2 }, contextFor([tile]))
+
+    expect(deltas).toEqual([-600])
+    expect(res.content[0].text).toContain('已在 <div#map> 上派发滚轮事件（deltaY=-600）')
+  })
+  it('派发期间只有 SDK 遮罩自己的 DOM 有变化时，不算页面响应', async () => {
+    const plain = document.createElement('p')
+    const mask = document.createElement('div')
+    mask.id = 'page-agent-runtime_simulator-mask'
+    const cursor = document.createElement('span')
+    mask.append(cursor)
+    document.body.append(plain, mask)
+    // 模拟遮罩的光标动画：派发滚轮事件的同时改动遮罩内的节点
+    document.addEventListener('wheel', () => cursor.setAttribute('data-frame', '1'), { once: true })
+    document.elementsFromPoint = () => [cursor, mask, plain]
+
+    const res = await handleScroll({ down: true }, contextFor([]))
+
+    expect(res.content[0].text).not.toContain('页面内容有变化')
+    expect(res.content[0].text).toContain('派发滚轮事件后页面也没有变化')
+  })
 })
