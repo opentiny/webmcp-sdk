@@ -68,6 +68,10 @@ getPageAgentToolConfig() // { enableHighlight: false, a11yConfig: { roles: [...]
 
 执行 `click`、`fill`、`select`、`hover` 前通常需先调用 `browserState` 获取最新 ref 索引；`clipboard` 不依赖 `index`，也不展示 SimulatorMask。
 
+`scroll` 的滚动目标：带 `index` 时滚动该元素；元素本身在该轴上不可滚动（`overflow` 不是 `auto` / `scroll` / `overlay`，或内容没有超出可视区域）时，滚动其最近的可滚动祖先（穿过 shadow root）；不带 `index` 时滚动文档，文档本身不能沿该方向滚动时（如 `body` 设为 `overflow: hidden`、内容在内部面板里滚动的后台布局），改为滚动视口中央所在的可滚动容器，找不到时取视口内可见面积最大的可滚动容器。滚动的不是文档或 `index` 元素本身时，结果文案注明容器（标签名、`id`、`aria-label`）。`numPages` 按实际滚动目标的可视高度换算。
+
+`browserState` 快照为能原生滚动的元素（不含 `body` / `html`）分配 `#N`，并输出 `[scrollable="上方 x 屏，下方 y 屏"]`（只能水平滚动时为左侧 / 右侧）。没有名称的列表面板、侧栏也会出现在快照里，`scroll` 传它的编号即可滚动该区域。
+
 `browserState` 产出的无障碍树会把**编辑宿主**（元素自身声明 `contenteditable="true"` / `""` / `"plaintext-only"`，不含仅从祖先继承的子孙）识别为可填写控件：隐式角色 `textbox`（显式 `role` 与 `a11yConfig.roles` 优先），分配 `#N` ref，并带 `[contenteditable]` token（`plaintext-only` 时为 `[contenteditable=plaintext-only]`）。有可见文本时还会输出 `value="…"`，便于 `fill` 前后做 Diff。`contenteditable="false"` 与 `aria-disabled` 的编辑区不分配 ref。`fill` 使用该 `#N` 即可写入富文本框，无需再为每个站点单独配 whitelist。
 
 ### 稳定元素编号、结构化增量 Diff 与会话重置

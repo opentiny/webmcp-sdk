@@ -1,4 +1,11 @@
-import { getScrollInfo, waitForScrollEnd } from '../utils/scroll'
+import {
+  describeScrollContainer,
+  findLargestScrollContainer,
+  findScrollableAncestor,
+  getScrollInfo,
+  pageElementFromPoint,
+  waitForScrollEnd
+} from '../utils/scroll'
 import { REF_ACTION_LABELS, withStateFields, type ActionContext } from '../context'
 
 export async function handleScroll(args: any, ctx: ActionContext) {
@@ -6,13 +13,31 @@ export async function handleScroll(args: any, ctx: ActionContext) {
   if (args.down === undefined && args.right === undefined)
     return ctx.errContent(`${REF_ACTION_LABELS.scroll}结果: 缺少滚动方向参数`)
 
-  // 确定滚动目标（有 index 时滚动该元素容器，否则滚动整个文档）
+  // 确定滚动目标：有 index 时滚动该元素或其最近的可滚动祖先；没有 index 且文档本身不能沿该方向滚动时，
+  // 改为滚动视口中央所在的可滚动容器（后台管理布局、聊天窗口常把 body 设为 overflow:hidden，内容在内部面板里滚动）
+  const vertical = args.right === undefined
+  const forward = vertical ? args.down : args.right
   let scrollTarget: Element | Window = window
+  let containerNote = ''
   if (args.index !== undefined) {
     const resolved = await ctx.resolveRefOrError('scroll', args.index)
     if (!resolved.ok) return resolved.error
-    scrollTarget = resolved.el
+    scrollTarget = findScrollableAncestor(resolved.el, vertical) ?? window
+    if (scrollTarget !== window && scrollTarget !== resolved.el)
+      containerNote = `（滚动的是所在容器 ${describeScrollContainer(scrollTarget as Element)}）`
+  } else {
+    const page = getScrollInfo(window)
+    const pageCanMove = vertical ? (forward ? !page.atBottom : !page.atTop) : forward ? !page.atRight : !page.atLeft
+    if (!pageCanMove) {
+      const center = pageElementFromPoint(window.innerWidth / 2, window.innerHeight / 2)
+      const container = findScrollableAncestor(center, vertical) ?? findLargestScrollContainer(vertical)
+      if (container) {
+        scrollTarget = container
+        containerNote = `（页面本身不能滚动，已滚动容器 ${describeScrollContainer(container)}）`
+      }
+    }
   }
+  const pageSize = scrollTarget === window ? window.innerHeight : (scrollTarget as Element).clientHeight
 
   // 滚动前快照
   const before = getScrollInfo(scrollTarget)
@@ -21,7 +46,7 @@ export async function handleScroll(args: any, ctx: ActionContext) {
     const pixels = args.pixels ?? 300
     scrollTarget.scrollBy({ left: args.right ? pixels : -pixels, behavior: 'smooth' })
   } else {
-    const pixels = args.pixels ?? Math.round((args.numPages ?? 1) * window.innerHeight)
+    const pixels = args.pixels ?? Math.round((args.numPages ?? 1) * pageSize)
     scrollTarget.scrollBy({ top: args.down ? pixels : -pixels, behavior: 'smooth' })
   }
 
@@ -42,6 +67,7 @@ export async function handleScroll(args: any, ctx: ActionContext) {
     } else {
       scrollMsg = args.down ? '⚠️ 已到达底部，无法继续向下滚动' : '⚠️ 已到达顶部，无法继续向上滚动'
     }
+    scrollMsg += containerNote
   } else {
     const axis = isHorizontal ? `水平滚动 ${deltaX}px` : `垂直滚动 ${deltaY}px`
     let boundary = ''
@@ -52,7 +78,7 @@ export async function handleScroll(args: any, ctx: ActionContext) {
       if (args.down && after.atBottom) boundary = '，已到达底部'
       else if (!args.down && after.atTop) boundary = '，已到达顶部'
     }
-    scrollMsg = `✅ ${axis}${boundary}`
+    scrollMsg = `✅ ${axis}${boundary}${containerNote}`
   }
 
   // 附加位置信息（参考 page-agent getPageInfo 格式）
