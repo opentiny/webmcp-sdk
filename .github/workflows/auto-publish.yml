@@ -63,11 +63,16 @@ jobs:
       - name: Publish NextSDK
         run: pnpm -F @opentiny/next-sdk publish --no-git-checks
 
-      # 步骤9: 发布组件到GitHub Release
+  # npm 发布保持 contents: read + id-token: write。
+  # 创建 GitHub Release 需要 contents: write，单独作业避免把写权限交给 OIDC 发布步骤。
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ github.ref_name }}
           generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
