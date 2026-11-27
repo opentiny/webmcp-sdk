@@ -3,6 +3,7 @@ import {
   findLargestScrollContainer,
   findScrollableAncestor,
   getScrollInfo,
+  pageElementFromPoint,
   waitForScrollEnd
 } from '../utils/scroll'
 import { REF_ACTION_LABELS, withStateFields, type ActionContext } from '../context'
@@ -28,7 +29,7 @@ export async function handleScroll(args: any, ctx: ActionContext) {
     const page = getScrollInfo(window)
     const pageCanMove = vertical ? (forward ? !page.atBottom : !page.atTop) : forward ? !page.atRight : !page.atLeft
     if (!pageCanMove) {
-      const center = document.elementFromPoint(window.innerWidth / 2, window.innerHeight / 2)
+      const center = pageElementFromPoint(window.innerWidth / 2, window.innerHeight / 2)
       const container = findScrollableAncestor(center, vertical) ?? findLargestScrollContainer(vertical)
       if (container) {
         scrollTarget = container

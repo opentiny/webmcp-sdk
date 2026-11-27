@@ -25,6 +25,9 @@ beforeEach(() => {
 
 afterEach(() => {
   document.body.innerHTML = ''
+  // 用例直接在 document 上桩命中测试，还原为 jsdom 原状（未实现）
+  Reflect.deleteProperty(document, 'elementFromPoint')
+  Reflect.deleteProperty(document, 'elementsFromPoint')
 })
 
 const contextFor = (refs: HTMLElement[]) =>
@@ -56,13 +59,33 @@ describe('handleScroll - 内容在内部滚动容器里', () => {
     const row = document.createElement('p')
     box.append(row)
     document.body.append(box)
-    document.elementFromPoint = () => row
+    document.elementsFromPoint = () => [row]
 
     const res = await handleScroll({ down: true, pixels: 300 }, contextFor([]))
 
     expect(box.scrollTop).toBe(300)
     expect(res.content[0].text).toContain('垂直滚动 300px')
     expect(res.content[0].text).toContain('页面本身不能滚动')
+    expect(res.content[0].text).toContain('#feed')
+  })
+
+  it('视口中央最上层是 SDK 操作遮罩时，滚动遮罩下面那一行所在的容器，不按面积另选容器', async () => {
+    const feed = makeScrollable(document.createElement('div'), { scrollHeight: 2000, clientHeight: 200 })
+    feed.id = 'feed'
+    const row = document.createElement('p')
+    feed.append(row)
+    const sidebar = makeScrollable(document.createElement('div'), { scrollHeight: 5000, clientHeight: 600 })
+    sidebar.id = 'sidebar'
+    const mask = document.createElement('div')
+    mask.id = 'page-agent-runtime_simulator-mask'
+    document.body.append(feed, sidebar, mask)
+    document.elementFromPoint = () => mask
+    document.elementsFromPoint = () => [mask, row, feed]
+
+    const res = await handleScroll({ down: true, pixels: 300 }, contextFor([]))
+
+    expect(feed.scrollTop).toBe(300)
+    expect(sidebar.scrollTop).toBe(0)
     expect(res.content[0].text).toContain('#feed')
   })
 
@@ -73,7 +96,7 @@ describe('handleScroll - 内容在内部滚动容器里', () => {
     large.getBoundingClientRect = () => new DOMRect(0, 120, 800, 200)
     const blank = document.createElement('p')
     document.body.append(small, large, blank)
-    document.elementFromPoint = () => blank
+    document.elementsFromPoint = () => [blank]
 
     const res = await handleScroll({ down: true, pixels: 300 }, contextFor([]))
 
@@ -96,7 +119,7 @@ describe('handleScroll - 内容在内部滚动容器里', () => {
   it('页面上没有任何可滚动区域时，如实返回已到达底部', async () => {
     const p = document.createElement('p')
     document.body.append(p)
-    document.elementFromPoint = () => p
+    document.elementsFromPoint = () => [p]
 
     const res = await handleScroll({ down: true, pixels: 300 }, contextFor([]))
 

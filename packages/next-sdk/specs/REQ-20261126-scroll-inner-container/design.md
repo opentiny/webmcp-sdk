@@ -12,7 +12,7 @@ flowchart TD
   C -->|到 body 仍未找到| W[滚动 window]
   B -->|否| E{文档能沿该方向滚动?}
   E -->|能| W
-  E -->|不能| F[elementFromPoint 视口中心 → findScrollableAncestor]
+  E -->|不能| F[pageElementFromPoint 视口中心 → findScrollableAncestor]
   F -->|找到| D
   F -->|未找到| G[findLargestScrollContainer]
   G -->|找到| D
@@ -21,13 +21,13 @@ flowchart TD
 
 ## 涉及模块 / 文件
 
-| 路径                                              | 职责                                                                              |
-| ------------------------------------------------- | --------------------------------------------------------------------------------- |
-| `packages/next-sdk/page-tools/utils/scroll.ts`    | `findScrollableAncestor`、`findLargestScrollContainer`、`describeScrollContainer` |
-| `packages/next-sdk/page-tools/handlers/scroll.ts` | 选择滚动目标；结果文案注明容器；`numPages` 按目标高度换算                         |
-| `packages/next-sdk/page-tools/schema.ts`          | `scroll` 描述                                                                     |
-| `docs/webmcp-sdk/page-agent-tool.md`              | 用户文档                                                                          |
-| `packages/next-sdk/skills/page-agent/SKILL.md`    | 编码 Agent Skill                                                                  |
+| 路径                                              | 职责                                                                                                      |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| `packages/next-sdk/page-tools/utils/scroll.ts`    | `findScrollableAncestor`、`findLargestScrollContainer`、`describeScrollContainer`、`pageElementFromPoint` |
+| `packages/next-sdk/page-tools/handlers/scroll.ts` | 选择滚动目标；结果文案注明容器；`numPages` 按目标高度换算                                                 |
+| `packages/next-sdk/page-tools/schema.ts`          | `scroll` 描述                                                                                             |
+| `docs/webmcp-sdk/page-agent-tool.md`              | 用户文档                                                                                                  |
+| `packages/next-sdk/skills/page-agent/SKILL.md`    | 编码 Agent Skill                                                                                          |
 
 ## 核心数据结构 / 类型定义
 
@@ -42,6 +42,7 @@ function canScroll(el: Element, vertical: boolean): boolean {
 ```
 
 - `findScrollableAncestor(el, vertical)`：从 `el` 自身开始沿 `parentElement` 向上，遇到 shadow root 时跳到 `host`；到达 `body` / `html` 时返回 `null`，由调用方滚动 `window`。
+- `pageElementFromPoint(x, y)`：取 `elementsFromPoint` 中第一个不在 SDK 操作遮罩（`#page-agent-runtime_simulator-mask`）和高亮层（`#webmcpcli-highlight-container`）内的元素。Agent 执行动作期间遮罩覆盖整个视口，`elementFromPoint` 会命中遮罩，导致视口中央找不到可滚动祖先。
 - `findLargestScrollContainer(vertical)`：遍历 `body` 下的元素，先用 `scrollHeight` / `clientHeight` 粗筛，再取计算样式，返回与视口交集面积最大的可滚动元素。
 
 ## 依赖变更

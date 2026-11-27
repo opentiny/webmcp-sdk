@@ -64,6 +64,14 @@ function canScroll(el: Element, vertical: boolean): boolean {
   return vertical ? el.scrollHeight > el.clientHeight + 1 : el.scrollWidth > el.clientWidth + 1
 }
 
+// SDK 自己的操作遮罩与高亮层盖在页面最上层，命中测试要跳过它们
+const SDK_OVERLAY_SELECTOR = '#page-agent-runtime_simulator-mask, #webmcpcli-highlight-container'
+
+/** 坐标处最上层的页面元素，跳过 SDK 遮罩与高亮层 */
+export function pageElementFromPoint(x: number, y: number): Element | null {
+  return document.elementsFromPoint(x, y).find((el) => !el.closest(SDK_OVERLAY_SELECTOR)) ?? null
+}
+
 /**
  * 从 el 自身开始向上找能沿指定方向滚动的元素，穿过 shadow root 边界。
  * 到达 body / html 仍未找到时返回 null，由调用方滚动 window。
