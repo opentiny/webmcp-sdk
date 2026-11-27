@@ -1,4 +1,13 @@
-import { getScrollInfo, waitForScrollEnd } from '../utils/scroll'
+import {
+  describeScrollContainer,
+  dispatchWheel,
+  findClippingAncestor,
+  findLargestScrollContainer,
+  findScrollableAncestor,
+  getScrollInfo,
+  pageElementFromPoint,
+  waitForScrollEnd
+} from '../utils/scroll'
 import { REF_ACTION_LABELS, withStateFields, type ActionContext } from '../context'
 
 export async function handleScroll(args: any, ctx: ActionContext) {
@@ -6,13 +15,33 @@ export async function handleScroll(args: any, ctx: ActionContext) {
   if (args.down === undefined && args.right === undefined)
     return ctx.errContent(`${REF_ACTION_LABELS.scroll}结果: 缺少滚动方向参数`)
 
-  // 确定滚动目标（有 index 时滚动该元素容器，否则滚动整个文档）
+  // 确定滚动目标：有 index 时滚动该元素或其最近的可滚动祖先；没有 index 且文档本身不能沿该方向滚动时，
+  // 改为滚动视口中央所在的可滚动容器（后台管理布局、聊天窗口常把 body 设为 overflow:hidden，内容在内部面板里滚动）
+  const vertical = args.right === undefined
+  const forward = vertical ? args.down : args.right
   let scrollTarget: Element | Window = window
+  let containerNote = ''
+  let indexEl: Element | null = null
   if (args.index !== undefined) {
     const resolved = await ctx.resolveRefOrError('scroll', args.index)
     if (!resolved.ok) return resolved.error
-    scrollTarget = resolved.el
+    indexEl = resolved.el
+    scrollTarget = findScrollableAncestor(resolved.el, vertical) ?? window
+    if (scrollTarget !== window && scrollTarget !== resolved.el)
+      containerNote = `（滚动的是所在容器 ${describeScrollContainer(scrollTarget as Element)}）`
+  } else {
+    const page = getScrollInfo(window)
+    const pageCanMove = vertical ? (forward ? !page.atBottom : !page.atTop) : forward ? !page.atRight : !page.atLeft
+    if (!pageCanMove) {
+      const center = pageElementFromPoint(window.innerWidth / 2, window.innerHeight / 2)
+      const container = findScrollableAncestor(center, vertical) ?? findLargestScrollContainer(vertical)
+      if (container) {
+        scrollTarget = container
+        containerNote = `（页面本身不能滚动，已滚动容器 ${describeScrollContainer(container)}）`
+      }
+    }
   }
+  const pageSize = scrollTarget === window ? window.innerHeight : (scrollTarget as Element).clientHeight
 
   // 滚动前快照
   const before = getScrollInfo(scrollTarget)
@@ -21,7 +50,7 @@ export async function handleScroll(args: any, ctx: ActionContext) {
     const pixels = args.pixels ?? 300
     scrollTarget.scrollBy({ left: args.right ? pixels : -pixels, behavior: 'smooth' })
   } else {
-    const pixels = args.pixels ?? Math.round((args.numPages ?? 1) * window.innerHeight)
+    const pixels = args.pixels ?? Math.round((args.numPages ?? 1) * pageSize)
     scrollTarget.scrollBy({ top: args.down ? pixels : -pixels, behavior: 'smooth' })
   }
 
@@ -30,6 +59,24 @@ export async function handleScroll(args: any, ctx: ActionContext) {
 
   // 滚动后快照，计算实际位移
   const after = getScrollInfo(scrollTarget)
+
+  // 文档和容器都不能原生滚动：在目标元素（或视口中央的元素）上派发合成滚轮事件，供自行处理滚轮的区域使用
+  let wheelMsg = ''
+  let wheelNote = ''
+  if (scrollTarget === window && Math.abs(after.scrollY - before.scrollY) < 1 && Math.abs(after.scrollX - before.scrollX) < 1) {
+    const hit = indexEl ?? pageElementFromPoint(window.innerWidth / 2, window.innerHeight / 2)
+    if (hit) {
+      const clip = findClippingAncestor(hit, vertical)
+      const size = clip ? (vertical ? clip.clientHeight : clip.clientWidth) : vertical ? window.innerHeight : window.innerWidth
+      const amount = args.pixels ?? (vertical ? Math.round((args.numPages ?? 1) * size) : 300)
+      const delta = forward ? amount : -amount
+      const responded = await dispatchWheel(hit, vertical ? { deltaY: delta } : { deltaX: delta })
+      const where = describeScrollContainer(clip ?? hit)
+      if (responded)
+        wheelMsg = `✅ 页面和容器都不能原生滚动，已在 ${where} 上派发滚轮事件（${vertical ? 'deltaY' : 'deltaX'}=${delta}），页面内容有变化`
+      else wheelNote = `；在${indexEl ? '该元素' : '视口中央的元素'}上派发滚轮事件后页面也没有变化`
+    }
+  }
   const deltaY = Math.round(after.scrollY - before.scrollY)
   const deltaX = Math.round(after.scrollX - before.scrollX)
   const isHorizontal = args.right !== undefined
@@ -42,6 +89,7 @@ export async function handleScroll(args: any, ctx: ActionContext) {
     } else {
       scrollMsg = args.down ? '⚠️ 已到达底部，无法继续向下滚动' : '⚠️ 已到达顶部，无法继续向上滚动'
     }
+    scrollMsg += containerNote
   } else {
     const axis = isHorizontal ? `水平滚动 ${deltaX}px` : `垂直滚动 ${deltaY}px`
     let boundary = ''
@@ -52,14 +100,14 @@ export async function handleScroll(args: any, ctx: ActionContext) {
       if (args.down && after.atBottom) boundary = '，已到达底部'
       else if (!args.down && after.atTop) boundary = '，已到达顶部'
     }
-    scrollMsg = `✅ ${axis}${boundary}`
+    scrollMsg = `✅ ${axis}${boundary}${containerNote}`
   }
 
   // 附加位置信息（参考 page-agent getPageInfo 格式）
   const posInfo = args.right !== undefined
     ? `当前水平滚动位置: scrollX=${Math.round(after.scrollX)}px，左侧 ${after.pagesAbove.toFixed(1)} 屏，右侧 ${after.pagesBelow.toFixed(1)} 屏`
     : `当前滚动位置: scrollY=${Math.round(after.scrollY)}px，上方 ${after.pagesAbove.toFixed(1)} 屏，下方 ${after.pagesBelow.toFixed(1)} 屏`
-  const scrollResult = `[滚动结果] ${scrollMsg}\n${posInfo}`
+  const scrollResult = wheelMsg ? `[滚动结果] ${wheelMsg}` : `[滚动结果] ${scrollMsg}${wheelNote}\n${posInfo}`
 
   const stateResult = await ctx.buildBrowserStateResponse(mode)
   stateResult.content[0].text = withStateFields(stateResult.content[0].text, { scrollResult })
