@@ -125,4 +125,48 @@ describe('handleScroll - 内容在内部滚动容器里', () => {
 
     expect(res.content[0].text).toContain('已到达底部')
   })
+
+})
+
+describe('handleScroll - percent 跳到指定位置', () => {
+  it('percent 直接跳到容器的指定位置，不需要方向参数，结果报告当前位置的百分比', async () => {
+    const box = makeScrollable(document.createElement('div'))
+    box.scrollTo = function (this: HTMLElement, opts?: ScrollToOptions | number) {
+      this.scrollTop = typeof opts === 'object' ? (opts.top ?? 0) : 0
+      queueMicrotask(() => this.dispatchEvent(new Event('scrollend')))
+    } as Element['scrollTo']
+    const row = document.createElement('p')
+    box.append(row)
+    document.body.append(box)
+
+    const res = await handleScroll({ index: 0, percent: 74 }, contextFor([row]))
+
+    // (scrollHeight 2000 - clientHeight 200) × 74% = 1332
+    expect(box.scrollTop).toBe(1332)
+    expect(res.content[0].text).toContain('垂直滚动 1332px')
+    expect(res.content[0].text).toContain('位置 74%')
+  })
+  it('没有可以原生滚动的页面或容器时，不报已到达底部，说明无法按百分比定位', async () => {
+    const plain = document.createElement('div')
+    plain.style.overflowY = 'hidden'
+    document.body.append(plain)
+    document.elementsFromPoint = () => [plain]
+
+    const res = await handleScroll({ percent: 75 }, contextFor([]))
+
+    expect(res.content[0].text).not.toContain('已到达底部')
+    expect(res.content[0].text).toContain('没有可按百分比定位的滚动区域')
+  })
+
+  it('普通滚动的结果也附带当前位置的百分比', async () => {
+    const box = makeScrollable(document.createElement('div'))
+    const row = document.createElement('p')
+    box.append(row)
+    document.body.append(box)
+
+    const res = await handleScroll({ index: 0, down: true, pixels: 450 }, contextFor([row]))
+
+    // 450 / (2000 - 200) = 25%
+    expect(res.content[0].text).toContain('位置 25%')
+  })
 })

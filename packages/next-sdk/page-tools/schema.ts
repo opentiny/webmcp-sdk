@@ -42,6 +42,14 @@ export const inputSchema = z.object({
     .optional()
     .describe('执行动作的滚动页数, 动作为 scroll时，可以提供滚动页数，建议每次滚动0.1页，该值不要大于5.'),
   pixels: z.number().int().min(0).optional().describe('执行动作的滚动像素数，动作为 scroll时，可以提供滚动像素数'),
+  percent: z
+    .number()
+    .min(0)
+    .max(100)
+    .optional()
+    .describe(
+      '动作为 scroll 时可选：直接滚动到目标区域的百分比位置（0 为顶部，100 为底部），提供时不需要 down、numPages、pixels。适合在很长的列表里先跳到大致位置，再根据看到的内容微调'
+    ),
   script: z.string().optional().describe('执行的javascript代码，动作为 executeJavascript时，必须提供script参数'),
   query: z
     .string()
