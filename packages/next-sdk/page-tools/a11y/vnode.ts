@@ -19,6 +19,7 @@ import {
   hasOwnPointerCursor,
   extractTooltipText,
 } from './utils'
+import { scrollContainerToken } from '../utils/scroll'
 
 /**
  * 语义上即为可操作控件的 ARIA 角色。
@@ -77,6 +78,9 @@ export function buildVNode(
     tokens.push(`tooltip="${tooltipText}"`)
   }
   const hasTooltip = tokens.some(t => t.startsWith('tooltip='))
+  // 可滚动区域分配编号，scroll 传该编号即可滚动它（后台面板、列表常没有名称和可交互角色）
+  const scrollToken = scrollContainerToken(el)
+  if (scrollToken) tokens.push(scrollToken)
 
   // 规则声明名优先于 AccName 内容汇总，保证 landmark 等布局节点输出稳定分区名
   let name = declaredName || computeAccessibleName(el as HTMLElement)
@@ -193,7 +197,8 @@ export function buildVNode(
     // 禁用编辑宿主不得借 title/tooltip 拿到 ref，否则 fill 可定位 aria-disabled 编辑区。
     (hasTooltip && !(isDisabled && isEditingHost(el))) ||
     // 编辑宿主可 fill，即使显式 role 不是 textbox（如 combobox）也要暴露 ref
-    (!isDisabled && isEditingHost(el))
+    (!isDisabled && isEditingHost(el)) ||
+    !!scrollToken
 
   let ref: number | undefined
   if (interactive) {

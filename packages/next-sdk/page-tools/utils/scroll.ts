@@ -58,10 +58,29 @@ export function waitForScrollEnd(target: Window | Element, timeout = 2000): Prom
 }
 
 function canScroll(el: Element, vertical: boolean): boolean {
+  // 先比较尺寸再取计算样式：快照遍历每个元素都会调用，多数元素内容不超出
+  if (vertical ? el.scrollHeight <= el.clientHeight + 1 : el.scrollWidth <= el.clientWidth + 1) return false
   const view = el.ownerDocument.defaultView ?? window
   const style = view.getComputedStyle(el)
-  if (!/(auto|scroll|overlay)/.test(vertical ? style.overflowY : style.overflowX)) return false
-  return vertical ? el.scrollHeight > el.clientHeight + 1 : el.scrollWidth > el.clientWidth + 1
+  return /(auto|scroll|overlay)/.test(vertical ? style.overflowY : style.overflowX)
+}
+
+/**
+ * 快照中可滚动区域的 token，如 `scrollable="上方 1.0 屏，下方 3.0 屏"`；不能滚动时返回 undefined。
+ * 文档本身的滚动位置由 scroll 结果报告，不在这里标出。
+ */
+export function scrollContainerToken(el: Element): string | undefined {
+  if (el === el.ownerDocument.body || el === el.ownerDocument.documentElement) return undefined
+  const vertical = canScroll(el, true)
+  if (!vertical && !canScroll(el, false)) return undefined
+  const info = getScrollInfo(el)
+  const parts = vertical
+    ? [`上方 ${info.pagesAbove.toFixed(1)} 屏`, `下方 ${info.pagesBelow.toFixed(1)} 屏`]
+    : [
+        `左侧 ${(el.clientWidth > 0 ? info.pixelsLeft / el.clientWidth : 0).toFixed(1)} 屏`,
+        `右侧 ${(el.clientWidth > 0 ? info.pixelsRight / el.clientWidth : 0).toFixed(1)} 屏`
+      ]
+  return `scrollable="${parts.join('，')}"`
 }
 
 // SDK 自己的操作遮罩与高亮层盖在页面最上层，命中测试要跳过它们
