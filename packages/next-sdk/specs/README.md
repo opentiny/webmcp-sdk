@@ -20,6 +20,7 @@
 
 | Spec                                                                                | 说明                                                                               |
 | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| [`REQ-20261126-scroll-inner-container`](./REQ-20261126-scroll-inner-container/) | `scroll` 在文档不能滚动时滚动内部面板；带编号时滚动最近的可滚动祖先 |
 | [`REQ-20261123-stable-ref-diff`](./REQ-20261123-stable-ref-diff/)                   | 稳定 DOM 元素 `#ref` 绑定、结构化增量 Diff、阈值熔断回退、`rev`/`REF_NOT_PRESENTED`、单轮清空基线与会话重置 |
 | [`REQ-20260904-contenteditable-a11y-ref`](./REQ-20260904-contenteditable-a11y-ref/) | `browserState` 将 contenteditable 编辑宿主标为可填：textbox + ref + token          |
 | [`REQ-20260904-force-webmcp-polyfill`](./REQ-20260904-force-webmcp-polyfill/)       | 默认强制 JS polyfill，覆盖会崩溃的 Chromium 实验性 `modelContext`                  |
