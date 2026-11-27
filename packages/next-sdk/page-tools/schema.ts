@@ -17,7 +17,7 @@ export const inputSchema = z.object({
       click: '根据元素索引点击;',
       fill: '根据元素索引填写文本（目标为 input、textarea 或 contenteditable 编辑宿主，索引来自 browserState YAML 中的 #N）;'; 
       select: '根据元素索引选择下拉框选项;'; 
-      scroll: '滚动页面的动作，可以指定水平滚动还是上下滚动; 不带元素索引时：滚动整个文档。带元素索引时：滚动该索引处的容器（或其最近的可滚动祖先元素）'
+      scroll: '滚动页面的动作，可以指定水平滚动还是上下滚动; 不带元素索引时：滚动整个文档，文档本身不能沿该方向滚动时改为滚动视口中央所在的可滚动容器（找不到时取视口内可见面积最大的可滚动容器）。带元素索引时：滚动该元素，元素本身不能滚动时滚动其最近的可滚动祖先元素。结果会注明实际滚动的容器'
       executeJavascript: '执行javascript代码'
       searchTree: '按关键词搜索无障碍树，返回带行号的匹配节点及上下文，无需获取全量树。适合快速定位特定元素（如所有按钮、特定名称的链接等），显著减少上下文消耗。必须提供 query 参数。'
       hover: '根据元素索引悬浮（hover）目标元素; 触发 mouseover/mouseenter 等事件，用于显示 tooltip、展开悬浮菜单等交互; 操作后自动返回最新页面状态。
@@ -42,6 +42,14 @@ export const inputSchema = z.object({
     .optional()
     .describe('执行动作的滚动页数, 动作为 scroll时，可以提供滚动页数，建议每次滚动0.1页，该值不要大于5.'),
   pixels: z.number().int().min(0).optional().describe('执行动作的滚动像素数，动作为 scroll时，可以提供滚动像素数'),
+  percent: z
+    .number()
+    .min(0)
+    .max(100)
+    .optional()
+    .describe(
+      '动作为 scroll 时可选：直接滚动到目标区域的百分比位置（0 为顶部，100 为底部），提供时不需要 down、numPages、pixels。适合在很长的列表里先跳到大致位置，再根据看到的内容微调'
+    ),
   script: z.string().optional().describe('执行的javascript代码，动作为 executeJavascript时，必须提供script参数'),
   query: z
     .string()

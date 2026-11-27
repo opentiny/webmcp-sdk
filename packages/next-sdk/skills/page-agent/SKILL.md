@@ -63,6 +63,8 @@ import {
 - 站点预设：云控制台用 `consoleCloudPageAgentToolOptions` + `isConsoleCloudHost()`（含 `ti-app-layout-*` landmark）。
 - **`clipboard` action**：`text` 有值写剪切板、无值读剪切板；不依赖 `index`、不展示 mask；handler 见 `page-tools/handlers/clipboard.ts`。
 - **contenteditable**：`browserState` 将自身声明 `contenteditable` 的编辑宿主标为 `textbox`（显式 role 优先）、分配 ref、输出 `[contenteditable]` token；`fill` 用该 ref 填写。继承可编辑的子孙不单独占 ref。见 [`REQ-20260904-contenteditable-a11y-ref`](../../specs/REQ-20260904-contenteditable-a11y-ref/)。
+- **scroll 目标**：带 `index` 时滚动该元素或其最近的可滚动祖先；不带 `index` 且文档不能滚动时，滚动视口中央所在的可滚动容器，再回落到可见面积最大的可滚动容器（`utils/scroll.ts` 的 `findScrollableAncestor` / `findLargestScrollContainer`）。见 [`REQ-20261126-scroll-inner-container`](../../specs/REQ-20261126-scroll-inner-container/)。
+- **scroll 百分比**：`percent`（0–100）用 `scrollTo` 直接跳到可滚动范围的该比例处，纵向结果附「位置 x%」。见 [`REQ-20261126-scroll-percent`](../../specs/REQ-20261126-scroll-percent/)。
 
 ## 测试落点
 
